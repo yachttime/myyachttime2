@@ -47,7 +47,7 @@ export const Welcome = ({ onGetStarted }: WelcomeProps) => {
             <Anchor className="w-8 h-8 text-amber-500" />
             <h1 className="text-2xl font-bold tracking-wide">MY YACHT TIME</h1>
           </div>
-          <div className="text-sm font-semibold text-amber-500 bg-amber-500/10 px-3 py-1 rounded">v2026.01.21.C</div>
+          <div className="text-sm font-semibold text-amber-500 bg-amber-500/10 px-3 py-1 rounded">v2026.01.28.A</div>
         </div>
 
         <div className="max-w-4xl mx-auto">
