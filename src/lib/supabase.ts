@@ -276,6 +276,9 @@ export interface YachtInvoice {
   payment_email_bounced_at?: string;
   email_open_count?: number;
   email_click_count?: number;
+  payment_confirmation_email_sent_at?: string;
+  payment_confirmation_resend_id?: string;
+  payment_email_recipient?: string;
   created_at: string;
   updated_at: string;
   yachts?: {

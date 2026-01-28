@@ -139,10 +139,16 @@ Deno.serve(async (req: Request) => {
         throw updateError;
       }
 
-      // Get invoice details for notification
+      // Get invoice details with repair request and customer info
       const { data: invoice } = await supabase
         .from('yacht_invoices')
-        .select('repair_title, invoice_amount, yachts(name)')
+        .select(`
+          repair_title,
+          invoice_amount,
+          payment_email_recipient,
+          yachts(name),
+          repair_requests(is_retail_customer, customer_email, customer_name)
+        `)
         .eq('id', invoiceId)
         .single();
 
@@ -162,6 +168,77 @@ Deno.serve(async (req: Request) => {
           message: `Payment confirmed for ${invoice?.repair_title || 'invoice'} - ${invoice?.invoice_amount || '$0.00'}. Thank you!`,
           created_at: new Date().toISOString(),
         });
+      }
+
+      // Send payment confirmation email to customer
+      const repairRequest = invoice?.repair_requests;
+      const customerEmail = repairRequest?.customer_email || invoice?.payment_email_recipient;
+      const customerName = repairRequest?.customer_name || 'Valued Customer';
+      const yachtName = invoice?.yachts?.name || 'My Yacht Time';
+
+      if (customerEmail) {
+        try {
+          const resendApiKey = Deno.env.get('RESEND_API_KEY');
+          if (!resendApiKey) {
+            console.error('RESEND_API_KEY not configured');
+          } else {
+            const emailResponse = await fetch('https://api.resend.com/emails', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${resendApiKey}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                from: 'My Yacht Time <notifications@myyachttime.com>',
+                to: [customerEmail],
+                subject: `Payment Confirmed - ${invoice?.repair_title}`,
+                html: `
+                  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <h2 style="color: #059669;">Payment Confirmed</h2>
+                    <p>Dear ${customerName},</p>
+                    <p>Thank you! Your payment has been successfully processed.</p>
+
+                    <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                      <h3 style="margin-top: 0;">Payment Details</h3>
+                      <p><strong>Service:</strong> ${invoice?.repair_title || 'Service'}</p>
+                      <p><strong>Amount Paid:</strong> ${invoice?.invoice_amount || '$0.00'}</p>
+                      <p><strong>Yacht:</strong> ${yachtName}</p>
+                      <p><strong>Payment Method:</strong> ${paymentMethod === 'us_bank_account' ? 'ACH Bank Transfer' : 'Credit/Debit Card'}</p>
+                    </div>
+
+                    <p>A receipt has been sent to your email from Stripe.</p>
+                    <p>If you have any questions, please don't hesitate to contact us.</p>
+
+                    <p>Best regards,<br>My Yacht Time Team</p>
+                  </div>
+                `,
+                tags: [
+                  { name: 'category', value: 'payment_confirmation' },
+                  { name: 'invoice_id', value: invoiceId },
+                ],
+              }),
+            });
+
+            if (emailResponse.ok) {
+              const emailData = await emailResponse.json();
+              console.log(`Payment confirmation email sent to ${customerEmail}, ID: ${emailData.id}`);
+
+              // Update email engagement tracking
+              await supabase
+                .from('yacht_invoices')
+                .update({
+                  payment_confirmation_email_sent_at: new Date().toISOString(),
+                  payment_confirmation_resend_id: emailData.id,
+                })
+                .eq('id', invoiceId);
+            } else {
+              const errorText = await emailResponse.text();
+              console.error('Failed to send payment confirmation email:', errorText);
+            }
+          }
+        } catch (emailError) {
+          console.error('Error sending payment confirmation email:', emailError);
+        }
       }
 
       console.log(`Invoice ${invoiceId} marked as paid`);

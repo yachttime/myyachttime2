@@ -9481,6 +9481,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                   )}
                                                 </div>
                                               )}
+                                              {invoice.payment_status === 'paid' && invoice.payment_confirmation_email_sent_at && (
+                                                <div className="flex items-center gap-2 text-xs text-emerald-400 pt-2 border-t border-emerald-500/20 mt-2">
+                                                  <CheckCircle className="w-3 h-3" />
+                                                  <span className="font-medium">Payment Confirmation Sent: {new Date(invoice.payment_confirmation_email_sent_at).toLocaleDateString()} at {new Date(invoice.payment_confirmation_email_sent_at).toLocaleTimeString()}</span>
+                                                </div>
+                                              )}
                                               {invoice.payment_email_bounced_at && (
                                                 <div className="flex items-center gap-2 text-xs text-red-400">
                                                   <AlertCircle className="w-3 h-3" />
