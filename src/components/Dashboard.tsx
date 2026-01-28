@@ -9605,7 +9605,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                       </div>
 
                                       {(userProfile?.role === 'manager' || userProfile?.role === 'staff') && invoice.payment_status !== 'paid' && (
-                                        <div className="flex gap-2 mt-4 pt-3 border-t border-emerald-500/20">
+                                        <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t border-emerald-500/20">
                                           {invoice.payment_status === 'pending' && !invoice.payment_link_url && (
                                             <button
                                               onClick={() => handleEditExistingInvoice(invoice, request)}
