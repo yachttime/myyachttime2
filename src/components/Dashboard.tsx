@@ -2004,172 +2004,19 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       if (fetchError) throw fetchError;
 
-      if (request.is_retail_customer) {
-        await handleRetailCustomerCompletion(request);
-      } else {
-        setSelectedRepairForInvoice(request);
-        setInvoiceForm({
-          final_invoice_amount: request.estimated_repair_cost || '',
-          invoice_file: null,
-          payment_method_type: 'card'
-        });
-        setIsAddingInvoiceToCompleted(false);
-        setShowInvoiceModal(true);
-      }
+      setSelectedRepairForInvoice(request);
+      setInvoiceForm({
+        final_invoice_amount: request.estimated_repair_cost || '',
+        invoice_file: null,
+        payment_method_type: 'card'
+      });
+      setIsAddingInvoiceToCompleted(false);
+      setShowInvoiceModal(true);
     } catch (error) {
       console.error('Error loading repair request:', error);
     }
   };
 
-  const handleRetailCustomerCompletion = async (request: RepairRequest) => {
-    if (!user) return;
-
-    const confirmComplete = confirm(
-      `Complete repair for ${request.customer_name}?\n\nThis will:\n• Mark the repair as completed\n• Create and send an invoice with payment link\n• Email the payment link to ${request.customer_email}\n\nEstimated Cost: ${request.estimated_repair_cost || 'Not set'}`
-    );
-
-    if (!confirmComplete) return;
-
-    setInvoiceLoading(true);
-    try {
-      const finalAmount = request.estimated_repair_cost || '';
-
-      if (!finalAmount) {
-        alert('Please set an estimated repair cost before completing the repair.');
-        setInvoiceLoading(false);
-        return;
-      }
-
-      const { error: updateError } = await supabase
-        .from('repair_requests')
-        .update({
-          status: 'completed',
-          completed_by: user.id,
-          completed_at: new Date().toISOString(),
-          final_invoice_amount: finalAmount,
-          billed_at: new Date().toISOString(),
-          billed_by: user.id,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', request.id);
-
-      if (updateError) throw updateError;
-
-      const invoiceYear = new Date().getFullYear();
-      const invoiceAmountNumeric = parseFloat(finalAmount.replace(/[^0-9.-]+/g, ''));
-
-      const { data: newInvoice, error: invoiceInsertError } = await supabase
-        .from('yacht_invoices')
-        .insert({
-          yacht_id: request.yacht_id,
-          repair_request_id: request.id,
-          invoice_amount: finalAmount,
-          invoice_amount_numeric: isNaN(invoiceAmountNumeric) ? null : invoiceAmountNumeric,
-          repair_title: request.title,
-          payment_method_type: 'card',
-          invoice_year: invoiceYear,
-          invoice_date: new Date().toISOString(),
-          completed_by: user.id
-        })
-        .select()
-        .single();
-
-      if (invoiceInsertError) throw invoiceInsertError;
-
-      await supabase.from('admin_notifications').insert({
-        user_id: user.id,
-        yacht_id: request.yacht_id,
-        notification_type: 'repair_request',
-        message: `Repair completed for retail customer: "${request.title}" - ${finalAmount}`,
-        reference_id: request.id
-      });
-
-      if (newInvoice) {
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-
-          if (!session?.access_token) {
-            throw new Error('No active session. Please sign in again.');
-          }
-
-          const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-invoice-payment`;
-
-          let paymentResponse: Response;
-
-          try {
-            paymentResponse = await fetch(apiUrl, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${session.access_token}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                invoiceId: newInvoice.id
-              })
-            });
-          } catch (fetchError) {
-            console.error('Network error creating payment:', fetchError);
-            throw new Error('Network error connecting to payment service. Please check if Stripe is configured in your Supabase project settings.');
-          }
-
-          if (!paymentResponse.ok) {
-            const contentType = paymentResponse.headers.get('content-type');
-            let errorMessage = 'Failed to create payment link';
-
-            if (contentType?.includes('application/json')) {
-              const errorData = await paymentResponse.json();
-              errorMessage = errorData.error || errorMessage;
-            } else {
-              const errorText = await paymentResponse.text();
-              console.error('Non-JSON error response:', errorText);
-              errorMessage = `Server error: ${paymentResponse.status}`;
-            }
-
-            throw new Error(errorMessage);
-          }
-
-          const paymentData = await paymentResponse.json();
-
-          const yacht = allYachts.find(y => y.id === request.yacht_id);
-          const userName = userProfile?.first_name && userProfile?.last_name
-            ? `${userProfile.first_name} ${userProfile.last_name}`
-            : userProfile?.email || user.email || 'Staff';
-
-          const emailApiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-payment-link-email`;
-
-          await fetch(emailApiUrl, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${session?.access_token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              recipientEmail: request.customer_email,
-              recipientName: request.customer_name,
-              invoiceAmount: finalAmount,
-              repairTitle: request.title,
-              yachtName: yacht?.name || 'Retail Service',
-              paymentLink: paymentData.checkoutUrl,
-              invoiceId: newInvoice.id
-            })
-          });
-
-          alert(`Repair completed! Payment link has been sent to ${request.customer_email}`);
-        } catch (paymentError: any) {
-          console.error('Error creating payment link:', paymentError);
-          alert(`Repair completed, but failed to create payment link: ${paymentError.message}`);
-        }
-      }
-
-      await loadRepairRequests();
-      await loadAdminNotifications();
-    } catch (error: any) {
-      console.error('Error completing retail repair:', error);
-      alert(`Error: ${error.message || 'Failed to complete repair'}`);
-    } finally {
-      setInvoiceLoading(false);
-    }
-  };
 
   const handleAddInvoiceToCompletedRepairSubmit = async () => {
     if (!selectedRepairForInvoice || !user) return;
@@ -2383,7 +2230,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       const invoiceYear = new Date().getFullYear();
       const invoiceAmountNumeric = parseFloat(invoiceForm.final_invoice_amount.replace(/[^0-9.-]+/g, ''));
 
-      const { error: invoiceInsertError } = await supabase.from('yacht_invoices').insert({
+      const { data: newInvoice, error: invoiceInsertError } = await supabase.from('yacht_invoices').insert({
         yacht_id: selectedRepairForInvoice.yacht_id,
         repair_request_id: selectedRepairForInvoice.id,
         invoice_amount: invoiceForm.final_invoice_amount,
@@ -2395,17 +2242,21 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         invoice_year: invoiceYear,
         invoice_date: new Date().toISOString(),
         completed_by: user.id
-      });
+      })
+      .select()
+      .single();
 
-      if (invoiceInsertError) {
-        console.error('Error inserting invoice record:', invoiceInsertError);
-      }
+      if (invoiceInsertError) throw invoiceInsertError;
+
+      const notificationMessage = selectedRepairForInvoice.is_retail_customer
+        ? `Repair completed for retail customer: "${selectedRepairForInvoice.title}" - ${invoiceForm.final_invoice_amount}`
+        : `Repair completed and invoice sent: "${selectedRepairForInvoice.title}" - ${invoiceForm.final_invoice_amount}`;
 
       await supabase.from('admin_notifications').insert({
         user_id: user.id,
         yacht_id: selectedRepairForInvoice.yacht_id,
         notification_type: 'repair_request',
-        message: `Repair completed and invoice sent: "${selectedRepairForInvoice.title}" - ${invoiceForm.final_invoice_amount}`,
+        message: notificationMessage,
         reference_id: selectedRepairForInvoice.id
       });
 
@@ -2413,44 +2264,108 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         ? `${userProfile.first_name} ${userProfile.last_name}`
         : userProfile?.email || user.email || 'Staff';
 
-      const ownerMessage = `Repair Request Completed & Invoice Sent: ${selectedRepairForInvoice.title}\n\n✓ This repair has been completed by ${userName}.\n\nFinal Invoice Amount: ${invoiceForm.final_invoice_amount}${invoiceFileName ? `\nInvoice File: ${invoiceFileName}` : ''}`;
+      if (!selectedRepairForInvoice.is_retail_customer) {
+        const ownerMessage = `Repair Request Completed & Invoice Sent: ${selectedRepairForInvoice.title}\n\n✓ This repair has been completed by ${userName}.\n\nFinal Invoice Amount: ${invoiceForm.final_invoice_amount}${invoiceFileName ? `\nInvoice File: ${invoiceFileName}` : ''}`;
 
-      await supabase.from('owner_chat_messages').insert({
-        yacht_id: selectedRepairForInvoice.yacht_id,
-        user_id: user.id,
-        message: ownerMessage
-      });
+        await supabase.from('owner_chat_messages').insert({
+          yacht_id: selectedRepairForInvoice.yacht_id,
+          user_id: user.id,
+          message: ownerMessage
+        });
 
-      const { data: managers } = await supabase
-        .from('user_profiles')
-        .select('user_id, first_name, last_name, email_address')
-        .eq('yacht_id', selectedRepairForInvoice.yacht_id)
-        .eq('role', 'manager');
+        const { data: managers } = await supabase
+          .from('user_profiles')
+          .select('user_id, first_name, last_name, email_address')
+          .eq('yacht_id', selectedRepairForInvoice.yacht_id)
+          .eq('role', 'manager');
 
-      if (managers && managers.length > 0) {
+        if (managers && managers.length > 0) {
+          try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const yacht = allYachts.find(y => y.id === selectedRepairForInvoice.yacht_id);
+
+            const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-invoice-notification`;
+
+            await fetch(apiUrl, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${session?.access_token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                managerEmails: managers.map(m => m.email_address).filter(Boolean),
+                repairTitle: selectedRepairForInvoice.title,
+                yachtName: yacht?.name || 'Unknown Yacht',
+                invoiceAmount: invoiceForm.final_invoice_amount,
+                invoiceFileUrl: invoiceFileUrl,
+                completedBy: userName
+              })
+            });
+          } catch (emailError) {
+            console.error('Failed to send email notification:', emailError);
+          }
+        }
+      }
+
+      if (selectedRepairForInvoice.is_retail_customer && newInvoice) {
         try {
           const { data: { session } } = await supabase.auth.getSession();
-          const yacht = allYachts.find(y => y.id === selectedRepairForInvoice.yacht_id);
 
-          const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-invoice-notification`;
+          if (!session?.access_token) {
+            throw new Error('No active session. Please sign in again.');
+          }
 
-          await fetch(apiUrl, {
+          const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-invoice-payment`;
+
+          const paymentResponse = await fetch(apiUrl, {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${session?.access_token}`,
+              'Authorization': `Bearer ${session.access_token}`,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              managerEmails: managers.map(m => m.email_address).filter(Boolean),
-              repairTitle: selectedRepairForInvoice.title,
-              yachtName: yacht?.name || 'Unknown Yacht',
-              invoiceAmount: invoiceForm.final_invoice_amount,
-              invoiceFileUrl: invoiceFileUrl,
-              completedBy: userName
+              invoiceId: newInvoice.id
             })
           });
-        } catch (emailError) {
-          console.error('Failed to send email notification:', emailError);
+
+          if (!paymentResponse.ok) {
+            const contentType = paymentResponse.headers.get('content-type');
+            let errorMessage = 'Failed to create payment link';
+
+            if (contentType?.includes('application/json')) {
+              const errorData = await paymentResponse.json();
+              errorMessage = errorData.error || errorMessage;
+            }
+
+            throw new Error(errorMessage);
+          }
+
+          const recipientEmail = selectedRepairForInvoice.customer_email;
+          if (recipientEmail) {
+            const yacht = allYachts.find(y => y.id === selectedRepairForInvoice.yacht_id);
+            const invoiceApiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-invoice-notification`;
+
+            await fetch(invoiceApiUrl, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${session.access_token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                recipientEmail: recipientEmail,
+                recipientName: selectedRepairForInvoice.customer_name,
+                repairTitle: selectedRepairForInvoice.title,
+                yachtName: yacht?.name || 'Unknown Yacht',
+                invoiceAmount: invoiceForm.final_invoice_amount,
+                invoiceFileUrl: invoiceFileUrl,
+                completedBy: userName,
+                isRetailCustomer: true
+              })
+            });
+          }
+        } catch (error: any) {
+          console.error('Error creating payment link for retail customer:', error);
+          alert(`Invoice created but payment link failed: ${error.message}. You can generate the payment link manually from the repair details.`);
         }
       }
 
