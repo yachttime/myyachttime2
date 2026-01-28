@@ -115,8 +115,8 @@ Deno.serve(async (req: Request) => {
     }
 
     // Build Stripe checkout session parameters
-    // Set expiration to 30 days from now (maximum allowed by Stripe)
-    const expirationTimestamp = Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60);
+    // Set expiration to 24 hours from now (maximum allowed by Stripe for Checkout Sessions)
+    const expirationTimestamp = Math.floor(Date.now() / 1000) + (24 * 60 * 60);
 
     const params: Record<string, string> = {
       'line_items[0][price_data][currency]': 'usd',
