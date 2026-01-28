@@ -13564,7 +13564,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       {/* Version Number - Fixed Bottom Right */}
       <div className="fixed bottom-4 right-4 text-slate-500 text-sm font-mono bg-slate-900/80 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-slate-700">
-        Version: 2025.1.20
+        Version: 2026.01.21.C
       </div>
 
       {/* Email Compose Modal */}
