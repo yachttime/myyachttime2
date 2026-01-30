@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Anchor, Calendar, CheckCircle, AlertCircle, BookOpen, LogOut, Wrench, Send, Play, Shield, ClipboardCheck, Ship, CalendarPlus, FileUp, MessageCircle, Mail, CreditCard as Edit2, Trash2, ChevronLeft, ChevronRight, History, UserCheck, FileText, Upload, Download, X, Users, Save, RefreshCw, Clock, Thermometer, Camera, Receipt, Pencil, Lock, CreditCard, Eye, EyeOff, MousePointer, FileSignature, Folder, Menu, Phone, Printer, Plus } from 'lucide-react';
+import { Anchor, Calendar, CheckCircle, AlertCircle, BookOpen, LogOut, Wrench, Send, Play, Shield, ClipboardCheck, Ship, CalendarPlus, FileUp, MessageCircle, Mail, CreditCard as Edit2, Trash2, ChevronLeft, ChevronRight, History, UserCheck, FileText, Upload, Download, X, Users, Save, RefreshCw, Clock, Thermometer, Camera, Receipt, Pencil, Lock, CreditCard, Eye, EyeOff, MousePointer, FileSignature, Folder, Menu, Phone, Printer, Plus, QrCode } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase, YachtBooking, MaintenanceRequest, EducationVideo, TripInspection, ConditionRating, InspectionType, RepairRequest, OwnerChatMessage, YachtHistoryLog, OwnerHandoffInspection, YachtDocument, YachtInvoice, YachtBudget, AdminNotification, StaffMessage, Appointment, Yacht, UserProfile, VesselManagementAgreement, logYachtActivity } from '../lib/supabase';
 import { InspectionPDFView } from './InspectionPDFView';
@@ -12,6 +12,7 @@ import { VesselAgreementViewer } from './VesselAgreementViewer';
 import { PrintableUserList } from './PrintableUserList';
 import { PrintableOwnerTrips } from './PrintableOwnerTrips';
 import { EmailComposeModal } from './EmailComposeModal';
+import { YachtQRCode } from './YachtQRCode';
 import { uploadFileToStorage, deleteFileFromStorage, isStorageUrl, UploadProgress, isTokenExpiredError } from '../utils/fileUpload';
 
 interface DashboardProps {
@@ -495,6 +496,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [newEmailAddress, setNewEmailAddress] = useState('');
   const [vesselAgreements, setVesselAgreements] = useState<Record<string, VesselManagementAgreement[]>>({});
   const [agreementYachtId, setAgreementYachtId] = useState<string | null>(null);
+  const [qrCodeYacht, setQrCodeYacht] = useState<{ id: string; name: string } | null>(null);
   const [showAgreementForm, setShowAgreementForm] = useState(false);
   const [showAgreementViewer, setShowAgreementViewer] = useState(false);
   const [selectedAgreement, setSelectedAgreement] = useState<VesselManagementAgreement | null>(null);
@@ -7441,6 +7443,15 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               <Pencil className="w-4 h-4" />
                               Edit
                             </button>
+                            {(userProfile?.role === 'manager' || userProfile?.role === 'staff') && (
+                              <button
+                                onClick={() => setQrCodeYacht({ id: yacht.id, name: yacht.name })}
+                                className="flex items-center justify-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg transition-colors text-sm"
+                              >
+                                <QrCode className="w-4 h-4" />
+                                QR Code
+                              </button>
+                            )}
                           </div>
                         </div>
 
@@ -13613,6 +13624,15 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       <div className="fixed bottom-4 right-4 text-slate-500 text-sm font-mono bg-slate-900/80 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-slate-700">
         Version: 2026.01.28.A
       </div>
+
+      {/* QR Code Modal */}
+      {qrCodeYacht && (
+        <YachtQRCode
+          yachtId={qrCodeYacht.id}
+          yachtName={qrCodeYacht.name}
+          onClose={() => setQrCodeYacht(null)}
+        />
+      )}
 
       {/* Email Compose Modal */}
       <EmailComposeModal
