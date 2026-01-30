@@ -40,8 +40,16 @@ export function YachtQRCode({ yachtId, yachtName, onClose }: YachtQRCodeProps) {
   }, [yachtId]);
 
   const handlePrint = () => {
+    if (!qrDataUrl) {
+      alert('QR code is still generating. Please wait a moment and try again.');
+      return;
+    }
+
     const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
+    if (!printWindow) {
+      alert('Unable to open print window. Please check your popup blocker settings.');
+      return;
+    }
 
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -89,6 +97,11 @@ export function YachtQRCode({ yachtId, yachtName, onClose }: YachtQRCodeProps) {
               border-radius: 12px;
               box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             }
+            .qr-code img {
+              display: block;
+              max-width: 100%;
+              height: auto;
+            }
             .instructions {
               font-size: 1.25rem;
               line-height: 1.8;
@@ -111,21 +124,25 @@ export function YachtQRCode({ yachtId, yachtName, onClose }: YachtQRCodeProps) {
             <h1>Welcome Aboard!</h1>
             <h2>${yachtName}</h2>
             <div class="qr-code">
-              <img src="${qrDataUrl}" alt="QR Code" />
+              <img src="${qrDataUrl}" alt="QR Code" id="qrImage" />
             </div>
             <div class="instructions">
               <p><strong>Scan this QR code</strong> with your smartphone to access the My Yacht Time portal and view your yacht information, schedule trips, and submit maintenance requests.</p>
             </div>
             <div class="logo">My Yacht Time</div>
           </div>
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+              }, 500);
+            };
+          </script>
         </body>
       </html>
     `);
 
     printWindow.document.close();
-    setTimeout(() => {
-      printWindow.print();
-    }, 250);
   };
 
   const handleDownload = () => {
