@@ -45,13 +45,19 @@ export function YachtQRCode({ yachtId, yachtName, onClose }: YachtQRCodeProps) {
       return;
     }
 
-    const printWindow = window.open('', '', 'width=800,height=900');
-    if (!printWindow) {
-      alert('Please allow pop-ups to print the QR code.');
-      return;
-    }
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'absolute';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = 'none';
 
-    printWindow.document.write(`
+    document.body.appendChild(iframe);
+
+    const iframeDoc = iframe.contentWindow?.document;
+    if (!iframeDoc) return;
+
+    iframeDoc.open();
+    iframeDoc.write(`
       <!DOCTYPE html>
       <html>
         <head>
@@ -139,14 +145,14 @@ export function YachtQRCode({ yachtId, yachtName, onClose }: YachtQRCodeProps) {
         </body>
       </html>
     `);
-
-    printWindow.document.close();
-    printWindow.focus();
+    iframeDoc.close();
 
     setTimeout(() => {
-      printWindow.print();
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+
       setTimeout(() => {
-        printWindow.close();
+        document.body.removeChild(iframe);
       }, 100);
     }, 250);
   };
