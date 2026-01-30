@@ -45,103 +45,56 @@ export function YachtQRCode({ yachtId, yachtName, onClose }: YachtQRCodeProps) {
       return;
     }
 
-    const printContent = `
-      <div style="
-        font-family: Arial, sans-serif;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        min-height: 100vh;
-        text-align: center;
-        padding: 20px;
-      ">
-        <h1 style="
-          font-size: 2.5rem;
-          font-weight: bold;
-          margin-bottom: 1rem;
-          color: #0f172a;
-        ">Welcome Aboard!</h1>
-        <h2 style="
-          font-size: 1.75rem;
-          font-weight: 600;
-          margin-bottom: 1.5rem;
-          color: #334155;
-        ">${yachtName}</h2>
-        <div style="
-          margin: 2rem 0;
-          display: inline-block;
-          padding: 20px;
-          background: white;
-          border: 3px solid #0891b2;
-          border-radius: 12px;
-          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        ">
-          <img src="${qrDataUrl}" alt="QR Code" style="display: block; max-width: 400px; height: auto;" />
+    const printDiv = document.createElement('div');
+    printDiv.id = 'qr-print-content';
+    printDiv.innerHTML = `
+      <div style="text-align: center; padding: 40px;">
+        <h1 style="font-size: 2.5rem; font-weight: bold; margin-bottom: 1rem; color: #0f172a;">Welcome Aboard!</h1>
+        <h2 style="font-size: 1.75rem; font-weight: 600; margin-bottom: 1.5rem; color: #334155;">${yachtName}</h2>
+        <div style="margin: 2rem auto; display: inline-block; padding: 20px; background: white; border: 3px solid #0891b2; border-radius: 12px;">
+          <img src="${qrDataUrl}" alt="QR Code" style="display: block; width: 400px; height: auto;" />
         </div>
-        <div style="
-          font-size: 1.25rem;
-          line-height: 1.8;
-          color: #475569;
-          margin-top: 1.5rem;
-          max-width: 600px;
-        ">
+        <div style="font-size: 1.25rem; line-height: 1.8; color: #475569; margin-top: 1.5rem; max-width: 600px; margin-left: auto; margin-right: auto;">
           <p><strong style="color: #0f172a;">Scan this QR code</strong> with your smartphone to access the My Yacht Time portal and view your yacht information, schedule trips, and submit maintenance requests.</p>
         </div>
-        <div style="
-          font-size: 1.5rem;
-          font-weight: bold;
-          color: #0891b2;
-          margin-top: 2rem;
-        ">My Yacht Time</div>
+        <div style="font-size: 1.5rem; font-weight: bold; color: #0891b2; margin-top: 2rem;">My Yacht Time</div>
       </div>
     `;
 
-    const printFrame = document.createElement('iframe');
-    printFrame.style.position = 'fixed';
-    printFrame.style.top = '0';
-    printFrame.style.left = '0';
-    printFrame.style.width = '100%';
-    printFrame.style.height = '100%';
-    printFrame.style.border = 'none';
-    printFrame.style.zIndex = '99999';
-    printFrame.style.display = 'none';
+    const style = document.createElement('style');
+    style.id = 'qr-print-style';
+    style.textContent = `
+      @media print {
+        body * {
+          visibility: hidden;
+        }
+        #qr-print-content, #qr-print-content * {
+          visibility: visible;
+        }
+        #qr-print-content {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 100%;
+        }
+        @page {
+          margin: 0.5in;
+        }
+      }
+      #qr-print-content {
+        display: none;
+      }
+    `;
 
-    document.body.appendChild(printFrame);
+    document.head.appendChild(style);
+    document.body.appendChild(printDiv);
 
-    const frameDoc = printFrame.contentWindow?.document;
-    if (!frameDoc) return;
-
-    frameDoc.open();
-    frameDoc.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>QR Code - ${yachtName}</title>
-          <style>
-            @media print {
-              @page {
-                margin: 0.5in;
-              }
-            }
-            body {
-              margin: 0;
-              padding: 0;
-            }
-          </style>
-        </head>
-        <body>${printContent}</body>
-      </html>
-    `);
-    frameDoc.close();
+    window.print();
 
     setTimeout(() => {
-      printFrame.contentWindow?.focus();
-      printFrame.contentWindow?.print();
-      setTimeout(() => {
-        document.body.removeChild(printFrame);
-      }, 100);
-    }, 500);
+      document.body.removeChild(printDiv);
+      document.head.removeChild(style);
+    }, 100);
   };
 
   const handleDownload = () => {
