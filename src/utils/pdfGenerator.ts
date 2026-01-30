@@ -661,10 +661,25 @@ export function generateOwnerTripsPDF(trips: YachtBooking[], yachtName: string):
     const timeInfo = [departureTime && `Dep: ${departureTime}`, arrivalTime && `Arr: ${arrivalTime}`].filter(Boolean).join(' | ') || 'N/A';
     const tripNumber = trip.user_profiles?.trip_number || 'N/A';
 
+    let ownerNames = 'N/A';
+    let ownerContacts = 'N/A';
+
+    if (trip.yacht_booking_owners && trip.yacht_booking_owners.length > 0) {
+      ownerNames = trip.yacht_booking_owners.map((o: any) => o.owner_name).join(', ');
+      const contacts = trip.yacht_booking_owners
+        .map((o: any) => o.owner_contact)
+        .filter((c: any) => c)
+        .join(', ');
+      ownerContacts = contacts || 'N/A';
+    } else {
+      ownerNames = trip.owner_name || 'N/A';
+      ownerContacts = trip.owner_contact || 'N/A';
+    }
+
     return [
       tripNumber,
-      trip.owner_name || 'N/A',
-      trip.owner_contact || 'N/A',
+      ownerNames,
+      ownerContacts,
       startDate,
       endDate,
       timeInfo
