@@ -16,7 +16,7 @@ export function YachtQRCode({ yachtId, yachtName, onClose }: YachtQRCodeProps) {
     const generateQRCode = async () => {
       if (!canvasRef.current) return;
 
-      const baseUrl = window.location.origin;
+      const baseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
       const qrUrl = `${baseUrl}?yacht=${yachtId}`;
 
       try {
