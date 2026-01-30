@@ -45,13 +45,75 @@ export function YachtQRCode({ yachtId, yachtName, onClose }: YachtQRCodeProps) {
       return;
     }
 
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      alert('Unable to open print window. Please check your popup blocker settings.');
-      return;
-    }
+    const printContent = `
+      <div style="
+        font-family: Arial, sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        text-align: center;
+        padding: 20px;
+      ">
+        <h1 style="
+          font-size: 2.5rem;
+          font-weight: bold;
+          margin-bottom: 1rem;
+          color: #0f172a;
+        ">Welcome Aboard!</h1>
+        <h2 style="
+          font-size: 1.75rem;
+          font-weight: 600;
+          margin-bottom: 1.5rem;
+          color: #334155;
+        ">${yachtName}</h2>
+        <div style="
+          margin: 2rem 0;
+          display: inline-block;
+          padding: 20px;
+          background: white;
+          border: 3px solid #0891b2;
+          border-radius: 12px;
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        ">
+          <img src="${qrDataUrl}" alt="QR Code" style="display: block; max-width: 400px; height: auto;" />
+        </div>
+        <div style="
+          font-size: 1.25rem;
+          line-height: 1.8;
+          color: #475569;
+          margin-top: 1.5rem;
+          max-width: 600px;
+        ">
+          <p><strong style="color: #0f172a;">Scan this QR code</strong> with your smartphone to access the My Yacht Time portal and view your yacht information, schedule trips, and submit maintenance requests.</p>
+        </div>
+        <div style="
+          font-size: 1.5rem;
+          font-weight: bold;
+          color: #0891b2;
+          margin-top: 2rem;
+        ">My Yacht Time</div>
+      </div>
+    `;
 
-    printWindow.document.write(`
+    const printFrame = document.createElement('iframe');
+    printFrame.style.position = 'fixed';
+    printFrame.style.top = '0';
+    printFrame.style.left = '0';
+    printFrame.style.width = '100%';
+    printFrame.style.height = '100%';
+    printFrame.style.border = 'none';
+    printFrame.style.zIndex = '99999';
+    printFrame.style.display = 'none';
+
+    document.body.appendChild(printFrame);
+
+    const frameDoc = printFrame.contentWindow?.document;
+    if (!frameDoc) return;
+
+    frameDoc.open();
+    frameDoc.write(`
       <!DOCTYPE html>
       <html>
         <head>
@@ -63,86 +125,23 @@ export function YachtQRCode({ yachtId, yachtName, onClose }: YachtQRCodeProps) {
               }
             }
             body {
-              font-family: Arial, sans-serif;
-              display: flex;
-              flex-direction: column;
-              align-items: center;
-              justify-content: center;
-              min-height: 100vh;
               margin: 0;
-              padding: 20px;
-            }
-            .container {
-              text-align: center;
-              max-width: 600px;
-            }
-            h1 {
-              font-size: 2.5rem;
-              font-weight: bold;
-              margin-bottom: 1rem;
-              color: #0f172a;
-            }
-            h2 {
-              font-size: 1.75rem;
-              font-weight: 600;
-              margin-bottom: 1.5rem;
-              color: #334155;
-            }
-            .qr-code {
-              margin: 2rem 0;
-              display: inline-block;
-              padding: 20px;
-              background: white;
-              border: 3px solid #0891b2;
-              border-radius: 12px;
-              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            }
-            .qr-code img {
-              display: block;
-              max-width: 100%;
-              height: auto;
-            }
-            .instructions {
-              font-size: 1.25rem;
-              line-height: 1.8;
-              color: #475569;
-              margin-top: 1.5rem;
-            }
-            .instructions strong {
-              color: #0f172a;
-            }
-            .logo {
-              font-size: 1.5rem;
-              font-weight: bold;
-              color: #0891b2;
-              margin-top: 2rem;
+              padding: 0;
             }
           </style>
         </head>
-        <body>
-          <div class="container">
-            <h1>Welcome Aboard!</h1>
-            <h2>${yachtName}</h2>
-            <div class="qr-code">
-              <img src="${qrDataUrl}" alt="QR Code" id="qrImage" />
-            </div>
-            <div class="instructions">
-              <p><strong>Scan this QR code</strong> with your smartphone to access the My Yacht Time portal and view your yacht information, schedule trips, and submit maintenance requests.</p>
-            </div>
-            <div class="logo">My Yacht Time</div>
-          </div>
-          <script>
-            window.onload = function() {
-              setTimeout(function() {
-                window.print();
-              }, 500);
-            };
-          </script>
-        </body>
+        <body>${printContent}</body>
       </html>
     `);
+    frameDoc.close();
 
-    printWindow.document.close();
+    setTimeout(() => {
+      printFrame.contentWindow?.focus();
+      printFrame.contentWindow?.print();
+      setTimeout(() => {
+        document.body.removeChild(printFrame);
+      }, 100);
+    }, 500);
   };
 
   const handleDownload = () => {
