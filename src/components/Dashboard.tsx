@@ -300,12 +300,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [editingYacht, setEditingYacht] = useState<Yacht | null>(null);
   const [showOwnerTripForm, setShowOwnerTripForm] = useState(false);
   const [ownerTripForm, setOwnerTripForm] = useState({
-    owner_name: '',
-    owner_contact: '',
     start_date: '',
     departure_time: '',
     end_date: '',
-    arrival_time: ''
+    arrival_time: '',
+    owners: [{ owner_name: '', owner_contact: '' }]
   });
   const [selectedOwnerYachtId, setSelectedOwnerYachtId] = useState<string | null>(null);
   const [selectedOwnerUserId, setSelectedOwnerUserId] = useState<string | null>(null);
@@ -613,6 +612,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             first_name,
             last_name,
             email
+          ),
+          yacht_booking_owners (
+            id,
+            owner_name,
+            owner_contact,
+            created_at
           )
         `);
 
@@ -1452,7 +1457,16 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     try {
       const { data, error } = await supabase
         .from('yacht_bookings')
-        .select('*, user_profiles(trip_number)')
+        .select(`
+          *,
+          user_profiles(trip_number),
+          yacht_booking_owners (
+            id,
+            owner_name,
+            owner_contact,
+            created_at
+          )
+        `)
         .eq('yacht_id', yachtId)
         .order('start_date', { ascending: true });
 
@@ -3157,7 +3171,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         .from('yacht_bookings')
         .select(`
           *,
-          yachts:yacht_id (name)
+          yachts:yacht_id (name),
+          yacht_booking_owners (
+            id,
+            owner_name,
+            owner_contact,
+            created_at
+          )
         `)
         .order('start_date', { ascending: false });
 
@@ -7607,7 +7627,18 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   <div key={trip.id} className="bg-slate-900/50 rounded-lg p-3 text-xs">
                                     <div className="flex items-start justify-between gap-2">
                                       <div className="flex-1">
-                                        <div className="text-slate-300 font-medium mb-1">{trip.owner_name}</div>
+                                        {trip.yacht_booking_owners && trip.yacht_booking_owners.length > 0 ? (
+                                          <div className="text-slate-300 font-medium mb-1">
+                                            {trip.yacht_booking_owners.map((owner, idx) => (
+                                              <div key={owner.id}>
+                                                {owner.owner_name}
+                                                {idx < trip.yacht_booking_owners.length - 1 && ', '}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        ) : (
+                                          <div className="text-slate-300 font-medium mb-1">{trip.owner_name}</div>
+                                        )}
                                         <div className="text-slate-400 space-y-1">
                                           <div className="flex items-center gap-2">
                                             <Calendar className="w-3 h-3" />
@@ -7625,7 +7656,16 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                               </span>
                                             </div>
                                           )}
-                                          {trip.owner_contact && (
+                                          {trip.yacht_booking_owners && trip.yacht_booking_owners.length > 0 ? (
+                                            <div className="space-y-1">
+                                              {trip.yacht_booking_owners.map((owner) => owner.owner_contact && (
+                                                <div key={owner.id} className="flex items-center gap-2">
+                                                  <Phone className="w-3 h-3" />
+                                                  <span>{owner.owner_name}: {owner.owner_contact}</span>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          ) : trip.owner_contact && (
                                             <div className="flex items-center gap-2">
                                               <Phone className="w-3 h-3" />
                                               <span>{trip.owner_contact}</span>
@@ -8733,41 +8773,56 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             throw new Error('Selected owner\'s yacht not found');
                           }
 
-                          const { error } = await supabase.from('yacht_bookings').insert({
+                          const validOwners = ownerTripForm.owners.filter(o => o.owner_name.trim());
+                          if (validOwners.length === 0) {
+                            throw new Error('Please add at least one owner');
+                          }
+
+                          const { data: booking, error } = await supabase.from('yacht_bookings').insert({
                             yacht_id: selectedOwnerYachtId,
                             user_id: selectedOwnerUserId,
                             start_date: startDateTime,
                             end_date: endDateTime,
-                            owner_name: ownerTripForm.owner_name,
-                            owner_contact: ownerTripForm.owner_contact,
                             departure_time: ownerTripForm.departure_time,
                             arrival_time: ownerTripForm.arrival_time,
                             notes: 'Owner trip',
                             checked_in: false,
                             checked_out: false
-                          });
+                          }).select().single();
 
                           if (error) throw error;
+
+                          const ownersData = validOwners.map(owner => ({
+                            booking_id: booking.id,
+                            owner_name: owner.owner_name,
+                            owner_contact: owner.owner_contact || null
+                          }));
+
+                          const { error: ownersError } = await supabase
+                            .from('yacht_booking_owners')
+                            .insert(ownersData);
+
+                          if (ownersError) throw ownersError;
 
                           const userName = userProfile?.first_name && userProfile?.last_name
                             ? `${userProfile.first_name} ${userProfile.last_name}`
                             : userProfile?.email || 'Unknown';
+                          const ownerNames = validOwners.map(o => o.owner_name).join(', ');
                           await logYachtActivity(
                             selectedOwnerYachtId,
                             selectedYacht.name,
-                            `Owner trip scheduled for ${ownerTripForm.owner_name} from ${new Date(startDateTime).toLocaleDateString()} to ${new Date(endDateTime).toLocaleDateString()}`,
+                            `Owner trip scheduled for ${ownerNames} from ${new Date(startDateTime).toLocaleDateString()} to ${new Date(endDateTime).toLocaleDateString()}`,
                             user?.id,
                             userName
                           );
 
                           setOwnerTripSuccess(true);
                           setOwnerTripForm({
-                            owner_name: '',
-                            owner_contact: '',
                             start_date: '',
                             departure_time: '',
                             end_date: '',
-                            arrival_time: ''
+                            arrival_time: '',
+                            owners: [{ owner_name: '', owner_contact: '' }]
                           });
 
                           // Reload yacht trips if that yacht's trips section is currently open
@@ -8788,90 +8843,141 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           setOwnerTripLoading(false);
                         }
                       }} className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-sm font-medium mb-2">Owner Name *</label>
-                            <select
-                              required
-                              value={ownerTripForm.owner_name}
-                              onChange={(e) => {
-                                const selectedUser = allUsers.find(u =>
-                                  `${u.first_name || ''} ${u.last_name || ''}`.trim() === e.target.value
-                                );
+                        <div className="mb-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <label className="block text-sm font-medium">Owners on Trip *</label>
+                            <button
+                              type="button"
+                              onClick={() => {
                                 setOwnerTripForm({
                                   ...ownerTripForm,
-                                  owner_name: e.target.value,
-                                  owner_contact: selectedUser?.phone || ownerTripForm.owner_contact
+                                  owners: [...ownerTripForm.owners, { owner_name: '', owner_contact: '' }]
                                 });
-                                setSelectedOwnerYachtId(selectedUser?.yacht_id || null);
-                                setSelectedOwnerUserId(selectedUser?.user_id || null);
                               }}
-                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-green-500"
+                              className="flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white text-sm px-3 py-1 rounded transition-colors"
                             >
-                              <option value="">Select an owner</option>
-                              {(() => {
-                                const usersByYacht: { [key: string]: typeof allUsers } = {};
-                                const usersWithoutYacht: typeof allUsers = [];
+                              <Plus className="w-4 h-4" />
+                              Add Owner
+                            </button>
+                          </div>
 
-                                allUsers.forEach(user => {
-                                  if (user.is_active === false) return;
-                                  if (user.role === 'owner' || user.role === 'manager') {
-                                    const yachtName = user.yachts?.name || 'Unassigned';
-                                    if (yachtName === 'Unassigned') {
-                                      usersWithoutYacht.push(user);
-                                    } else {
-                                      if (!usersByYacht[yachtName]) {
-                                        usersByYacht[yachtName] = [];
+                          {ownerTripForm.owners.map((owner, index) => (
+                            <div key={index} className="mb-3 p-4 bg-slate-900/50 rounded-lg border border-slate-700">
+                              <div className="flex items-center justify-between mb-3">
+                                <span className="text-sm text-slate-400">Owner #{index + 1}</span>
+                                {ownerTripForm.owners.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOwnerTripForm({
+                                        ...ownerTripForm,
+                                        owners: ownerTripForm.owners.filter((_, i) => i !== index)
+                                      });
+                                    }}
+                                    className="text-red-400 hover:text-red-300"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </div>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div>
+                                  <label className="block text-xs font-medium mb-1 text-slate-400">Name *</label>
+                                  <select
+                                    required
+                                    value={owner.owner_name}
+                                    onChange={(e) => {
+                                      const selectedUser = allUsers.find(u =>
+                                        `${u.first_name || ''} ${u.last_name || ''}`.trim() === e.target.value
+                                      );
+                                      const newOwners = [...ownerTripForm.owners];
+                                      newOwners[index] = {
+                                        owner_name: e.target.value,
+                                        owner_contact: selectedUser?.phone || owner.owner_contact
+                                      };
+                                      setOwnerTripForm({ ...ownerTripForm, owners: newOwners });
+
+                                      if (index === 0) {
+                                        setSelectedOwnerYachtId(selectedUser?.yacht_id || null);
+                                        setSelectedOwnerUserId(selectedUser?.user_id || null);
                                       }
-                                      usersByYacht[yachtName].push(user);
-                                    }
-                                  }
-                                });
+                                    }}
+                                    className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-green-500"
+                                  >
+                                    <option value="">Select an owner</option>
+                                    {(() => {
+                                      const usersByYacht: { [key: string]: typeof allUsers } = {};
+                                      const usersWithoutYacht: typeof allUsers = [];
 
-                                return (
-                                  <>
-                                    {Object.entries(usersByYacht)
-                                      .sort(([a], [b]) => a.localeCompare(b))
-                                      .map(([yachtName, users]) => (
-                                        <optgroup key={yachtName} label={yachtName}>
-                                          {users.map((user) => {
-                                            const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
-                                            return fullName ? (
-                                              <option key={user.id} value={fullName}>
-                                                {fullName}
-                                              </option>
-                                            ) : null;
-                                          })}
-                                        </optgroup>
-                                      ))}
-                                    {usersWithoutYacht.length > 0 && (
-                                      <optgroup label="Unassigned">
-                                        {usersWithoutYacht.map((user) => {
-                                          const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
-                                          return fullName ? (
-                                            <option key={user.id} value={fullName}>
-                                              {fullName}
-                                            </option>
-                                          ) : null;
-                                        })}
-                                      </optgroup>
-                                    )}
-                                  </>
-                                );
-                              })()}
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium mb-2">Contact Information *</label>
-                            <input
-                              type="text"
-                              required
-                              value={ownerTripForm.owner_contact}
-                              onChange={(e) => setOwnerTripForm({...ownerTripForm, owner_contact: e.target.value})}
-                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-green-500"
-                              placeholder="john@example.com or (555) 123-4567"
-                            />
-                          </div>
+                                      allUsers.forEach(user => {
+                                        if (user.is_active === false) return;
+                                        if (user.role === 'owner' || user.role === 'manager') {
+                                          const yachtName = user.yachts?.name || 'Unassigned';
+                                          if (yachtName === 'Unassigned') {
+                                            usersWithoutYacht.push(user);
+                                          } else {
+                                            if (!usersByYacht[yachtName]) {
+                                              usersByYacht[yachtName] = [];
+                                            }
+                                            usersByYacht[yachtName].push(user);
+                                          }
+                                        }
+                                      });
+
+                                      return (
+                                        <>
+                                          {Object.entries(usersByYacht)
+                                            .sort(([a], [b]) => a.localeCompare(b))
+                                            .map(([yachtName, users]) => (
+                                              <optgroup key={yachtName} label={yachtName}>
+                                                {users.map((user) => {
+                                                  const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+                                                  return fullName ? (
+                                                    <option key={user.id} value={fullName}>
+                                                      {fullName}
+                                                    </option>
+                                                  ) : null;
+                                                })}
+                                              </optgroup>
+                                            ))}
+                                          {usersWithoutYacht.length > 0 && (
+                                            <optgroup label="Unassigned">
+                                              {usersWithoutYacht.map((user) => {
+                                                const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+                                                return fullName ? (
+                                                  <option key={user.id} value={fullName}>
+                                                    {fullName}
+                                                  </option>
+                                                ) : null;
+                                              })}
+                                            </optgroup>
+                                          )}
+                                        </>
+                                      );
+                                    })()}
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-medium mb-1 text-slate-400">Contact *</label>
+                                  <input
+                                    type="text"
+                                    required
+                                    value={owner.owner_contact}
+                                    onChange={(e) => {
+                                      const newOwners = [...ownerTripForm.owners];
+                                      newOwners[index].owner_contact = e.target.value;
+                                      setOwnerTripForm({ ...ownerTripForm, owners: newOwners });
+                                    }}
+                                    className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-green-500"
+                                    placeholder="Email or phone"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
                             <label className="block text-sm font-medium mb-2">Start Date *</label>
                             <input
@@ -10862,7 +10968,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                               <div className={`font-medium truncate ${booking.is_appointment ? 'text-pink-300' : isDeparture ? 'text-green-300' : !isDeparture && booking.oil_change_needed ? 'text-yellow-300' : 'text-red-300'}`}>
                                                 {booking.yachts?.name || 'Yacht'}
                                               </div>
-                                              <div className="text-slate-400 truncate">{booking.owner_name}</div>
+                                              <div className="text-slate-400 truncate">
+                                                {booking.yacht_booking_owners && booking.yacht_booking_owners.length > 0
+                                                  ? booking.yacht_booking_owners.map(o => o.owner_name).join(', ')
+                                                  : booking.owner_name
+                                                }
+                                              </div>
                                               <div className={`text-xs ${booking.is_appointment ? 'text-pink-400' : isDeparture ? 'text-green-400' : !isDeparture && booking.oil_change_needed ? 'text-yellow-400' : 'text-red-400'}`}>
                                                 {booking.is_appointment
                                                   ? `Appt ${formatTimeOnly(booking.departure_time)}`
@@ -10952,7 +11063,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                           }`}>
                                             {booking.yachts?.name || 'Yacht'}
                                           </div>
-                                          <div className="text-xs text-slate-400 mb-2">{booking.owner_name}</div>
+                                          <div className="text-xs text-slate-400 mb-2">
+                                            {booking.yacht_booking_owners && booking.yacht_booking_owners.length > 0
+                                              ? booking.yacht_booking_owners.map(o => o.owner_name).join(', ')
+                                              : booking.owner_name
+                                            }
+                                          </div>
                                           <div className={`text-xs font-medium ${
                                             booking.is_appointment
                                               ? 'text-pink-400'
@@ -11044,7 +11160,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                             </div>
                                             <div>
                                               <h4 className="font-bold text-lg">{booking.yachts?.name || 'Yacht'}</h4>
-                                              <p className="text-sm text-slate-400">{booking.owner_name}</p>
+                                              <p className="text-sm text-slate-400">
+                                                {booking.yacht_booking_owners && booking.yacht_booking_owners.length > 0
+                                                  ? booking.yacht_booking_owners.map(o => o.owner_name).join(', ')
+                                                  : booking.owner_name
+                                                }
+                                              </p>
                                               <div className={`text-xs font-medium mt-1 ${
                                                 booking.is_appointment
                                                   ? 'text-pink-400'
@@ -12469,7 +12590,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             }`}>
                               {booking.yachts?.name || 'Yacht'}
                             </h3>
-                            <p className="text-slate-400">{booking.owner_name}</p>
+                            <p className="text-slate-400">
+                              {booking.yacht_booking_owners && booking.yacht_booking_owners.length > 0
+                                ? booking.yacht_booking_owners.map(o => o.owner_name).join(', ')
+                                : booking.owner_name
+                              }
+                            </p>
                           </div>
                         </div>
                         <div className={`px-3 py-1 rounded-full text-sm font-semibold ${

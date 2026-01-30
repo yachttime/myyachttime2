@@ -75,6 +75,14 @@ export interface UserProfile {
   updated_at: string;
 }
 
+export interface YachtBookingOwner {
+  id: string;
+  booking_id: string;
+  owner_name: string;
+  owner_contact?: string;
+  created_at: string;
+}
+
 export interface YachtBooking {
   id: string;
   yacht_id: string;
@@ -91,6 +99,7 @@ export interface YachtBooking {
   oil_change_needed?: boolean;
   created_at: string;
   updated_at: string;
+  yacht_booking_owners?: YachtBookingOwner[];
 }
 
 export interface MaintenanceRequest {
