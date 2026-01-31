@@ -396,13 +396,13 @@ export function Estimates({ userId }: EstimatesProps) {
                       <select
                         value={lineItemFormData.line_type}
                         onChange={(e) => setLineItemFormData({ ...lineItemFormData, line_type: e.target.value as any })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
                       >
-                        <option value="labor">Labor</option>
-                        <option value="part">Part</option>
-                        <option value="shop_supplies">Shop Supplies</option>
-                        <option value="park_fees">Park Fees</option>
-                        <option value="surcharge">Surcharge</option>
+                        <option value="labor" className="bg-white text-gray-900">Labor</option>
+                        <option value="part" className="bg-white text-gray-900">Part</option>
+                        <option value="shop_supplies" className="bg-white text-gray-900">Shop Supplies</option>
+                        <option value="park_fees" className="bg-white text-gray-900">Park Fees</option>
+                        <option value="surcharge" className="bg-white text-gray-900">Surcharge</option>
                       </select>
                     </div>
 
@@ -412,11 +412,11 @@ export function Estimates({ userId }: EstimatesProps) {
                         <select
                           value={lineItemFormData.labor_code_id}
                           onChange={(e) => handleLaborCodeChange(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
                         >
-                          <option value="">Select labor code</option>
+                          <option value="" className="bg-white text-gray-900">Select labor code</option>
                           {laborCodes.map((lc) => (
-                            <option key={lc.id} value={lc.id}>
+                            <option key={lc.id} value={lc.id} className="bg-white text-gray-900">
                               {lc.code} - {lc.name} (${lc.hourly_rate}/hr)
                             </option>
                           ))}
@@ -430,11 +430,11 @@ export function Estimates({ userId }: EstimatesProps) {
                         <select
                           value={lineItemFormData.part_id}
                           onChange={(e) => handlePartChange(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
                         >
-                          <option value="">Select part</option>
+                          <option value="" className="bg-white text-gray-900">Select part</option>
                           {parts.map((part) => (
-                            <option key={part.id} value={part.id}>
+                            <option key={part.id} value={part.id} className="bg-white text-gray-900">
                               {part.part_number} - {part.name} (${part.unit_price})
                             </option>
                           ))}
@@ -450,13 +450,15 @@ export function Estimates({ userId }: EstimatesProps) {
                       required
                       value={lineItemFormData.description}
                       onChange={(e) => setLineItemFormData({ ...lineItemFormData, description: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
                     />
                   </div>
 
                   <div className="grid grid-cols-3 gap-3">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {lineItemFormData.line_type === 'labor' ? 'Hours' : 'Quantity'}
+                      </label>
                       <input
                         type="number"
                         required
@@ -464,7 +466,7 @@ export function Estimates({ userId }: EstimatesProps) {
                         min="0"
                         value={lineItemFormData.quantity}
                         onChange={(e) => setLineItemFormData({ ...lineItemFormData, quantity: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
                       />
                     </div>
                     <div>
@@ -476,7 +478,7 @@ export function Estimates({ userId }: EstimatesProps) {
                         min="0"
                         value={lineItemFormData.unit_price}
                         onChange={(e) => setLineItemFormData({ ...lineItemFormData, unit_price: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
                       />
                     </div>
                     <div>

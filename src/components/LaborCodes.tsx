@@ -39,7 +39,6 @@ export function LaborCodes({ userId }: LaborCodesProps) {
     name: '',
     description: '',
     hourly_rate: '',
-    overtime_rate: '',
     accounting_code_id: '',
     is_active: true
   });
@@ -92,7 +91,6 @@ export function LaborCodes({ userId }: LaborCodesProps) {
         name: formData.name,
         description: formData.description || null,
         hourly_rate: parseFloat(formData.hourly_rate),
-        overtime_rate: formData.overtime_rate ? parseFloat(formData.overtime_rate) : null,
         accounting_code_id: formData.accounting_code_id || null,
         is_active: formData.is_active
       };
@@ -129,7 +127,6 @@ export function LaborCodes({ userId }: LaborCodesProps) {
       name: code.name,
       description: code.description || '',
       hourly_rate: code.hourly_rate.toString(),
-      overtime_rate: code.overtime_rate ? code.overtime_rate.toString() : '',
       accounting_code_id: code.accounting_code_id || '',
       is_active: code.is_active
     });
@@ -160,7 +157,6 @@ export function LaborCodes({ userId }: LaborCodesProps) {
       name: '',
       description: '',
       hourly_rate: '',
-      overtime_rate: '',
       accounting_code_id: '',
       is_active: true
     });
@@ -240,36 +236,20 @@ export function LaborCodes({ userId }: LaborCodesProps) {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Hourly Rate * ($)
-                </label>
-                <input
-                  type="number"
-                  required
-                  step="0.01"
-                  min="0"
-                  value={formData.hourly_rate}
-                  onChange={(e) => setFormData({ ...formData, hourly_rate: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
-                  placeholder="0.00"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Overtime Rate ($)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.overtime_rate}
-                  onChange={(e) => setFormData({ ...formData, overtime_rate: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
-                  placeholder="0.00"
-                />
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Hourly Rate * ($)
+              </label>
+              <input
+                type="number"
+                required
+                step="0.01"
+                min="0"
+                value={formData.hourly_rate}
+                onChange={(e) => setFormData({ ...formData, hourly_rate: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
+                placeholder="0.00"
+              />
             </div>
 
             <div>
@@ -337,9 +317,6 @@ export function LaborCodes({ userId }: LaborCodesProps) {
                 Hourly Rate
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                OT Rate
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Accounting Code
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -353,7 +330,7 @@ export function LaborCodes({ userId }: LaborCodesProps) {
           <tbody className="divide-y divide-gray-200">
             {laborCodes.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
                   No labor codes found. Create one to get started.
                 </td>
               </tr>
@@ -371,9 +348,6 @@ export function LaborCodes({ userId }: LaborCodesProps) {
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-900">
                     ${code.hourly_rate.toFixed(2)}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">
-                    {code.overtime_rate ? `$${code.overtime_rate.toFixed(2)}` : '-'}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500">
                     {code.accounting_codes ? `${code.accounting_codes.code}` : '-'}
