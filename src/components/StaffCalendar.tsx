@@ -987,12 +987,15 @@ function TimeOffRequestModal({ onClose, onSuccess }: { onClose: () => void; onSu
       return;
     }
 
-    if ((formData.start_time && !formData.end_time) || (!formData.start_time && formData.end_time)) {
+    const hasStartTime = formData.start_time && formData.start_time.trim() !== '';
+    const hasEndTime = formData.end_time && formData.end_time.trim() !== '';
+
+    if ((hasStartTime && !hasEndTime) || (!hasStartTime && hasEndTime)) {
       setError('Please provide both start and end times, or leave both empty for full day');
       return;
     }
 
-    if (formData.start_time && formData.end_time && formData.start_time >= formData.end_time) {
+    if (hasStartTime && hasEndTime && formData.start_time >= formData.end_time) {
       setError('End time must be after start time');
       return;
     }
@@ -1005,17 +1008,20 @@ function TimeOffRequestModal({ onClose, onSuccess }: { onClose: () => void; onSu
           user_id: user?.id,
           start_date: formData.start_date,
           end_date: formData.end_date,
-          start_time: formData.start_time || null,
-          end_time: formData.end_time || null,
+          start_time: hasStartTime ? formData.start_time : null,
+          end_time: hasEndTime ? formData.end_time : null,
           time_off_type: formData.time_off_type,
-          reason: formData.reason || null
+          reason: formData.reason && formData.reason.trim() ? formData.reason : null
         });
 
-      if (insertError) throw insertError;
+      if (insertError) {
+        console.error('Database error:', insertError);
+        throw insertError;
+      }
       onSuccess();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error submitting request:', err);
-      setError('Failed to submit request. Please try again.');
+      setError(err?.message || 'Failed to submit request. Please try again.');
     } finally {
       setSubmitting(false);
     }
