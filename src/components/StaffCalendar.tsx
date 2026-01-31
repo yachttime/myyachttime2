@@ -236,27 +236,25 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
           setAllTimeOffRequests(allRequestsData || []);
         }
 
-        // Load all schedule overrides for the year if master (for statistics)
-        if (isMaster) {
-          const { data: allOverridesData, error: allOverridesError } = await supabase
-            .from('staff_schedule_overrides')
-            .select(`
-              *,
-              user_profiles:user_id (
-                first_name,
-                last_name,
-                role
-              )
-            `)
-            .gte('override_date', startOfYear.toISOString().split('T')[0])
-            .lte('override_date', endOfYear.toISOString().split('T')[0])
-            .order('override_date', { ascending: true });
+        // Load all schedule overrides for the year (for calendar filtering)
+        const { data: allOverridesData, error: allOverridesError } = await supabase
+          .from('staff_schedule_overrides')
+          .select(`
+            *,
+            user_profiles:user_id (
+              first_name,
+              last_name,
+              role
+            )
+          `)
+          .gte('override_date', startOfYear.toISOString().split('T')[0])
+          .lte('override_date', endOfYear.toISOString().split('T')[0])
+          .order('override_date', { ascending: true });
 
-          if (allOverridesError) {
-            console.error('Error loading all schedule overrides:', allOverridesError);
-          } else {
-            setAllScheduleOverrides(allOverridesData || []);
-          }
+        if (allOverridesError) {
+          console.error('Error loading all schedule overrides:', allOverridesError);
+        } else {
+          setAllScheduleOverrides(allOverridesData || []);
         }
       } else {
         // For non-managers, just use the month's requests
