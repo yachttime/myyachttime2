@@ -17,7 +17,7 @@ export function VesselAgreementViewer({ agreement, userProfile, userId, onClose,
   const [error, setError] = useState('');
   const [showPrintView, setShowPrintView] = useState(false);
 
-  const isStaff = userProfile.role === 'staff' || userProfile.role === 'manager';
+  const isStaff = userProfile.role === 'staff' || userProfile.role === 'manager' || userProfile.role === 'master';
   const isOwner = userProfile.role === 'owner';
   const canSign = (isStaff && !agreement.staff_signature_date) || (isOwner && !agreement.owner_signature_date);
 

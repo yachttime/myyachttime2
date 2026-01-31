@@ -1625,10 +1625,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   };
 
   const shouldShowAgreementsButton = (yachtId: string) => {
-    if (userProfile?.role === 'staff') {
+    if (userProfile?.role === 'staff' || userProfile?.role === 'master') {
       return true;
     }
-    if (userProfile?.role === 'manager') {
+    if (userProfile?.role === 'manager' || userProfile?.role === 'master') {
       const agreements = vesselAgreements[yachtId];
       if (!agreements) {
         return true;
@@ -5084,7 +5084,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {videos.filter(v => {
                           if (v.category !== selectedCategory) return false;
-                          const isStaff = userProfile?.role === 'staff';
+                          const isStaff = userProfile?.role === 'staff' || userProfile?.role === 'master';
                           if (!isStaff && (v.category === 'SignIn' || v.category === 'Welcome')) {
                             return false;
                           }
@@ -5289,7 +5289,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {Array.from(new Set(videos.map(v => v.category)))
                         .filter(category => {
-                          const isStaff = userProfile?.role === 'staff';
+                          const isStaff = userProfile?.role === 'staff' || userProfile?.role === 'master';
                           if (!isStaff && (category === 'SignIn' || category === 'Welcome')) {
                             return false;
                           }
@@ -7433,7 +7433,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 {agreementYachtId === yacht.id ? 'Hide' : 'Agreements'}
                               </button>
                             )}
-                            {(userProfile?.role === 'manager' || userProfile?.role === 'staff') && (
+                            {(userProfile?.role === 'manager' || userProfile?.role === 'staff' || userProfile?.role === 'master') && (
                               <button
                                 onClick={() => toggleYachtInvoices(yacht.id)}
                                 className="flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors text-sm"
@@ -7466,7 +7466,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               <Pencil className="w-4 h-4" />
                               Edit
                             </button>
-                            {(userProfile?.role === 'manager' || userProfile?.role === 'staff') && (
+                            {(userProfile?.role === 'manager' || userProfile?.role === 'staff' || userProfile?.role === 'master') && (
                               <button
                                 onClick={() => setQrCodeYacht({ id: yacht.id, name: yacht.name })}
                                 className="flex items-center justify-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg transition-colors text-sm"
@@ -7918,7 +7918,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           <div className="mt-4 pt-4 border-t border-slate-700">
                             <div className="flex items-center justify-between mb-3">
                               <h4 className="text-sm font-semibold text-slate-300">Vessel Management Agreements</h4>
-                              {(userProfile?.role === 'staff' || (userProfile?.role === 'manager' && !hasSubmittedAgreement(yacht.id))) && (
+                              {(userProfile?.role === 'staff' || userProfile?.role === 'master' || (userProfile?.role === 'manager' && !hasSubmittedAgreement(yacht.id))) && (
                                 <button
                                   onClick={() => {
                                     setSelectedAgreement(null);
@@ -7973,7 +7973,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                           <span className={`px-2 py-0.5 rounded text-xs font-semibold ${getAgreementStatusColor(agreement.status)}`}>
                                             {getAgreementStatusLabel(agreement.status)}
                                           </span>
-                                          {agreement.status === 'pending_approval' && !agreement.staff_signature_date && (userProfile?.role === 'manager' || userProfile?.role === 'staff') && (
+                                          {agreement.status === 'pending_approval' && !agreement.staff_signature_date && (userProfile?.role === 'manager' || userProfile?.role === 'staff' || userProfile?.role === 'master') && (
                                             <span className="px-2 py-0.5 bg-orange-500/20 text-orange-400 rounded text-xs font-semibold">
                                               Needs AZ Marine Signature
                                             </span>
@@ -8004,7 +8004,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                             Edit
                                           </button>
                                         )}
-                                        {agreement.status === 'pending_approval' && (userProfile?.role === 'manager' || userProfile?.role === 'staff') && (
+                                        {agreement.status === 'pending_approval' && (userProfile?.role === 'manager' || userProfile?.role === 'staff' || userProfile?.role === 'master') && (
                                           <div className="flex flex-col gap-1">
                                             <button
                                               onClick={() => {
@@ -8141,6 +8141,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                             </button>
                                             {((userProfile?.role === 'owner' && agreement.submitted_by === user?.id) ||
                                               userProfile?.role === 'staff' ||
+                                              userProfile?.role === 'master' ||
                                               userProfile?.role === 'manager') && (
                                               <button
                                                 onClick={() => {
@@ -8167,7 +8168,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           </div>
                         )}
 
-                        {invoiceYachtId === yacht.id && (userProfile?.role === 'manager' || userProfile?.role === 'staff') && (
+                        {invoiceYachtId === yacht.id && (userProfile?.role === 'manager' || userProfile?.role === 'staff' || userProfile?.role === 'master') && (
                           <div className="mt-4 pt-4 border-t border-slate-700">
                             <div className="flex items-center justify-between mb-3">
                               <h4 className="text-sm font-semibold text-slate-300">Invoices</h4>
@@ -9665,7 +9666,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                         )}
                                       </div>
 
-                                      {(userProfile?.role === 'manager' || userProfile?.role === 'staff') && invoice.payment_status !== 'paid' && (
+                                      {(userProfile?.role === 'manager' || userProfile?.role === 'staff' || userProfile?.role === 'master') && invoice.payment_status !== 'paid' && (
                                         <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t border-emerald-500/20">
                                           {invoice.payment_status === 'pending' && !invoice.payment_link_url && (
                                             <button
@@ -9711,7 +9712,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                     </div>
                                   )}
 
-                                  {!invoice && request.status === 'completed' && !request.is_retail_customer && (userProfile?.role === 'manager' || userProfile?.role === 'staff') && (
+                                  {!invoice && request.status === 'completed' && !request.is_retail_customer && (userProfile?.role === 'manager' || userProfile?.role === 'staff' || userProfile?.role === 'master') && (
                                     <div className="mt-4">
                                       <button
                                         onClick={() => handleAddInvoiceToCompletedRepair(request)}
@@ -9724,7 +9725,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   )}
                                 </div>
 
-                                {(userProfile?.role === 'manager' || userProfile?.role === 'staff') && (
+                                {(userProfile?.role === 'manager' || userProfile?.role === 'staff' || userProfile?.role === 'master') && (
                                   <>
                                     {request.status === 'pending' && (
                                       <div className="flex flex-col gap-2 ml-4">
@@ -10148,7 +10149,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     </div>
                   </div>
 
-                  {userProfile?.role === 'staff' ? (
+                  {(userProfile?.role === 'staff' || userProfile?.role === 'master') ? (
                     <div className="space-y-6">
                       {selectedChatYachtId ? (
                         <>
@@ -11383,7 +11384,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               >
                                 Cancel
                               </button>
-                              {(userProfile?.role === 'staff' || userProfile?.role === 'manager') && (
+                              {(userProfile?.role === 'staff' || userProfile?.role === 'manager' || userProfile?.role === 'master') && (
                                 <button
                                   type="button"
                                   onClick={async () => {
@@ -11500,7 +11501,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               >
                                 Cancel
                               </button>
-                              {(userProfile?.role === 'staff' || userProfile?.role === 'manager') && (
+                              {(userProfile?.role === 'staff' || userProfile?.role === 'manager' || userProfile?.role === 'master') && (
                                 <button
                                   type="button"
                                   onClick={async () => {
