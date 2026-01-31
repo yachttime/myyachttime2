@@ -11,8 +11,14 @@ interface Estimate {
   is_retail_customer: boolean;
   status: string;
   subtotal: number;
-  tax_rate: number;
-  tax_amount: number;
+  sales_tax_rate: number;
+  sales_tax_amount: number;
+  shop_supplies_rate: number;
+  shop_supplies_amount: number;
+  park_fees_rate: number;
+  park_fees_amount: number;
+  surcharge_rate: number;
+  surcharge_amount: number;
   total_amount: number;
   created_at: string;
   yachts?: { name: string };
@@ -60,7 +66,10 @@ export function Estimates({ userId }: EstimatesProps) {
     customer_name: '',
     customer_email: '',
     customer_phone: '',
-    tax_rate: '0.08',
+    sales_tax_rate: '0.08',
+    shop_supplies_rate: '0.05',
+    park_fees_rate: '0.02',
+    surcharge_rate: '0.03',
     notes: '',
     customer_notes: ''
   });
@@ -95,7 +104,7 @@ export function Estimates({ userId }: EstimatesProps) {
       setLoading(true);
       setError(null);
 
-      const [estimatesResult, yachtsResult, laborResult, partsResult] = await Promise.all([
+      const [estimatesResult, yachtsResult, laborResult, partsResult, settingsResult] = await Promise.all([
         supabase
           .from('estimates')
           .select('*, yachts(name)')
@@ -114,7 +123,11 @@ export function Estimates({ userId }: EstimatesProps) {
           .from('parts_inventory')
           .select('id, part_number, name, unit_price')
           .eq('is_active', true)
-          .order('part_number')
+          .order('part_number'),
+        supabase
+          .from('estimate_settings')
+          .select('*')
+          .maybeSingle()
       ]);
 
       if (estimatesResult.error) throw estimatesResult.error;
@@ -126,6 +139,16 @@ export function Estimates({ userId }: EstimatesProps) {
       setYachts(yachtsResult.data || []);
       setLaborCodes(laborResult.data || []);
       setParts(partsResult.data || []);
+
+      if (settingsResult.data) {
+        setFormData(prev => ({
+          ...prev,
+          sales_tax_rate: settingsResult.data.sales_tax_rate.toString(),
+          shop_supplies_rate: settingsResult.data.shop_supplies_rate.toString(),
+          park_fees_rate: settingsResult.data.park_fees_rate.toString(),
+          surcharge_rate: settingsResult.data.surcharge_rate.toString()
+        }));
+      }
     } catch (err) {
       console.error('Error loading data:', err);
       setError('Failed to load estimates');
@@ -262,10 +285,29 @@ export function Estimates({ userId }: EstimatesProps) {
     );
   };
 
+  const calculateSalesTax = () => {
+    return calculateSubtotal() * parseFloat(formData.sales_tax_rate || '0');
+  };
+
+  const calculateShopSupplies = () => {
+    return calculateSubtotal() * parseFloat(formData.shop_supplies_rate || '0');
+  };
+
+  const calculateParkFees = () => {
+    return calculateSubtotal() * parseFloat(formData.park_fees_rate || '0');
+  };
+
+  const calculateSurcharge = () => {
+    return calculateSubtotal() * parseFloat(formData.surcharge_rate || '0');
+  };
+
   const calculateTotal = () => {
     const subtotal = calculateSubtotal();
-    const taxAmount = subtotal * parseFloat(formData.tax_rate);
-    return subtotal + taxAmount;
+    const salesTax = calculateSalesTax();
+    const shopSupplies = calculateShopSupplies();
+    const parkFees = calculateParkFees();
+    const surcharge = calculateSurcharge();
+    return subtotal + salesTax + shopSupplies + parkFees + surcharge;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -287,9 +329,15 @@ export function Estimates({ userId }: EstimatesProps) {
 
       const estimateNumber = await generateEstimateNumber();
       const subtotal = calculateSubtotal();
-      const taxRate = parseFloat(formData.tax_rate);
-      const taxAmount = subtotal * taxRate;
-      const totalAmount = subtotal + taxAmount;
+      const salesTaxRate = parseFloat(formData.sales_tax_rate);
+      const salesTaxAmount = calculateSalesTax();
+      const shopSuppliesRate = parseFloat(formData.shop_supplies_rate);
+      const shopSuppliesAmount = calculateShopSupplies();
+      const parkFeesRate = parseFloat(formData.park_fees_rate);
+      const parkFeesAmount = calculateParkFees();
+      const surchargeRate = parseFloat(formData.surcharge_rate);
+      const surchargeAmount = calculateSurcharge();
+      const totalAmount = calculateTotal();
 
       const estimateData = {
         estimate_number: estimateNumber,
@@ -300,8 +348,14 @@ export function Estimates({ userId }: EstimatesProps) {
         is_retail_customer: formData.is_retail_customer,
         status: 'draft',
         subtotal,
-        tax_rate: taxRate,
-        tax_amount: taxAmount,
+        sales_tax_rate: salesTaxRate,
+        sales_tax_amount: salesTaxAmount,
+        shop_supplies_rate: shopSuppliesRate,
+        shop_supplies_amount: shopSuppliesAmount,
+        park_fees_rate: parkFeesRate,
+        park_fees_amount: parkFeesAmount,
+        surcharge_rate: surchargeRate,
+        surcharge_amount: surchargeAmount,
         total_amount: totalAmount,
         notes: formData.notes || null,
         customer_notes: formData.customer_notes || null,
@@ -363,14 +417,31 @@ export function Estimates({ userId }: EstimatesProps) {
     return data;
   };
 
-  const resetForm = () => {
+  const resetForm = async () => {
+    const settingsResult = await supabase
+      .from('estimate_settings')
+      .select('*')
+      .maybeSingle();
+
+    const defaultRates = settingsResult.data ? {
+      sales_tax_rate: settingsResult.data.sales_tax_rate.toString(),
+      shop_supplies_rate: settingsResult.data.shop_supplies_rate.toString(),
+      park_fees_rate: settingsResult.data.park_fees_rate.toString(),
+      surcharge_rate: settingsResult.data.surcharge_rate.toString()
+    } : {
+      sales_tax_rate: '0.08',
+      shop_supplies_rate: '0.05',
+      park_fees_rate: '0.02',
+      surcharge_rate: '0.03'
+    };
+
     setFormData({
       is_retail_customer: false,
       yacht_id: '',
       customer_name: '',
       customer_email: '',
       customer_phone: '',
-      tax_rate: '0.08',
+      ...defaultRates,
       notes: '',
       customer_notes: ''
     });
@@ -815,34 +886,104 @@ export function Estimates({ userId }: EstimatesProps) {
               )}
             </div>
 
-            {/* Totals Section */}
+            {/* Taxes & Surcharges Section */}
             {tasks.length > 0 && (
               <div className="border-t pt-4">
-                <div className="flex justify-end space-y-2">
-                  <div className="w-64 space-y-2">
-                    <div className="flex justify-between text-sm text-gray-900">
-                      <span>Subtotal:</span>
-                      <span className="font-medium">${calculateSubtotal().toFixed(2)}</span>
+                <h4 className="text-md font-semibold text-gray-900 mb-4">Taxes & Surcharges</h4>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-gray-700">Sales Tax Rate (%)</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          step="0.0001"
+                          min="0"
+                          max="1"
+                          value={(parseFloat(formData.sales_tax_rate) * 100).toFixed(2)}
+                          onChange={(e) => setFormData({ ...formData, sales_tax_rate: (parseFloat(e.target.value) / 100).toString() })}
+                          className="w-24 px-3 py-2 text-right border border-gray-300 rounded-lg text-sm text-gray-900"
+                        />
+                        <span className="text-sm text-gray-500">= ${calculateSalesTax().toFixed(2)}</span>
+                      </div>
                     </div>
-                    <div className="flex justify-between text-sm items-center text-gray-900">
-                      <span>Tax Rate:</span>
-                      <input
-                        type="number"
-                        step="0.0001"
-                        min="0"
-                        max="1"
-                        value={formData.tax_rate}
-                        onChange={(e) => setFormData({ ...formData, tax_rate: e.target.value })}
-                        className="w-20 px-2 py-1 text-right border border-gray-300 rounded text-sm text-gray-900"
-                      />
+
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-gray-700">Shop Supplies Rate (%)</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          step="0.0001"
+                          min="0"
+                          max="1"
+                          value={(parseFloat(formData.shop_supplies_rate) * 100).toFixed(2)}
+                          onChange={(e) => setFormData({ ...formData, shop_supplies_rate: (parseFloat(e.target.value) / 100).toString() })}
+                          className="w-24 px-3 py-2 text-right border border-gray-300 rounded-lg text-sm text-gray-900"
+                        />
+                        <span className="text-sm text-gray-500">= ${calculateShopSupplies().toFixed(2)}</span>
+                      </div>
                     </div>
-                    <div className="flex justify-between text-sm text-gray-900">
-                      <span>Tax:</span>
-                      <span className="font-medium">${(calculateSubtotal() * parseFloat(formData.tax_rate)).toFixed(2)}</span>
+
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-gray-700">National Park Fees Rate (%)</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          step="0.0001"
+                          min="0"
+                          max="1"
+                          value={(parseFloat(formData.park_fees_rate) * 100).toFixed(2)}
+                          onChange={(e) => setFormData({ ...formData, park_fees_rate: (parseFloat(e.target.value) / 100).toString() })}
+                          className="w-24 px-3 py-2 text-right border border-gray-300 rounded-lg text-sm text-gray-900"
+                        />
+                        <span className="text-sm text-gray-500">= ${calculateParkFees().toFixed(2)}</span>
+                      </div>
                     </div>
-                    <div className="flex justify-between text-lg font-bold border-t pt-2 text-gray-900">
-                      <span>Total:</span>
-                      <span>${calculateTotal().toFixed(2)}</span>
+
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-gray-700">Surcharge Rate (%)</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          step="0.0001"
+                          min="0"
+                          max="1"
+                          value={(parseFloat(formData.surcharge_rate) * 100).toFixed(2)}
+                          onChange={(e) => setFormData({ ...formData, surcharge_rate: (parseFloat(e.target.value) / 100).toString() })}
+                          className="w-24 px-3 py-2 text-right border border-gray-300 rounded-lg text-sm text-gray-900"
+                        />
+                        <span className="text-sm text-gray-500">= ${calculateSurcharge().toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h5 className="text-sm font-semibold text-gray-900 mb-3">Estimate Summary</h5>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm text-gray-900">
+                        <span>Subtotal:</span>
+                        <span className="font-medium">${calculateSubtotal().toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm text-gray-600">
+                        <span>Sales Tax:</span>
+                        <span>${calculateSalesTax().toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm text-gray-600">
+                        <span>Shop Supplies:</span>
+                        <span>${calculateShopSupplies().toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm text-gray-600">
+                        <span>Park Fees:</span>
+                        <span>${calculateParkFees().toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm text-gray-600">
+                        <span>Surcharge:</span>
+                        <span>${calculateSurcharge().toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-lg font-bold border-t pt-2 mt-2 text-gray-900">
+                        <span>Total:</span>
+                        <span>${calculateTotal().toFixed(2)}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
