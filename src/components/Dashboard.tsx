@@ -12355,10 +12355,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               </div>
                             </div>
 
-                            {(userEditForm.role === 'staff' || userEditForm.role === 'manager' || userEditForm.role === 'mechanic') && (
+                            {(userEditForm.role === 'staff' || userEditForm.role === 'manager' || userEditForm.role === 'mechanic' || userEditForm.role === 'master') && (
                               <div className="mt-6 p-6 bg-slate-900/50 rounded-xl border border-slate-600">
                                 <h4 className="text-lg font-bold mb-4 text-blue-400">Notification Settings</h4>
-                                <p className="text-sm text-slate-400 mb-4">Configure how this user receives notifications for new messages</p>
+                                <p className="text-sm text-slate-400 mb-4">Configure how this user receives notifications and time clock reminders</p>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                   <div className="md:col-span-2">
