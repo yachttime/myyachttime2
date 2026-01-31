@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Yacht } from '../lib/supabase';
 
 interface YachtImpersonationContextType {
@@ -12,16 +12,36 @@ const YachtImpersonationContext = createContext<YachtImpersonationContextType | 
 
 export const YachtImpersonationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [impersonatedYacht, setImpersonatedYachtState] = useState<Yacht | null>(() => {
-    const stored = localStorage.getItem('impersonatedYacht');
-    return stored ? JSON.parse(stored) : null;
+    try {
+      const stored = localStorage.getItem('impersonatedYacht');
+      if (!stored) return null;
+
+      const parsed = JSON.parse(stored);
+      // Validate that it has required yacht properties
+      if (parsed && typeof parsed === 'object' && parsed.id && parsed.name) {
+        return parsed as Yacht;
+      }
+
+      // Invalid data, clear it
+      localStorage.removeItem('impersonatedYacht');
+      return null;
+    } catch (error) {
+      console.error('Error loading impersonated yacht from localStorage:', error);
+      localStorage.removeItem('impersonatedYacht');
+      return null;
+    }
   });
 
   const setImpersonatedYacht = (yacht: Yacht | null) => {
     setImpersonatedYachtState(yacht);
-    if (yacht) {
-      localStorage.setItem('impersonatedYacht', JSON.stringify(yacht));
-    } else {
-      localStorage.removeItem('impersonatedYacht');
+    try {
+      if (yacht) {
+        localStorage.setItem('impersonatedYacht', JSON.stringify(yacht));
+      } else {
+        localStorage.removeItem('impersonatedYacht');
+      }
+    } catch (error) {
+      console.error('Error saving impersonated yacht to localStorage:', error);
     }
   };
 
