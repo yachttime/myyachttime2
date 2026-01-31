@@ -488,7 +488,59 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
   };
 
   const getDateColor = (day: number) => {
-    return 'bg-white hover:bg-slate-50';
+    const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+    const dateStr = date.toISOString().split('T')[0];
+    const dayOfWeek = date.getDay();
+
+    const holiday = getHolidayForDate(day);
+    if (holiday) {
+      return 'bg-blue-500 hover:bg-blue-600';
+    }
+
+    const dateInSeason = isInSeason(date);
+    const dateIsWeekend = isWeekend(dayOfWeek);
+
+    const requestsForDate = getRequestsForDate(day);
+    const hasApprovedTimeOff = requestsForDate.some(r => r.status === 'approved');
+    const hasPendingRequest = requestsForDate.some(r => r.status === 'pending');
+    const hasRejectedRequest = requestsForDate.some(r => r.status === 'rejected');
+
+    if (hasApprovedTimeOff) {
+      return 'bg-green-500 hover:bg-green-600';
+    }
+
+    if (hasPendingRequest) {
+      return 'bg-yellow-500 hover:bg-yellow-600';
+    }
+
+    if (hasRejectedRequest) {
+      return 'bg-red-500 hover:bg-red-600';
+    }
+
+    const weekendSchedules = staffSchedules.filter(s =>
+      isWeekend(s.day_of_week) &&
+      s.day_of_week === dayOfWeek &&
+      s.is_working_day
+    );
+
+    if (dateIsWeekend && !dateInSeason && weekendSchedules.length > 0) {
+      const hasPendingWeekend = weekendSchedules.some(s => s.approval_status === 'pending');
+      const hasApprovedWeekend = weekendSchedules.some(s => s.approval_status === 'approved');
+
+      if (hasPendingWeekend) {
+        return 'bg-purple-500 hover:bg-purple-600';
+      }
+      if (hasApprovedWeekend) {
+        return 'bg-emerald-500 hover:bg-emerald-600';
+      }
+    }
+
+    const schedulesWorking = getSchedulesForDate(day);
+    if (schedulesWorking.length > 0) {
+      return 'bg-teal-500 hover:bg-teal-600';
+    }
+
+    return 'bg-slate-600 hover:bg-slate-700';
   };
 
   const previousMonth = () => {
@@ -735,8 +787,8 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
             <div className="text-xs text-slate-400">
               <div className="flex items-center gap-2">
                 <span className="font-semibold">Employee Display:</span>
-                <span className="text-slate-900 bg-white px-2 py-0.5 rounded">Working</span>
-                <span className="text-slate-500 line-through">Scheduled Off</span>
+                <span className="text-white px-2 py-0.5 rounded">Working</span>
+                <span className="text-slate-300 line-through">Scheduled Off</span>
               </div>
             </div>
           </div>
@@ -856,13 +908,13 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
                   {day && (
                     <>
                       <div className="flex justify-between items-start mb-1">
-                        <div className="font-bold text-slate-900">{day}</div>
+                        <div className="font-bold text-white">{day}</div>
                         {canEditDate && (
-                          <Edit3 className="w-3 h-3 text-slate-600 hover:text-amber-600" />
+                          <Edit3 className="w-3 h-3 text-white hover:text-amber-300" />
                         )}
                       </div>
                       {holiday && (
-                        <div className="text-xs font-semibold text-blue-800 mb-1 truncate">
+                        <div className="text-xs font-semibold text-white mb-1 truncate">
                           {holiday.name}
                         </div>
                       )}
@@ -870,7 +922,7 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
                         <div
                           key={`staff-${idx}`}
                           className={`text-xs font-semibold truncate ${
-                            item.type === 'working' ? 'text-slate-900' : 'text-slate-500 line-through'
+                            item.type === 'working' ? 'text-white' : 'text-slate-300 line-through'
                           }`}
                         >
                           {item.name}
