@@ -17,7 +17,26 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
   const [showApprovalPanel, setShowApprovalPanel] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<StaffTimeOffRequest | null>(null);
 
-  const isStaff = userProfile?.role === 'staff' || userProfile?.role === 'manager';
+  const isStaff = userProfile?.role === 'staff';
+  const canAccessCalendar = userProfile?.role === 'staff' || userProfile?.role === 'mechanic';
+
+  if (!canAccessCalendar) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white flex items-center justify-center">
+        <div className="text-center">
+          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold mb-2">Access Denied</h2>
+          <p className="text-slate-400 mb-4">You do not have permission to access the staff calendar.</p>
+          <button
+            onClick={onBack}
+            className="px-6 py-3 bg-amber-600 hover:bg-amber-700 rounded-lg transition-colors"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   useEffect(() => {
     loadData();

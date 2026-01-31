@@ -4262,7 +4262,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               <span className="font-medium">Education</span>
             </button>
           )}
-          {(userProfile?.role === 'mechanic' || userProfile?.role === 'staff' || userProfile?.role === 'manager') && (
+          {(userProfile?.role === 'mechanic' || userProfile?.role === 'staff') && (
             <button
               onClick={() => {
                 onNavigate('staffCalendar');
