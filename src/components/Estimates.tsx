@@ -577,16 +577,29 @@ export function Estimates({ userId }: EstimatesProps) {
           const lineItemsToInsert = task.lineItems.map((item, index) => ({
             estimate_id: estimate.id,
             task_id: estimateTask.id,
-            ...item,
+            line_type: item.line_type,
+            description: item.description,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            total_price: item.total_price,
             is_taxable: item.is_taxable ?? true,
+            labor_code_id: item.labor_code_id || null,
+            part_id: item.part_id || null,
+            accounting_code_id: item.accounting_code_id || null,
+            work_details: item.work_details || null,
             line_order: index
           }));
+
+          console.log('Inserting line items:', lineItemsToInsert);
 
           const { error: lineItemsError } = await supabase
             .from('estimate_line_items')
             .insert(lineItemsToInsert);
 
-          if (lineItemsError) throw lineItemsError;
+          if (lineItemsError) {
+            console.error('Error inserting line items:', lineItemsError);
+            throw lineItemsError;
+          }
         }
       }
 
