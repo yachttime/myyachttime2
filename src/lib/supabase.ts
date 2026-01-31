@@ -454,10 +454,19 @@ export interface StaffSchedule {
   notes?: string;
   created_at: string;
   updated_at: string;
+  requires_approval?: boolean;
+  approval_status?: 'approved' | 'denied' | 'pending' | 'not_required';
+  approved_by?: string;
+  approved_at?: string;
+  denial_reason?: string;
   user_profiles?: {
     first_name: string;
     last_name: string;
     role: string;
+  };
+  approver?: {
+    first_name: string;
+    last_name: string;
   };
 }
 

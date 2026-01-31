@@ -1,7 +1,34 @@
 import { useState, useEffect } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, User, X, Check, Clock, AlertCircle, Plus, Briefcase } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, User, X, Check, Clock, AlertCircle, Plus, Briefcase, Sun } from 'lucide-react';
 import { supabase, StaffTimeOffRequest, StaffSchedule, UserProfile } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+
+function isInSeason(date: Date): boolean {
+  const month = date.getMonth();
+  const day = date.getDate();
+
+  if (month === 4 && day >= 25) return true;
+  if (month >= 5 && month <= 8) return true;
+  if (month === 9 && day <= 30) return true;
+
+  return false;
+}
+
+function isWeekend(dayOfWeek: number): boolean {
+  return dayOfWeek === 0 || dayOfWeek === 6;
+}
+
+function getCurrentSeasonStatus(): { inSeason: boolean; label: string; dateRange: string; className: string } {
+  const now = new Date();
+  const inSeason = isInSeason(now);
+
+  return {
+    inSeason,
+    label: inSeason ? 'ON SEASON' : 'OFF SEASON',
+    dateRange: inSeason ? 'May 25 - September 30' : 'October 1 - May 24',
+    className: inSeason ? 'bg-green-600' : 'bg-orange-600'
+  };
+}
 
 interface StaffCalendarProps {
   onBack: () => void;
@@ -18,6 +45,7 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
   const [showApprovalPanel, setShowApprovalPanel] = useState(false);
   const [showWorkScheduleModal, setShowWorkScheduleModal] = useState(false);
   const [showScheduleView, setShowScheduleView] = useState(false);
+  const [showWeekendApprovalPanel, setShowWeekendApprovalPanel] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<StaffTimeOffRequest | null>(null);
 
   const isStaff = userProfile?.role === 'staff' || userProfile?.role === 'master';
@@ -158,6 +186,10 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
               first_name,
               last_name,
               role
+            ),
+            approver:approved_by (
+              first_name,
+              last_name
             )
           `)
           .order('user_id', { ascending: true })
@@ -252,6 +284,8 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
     const dayOfWeek = date.getDay();
     const today = new Date();
     const currentYear = today.getFullYear();
+    const isDateInSeason = isInSeason(date);
+    const isDateWeekend = isWeekend(dayOfWeek);
 
     return staffSchedules.filter(schedule => {
       if (!schedule.is_working_day || schedule.day_of_week !== dayOfWeek) {
@@ -265,7 +299,22 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
       const isAfterScheduleCreated = date >= scheduleCreatedDate;
       const isCurrentYear = date.getFullYear() === currentYear;
 
-      return isAfterScheduleCreated && isCurrentYear;
+      if (!isAfterScheduleCreated || !isCurrentYear) {
+        return false;
+      }
+
+      if (isDateWeekend && !isDateInSeason) {
+        const approvalStatus = schedule.approval_status || 'not_required';
+        if (approvalStatus === 'approved' || approvalStatus === 'not_required') {
+          return true;
+        }
+        if (approvalStatus === 'denied' && schedule.user_id === user?.id) {
+          return true;
+        }
+        return false;
+      }
+
+      return true;
     });
   };
 
@@ -283,6 +332,14 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
 
   const getPendingRequestsCount = () => {
     return timeOffRequests.filter(r => r.status === 'pending').length;
+  };
+
+  const getPendingWeekendApprovalsCount = () => {
+    return staffSchedules.filter(s =>
+      s.approval_status === 'pending' &&
+      s.is_working_day &&
+      isWeekend(s.day_of_week)
+    ).length;
   };
 
   const formatTimeOffType = (type: string) => {
@@ -307,6 +364,8 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
     );
   }
 
+  const seasonStatus = getCurrentSeasonStatus();
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white p-4">
       <div className="max-w-7xl mx-auto">
@@ -323,6 +382,15 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
             Staff Calendar
           </h1>
           <div className="flex gap-2">
+            {isStaff && getPendingWeekendApprovalsCount() > 0 && (
+              <button
+                onClick={() => setShowWeekendApprovalPanel(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
+              >
+                <Sun className="w-5 h-5" />
+                Weekend Approvals ({getPendingWeekendApprovalsCount()})
+              </button>
+            )}
             {canManageSchedules && getPendingRequestsCount() > 0 && (
               <button
                 onClick={() => setShowApprovalPanel(true)}
@@ -360,6 +428,19 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
           </div>
         </div>
 
+        <div className={`${seasonStatus.className} rounded-lg p-4 mb-6 text-center`}>
+          <div className="flex items-center justify-center gap-3">
+            <Sun className="w-6 h-6" />
+            <div>
+              <h3 className="text-xl font-bold">{seasonStatus.label}</h3>
+              <p className="text-sm opacity-90">{seasonStatus.dateRange}</p>
+              {!seasonStatus.inSeason && (
+                <p className="text-xs mt-1 opacity-80">Weekend work requires staff approval during off-season</p>
+              )}
+            </div>
+          </div>
+        </div>
+
         <div className="bg-slate-800 rounded-lg p-6 mb-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold">Color Legend</h2>
@@ -388,6 +469,14 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 bg-slate-600 rounded"></div>
               <span>Regular Day</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 bg-purple-500 rounded"></div>
+              <span>Weekend Pending Approval</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 bg-emerald-500 rounded"></div>
+              <span>Weekend Approved</span>
             </div>
           </div>
         </div>
@@ -510,6 +599,18 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
             schedules={staffSchedules}
             staff={allStaff}
             onClose={() => setShowScheduleView(false)}
+          />
+        )}
+
+        {showWeekendApprovalPanel && isStaff && (
+          <WeekendApprovalPanel
+            schedules={staffSchedules.filter(s =>
+              s.approval_status === 'pending' &&
+              s.is_working_day &&
+              isWeekend(s.day_of_week)
+            )}
+            onClose={() => setShowWeekendApprovalPanel(false)}
+            onSuccess={loadData}
           />
         )}
       </div>
@@ -943,10 +1044,12 @@ function RequestDetailsModal({
 function WorkScheduleModal({ staff, onClose }: { staff: UserProfile[]; onClose: () => void }) {
   const [selectedStaffId, setSelectedStaffId] = useState<string>('');
   const [schedules, setSchedules] = useState<{ [key: number]: { isWorking: boolean; startTime: string; endTime: string; notes: string } }>({});
+  const [existingSchedules, setExistingSchedules] = useState<StaffSchedule[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const seasonStatus = getCurrentSeasonStatus();
 
   useEffect(() => {
     if (selectedStaffId) {
@@ -959,10 +1062,18 @@ function WorkScheduleModal({ staff, onClose }: { staff: UserProfile[]; onClose: 
       setLoading(true);
       const { data, error } = await supabase
         .from('staff_schedules')
-        .select('*')
+        .select(`
+          *,
+          approver:approved_by (
+            first_name,
+            last_name
+          )
+        `)
         .eq('user_id', selectedStaffId);
 
       if (error) throw error;
+
+      setExistingSchedules(data || []);
 
       const scheduleMap: { [key: number]: { isWorking: boolean; startTime: string; endTime: string; notes: string } } = {};
 
@@ -993,9 +1104,12 @@ function WorkScheduleModal({ staff, onClose }: { staff: UserProfile[]; onClose: 
 
     try {
       setSaving(true);
+      const seasonStatus = getCurrentSeasonStatus();
 
       for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {
         const schedule = schedules[dayOfWeek];
+        const isWeekendDay = isWeekend(dayOfWeek);
+        const needsApproval = isWeekendDay && !seasonStatus.inSeason && schedule.isWorking;
 
         const { error } = await supabase
           .from('staff_schedules')
@@ -1006,6 +1120,8 @@ function WorkScheduleModal({ staff, onClose }: { staff: UserProfile[]; onClose: 
             start_time: schedule.isWorking ? schedule.startTime : null,
             end_time: schedule.isWorking ? schedule.endTime : null,
             notes: schedule.notes || null,
+            requires_approval: needsApproval,
+            approval_status: needsApproval ? 'pending' : 'not_required',
             updated_at: new Date().toISOString()
           }, {
             onConflict: 'user_id,day_of_week'
@@ -1014,7 +1130,11 @@ function WorkScheduleModal({ staff, onClose }: { staff: UserProfile[]; onClose: 
         if (error) throw error;
       }
 
-      alert('Work schedule saved successfully!');
+      alert('Work schedule saved successfully!' + (
+        schedules.some((s, idx) => isWeekend(idx) && s.isWorking && !seasonStatus.inSeason)
+          ? '\n\nNote: Weekend work during off-season requires staff approval.'
+          : ''
+      ));
       onClose();
     } catch (err) {
       console.error('Error saving schedules:', err);
@@ -1079,22 +1199,59 @@ function WorkScheduleModal({ staff, onClose }: { staff: UserProfile[]; onClose: 
               Set the weekly work schedule. Toggle days on/off and set work hours.
             </p>
 
-            {dayNames.map((dayName, dayOfWeek) => (
-              <div key={dayOfWeek} className="bg-slate-700 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      checked={schedules[dayOfWeek]?.isWorking || false}
-                      onChange={() => toggleWorkingDay(dayOfWeek)}
-                      className="w-5 h-5 rounded border-slate-500 text-green-600 focus:ring-green-500"
-                    />
-                    <h4 className="font-semibold text-lg">{dayName}</h4>
+            {dayNames.map((dayName, dayOfWeek) => {
+              const existingSchedule = existingSchedules.find(s => s.day_of_week === dayOfWeek);
+              const isWeekendDay = isWeekend(dayOfWeek);
+              const willNeedApproval = isWeekendDay && !seasonStatus.inSeason && schedules[dayOfWeek]?.isWorking;
+              const approvalStatus = existingSchedule?.approval_status;
+
+              return (
+                <div key={dayOfWeek} className="bg-slate-700 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={schedules[dayOfWeek]?.isWorking || false}
+                        onChange={() => toggleWorkingDay(dayOfWeek)}
+                        className="w-5 h-5 rounded border-slate-500 text-green-600 focus:ring-green-500"
+                      />
+                      <h4 className="font-semibold text-lg flex items-center gap-2">
+                        {dayName}
+                        {isWeekendDay && <Sun className="w-4 h-4 text-amber-400" />}
+                      </h4>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {schedules[dayOfWeek]?.isWorking && !willNeedApproval && (
+                        <span className="text-xs bg-green-600 px-2 py-1 rounded">Working Day</span>
+                      )}
+                      {willNeedApproval && (
+                        <span className="text-xs bg-orange-600 px-2 py-1 rounded flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3" />
+                          Needs Approval
+                        </span>
+                      )}
+                      {approvalStatus === 'pending' && (
+                        <span className="text-xs bg-yellow-600 px-2 py-1 rounded">Pending</span>
+                      )}
+                      {approvalStatus === 'approved' && (
+                        <span className="text-xs bg-emerald-600 px-2 py-1 rounded flex items-center gap-1">
+                          <Check className="w-3 h-3" />
+                          Approved {existingSchedule?.approver && `by ${existingSchedule.approver.first_name}`}
+                        </span>
+                      )}
+                      {approvalStatus === 'denied' && (
+                        <span className="text-xs bg-red-600 px-2 py-1 rounded flex items-center gap-1">
+                          <X className="w-3 h-3" />
+                          Denied
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  {schedules[dayOfWeek]?.isWorking && (
-                    <span className="text-xs bg-green-600 px-2 py-1 rounded">Working Day</span>
+                  {approvalStatus === 'denied' && existingSchedule?.denial_reason && (
+                    <div className="mb-3 text-sm text-red-300 bg-red-900/30 p-2 rounded">
+                      <strong>Denial Reason:</strong> {existingSchedule.denial_reason}
+                    </div>
                   )}
-                </div>
 
                 {schedules[dayOfWeek]?.isWorking && (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
@@ -1128,8 +1285,9 @@ function WorkScheduleModal({ staff, onClose }: { staff: UserProfile[]; onClose: 
                     </div>
                   </div>
                 )}
-              </div>
-            ))}
+                </div>
+              );
+            })}
 
             <div className="flex gap-3 pt-4">
               <button
@@ -1153,6 +1311,189 @@ function WorkScheduleModal({ staff, onClose }: { staff: UserProfile[]; onClose: 
           <div className="text-center py-8">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500 mx-auto mb-4"></div>
             <p className="text-slate-400">Loading schedule...</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function WeekendApprovalPanel({ schedules, onClose, onSuccess }: {
+  schedules: StaffSchedule[];
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const { user } = useAuth();
+  const [processing, setProcessing] = useState<string | null>(null);
+  const [denialReasons, setDenialReasons] = useState<{ [key: string]: string }>({});
+
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  const handleApprove = async (scheduleId: string, schedule: StaffSchedule) => {
+    try {
+      setProcessing(scheduleId);
+
+      const { error: updateError } = await supabase
+        .from('staff_schedules')
+        .update({
+          approval_status: 'approved',
+          approved_by: user?.id,
+          approved_at: new Date().toISOString()
+        })
+        .eq('id', scheduleId);
+
+      if (updateError) throw updateError;
+
+      const { error: notifError } = await supabase
+        .from('admin_notifications')
+        .insert({
+          user_id: schedule.user_id,
+          message: `Your weekend work schedule for ${dayNames[schedule.day_of_week]} has been approved`,
+          notification_type: 'weekend_approval',
+          reference_id: scheduleId
+        });
+
+      if (notifError) console.error('Error creating notification:', notifError);
+
+      onSuccess();
+    } catch (err) {
+      console.error('Error approving schedule:', err);
+      alert('Failed to approve schedule');
+    } finally {
+      setProcessing(null);
+    }
+  };
+
+  const handleDeny = async (scheduleId: string, schedule: StaffSchedule) => {
+    const reason = denialReasons[scheduleId];
+    if (!reason || reason.trim() === '') {
+      alert('Please provide a reason for denial');
+      return;
+    }
+
+    try {
+      setProcessing(scheduleId);
+
+      const { error: updateError } = await supabase
+        .from('staff_schedules')
+        .update({
+          approval_status: 'denied',
+          approved_by: user?.id,
+          approved_at: new Date().toISOString(),
+          denial_reason: reason
+        })
+        .eq('id', scheduleId);
+
+      if (updateError) throw updateError;
+
+      const { error: notifError } = await supabase
+        .from('admin_notifications')
+        .insert({
+          user_id: schedule.user_id,
+          message: `Your weekend work schedule for ${dayNames[schedule.day_of_week]} has been denied. Reason: ${reason}`,
+          notification_type: 'weekend_denial',
+          reference_id: scheduleId
+        });
+
+      if (notifError) console.error('Error creating notification:', notifError);
+
+      onSuccess();
+    } catch (err) {
+      console.error('Error denying schedule:', err);
+      alert('Failed to deny schedule');
+    } finally {
+      setProcessing(null);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-slate-800 rounded-lg p-6 max-w-4xl w-full max-h-[80vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xl font-bold flex items-center gap-2">
+            <Sun className="w-6 h-6 text-purple-500" />
+            Weekend Work Approvals
+          </h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-white">
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        <div className="bg-orange-600/20 border border-orange-600 text-orange-200 px-4 py-3 rounded-lg mb-4">
+          <p className="text-sm">
+            Weekend work during off-season requires approval. Review and approve or deny the requests below.
+          </p>
+        </div>
+
+        {schedules.length === 0 ? (
+          <p className="text-slate-400 text-center py-8">No pending weekend work approvals</p>
+        ) : (
+          <div className="space-y-4">
+            {schedules.map(schedule => (
+              <div key={schedule.id} className="bg-slate-700 rounded-lg p-4">
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <h4 className="font-semibold flex items-center gap-2">
+                      <User className="w-4 h-4" />
+                      {schedule.user_profiles?.first_name} {schedule.user_profiles?.last_name}
+                      <span className="text-xs text-slate-400 ml-2">
+                        ({schedule.user_profiles?.role})
+                      </span>
+                    </h4>
+                    <p className="text-sm text-slate-300 mt-1 flex items-center gap-2">
+                      <Sun className="w-3 h-3" />
+                      {dayNames[schedule.day_of_week]}
+                    </p>
+                  </div>
+                  <span className="text-xs bg-yellow-600 px-2 py-1 rounded">Pending Approval</span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mb-3">
+                  <div>
+                    <p className="text-xs text-slate-400">Work Hours</p>
+                    <p className="font-medium">
+                      {schedule.start_time} - {schedule.end_time}
+                    </p>
+                  </div>
+                  {schedule.notes && (
+                    <div>
+                      <p className="text-xs text-slate-400">Notes</p>
+                      <p className="text-sm">{schedule.notes}</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="mb-3">
+                  <label className="block text-xs text-slate-400 mb-1">Denial Reason (required if denying)</label>
+                  <textarea
+                    value={denialReasons[schedule.id] || ''}
+                    onChange={e => setDenialReasons({ ...denialReasons, [schedule.id]: e.target.value })}
+                    placeholder="Enter reason for denial..."
+                    className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    rows={2}
+                  />
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleApprove(schedule.id, schedule)}
+                    disabled={processing === schedule.id}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    <Check className="w-4 h-4" />
+                    Approve
+                  </button>
+                  <button
+                    onClick={() => handleDeny(schedule.id, schedule)}
+                    disabled={processing === schedule.id}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    <X className="w-4 h-4" />
+                    Deny
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
