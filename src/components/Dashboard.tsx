@@ -12501,7 +12501,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                             return hasResults ? (
                               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {staffUsers.length > 0 && (
+                                {staffUsers.length > 0 && effectiveRole !== 'manager' && (
                                   <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 overflow-hidden hover:border-blue-500 transition-all duration-300 hover:scale-105 group">
                                     <div className="bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border-b border-slate-700 px-6 py-4">
                                       <div className="flex items-center gap-3">
