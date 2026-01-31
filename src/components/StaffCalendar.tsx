@@ -259,10 +259,14 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
   const getDateColor = (day: number) => {
     const requests = getRequestsForDate(day);
     const holiday = getHolidayForDate(day);
+    const schedules = getSchedulesForDate(day);
 
     if (holiday && requests.length === 0) return 'bg-blue-100 hover:bg-blue-200';
 
-    if (requests.length === 0) return 'bg-white hover:bg-gray-50';
+    if (requests.length === 0) {
+      if (schedules.length > 0) return 'bg-teal-100 hover:bg-teal-200';
+      return 'bg-white hover:bg-gray-50';
+    }
 
     const hasApproved = requests.some(r => r.status === 'approved');
     const hasPending = requests.some(r => r.status === 'pending');
@@ -447,7 +451,7 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
                         </div>
                       )}
                       {schedules.map((schedule, idx) => (
-                        <div key={`schedule-${idx}`} className="text-xs font-medium text-teal-700 truncate">
+                        <div key={`schedule-${idx}`} className="text-xs font-semibold text-slate-900 truncate">
                           {schedule.user_profiles?.first_name} {schedule.user_profiles?.last_name}
                         </div>
                       ))}
