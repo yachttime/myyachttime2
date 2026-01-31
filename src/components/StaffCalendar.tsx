@@ -411,6 +411,18 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
     const dateOverrides = scheduleOverrides.filter(override => override.override_date === dateStr);
 
     return staffSchedules.filter(schedule => {
+      // Check if there's an approved time-off request for this user on this date
+      const hasApprovedTimeOff = timeOffRequests.some(request =>
+        request.user_id === schedule.user_id &&
+        request.status === 'approved' &&
+        dateStr >= request.start_date &&
+        dateStr <= request.end_date
+      );
+
+      if (hasApprovedTimeOff) {
+        return false;
+      }
+
       // Check if there's an override for this user on this date
       const override = dateOverrides.find(o => o.user_id === schedule.user_id);
 
