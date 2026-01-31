@@ -9,6 +9,8 @@ interface StaffScheduleOverride {
   override_date: string;
   status: 'working' | 'approved_day_off' | 'sick_leave';
   notes: string | null;
+  start_time: string | null;
+  end_time: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -467,6 +469,15 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
 
   const formatTimeOffType = (type: string) => {
     return type.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+  };
+
+  const formatTime = (time: string | null) => {
+    if (!time) return '';
+    const [hours, minutes] = time.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour % 12 || 12;
+    return `${displayHour}:${minutes} ${ampm}`;
   };
 
   const monthNames = [
@@ -1946,6 +1957,8 @@ function DateScheduleEditModal({ date, staff, scheduleOverrides, onClose, onSucc
     [userId: string]: {
       status: 'working' | 'approved_day_off' | 'sick_leave' | 'default';
       notes: string;
+      start_time: string;
+      end_time: string;
       overrideId?: string;
     };
   }>({});
@@ -1959,12 +1972,16 @@ function DateScheduleEditModal({ date, staff, scheduleOverrides, onClose, onSucc
         initialStates[staffMember.user_id] = {
           status: existingOverride.status,
           notes: existingOverride.notes || '',
+          start_time: existingOverride.start_time || '',
+          end_time: existingOverride.end_time || '',
           overrideId: existingOverride.id
         };
       } else {
         initialStates[staffMember.user_id] = {
           status: 'default',
-          notes: ''
+          notes: '',
+          start_time: '',
+          end_time: ''
         };
       }
     });
@@ -1978,6 +1995,18 @@ function DateScheduleEditModal({ date, staff, scheduleOverrides, onClose, onSucc
       for (const staffMember of staff) {
         const state = overrideStates[staffMember.user_id];
         if (!state) continue;
+
+        if ((state.start_time && !state.end_time) || (!state.start_time && state.end_time)) {
+          alert(`Please provide both start and end times for ${staffMember.first_name} ${staffMember.last_name}, or leave both empty.`);
+          setSaving(false);
+          return;
+        }
+
+        if (state.start_time && state.end_time && state.start_time >= state.end_time) {
+          alert(`End time must be after start time for ${staffMember.first_name} ${staffMember.last_name}.`);
+          setSaving(false);
+          return;
+        }
 
         if (state.status === 'default') {
           if (state.overrideId) {
@@ -1997,6 +2026,8 @@ function DateScheduleEditModal({ date, staff, scheduleOverrides, onClose, onSucc
               override_date: dateStr,
               status: state.status,
               notes: state.notes || null,
+              start_time: state.start_time || null,
+              end_time: state.end_time || null,
               created_by: user?.id,
               updated_at: new Date().toISOString()
             }, {
@@ -2036,6 +2067,16 @@ function DateScheduleEditModal({ date, staff, scheduleOverrides, onClose, onSucc
     });
   };
 
+  const updateStaffTime = (userId: string, field: 'start_time' | 'end_time', value: string) => {
+    setOverrideStates({
+      ...overrideStates,
+      [userId]: {
+        ...overrideStates[userId],
+        [field]: value
+      }
+    });
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'working': return 'bg-teal-600';
@@ -2052,6 +2093,15 @@ function DateScheduleEditModal({ date, staff, scheduleOverrides, onClose, onSucc
       case 'sick_leave': return 'Sick Leave';
       default: return 'Default Schedule';
     }
+  };
+
+  const formatTime = (time: string | null) => {
+    if (!time) return '';
+    const [hours, minutes] = time.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour % 12 || 12;
+    return `${displayHour}:${minutes} ${ampm}`;
   };
 
   return (
@@ -2080,7 +2130,7 @@ function DateScheduleEditModal({ date, staff, scheduleOverrides, onClose, onSucc
 
         <div className="space-y-3">
           {staff.map(staffMember => {
-            const state = overrideStates[staffMember.user_id] || { status: 'default', notes: '' };
+            const state = overrideStates[staffMember.user_id] || { status: 'default', notes: '', start_time: '', end_time: '' };
             return (
               <div key={staffMember.user_id} className="bg-slate-700 rounded-lg p-4">
                 <div className="flex items-center justify-between mb-3">
@@ -2093,8 +2143,16 @@ function DateScheduleEditModal({ date, staff, scheduleOverrides, onClose, onSucc
                       <p className="text-xs text-slate-400 capitalize">{staffMember.role}</p>
                     </div>
                   </div>
-                  <div className={`px-3 py-1 rounded text-sm font-medium ${getStatusColor(state.status)}`}>
-                    {getStatusLabel(state.status)}
+                  <div className="flex flex-col items-end gap-1">
+                    <div className={`px-3 py-1 rounded text-sm font-medium ${getStatusColor(state.status)}`}>
+                      {getStatusLabel(state.status)}
+                    </div>
+                    {state.start_time && state.end_time && (
+                      <div className="text-xs text-slate-400 flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {formatTime(state.start_time)} - {formatTime(state.end_time)}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -2142,15 +2200,47 @@ function DateScheduleEditModal({ date, staff, scheduleOverrides, onClose, onSucc
                 </div>
 
                 {state.status !== 'default' && (
-                  <div>
-                    <label className="block text-xs text-slate-400 mb-1">Notes (Optional)</label>
-                    <input
-                      type="text"
-                      value={state.notes}
-                      onChange={e => updateStaffNotes(staffMember.user_id, e.target.value)}
-                      placeholder="Add notes..."
-                      className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                    />
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs text-slate-400 mb-1">Notes (Optional)</label>
+                      <input
+                        type="text"
+                        value={state.notes}
+                        onChange={e => updateStaffNotes(staffMember.user_id, e.target.value)}
+                        placeholder="Add notes..."
+                        className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs text-slate-400 mb-1">
+                        <Clock className="w-3 h-3 inline mr-1" />
+                        Work Hours (Optional - for partial days)
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-xs text-slate-500 mb-1">Start Time</label>
+                          <input
+                            type="time"
+                            value={state.start_time}
+                            onChange={e => updateStaffTime(staffMember.user_id, 'start_time', e.target.value)}
+                            className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-slate-500 mb-1">End Time</label>
+                          <input
+                            type="time"
+                            value={state.end_time}
+                            onChange={e => updateStaffTime(staffMember.user_id, 'end_time', e.target.value)}
+                            className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                          />
+                        </div>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Leave empty for full day status. Add times to track partial day work (e.g., half-day).
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
