@@ -1396,11 +1396,19 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     try {
       let query = supabase
         .from('yachts')
-        .select('*')
-        .eq('is_active', true);
+        .select('*');
 
-      if (userProfile?.role === 'manager' && userProfile.yacht_id) {
-        query = query.eq('id', userProfile.yacht_id);
+      // Master role: see ALL yachts (active and inactive)
+      if (isMasterRole(userProfile?.role)) {
+        // No filter - master sees everything
+      }
+      // Manager role: see only their assigned yacht
+      else if (userProfile?.role === 'manager' && userProfile.yacht_id) {
+        query = query.eq('id', userProfile.yacht_id).eq('is_active', true);
+      }
+      // Staff/Mechanic: see all active yachts
+      else {
+        query = query.eq('is_active', true);
       }
 
       const { data, error } = await query.order('name', { ascending: true });
