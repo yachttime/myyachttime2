@@ -1166,9 +1166,9 @@ export function Estimates({ userId }: EstimatesProps) {
                       <div className="flex items-center gap-1">
                         <input
                           type="number"
-                          step="0.0001"
+                          step="0.01"
                           min="0"
-                          max="1"
+                          max="100"
                           value={(parseFloat(formData.sales_tax_rate) * 100).toFixed(2)}
                           onChange={(e) => setFormData({ ...formData, sales_tax_rate: (parseFloat(e.target.value) / 100).toString() })}
                           className="w-16 px-1.5 py-0.5 text-right border border-gray-300 rounded text-xs text-gray-900"
@@ -1191,9 +1191,9 @@ export function Estimates({ userId }: EstimatesProps) {
                       <div className="flex items-center gap-1">
                         <input
                           type="number"
-                          step="0.0001"
+                          step="0.01"
                           min="0"
-                          max="1"
+                          max="100"
                           value={(parseFloat(formData.shop_supplies_rate) * 100).toFixed(2)}
                           onChange={(e) => setFormData({ ...formData, shop_supplies_rate: (parseFloat(e.target.value) / 100).toString() })}
                           disabled={!formData.apply_shop_supplies}
@@ -1217,9 +1217,9 @@ export function Estimates({ userId }: EstimatesProps) {
                       <div className="flex items-center gap-1">
                         <input
                           type="number"
-                          step="0.0001"
+                          step="0.01"
                           min="0"
-                          max="1"
+                          max="100"
                           value={(parseFloat(formData.park_fees_rate) * 100).toFixed(2)}
                           onChange={(e) => setFormData({ ...formData, park_fees_rate: (parseFloat(e.target.value) / 100).toString() })}
                           disabled={!formData.apply_park_fees}
@@ -1234,9 +1234,9 @@ export function Estimates({ userId }: EstimatesProps) {
                       <div className="flex items-center gap-1">
                         <input
                           type="number"
-                          step="0.0001"
+                          step="0.01"
                           min="0"
-                          max="1"
+                          max="100"
                           value={(parseFloat(formData.surcharge_rate) * 100).toFixed(2)}
                           onChange={(e) => setFormData({ ...formData, surcharge_rate: (parseFloat(e.target.value) / 100).toString() })}
                           className="w-16 px-1.5 py-0.5 text-right border border-gray-300 rounded text-xs text-gray-900"
