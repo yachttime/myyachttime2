@@ -72,6 +72,8 @@ export function Estimates({ userId }: EstimatesProps) {
     shop_supplies_rate: '0.05',
     park_fees_rate: '0.02',
     surcharge_rate: '0.03',
+    apply_shop_supplies: true,
+    apply_park_fees: true,
     notes: '',
     customer_notes: ''
   });
@@ -95,6 +97,7 @@ export function Estimates({ userId }: EstimatesProps) {
     is_taxable: true,
     labor_code_id: '',
     part_id: '',
+    part_number_search: '',
     work_details: ''
   });
 
@@ -249,6 +252,7 @@ export function Estimates({ userId }: EstimatesProps) {
       is_taxable: true,
       labor_code_id: '',
       part_id: '',
+      part_number_search: '',
       work_details: ''
     });
     setShowLineItemForm(false);
@@ -280,10 +284,35 @@ export function Estimates({ userId }: EstimatesProps) {
       setLineItemFormData({
         ...lineItemFormData,
         part_id: partId,
+        part_number_search: part.part_number,
         description: `${part.part_number} - ${part.name}`,
         unit_price: part.unit_price.toString(),
         is_taxable: part.is_taxable
       });
+    }
+  };
+
+  const handlePartNumberSearch = (searchValue: string) => {
+    setLineItemFormData({
+      ...lineItemFormData,
+      part_number_search: searchValue
+    });
+
+    if (searchValue.trim()) {
+      const matchingPart = parts.find(p =>
+        p.part_number.toLowerCase() === searchValue.toLowerCase()
+      );
+
+      if (matchingPart) {
+        setLineItemFormData({
+          ...lineItemFormData,
+          part_number_search: searchValue,
+          part_id: matchingPart.id,
+          description: `${matchingPart.part_number} - ${matchingPart.name}`,
+          unit_price: matchingPart.unit_price.toString(),
+          is_taxable: matchingPart.is_taxable
+        });
+      }
     }
   };
 
@@ -312,10 +341,12 @@ export function Estimates({ userId }: EstimatesProps) {
   };
 
   const calculateShopSupplies = () => {
+    if (!formData.apply_shop_supplies) return 0;
     return calculateSubtotal() * parseFloat(formData.shop_supplies_rate || '0');
   };
 
   const calculateParkFees = () => {
+    if (!formData.apply_park_fees) return 0;
     return calculateSubtotal() * parseFloat(formData.park_fees_rate || '0');
   };
 
@@ -465,6 +496,8 @@ export function Estimates({ userId }: EstimatesProps) {
       customer_email: '',
       customer_phone: '',
       ...defaultRates,
+      apply_shop_supplies: true,
+      apply_park_fees: true,
       notes: '',
       customer_notes: ''
     });
@@ -817,21 +850,39 @@ export function Estimates({ userId }: EstimatesProps) {
                                 )}
 
                                 {lineItemFormData.line_type === 'part' && (
-                                  <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Part</label>
-                                    <select
-                                      value={lineItemFormData.part_id}
-                                      onChange={(e) => handlePartChange(e.target.value)}
-                                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
-                                    >
-                                      <option value="">Select part</option>
-                                      {parts.map((part) => (
-                                        <option key={part.id} value={part.id}>
-                                          {part.part_number} - {part.name} (${part.unit_price})
-                                        </option>
-                                      ))}
-                                    </select>
-                                  </div>
+                                  <>
+                                    <div>
+                                      <label className="block text-sm font-medium text-gray-700 mb-1">Part Number</label>
+                                      <input
+                                        type="text"
+                                        value={lineItemFormData.part_number_search}
+                                        onChange={(e) => handlePartNumberSearch(e.target.value)}
+                                        placeholder="Enter part number to search..."
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
+                                      />
+                                      {lineItemFormData.part_number_search && !lineItemFormData.part_id && (
+                                        <p className="text-xs text-orange-600 mt-1">No matching part found</p>
+                                      )}
+                                      {lineItemFormData.part_id && (
+                                        <p className="text-xs text-green-600 mt-1">Part found and selected</p>
+                                      )}
+                                    </div>
+                                    <div>
+                                      <label className="block text-sm font-medium text-gray-700 mb-1">Or Select Part</label>
+                                      <select
+                                        value={lineItemFormData.part_id}
+                                        onChange={(e) => handlePartChange(e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
+                                      >
+                                        <option value="">Select part</option>
+                                        {parts.map((part) => (
+                                          <option key={part.id} value={part.id}>
+                                            {part.part_number} - {part.name} (${part.unit_price})
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                  </>
                                 )}
                               </div>
 
@@ -961,7 +1012,16 @@ export function Estimates({ userId }: EstimatesProps) {
                     </div>
 
                     <div className="flex items-center justify-between">
-                      <label className="text-sm font-medium text-gray-700">Shop Supplies Rate (%)</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id="apply_shop_supplies"
+                          checked={formData.apply_shop_supplies}
+                          onChange={(e) => setFormData({ ...formData, apply_shop_supplies: e.target.checked })}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <label htmlFor="apply_shop_supplies" className="text-sm font-medium text-gray-700">Shop Supplies Rate (%)</label>
+                      </div>
                       <div className="flex items-center gap-2">
                         <input
                           type="number"
@@ -970,14 +1030,24 @@ export function Estimates({ userId }: EstimatesProps) {
                           max="1"
                           value={(parseFloat(formData.shop_supplies_rate) * 100).toFixed(2)}
                           onChange={(e) => setFormData({ ...formData, shop_supplies_rate: (parseFloat(e.target.value) / 100).toString() })}
-                          className="w-24 px-3 py-2 text-right border border-gray-300 rounded-lg text-sm text-gray-900"
+                          disabled={!formData.apply_shop_supplies}
+                          className="w-24 px-3 py-2 text-right border border-gray-300 rounded-lg text-sm text-gray-900 disabled:bg-gray-100"
                         />
                         <span className="text-sm text-gray-500">= ${calculateShopSupplies().toFixed(2)}</span>
                       </div>
                     </div>
 
                     <div className="flex items-center justify-between">
-                      <label className="text-sm font-medium text-gray-700">National Park Fees Rate (%)</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id="apply_park_fees"
+                          checked={formData.apply_park_fees}
+                          onChange={(e) => setFormData({ ...formData, apply_park_fees: e.target.checked })}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <label htmlFor="apply_park_fees" className="text-sm font-medium text-gray-700">National Park Fees Rate (%)</label>
+                      </div>
                       <div className="flex items-center gap-2">
                         <input
                           type="number"
@@ -986,7 +1056,8 @@ export function Estimates({ userId }: EstimatesProps) {
                           max="1"
                           value={(parseFloat(formData.park_fees_rate) * 100).toFixed(2)}
                           onChange={(e) => setFormData({ ...formData, park_fees_rate: (parseFloat(e.target.value) / 100).toString() })}
-                          className="w-24 px-3 py-2 text-right border border-gray-300 rounded-lg text-sm text-gray-900"
+                          disabled={!formData.apply_park_fees}
+                          className="w-24 px-3 py-2 text-right border border-gray-300 rounded-lg text-sm text-gray-900 disabled:bg-gray-100"
                         />
                         <span className="text-sm text-gray-500">= ${calculateParkFees().toFixed(2)}</span>
                       </div>
