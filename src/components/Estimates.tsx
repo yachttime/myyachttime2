@@ -21,6 +21,8 @@ interface Estimate {
   surcharge_rate: number;
   surcharge_amount: number;
   total_amount: number;
+  marina_name: string | null;
+  manager_name: string | null;
   created_at: string;
   yachts?: { name: string };
 }
@@ -56,6 +58,7 @@ interface EstimatesProps {
 export function Estimates({ userId }: EstimatesProps) {
   const [estimates, setEstimates] = useState<Estimate[]>([]);
   const [yachts, setYachts] = useState<any[]>([]);
+  const [managers, setManagers] = useState<any[]>([]);
   const [laborCodes, setLaborCodes] = useState<any[]>([]);
   const [parts, setParts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -69,6 +72,8 @@ export function Estimates({ userId }: EstimatesProps) {
     customer_name: '',
     customer_email: '',
     customer_phone: '',
+    marina_name: '',
+    manager_name: '',
     sales_tax_rate: '0.08',
     shop_supplies_rate: '0.05',
     park_fees_rate: '0.02',
@@ -146,16 +151,21 @@ export function Estimates({ userId }: EstimatesProps) {
       setLoading(true);
       setError(null);
 
-      const [estimatesResult, yachtsResult, laborResult, partsResult, settingsResult] = await Promise.all([
+      const [estimatesResult, yachtsResult, managersResult, laborResult, partsResult, settingsResult] = await Promise.all([
         supabase
           .from('estimates')
           .select('*, yachts(name)')
           .order('created_at', { ascending: false }),
         supabase
           .from('yachts')
-          .select('id, name')
+          .select('id, name, marina_name')
           .eq('is_active', true)
           .order('name'),
+        supabase
+          .from('user_profiles')
+          .select('id, yacht_id, first_name, last_name, can_approve_repairs')
+          .eq('role', 'manager')
+          .eq('is_active', true),
         supabase
           .from('labor_codes')
           .select('id, code, name, hourly_rate, is_taxable')
@@ -174,11 +184,13 @@ export function Estimates({ userId }: EstimatesProps) {
 
       if (estimatesResult.error) throw estimatesResult.error;
       if (yachtsResult.error) throw yachtsResult.error;
+      if (managersResult.error) throw managersResult.error;
       if (laborResult.error) throw laborResult.error;
       if (partsResult.error) throw partsResult.error;
 
       setEstimates(estimatesResult.data || []);
       setYachts(yachtsResult.data || []);
+      setManagers(managersResult.data || []);
       setLaborCodes(laborResult.data || []);
       setParts(partsResult.data || []);
 
@@ -236,6 +248,25 @@ export function Estimates({ userId }: EstimatesProps) {
       console.error('Error loading draft:', err);
       localStorage.removeItem('estimate_draft');
     }
+  };
+
+  const handleYachtChange = (yachtId: string) => {
+    const selectedYacht = yachts.find(y => y.id === yachtId);
+    const marinaName = selectedYacht?.marina_name || '';
+
+    const repairManager = managers.find(
+      m => m.yacht_id === yachtId && m.can_approve_repairs === true
+    );
+    const managerName = repairManager
+      ? `${repairManager.first_name} ${repairManager.last_name}`.trim()
+      : '';
+
+    setFormData({
+      ...formData,
+      yacht_id: yachtId,
+      marina_name: marinaName,
+      manager_name: managerName
+    });
   };
 
   const handleAddTask = () => {
@@ -494,6 +525,8 @@ export function Estimates({ userId }: EstimatesProps) {
           customer_email: formData.is_retail_customer ? formData.customer_email : null,
           customer_phone: formData.is_retail_customer ? formData.customer_phone : null,
           is_retail_customer: formData.is_retail_customer,
+          marina_name: formData.is_retail_customer ? null : formData.marina_name || null,
+          manager_name: formData.is_retail_customer ? null : formData.manager_name || null,
           subtotal,
           sales_tax_rate: salesTaxRate,
           sales_tax_amount: salesTaxAmount,
@@ -530,6 +563,8 @@ export function Estimates({ userId }: EstimatesProps) {
           customer_email: formData.is_retail_customer ? formData.customer_email : null,
           customer_phone: formData.is_retail_customer ? formData.customer_phone : null,
           is_retail_customer: formData.is_retail_customer,
+          marina_name: formData.is_retail_customer ? null : formData.marina_name || null,
+          manager_name: formData.is_retail_customer ? null : formData.manager_name || null,
           status: 'draft',
           subtotal,
           sales_tax_rate: salesTaxRate,
@@ -697,6 +732,8 @@ export function Estimates({ userId }: EstimatesProps) {
       customer_name: '',
       customer_email: '',
       customer_phone: '',
+      marina_name: '',
+      manager_name: '',
       ...defaultRates,
       apply_shop_supplies: true,
       apply_park_fees: true,
@@ -1002,7 +1039,7 @@ export function Estimates({ userId }: EstimatesProps) {
                 <select
                   required
                   value={formData.yacht_id}
-                  onChange={(e) => setFormData({ ...formData, yacht_id: e.target.value })}
+                  onChange={(e) => handleYachtChange(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
                 >
                   <option value="" className="text-gray-500">Select a yacht</option>
@@ -1016,6 +1053,31 @@ export function Estimates({ userId }: EstimatesProps) {
                 </select>
                 {yachts.length === 0 && (
                   <p className="mt-1 text-sm text-red-600">No active yachts found. Please check your permissions.</p>
+                )}
+
+                {formData.yacht_id && (
+                  <div className="mt-4 grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Marina</label>
+                      <input
+                        type="text"
+                        value={formData.marina_name}
+                        readOnly
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700"
+                        placeholder="No marina assigned"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Repair Approval Manager</label>
+                      <input
+                        type="text"
+                        value={formData.manager_name}
+                        readOnly
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700"
+                        placeholder="No manager assigned"
+                      />
+                    </div>
+                  </div>
                 )}
               </div>
             )}
