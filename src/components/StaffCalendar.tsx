@@ -954,112 +954,78 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
                     <th className="text-right py-3 px-4 font-semibold">Approved Days Off</th>
                     <th className="text-right py-3 px-4 font-semibold">Sick Days</th>
                     <th className="text-right py-3 px-4 font-semibold">Requested Days Off</th>
+                    <th className="text-right py-3 px-4 font-semibold">Total Days Off</th>
                     <th className="text-left py-3 px-4 font-semibold">Breakdown</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {(() => {
-                    const stats = calculateStaffStats();
-                    const staffEntries = Object.entries(stats);
-
-                    const totals = staffEntries.reduce(
-                      (acc, [_, s]) => ({
-                        approvedDays: acc.approvedDays + s.approvedDays,
-                        sickDays: acc.sickDays + s.sickDays,
-                        requestedDays: acc.requestedDays + s.requestedDays,
-                      }),
-                      { approvedDays: 0, sickDays: 0, requestedDays: 0 }
-                    );
-
+                  {Object.entries(calculateStaffStats()).map(([userId, stats]) => {
+                    const totalDaysOff = stats.approvedDays + stats.sickDays + stats.requestedDays;
                     return (
-                      <>
-                        {staffEntries.map(([userId, stats]) => (
-                          <tr key={userId} className="border-b border-slate-700 hover:bg-slate-700/50">
-                            <td className="py-3 px-4">
-                              <div className="flex items-center gap-2">
-                                <User className="w-4 h-4 text-slate-400" />
-                                <span className="font-medium">{stats.name || 'Unknown'}</span>
+                      <tr key={userId} className="border-b border-slate-700 hover:bg-slate-700/50">
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2">
+                            <User className="w-4 h-4 text-slate-400" />
+                            <span className="font-medium">{stats.name || 'Unknown'}</span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="text-sm text-slate-400 capitalize">{stats.role}</span>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <span className="inline-block bg-green-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                            {stats.approvedDays} days
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <span className="inline-block bg-red-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                            {stats.sickDays} days
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <span className="inline-block bg-yellow-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                            {stats.requestedDays} days
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <span className="inline-block bg-amber-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                            {totalDaysOff} days
+                          </span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="space-y-1 text-sm">
+                            {Object.entries(stats.approvedByType).length > 0 && (
+                              <div className="text-green-400">
+                                <span className="font-medium">Approved: </span>
+                                {Object.entries(stats.approvedByType)
+                                  .map(([type, days]) => `${formatTimeOffType(type)}: ${days}`)
+                                  .join(', ')}
                               </div>
-                            </td>
-                            <td className="py-3 px-4">
-                              <span className="text-sm text-slate-400 capitalize">{stats.role}</span>
-                            </td>
-                            <td className="py-3 px-4 text-right">
-                              <span className="inline-block bg-green-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
-                                {stats.approvedDays} days
-                              </span>
-                            </td>
-                            <td className="py-3 px-4 text-right">
-                              <span className="inline-block bg-red-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                            )}
+                            {stats.sickDays > 0 && (
+                              <div className="text-red-400">
+                                <span className="font-medium">Sick Leave: </span>
                                 {stats.sickDays} days
-                              </span>
-                            </td>
-                            <td className="py-3 px-4 text-right">
-                              <span className="inline-block bg-yellow-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
-                                {stats.requestedDays} days
-                              </span>
-                            </td>
-                            <td className="py-3 px-4">
-                              <div className="space-y-1 text-sm">
-                                {Object.entries(stats.approvedByType).length > 0 && (
-                                  <div className="text-green-400">
-                                    <span className="font-medium">Approved: </span>
-                                    {Object.entries(stats.approvedByType)
-                                      .map(([type, days]) => `${formatTimeOffType(type)}: ${days}`)
-                                      .join(', ')}
-                                  </div>
-                                )}
-                                {stats.sickDays > 0 && (
-                                  <div className="text-red-400">
-                                    <span className="font-medium">Sick Leave: </span>
-                                    {stats.sickDays} days
-                                  </div>
-                                )}
-                                {Object.entries(stats.requestedByType).length > 0 && (
-                                  <div className="text-yellow-400">
-                                    <span className="font-medium">Requested: </span>
-                                    {Object.entries(stats.requestedByType)
-                                      .map(([type, days]) => `${formatTimeOffType(type)}: ${days}`)
-                                      .join(', ')}
-                                  </div>
-                                )}
-                                {Object.entries(stats.approvedByType).length === 0 &&
-                                 Object.entries(stats.requestedByType).length === 0 &&
-                                 stats.sickDays === 0 && (
-                                  <span className="text-slate-500 italic">No time off recorded</span>
-                                )}
                               </div>
-                            </td>
-                          </tr>
-                        ))}
-                        <tr className="border-t-2 border-amber-500 bg-slate-700/50">
-                          <td className="py-4 px-4" colSpan={2}>
-                            <span className="font-bold text-lg text-amber-500">Total Days Off</span>
-                          </td>
-                          <td className="py-4 px-4 text-right">
-                            <span className="inline-block bg-green-700 text-white px-4 py-2 rounded-full text-base font-bold">
-                              {totals.approvedDays} days
-                            </span>
-                          </td>
-                          <td className="py-4 px-4 text-right">
-                            <span className="inline-block bg-red-700 text-white px-4 py-2 rounded-full text-base font-bold">
-                              {totals.sickDays} days
-                            </span>
-                          </td>
-                          <td className="py-4 px-4 text-right">
-                            <span className="inline-block bg-yellow-700 text-white px-4 py-2 rounded-full text-base font-bold">
-                              {totals.requestedDays} days
-                            </span>
-                          </td>
-                          <td className="py-4 px-4">
-                            <span className="text-slate-400 font-semibold">
-                              Total: {totals.approvedDays + totals.sickDays + totals.requestedDays} days
-                            </span>
-                          </td>
-                        </tr>
-                      </>
+                            )}
+                            {Object.entries(stats.requestedByType).length > 0 && (
+                              <div className="text-yellow-400">
+                                <span className="font-medium">Requested: </span>
+                                {Object.entries(stats.requestedByType)
+                                  .map(([type, days]) => `${formatTimeOffType(type)}: ${days}`)
+                                  .join(', ')}
+                              </div>
+                            )}
+                            {Object.entries(stats.approvedByType).length === 0 &&
+                             Object.entries(stats.requestedByType).length === 0 &&
+                             stats.sickDays === 0 && (
+                              <span className="text-slate-500 italic">No time off recorded</span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
                     );
-                  })()}
+                  })}
                 </tbody>
               </table>
             </div>
