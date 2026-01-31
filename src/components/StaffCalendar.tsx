@@ -18,8 +18,8 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
   const [showWorkScheduleModal, setShowWorkScheduleModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<StaffTimeOffRequest | null>(null);
 
-  const isStaff = userProfile?.role === 'staff';
-  const canAccessCalendar = userProfile?.role === 'staff' || userProfile?.role === 'mechanic';
+  const isStaff = userProfile?.role === 'staff' || userProfile?.role === 'master';
+  const canAccessCalendar = userProfile?.role === 'staff' || userProfile?.role === 'mechanic' || userProfile?.role === 'master';
   const canManageSchedules = canAccessCalendar;
 
   if (!canAccessCalendar) {

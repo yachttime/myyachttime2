@@ -15,7 +15,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   }
 });
 
-export type UserRole = 'owner' | 'manager' | 'staff' | 'mechanic';
+export type UserRole = 'owner' | 'manager' | 'staff' | 'mechanic' | 'master';
 
 export interface Yacht {
   id: string;

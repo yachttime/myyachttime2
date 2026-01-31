@@ -596,8 +596,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   }, [user]);
 
   const loadBookings = async () => {
-    const isStaffRole = userProfile?.role === 'staff' || userProfile?.role === 'mechanic';
-    const isManager = userProfile?.role === 'manager';
+    const isStaffRole = userProfile?.role === 'staff' || userProfile?.role === 'mechanic' || userProfile?.role === 'master';
+    const isManager = userProfile?.role === 'manager' || userProfile?.role === 'master';
 
     // Staff can access without a yacht, owners/managers need a yacht
     if (!user || (!yacht && !isStaffRole)) {
