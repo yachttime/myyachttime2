@@ -470,6 +470,38 @@ export interface StaffSchedule {
   };
 }
 
+export const isStaffRole = (role?: UserRole): boolean => {
+  return role === 'staff' || role === 'mechanic' || role === 'master';
+};
+
+export const isManagerRole = (role?: UserRole): boolean => {
+  return role === 'manager' || role === 'master';
+};
+
+export const isStaffOrManager = (role?: UserRole): boolean => {
+  return role === 'staff' || role === 'manager' || role === 'mechanic' || role === 'master';
+};
+
+export const isMasterRole = (role?: UserRole): boolean => {
+  return role === 'master';
+};
+
+export const isOwnerRole = (role?: UserRole): boolean => {
+  return role === 'owner';
+};
+
+export const canManageUsers = (role?: UserRole): boolean => {
+  return role === 'staff' || role === 'master';
+};
+
+export const canManageYacht = (role?: UserRole): boolean => {
+  return role === 'staff' || role === 'manager' || role === 'master';
+};
+
+export const canAccessAllYachts = (role?: UserRole): boolean => {
+  return role === 'staff' || role === 'master';
+};
+
 export const logYachtActivity = async (
   yachtId: string,
   yachtName: string,

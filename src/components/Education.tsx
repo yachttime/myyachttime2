@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Anchor, ArrowLeft, Play, Upload, Edit2, X, Save, Trash2, Folder } from 'lucide-react';
-import { supabase, EducationVideo } from '../lib/supabase';
+import { supabase, EducationVideo, canManageYacht } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
 interface EducationProps {
@@ -1266,7 +1266,7 @@ export const Education = ({ onBack }: EducationProps) => {
                   key={video.id}
                   className="relative group bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:shadow-xl hover:shadow-amber-500/20"
                 >
-                  {(userProfile?.role === 'staff' || userProfile?.role === 'manager' || userProfile?.role === 'master') && (
+                  {canManageYacht(userProfile?.role) && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -1346,7 +1346,7 @@ export const Education = ({ onBack }: EducationProps) => {
                 <p className="text-slate-400">Click any video to watch</p>
               </div>
               <div className="flex items-center gap-3">
-                {(userProfile?.role === 'staff' || userProfile?.role === 'manager' || userProfile?.role === 'master') && (
+                {canManageYacht(userProfile?.role) && (
                   <>
                     <button
                       onClick={handleEnterBulkEdit}
@@ -1368,7 +1368,7 @@ export const Education = ({ onBack }: EducationProps) => {
             </div>
           </div>
 
-          {(userProfile?.role === 'staff' || userProfile?.role === 'manager' || userProfile?.role === 'master') && (
+          {canManageYacht(userProfile?.role) && (
             <div className="mb-8">
               <div
                 onDragEnter={handleDrag}
@@ -1443,7 +1443,7 @@ export const Education = ({ onBack }: EducationProps) => {
                 <div className="mb-8">
                   <h3 className="text-xl font-semibold mb-4">Welcome</h3>
                   <div className="relative group bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:shadow-xl hover:shadow-amber-500/20">
-                    {(userProfile?.role === 'staff' || userProfile?.role === 'manager' || userProfile?.role === 'master') && (
+                    {canManageYacht(userProfile?.role) && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();

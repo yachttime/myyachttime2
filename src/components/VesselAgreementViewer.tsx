@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { X, FileSignature, CheckCircle, AlertCircle, Printer } from 'lucide-react';
-import { VesselManagementAgreement, UserProfile, supabase } from '../lib/supabase';
+import { VesselManagementAgreement, UserProfile, supabase, canManageYacht, isOwnerRole } from '../lib/supabase';
 import { PrintableVesselAgreement } from './PrintableVesselAgreement';
 
 interface VesselAgreementViewerProps {
@@ -17,8 +17,8 @@ export function VesselAgreementViewer({ agreement, userProfile, userId, onClose,
   const [error, setError] = useState('');
   const [showPrintView, setShowPrintView] = useState(false);
 
-  const isStaff = userProfile.role === 'staff' || userProfile.role === 'manager' || userProfile.role === 'master';
-  const isOwner = userProfile.role === 'owner';
+  const isStaff = canManageYacht(userProfile.role);
+  const isOwner = isOwnerRole(userProfile.role);
   const canSign = (isStaff && !agreement.staff_signature_date) || (isOwner && !agreement.owner_signature_date);
 
   const handleSign = async () => {

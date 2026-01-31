@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, User, X, Check, Clock, AlertCircle, Plus, Briefcase, Sun } from 'lucide-react';
-import { supabase, StaffTimeOffRequest, StaffSchedule, UserProfile } from '../lib/supabase';
+import { supabase, StaffTimeOffRequest, StaffSchedule, UserProfile, canAccessAllYachts, isStaffRole } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
 function isInSeason(date: Date): boolean {
@@ -48,8 +48,8 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
   const [showWeekendApprovalPanel, setShowWeekendApprovalPanel] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<StaffTimeOffRequest | null>(null);
 
-  const isStaff = userProfile?.role === 'staff' || userProfile?.role === 'master';
-  const canAccessCalendar = userProfile?.role === 'staff' || userProfile?.role === 'mechanic' || userProfile?.role === 'master';
+  const isStaff = canAccessAllYachts(userProfile?.role);
+  const canAccessCalendar = isStaffRole(userProfile?.role);
   const canManageSchedules = canAccessCalendar;
 
   if (!canAccessCalendar) {
