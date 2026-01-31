@@ -250,10 +250,23 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
   const getSchedulesForDate = (day: number) => {
     const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
     const dayOfWeek = date.getDay();
+    const today = new Date();
+    const currentYear = today.getFullYear();
 
-    return staffSchedules.filter(schedule =>
-      schedule.day_of_week === dayOfWeek && schedule.is_working_day
-    );
+    return staffSchedules.filter(schedule => {
+      if (!schedule.is_working_day || schedule.day_of_week !== dayOfWeek) {
+        return false;
+      }
+
+      const scheduleCreatedDate = new Date(schedule.created_at);
+      scheduleCreatedDate.setHours(0, 0, 0, 0);
+      date.setHours(0, 0, 0, 0);
+
+      const isAfterScheduleCreated = date >= scheduleCreatedDate;
+      const isCurrentYear = date.getFullYear() === currentYear;
+
+      return isAfterScheduleCreated && isCurrentYear;
+    });
   };
 
   const getDateColor = (day: number) => {
