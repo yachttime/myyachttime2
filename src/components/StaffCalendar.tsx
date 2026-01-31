@@ -257,26 +257,7 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
   };
 
   const getDateColor = (day: number) => {
-    const requests = getRequestsForDate(day);
-    const holiday = getHolidayForDate(day);
-    const schedules = getSchedulesForDate(day);
-
-    if (holiday && requests.length === 0) return 'bg-blue-100 hover:bg-blue-200';
-
-    if (requests.length === 0) {
-      if (schedules.length > 0) return 'bg-teal-100 hover:bg-teal-200';
-      return 'bg-white hover:bg-gray-50';
-    }
-
-    const hasApproved = requests.some(r => r.status === 'approved');
-    const hasPending = requests.some(r => r.status === 'pending');
-    const hasRejected = requests.some(r => r.status === 'rejected');
-
-    if (hasApproved) return 'bg-green-100 hover:bg-green-200';
-    if (hasPending) return 'bg-yellow-100 hover:bg-yellow-200';
-    if (hasRejected) return 'bg-red-100 hover:bg-red-200';
-
-    return 'bg-white hover:bg-gray-50';
+    return 'bg-blue-50 hover:bg-blue-100';
   };
 
   const previousMonth = () => {
@@ -444,9 +425,9 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
                 >
                   {day && (
                     <>
-                      <div className="font-semibold text-slate-900 mb-1">{day}</div>
+                      <div className="font-bold text-slate-900 mb-1">{day}</div>
                       {holiday && (
-                        <div className="text-xs font-medium text-blue-700 mb-1 truncate">
+                        <div className="text-xs font-semibold text-blue-800 mb-1 truncate">
                           {holiday.name}
                         </div>
                       )}
@@ -456,7 +437,7 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
                         </div>
                       ))}
                       {getRequestsForDate(day).map((request, idx) => (
-                        <div key={idx} className="text-xs text-slate-700 truncate">
+                        <div key={idx} className="text-xs font-semibold text-slate-900 truncate">
                           {canManageSchedules ? (
                             <>
                               {request.user_profiles?.first_name} {request.user_profiles?.last_name}
