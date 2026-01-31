@@ -826,6 +826,12 @@ export function generateEstimatePDF(
     if (estimate.customer_phone) addText(`Phone: ${estimate.customer_phone}`, 10);
   } else {
     addText(`Yacht: ${yachtName || 'N/A'}`, 10);
+    if (estimate.marina_name) {
+      addText(`Marina: ${estimate.marina_name}`, 10);
+    }
+    if (estimate.manager_name) {
+      addText(`Repair Approval Manager: ${estimate.manager_name}`, 10);
+    }
   }
   addSpace(0.25);
 
