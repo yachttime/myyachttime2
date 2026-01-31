@@ -304,8 +304,8 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
       }
 
       if (isDateWeekend && !isDateInSeason) {
-        const approvalStatus = schedule.approval_status || 'not_required';
-        if (approvalStatus === 'approved' || approvalStatus === 'not_required') {
+        const approvalStatus = schedule.approval_status;
+        if (approvalStatus === 'approved') {
           return true;
         }
         if (approvalStatus === 'denied' && schedule.user_id === user?.id) {
