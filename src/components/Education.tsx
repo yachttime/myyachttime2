@@ -39,8 +39,15 @@ export const Education = ({ onBack }: EducationProps) => {
 
       if (error) throw error;
 
+      console.log('🎬 RAW DATA FROM DATABASE:', data?.length, 'videos');
+      console.log('🎬 ALL CATEGORIES:', data?.map(v => ({ title: v.title, category: v.category })));
+
       const intro = data?.find(v => v.category?.trim() === 'Introduction' || v.title.toLowerCase().includes('introduction'));
       const others = data?.filter(v => v.id !== intro?.id) || [];
+
+      console.log('🎬 INTRO VIDEO:', intro ? `"${intro.title}" (${intro.category})` : 'NONE');
+      console.log('🎬 OTHER VIDEOS:', others.length, 'videos');
+      console.log('🎬 OTHER VIDEOS CATEGORIES:', others.map(v => ({ title: v.title, category: v.category })));
 
       setIntroVideo(intro || null);
       setVideos(others);
