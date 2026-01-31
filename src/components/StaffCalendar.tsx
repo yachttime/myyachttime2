@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, User, X, Check, Clock, AlertCircle, Plus, Briefcase, Sun } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, User, X, Check, Clock, AlertCircle, Plus, Briefcase, Sun, BarChart3 } from 'lucide-react';
 import { supabase, StaffTimeOffRequest, StaffSchedule, UserProfile, canAccessAllYachts, isStaffRole } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -38,6 +38,7 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
   const { user, userProfile } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [timeOffRequests, setTimeOffRequests] = useState<StaffTimeOffRequest[]>([]);
+  const [allTimeOffRequests, setAllTimeOffRequests] = useState<StaffTimeOffRequest[]>([]);
   const [allStaff, setAllStaff] = useState<UserProfile[]>([]);
   const [staffSchedules, setStaffSchedules] = useState<StaffSchedule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,6 +52,7 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
   const isStaff = canAccessAllYachts(userProfile?.role);
   const canAccessCalendar = isStaffRole(userProfile?.role);
   const canManageSchedules = canAccessCalendar;
+  const isMaster = userProfile?.role === 'master';
 
   if (!canAccessCalendar) {
     return (
@@ -163,6 +165,32 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
 
       if (requestsError) throw requestsError;
       setTimeOffRequests(requestsData || []);
+
+      // Load all time off requests for the year if user is master (for statistics)
+      if (isMaster) {
+        const startOfYear = new Date(currentDate.getFullYear(), 0, 1);
+        const endOfYear = new Date(currentDate.getFullYear(), 11, 31);
+
+        const { data: allRequestsData, error: allRequestsError } = await supabase
+          .from('staff_time_off_requests')
+          .select(`
+            *,
+            user_profiles:user_id (
+              first_name,
+              last_name,
+              role
+            )
+          `)
+          .gte('start_date', startOfYear.toISOString().split('T')[0])
+          .lte('end_date', endOfYear.toISOString().split('T')[0])
+          .order('start_date', { ascending: true });
+
+        if (allRequestsError) {
+          console.error('Error loading all requests:', allRequestsError);
+        } else {
+          setAllTimeOffRequests(allRequestsData || []);
+        }
+      }
 
       if (canManageSchedules) {
         const { data: staffData, error: staffError } = await supabase
@@ -352,6 +380,57 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
   ];
 
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  const calculateDaysBetween = (startDate: string, endDate: string): number => {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 to include both start and end dates
+    return diffDays;
+  };
+
+  const calculateStaffStats = () => {
+    const stats: { [userId: string]: {
+      name: string;
+      role: string;
+      approvedDays: number;
+      requestedDays: number;
+      approvedByType: { [type: string]: number };
+      requestedByType: { [type: string]: number };
+    }} = {};
+
+    // Initialize stats for all staff members
+    allStaff.forEach(staff => {
+      stats[staff.user_id] = {
+        name: `${staff.first_name || ''} ${staff.last_name || ''}`.trim(),
+        role: staff.role,
+        approvedDays: 0,
+        requestedDays: 0,
+        approvedByType: {},
+        requestedByType: {}
+      };
+    });
+
+    // Calculate stats from all time off requests
+    allTimeOffRequests.forEach(request => {
+      const days = calculateDaysBetween(request.start_date, request.end_date);
+      const userId = request.user_id;
+
+      if (!stats[userId]) return;
+
+      if (request.status === 'approved') {
+        stats[userId].approvedDays += days;
+        stats[userId].approvedByType[request.time_off_type] =
+          (stats[userId].approvedByType[request.time_off_type] || 0) + days;
+      } else if (request.status === 'pending') {
+        stats[userId].requestedDays += days;
+        stats[userId].requestedByType[request.time_off_type] =
+          (stats[userId].requestedByType[request.time_off_type] || 0) + days;
+      }
+    });
+
+    return stats;
+  };
 
   if (loading) {
     return (
@@ -556,6 +635,94 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
             })}
           </div>
         </div>
+
+        {isMaster && allStaff.length > 0 && (
+          <div className="bg-slate-800 rounded-lg p-6 mt-6">
+            <div className="flex items-center gap-3 mb-6">
+              <BarChart3 className="w-8 h-8 text-amber-500" />
+              <div>
+                <h2 className="text-2xl font-bold">Staff Time Off Summary</h2>
+                <p className="text-sm text-slate-400">Year: {currentDate.getFullYear()}</p>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-slate-700">
+                    <th className="text-left py-3 px-4 font-semibold">Staff Member</th>
+                    <th className="text-left py-3 px-4 font-semibold">Role</th>
+                    <th className="text-right py-3 px-4 font-semibold">Approved Days Off</th>
+                    <th className="text-right py-3 px-4 font-semibold">Requested Days Off</th>
+                    <th className="text-left py-3 px-4 font-semibold">Breakdown</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(calculateStaffStats()).map(([userId, stats]) => (
+                    <tr key={userId} className="border-b border-slate-700 hover:bg-slate-700/50">
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-2">
+                          <User className="w-4 h-4 text-slate-400" />
+                          <span className="font-medium">{stats.name || 'Unknown'}</span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="text-sm text-slate-400 capitalize">{stats.role}</span>
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <span className="inline-block bg-green-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                          {stats.approvedDays} days
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <span className="inline-block bg-yellow-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                          {stats.requestedDays} days
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="space-y-1 text-sm">
+                          {Object.entries(stats.approvedByType).length > 0 && (
+                            <div className="text-green-400">
+                              <span className="font-medium">Approved: </span>
+                              {Object.entries(stats.approvedByType)
+                                .map(([type, days]) => `${formatTimeOffType(type)}: ${days}`)
+                                .join(', ')}
+                            </div>
+                          )}
+                          {Object.entries(stats.requestedByType).length > 0 && (
+                            <div className="text-yellow-400">
+                              <span className="font-medium">Requested: </span>
+                              {Object.entries(stats.requestedByType)
+                                .map(([type, days]) => `${formatTimeOffType(type)}: ${days}`)
+                                .join(', ')}
+                            </div>
+                          )}
+                          {Object.entries(stats.approvedByType).length === 0 &&
+                           Object.entries(stats.requestedByType).length === 0 && (
+                            <span className="text-slate-500 italic">No time off recorded</span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-4 pt-4 border-t border-slate-700">
+              <div className="flex gap-6 text-sm text-slate-400">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-green-600 rounded-full"></div>
+                  <span>Approved time off that has been granted</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-yellow-600 rounded-full"></div>
+                  <span>Requested time off pending approval</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {showRequestForm && (
           <TimeOffRequestModal
