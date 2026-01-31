@@ -4103,8 +4103,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const getBookingsForDate = (date: Date) => {
     const dateStr = date.toDateString();
     return masterCalendarBookings.filter(booking => {
-      // Filter by yacht if user is owner
-      if (isOwnerRole(userProfile?.role) && yacht && booking.yacht_id !== yacht.id) {
+      // Filter by yacht if user is owner (but not if master)
+      if (userProfile?.role === 'owner' && yacht && booking.yacht_id !== yacht.id) {
         return false;
       }
 
@@ -7298,7 +7298,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {allYachts
                       .filter((yacht) => {
-                        if (isManagerRole(userProfile?.role) && userProfile.yacht_id) {
+                        if (userProfile?.role === 'manager' && userProfile.yacht_id) {
                           if (yacht.id !== userProfile.yacht_id) return false;
                         }
                         if (yachtFilter === 'active') return yacht.is_active;
@@ -10280,7 +10280,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             !msg.message.includes('Repair Request Completed') &&
                             !msg.message.includes('Repair Request Submitted:') &&
                             !msg.message.includes('Invoice Sent:') &&
-                            (!isOwnerRole(userProfile?.role) || !yacht || msg.yacht_id === yacht.id)
+                            (userProfile?.role !== 'owner' || !yacht || msg.yacht_id === yacht.id)
                           ).length === 0 ? (
                             <div className="flex items-center justify-center h-full">
                               <p className="text-slate-400">No messages yet. Start the conversation!</p>
@@ -10294,7 +10294,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 !msg.message.includes('Repair Request Completed') &&
                                 !msg.message.includes('Repair Request Submitted:') &&
                                 !msg.message.includes('Invoice Sent:') &&
-                                (!isOwnerRole(userProfile?.role) || !yacht || msg.yacht_id === yacht.id)
+                                (userProfile?.role !== 'owner' || !yacht || msg.yacht_id === yacht.id)
                               )
                               .map((msg: any) => {
                               const isCurrentUser = msg.user_id === user?.id;
@@ -11736,11 +11736,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             onClick={() => {
                               let filteredUsers = allUsers.filter((user) => user.is_active !== false);
 
-                              if (isStaffRole(userProfile?.role)) {
+                              if (isStaffRole(userProfile?.role) && userProfile?.role !== 'master') {
                                 if (printYachtFilter !== 'all') {
                                   filteredUsers = filteredUsers.filter((user) => user.yacht_id === printYachtFilter);
                                 }
-                              } else if ((isOwnerRole(userProfile?.role) || isManagerRole(userProfile?.role)) && userProfile.yacht_id) {
+                              } else if ((userProfile?.role === 'owner' || userProfile?.role === 'manager') && userProfile.yacht_id) {
                                 filteredUsers = filteredUsers.filter((user) => user.yacht_id === userProfile.yacht_id);
                               }
 
@@ -11755,14 +11755,16 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               }));
 
                               let title = 'User List';
-                              if (isStaffRole(userProfile?.role)) {
+                              if (isStaffRole(userProfile?.role) && userProfile?.role !== 'master') {
                                 if (printYachtFilter !== 'all') {
                                   const yachtName = allYachts.find(y => y.id === printYachtFilter)?.name;
                                   title = yachtName ? `${yachtName} - User List` : 'User List';
                                 } else {
                                   title = 'All Yachts - User List';
                                 }
-                              } else if ((isOwnerRole(userProfile?.role) || isManagerRole(userProfile?.role)) && userProfile.yacht_id) {
+                              } else if (userProfile?.role === 'master') {
+                                title = 'All Yachts - User List';
+                              } else if ((userProfile?.role === 'owner' || userProfile?.role === 'manager') && userProfile.yacht_id) {
                                 const yachtName = allYachts.find(y => y.id === userProfile.yacht_id)?.name;
                                 title = yachtName ? `${yachtName} - User List` : 'User List';
                               }
@@ -11786,7 +11788,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 password: '',
                                 trip_number: '',
                                 role: 'owner',
-                                yacht_id: isManagerRole(userProfile?.role) ? (userProfile.yacht_id || '') : '',
+                                yacht_id: (userProfile?.role === 'manager' && userProfile.yacht_id) ? userProfile.yacht_id : '',
                                 phone: '',
                                 street: '',
                                 city: '',
@@ -12096,7 +12098,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 <label className="block text-sm font-medium text-slate-300 mb-2">
                                   Assigned Yacht
                                 </label>
-                                {isManagerRole(userProfile?.role) ? (
+                                {userProfile?.role === 'manager' ? (
                                   <>
                                     <input
                                       type="text"
@@ -12242,8 +12244,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           {(() => {
                             const filteredUsers = allUsers.filter((user) => {
                               if (user.is_active === false) return false;
-                              if ((isOwnerRole(userProfile?.role) || isManagerRole(userProfile?.role)) && userProfile.yacht_id) {
-                                if (user.yacht_id !== userProfile.yacht_id) return false;
+                              // Master role bypasses all yacht filters
+                              if (userProfile?.role !== 'master') {
+                                if ((userProfile?.role === 'owner' || userProfile?.role === 'manager') && userProfile.yacht_id) {
+                                  if (user.yacht_id !== userProfile.yacht_id) return false;
+                                }
                               }
                               if (!userSearchTerm) return true;
                               const searchLower = userSearchTerm.toLowerCase();
