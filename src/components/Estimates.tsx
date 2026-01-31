@@ -766,6 +766,37 @@ export function Estimates({ userId }: EstimatesProps) {
 
       if (estimateError) throw estimateError;
 
+      // If estimate has yacht_id but no marina/manager names, fetch them from yacht and manager
+      let marinaName = estimate.marina_name || '';
+      let managerName = estimate.manager_name || '';
+
+      if (estimate.yacht_id && (!marinaName || !managerName)) {
+        // Load yacht data
+        const { data: yachtData } = await supabase
+          .from('yachts')
+          .select('marina_name')
+          .eq('id', estimate.yacht_id)
+          .maybeSingle();
+
+        if (yachtData && !marinaName) {
+          marinaName = yachtData.marina_name || '';
+        }
+
+        // Load manager with repair approval
+        const { data: managerData } = await supabase
+          .from('user_profiles')
+          .select('first_name, last_name')
+          .eq('yacht_id', estimate.yacht_id)
+          .eq('role', 'manager')
+          .eq('can_approve_repairs', true)
+          .eq('is_active', true)
+          .maybeSingle();
+
+        if (managerData && !managerName) {
+          managerName = `${managerData.first_name} ${managerData.last_name}`.trim();
+        }
+      }
+
       // Load tasks first
       const { data: tasksData, error: tasksError } = await supabase
         .from('estimate_tasks')
@@ -795,6 +826,8 @@ export function Estimates({ userId }: EstimatesProps) {
         customer_name: estimate.customer_name || '',
         customer_email: estimate.customer_email || '',
         customer_phone: estimate.customer_phone || '',
+        marina_name: marinaName,
+        manager_name: managerName,
         sales_tax_rate: estimate.sales_tax_rate.toString(),
         shop_supplies_rate: estimate.shop_supplies_rate.toString(),
         park_fees_rate: estimate.park_fees_rate.toString(),
