@@ -520,42 +520,42 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
           </div>
         </div>
 
-        <div className="bg-slate-800 rounded-lg p-6 mb-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Color Legend</h2>
+        <div className="bg-slate-800 rounded-lg p-3 mb-6">
+          <div className="flex justify-between items-center mb-2">
+            <h2 className="text-sm font-semibold">Color Legend</h2>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-blue-500 rounded"></div>
-              <span>Federal Holiday</span>
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-3 bg-blue-500 rounded"></div>
+              <span className="text-xs">Federal Holiday</span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-teal-500 rounded"></div>
-              <span>Staff Scheduled</span>
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-3 bg-teal-500 rounded"></div>
+              <span className="text-xs">Staff Scheduled</span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-green-500 rounded"></div>
-              <span>Approved Time Off</span>
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-3 bg-green-500 rounded"></div>
+              <span className="text-xs">Approved Time Off</span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-yellow-500 rounded"></div>
-              <span>Pending Request</span>
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-3 bg-yellow-500 rounded"></div>
+              <span className="text-xs">Pending Request</span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-red-500 rounded"></div>
-              <span>Rejected Request</span>
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-3 bg-red-500 rounded"></div>
+              <span className="text-xs">Rejected Request</span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-slate-600 rounded"></div>
-              <span>Regular Day</span>
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-3 bg-slate-600 rounded"></div>
+              <span className="text-xs">Regular Day</span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-purple-500 rounded"></div>
-              <span>Weekend Pending Approval</span>
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-3 bg-purple-500 rounded"></div>
+              <span className="text-xs">Weekend Pending Approval</span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-emerald-500 rounded"></div>
-              <span>Weekend Approved</span>
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-3 bg-emerald-500 rounded"></div>
+              <span className="text-xs">Weekend Approved</span>
             </div>
           </div>
         </div>
