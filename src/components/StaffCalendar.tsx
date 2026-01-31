@@ -22,12 +22,6 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
   const canAccessCalendar = userProfile?.role === 'staff' || userProfile?.role === 'mechanic';
   const canManageSchedules = canAccessCalendar;
 
-  console.log('User role:', userProfile?.role);
-  console.log('canAccessCalendar:', canAccessCalendar);
-  console.log('canManageSchedules:', canManageSchedules);
-  console.log('allStaff count:', allStaff.length);
-  console.log('allStaff data:', allStaff);
-
   if (!canAccessCalendar) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white flex items-center justify-center">
@@ -124,9 +118,7 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
       if (requestsError) throw requestsError;
       setTimeOffRequests(requestsData || []);
 
-      console.log('About to load staff, canManageSchedules:', canManageSchedules);
       if (canManageSchedules) {
-        console.log('Loading staff from database...');
         const { data: staffData, error: staffError } = await supabase
           .from('user_profiles')
           .select('*')
@@ -138,11 +130,7 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
           console.error('Error loading staff:', staffError);
           throw staffError;
         }
-        console.log('Staff data loaded:', staffData);
         setAllStaff(staffData || []);
-        console.log('allStaff state set to:', staffData);
-      } else {
-        console.log('NOT loading staff because canManageSchedules is false');
       }
     } catch (error) {
       console.error('Error loading data:', error);
@@ -886,8 +874,6 @@ function WorkScheduleModal({ staff, onClose }: { staff: UserProfile[]; onClose: 
 
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-  console.log('WorkScheduleModal received staff:', staff);
-
   useEffect(() => {
     if (selectedStaffId) {
       loadSchedules();
@@ -999,16 +985,6 @@ function WorkScheduleModal({ staff, onClose }: { staff: UserProfile[]; onClose: 
 
         <div className="mb-6">
           <label className="block text-sm font-medium mb-2">Select Staff Member</label>
-          {staff.length === 0 && (
-            <div className="mb-2 text-amber-400 text-sm">
-              DEBUG: No staff members found. Staff array length: {staff.length}
-            </div>
-          )}
-          {staff.length > 0 && (
-            <div className="mb-2 text-green-400 text-sm">
-              DEBUG: Found {staff.length} staff members: {staff.map(s => s.first_name).join(', ')}
-            </div>
-          )}
           <select
             value={selectedStaffId}
             onChange={e => setSelectedStaffId(e.target.value)}
