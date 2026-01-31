@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Anchor, Calendar, CheckCircle, AlertCircle, BookOpen, LogOut, Wrench, Send, Play, Shield, ClipboardCheck, Ship, CalendarPlus, FileUp, MessageCircle, Mail, CreditCard as Edit2, Trash2, ChevronLeft, ChevronRight, History, UserCheck, FileText, Upload, Download, X, Users, Save, RefreshCw, Clock, Thermometer, Camera, Receipt, Pencil, Lock, CreditCard, Eye, EyeOff, MousePointer, Ligature as FileSignature, Folder, Menu, Phone, Printer, Plus, QrCode, UserCircle2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useRoleImpersonation } from '../contexts/RoleImpersonationContext';
+import { useYachtImpersonation } from '../contexts/YachtImpersonationContext';
 import { supabase, YachtBooking, MaintenanceRequest, EducationVideo, TripInspection, ConditionRating, InspectionType, RepairRequest, OwnerChatMessage, YachtHistoryLog, OwnerHandoffInspection, YachtDocument, YachtInvoice, YachtBudget, AdminNotification, StaffMessage, Appointment, Yacht, UserProfile, VesselManagementAgreement, logYachtActivity, isStaffRole, isManagerRole, isStaffOrManager, isMasterRole, isOwnerRole, canManageUsers, canManageYacht, canAccessAllYachts } from '../lib/supabase';
 import { InspectionPDFView } from './InspectionPDFView';
 import { OwnerHandoffPDFView } from './OwnerHandoffPDFView';
@@ -24,8 +25,10 @@ interface DashboardProps {
 export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const { user, userProfile, yacht, signOut, refreshProfile } = useAuth();
   const { impersonatedRole, setImpersonatedRole, getEffectiveRole, isImpersonating } = useRoleImpersonation();
+  const { impersonatedYacht, setImpersonatedYacht, getEffectiveYacht, isImpersonatingYacht } = useYachtImpersonation();
 
   const effectiveRole = getEffectiveRole(userProfile?.role);
+  const effectiveYacht = getEffectiveYacht(yacht, userProfile?.role);
 
   const [bookings, setBookings] = useState<YachtBooking[]>([]);
   const [maintenanceRequests, setMaintenanceRequests] = useState<MaintenanceRequest[]>([]);
@@ -53,6 +56,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showBulkEmailModal, setShowBulkEmailModal] = useState(false);
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
+  const [showYachtDropdown, setShowYachtDropdown] = useState(false);
   const [bulkEmailRecipients, setBulkEmailRecipients] = useState<Array<{ email: string; name: string }>>([]);
   const [bulkEmailCcRecipients, setBulkEmailCcRecipients] = useState<string[]>([]);
   const [bulkEmailYachtName, setBulkEmailYachtName] = useState<string>('');
@@ -531,7 +535,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     loadMechanics();
     loadStaffMessages();
     checkSmartDevices();
-  }, [user, yacht, effectiveRole]);
+  }, [user, yacht, effectiveRole, effectiveYacht]);
 
   useEffect(() => {
     if (activeTab === 'admin' && adminView === 'repairs') {
@@ -606,7 +610,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     const userIsManager = isManagerRole(effectiveRole);
 
     // Staff can access without a yacht, owners/managers need a yacht
-    if (!user || (!yacht && !userIsStaff)) {
+    if (!user || (!effectiveYacht && !userIsStaff)) {
       setLoading(false);
       return;
     }
@@ -631,13 +635,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         `);
 
       // Managers see all bookings for their assigned yacht
-      if (userIsManager && yacht) {
-        query = query.eq('yacht_id', yacht.id);
+      if (userIsManager && effectiveYacht) {
+        query = query.eq('yacht_id', effectiveYacht.id);
       }
 
       // Owners see only their own bookings for their yacht
-      if (!userIsStaff && !userIsManager && yacht) {
-        query = query.eq('yacht_id', yacht.id).eq('user_id', user.id);
+      if (!userIsStaff && !userIsManager && effectiveYacht) {
+        query = query.eq('yacht_id', effectiveYacht.id).eq('user_id', user.id);
       }
 
       const { data, error } = await query.order('start_date', { ascending: false });
@@ -687,8 +691,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         `);
 
       // Owners see all requests for their yacht, others see only their own
-      if (isOwnerRole(effectiveRole) && yacht) {
-        query = query.eq('yacht_id', yacht.id);
+      if (isOwnerRole(effectiveRole) && effectiveYacht) {
+        query = query.eq('yacht_id', effectiveYacht.id);
       } else {
         query = query.eq('submitted_by', user.id);
       }
@@ -727,7 +731,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   };
 
   const checkSmartDevices = async () => {
-    if (!yacht) {
+    if (!effectiveYacht) {
       setHasSmartDevices(false);
       return;
     }
@@ -736,7 +740,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       const { data, error } = await supabase
         .from('yacht_smart_devices')
         .select('id')
-        .eq('yacht_id', yacht.id)
+        .eq('yacht_id', effectiveYacht.id)
         .eq('is_active', true)
         .limit(1);
 
@@ -803,7 +807,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       const chunk = file.slice(start, end);
 
       const formData = new FormData();
-      formData.append('yachtId', yacht!.id);
+      formData.append('yachtId', effectiveYacht!.id);
       formData.append('fileName', file.name);
       formData.append('chunkIndex', i.toString());
       formData.append('totalChunks', totalChunks.toString());
@@ -868,7 +872,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         videoUrl = await uploadLargeVideoChunked(videoFile);
       } else {
         const videoFileName = `${Date.now()}-${videoFile.name}`;
-        const videoPath = `${yacht.id}/${videoFileName}`;
+        const videoPath = `${effectiveYacht.id}/${videoFileName}`;
         videoUrl = await uploadFileToStorage(
           'education-videos',
           videoPath,
@@ -880,7 +884,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       let thumbnailUrl = null;
       if (thumbnailFile) {
         const thumbnailFileName = `${Date.now()}-thumbnail-${thumbnailFile.name}`;
-        const thumbnailPath = `${yacht.id}/${thumbnailFileName}`;
+        const thumbnailPath = `${effectiveYacht.id}/${thumbnailFileName}`;
         thumbnailUrl = await uploadFileToStorage(
           'education-videos',
           thumbnailPath,
@@ -896,7 +900,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           category: videoUploadForm.category,
           video_url: videoUrl,
           thumbnail_url: thumbnailUrl,
-          yacht_id: yacht.id,
+          yacht_id: effectiveYacht.id,
           order_index: videoUploadForm.order_index,
         });
 
@@ -1892,8 +1896,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         .order('created_at', { ascending: false });
 
       // Filter by yacht_id for managers
-      if (isManagerRole(effectiveRole) && yacht) {
-        query = query.eq('yacht_id', yacht.id);
+      if (isManagerRole(effectiveRole) && effectiveYacht) {
+        query = query.eq('yacht_id', effectiveYacht.id);
       }
 
       const { data, error } = await query;
@@ -2979,8 +2983,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         .order('created_at', { ascending: false });
 
       // Filter by yacht_id for managers
-      if (isManagerRole(effectiveRole) && yacht) {
-        messagesQuery = messagesQuery.eq('yacht_id', yacht.id);
+      if (isManagerRole(effectiveRole) && effectiveYacht) {
+        messagesQuery = messagesQuery.eq('yacht_id', effectiveYacht.id);
       }
 
       const { data: messagesData, error: messagesError } = await messagesQuery;
@@ -3036,8 +3040,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         .order('created_at', { ascending: false });
 
       // Filter by yacht_id for managers
-      if (isManagerRole(effectiveRole) && yacht) {
-        notificationsQuery = notificationsQuery.eq('yacht_id', yacht.id);
+      if (isManagerRole(effectiveRole) && effectiveYacht) {
+        notificationsQuery = notificationsQuery.eq('yacht_id', effectiveYacht.id);
       }
 
       const { data: notificationsData, error: notificationsError } = await notificationsQuery;
@@ -3055,8 +3059,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         .order('created_at', { ascending: false });
 
       // Filter by yacht_id for managers
-      if (isManagerRole(effectiveRole) && yacht) {
-        legacyQuery = legacyQuery.eq('yacht_id', yacht.id);
+      if (isManagerRole(effectiveRole) && effectiveYacht) {
+        legacyQuery = legacyQuery.eq('yacht_id', effectiveYacht.id);
       }
 
       const { data: legacyMessages, error: legacyError } = await legacyQuery;
@@ -3204,8 +3208,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         .order('start_date', { ascending: false });
 
       // Filter by yacht_id for managers
-      if (isManagerRole(effectiveRole) && yacht) {
-        bookingsQuery = bookingsQuery.eq('yacht_id', yacht.id);
+      if (isManagerRole(effectiveRole) && effectiveYacht) {
+        bookingsQuery = bookingsQuery.eq('yacht_id', effectiveYacht.id);
       }
 
       const { data: bookingsData, error: bookingsError } = await bookingsQuery;
@@ -3220,8 +3224,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         .select('*')
         .order('date', { ascending: false });
 
-      if (isManagerRole(effectiveRole) && yacht) {
-        appointmentsQuery = appointmentsQuery.eq('yacht_name', yacht.name);
+      if (isManagerRole(effectiveRole) && effectiveYacht) {
+        appointmentsQuery = appointmentsQuery.eq('yacht_name', effectiveYacht.name);
       }
 
       const { data: appointmentsData, error: appointmentsError } = await appointmentsQuery;
@@ -4419,37 +4423,114 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             </div>
           </div>
         )}
-        <div className={`p-6 ${isImpersonating ? 'pt-20' : 'pt-20 lg:pt-6'}`}>
+        {isImpersonatingYacht && (
+          <div className={`bg-gradient-to-r from-teal-600 to-teal-700 text-white px-6 py-3 border-b border-teal-500 shadow-lg fixed ${isImpersonating ? 'top-12' : 'top-0'} left-0 lg:left-64 right-0 z-40`}>
+            <div className="flex items-center justify-between max-w-7xl mx-auto">
+              <div className="flex items-center gap-3">
+                <Ship className="w-5 h-5" />
+                <div>
+                  <span className="font-semibold">Yacht View Active</span>
+                  <span className="ml-2 text-teal-100">
+                    Viewing: <span className="font-bold">{impersonatedYacht?.name}</span>
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => setImpersonatedYacht(null)}
+                className="px-4 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium transition-colors"
+              >
+                Exit Yacht View
+              </button>
+            </div>
+          </div>
+        )}
+        <div className={`p-6 ${isImpersonating && isImpersonatingYacht ? 'pt-32' : isImpersonating || isImpersonatingYacht ? 'pt-20' : 'pt-20 lg:pt-6'}`}>
         <div className="max-w-7xl">
           {activeTab === 'calendar' && (
             <div className="space-y-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700">
-                <div className="flex items-center gap-2 mb-4">
-                  <Calendar className="w-5 h-5 text-amber-500" />
-                  <h2 className="text-lg font-semibold">
-                    {yacht?.name || 'Your Yacht'}
-                  </h2>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-5 h-5 text-amber-500" />
+                    <h2 className="text-lg font-semibold">
+                      {effectiveYacht?.name || 'Your Yacht'}
+                    </h2>
+                  </div>
+                  {isMasterRole(userProfile?.role) && allYachts.length > 0 && (
+                    <div className="relative">
+                      <button
+                        onClick={() => setShowYachtDropdown(!showYachtDropdown)}
+                        className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                      >
+                        <Ship className="w-4 h-4" />
+                        Switch Yacht
+                      </button>
+                      {showYachtDropdown && (
+                        <div className="absolute right-0 mt-2 w-64 bg-slate-800 rounded-xl shadow-2xl border border-slate-700 z-50 overflow-hidden">
+                          <div className="p-2 bg-slate-700/50 border-b border-slate-600">
+                            <p className="text-xs text-slate-400 font-medium">Select Yacht to View</p>
+                          </div>
+                          <div className="max-h-96 overflow-y-auto">
+                            {yacht && (
+                              <button
+                                onClick={() => {
+                                  setImpersonatedYacht(null);
+                                  setShowYachtDropdown(false);
+                                }}
+                                className={`w-full text-left px-4 py-3 hover:bg-slate-700/50 transition-colors border-b border-slate-700/50 ${
+                                  !isImpersonatingYacht ? 'bg-teal-600/20 text-teal-400' : 'text-white'
+                                }`}
+                              >
+                                <div className="font-medium">{yacht.name}</div>
+                                <div className="text-xs text-slate-400 mt-0.5">Your Assigned Yacht</div>
+                              </button>
+                            )}
+                            {allYachts
+                              .filter((y) => y.id !== yacht?.id)
+                              .sort((a, b) => a.name.localeCompare(b.name))
+                              .map((y) => (
+                                <button
+                                  key={y.id}
+                                  onClick={() => {
+                                    setImpersonatedYacht(y);
+                                    setShowYachtDropdown(false);
+                                  }}
+                                  className={`w-full text-left px-4 py-3 hover:bg-slate-700/50 transition-colors border-b border-slate-700/50 ${
+                                    impersonatedYacht?.id === y.id ? 'bg-teal-600/20 text-teal-400' : 'text-white'
+                                  }`}
+                                >
+                                  <div className="font-medium">{y.name}</div>
+                                  {y.marina_name && (
+                                    <div className="text-xs text-slate-400 mt-0.5">{y.marina_name}</div>
+                                  )}
+                                </button>
+                              ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-                {yacht?.marina_name && (
+                {effectiveYacht?.marina_name && (
                   <div className="mb-2 text-sm text-slate-400">
-                    Marina: {yacht.marina_name}
+                    Marina: {effectiveYacht.marina_name}
                   </div>
                 )}
-                {yacht?.wifi_name && (
+                {effectiveYacht?.wifi_name && (
                   <div className="mb-2 text-sm">
                     <span className="text-slate-400">WiFi: </span>
-                    <span className="text-white font-medium">{yacht.wifi_name}</span>
+                    <span className="text-white font-medium">{effectiveYacht.wifi_name}</span>
                   </div>
                 )}
-                {yacht?.wifi_password && (
+                {effectiveYacht?.wifi_password && (
                   <div className="mb-4 text-sm">
                     <span className="text-slate-400">WiFi Password: </span>
-                    <span className="text-white font-medium">{yacht.wifi_password}</span>
+                    <span className="text-white font-medium">{effectiveYacht.wifi_password}</span>
                   </div>
                 )}
 
-                {welcomeVideo && yacht?.name !== 'LOVIN LIFE' && (
+                {welcomeVideo && effectiveYacht?.name !== 'LOVIN LIFE' && (
                   <div className="mb-4">
                     <div className="flex items-center gap-2 mb-3">
                       <Play className="w-4 h-4 text-amber-500" />
@@ -4690,7 +4771,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               {/* Smart Lock Controls */}
               {yacht && hasSmartDevices && (
                 <SmartLockControls
-                  yachtId={yacht.id}
+                  yachtId={effectiveYacht.id}
                   userId={user!.id}
                   userName={`${userProfile?.first_name || ''} ${userProfile?.last_name || ''}`.trim() || userProfile?.email || 'Unknown'}
                   hasActiveBooking={activeBooking ? !activeBooking.checked_out : false}

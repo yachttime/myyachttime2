@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { RoleImpersonationProvider } from './contexts/RoleImpersonationContext';
+import { YachtImpersonationProvider } from './contexts/YachtImpersonationContext';
 import { Welcome } from './components/Welcome';
 import { SignIn } from './components/SignIn';
 import { Dashboard } from './components/Dashboard';
@@ -56,7 +57,9 @@ function App() {
   return (
     <AuthProvider>
       <RoleImpersonationProvider>
-        <AppContent />
+        <YachtImpersonationProvider>
+          <AppContent />
+        </YachtImpersonationProvider>
       </RoleImpersonationProvider>
     </AuthProvider>
   );
