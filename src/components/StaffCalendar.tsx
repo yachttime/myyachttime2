@@ -70,6 +70,7 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
   const [showDateEditModal, setShowDateEditModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedRequest, setSelectedRequest] = useState<StaffTimeOffRequest | null>(null);
+  const [viewFilter, setViewFilter] = useState<'all' | 'working' | 'off'>('working');
 
   const isStaff = canAccessAllYachts(userProfile?.role);
   const canAccessCalendar = isStaffRole(userProfile?.role);
@@ -398,6 +399,28 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
     });
   };
 
+  const getStaffOffForDate = (day: number) => {
+    const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+    const dateStr = date.toISOString().split('T')[0];
+
+    // Get all staff with approved time off
+    const staffWithTimeOff = allTimeOffRequests.filter(request =>
+      request.status === 'approved' &&
+      dateStr >= request.start_date &&
+      dateStr <= request.end_date &&
+      request.user_profiles
+    );
+
+    // Get all staff with schedule overrides marking them as off
+    const dateOverrides = allScheduleOverrides.filter(override =>
+      override.override_date === dateStr &&
+      (override.status === 'sick_leave' || override.status === 'approved_day_off') &&
+      override.user_profiles
+    );
+
+    return [...staffWithTimeOff, ...dateOverrides];
+  };
+
   const getSchedulesForDate = (day: number) => {
     const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
     const dateStr = date.toISOString().split('T')[0];
@@ -668,7 +691,7 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
 
         <div className="bg-slate-800 rounded-lg p-3 mb-6">
           <div className="flex justify-between items-center mb-2">
-            <h2 className="text-sm font-semibold">Color Legend</h2>
+            <h2 className="text-sm font-semibold">Calendar Legend</h2>
             {(userProfile?.role === 'master' || userProfile?.role === 'staff') && (
               <span className="text-xs text-amber-400 flex items-center gap-1">
                 <Edit3 className="w-3 h-3" />
@@ -676,7 +699,7 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
               </span>
             )}
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-2 mb-3">
             <div className="flex items-center gap-1">
               <div className="w-3 h-3 bg-blue-500 rounded"></div>
               <span className="text-xs">Federal Holiday</span>
@@ -710,10 +733,19 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
               <span className="text-xs">Weekend Approved</span>
             </div>
           </div>
+          <div className="border-t border-slate-700 pt-2">
+            <div className="text-xs text-slate-400">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold">Employee Display:</span>
+                <span className="text-slate-900 bg-white px-2 py-0.5 rounded">Working</span>
+                <span className="text-slate-500 line-through">Scheduled Off</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="bg-slate-800 rounded-lg p-6">
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex justify-between items-center mb-4">
             <button
               onClick={previousMonth}
               className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
@@ -731,6 +763,39 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
             </button>
           </div>
 
+          <div className="mb-6 flex justify-center gap-2">
+            <button
+              onClick={() => setViewFilter('all')}
+              className={`px-4 py-2 rounded-lg transition-colors font-medium ${
+                viewFilter === 'all'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+              }`}
+            >
+              Show All Employees
+            </button>
+            <button
+              onClick={() => setViewFilter('working')}
+              className={`px-4 py-2 rounded-lg transition-colors font-medium ${
+                viewFilter === 'working'
+                  ? 'bg-teal-600 text-white'
+                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+              }`}
+            >
+              Show Employees Working
+            </button>
+            <button
+              onClick={() => setViewFilter('off')}
+              className={`px-4 py-2 rounded-lg transition-colors font-medium ${
+                viewFilter === 'off'
+                  ? 'bg-green-600 text-white'
+                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+              }`}
+            >
+              Show Employees Off
+            </button>
+          </div>
+
           <div className="grid grid-cols-7 gap-2">
             {dayNames.map(day => (
               <div key={day} className="text-center font-semibold text-slate-400 py-2">
@@ -740,8 +805,35 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
 
             {getDaysInMonth().map((day, index) => {
               const holiday = day ? getHolidayForDate(day) : null;
-              const schedules = day ? getSchedulesForDate(day) : [];
+              const schedulesWorking = day ? getSchedulesForDate(day) : [];
+              const staffOff = day ? getStaffOffForDate(day) : [];
               const canEditDate = (userProfile?.role === 'master' || userProfile?.role === 'staff');
+
+              let displayItems: Array<{ name: string; type: 'working' | 'off' }> = [];
+
+              if (viewFilter === 'all') {
+                displayItems = [
+                  ...schedulesWorking.map(s => ({
+                    name: `${s.user_profiles?.first_name} ${s.user_profiles?.last_name}`,
+                    type: 'working' as const
+                  })),
+                  ...staffOff.map(s => ({
+                    name: `${s.user_profiles?.first_name} ${s.user_profiles?.last_name}`,
+                    type: 'off' as const
+                  }))
+                ];
+              } else if (viewFilter === 'working') {
+                displayItems = schedulesWorking.map(s => ({
+                  name: `${s.user_profiles?.first_name} ${s.user_profiles?.last_name}`,
+                  type: 'working' as const
+                }));
+              } else if (viewFilter === 'off') {
+                displayItems = staffOff.map(s => ({
+                  name: `${s.user_profiles?.first_name} ${s.user_profiles?.last_name}`,
+                  type: 'off' as const
+                }));
+              }
+
               return (
                 <div
                   key={index}
@@ -776,20 +868,14 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
                           {holiday.name}
                         </div>
                       )}
-                      {schedules.map((schedule, idx) => (
-                        <div key={`schedule-${idx}`} className="text-xs font-semibold text-slate-900 truncate">
-                          {schedule.user_profiles?.first_name} {schedule.user_profiles?.last_name}
-                        </div>
-                      ))}
-                      {getRequestsForDate(day).map((request, idx) => (
-                        <div key={idx} className="text-xs font-semibold text-slate-900 truncate">
-                          {canManageSchedules ? (
-                            <>
-                              {request.user_profiles?.first_name} {request.user_profiles?.last_name}
-                            </>
-                          ) : (
-                            formatTimeOffType(request.time_off_type)
-                          )}
+                      {displayItems.map((item, idx) => (
+                        <div
+                          key={`staff-${idx}`}
+                          className={`text-xs font-semibold truncate ${
+                            item.type === 'working' ? 'text-slate-900' : 'text-slate-500 line-through'
+                          }`}
+                        >
+                          {item.name}
                         </div>
                       ))}
                     </>
