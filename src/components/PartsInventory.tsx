@@ -7,20 +7,24 @@ interface Part {
   part_number: string;
   name: string;
   description: string | null;
-  manufacturer: string | null;
-  category: string;
+  vendor_id: string | null;
   quantity_on_hand: number;
   unit_cost: number;
   unit_price: number;
+  msrp: number | null;
   reorder_level: number;
   reorder_quantity: number;
   location: string | null;
   accounting_code_id: string | null;
+  alternative_part_numbers: string | null;
   is_active: boolean;
   is_taxable: boolean;
   accounting_codes?: {
     code: string;
     name: string;
+  };
+  vendors?: {
+    vendor_name: string;
   };
 }
 
@@ -30,12 +34,22 @@ interface AccountingCode {
   name: string;
 }
 
+interface Vendor {
+  id: string;
+  vendor_name: string;
+  contact_name: string | null;
+  phone: string | null;
+  email: string | null;
+  is_active: boolean;
+}
+
 interface PartsInventoryProps {
   userId: string;
 }
 
 export function PartsInventory({ userId }: PartsInventoryProps) {
   const [parts, setParts] = useState<Part[]>([]);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
   const [accountingCodes, setAccountingCodes] = useState<AccountingCode[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -48,11 +62,12 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
     part_number: '',
     name: '',
     description: '',
-    manufacturer: '',
-    category: '',
+    vendor_id: '',
     quantity_on_hand: '0',
     unit_cost: '',
     unit_price: '',
+    msrp: '',
+    alternative_part_numbers: '',
     reorder_level: '0',
     reorder_quantity: '0',
     location: '',
@@ -75,14 +90,20 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
       setLoading(true);
       setError(null);
 
-      const [partsResult, accountingResult] = await Promise.all([
+      const [partsResult, vendorsResult, accountingResult] = await Promise.all([
         supabase
           .from('parts_inventory')
           .select(`
             *,
-            accounting_codes (code, name)
+            accounting_codes (code, name),
+            vendors (vendor_name)
           `)
           .order('part_number'),
+        supabase
+          .from('vendors')
+          .select('id, vendor_name, contact_name, phone, email, is_active')
+          .eq('is_active', true)
+          .order('vendor_name'),
         supabase
           .from('accounting_codes')
           .select('id, code, name')
@@ -91,9 +112,11 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
       ]);
 
       if (partsResult.error) throw partsResult.error;
+      if (vendorsResult.error) throw vendorsResult.error;
       if (accountingResult.error) throw accountingResult.error;
 
       setParts(partsResult.data || []);
+      setVendors(vendorsResult.data || []);
       setAccountingCodes(accountingResult.data || []);
     } catch (err) {
       console.error('Error loading data:', err);
@@ -113,11 +136,12 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
         part_number: formData.part_number,
         name: formData.name,
         description: formData.description || null,
-        manufacturer: formData.manufacturer || null,
-        category: formData.category,
+        vendor_id: formData.vendor_id || null,
         quantity_on_hand: parseInt(formData.quantity_on_hand),
         unit_cost: parseFloat(formData.unit_cost),
         unit_price: parseFloat(formData.unit_price),
+        msrp: formData.msrp ? parseFloat(formData.msrp) : null,
+        alternative_part_numbers: formData.alternative_part_numbers || null,
         reorder_level: parseInt(formData.reorder_level),
         reorder_quantity: parseInt(formData.reorder_quantity),
         location: formData.location || null,
@@ -202,11 +226,12 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
       part_number: part.part_number,
       name: part.name,
       description: part.description || '',
-      manufacturer: part.manufacturer || '',
-      category: part.category,
+      vendor_id: part.vendor_id || '',
       quantity_on_hand: part.quantity_on_hand.toString(),
       unit_cost: part.unit_cost.toString(),
       unit_price: part.unit_price.toString(),
+      msrp: part.msrp?.toString() || '',
+      alternative_part_numbers: part.alternative_part_numbers || '',
       reorder_level: part.reorder_level.toString(),
       reorder_quantity: part.reorder_quantity.toString(),
       location: part.location || '',
@@ -228,11 +253,12 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
       part_number: '',
       name: '',
       description: '',
-      manufacturer: '',
-      category: '',
+      vendor_id: '',
       quantity_on_hand: '0',
       unit_cost: '',
       unit_price: '',
+      msrp: '',
+      alternative_part_numbers: '',
       reorder_level: '0',
       reorder_quantity: '0',
       location: '',
@@ -257,7 +283,7 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
   const filteredParts = parts.filter(part =>
     part.part_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
     part.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    part.category.toLowerCase().includes(searchTerm.toLowerCase())
+    (part.vendors?.vendor_name && part.vendors.vendor_name.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   const lowStockParts = parts.filter(part => part.quantity_on_hand <= part.reorder_level);
@@ -346,26 +372,31 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Manufacturer</label>
-                <input
-                  type="text"
-                  value={formData.manufacturer}
-                  onChange={(e) => setFormData({ ...formData, manufacturer: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
-                />
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Vendor</label>
+              <select
+                value={formData.vendor_id}
+                onChange={(e) => setFormData({ ...formData, vendor_id: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
+              >
+                <option value="" className="bg-white text-gray-900">Select vendor</option>
+                {vendors.map((vendor) => (
+                  <option key={vendor.id} value={vendor.id} className="bg-white text-gray-900">
+                    {vendor.vendor_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Alternative Part Numbers</label>
+              <input
+                type="text"
+                value={formData.alternative_part_numbers}
+                onChange={(e) => setFormData({ ...formData, alternative_part_numbers: e.target.value })}
+                placeholder="e.g., 12345, ABC-789, XYZ-001"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
+              />
             </div>
 
             <div>
@@ -378,7 +409,7 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
               />
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Quantity *</label>
                 <input
@@ -391,6 +422,18 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
                 />
               </div>
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                <input
+                  type="text"
+                  value={formData.location}
+                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Unit Cost ($) *</label>
                 <input
                   type="number"
@@ -399,6 +442,17 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
                   min="0"
                   value={formData.unit_cost}
                   onChange={(e) => setFormData({ ...formData, unit_cost: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">MSRP ($)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.msrp}
+                  onChange={(e) => setFormData({ ...formData, msrp: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
                 />
               </div>
@@ -416,7 +470,7 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Reorder Level</label>
                 <input
@@ -434,15 +488,6 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
                   min="0"
                   value={formData.reorder_quantity}
                   onChange={(e) => setFormData({ ...formData, reorder_quantity: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
-                <input
-                  type="text"
-                  value={formData.location}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
                 />
               </div>
@@ -579,7 +624,7 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
           <input
             type="text"
-            placeholder="Search parts by number, name, or category..."
+            placeholder="Search parts by number, name, or vendor..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
@@ -594,9 +639,10 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Part #</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vendor</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Qty</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unit Cost</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">MSRP</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unit Price</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Value</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
@@ -605,7 +651,7 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
             <tbody className="divide-y divide-gray-200">
               {filteredParts.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan={9} className="px-6 py-8 text-center text-gray-500">
                     No parts found. {searchTerm ? 'Try a different search.' : 'Add parts to get started.'}
                   </td>
                 </tr>
@@ -619,9 +665,10 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
                         <span className="ml-2 text-xs text-orange-600 font-medium">LOW STOCK</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-500">{part.category}</td>
+                    <td className="px-6 py-4 text-sm text-gray-500">{part.vendors?.vendor_name || '-'}</td>
                     <td className="px-6 py-4 text-sm text-gray-900">{part.quantity_on_hand}</td>
                     <td className="px-6 py-4 text-sm text-gray-900">${part.unit_cost.toFixed(2)}</td>
+                    <td className="px-6 py-4 text-sm text-gray-900">{part.msrp ? `$${part.msrp.toFixed(2)}` : '-'}</td>
                     <td className="px-6 py-4 text-sm text-gray-900">${part.unit_price.toFixed(2)}</td>
                     <td className="px-6 py-4 text-sm text-gray-900">
                       ${(part.quantity_on_hand * part.unit_cost).toFixed(2)}
