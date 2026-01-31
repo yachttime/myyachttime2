@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Anchor, Calendar, CheckCircle, AlertCircle, BookOpen, LogOut, Wrench, Send, Play, Shield, ClipboardCheck, Ship, CalendarPlus, FileUp, MessageCircle, Mail, CreditCard as Edit2, Trash2, ChevronLeft, ChevronRight, History, UserCheck, FileText, Upload, Download, X, Users, Save, RefreshCw, Clock, Thermometer, Camera, Receipt, Pencil, Lock, CreditCard, Eye, EyeOff, MousePointer, Ligature as FileSignature, Folder, Menu, Phone, Printer, Plus, QrCode } from 'lucide-react';
+import { Anchor, Calendar, CheckCircle, AlertCircle, BookOpen, LogOut, Wrench, Send, Play, Shield, ClipboardCheck, Ship, CalendarPlus, FileUp, MessageCircle, Mail, CreditCard as Edit2, Trash2, ChevronLeft, ChevronRight, History, UserCheck, FileText, Upload, Download, X, Users, Save, RefreshCw, Clock, Thermometer, Camera, Receipt, Pencil, Lock, CreditCard, Eye, EyeOff, MousePointer, Ligature as FileSignature, Folder, Menu, Phone, Printer, Plus, QrCode, UserCircle2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useRoleImpersonation } from '../contexts/RoleImpersonationContext';
 import { supabase, YachtBooking, MaintenanceRequest, EducationVideo, TripInspection, ConditionRating, InspectionType, RepairRequest, OwnerChatMessage, YachtHistoryLog, OwnerHandoffInspection, YachtDocument, YachtInvoice, YachtBudget, AdminNotification, StaffMessage, Appointment, Yacht, UserProfile, VesselManagementAgreement, logYachtActivity, isStaffRole, isManagerRole, isStaffOrManager, isMasterRole, isOwnerRole, canManageUsers, canManageYacht, canAccessAllYachts } from '../lib/supabase';
 import { InspectionPDFView } from './InspectionPDFView';
 import { OwnerHandoffPDFView } from './OwnerHandoffPDFView';
@@ -22,6 +23,10 @@ interface DashboardProps {
 
 export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const { user, userProfile, yacht, signOut, refreshProfile } = useAuth();
+  const { impersonatedRole, setImpersonatedRole, getEffectiveRole, isImpersonating } = useRoleImpersonation();
+
+  const effectiveRole = getEffectiveRole(userProfile?.role);
+
   const [bookings, setBookings] = useState<YachtBooking[]>([]);
   const [maintenanceRequests, setMaintenanceRequests] = useState<MaintenanceRequest[]>([]);
   const [videos, setVideos] = useState<EducationVideo[]>([]);
@@ -47,6 +52,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [editingThumbnails, setEditingThumbnails] = useState<{[key: string]: File}>({});
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showBulkEmailModal, setShowBulkEmailModal] = useState(false);
+  const [showRoleDropdown, setShowRoleDropdown] = useState(false);
   const [bulkEmailRecipients, setBulkEmailRecipients] = useState<Array<{ email: string; name: string }>>([]);
   const [bulkEmailCcRecipients, setBulkEmailCcRecipients] = useState<string[]>([]);
   const [bulkEmailYachtName, setBulkEmailYachtName] = useState<string>('');
@@ -596,8 +602,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   }, [user]);
 
   const loadBookings = async () => {
-    const userIsStaff = isStaffRole(userProfile?.role);
-    const userIsManager = isManagerRole(userProfile?.role);
+    const userIsStaff = isStaffRole(effectiveRole);
+    const userIsManager = isManagerRole(effectiveRole);
 
     // Staff can access without a yacht, owners/managers need a yacht
     if (!user || (!yacht && !userIsStaff)) {
@@ -681,7 +687,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         `);
 
       // Owners see all requests for their yacht, others see only their own
-      if (isOwnerRole(userProfile?.role) && yacht) {
+      if (isOwnerRole(effectiveRole) && yacht) {
         query = query.eq('yacht_id', yacht.id);
       } else {
         query = query.eq('submitted_by', user.id);
@@ -1399,11 +1405,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         .select('*');
 
       // Master role: see ALL yachts (active and inactive)
-      if (isMasterRole(userProfile?.role)) {
+      if (isMasterRole(effectiveRole)) {
         // No filter - master sees everything
       }
       // Manager role: see only their assigned yacht
-      else if (userProfile?.role === 'manager' && userProfile.yacht_id) {
+      else if (effectiveRole === 'manager' && userProfile.yacht_id) {
         query = query.eq('id', userProfile.yacht_id).eq('is_active', true);
       }
       // Staff/Mechanic: see all active yachts
@@ -1592,7 +1598,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       if (!vesselAgreements[yachtId]) {
         await loadVesselAgreements(yachtId);
       }
-      if (isManagerRole(userProfile?.role) && !hasSubmittedAgreement(yachtId)) {
+      if (isManagerRole(effectiveRole) && !hasSubmittedAgreement(yachtId)) {
         setSelectedAgreement(null);
         setShowAgreementForm(true);
       }
@@ -1604,7 +1610,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     setSelectedAgreement(null);
     if (agreementYachtId) {
       await loadVesselAgreements(agreementYachtId);
-      if (isManagerRole(userProfile?.role) && hasSubmittedAgreement(agreementYachtId)) {
+      if (isManagerRole(effectiveRole) && hasSubmittedAgreement(agreementYachtId)) {
         setAgreementYachtId(null);
       }
     }
@@ -1633,10 +1639,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   };
 
   const shouldShowAgreementsButton = (yachtId: string) => {
-    if (canAccessAllYachts(userProfile?.role)) {
+    if (canAccessAllYachts(effectiveRole)) {
       return true;
     }
-    if (isManagerRole(userProfile?.role)) {
+    if (isManagerRole(effectiveRole)) {
       const agreements = vesselAgreements[yachtId];
       if (!agreements) {
         return true;
@@ -1881,7 +1887,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         .order('created_at', { ascending: false });
 
       // Filter by yacht_id for managers
-      if (isManagerRole(userProfile?.role) && yacht) {
+      if (isManagerRole(effectiveRole) && yacht) {
         query = query.eq('yacht_id', yacht.id);
       }
 
@@ -2968,7 +2974,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         .order('created_at', { ascending: false });
 
       // Filter by yacht_id for managers
-      if (isManagerRole(userProfile?.role) && yacht) {
+      if (isManagerRole(effectiveRole) && yacht) {
         messagesQuery = messagesQuery.eq('yacht_id', yacht.id);
       }
 
@@ -3025,7 +3031,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         .order('created_at', { ascending: false });
 
       // Filter by yacht_id for managers
-      if (isManagerRole(userProfile?.role) && yacht) {
+      if (isManagerRole(effectiveRole) && yacht) {
         notificationsQuery = notificationsQuery.eq('yacht_id', yacht.id);
       }
 
@@ -3044,7 +3050,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         .order('created_at', { ascending: false });
 
       // Filter by yacht_id for managers
-      if (isManagerRole(userProfile?.role) && yacht) {
+      if (isManagerRole(effectiveRole) && yacht) {
         legacyQuery = legacyQuery.eq('yacht_id', yacht.id);
       }
 
@@ -3193,7 +3199,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         .order('start_date', { ascending: false });
 
       // Filter by yacht_id for managers
-      if (isManagerRole(userProfile?.role) && yacht) {
+      if (isManagerRole(effectiveRole) && yacht) {
         bookingsQuery = bookingsQuery.eq('yacht_id', yacht.id);
       }
 
@@ -3209,7 +3215,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         .select('*')
         .order('date', { ascending: false });
 
-      if (isManagerRole(userProfile?.role) && yacht) {
+      if (isManagerRole(effectiveRole) && yacht) {
         appointmentsQuery = appointmentsQuery.eq('yacht_name', yacht.name);
       }
 
@@ -4112,7 +4118,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     const dateStr = date.toDateString();
     return masterCalendarBookings.filter(booking => {
       // Filter by yacht if user is owner (but not if master)
-      if (userProfile?.role === 'owner' && yacht && booking.yacht_id !== yacht.id) {
+      if (effectiveRole === 'owner' && yacht && booking.yacht_id !== yacht.id) {
         return false;
       }
 
@@ -4271,7 +4277,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               <span className="font-medium">Education</span>
             </button>
           )}
-          {isStaffRole(userProfile?.role) && (
+          {isStaffRole(effectiveRole) && (
             <button
               onClick={() => {
                 setActiveTab('staffCalendar');
@@ -4287,7 +4293,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               <span className="font-medium">Staff Schedule</span>
             </button>
           )}
-          {(isStaffOrManager(userProfile?.role) || isOwnerRole(userProfile?.role)) && (
+          {(isStaffOrManager(effectiveRole) || isOwnerRole(effectiveRole)) && (
             <button
               onClick={() => {
                 setActiveTab('admin');
@@ -4327,6 +4333,47 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             <RefreshCw className="w-4 h-4" />
             <span>Refresh</span>
           </button>
+
+          {userProfile?.role === 'master' && (
+            <div className="relative">
+              <button
+                onClick={() => setShowRoleDropdown(!showRoleDropdown)}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm text-slate-400 hover:text-purple-400 hover:bg-slate-800/50 rounded-lg transition-colors"
+                title="View as different role"
+              >
+                <UserCircle2 className="w-4 h-4" />
+                <span>View As: {impersonatedRole ? impersonatedRole.charAt(0).toUpperCase() + impersonatedRole.slice(1) : 'Master'}</span>
+              </button>
+
+              {showRoleDropdown && (
+                <div className="absolute bottom-full left-0 right-0 mb-2 bg-slate-800 border border-slate-700 rounded-lg shadow-xl py-2 z-50">
+                  <div className="px-3 py-2 text-xs text-slate-500 border-b border-slate-700 mb-1">
+                    Switch Role View
+                  </div>
+                  {(['owner', 'manager', 'staff', 'mechanic', 'master'] as const).map((role) => (
+                    <button
+                      key={role}
+                      onClick={() => {
+                        setImpersonatedRole(role === 'master' ? null : role);
+                        setShowRoleDropdown(false);
+                      }}
+                      className={`w-full text-left px-4 py-2 text-sm transition-colors ${
+                        (impersonatedRole === role || (role === 'master' && !impersonatedRole))
+                          ? 'bg-purple-600/20 text-purple-400'
+                          : 'text-slate-300 hover:bg-slate-700/50'
+                      }`}
+                    >
+                      <span className="capitalize">{role}</span>
+                      {(impersonatedRole === role || (role === 'master' && !impersonatedRole)) && (
+                        <span className="ml-2 text-xs">✓</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           <button
             onClick={handleOpenProfileEdit}
             className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm text-slate-400 hover:text-blue-400 hover:bg-slate-800/50 rounded-lg transition-colors"
@@ -4346,7 +4393,28 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       {/* Main Content */}
       <main className="flex-1 lg:ml-64 w-full">
-        <div className="p-6 pt-20 lg:pt-6">
+        {isImpersonating && (
+          <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-6 py-3 border-b border-purple-500 shadow-lg fixed top-0 left-0 lg:left-64 right-0 z-40">
+            <div className="flex items-center justify-between max-w-7xl mx-auto">
+              <div className="flex items-center gap-3">
+                <Shield className="w-5 h-5" />
+                <div>
+                  <span className="font-semibold">Role Impersonation Active</span>
+                  <span className="ml-2 text-purple-100">
+                    Viewing as: <span className="font-bold capitalize">{impersonatedRole}</span>
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => setImpersonatedRole(null)}
+                className="px-4 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium transition-colors"
+              >
+                Exit Impersonation
+              </button>
+            </div>
+          </div>
+        )}
+        <div className={`p-6 ${isImpersonating ? 'pt-20' : 'pt-20 lg:pt-6'}`}>
         <div className="max-w-7xl">
           {activeTab === 'calendar' && (
             <div className="space-y-6">
@@ -5034,7 +5102,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       <h2 className="text-2xl font-bold mb-2">Education</h2>
                       <p className="text-slate-400">{editMode ? 'Edit video details and order' : 'Click any video to watch'}</p>
                     </div>
-                    {isStaffOrManager(userProfile?.role) && (
+                    {isStaffOrManager(effectiveRole) && (
                       <div className="flex items-center gap-3">
                         {editMode ? (
                           <>
@@ -5092,7 +5160,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {videos.filter(v => {
                           if (v.category !== selectedCategory) return false;
-                          if (!canAccessAllYachts(userProfile?.role) && (v.category === 'SignIn' || v.category === 'Welcome')) {
+                          if (!canAccessAllYachts(effectiveRole) && (v.category === 'SignIn' || v.category === 'Welcome')) {
                             return false;
                           }
                           return true;
@@ -5135,7 +5203,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 <p className="text-slate-400 text-sm line-clamp-2">{video.description}</p>
                               </div>
                             </div>
-                            {isStaffOrManager(userProfile?.role) && !editMode && (
+                            {isStaffOrManager(effectiveRole) && !editMode && (
                               <div className="absolute top-2 right-2 flex gap-2 z-10">
                                 <button
                                   onClick={(e) => {
@@ -5296,7 +5364,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {Array.from(new Set(videos.map(v => v.category)))
                         .filter(category => {
-                          if (!canAccessAllYachts(userProfile?.role) && (category === 'SignIn' || category === 'Welcome')) {
+                          if (!canAccessAllYachts(effectiveRole) && (category === 'SignIn' || category === 'Welcome')) {
                             return false;
                           }
                           return true;
@@ -5383,10 +5451,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                         </div>
                       </div>
                       <h3 className="text-xl font-bold mb-2">Master Calendar</h3>
-                      <p className="text-slate-400 text-sm">{isOwnerRole(userProfile?.role) ? 'View your yacht trip schedule' : 'View all owner trips across all yachts'}</p>
+                      <p className="text-slate-400 text-sm">{isOwnerRole(effectiveRole) ? 'View your yacht trip schedule' : 'View all owner trips across all yachts'}</p>
                     </button>
 
-                    {!isOwnerRole(userProfile?.role) && (
+                    {!isOwnerRole(effectiveRole) && (
                       <button
                         onClick={() => setAdminView('messages')}
                         className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
@@ -5401,7 +5469,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       </button>
                     )}
 
-                    {canAccessAllYachts(userProfile?.role) && (
+                    {canAccessAllYachts(effectiveRole) && (
                       <button
                         onClick={() => setAdminView('appointments')}
                         className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
@@ -5416,7 +5484,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       </button>
                     )}
 
-                    {canManageYacht(userProfile?.role) && (
+                    {canManageYacht(effectiveRole) && (
                       <button
                         onClick={() => setAdminView('inspection')}
                         className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
@@ -5431,7 +5499,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       </button>
                     )}
 
-                    {canManageYacht(userProfile?.role) && (
+                    {canManageYacht(effectiveRole) && (
                       <button
                         onClick={() => setAdminView('ownerhandoff')}
                         className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
@@ -5446,7 +5514,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       </button>
                     )}
 
-                    {isStaffOrManager(userProfile?.role) && (
+                    {isStaffOrManager(effectiveRole) && (
                       <button
                         onClick={() => setAdminView('repairs')}
                         className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
@@ -5461,7 +5529,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       </button>
                     )}
 
-                    {canManageYacht(userProfile?.role) && (
+                    {canManageYacht(effectiveRole) && (
                       <button
                         onClick={() => setAdminView('ownertrips')}
                         className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
@@ -5476,7 +5544,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       </button>
                     )}
 
-                    {(isOwnerRole(userProfile?.role) || canManageYacht(userProfile?.role)) && (
+                    {(isOwnerRole(effectiveRole) || canManageYacht(effectiveRole)) && (
                       <button
                         onClick={() => setAdminView('ownerchat')}
                         className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
@@ -5487,11 +5555,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                         </div>
                       </div>
                         <h3 className="text-xl font-bold mb-2">Owner Chat</h3>
-                        <p className="text-slate-400 text-sm">{isOwnerRole(userProfile?.role) ? 'Chat with all owners on your yacht' : 'Connect and chat with all yacht owners'}</p>
+                        <p className="text-slate-400 text-sm">{isOwnerRole(effectiveRole) ? 'Chat with all owners on your yacht' : 'Connect and chat with all yacht owners'}</p>
                       </button>
                     )}
 
-                    {isStaffOrManager(userProfile?.role) && (
+                    {isStaffOrManager(effectiveRole) && (
                       <button
                         onClick={() => setAdminView('yachts')}
                         className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
@@ -5506,7 +5574,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       </button>
                     )}
 
-                    {isStaffRole(userProfile?.role) && (
+                    {isStaffRole(effectiveRole) && (
                       <button
                         onClick={() => setAdminView('smartdevices')}
                         className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
@@ -5521,7 +5589,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       </button>
                     )}
 
-                    {canManageYacht(userProfile?.role) && (
+                    {canManageYacht(effectiveRole) && (
                       <button
                         onClick={() => setAdminView('users')}
                         className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
@@ -7306,7 +7374,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {allYachts
                       .filter((yacht) => {
-                        if (userProfile?.role === 'manager' && userProfile.yacht_id) {
+                        if (effectiveRole === 'manager' && userProfile.yacht_id) {
                           if (yacht.id !== userProfile.yacht_id) return false;
                         }
                         if (yachtFilter === 'active') return yacht.is_active;
@@ -7439,7 +7507,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 {agreementYachtId === yacht.id ? 'Hide' : 'Agreements'}
                               </button>
                             )}
-                            {canManageYacht(userProfile?.role) && (
+                            {canManageYacht(effectiveRole) && (
                               <button
                                 onClick={() => toggleYachtInvoices(yacht.id)}
                                 className="flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors text-sm"
@@ -7472,7 +7540,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               <Pencil className="w-4 h-4" />
                               Edit
                             </button>
-                            {canManageYacht(userProfile?.role) && (
+                            {canManageYacht(effectiveRole) && (
                               <button
                                 onClick={() => setQrCodeYacht({ id: yacht.id, name: yacht.name })}
                                 className="flex items-center justify-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg transition-colors text-sm"
@@ -7924,7 +7992,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           <div className="mt-4 pt-4 border-t border-slate-700">
                             <div className="flex items-center justify-between mb-3">
                               <h4 className="text-sm font-semibold text-slate-300">Vessel Management Agreements</h4>
-                              {(canAccessAllYachts(userProfile?.role) || (isManagerRole(userProfile?.role) && !hasSubmittedAgreement(yacht.id))) && (
+                              {(canAccessAllYachts(effectiveRole) || (isManagerRole(effectiveRole) && !hasSubmittedAgreement(yacht.id))) && (
                                 <button
                                   onClick={() => {
                                     setSelectedAgreement(null);
@@ -7938,7 +8006,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               )}
                             </div>
 
-                            {!isOwnerRole(userProfile?.role) && (
+                            {!isOwnerRole(effectiveRole) && (
                               <div className="flex items-center gap-2 mb-3">
                                 <span className="text-xs text-slate-400">Filter:</span>
                                 <div className="flex gap-1">
@@ -7979,7 +8047,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                           <span className={`px-2 py-0.5 rounded text-xs font-semibold ${getAgreementStatusColor(agreement.status)}`}>
                                             {getAgreementStatusLabel(agreement.status)}
                                           </span>
-                                          {agreement.status === 'pending_approval' && !agreement.staff_signature_date && canManageYacht(userProfile?.role) && (
+                                          {agreement.status === 'pending_approval' && !agreement.staff_signature_date && canManageYacht(effectiveRole) && (
                                             <span className="px-2 py-0.5 bg-orange-500/20 text-orange-400 rounded text-xs font-semibold">
                                               Needs AZ Marine Signature
                                             </span>
@@ -7999,7 +8067,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                         </div>
                                       </div>
                                       <div className="flex flex-col gap-1">
-                                        {agreement.status === 'draft' && isOwnerRole(userProfile?.role) && (
+                                        {agreement.status === 'draft' && isOwnerRole(effectiveRole) && (
                                           <button
                                             onClick={() => {
                                               setSelectedAgreement(agreement);
@@ -8010,7 +8078,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                             Edit
                                           </button>
                                         )}
-                                        {agreement.status === 'pending_approval' && canManageYacht(userProfile?.role) && (
+                                        {agreement.status === 'pending_approval' && canManageYacht(effectiveRole) && (
                                           <div className="flex flex-col gap-1">
                                             <button
                                               onClick={() => {
@@ -8145,8 +8213,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                             >
                                               View
                                             </button>
-                                            {((isOwnerRole(userProfile?.role) && agreement.submitted_by === user?.id) ||
-                                              canManageYacht(userProfile?.role)) && (
+                                            {((isOwnerRole(effectiveRole) && agreement.submitted_by === user?.id) ||
+                                              canManageYacht(effectiveRole)) && (
                                               <button
                                                 onClick={() => {
                                                   setSelectedAgreement(agreement);
@@ -8172,7 +8240,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           </div>
                         )}
 
-                        {invoiceYachtId === yacht.id && canManageYacht(userProfile?.role) && (
+                        {invoiceYachtId === yacht.id && canManageYacht(effectiveRole) && (
                           <div className="mt-4 pt-4 border-t border-slate-700">
                             <div className="flex items-center justify-between mb-3">
                               <h4 className="text-sm font-semibold text-slate-300">Invoices</h4>
@@ -9670,7 +9738,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                         )}
                                       </div>
 
-                                      {canManageYacht(userProfile?.role) && invoice.payment_status !== 'paid' && (
+                                      {canManageYacht(effectiveRole) && invoice.payment_status !== 'paid' && (
                                         <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t border-emerald-500/20">
                                           {invoice.payment_status === 'pending' && !invoice.payment_link_url && (
                                             <button
@@ -9716,7 +9784,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                     </div>
                                   )}
 
-                                  {!invoice && request.status === 'completed' && !request.is_retail_customer && canManageYacht(userProfile?.role) && (
+                                  {!invoice && request.status === 'completed' && !request.is_retail_customer && canManageYacht(effectiveRole) && (
                                     <div className="mt-4">
                                       <button
                                         onClick={() => handleAddInvoiceToCompletedRepair(request)}
@@ -9729,7 +9797,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   )}
                                 </div>
 
-                                {canManageYacht(userProfile?.role) && (
+                                {canManageYacht(effectiveRole) && (
                                   <>
                                     {request.status === 'pending' && (
                                       <div className="flex flex-col gap-2 ml-4">
@@ -10149,11 +10217,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     <MessageCircle className="w-8 h-8 text-purple-500" />
                     <div>
                       <h2 className="text-2xl font-bold">Owner Chat</h2>
-                      <p className="text-slate-400">{isOwnerRole(userProfile?.role) ? `Chat with all owners on ${yacht?.name || 'your yacht'}` : 'View all owner chats across all yachts'}</p>
+                      <p className="text-slate-400">{isOwnerRole(effectiveRole) ? `Chat with all owners on ${yacht?.name || 'your yacht'}` : 'View all owner chats across all yachts'}</p>
                     </div>
                   </div>
 
-                  {canAccessAllYachts(userProfile?.role) ? (
+                  {canAccessAllYachts(effectiveRole) ? (
                     <div className="space-y-6">
                       {selectedChatYachtId ? (
                         <>
@@ -10366,7 +10434,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                         </div>
                       </div>
 
-                      {isOwnerRole(userProfile?.role) ? (
+                      {isOwnerRole(effectiveRole) ? (
                         <div className="mt-4 bg-purple-500/10 border border-purple-500 text-purple-500 px-4 py-3 rounded-lg text-sm">
                           You are chatting with all owners assigned to this yacht. Messages are visible to all owners on your yacht.
                         </div>
@@ -10406,7 +10474,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     >
                       Yacht Messages
                     </button>
-                    {isStaffRole(userProfile?.role) && (
+                    {isStaffRole(effectiveRole) && (
                       <button
                         onClick={() => setMessagesTab('staff')}
                         className={`flex-1 py-3 px-6 rounded-xl font-semibold transition-all duration-300 ${
@@ -11388,7 +11456,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               >
                                 Cancel
                               </button>
-                              {canManageYacht(userProfile?.role) && (
+                              {canManageYacht(effectiveRole) && (
                                 <button
                                   type="button"
                                   onClick={async () => {
@@ -11505,7 +11573,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               >
                                 Cancel
                               </button>
-                              {canManageYacht(userProfile?.role) && (
+                              {canManageYacht(effectiveRole) && (
                                 <button
                                   type="button"
                                   onClick={async () => {
@@ -11726,7 +11794,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           </div>
                         </div>
                         <div className="flex gap-2">
-                          {isStaffRole(userProfile?.role) && (
+                          {isStaffRole(effectiveRole) && (
                             <select
                               value={printYachtFilter}
                               onChange={(e) => setPrintYachtFilter(e.target.value)}
@@ -11743,15 +11811,15 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           <button
                             onClick={() => {
                               // Master role sees ALL users including inactive
-                              let filteredUsers = userProfile?.role === 'master'
+                              let filteredUsers = effectiveRole === 'master'
                                 ? allUsers
                                 : allUsers.filter((user) => user.is_active !== false);
 
-                              if (isStaffRole(userProfile?.role) && userProfile?.role !== 'master') {
+                              if (isStaffRole(effectiveRole) && userProfile?.role !== 'master') {
                                 if (printYachtFilter !== 'all') {
                                   filteredUsers = filteredUsers.filter((user) => user.yacht_id === printYachtFilter);
                                 }
-                              } else if ((userProfile?.role === 'owner' || userProfile?.role === 'manager') && userProfile.yacht_id) {
+                              } else if ((effectiveRole === 'owner' || effectiveRole === 'manager') && userProfile.yacht_id) {
                                 filteredUsers = filteredUsers.filter((user) => user.yacht_id === userProfile.yacht_id);
                               }
 
@@ -11766,16 +11834,16 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               }));
 
                               let title = 'User List';
-                              if (isStaffRole(userProfile?.role) && userProfile?.role !== 'master') {
+                              if (isStaffRole(effectiveRole) && userProfile?.role !== 'master') {
                                 if (printYachtFilter !== 'all') {
                                   const yachtName = allYachts.find(y => y.id === printYachtFilter)?.name;
                                   title = yachtName ? `${yachtName} - User List` : 'User List';
                                 } else {
                                   title = 'All Yachts - User List';
                                 }
-                              } else if (userProfile?.role === 'master') {
+                              } else if (effectiveRole === 'master') {
                                 title = 'All Yachts - User List';
-                              } else if ((userProfile?.role === 'owner' || userProfile?.role === 'manager') && userProfile.yacht_id) {
+                              } else if ((effectiveRole === 'owner' || effectiveRole === 'manager') && userProfile.yacht_id) {
                                 const yachtName = allYachts.find(y => y.id === userProfile.yacht_id)?.name;
                                 title = yachtName ? `${yachtName} - User List` : 'User List';
                               }
@@ -11799,7 +11867,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 password: '',
                                 trip_number: '',
                                 role: 'owner',
-                                yacht_id: (userProfile?.role === 'manager' && userProfile.yacht_id) ? userProfile.yacht_id : '',
+                                yacht_id: (effectiveRole === 'manager' && userProfile.yacht_id) ? userProfile.yacht_id : '',
                                 phone: '',
                                 street: '',
                                 city: '',
@@ -12068,7 +12136,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 <label className="block text-sm font-medium text-slate-300 mb-2">
                                   Role
                                 </label>
-                                {isManagerRole(userProfile?.role) && selectedUser && selectedUser.role !== 'owner' ? (
+                                {isManagerRole(effectiveRole) && selectedUser && selectedUser.role !== 'owner' ? (
                                   <>
                                     <input
                                       type="text"
@@ -12087,18 +12155,18 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                       required
                                     >
                                       <option value="owner">Owner</option>
-                                      {canAccessAllYachts(userProfile?.role) && (
+                                      {canAccessAllYachts(effectiveRole) && (
                                         <>
                                           <option value="manager">Manager</option>
                                           <option value="staff">Staff</option>
                                           <option value="mechanic">Mechanic</option>
-                                          {isMasterRole(userProfile?.role) && (
+                                          {isMasterRole(effectiveRole) && (
                                             <option value="master">Master</option>
                                           )}
                                         </>
                                       )}
                                     </select>
-                                    {isManagerRole(userProfile?.role) && (
+                                    {isManagerRole(effectiveRole) && (
                                       <p className="text-xs text-slate-500 mt-1">You can only create yacht owners</p>
                                     )}
                                   </>
@@ -12109,7 +12177,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 <label className="block text-sm font-medium text-slate-300 mb-2">
                                   Assigned Yacht
                                 </label>
-                                {userProfile?.role === 'manager' ? (
+                                {effectiveRole === 'manager' ? (
                                   <>
                                     <input
                                       type="text"
@@ -12258,7 +12326,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               if (userProfile?.role !== 'master') {
                                 if (user.is_active === false) return false;
                                 // Apply yacht filters for non-master roles
-                                if ((userProfile?.role === 'owner' || userProfile?.role === 'manager') && userProfile.yacht_id) {
+                                if ((effectiveRole === 'owner' || effectiveRole === 'manager') && userProfile.yacht_id) {
                                   if (user.yacht_id !== userProfile.yacht_id) return false;
                                 }
                               }
@@ -13373,7 +13441,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     <p className="text-xs text-slate-500 mt-1">This email will receive a copy (CC) of all notifications sent to you</p>
                   </div>
 
-                  {isStaffOrManager(userProfile?.role) && (
+                  {isStaffOrManager(effectiveRole) && (
                     <>
                       <div>
                         <label className="flex items-center gap-3 cursor-pointer">

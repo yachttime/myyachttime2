@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { RoleImpersonationProvider } from './contexts/RoleImpersonationContext';
 import { Welcome } from './components/Welcome';
 import { SignIn } from './components/SignIn';
 import { Dashboard } from './components/Dashboard';
@@ -54,7 +55,9 @@ function AppContent() {
 function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <RoleImpersonationProvider>
+        <AppContent />
+      </RoleImpersonationProvider>
     </AuthProvider>
   );
 }
