@@ -29,6 +29,7 @@ interface EstimateTask {
   task_name: string;
   task_overview: string;
   task_order: number;
+  apply_surcharge: boolean;
   lineItems: EstimateLineItem[];
 }
 
@@ -40,6 +41,7 @@ interface EstimateLineItem {
   quantity: number;
   unit_price: number;
   total_price: number;
+  is_taxable: boolean;
   labor_code_id?: string | null;
   part_id?: string | null;
   line_order: number;
@@ -90,6 +92,7 @@ export function Estimates({ userId }: EstimatesProps) {
     description: '',
     quantity: '1',
     unit_price: '0',
+    is_taxable: true,
     labor_code_id: '',
     part_id: '',
     work_details: ''
@@ -177,6 +180,7 @@ export function Estimates({ userId }: EstimatesProps) {
         task_name: taskFormData.task_name,
         task_overview: taskFormData.task_overview,
         task_order: tasks.length,
+        apply_surcharge: true,
         lineItems: []
       };
       setTasks([...tasks, newTask]);
@@ -226,6 +230,7 @@ export function Estimates({ userId }: EstimatesProps) {
       quantity,
       unit_price,
       total_price: quantity * unit_price,
+      is_taxable: lineItemFormData.is_taxable,
       labor_code_id: lineItemFormData.labor_code_id || null,
       part_id: lineItemFormData.part_id || null,
       line_order: tasks[activeTaskIndex].lineItems.length,
@@ -241,6 +246,7 @@ export function Estimates({ userId }: EstimatesProps) {
       description: '',
       quantity: '1',
       unit_price: '0',
+      is_taxable: true,
       labor_code_id: '',
       part_id: '',
       work_details: ''
@@ -285,8 +291,22 @@ export function Estimates({ userId }: EstimatesProps) {
     );
   };
 
+  const calculateTaxableSubtotal = () => {
+    return tasks.reduce((sum, task) =>
+      sum + task.lineItems.reduce((taskSum, item) =>
+        item.is_taxable ? taskSum + item.total_price : taskSum, 0), 0
+    );
+  };
+
+  const calculateSurchargeableSubtotal = () => {
+    return tasks.reduce((sum, task) => {
+      if (!task.apply_surcharge) return sum;
+      return sum + task.lineItems.reduce((taskSum, item) => taskSum + item.total_price, 0);
+    }, 0);
+  };
+
   const calculateSalesTax = () => {
-    return calculateSubtotal() * parseFloat(formData.sales_tax_rate || '0');
+    return calculateTaxableSubtotal() * parseFloat(formData.sales_tax_rate || '0');
   };
 
   const calculateShopSupplies = () => {
@@ -298,7 +318,7 @@ export function Estimates({ userId }: EstimatesProps) {
   };
 
   const calculateSurcharge = () => {
-    return calculateSubtotal() * parseFloat(formData.surcharge_rate || '0');
+    return calculateSurchargeableSubtotal() * parseFloat(formData.surcharge_rate || '0');
   };
 
   const calculateTotal = () => {
@@ -380,7 +400,8 @@ export function Estimates({ userId }: EstimatesProps) {
             estimate_id: estimate.id,
             task_name: task.task_name,
             task_overview: task.task_overview,
-            task_order: i
+            task_order: i,
+            apply_surcharge: task.apply_surcharge
           })
           .select()
           .single();
@@ -806,6 +827,18 @@ export function Estimates({ userId }: EstimatesProps) {
                                 </div>
                               </div>
 
+                              <div>
+                                <label className="flex items-center gap-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={lineItemFormData.is_taxable}
+                                    onChange={(e) => setLineItemFormData({ ...lineItemFormData, is_taxable: e.target.checked })}
+                                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                  />
+                                  <span className="text-sm font-medium text-gray-700">Taxable (applies sales tax)</span>
+                                </label>
+                              </div>
+
                               <div className="flex justify-end gap-2">
                                 <button
                                   type="button"
@@ -829,46 +862,69 @@ export function Estimates({ userId }: EstimatesProps) {
                           )}
 
                           {task.lineItems.length > 0 && (
-                            <div className="border border-gray-200 rounded-lg overflow-hidden">
-                              <table className="w-full text-sm">
-                                <thead className="bg-gray-50">
-                                  <tr>
-                                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Description</th>
-                                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Qty</th>
-                                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Price</th>
-                                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Total</th>
-                                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Action</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {task.lineItems.map((item, lineIndex) => (
-                                    <tr key={lineIndex} className="border-t">
-                                      <td className="px-3 py-2">
-                                        <span className="text-xs text-gray-500 uppercase">{item.line_type}</span>
-                                        <div className="font-medium text-gray-900">{item.description}</div>
-                                        {item.work_details && (
-                                          <div className="text-xs text-gray-600 mt-1 whitespace-pre-wrap">
-                                            {item.work_details}
-                                          </div>
-                                        )}
-                                      </td>
-                                      <td className="px-3 py-2 text-right align-top text-gray-900">{item.quantity}</td>
-                                      <td className="px-3 py-2 text-right align-top text-gray-900">${item.unit_price.toFixed(2)}</td>
-                                      <td className="px-3 py-2 text-right align-top text-gray-900">${item.total_price.toFixed(2)}</td>
-                                      <td className="px-3 py-2 text-right align-top">
-                                        <button
-                                          type="button"
-                                          onClick={() => handleRemoveLineItem(taskIndex, lineIndex)}
-                                          className="text-red-600 hover:text-red-800"
-                                        >
-                                          <Trash2 className="w-4 h-4" />
-                                        </button>
-                                      </td>
+                            <>
+                              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                                <table className="w-full text-sm">
+                                  <thead className="bg-gray-50">
+                                    <tr>
+                                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Description</th>
+                                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Qty</th>
+                                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Price</th>
+                                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Total</th>
+                                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Action</th>
                                     </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
+                                  </thead>
+                                  <tbody>
+                                    {task.lineItems.map((item, lineIndex) => (
+                                      <tr key={lineIndex} className="border-t">
+                                        <td className="px-3 py-2">
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-xs text-gray-500 uppercase">{item.line_type}</span>
+                                            {item.is_taxable && (
+                                              <span className="text-xs px-1.5 py-0.5 bg-green-100 text-green-700 rounded">Taxable</span>
+                                            )}
+                                          </div>
+                                          <div className="font-medium text-gray-900">{item.description}</div>
+                                          {item.work_details && (
+                                            <div className="text-xs text-gray-600 mt-1 whitespace-pre-wrap">
+                                              {item.work_details}
+                                            </div>
+                                          )}
+                                        </td>
+                                        <td className="px-3 py-2 text-right align-top text-gray-900">{item.quantity}</td>
+                                        <td className="px-3 py-2 text-right align-top text-gray-900">${item.unit_price.toFixed(2)}</td>
+                                        <td className="px-3 py-2 text-right align-top text-gray-900">${item.total_price.toFixed(2)}</td>
+                                        <td className="px-3 py-2 text-right align-top">
+                                          <button
+                                            type="button"
+                                            onClick={() => handleRemoveLineItem(taskIndex, lineIndex)}
+                                            className="text-red-600 hover:text-red-800"
+                                          >
+                                            <Trash2 className="w-4 h-4" />
+                                          </button>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+
+                              <div className="mt-3 pt-3 border-t border-gray-200">
+                                <label className="flex items-center gap-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={task.apply_surcharge}
+                                    onChange={(e) => {
+                                      const updatedTasks = [...tasks];
+                                      updatedTasks[taskIndex].apply_surcharge = e.target.checked;
+                                      setTasks(updatedTasks);
+                                    }}
+                                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                  />
+                                  <span className="text-sm font-medium text-gray-700">Apply surcharge to this task</span>
+                                </label>
+                              </div>
+                            </>
                           )}
 
                           {task.lineItems.length === 0 && !showLineItemForm && (
