@@ -1462,7 +1462,7 @@ function WorkScheduleModal({ staff, onClose }: { staff: UserProfile[]; onClose: 
       }
 
       alert('Work schedule saved successfully!' + (
-        schedules.some((s, idx) => isWeekend(idx) && s.isWorking && !seasonStatus.inSeason)
+        Object.entries(schedules).some(([idx, s]) => isWeekend(Number(idx)) && s.isWorking && !seasonStatus.inSeason)
           ? '\n\nNote: Weekend work during off-season requires staff approval.'
           : ''
       ));
