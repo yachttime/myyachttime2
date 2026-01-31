@@ -212,7 +212,13 @@ export function Estimates({ userId }: EstimatesProps) {
 
           if (userWantsToRestore) {
             setFormData(draft.formData);
-            setTasks(draft.tasks);
+            const restoredTasks = draft.tasks.map((task: any) => ({
+              ...task,
+              lineItems: task.lineItems || []
+            }));
+            setTasks(restoredTasks);
+            const allTaskIndexes = restoredTasks.map((_: any, index: number) => index);
+            setExpandedTasks(new Set(allTaskIndexes));
             setShowForm(true);
           } else {
             localStorage.removeItem('estimate_draft');
@@ -291,6 +297,11 @@ export function Estimates({ userId }: EstimatesProps) {
     const quantity = parseFloat(lineItemFormData.quantity);
     const unit_price = parseFloat(lineItemFormData.unit_price);
 
+    const updatedTasks = [...tasks];
+    if (!updatedTasks[activeTaskIndex].lineItems) {
+      updatedTasks[activeTaskIndex].lineItems = [];
+    }
+
     const newLineItem: EstimateLineItem = {
       line_type: lineItemFormData.line_type,
       description: lineItemFormData.description,
@@ -300,11 +311,10 @@ export function Estimates({ userId }: EstimatesProps) {
       is_taxable: lineItemFormData.is_taxable,
       labor_code_id: lineItemFormData.labor_code_id || null,
       part_id: lineItemFormData.part_id || null,
-      line_order: tasks[activeTaskIndex].lineItems.length,
+      line_order: updatedTasks[activeTaskIndex].lineItems.length,
       work_details: lineItemFormData.work_details || null
     };
 
-    const updatedTasks = [...tasks];
     updatedTasks[activeTaskIndex].lineItems.push(newLineItem);
     setTasks(updatedTasks);
 
