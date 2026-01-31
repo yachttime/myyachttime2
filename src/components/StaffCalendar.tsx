@@ -113,6 +113,49 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
     }
   };
 
+  const getFederalHolidays = (year: number) => {
+    const holidays: { date: string; name: string }[] = [];
+
+    const getNthWeekdayOfMonth = (year: number, month: number, weekday: number, n: number) => {
+      const firstDay = new Date(year, month, 1);
+      const firstWeekday = firstDay.getDay();
+      const offset = (weekday - firstWeekday + 7) % 7;
+      const day = 1 + offset + (n - 1) * 7;
+      return new Date(year, month, day);
+    };
+
+    const getLastWeekdayOfMonth = (year: number, month: number, weekday: number) => {
+      const lastDay = new Date(year, month + 1, 0);
+      const lastWeekday = lastDay.getDay();
+      const offset = (lastWeekday - weekday + 7) % 7;
+      const day = lastDay.getDate() - offset;
+      return new Date(year, month, day);
+    };
+
+    holidays.push({ date: `${year}-01-01`, name: "New Year's Day" });
+    holidays.push({ date: getNthWeekdayOfMonth(year, 0, 1, 3).toISOString().split('T')[0], name: "MLK Jr. Day" });
+    holidays.push({ date: getNthWeekdayOfMonth(year, 1, 1, 3).toISOString().split('T')[0], name: "Presidents' Day" });
+    holidays.push({ date: getLastWeekdayOfMonth(year, 4, 1).toISOString().split('T')[0], name: "Memorial Day" });
+    holidays.push({ date: `${year}-06-19`, name: "Juneteenth" });
+    holidays.push({ date: `${year}-07-04`, name: "Independence Day" });
+    holidays.push({ date: getNthWeekdayOfMonth(year, 8, 1, 1).toISOString().split('T')[0], name: "Labor Day" });
+    holidays.push({ date: getNthWeekdayOfMonth(year, 9, 1, 2).toISOString().split('T')[0], name: "Columbus Day" });
+    holidays.push({ date: `${year}-11-11`, name: "Veterans Day" });
+    holidays.push({ date: getNthWeekdayOfMonth(year, 10, 4, 4).toISOString().split('T')[0], name: "Thanksgiving" });
+    holidays.push({ date: `${year}-12-25`, name: "Christmas Day" });
+
+    return holidays;
+  };
+
+  const getHolidayForDate = (day: number) => {
+    const dateStr = new Date(currentDate.getFullYear(), currentDate.getMonth(), day)
+      .toISOString()
+      .split('T')[0];
+
+    const holidays = getFederalHolidays(currentDate.getFullYear());
+    return holidays.find(h => h.date === dateStr);
+  };
+
   const getDaysInMonth = () => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -143,6 +186,10 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
 
   const getDateColor = (day: number) => {
     const requests = getRequestsForDate(day);
+    const holiday = getHolidayForDate(day);
+
+    if (holiday && requests.length === 0) return 'bg-blue-100 hover:bg-blue-200';
+
     if (requests.length === 0) return 'bg-white hover:bg-gray-50';
 
     const hasApproved = requests.some(r => r.status === 'approved');
@@ -238,7 +285,11 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold">Color Legend</h2>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 bg-blue-500 rounded"></div>
+              <span>Federal Holiday</span>
+            </div>
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 bg-green-500 rounded"></div>
               <span>Approved Time Off</span>
@@ -284,39 +335,47 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
               </div>
             ))}
 
-            {getDaysInMonth().map((day, index) => (
-              <div
-                key={index}
-                className={`min-h-24 p-2 rounded-lg border border-slate-700 ${
-                  day ? getDateColor(day) : 'bg-slate-900'
-                } ${day ? 'cursor-pointer' : ''}`}
-                onClick={() => {
-                  if (day) {
-                    const requests = getRequestsForDate(day);
-                    if (requests.length > 0) {
-                      setSelectedRequest(requests[0]);
+            {getDaysInMonth().map((day, index) => {
+              const holiday = day ? getHolidayForDate(day) : null;
+              return (
+                <div
+                  key={index}
+                  className={`min-h-24 p-2 rounded-lg border border-slate-700 ${
+                    day ? getDateColor(day) : 'bg-slate-900'
+                  } ${day ? 'cursor-pointer' : ''}`}
+                  onClick={() => {
+                    if (day) {
+                      const requests = getRequestsForDate(day);
+                      if (requests.length > 0) {
+                        setSelectedRequest(requests[0]);
+                      }
                     }
-                  }
-                }}
-              >
-                {day && (
-                  <>
-                    <div className="font-semibold text-slate-900 mb-1">{day}</div>
-                    {getRequestsForDate(day).map((request, idx) => (
-                      <div key={idx} className="text-xs text-slate-700 truncate">
-                        {isStaff ? (
-                          <>
-                            {request.user_profiles?.first_name} {request.user_profiles?.last_name}
-                          </>
-                        ) : (
-                          formatTimeOffType(request.time_off_type)
-                        )}
-                      </div>
-                    ))}
-                  </>
-                )}
-              </div>
-            ))}
+                  }}
+                >
+                  {day && (
+                    <>
+                      <div className="font-semibold text-slate-900 mb-1">{day}</div>
+                      {holiday && (
+                        <div className="text-xs font-medium text-blue-700 mb-1 truncate">
+                          {holiday.name}
+                        </div>
+                      )}
+                      {getRequestsForDate(day).map((request, idx) => (
+                        <div key={idx} className="text-xs text-slate-700 truncate">
+                          {isStaff ? (
+                            <>
+                              {request.user_profiles?.first_name} {request.user_profiles?.last_name}
+                            </>
+                          ) : (
+                            formatTimeOffType(request.time_off_type)
+                          )}
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
 
