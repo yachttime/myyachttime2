@@ -11734,7 +11734,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           )}
                           <button
                             onClick={() => {
-                              let filteredUsers = allUsers.filter((user) => user.is_active !== false);
+                              // Master role sees ALL users including inactive
+                              let filteredUsers = userProfile?.role === 'master'
+                                ? allUsers
+                                : allUsers.filter((user) => user.is_active !== false);
 
                               if (isStaffRole(userProfile?.role) && userProfile?.role !== 'master') {
                                 if (printYachtFilter !== 'all') {
@@ -12243,9 +12246,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                         <div>
                           {(() => {
                             const filteredUsers = allUsers.filter((user) => {
-                              if (user.is_active === false) return false;
-                              // Master role bypasses all yacht filters
+                              // Master role sees ALL users including inactive
                               if (userProfile?.role !== 'master') {
+                                if (user.is_active === false) return false;
+                                // Apply yacht filters for non-master roles
                                 if ((userProfile?.role === 'owner' || userProfile?.role === 'manager') && userProfile.yacht_id) {
                                   if (user.yacht_id !== userProfile.yacht_id) return false;
                                 }
