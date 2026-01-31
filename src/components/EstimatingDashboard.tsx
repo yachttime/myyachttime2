@@ -4,6 +4,7 @@ import { Estimates } from './Estimates';
 import { PartsInventory } from './PartsInventory';
 import { AccountingCodes } from './AccountingCodes';
 import { LaborCodes } from './LaborCodes';
+import { EstimateTaxSettings } from './EstimateTaxSettings';
 
 interface EstimatingDashboardProps {
   userId: string;
@@ -20,7 +21,7 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
     { id: 'settings' as TabType, label: 'Settings', icon: Settings }
   ];
 
-  const [settingsSubTab, setSettingsSubTab] = useState<'labor' | 'accounting'>('labor');
+  const [settingsSubTab, setSettingsSubTab] = useState<'labor' | 'accounting' | 'taxes'>('labor');
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -86,12 +87,23 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
                   >
                     Accounting Codes
                   </button>
+                  <button
+                    onClick={() => setSettingsSubTab('taxes')}
+                    className={`px-4 py-2 text-sm font-medium border-b-2 ${
+                      settingsSubTab === 'taxes'
+                        ? 'border-blue-600 text-blue-600'
+                        : 'border-transparent text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Taxes & Surcharges
+                  </button>
                 </nav>
               </div>
             </div>
 
             {settingsSubTab === 'labor' && <LaborCodes userId={userId} />}
             {settingsSubTab === 'accounting' && <AccountingCodes userId={userId} />}
+            {settingsSubTab === 'taxes' && <EstimateTaxSettings userId={userId} />}
           </div>
         )}
       </div>
