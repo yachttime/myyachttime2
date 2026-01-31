@@ -163,18 +163,36 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
     try {
       setError(null);
 
+      if (!formData.part_number || !formData.name) {
+        setError('Part number and name are required');
+        return;
+      }
+
+      if (!formData.unit_cost || !formData.unit_price) {
+        setError('Unit cost and unit price are required');
+        return;
+      }
+
+      const unitCost = parseFloat(formData.unit_cost);
+      const unitPrice = parseFloat(formData.unit_price);
+
+      if (isNaN(unitCost) || isNaN(unitPrice)) {
+        setError('Unit cost and unit price must be valid numbers');
+        return;
+      }
+
       const dataToSave = {
         part_number: formData.part_number,
         name: formData.name,
         description: formData.description || null,
         vendor_id: formData.vendor_id || null,
-        quantity_on_hand: parseInt(formData.quantity_on_hand),
-        unit_cost: parseFloat(formData.unit_cost),
-        unit_price: parseFloat(formData.unit_price),
+        quantity_on_hand: parseInt(formData.quantity_on_hand) || 0,
+        unit_cost: unitCost,
+        unit_price: unitPrice,
         msrp: formData.msrp ? parseFloat(formData.msrp) : null,
         alternative_part_numbers: formData.alternative_part_numbers || null,
-        reorder_level: parseInt(formData.reorder_level),
-        reorder_quantity: parseInt(formData.reorder_quantity),
+        reorder_level: parseInt(formData.reorder_level) || 0,
+        reorder_quantity: parseInt(formData.reorder_quantity) || 0,
         location: formData.location || null,
         accounting_code_id: formData.accounting_code_id || null,
         is_active: formData.is_active,
@@ -612,7 +630,7 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
               <textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
                 rows={2}
               />
             </div>
