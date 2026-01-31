@@ -1094,19 +1094,18 @@ export function Estimates({ userId }: EstimatesProps) {
 
             {/* Taxes & Surcharges Section */}
             {tasks.length > 0 && (
-              <div className="border-t pt-4">
-                <h4 className="text-md font-semibold text-gray-900 mb-4">Taxes & Surcharges</h4>
-                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="text-sm text-blue-800">
+              <div className="border-t pt-1">
+                <h4 className="text-xs font-semibold text-gray-900 mb-1">Taxes & Surcharges</h4>
+                <div className="mb-1 p-1.5 bg-blue-50 border border-blue-200 rounded">
+                  <p className="text-xs text-blue-800">
                     <strong>Note:</strong> Sales tax is only applied to line items marked as taxable.
-                    Labor codes and parts have individual taxable settings that are automatically applied when added to estimates.
                   </p>
                 </div>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div className="space-y-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+                  <div className="space-y-1">
                     <div className="flex items-center justify-between">
-                      <label className="text-sm font-medium text-gray-700">Sales Tax Rate (%)</label>
-                      <div className="flex items-center gap-2">
+                      <label className="text-xs font-medium text-gray-700">Sales Tax Rate (%)</label>
+                      <div className="flex items-center gap-1">
                         <input
                           type="number"
                           step="0.0001"
@@ -1114,24 +1113,24 @@ export function Estimates({ userId }: EstimatesProps) {
                           max="1"
                           value={(parseFloat(formData.sales_tax_rate) * 100).toFixed(2)}
                           onChange={(e) => setFormData({ ...formData, sales_tax_rate: (parseFloat(e.target.value) / 100).toString() })}
-                          className="w-24 px-3 py-2 text-right border border-gray-300 rounded-lg text-sm text-gray-900"
+                          className="w-16 px-1.5 py-0.5 text-right border border-gray-300 rounded text-xs text-gray-900"
                         />
-                        <span className="text-sm text-gray-500">= ${calculateSalesTax().toFixed(2)}</span>
+                        <span className="text-xs text-gray-500">= ${calculateSalesTax().toFixed(2)}</span>
                       </div>
                     </div>
 
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
                         <input
                           type="checkbox"
                           id="apply_shop_supplies"
                           checked={formData.apply_shop_supplies}
                           onChange={(e) => setFormData({ ...formData, apply_shop_supplies: e.target.checked })}
-                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-3 h-3"
                         />
-                        <label htmlFor="apply_shop_supplies" className="text-sm font-medium text-gray-700">Shop Supplies Rate (%)</label>
+                        <label htmlFor="apply_shop_supplies" className="text-xs font-medium text-gray-700">Shop Supplies (%)</label>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
                         <input
                           type="number"
                           step="0.0001"
@@ -1140,24 +1139,24 @@ export function Estimates({ userId }: EstimatesProps) {
                           value={(parseFloat(formData.shop_supplies_rate) * 100).toFixed(2)}
                           onChange={(e) => setFormData({ ...formData, shop_supplies_rate: (parseFloat(e.target.value) / 100).toString() })}
                           disabled={!formData.apply_shop_supplies}
-                          className="w-24 px-3 py-2 text-right border border-gray-300 rounded-lg text-sm text-gray-900 disabled:bg-gray-100"
+                          className="w-16 px-1.5 py-0.5 text-right border border-gray-300 rounded text-xs text-gray-900 disabled:bg-gray-100"
                         />
-                        <span className="text-sm text-gray-500">= ${calculateShopSupplies().toFixed(2)}</span>
+                        <span className="text-xs text-gray-500">= ${calculateShopSupplies().toFixed(2)}</span>
                       </div>
                     </div>
 
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
                         <input
                           type="checkbox"
                           id="apply_park_fees"
                           checked={formData.apply_park_fees}
                           onChange={(e) => setFormData({ ...formData, apply_park_fees: e.target.checked })}
-                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-3 h-3"
                         />
-                        <label htmlFor="apply_park_fees" className="text-sm font-medium text-gray-700">National Park Fees Rate (%)</label>
+                        <label htmlFor="apply_park_fees" className="text-xs font-medium text-gray-700">Park Fees (%)</label>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
                         <input
                           type="number"
                           step="0.0001"
@@ -1166,15 +1165,15 @@ export function Estimates({ userId }: EstimatesProps) {
                           value={(parseFloat(formData.park_fees_rate) * 100).toFixed(2)}
                           onChange={(e) => setFormData({ ...formData, park_fees_rate: (parseFloat(e.target.value) / 100).toString() })}
                           disabled={!formData.apply_park_fees}
-                          className="w-24 px-3 py-2 text-right border border-gray-300 rounded-lg text-sm text-gray-900 disabled:bg-gray-100"
+                          className="w-16 px-1.5 py-0.5 text-right border border-gray-300 rounded text-xs text-gray-900 disabled:bg-gray-100"
                         />
-                        <span className="text-sm text-gray-500">= ${calculateParkFees().toFixed(2)}</span>
+                        <span className="text-xs text-gray-500">= ${calculateParkFees().toFixed(2)}</span>
                       </div>
                     </div>
 
                     <div className="flex items-center justify-between">
-                      <label className="text-sm font-medium text-gray-700">Surcharge Rate (%)</label>
-                      <div className="flex items-center gap-2">
+                      <label className="text-xs font-medium text-gray-700">Surcharge (%)</label>
+                      <div className="flex items-center gap-1">
                         <input
                           type="number"
                           step="0.0001"
@@ -1182,37 +1181,37 @@ export function Estimates({ userId }: EstimatesProps) {
                           max="1"
                           value={(parseFloat(formData.surcharge_rate) * 100).toFixed(2)}
                           onChange={(e) => setFormData({ ...formData, surcharge_rate: (parseFloat(e.target.value) / 100).toString() })}
-                          className="w-24 px-3 py-2 text-right border border-gray-300 rounded-lg text-sm text-gray-900"
+                          className="w-16 px-1.5 py-0.5 text-right border border-gray-300 rounded text-xs text-gray-900"
                         />
-                        <span className="text-sm text-gray-500">= ${calculateSurcharge().toFixed(2)}</span>
+                        <span className="text-xs text-gray-500">= ${calculateSurcharge().toFixed(2)}</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <h5 className="text-sm font-semibold text-gray-900 mb-3">Estimate Summary</h5>
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm text-gray-900">
+                  <div className="bg-gray-50 rounded p-2">
+                    <h5 className="text-xs font-semibold text-gray-900 mb-1">Estimate Summary</h5>
+                    <div className="space-y-0.5">
+                      <div className="flex justify-between text-xs text-gray-900">
                         <span>Subtotal:</span>
                         <span className="font-medium">${calculateSubtotal().toFixed(2)}</span>
                       </div>
-                      <div className="flex justify-between text-sm text-gray-600">
+                      <div className="flex justify-between text-xs text-gray-600">
                         <span>Sales Tax:</span>
                         <span>${calculateSalesTax().toFixed(2)}</span>
                       </div>
-                      <div className="flex justify-between text-sm text-gray-600">
+                      <div className="flex justify-between text-xs text-gray-600">
                         <span>Shop Supplies:</span>
                         <span>${calculateShopSupplies().toFixed(2)}</span>
                       </div>
-                      <div className="flex justify-between text-sm text-gray-600">
+                      <div className="flex justify-between text-xs text-gray-600">
                         <span>Park Fees:</span>
                         <span>${calculateParkFees().toFixed(2)}</span>
                       </div>
-                      <div className="flex justify-between text-sm text-gray-600">
+                      <div className="flex justify-between text-xs text-gray-600">
                         <span>Surcharge:</span>
                         <span>${calculateSurcharge().toFixed(2)}</span>
                       </div>
-                      <div className="flex justify-between text-lg font-bold border-t pt-2 mt-2 text-gray-900">
+                      <div className="flex justify-between text-sm font-bold border-t pt-1 mt-1 text-gray-900">
                         <span>Total:</span>
                         <span>${calculateTotal().toFixed(2)}</span>
                       </div>
