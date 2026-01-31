@@ -831,6 +831,12 @@ export function generateEstimatePDF(
     }
     if (estimate.manager_name) {
       addText(`Repair Approval Manager: ${estimate.manager_name}`, 10);
+      if (estimate.manager_email) {
+        addText(`Manager Email: ${estimate.manager_email}`, 10);
+      }
+      if (estimate.manager_phone) {
+        addText(`Manager Phone: ${estimate.manager_phone}`, 10);
+      }
     }
   }
   addSpace(0.25);

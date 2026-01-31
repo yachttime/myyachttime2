@@ -74,6 +74,8 @@ export function Estimates({ userId }: EstimatesProps) {
     customer_phone: '',
     marina_name: '',
     manager_name: '',
+    manager_email: '',
+    manager_phone: '',
     sales_tax_rate: '0.08',
     shop_supplies_rate: '0.05',
     park_fees_rate: '0.02',
@@ -163,7 +165,7 @@ export function Estimates({ userId }: EstimatesProps) {
           .order('name'),
         supabase
           .from('user_profiles')
-          .select('id, yacht_id, first_name, last_name, can_approve_repairs')
+          .select('id, yacht_id, first_name, last_name, can_approve_repairs, email_address, phone_number')
           .eq('role', 'manager')
           .eq('is_active', true),
         supabase
@@ -260,12 +262,16 @@ export function Estimates({ userId }: EstimatesProps) {
     const managerName = repairManager
       ? `${repairManager.first_name} ${repairManager.last_name}`.trim()
       : '';
+    const managerEmail = repairManager?.email_address || '';
+    const managerPhone = repairManager?.phone_number || '';
 
     setFormData({
       ...formData,
       yacht_id: yachtId,
       marina_name: marinaName,
-      manager_name: managerName
+      manager_name: managerName,
+      manager_email: managerEmail,
+      manager_phone: managerPhone
     });
   };
 
@@ -527,6 +533,8 @@ export function Estimates({ userId }: EstimatesProps) {
           is_retail_customer: formData.is_retail_customer,
           marina_name: formData.is_retail_customer ? null : formData.marina_name || null,
           manager_name: formData.is_retail_customer ? null : formData.manager_name || null,
+          manager_email: formData.is_retail_customer ? null : formData.manager_email || null,
+          manager_phone: formData.is_retail_customer ? null : formData.manager_phone || null,
           subtotal,
           sales_tax_rate: salesTaxRate,
           sales_tax_amount: salesTaxAmount,
@@ -565,6 +573,8 @@ export function Estimates({ userId }: EstimatesProps) {
           is_retail_customer: formData.is_retail_customer,
           marina_name: formData.is_retail_customer ? null : formData.marina_name || null,
           manager_name: formData.is_retail_customer ? null : formData.manager_name || null,
+          manager_email: formData.is_retail_customer ? null : formData.manager_email || null,
+          manager_phone: formData.is_retail_customer ? null : formData.manager_phone || null,
           status: 'draft',
           subtotal,
           sales_tax_rate: salesTaxRate,
@@ -766,11 +776,13 @@ export function Estimates({ userId }: EstimatesProps) {
 
       if (estimateError) throw estimateError;
 
-      // If estimate has yacht_id but no marina/manager names, fetch them from yacht and manager
+      // If estimate has yacht_id but no marina/manager info, fetch them from yacht and manager
       let marinaName = estimate.marina_name || '';
       let managerName = estimate.manager_name || '';
+      let managerEmail = estimate.manager_email || '';
+      let managerPhone = estimate.manager_phone || '';
 
-      if (estimate.yacht_id && (!marinaName || !managerName)) {
+      if (estimate.yacht_id && (!marinaName || !managerName || !managerEmail || !managerPhone)) {
         // Load yacht data
         const { data: yachtData } = await supabase
           .from('yachts')
@@ -785,15 +797,23 @@ export function Estimates({ userId }: EstimatesProps) {
         // Load manager with repair approval
         const { data: managerData } = await supabase
           .from('user_profiles')
-          .select('first_name, last_name')
+          .select('first_name, last_name, email_address, phone_number')
           .eq('yacht_id', estimate.yacht_id)
           .eq('role', 'manager')
           .eq('can_approve_repairs', true)
           .eq('is_active', true)
           .maybeSingle();
 
-        if (managerData && !managerName) {
-          managerName = `${managerData.first_name} ${managerData.last_name}`.trim();
+        if (managerData) {
+          if (!managerName) {
+            managerName = `${managerData.first_name} ${managerData.last_name}`.trim();
+          }
+          if (!managerEmail) {
+            managerEmail = managerData.email_address || '';
+          }
+          if (!managerPhone) {
+            managerPhone = managerData.phone_number || '';
+          }
         }
       }
 
@@ -828,6 +848,8 @@ export function Estimates({ userId }: EstimatesProps) {
         customer_phone: estimate.customer_phone || '',
         marina_name: marinaName,
         manager_name: managerName,
+        manager_email: managerEmail,
+        manager_phone: managerPhone,
         sales_tax_rate: estimate.sales_tax_rate.toString(),
         shop_supplies_rate: estimate.shop_supplies_rate.toString(),
         park_fees_rate: estimate.park_fees_rate.toString(),
