@@ -698,6 +698,114 @@ export function Estimates({ userId }: EstimatesProps) {
     localStorage.removeItem('estimate_draft');
   };
 
+  const handleEditEstimate = async (estimateId: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Clear any existing draft since we're editing a saved estimate
+      localStorage.removeItem('estimate_draft');
+
+      // Load estimate with tasks and line items
+      const { data: estimate, error: estimateError } = await supabase
+        .from('estimates')
+        .select('*')
+        .eq('id', estimateId)
+        .single();
+
+      if (estimateError) throw estimateError;
+
+      // Load tasks with line items
+      const { data: tasksData, error: tasksError } = await supabase
+        .from('estimate_tasks')
+        .select('*, estimate_line_items(*)')
+        .eq('estimate_id', estimateId)
+        .order('task_order');
+
+      if (tasksError) throw tasksError;
+
+      // Set form data
+      setFormData({
+        is_retail_customer: estimate.is_retail_customer,
+        yacht_id: estimate.yacht_id || '',
+        customer_name: estimate.customer_name || '',
+        customer_email: estimate.customer_email || '',
+        customer_phone: estimate.customer_phone || '',
+        sales_tax_rate: estimate.sales_tax_rate.toString(),
+        shop_supplies_rate: estimate.shop_supplies_rate.toString(),
+        park_fees_rate: estimate.park_fees_rate.toString(),
+        surcharge_rate: estimate.surcharge_rate.toString(),
+        apply_shop_supplies: estimate.shop_supplies_amount > 0,
+        apply_park_fees: estimate.park_fees_amount > 0,
+        notes: estimate.notes || '',
+        customer_notes: estimate.customer_notes || ''
+      });
+
+      // Set tasks with line items
+      const loadedTasks: EstimateTask[] = tasksData.map(task => ({
+        id: task.id,
+        task_name: task.task_name,
+        task_overview: task.task_overview,
+        task_order: task.task_order,
+        apply_surcharge: task.apply_surcharge,
+        lineItems: task.estimate_line_items
+          .sort((a: any, b: any) => a.line_order - b.line_order)
+          .map((item: any) => ({
+            id: item.id,
+            task_id: item.task_id,
+            line_type: item.line_type,
+            description: item.description,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            total_price: item.total_price,
+            is_taxable: item.is_taxable,
+            labor_code_id: item.labor_code_id,
+            part_id: item.part_id,
+            line_order: item.line_order,
+            work_details: item.work_details
+          }))
+      }));
+
+      setTasks(loadedTasks);
+
+      // Expand all tasks
+      const allTaskIndexes = loadedTasks.map((_, index) => index);
+      setExpandedTasks(new Set(allTaskIndexes));
+
+      setEditingId(estimateId);
+      setShowForm(true);
+      setLoading(false);
+    } catch (err) {
+      console.error('Error loading estimate:', err);
+      setError('Failed to load estimate');
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteEstimate = async (estimateId: string) => {
+    if (!window.confirm('Are you sure you want to delete this estimate? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      setError(null);
+
+      // Delete estimate (cascading delete will handle tasks and line items)
+      const { error: deleteError } = await supabase
+        .from('estimates')
+        .delete()
+        .eq('id', estimateId);
+
+      if (deleteError) throw deleteError;
+
+      // Refresh estimates list
+      await loadEstimates();
+    } catch (err) {
+      console.error('Error deleting estimate:', err);
+      setError('Failed to delete estimate');
+    }
+  };
+
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
       draft: 'bg-gray-100 text-gray-800',
@@ -1383,6 +1491,7 @@ export function Estimates({ userId }: EstimatesProps) {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Date</th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
@@ -1409,6 +1518,24 @@ export function Estimates({ userId }: EstimatesProps) {
                 </td>
                 <td className="px-6 py-4 text-right text-sm text-gray-500">
                   {new Date(estimate.created_at).toLocaleDateString()}
+                </td>
+                <td className="px-6 py-4 text-right">
+                  <div className="flex justify-end gap-2">
+                    <button
+                      onClick={() => handleEditEstimate(estimate.id)}
+                      className="text-blue-600 hover:text-blue-800"
+                      title="Edit estimate"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteEstimate(estimate.id)}
+                      className="text-red-600 hover:text-red-800"
+                      title="Delete estimate"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
