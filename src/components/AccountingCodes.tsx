@@ -190,7 +190,7 @@ export function AccountingCodes({ userId }: AccountingCodesProps) {
                   required
                   value={formData.code}
                   onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
                   placeholder="e.g., 4000"
                 />
               </div>
@@ -202,12 +202,12 @@ export function AccountingCodes({ userId }: AccountingCodesProps) {
                   required
                   value={formData.account_type}
                   onChange={(e) => setFormData({ ...formData, account_type: e.target.value as any })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
                 >
-                  <option value="income">Income</option>
-                  <option value="expense">Expense</option>
-                  <option value="asset">Asset</option>
-                  <option value="liability">Liability</option>
+                  <option value="income" className="bg-white text-gray-900">Income</option>
+                  <option value="expense" className="bg-white text-gray-900">Expense</option>
+                  <option value="asset" className="bg-white text-gray-900">Asset</option>
+                  <option value="liability" className="bg-white text-gray-900">Liability</option>
                 </select>
               </div>
             </div>
@@ -221,7 +221,7 @@ export function AccountingCodes({ userId }: AccountingCodesProps) {
                 required
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
                 placeholder="e.g., Marine Repair Services"
               />
             </div>
@@ -233,7 +233,7 @@ export function AccountingCodes({ userId }: AccountingCodesProps) {
               <textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
                 rows={2}
                 placeholder="Optional description"
               />
@@ -247,7 +247,7 @@ export function AccountingCodes({ userId }: AccountingCodesProps) {
                 type="text"
                 value={formData.quickbooks_account_id}
                 onChange={(e) => setFormData({ ...formData, quickbooks_account_id: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
                 placeholder="QuickBooks account mapping"
               />
             </div>

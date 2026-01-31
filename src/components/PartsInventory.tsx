@@ -326,7 +326,7 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
                   required
                   value={formData.part_number}
                   onChange={(e) => setFormData({ ...formData, part_number: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
                 />
               </div>
               <div>
@@ -336,7 +336,7 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
                   required
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
                 />
               </div>
             </div>
@@ -349,7 +349,7 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
                   required
                   value={formData.category}
                   onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
                 />
               </div>
               <div>
@@ -358,7 +358,7 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
                   type="text"
                   value={formData.manufacturer}
                   onChange={(e) => setFormData({ ...formData, manufacturer: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
                 />
               </div>
             </div>
@@ -382,7 +382,7 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
                   min="0"
                   value={formData.quantity_on_hand}
                   onChange={(e) => setFormData({ ...formData, quantity_on_hand: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
                 />
               </div>
               <div>
@@ -394,7 +394,7 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
                   min="0"
                   value={formData.unit_cost}
                   onChange={(e) => setFormData({ ...formData, unit_cost: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
                 />
               </div>
               <div>
@@ -406,7 +406,7 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
                   min="0"
                   value={formData.unit_price}
                   onChange={(e) => setFormData({ ...formData, unit_price: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
                 />
               </div>
             </div>
@@ -419,7 +419,7 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
                   min="0"
                   value={formData.reorder_level}
                   onChange={(e) => setFormData({ ...formData, reorder_level: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
                 />
               </div>
               <div>
@@ -429,7 +429,7 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
                   min="0"
                   value={formData.reorder_quantity}
                   onChange={(e) => setFormData({ ...formData, reorder_quantity: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
                 />
               </div>
               <div>
@@ -438,7 +438,7 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
                   type="text"
                   value={formData.location}
                   onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
                 />
               </div>
             </div>
@@ -448,11 +448,11 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
               <select
                 value={formData.accounting_code_id}
                 onChange={(e) => setFormData({ ...formData, accounting_code_id: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
               >
-                <option value="">Select accounting code</option>
+                <option value="" className="bg-white text-gray-900">Select accounting code</option>
                 {accountingCodes.map((ac) => (
-                  <option key={ac.id} value={ac.id}>
+                  <option key={ac.id} value={ac.id} className="bg-white text-gray-900">
                     {ac.code} - {ac.name}
                   </option>
                 ))}
@@ -504,11 +504,11 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
                 required
                 value={adjustmentData.transaction_type}
                 onChange={(e) => setAdjustmentData({ ...adjustmentData, transaction_type: e.target.value as any })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
               >
-                <option value="add">Add Stock</option>
-                <option value="remove">Remove Stock</option>
-                <option value="adjustment">Adjustment</option>
+                <option value="add" className="bg-white text-gray-900">Add Stock</option>
+                <option value="remove" className="bg-white text-gray-900">Remove Stock</option>
+                <option value="adjustment" className="bg-white text-gray-900">Adjustment</option>
               </select>
             </div>
 
@@ -520,7 +520,7 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
                 min="1"
                 value={adjustmentData.quantity}
                 onChange={(e) => setAdjustmentData({ ...adjustmentData, quantity: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
               />
             </div>
 
@@ -529,7 +529,7 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
               <textarea
                 value={adjustmentData.reason}
                 onChange={(e) => setAdjustmentData({ ...adjustmentData, reason: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
                 rows={2}
                 placeholder="Optional reason for this adjustment"
               />
@@ -562,7 +562,7 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
             placeholder="Search parts by number, name, or category..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
           />
         </div>
       </div>

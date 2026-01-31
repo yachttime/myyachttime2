@@ -208,7 +208,7 @@ export function LaborCodes({ userId }: LaborCodesProps) {
                   required
                   value={formData.code}
                   onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
                   placeholder="e.g., MECH"
                 />
               </div>
@@ -221,7 +221,7 @@ export function LaborCodes({ userId }: LaborCodesProps) {
                   required
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
                   placeholder="e.g., Marine Mechanic"
                 />
               </div>
@@ -234,7 +234,7 @@ export function LaborCodes({ userId }: LaborCodesProps) {
               <textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
                 rows={2}
                 placeholder="Optional description"
               />
@@ -252,7 +252,7 @@ export function LaborCodes({ userId }: LaborCodesProps) {
                   min="0"
                   value={formData.hourly_rate}
                   onChange={(e) => setFormData({ ...formData, hourly_rate: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
                   placeholder="0.00"
                 />
               </div>
@@ -266,7 +266,7 @@ export function LaborCodes({ userId }: LaborCodesProps) {
                   min="0"
                   value={formData.overtime_rate}
                   onChange={(e) => setFormData({ ...formData, overtime_rate: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
                   placeholder="0.00"
                 />
               </div>
@@ -279,11 +279,11 @@ export function LaborCodes({ userId }: LaborCodesProps) {
               <select
                 value={formData.accounting_code_id}
                 onChange={(e) => setFormData({ ...formData, accounting_code_id: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
               >
-                <option value="">Select accounting code</option>
+                <option value="" className="bg-white text-gray-900">Select accounting code</option>
                 {accountingCodes.map((ac) => (
-                  <option key={ac.id} value={ac.id}>
+                  <option key={ac.id} value={ac.id} className="bg-white text-gray-900">
                     {ac.code} - {ac.name}
                   </option>
                 ))}
