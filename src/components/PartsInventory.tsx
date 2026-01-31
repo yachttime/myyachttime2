@@ -857,12 +857,33 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
                   </td>
                 </tr>
               ) : (
-                filteredParts.map((part) => (
-                  <tr key={part.id} className="hover:bg-gray-50">
+                filteredParts.map((part) => {
+                  const isNegative = part.quantity_on_hand < 0;
+                  const isLowStock = !isNegative && part.quantity_on_hand <= part.reorder_level && part.reorder_level > 0;
+                  const rowClass = isNegative ? 'bg-red-50 hover:bg-red-100' : isLowStock ? 'bg-yellow-50 hover:bg-yellow-100' : 'hover:bg-gray-50';
+
+                  return (
+                  <tr key={part.id} className={rowClass}>
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">{part.part_number}</td>
                     <td className="px-6 py-4 text-sm text-gray-900">{part.name}</td>
                     <td className="px-6 py-4 text-sm text-gray-500">{part.vendors?.vendor_name || '-'}</td>
-                    <td className="px-6 py-4 text-sm text-gray-900">{part.quantity_on_hand}</td>
+                    <td className="px-6 py-4 text-sm">
+                      <div className="flex items-center gap-2">
+                        <span className={isNegative ? 'font-bold text-red-600' : isLowStock ? 'font-semibold text-yellow-600' : 'text-gray-900'}>
+                          {part.quantity_on_hand}
+                        </span>
+                        {isNegative && (
+                          <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-800">
+                            ORDER NOW
+                          </span>
+                        )}
+                        {isLowStock && (
+                          <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                            LOW STOCK
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-6 py-4 text-sm text-gray-900">${part.unit_cost.toFixed(2)}</td>
                     <td className="px-6 py-4 text-sm text-gray-900">${part.unit_price.toFixed(2)}</td>
                     <td className="px-6 py-4 text-sm font-semibold text-gray-900">
@@ -891,7 +912,8 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
                       </button>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>

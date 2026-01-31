@@ -507,6 +507,43 @@ export function Estimates({ userId }: EstimatesProps) {
         }
       }
 
+      // Process inventory deductions
+      const { data: inventoryResult, error: inventoryError } = await supabase
+        .rpc('process_estimate_inventory_deduction', {
+          p_estimate_id: estimate.id,
+          p_user_id: userId
+        });
+
+      if (inventoryError) {
+        console.error('Error processing inventory:', inventoryError);
+      }
+
+      // Display low stock alerts
+      if (inventoryResult?.low_stock_alerts && inventoryResult.low_stock_alerts.length > 0) {
+        const alerts = inventoryResult.low_stock_alerts;
+        const negativeStock = alerts.filter((a: any) => a.is_negative);
+        const lowStock = alerts.filter((a: any) => !a.is_negative);
+
+        let alertMessage = 'Estimate created successfully!\n\n';
+
+        if (negativeStock.length > 0) {
+          alertMessage += '⚠️ CRITICAL - NEGATIVE INVENTORY:\n';
+          negativeStock.forEach((alert: any) => {
+            alertMessage += `• ${alert.part_number} - ${alert.part_name}: ${alert.current_quantity} (ORDER IMMEDIATELY)\n`;
+          });
+          alertMessage += '\n';
+        }
+
+        if (lowStock.length > 0) {
+          alertMessage += '📦 LOW STOCK - REORDER NEEDED:\n';
+          lowStock.forEach((alert: any) => {
+            alertMessage += `• ${alert.part_number} - ${alert.part_name}: ${alert.current_quantity} remaining\n`;
+          });
+        }
+
+        alert(alertMessage);
+      }
+
       resetForm();
       loadData();
     } catch (err: any) {
