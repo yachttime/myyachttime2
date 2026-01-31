@@ -715,14 +715,27 @@ export function Estimates({ userId }: EstimatesProps) {
 
       if (estimateError) throw estimateError;
 
-      // Load tasks with line items
+      // Load tasks first
       const { data: tasksData, error: tasksError } = await supabase
         .from('estimate_tasks')
-        .select('*, estimate_line_items(*)')
+        .select('*')
         .eq('estimate_id', estimateId)
         .order('task_order');
 
       if (tasksError) throw tasksError;
+
+      console.log('Loaded tasks data:', tasksData);
+
+      // Load line items for all tasks
+      const { data: allLineItems, error: lineItemsError } = await supabase
+        .from('estimate_line_items')
+        .select('*')
+        .eq('estimate_id', estimateId)
+        .order('line_order');
+
+      if (lineItemsError) throw lineItemsError;
+
+      console.log('Loaded line items:', allLineItems);
 
       // Set form data
       setFormData({
@@ -741,14 +754,22 @@ export function Estimates({ userId }: EstimatesProps) {
         customer_notes: estimate.customer_notes || ''
       });
 
+      // Group line items by task_id
+      const lineItemsByTask: Record<string, any[]> = {};
+      (allLineItems || []).forEach((item: any) => {
+        if (item.task_id) {
+          if (!lineItemsByTask[item.task_id]) {
+            lineItemsByTask[item.task_id] = [];
+          }
+          lineItemsByTask[item.task_id].push(item);
+        }
+      });
+
+      console.log('Line items grouped by task:', lineItemsByTask);
+
       // Set tasks with line items
-      const loadedTasks: EstimateTask[] = tasksData.map(task => ({
-        id: task.id,
-        task_name: task.task_name,
-        task_overview: task.task_overview,
-        task_order: task.task_order,
-        apply_surcharge: task.apply_surcharge,
-        lineItems: task.estimate_line_items
+      const loadedTasks: EstimateTask[] = (tasksData || []).map(task => {
+        const taskLineItems = (lineItemsByTask[task.id] || [])
           .sort((a: any, b: any) => a.line_order - b.line_order)
           .map((item: any) => ({
             id: item.id,
@@ -763,8 +784,19 @@ export function Estimates({ userId }: EstimatesProps) {
             part_id: item.part_id,
             line_order: item.line_order,
             work_details: item.work_details
-          }))
-      }));
+          }));
+
+        console.log(`Task "${task.task_name}" (${task.id}) has ${taskLineItems.length} line items`);
+
+        return {
+          id: task.id,
+          task_name: task.task_name,
+          task_overview: task.task_overview,
+          task_order: task.task_order,
+          apply_surcharge: task.apply_surcharge,
+          lineItems: taskLineItems
+        };
+      });
 
       setTasks(loadedTasks);
 
