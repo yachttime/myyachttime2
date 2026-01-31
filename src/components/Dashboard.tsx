@@ -4263,7 +4263,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               <span className="font-medium">Education</span>
             </button>
           )}
-          {(userProfile?.role === 'mechanic' || userProfile?.role === 'staff') && (
+          {(userProfile?.role === 'mechanic' || userProfile?.role === 'staff' || userProfile?.role === 'master') && (
             <button
               onClick={() => {
                 setActiveTab('staffCalendar');
@@ -4279,7 +4279,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               <span className="font-medium">Staff Schedule</span>
             </button>
           )}
-          {(userProfile?.role === 'admin' || userProfile?.role === 'mechanic' || userProfile?.role === 'staff' || userProfile?.role === 'manager' || userProfile?.role === 'owner') && (
+          {(userProfile?.role === 'mechanic' || userProfile?.role === 'staff' || userProfile?.role === 'manager' || userProfile?.role === 'owner' || userProfile?.role === 'master') && (
             <button
               onClick={() => {
                 setActiveTab('admin');
@@ -5026,7 +5026,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       <h2 className="text-2xl font-bold mb-2">Education</h2>
                       <p className="text-slate-400">{editMode ? 'Edit video details and order' : 'Click any video to watch'}</p>
                     </div>
-                    {(userProfile?.role === 'staff' || userProfile?.role === 'manager' || userProfile?.role === 'mechanic') && (
+                    {(userProfile?.role === 'staff' || userProfile?.role === 'manager' || userProfile?.role === 'mechanic' || userProfile?.role === 'master') && (
                       <div className="flex items-center gap-3">
                         {editMode ? (
                           <>
@@ -5128,7 +5128,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 <p className="text-slate-400 text-sm line-clamp-2">{video.description}</p>
                               </div>
                             </div>
-                            {(userProfile?.role === 'staff' || userProfile?.role === 'manager' || userProfile?.role === 'mechanic') && !editMode && (
+                            {(userProfile?.role === 'staff' || userProfile?.role === 'manager' || userProfile?.role === 'mechanic' || userProfile?.role === 'master') && !editMode && (
                               <div className="absolute top-2 right-2 flex gap-2 z-10">
                                 <button
                                   onClick={(e) => {
@@ -5395,7 +5395,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       </button>
                     )}
 
-                    {userProfile?.role === 'staff' && (
+                    {(userProfile?.role === 'staff' || userProfile?.role === 'master') && (
                       <button
                         onClick={() => setAdminView('appointments')}
                         className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
@@ -5410,7 +5410,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       </button>
                     )}
 
-                    {(userProfile?.role === 'staff' || userProfile?.role === 'manager') && (
+                    {(userProfile?.role === 'staff' || userProfile?.role === 'manager' || userProfile?.role === 'master') && (
                       <button
                         onClick={() => setAdminView('inspection')}
                         className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
@@ -5425,7 +5425,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       </button>
                     )}
 
-                    {(userProfile?.role === 'staff' || userProfile?.role === 'manager') && (
+                    {(userProfile?.role === 'staff' || userProfile?.role === 'manager' || userProfile?.role === 'master') && (
                       <button
                         onClick={() => setAdminView('ownerhandoff')}
                         className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
@@ -5440,7 +5440,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       </button>
                     )}
 
-                    {(userProfile?.role === 'staff' || userProfile?.role === 'manager' || userProfile?.role === 'mechanic') && (
+                    {(userProfile?.role === 'staff' || userProfile?.role === 'manager' || userProfile?.role === 'mechanic' || userProfile?.role === 'master') && (
                       <button
                         onClick={() => setAdminView('repairs')}
                         className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
@@ -5455,7 +5455,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       </button>
                     )}
 
-                    {(userProfile?.role === 'staff' || userProfile?.role === 'manager') && (
+                    {(userProfile?.role === 'staff' || userProfile?.role === 'manager' || userProfile?.role === 'master') && (
                       <button
                         onClick={() => setAdminView('ownertrips')}
                         className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
@@ -5470,7 +5470,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       </button>
                     )}
 
-                    {(userProfile?.role === 'owner' || userProfile?.role === 'staff' || userProfile?.role === 'manager') && (
+                    {(userProfile?.role === 'owner' || userProfile?.role === 'staff' || userProfile?.role === 'manager' || userProfile?.role === 'master') && (
                       <button
                         onClick={() => setAdminView('ownerchat')}
                         className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
@@ -5485,7 +5485,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       </button>
                     )}
 
-                    {(userProfile?.role === 'staff' || userProfile?.role === 'manager' || userProfile?.role === 'mechanic') && (
+                    {(userProfile?.role === 'staff' || userProfile?.role === 'manager' || userProfile?.role === 'mechanic' || userProfile?.role === 'master') && (
                       <button
                         onClick={() => setAdminView('yachts')}
                         className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
@@ -5500,7 +5500,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       </button>
                     )}
 
-                    {(userProfile?.role === 'staff' || userProfile?.role === 'mechanic') && (
+                    {(userProfile?.role === 'staff' || userProfile?.role === 'mechanic' || userProfile?.role === 'master') && (
                       <button
                         onClick={() => setAdminView('smartdevices')}
                         className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
@@ -5515,7 +5515,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       </button>
                     )}
 
-                    {(userProfile?.role === 'staff' || userProfile?.role === 'manager') && (
+                    {(userProfile?.role === 'staff' || userProfile?.role === 'manager' || userProfile?.role === 'master') && (
                       <button
                         onClick={() => setAdminView('users')}
                         className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
@@ -10401,7 +10401,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     >
                       Yacht Messages
                     </button>
-                    {(userProfile?.role === 'staff' || userProfile?.role === 'mechanic') && (
+                    {(userProfile?.role === 'staff' || userProfile?.role === 'mechanic' || userProfile?.role === 'master') && (
                       <button
                         onClick={() => setMessagesTab('staff')}
                         className={`flex-1 py-3 px-6 rounded-xl font-semibold transition-all duration-300 ${
@@ -11721,7 +11721,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           </div>
                         </div>
                         <div className="flex gap-2">
-                          {(userProfile?.role === 'staff' || userProfile?.role === 'mechanic') && (
+                          {(userProfile?.role === 'staff' || userProfile?.role === 'mechanic' || userProfile?.role === 'master') && (
                             <select
                               value={printYachtFilter}
                               onChange={(e) => setPrintYachtFilter(e.target.value)}
@@ -11739,7 +11739,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             onClick={() => {
                               let filteredUsers = allUsers.filter((user) => user.is_active !== false);
 
-                              if (userProfile?.role === 'staff' || userProfile?.role === 'mechanic') {
+                              if (userProfile?.role === 'staff' || userProfile?.role === 'mechanic' || userProfile?.role === 'master') {
                                 if (printYachtFilter !== 'all') {
                                   filteredUsers = filteredUsers.filter((user) => user.yacht_id === printYachtFilter);
                                 }
@@ -11758,7 +11758,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               }));
 
                               let title = 'User List';
-                              if (userProfile?.role === 'staff' || userProfile?.role === 'mechanic') {
+                              if (userProfile?.role === 'staff' || userProfile?.role === 'mechanic' || userProfile?.role === 'master') {
                                 if (printYachtFilter !== 'all') {
                                   const yachtName = allYachts.find(y => y.id === printYachtFilter)?.name;
                                   title = yachtName ? `${yachtName} - User List` : 'User List';
@@ -12077,11 +12077,14 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                       required
                                     >
                                       <option value="owner">Owner</option>
-                                      {userProfile?.role === 'staff' && (
+                                      {(userProfile?.role === 'staff' || userProfile?.role === 'master') && (
                                         <>
                                           <option value="manager">Manager</option>
                                           <option value="staff">Staff</option>
                                           <option value="mechanic">Mechanic</option>
+                                          {userProfile?.role === 'master' && (
+                                            <option value="master">Master</option>
+                                          )}
                                         </>
                                       )}
                                     </select>
@@ -13356,7 +13359,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     <p className="text-xs text-slate-500 mt-1">This email will receive a copy (CC) of all notifications sent to you</p>
                   </div>
 
-                  {(userProfile?.role === 'staff' || userProfile?.role === 'manager' || userProfile?.role === 'mechanic') && (
+                  {(userProfile?.role === 'staff' || userProfile?.role === 'manager' || userProfile?.role === 'mechanic' || userProfile?.role === 'master') && (
                     <>
                       <div>
                         <label className="flex items-center gap-3 cursor-pointer">
