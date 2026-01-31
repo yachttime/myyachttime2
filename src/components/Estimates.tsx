@@ -111,7 +111,7 @@ export function Estimates({ userId }: EstimatesProps) {
   }, []);
 
   useEffect(() => {
-    if (showForm && (tasks.length > 0 || formData.yacht_id || formData.customer_name)) {
+    if (showForm && !isSubmitting && (tasks.length > 0 || formData.yacht_id || formData.customer_name)) {
       const draftData = {
         formData,
         tasks,
@@ -126,7 +126,7 @@ export function Estimates({ userId }: EstimatesProps) {
 
       return () => clearTimeout(timer);
     }
-  }, [formData, tasks, showForm]);
+  }, [formData, tasks, showForm, isSubmitting]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -625,6 +625,7 @@ export function Estimates({ userId }: EstimatesProps) {
         }
       }
 
+      localStorage.removeItem('estimate_draft');
       await resetForm();
       await loadData();
     } catch (err: any) {
