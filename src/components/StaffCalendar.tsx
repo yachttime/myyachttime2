@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, User, X, Check, Clock, AlertCircle, Plus } from 'lucide-react';
-import { supabase, StaffTimeOffRequest, UserProfile } from '../lib/supabase';
+import { Calendar, ChevronLeft, ChevronRight, User, X, Check, Clock, AlertCircle, Plus, Briefcase } from 'lucide-react';
+import { supabase, StaffTimeOffRequest, StaffSchedule, UserProfile } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
 interface StaffCalendarProps {
@@ -15,6 +15,7 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
   const [loading, setLoading] = useState(true);
   const [showRequestForm, setShowRequestForm] = useState(false);
   const [showApprovalPanel, setShowApprovalPanel] = useState(false);
+  const [showWorkScheduleModal, setShowWorkScheduleModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<StaffTimeOffRequest | null>(null);
 
   const isStaff = userProfile?.role === 'staff';
@@ -214,6 +215,15 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
                 Pending Approvals ({getPendingRequestsCount()})
               </button>
             )}
+            {isStaff && (
+              <button
+                onClick={() => setShowWorkScheduleModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
+              >
+                <Briefcase className="w-5 h-5" />
+                Schedule Work Shifts
+              </button>
+            )}
             <button
               onClick={() => setShowRequestForm(true)}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
@@ -334,6 +344,13 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
             onClose={() => setSelectedRequest(null)}
             isStaff={isStaff}
             onUpdate={loadData}
+          />
+        )}
+
+        {showWorkScheduleModal && isStaff && (
+          <WorkScheduleModal
+            staff={allStaff}
+            onClose={() => setShowWorkScheduleModal(false)}
           />
         )}
       </div>
@@ -759,6 +776,226 @@ function RequestDetailsModal({
             )}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function WorkScheduleModal({ staff, onClose }: { staff: UserProfile[]; onClose: () => void }) {
+  const [selectedStaffId, setSelectedStaffId] = useState<string>('');
+  const [schedules, setSchedules] = useState<{ [key: number]: { isWorking: boolean; startTime: string; endTime: string; notes: string } }>({});
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  useEffect(() => {
+    if (selectedStaffId) {
+      loadSchedules();
+    }
+  }, [selectedStaffId]);
+
+  const loadSchedules = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('staff_schedules')
+        .select('*')
+        .eq('user_id', selectedStaffId);
+
+      if (error) throw error;
+
+      const scheduleMap: { [key: number]: { isWorking: boolean; startTime: string; endTime: string; notes: string } } = {};
+
+      for (let i = 0; i < 7; i++) {
+        const existingSchedule = data?.find(s => s.day_of_week === i);
+        scheduleMap[i] = {
+          isWorking: existingSchedule?.is_working_day ?? false,
+          startTime: existingSchedule?.start_time || '09:00',
+          endTime: existingSchedule?.end_time || '17:00',
+          notes: existingSchedule?.notes || ''
+        };
+      }
+
+      setSchedules(scheduleMap);
+    } catch (err) {
+      console.error('Error loading schedules:', err);
+      alert('Failed to load schedules');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!selectedStaffId) {
+      alert('Please select a staff member');
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {
+        const schedule = schedules[dayOfWeek];
+
+        const { error } = await supabase
+          .from('staff_schedules')
+          .upsert({
+            user_id: selectedStaffId,
+            day_of_week: dayOfWeek,
+            is_working_day: schedule.isWorking,
+            start_time: schedule.isWorking ? schedule.startTime : null,
+            end_time: schedule.isWorking ? schedule.endTime : null,
+            notes: schedule.notes || null,
+            updated_at: new Date().toISOString()
+          }, {
+            onConflict: 'user_id,day_of_week'
+          });
+
+        if (error) throw error;
+      }
+
+      alert('Work schedule saved successfully!');
+      onClose();
+    } catch (err) {
+      console.error('Error saving schedules:', err);
+      alert('Failed to save schedules');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleWorkingDay = (dayOfWeek: number) => {
+    setSchedules({
+      ...schedules,
+      [dayOfWeek]: {
+        ...schedules[dayOfWeek],
+        isWorking: !schedules[dayOfWeek]?.isWorking
+      }
+    });
+  };
+
+  const updateSchedule = (dayOfWeek: number, field: 'startTime' | 'endTime' | 'notes', value: string) => {
+    setSchedules({
+      ...schedules,
+      [dayOfWeek]: {
+        ...schedules[dayOfWeek],
+        [field]: value
+      }
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-slate-800 rounded-lg p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xl font-bold flex items-center gap-2">
+            <Briefcase className="w-6 h-6 text-green-500" />
+            Schedule Work Shifts
+          </h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-white">
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        <div className="mb-6">
+          <label className="block text-sm font-medium mb-2">Select Staff Member</label>
+          <select
+            value={selectedStaffId}
+            onChange={e => setSelectedStaffId(e.target.value)}
+            className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+          >
+            <option value="">-- Select Staff Member --</option>
+            {staff.map(member => (
+              <option key={member.user_id} value={member.user_id}>
+                {member.first_name} {member.last_name} ({member.role})
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {selectedStaffId && !loading && (
+          <div className="space-y-4">
+            <p className="text-sm text-slate-400 mb-4">
+              Set the weekly work schedule. Toggle days on/off and set work hours.
+            </p>
+
+            {dayNames.map((dayName, dayOfWeek) => (
+              <div key={dayOfWeek} className="bg-slate-700 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={schedules[dayOfWeek]?.isWorking || false}
+                      onChange={() => toggleWorkingDay(dayOfWeek)}
+                      className="w-5 h-5 rounded border-slate-500 text-green-600 focus:ring-green-500"
+                    />
+                    <h4 className="font-semibold text-lg">{dayName}</h4>
+                  </div>
+                  {schedules[dayOfWeek]?.isWorking && (
+                    <span className="text-xs bg-green-600 px-2 py-1 rounded">Working Day</span>
+                  )}
+                </div>
+
+                {schedules[dayOfWeek]?.isWorking && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+                    <div>
+                      <label className="block text-xs text-slate-400 mb-1">Start Time</label>
+                      <input
+                        type="time"
+                        value={schedules[dayOfWeek]?.startTime || '09:00'}
+                        onChange={e => updateSchedule(dayOfWeek, 'startTime', e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-slate-400 mb-1">End Time</label>
+                      <input
+                        type="time"
+                        value={schedules[dayOfWeek]?.endTime || '17:00'}
+                        onChange={e => updateSchedule(dayOfWeek, 'endTime', e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-slate-400 mb-1">Notes (Optional)</label>
+                      <input
+                        type="text"
+                        value={schedules[dayOfWeek]?.notes || ''}
+                        onChange={e => updateSchedule(dayOfWeek, 'notes', e.target.value)}
+                        placeholder="e.g., Remote"
+                        className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+
+            <div className="flex gap-3 pt-4">
+              <button
+                onClick={onClose}
+                className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {saving ? 'Saving...' : 'Save Schedule'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {loading && (
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500 mx-auto mb-4"></div>
+            <p className="text-slate-400">Loading schedule...</p>
+          </div>
+        )}
       </div>
     </div>
   );
