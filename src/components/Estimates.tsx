@@ -215,7 +215,10 @@ export function Estimates({ userId }: EstimatesProps) {
             setFormData(draft.formData);
             const restoredTasks = draft.tasks.map((task: any) => ({
               ...task,
-              lineItems: task.lineItems || []
+              lineItems: (task.lineItems || []).map((item: any) => ({
+                ...item,
+                is_taxable: item.is_taxable ?? true
+              }))
             }));
             setTasks(restoredTasks);
             const allTaskIndexes = restoredTasks.map((_: any, index: number) => index);
@@ -575,6 +578,7 @@ export function Estimates({ userId }: EstimatesProps) {
             estimate_id: estimate.id,
             task_id: estimateTask.id,
             ...item,
+            is_taxable: item.is_taxable ?? true,
             line_order: index
           }));
 
