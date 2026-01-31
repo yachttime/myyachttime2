@@ -744,6 +744,243 @@ interface EmployeeReport {
   totalHours: number;
 }
 
+export function generateEstimatePDF(
+  estimate: any,
+  tasks: any[],
+  yachtName: string | null
+): jsPDF {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'in',
+    format: 'letter',
+  });
+
+  const pageWidth = 8.5;
+  const margin = 0.75;
+  const contentWidth = pageWidth - (margin * 2);
+  let yPos = margin;
+
+  const addText = (text: string, fontSize: number = 10, style: 'normal' | 'bold' = 'normal', align: 'left' | 'center' | 'right' = 'left') => {
+    doc.setFontSize(fontSize);
+    doc.setFont('helvetica', style);
+
+    if (yPos > 10.25) {
+      doc.addPage();
+      yPos = margin;
+    }
+
+    const lines = doc.splitTextToSize(text, contentWidth);
+
+    if (align === 'center') {
+      lines.forEach((line: string) => {
+        const textWidth = doc.getTextWidth(line);
+        doc.text(line, (pageWidth - textWidth) / 2, yPos);
+        yPos += fontSize / 72 * 1.2;
+      });
+    } else if (align === 'right') {
+      lines.forEach((line: string) => {
+        doc.text(line, pageWidth - margin, yPos, { align: 'right' });
+        yPos += fontSize / 72 * 1.2;
+      });
+    } else {
+      doc.text(lines, margin, yPos);
+      yPos += (lines.length * fontSize / 72 * 1.2);
+    }
+  };
+
+  const addSpace = (inches: number = 0.15) => {
+    yPos += inches;
+    if (yPos > 10.25) {
+      doc.addPage();
+      yPos = margin;
+    }
+  };
+
+  const addLine = () => {
+    if (yPos > 10.25) {
+      doc.addPage();
+      yPos = margin;
+    }
+    doc.setLineWidth(0.02);
+    doc.line(margin, yPos, pageWidth - margin, yPos);
+    yPos += 0.1;
+  };
+
+  addText('AZ MARINE SERVICES', 14, 'bold', 'center');
+  addSpace(0.05);
+  addText('Estimate', 18, 'bold', 'center');
+  addSpace(0.3);
+
+  addText(`Estimate #: ${estimate.estimate_number}`, 11, 'bold');
+  addText(`Date: ${new Date(estimate.created_at).toLocaleDateString()}`, 10);
+  addText(`Status: ${estimate.status.charAt(0).toUpperCase() + estimate.status.slice(1)}`, 10);
+  addSpace(0.25);
+
+  addText('Customer Information', 12, 'bold');
+  addLine();
+  addSpace(0.1);
+
+  if (estimate.is_retail_customer) {
+    addText(`Customer: ${estimate.customer_name || 'N/A'}`, 10);
+    if (estimate.customer_email) addText(`Email: ${estimate.customer_email}`, 10);
+    if (estimate.customer_phone) addText(`Phone: ${estimate.customer_phone}`, 10);
+  } else {
+    addText(`Yacht: ${yachtName || 'N/A'}`, 10);
+  }
+  addSpace(0.25);
+
+  tasks.forEach((task, taskIndex) => {
+    addText(`Task ${taskIndex + 1}: ${task.task_name}`, 12, 'bold');
+    if (task.task_overview) {
+      addSpace(0.05);
+      addText(task.task_overview, 9);
+    }
+    addSpace(0.15);
+
+    if (task.lineItems && task.lineItems.length > 0) {
+      const lineItemHeaders = [['Description', 'Qty', 'Unit Price', 'Total']];
+      const lineItemData = task.lineItems.map((item: any) => [
+        item.description || '',
+        item.quantity?.toString() || '0',
+        `$${(item.unit_price || 0).toFixed(2)}`,
+        `$${(item.total_price || 0).toFixed(2)}`
+      ]);
+
+      const taskSubtotal = task.lineItems.reduce((sum: number, item: any) => sum + (item.total_price || 0), 0);
+
+      autoTable(doc, {
+        startY: yPos,
+        head: lineItemHeaders,
+        body: lineItemData,
+        theme: 'grid',
+        styles: {
+          fontSize: 9,
+          cellPadding: 0.08,
+          font: 'helvetica',
+          lineColor: [203, 213, 225],
+          lineWidth: 0.01
+        },
+        headStyles: {
+          fillColor: [241, 245, 249],
+          textColor: [0, 0, 0],
+          fontStyle: 'bold',
+          halign: 'left'
+        },
+        columnStyles: {
+          0: { cellWidth: 3.5 },
+          1: { cellWidth: 0.8, halign: 'center' },
+          2: { cellWidth: 1.2, halign: 'right' },
+          3: { cellWidth: 1.2, halign: 'right' }
+        },
+        margin: { left: margin, right: margin },
+        didDrawPage: (data: any) => {
+          yPos = data.cursor.y + 0.1;
+        }
+      });
+
+      if (task.apply_surcharge) {
+        addText(`Note: Surcharge will be applied to this task`, 8, 'normal');
+        addSpace(0.1);
+      }
+
+      addSpace(0.15);
+    }
+  });
+
+  doc.setDrawColor(0);
+  doc.setLineWidth(0.03);
+  doc.line(margin + 3.5, yPos, pageWidth - margin, yPos);
+  yPos += 0.15;
+
+  const summaryData = [
+    ['Subtotal:', `$${estimate.subtotal.toFixed(2)}`],
+  ];
+
+  if (estimate.shop_supplies_amount > 0) {
+    summaryData.push([`Shop Supplies (${(estimate.shop_supplies_rate * 100).toFixed(1)}%):`, `$${estimate.shop_supplies_amount.toFixed(2)}`]);
+  }
+
+  if (estimate.park_fees_amount > 0) {
+    summaryData.push([`Park Fees (${(estimate.park_fees_rate * 100).toFixed(1)}%):`, `$${estimate.park_fees_amount.toFixed(2)}`]);
+  }
+
+  if (estimate.surcharge_amount > 0) {
+    summaryData.push([`Surcharge (${(estimate.surcharge_rate * 100).toFixed(1)}%):`, `$${estimate.surcharge_amount.toFixed(2)}`]);
+  }
+
+  summaryData.push([`Sales Tax (${(estimate.sales_tax_rate * 100).toFixed(1)}%):`, `$${estimate.sales_tax_amount.toFixed(2)}`]);
+
+  autoTable(doc, {
+    startY: yPos,
+    body: summaryData,
+    theme: 'plain',
+    styles: {
+      fontSize: 10,
+      cellPadding: 0.05,
+      font: 'helvetica'
+    },
+    columnStyles: {
+      0: { halign: 'right', cellWidth: 5.5 },
+      1: { halign: 'right', cellWidth: 1.2, fontStyle: 'bold' }
+    },
+    margin: { left: margin, right: margin },
+    didDrawPage: (data: any) => {
+      yPos = data.cursor.y;
+    }
+  });
+
+  doc.setLineWidth(0.03);
+  doc.line(margin + 3.5, yPos, pageWidth - margin, yPos);
+  yPos += 0.15;
+
+  autoTable(doc, {
+    startY: yPos,
+    body: [['TOTAL:', `$${estimate.total_amount.toFixed(2)}`]],
+    theme: 'plain',
+    styles: {
+      fontSize: 12,
+      cellPadding: 0.05,
+      font: 'helvetica',
+      fontStyle: 'bold'
+    },
+    columnStyles: {
+      0: { halign: 'right', cellWidth: 5.5 },
+      1: { halign: 'right', cellWidth: 1.2 }
+    },
+    margin: { left: margin, right: margin },
+    didDrawPage: (data: any) => {
+      yPos = data.cursor.y + 0.2;
+    }
+  });
+
+  if (estimate.notes) {
+    addSpace(0.15);
+    addText('Notes', 11, 'bold');
+    addSpace(0.05);
+    addText(estimate.notes, 9);
+  }
+
+  if (estimate.customer_notes) {
+    addSpace(0.15);
+    addText('Customer Notes', 11, 'bold');
+    addSpace(0.05);
+    addText(estimate.customer_notes, 9);
+  }
+
+  const pageCount = doc.getNumberOfPages();
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(100);
+
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, margin, 10.5);
+    doc.text(`Page ${i} of ${pageCount}`, pageWidth - margin - 0.5, 10.5, { align: 'right' });
+  }
+
+  return doc;
+}
+
 export async function generatePayrollReportPDF(
   employeeReports: EmployeeReport[],
   startDate: string,

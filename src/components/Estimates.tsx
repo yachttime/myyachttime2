@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, FileText, AlertCircle, Edit2, Trash2, Check, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, FileText, AlertCircle, Edit2, Trash2, Check, X, ChevronDown, ChevronUp, Printer } from 'lucide-react';
+import { generateEstimatePDF } from '../utils/pdfGenerator';
 
 interface Estimate {
   id: string;
@@ -851,6 +852,52 @@ export function Estimates({ userId }: EstimatesProps) {
     }
   };
 
+  const handlePrintEstimate = async (estimateId: string) => {
+    try {
+      setError(null);
+
+      const { data: estimateData, error: estimateError } = await supabase
+        .from('estimates')
+        .select('*, yachts(name)')
+        .eq('id', estimateId)
+        .single();
+
+      if (estimateError) throw estimateError;
+
+      const { data: tasksData, error: tasksError } = await supabase
+        .from('estimate_tasks')
+        .select('*')
+        .eq('estimate_id', estimateId)
+        .order('task_order');
+
+      if (tasksError) throw tasksError;
+
+      const tasksWithLineItems = await Promise.all(
+        tasksData.map(async (task) => {
+          const { data: lineItemsData, error: lineItemsError } = await supabase
+            .from('estimate_line_items')
+            .select('*')
+            .eq('task_id', task.id)
+            .order('line_order');
+
+          if (lineItemsError) throw lineItemsError;
+
+          return {
+            ...task,
+            lineItems: lineItemsData
+          };
+        })
+      );
+
+      const yachtName = estimateData.yachts?.name || null;
+      const pdf = generateEstimatePDF(estimateData, tasksWithLineItems, yachtName);
+      pdf.save(`Estimate_${estimateData.estimate_number}.pdf`);
+    } catch (err) {
+      console.error('Error printing estimate:', err);
+      setError('Failed to print estimate');
+    }
+  };
+
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
       draft: 'bg-gray-100 text-gray-800',
@@ -1566,6 +1613,13 @@ export function Estimates({ userId }: EstimatesProps) {
                 </td>
                 <td className="px-6 py-4 text-right">
                   <div className="flex justify-end gap-2">
+                    <button
+                      onClick={() => handlePrintEstimate(estimate.id)}
+                      className="text-gray-600 hover:text-gray-800"
+                      title="Print estimate"
+                    >
+                      <Printer className="w-4 h-4" />
+                    </button>
                     <button
                       onClick={() => handleEditEstimate(estimate.id)}
                       className="text-blue-600 hover:text-blue-800"
