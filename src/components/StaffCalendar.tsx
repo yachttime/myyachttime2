@@ -58,6 +58,7 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
   const [allStaff, setAllStaff] = useState<UserProfile[]>([]);
   const [staffSchedules, setStaffSchedules] = useState<StaffSchedule[]>([]);
   const [scheduleOverrides, setScheduleOverrides] = useState<StaffScheduleOverride[]>([]);
+  const [allScheduleOverrides, setAllScheduleOverrides] = useState<StaffScheduleOverride[]>([]);
   const [loading, setLoading] = useState(true);
   const [showRequestForm, setShowRequestForm] = useState(false);
   const [showApprovalPanel, setShowApprovalPanel] = useState(false);
@@ -224,6 +225,27 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
           console.error('Error loading all requests:', allRequestsError);
         } else {
           setAllTimeOffRequests(allRequestsData || []);
+        }
+
+        // Load all schedule overrides for the year (for statistics)
+        const { data: allOverridesData, error: allOverridesError } = await supabase
+          .from('staff_schedule_overrides')
+          .select(`
+            *,
+            user_profiles:user_id (
+              first_name,
+              last_name,
+              role
+            )
+          `)
+          .gte('override_date', startOfYear.toISOString().split('T')[0])
+          .lte('override_date', endOfYear.toISOString().split('T')[0])
+          .order('override_date', { ascending: true });
+
+        if (allOverridesError) {
+          console.error('Error loading all schedule overrides:', allOverridesError);
+        } else {
+          setAllScheduleOverrides(allOverridesData || []);
         }
       }
 
@@ -468,6 +490,7 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
       role: string;
       approvedDays: number;
       requestedDays: number;
+      sickDays: number;
       approvedByType: { [type: string]: number };
       requestedByType: { [type: string]: number };
     }} = {};
@@ -479,6 +502,7 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
         role: staff.role,
         approvedDays: 0,
         requestedDays: 0,
+        sickDays: 0,
         approvedByType: {},
         requestedByType: {}
       };
@@ -499,6 +523,21 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
         stats[userId].requestedDays += days;
         stats[userId].requestedByType[request.time_off_type] =
           (stats[userId].requestedByType[request.time_off_type] || 0) + days;
+      }
+    });
+
+    // Calculate sick days from schedule overrides
+    allScheduleOverrides.forEach(override => {
+      const userId = override.user_id;
+      if (!stats[userId]) return;
+
+      if (override.status === 'sick_leave') {
+        stats[userId].sickDays += 1;
+      } else if (override.status === 'approved_day_off') {
+        // Count approved day off overrides separately
+        stats[userId].approvedDays += 1;
+        stats[userId].approvedByType['approved_day_off'] =
+          (stats[userId].approvedByType['approved_day_off'] || 0) + 1;
       }
     });
 
@@ -744,6 +783,7 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
                     <th className="text-left py-3 px-4 font-semibold">Staff Member</th>
                     <th className="text-left py-3 px-4 font-semibold">Role</th>
                     <th className="text-right py-3 px-4 font-semibold">Approved Days Off</th>
+                    <th className="text-right py-3 px-4 font-semibold">Sick Days</th>
                     <th className="text-right py-3 px-4 font-semibold">Requested Days Off</th>
                     <th className="text-left py-3 px-4 font-semibold">Breakdown</th>
                   </tr>
@@ -766,6 +806,11 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
                         </span>
                       </td>
                       <td className="py-3 px-4 text-right">
+                        <span className="inline-block bg-red-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                          {stats.sickDays} days
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-right">
                         <span className="inline-block bg-yellow-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
                           {stats.requestedDays} days
                         </span>
@@ -780,6 +825,12 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
                                 .join(', ')}
                             </div>
                           )}
+                          {stats.sickDays > 0 && (
+                            <div className="text-red-400">
+                              <span className="font-medium">Sick Leave: </span>
+                              {stats.sickDays} days
+                            </div>
+                          )}
                           {Object.entries(stats.requestedByType).length > 0 && (
                             <div className="text-yellow-400">
                               <span className="font-medium">Requested: </span>
@@ -789,7 +840,8 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
                             </div>
                           )}
                           {Object.entries(stats.approvedByType).length === 0 &&
-                           Object.entries(stats.requestedByType).length === 0 && (
+                           Object.entries(stats.requestedByType).length === 0 &&
+                           stats.sickDays === 0 && (
                             <span className="text-slate-500 italic">No time off recorded</span>
                           )}
                         </div>
@@ -801,10 +853,14 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
             </div>
 
             <div className="mt-4 pt-4 border-t border-slate-700">
-              <div className="flex gap-6 text-sm text-slate-400">
+              <div className="flex flex-wrap gap-6 text-sm text-slate-400">
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 bg-green-600 rounded-full"></div>
                   <span>Approved time off that has been granted</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-red-600 rounded-full"></div>
+                  <span>Sick days (called in sick)</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 bg-yellow-600 rounded-full"></div>
