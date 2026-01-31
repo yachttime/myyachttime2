@@ -478,6 +478,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     zip_code: '',
     yacht_id: '',
     role: 'owner',
+    employee_type: 'hourly',
     email_notifications_enabled: true,
     sms_notifications_enabled: false,
     notification_email: '',
@@ -1076,6 +1077,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       zip_code: user.zip_code || '',
       yacht_id: user.yacht_id || '',
       role: user.role || 'owner',
+      employee_type: user.employee_type || 'hourly',
       email_notifications_enabled: user.email_notifications_enabled !== undefined ? user.email_notifications_enabled : true,
       sms_notifications_enabled: user.sms_notifications_enabled !== undefined ? user.sms_notifications_enabled : false,
       notification_email: user.notification_email || '',
@@ -1153,6 +1155,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               zip_code: userEditForm.zip_code,
               yacht_id: userEditForm.yacht_id || null,
               role: userEditForm.role,
+              employee_type: userEditForm.employee_type,
               email_notifications_enabled: userEditForm.email_notifications_enabled,
               sms_notifications_enabled: userEditForm.sms_notifications_enabled,
               notification_email: userEditForm.notification_email || null,
@@ -1189,6 +1192,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               zip_code: userEditForm.zip_code,
               yacht_id: userEditForm.yacht_id || null,
               role: userEditForm.role,
+              employee_type: userEditForm.employee_type,
               email_notifications_enabled: userEditForm.email_notifications_enabled,
               sms_notifications_enabled: userEditForm.sms_notifications_enabled,
               notification_email: userEditForm.notification_email || null,
@@ -1221,7 +1225,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     state: userEditForm.state,
                     zip_code: userEditForm.zip_code,
                     yacht_id: userEditForm.yacht_id || null,
-                    role: userEditForm.role
+                    role: userEditForm.role,
+                    employee_type: userEditForm.employee_type
                   })
                 });
 
@@ -11976,6 +11981,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 password: '',
                                 trip_number: '',
                                 role: 'owner',
+                                employee_type: 'hourly',
                                 yacht_id: (effectiveRole === 'manager' && userProfile.yacht_id) ? userProfile.yacht_id : '',
                                 phone: '',
                                 street: '',
@@ -12281,6 +12287,28 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   </>
                                 )}
                               </div>
+
+                              {(userEditForm.role === 'staff' || userEditForm.role === 'mechanic' || userEditForm.role === 'master') && (
+                                <div>
+                                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                                    Employee Type
+                                  </label>
+                                  <select
+                                    value={userEditForm.employee_type}
+                                    onChange={(e) => setUserEditForm({ ...userEditForm, employee_type: e.target.value })}
+                                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    required
+                                  >
+                                    <option value="hourly">Hourly</option>
+                                    <option value="salary">Salary</option>
+                                  </select>
+                                  <p className="text-xs text-slate-500 mt-1">
+                                    {userEditForm.employee_type === 'hourly'
+                                      ? 'Hourly employees track lunch breaks separately'
+                                      : 'Salary employees auto-deduct 1 hour for lunch'}
+                                  </p>
+                                </div>
+                              )}
 
                               <div>
                                 <label className="block text-sm font-medium text-slate-300 mb-2">

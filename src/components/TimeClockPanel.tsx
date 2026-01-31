@@ -17,12 +17,6 @@ interface TimeEntry {
 
 interface UserProfile {
   employee_type: 'hourly' | 'salary';
-  yacht_id: string | null;
-}
-
-interface Yacht {
-  id: string;
-  name: string;
 }
 
 export function TimeClockPanel() {
@@ -32,14 +26,11 @@ export function TimeClockPanel() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [elapsedTime, setElapsedTime] = useState('');
   const [notes, setNotes] = useState('');
-  const [selectedYachtId, setSelectedYachtId] = useState<string>('');
-  const [yachts, setYachts] = useState<Yacht[]>([]);
   const [profile, setProfile] = useState<UserProfile | null>(null);
 
   useEffect(() => {
     if (user) {
       loadCurrentEntry();
-      loadYachts();
       loadProfile();
     }
   }, [user]);
@@ -58,27 +49,12 @@ export function TimeClockPanel() {
 
     const { data } = await supabase
       .from('user_profiles')
-      .select('employee_type, yacht_id')
+      .select('employee_type')
       .eq('user_id', user.id)
       .single();
 
     if (data) {
       setProfile(data);
-      if (data.yacht_id) {
-        setSelectedYachtId(data.yacht_id);
-      }
-    }
-  };
-
-  const loadYachts = async () => {
-    const { data } = await supabase
-      .from('yachts')
-      .select('id, name')
-      .eq('is_active', true)
-      .order('name');
-
-    if (data) {
-      setYachts(data);
     }
   };
 
@@ -106,15 +82,11 @@ export function TimeClockPanel() {
     setCurrentEntry(data);
     if (data) {
       setNotes(data.notes || '');
-      setSelectedYachtId(data.yacht_id || '');
     }
   };
 
   const handlePunchIn = async () => {
-    if (!user || !selectedYachtId) {
-      showMessage('error', 'Please select a yacht');
-      return;
-    }
+    if (!user) return;
 
     setLoading(true);
     try {
@@ -122,7 +94,7 @@ export function TimeClockPanel() {
         .from('staff_time_entries')
         .insert({
           user_id: user.id,
-          yacht_id: selectedYachtId,
+          yacht_id: null,
           punch_in_time: new Date().toISOString(),
           notes: notes || null,
           punch_in_ip: getClientIP()
@@ -336,24 +308,6 @@ export function TimeClockPanel() {
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Select Yacht <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={selectedYachtId}
-              onChange={(e) => setSelectedYachtId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Select a yacht...</option>
-              {yachts.map((yacht) => (
-                <option key={yacht.id} value={yacht.id}>
-                  {yacht.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
               Notes (optional)
             </label>
             <textarea
@@ -367,7 +321,7 @@ export function TimeClockPanel() {
 
           <button
             onClick={handlePunchIn}
-            disabled={loading || !selectedYachtId}
+            disabled={loading}
             className="w-full bg-green-600 hover:bg-green-700 text-white py-4 px-6 rounded-lg flex items-center justify-center gap-2 text-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <LogIn className="w-6 h-6" />

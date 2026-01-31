@@ -19,6 +19,7 @@ interface CreateUserRequest {
   zip_code?: string;
   yacht_id?: string;
   role: string;
+  employee_type?: string;
   email_notifications_enabled?: boolean;
   sms_notifications_enabled?: boolean;
   notification_email?: string;
@@ -110,6 +111,7 @@ Deno.serve(async (req: Request) => {
         zip_code: requestData.zip_code,
         yacht_id: requestData.yacht_id || null,
         role: requestData.role,
+        employee_type: requestData.employee_type || 'hourly',
         email_notifications_enabled: requestData.email_notifications_enabled ?? true,
         sms_notifications_enabled: requestData.sms_notifications_enabled ?? false,
         notification_email: requestData.notification_email || null,
