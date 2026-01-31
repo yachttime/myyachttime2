@@ -18,7 +18,7 @@ export function TimeClock() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Time Clock</h1>
+        <h1 className="text-3xl font-bold text-amber-500 mb-2">Time Clock</h1>
         <p className="text-gray-600">Track work hours and generate payroll reports</p>
       </div>
 
@@ -136,7 +136,7 @@ function AllStaffTimeView({ onEditEntry }: { onEditEntry: (entry: TimeEntry) => 
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Select Employee</h3>
+        <h3 className="text-lg font-semibold text-amber-500 mb-4">Select Employee</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mb-6 max-h-[400px] overflow-y-auto p-1">
           {users.map((user) => (
             <button

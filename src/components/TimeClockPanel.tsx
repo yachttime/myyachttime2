@@ -203,7 +203,7 @@ export function TimeClockPanel() {
       <div className="flex items-center gap-3 mb-6">
         <Clock className="w-8 h-8 text-blue-600" />
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Time Clock</h2>
+          <h2 className="text-2xl font-bold text-amber-500">Time Clock</h2>
           <p className="text-sm text-gray-600">
             {new Date().toLocaleDateString('en-US', {
               weekday: 'long',

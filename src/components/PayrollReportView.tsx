@@ -168,7 +168,7 @@ export function PayrollReportView() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Payroll Report</h2>
+        <h2 className="text-2xl font-bold text-amber-500 mb-2">Payroll Report</h2>
         <p className="text-gray-600">Generate time clock reports for payroll processing</p>
       </div>
 
@@ -267,7 +267,7 @@ export function PayrollReportView() {
           <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-bold text-gray-900">Report Summary</h3>
+                <h3 className="text-lg font-bold text-amber-500">Report Summary</h3>
                 <p className="text-sm text-gray-600">
                   {new Date(startDate).toLocaleDateString()} - {new Date(endDate).toLocaleDateString()}
                 </p>
