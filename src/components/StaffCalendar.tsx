@@ -582,11 +582,15 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
 
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-  const calculateDaysBetween = (startDate: string, endDate: string): number => {
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+  const calculateDaysBetween = (request: StaffTimeOffRequest): number => {
+    if (request.is_partial_day && request.hours_taken) {
+      return request.hours_taken / 8;
+    }
+
+    const start = new Date(request.start_date);
+    const end = new Date(request.end_date);
     const diffTime = Math.abs(end.getTime() - start.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 to include both start and end dates
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
     return diffDays;
   };
 
@@ -616,7 +620,7 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
 
     // Calculate stats from all time off requests
     allTimeOffRequests.forEach(request => {
-      const days = calculateDaysBetween(request.start_date, request.end_date);
+      const days = calculateDaysBetween(request);
       const userId = request.user_id;
 
       if (!stats[userId]) return;
@@ -974,22 +978,22 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
                         </td>
                         <td className="py-3 px-4 text-right">
                           <span className="inline-block bg-green-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
-                            {stats.approvedDays} days
+                            {stats.approvedDays.toFixed(1)} days
                           </span>
                         </td>
                         <td className="py-3 px-4 text-right">
                           <span className="inline-block bg-red-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
-                            {stats.sickDays} days
+                            {stats.sickDays.toFixed(1)} days
                           </span>
                         </td>
                         <td className="py-3 px-4 text-right">
                           <span className="inline-block bg-yellow-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
-                            {stats.requestedDays} days
+                            {stats.requestedDays.toFixed(1)} days
                           </span>
                         </td>
                         <td className="py-3 px-4 text-right">
                           <span className="inline-block bg-amber-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
-                            {totalDaysOff} days
+                            {totalDaysOff.toFixed(1)} days
                           </span>
                         </td>
                         <td className="py-3 px-4">
@@ -998,21 +1002,21 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
                               <div className="text-green-400">
                                 <span className="font-medium">Approved: </span>
                                 {Object.entries(stats.approvedByType)
-                                  .map(([type, days]) => `${formatTimeOffType(type)}: ${days}`)
+                                  .map(([type, days]) => `${formatTimeOffType(type)}: ${days.toFixed(1)}`)
                                   .join(', ')}
                               </div>
                             )}
                             {stats.sickDays > 0 && (
                               <div className="text-red-400">
                                 <span className="font-medium">Sick Leave: </span>
-                                {stats.sickDays} days
+                                {stats.sickDays.toFixed(1)} days
                               </div>
                             )}
                             {Object.entries(stats.requestedByType).length > 0 && (
                               <div className="text-yellow-400">
                                 <span className="font-medium">Requested: </span>
                                 {Object.entries(stats.requestedByType)
-                                  .map(([type, days]) => `${formatTimeOffType(type)}: ${days}`)
+                                  .map(([type, days]) => `${formatTimeOffType(type)}: ${days.toFixed(1)}`)
                                   .join(', ')}
                               </div>
                             )}
@@ -1169,6 +1173,19 @@ function TimeOffRequestModal({ onClose, onSuccess }: { onClose: () => void; onSu
 
     try {
       setSubmitting(true);
+
+      const isSameDay = formData.start_date === formData.end_date;
+      const isPartialDay = isSameDay && hasStartTime && hasEndTime;
+      let hoursTaken: number | null = null;
+
+      if (isPartialDay) {
+        const [startHour, startMin] = formData.start_time.split(':').map(Number);
+        const [endHour, endMin] = formData.end_time.split(':').map(Number);
+        const startMinutes = startHour * 60 + startMin;
+        const endMinutes = endHour * 60 + endMin;
+        hoursTaken = (endMinutes - startMinutes) / 60;
+      }
+
       const { error: insertError } = await supabase
         .from('staff_time_off_requests')
         .insert({
@@ -1177,6 +1194,8 @@ function TimeOffRequestModal({ onClose, onSuccess }: { onClose: () => void; onSu
           end_date: formData.end_date,
           start_time: hasStartTime ? formData.start_time : null,
           end_time: hasEndTime ? formData.end_time : null,
+          is_partial_day: isPartialDay,
+          hours_taken: hoursTaken,
           time_off_type: formData.time_off_type,
           reason: formData.reason && formData.reason.trim() ? formData.reason : null
         });
