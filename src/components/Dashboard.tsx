@@ -1420,8 +1420,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       const { data, error } = await supabase
         .from('user_profiles')
         .select('id, user_id, first_name, last_name, email, role')
-        .in('role', ['mechanic', 'staff', 'manager'])
-        .order('first_name', { ascending: true });
+        .in('role', ['mechanic', 'staff', 'manager', 'master'])
+        .order('first_name', { ascending: true});
 
       if (error) throw error;
       setMechanics(data || []);
