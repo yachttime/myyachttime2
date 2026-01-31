@@ -97,24 +97,11 @@ export function Estimates({ userId }: EstimatesProps) {
           .order('part_number')
       ]);
 
-      if (estimatesResult.error) {
-        console.error('Estimates error:', estimatesResult.error);
-        throw estimatesResult.error;
-      }
-      if (yachtsResult.error) {
-        console.error('Yachts error:', yachtsResult.error);
-        throw yachtsResult.error;
-      }
-      if (laborResult.error) {
-        console.error('Labor codes error:', laborResult.error);
-        throw laborResult.error;
-      }
-      if (partsResult.error) {
-        console.error('Parts error:', partsResult.error);
-        throw partsResult.error;
-      }
+      if (estimatesResult.error) throw estimatesResult.error;
+      if (yachtsResult.error) throw yachtsResult.error;
+      if (laborResult.error) throw laborResult.error;
+      if (partsResult.error) throw partsResult.error;
 
-      console.log('Loaded yachts:', yachtsResult.data);
       setEstimates(estimatesResult.data || []);
       setYachts(yachtsResult.data || []);
       setLaborCodes(laborResult.data || []);
