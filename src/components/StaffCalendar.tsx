@@ -257,7 +257,7 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
   };
 
   const getDateColor = (day: number) => {
-    return 'bg-blue-50 hover:bg-blue-100';
+    return 'bg-white hover:bg-slate-50';
   };
 
   const previousMonth = () => {
