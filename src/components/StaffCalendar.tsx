@@ -489,7 +489,6 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
 
   const getDateColor = (day: number) => {
     const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
-    const dateStr = date.toISOString().split('T')[0];
     const dayOfWeek = date.getDay();
 
     const holiday = getHolidayForDate(day);
