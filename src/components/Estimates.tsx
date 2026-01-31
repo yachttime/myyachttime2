@@ -573,11 +573,11 @@ export function Estimates({ userId }: EstimatesProps) {
             <div className="border-t pt-4">
               <div className="flex justify-end space-y-2">
                 <div className="w-64 space-y-2">
-                  <div className="flex justify-between text-sm">
+                  <div className="flex justify-between text-sm text-gray-900">
                     <span>Subtotal:</span>
                     <span className="font-medium">${calculateSubtotal().toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between text-sm items-center">
+                  <div className="flex justify-between text-sm items-center text-gray-900">
                     <span>Tax Rate:</span>
                     <input
                       type="number"
@@ -586,14 +586,14 @@ export function Estimates({ userId }: EstimatesProps) {
                       max="1"
                       value={formData.tax_rate}
                       onChange={(e) => setFormData({ ...formData, tax_rate: e.target.value })}
-                      className="w-20 px-2 py-1 text-right border border-gray-300 rounded text-sm"
+                      className="w-20 px-2 py-1 text-right border border-gray-300 rounded text-sm text-gray-900"
                     />
                   </div>
-                  <div className="flex justify-between text-sm">
+                  <div className="flex justify-between text-sm text-gray-900">
                     <span>Tax:</span>
                     <span className="font-medium">${(calculateSubtotal() * parseFloat(formData.tax_rate)).toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between text-lg font-bold border-t pt-2">
+                  <div className="flex justify-between text-lg font-bold border-t pt-2 text-gray-900">
                     <span>Total:</span>
                     <span>${calculateTotal().toFixed(2)}</span>
                   </div>
