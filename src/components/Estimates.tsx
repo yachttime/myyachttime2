@@ -100,10 +100,30 @@ export function Estimates({ userId }: EstimatesProps) {
     part_number_search: '',
     work_details: ''
   });
+  const [showAutoSaveIndicator, setShowAutoSaveIndicator] = useState(false);
 
   useEffect(() => {
     loadData();
+    loadDraft();
   }, []);
+
+  useEffect(() => {
+    if (showForm && (tasks.length > 0 || formData.yacht_id || formData.customer_name)) {
+      const draftData = {
+        formData,
+        tasks,
+        timestamp: new Date().toISOString()
+      };
+      localStorage.setItem('estimate_draft', JSON.stringify(draftData));
+
+      setShowAutoSaveIndicator(true);
+      const timer = setTimeout(() => {
+        setShowAutoSaveIndicator(false);
+      }, 2000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [formData, tasks, showForm]);
 
   const loadData = async () => {
     try {
@@ -160,6 +180,36 @@ export function Estimates({ userId }: EstimatesProps) {
       setError('Failed to load estimates');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadDraft = () => {
+    try {
+      const draftStr = localStorage.getItem('estimate_draft');
+      if (draftStr) {
+        const draft = JSON.parse(draftStr);
+        const draftAge = Date.now() - new Date(draft.timestamp).getTime();
+        const oneDay = 24 * 60 * 60 * 1000;
+
+        if (draftAge < oneDay) {
+          const userWantsToRestore = window.confirm(
+            'You have an unsaved estimate draft. Would you like to restore it?'
+          );
+
+          if (userWantsToRestore) {
+            setFormData(draft.formData);
+            setTasks(draft.tasks);
+            setShowForm(true);
+          } else {
+            localStorage.removeItem('estimate_draft');
+          }
+        } else {
+          localStorage.removeItem('estimate_draft');
+        }
+      }
+    } catch (err) {
+      console.error('Error loading draft:', err);
+      localStorage.removeItem('estimate_draft');
     }
   };
 
@@ -471,6 +521,19 @@ export function Estimates({ userId }: EstimatesProps) {
     return data;
   };
 
+  const handleCancel = () => {
+    const hasDraft = tasks.length > 0 || formData.yacht_id || formData.customer_name;
+
+    if (hasDraft) {
+      const confirmed = window.confirm(
+        'Are you sure you want to cancel? Your draft will be saved and you can restore it later.'
+      );
+      if (!confirmed) return;
+    }
+
+    resetForm();
+  };
+
   const resetForm = async () => {
     const settingsResult = await supabase
       .from('estimate_settings')
@@ -507,6 +570,7 @@ export function Estimates({ userId }: EstimatesProps) {
     setShowTaskForm(false);
     setEditingTaskIndex(null);
     setExpandedTasks(new Set());
+    localStorage.removeItem('estimate_draft');
   };
 
   const getStatusColor = (status: string) => {
@@ -546,9 +610,17 @@ export function Estimates({ userId }: EstimatesProps) {
 
       {showForm && (
         <div className="mb-6 bg-white border border-gray-200 rounded-lg p-6">
-          <h3 className="text-lg font-semibold mb-4">
-            {editingId ? 'Edit Estimate' : 'New Estimate'}
-          </h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">
+              {editingId ? 'Edit Estimate' : 'New Estimate'}
+            </h3>
+            {showAutoSaveIndicator && (
+              <div className="flex items-center gap-2 text-sm text-green-600">
+                <Check className="w-4 h-4" />
+                <span>Draft saved</span>
+              </div>
+            )}
+          </div>
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label className="flex items-center gap-2">
@@ -1137,7 +1209,7 @@ export function Estimates({ userId }: EstimatesProps) {
             <div className="flex justify-end gap-3">
               <button
                 type="button"
-                onClick={resetForm}
+                onClick={handleCancel}
                 className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
               >
                 Cancel
