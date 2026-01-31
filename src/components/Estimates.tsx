@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, FileText, AlertCircle, Edit2, Trash2, Check, X } from 'lucide-react';
+import { Plus, FileText, AlertCircle, Edit2, Trash2, Check, X, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface Estimate {
   id: string;
@@ -18,8 +18,17 @@ interface Estimate {
   yachts?: { name: string };
 }
 
+interface EstimateTask {
+  id?: string;
+  task_name: string;
+  task_overview: string;
+  task_order: number;
+  lineItems: EstimateLineItem[];
+}
+
 interface EstimateLineItem {
   id?: string;
+  task_id?: string;
   line_type: 'labor' | 'part' | 'shop_supplies' | 'park_fees' | 'surcharge';
   description: string;
   quantity: number;
@@ -56,8 +65,17 @@ export function Estimates({ userId }: EstimatesProps) {
     customer_notes: ''
   });
 
-  const [lineItems, setLineItems] = useState<EstimateLineItem[]>([]);
+  const [tasks, setTasks] = useState<EstimateTask[]>([]);
+  const [showTaskForm, setShowTaskForm] = useState(false);
+  const [editingTaskIndex, setEditingTaskIndex] = useState<number | null>(null);
+  const [expandedTasks, setExpandedTasks] = useState<Set<number>>(new Set());
+  const [taskFormData, setTaskFormData] = useState({
+    task_name: '',
+    task_overview: ''
+  });
+
   const [showLineItemForm, setShowLineItemForm] = useState(false);
+  const [activeTaskIndex, setActiveTaskIndex] = useState<number | null>(null);
   const [lineItemFormData, setLineItemFormData] = useState({
     line_type: 'labor' as EstimateLineItem['line_type'],
     description: '',
@@ -116,7 +134,66 @@ export function Estimates({ userId }: EstimatesProps) {
     }
   };
 
+  const handleAddTask = () => {
+    if (!taskFormData.task_name.trim()) {
+      setError('Task name is required');
+      return;
+    }
+
+    if (editingTaskIndex !== null) {
+      const updatedTasks = [...tasks];
+      updatedTasks[editingTaskIndex] = {
+        ...updatedTasks[editingTaskIndex],
+        task_name: taskFormData.task_name,
+        task_overview: taskFormData.task_overview
+      };
+      setTasks(updatedTasks);
+      setEditingTaskIndex(null);
+    } else {
+      const newTask: EstimateTask = {
+        task_name: taskFormData.task_name,
+        task_overview: taskFormData.task_overview,
+        task_order: tasks.length,
+        lineItems: []
+      };
+      setTasks([...tasks, newTask]);
+      setExpandedTasks(new Set([...expandedTasks, tasks.length]));
+    }
+
+    setTaskFormData({ task_name: '', task_overview: '' });
+    setShowTaskForm(false);
+  };
+
+  const handleEditTask = (index: number) => {
+    const task = tasks[index];
+    setTaskFormData({
+      task_name: task.task_name,
+      task_overview: task.task_overview
+    });
+    setEditingTaskIndex(index);
+    setShowTaskForm(true);
+  };
+
+  const handleDeleteTask = (index: number) => {
+    setTasks(tasks.filter((_, i) => i !== index));
+    const newExpanded = new Set(expandedTasks);
+    newExpanded.delete(index);
+    setExpandedTasks(newExpanded);
+  };
+
+  const toggleTaskExpanded = (index: number) => {
+    const newExpanded = new Set(expandedTasks);
+    if (newExpanded.has(index)) {
+      newExpanded.delete(index);
+    } else {
+      newExpanded.add(index);
+    }
+    setExpandedTasks(newExpanded);
+  };
+
   const handleAddLineItem = () => {
+    if (activeTaskIndex === null) return;
+
     const quantity = parseFloat(lineItemFormData.quantity);
     const unit_price = parseFloat(lineItemFormData.unit_price);
 
@@ -128,11 +205,13 @@ export function Estimates({ userId }: EstimatesProps) {
       total_price: quantity * unit_price,
       labor_code_id: lineItemFormData.labor_code_id || null,
       part_id: lineItemFormData.part_id || null,
-      line_order: lineItems.length,
+      line_order: tasks[activeTaskIndex].lineItems.length,
       work_details: lineItemFormData.work_details || null
     };
 
-    setLineItems([...lineItems, newLineItem]);
+    const updatedTasks = [...tasks];
+    updatedTasks[activeTaskIndex].lineItems.push(newLineItem);
+    setTasks(updatedTasks);
 
     setLineItemFormData({
       line_type: 'labor',
@@ -144,10 +223,13 @@ export function Estimates({ userId }: EstimatesProps) {
       work_details: ''
     });
     setShowLineItemForm(false);
+    setActiveTaskIndex(null);
   };
 
-  const handleRemoveLineItem = (index: number) => {
-    setLineItems(lineItems.filter((_, i) => i !== index));
+  const handleRemoveLineItem = (taskIndex: number, lineIndex: number) => {
+    const updatedTasks = [...tasks];
+    updatedTasks[taskIndex].lineItems = updatedTasks[taskIndex].lineItems.filter((_, i) => i !== lineIndex);
+    setTasks(updatedTasks);
   };
 
   const handleLaborCodeChange = (laborCodeId: string) => {
@@ -175,7 +257,9 @@ export function Estimates({ userId }: EstimatesProps) {
   };
 
   const calculateSubtotal = () => {
-    return lineItems.reduce((sum, item) => sum + item.total_price, 0);
+    return tasks.reduce((sum, task) =>
+      sum + task.lineItems.reduce((taskSum, item) => taskSum + item.total_price, 0), 0
+    );
   };
 
   const calculateTotal = () => {
@@ -187,8 +271,14 @@ export function Estimates({ userId }: EstimatesProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (lineItems.length === 0) {
-      setError('Please add at least one line item');
+    if (tasks.length === 0) {
+      setError('Please add at least one task');
+      return;
+    }
+
+    const hasLineItems = tasks.some(task => task.lineItems.length > 0);
+    if (!hasLineItems) {
+      setError('Please add at least one line item to a task');
       return;
     }
 
@@ -226,17 +316,38 @@ export function Estimates({ userId }: EstimatesProps) {
 
       if (estimateError) throw estimateError;
 
-      const lineItemsToInsert = lineItems.map((item, index) => ({
-        estimate_id: estimate.id,
-        ...item,
-        line_order: index
-      }));
+      // Insert tasks and their line items
+      for (let i = 0; i < tasks.length; i++) {
+        const task = tasks[i];
 
-      const { error: lineItemsError } = await supabase
-        .from('estimate_line_items')
-        .insert(lineItemsToInsert);
+        const { data: estimateTask, error: taskError } = await supabase
+          .from('estimate_tasks')
+          .insert({
+            estimate_id: estimate.id,
+            task_name: task.task_name,
+            task_overview: task.task_overview,
+            task_order: i
+          })
+          .select()
+          .single();
 
-      if (lineItemsError) throw lineItemsError;
+        if (taskError) throw taskError;
+
+        if (task.lineItems.length > 0) {
+          const lineItemsToInsert = task.lineItems.map((item, index) => ({
+            estimate_id: estimate.id,
+            task_id: estimateTask.id,
+            ...item,
+            line_order: index
+          }));
+
+          const { error: lineItemsError } = await supabase
+            .from('estimate_line_items')
+            .insert(lineItemsToInsert);
+
+          if (lineItemsError) throw lineItemsError;
+        }
+      }
 
       resetForm();
       loadData();
@@ -263,9 +374,12 @@ export function Estimates({ userId }: EstimatesProps) {
       notes: '',
       customer_notes: ''
     });
-    setLineItems([]);
+    setTasks([]);
     setShowForm(false);
     setEditingId(null);
+    setShowTaskForm(false);
+    setEditingTaskIndex(null);
+    setExpandedTasks(new Set());
   };
 
   const getStatusColor = (status: string) => {
@@ -379,227 +493,361 @@ export function Estimates({ userId }: EstimatesProps) {
               </div>
             )}
 
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <h4 className="text-md font-semibold">Line Items</h4>
+            {/* Tasks Section */}
+            <div className="border-t pt-4">
+              <div className="flex justify-between items-center mb-3">
+                <h4 className="text-md font-semibold text-gray-900">Tasks</h4>
                 <button
                   type="button"
-                  onClick={() => setShowLineItemForm(true)}
+                  onClick={() => {
+                    setShowTaskForm(true);
+                    setEditingTaskIndex(null);
+                    setTaskFormData({ task_name: '', task_overview: '' });
+                  }}
                   className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
                 >
                   <Plus className="w-4 h-4" />
-                  Add Line Item
+                  Add Task
                 </button>
               </div>
 
-              {showLineItemForm && (
+              {showTaskForm && (
                 <div className="mb-4 p-4 bg-gray-50 rounded-lg space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
-                      <select
-                        value={lineItemFormData.line_type}
-                        onChange={(e) => setLineItemFormData({ ...lineItemFormData, line_type: e.target.value as any })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
-                      >
-                        <option value="labor" className="bg-white text-gray-900">Labor</option>
-                        <option value="part" className="bg-white text-gray-900">Part</option>
-                        <option value="shop_supplies" className="bg-white text-gray-900">Shop Supplies</option>
-                        <option value="park_fees" className="bg-white text-gray-900">Park Fees</option>
-                        <option value="surcharge" className="bg-white text-gray-900">Surcharge</option>
-                      </select>
-                    </div>
-
-                    {lineItemFormData.line_type === 'labor' && (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Labor Code</label>
-                        <select
-                          value={lineItemFormData.labor_code_id}
-                          onChange={(e) => handleLaborCodeChange(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
-                        >
-                          <option value="" className="bg-white text-gray-900">Select labor code</option>
-                          {laborCodes.map((lc) => (
-                            <option key={lc.id} value={lc.id} className="bg-white text-gray-900">
-                              {lc.code} - {lc.name} (${lc.hourly_rate}/hr)
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-
-                    {lineItemFormData.line_type === 'part' && (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Part</label>
-                        <select
-                          value={lineItemFormData.part_id}
-                          onChange={(e) => handlePartChange(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
-                        >
-                          <option value="" className="bg-white text-gray-900">Select part</option>
-                          {parts.map((part) => (
-                            <option key={part.id} value={part.id} className="bg-white text-gray-900">
-                              {part.part_number} - {part.name} (${part.unit_price})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-                  </div>
-
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Task Name *</label>
                     <input
                       type="text"
                       required
-                      value={lineItemFormData.description}
-                      onChange={(e) => setLineItemFormData({ ...lineItemFormData, description: e.target.value })}
+                      value={taskFormData.task_name}
+                      onChange={(e) => setTaskFormData({ ...taskFormData, task_name: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
+                      placeholder="e.g., Engine Service, Hull Cleaning, etc."
                     />
                   </div>
-
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Work Details / Notes</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Task Overview</label>
                     <textarea
-                      value={lineItemFormData.work_details}
-                      onChange={(e) => setLineItemFormData({ ...lineItemFormData, work_details: e.target.value })}
+                      value={taskFormData.task_overview}
+                      onChange={(e) => setTaskFormData({ ...taskFormData, task_overview: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
                       rows={3}
-                      placeholder="Describe the work performed or additional details..."
+                      placeholder="Describe what this task involves..."
                     />
                   </div>
-
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {lineItemFormData.line_type === 'labor' ? 'Hours' : 'Quantity'}
-                      </label>
-                      <input
-                        type="number"
-                        required
-                        step="0.01"
-                        min="0"
-                        value={lineItemFormData.quantity}
-                        onChange={(e) => setLineItemFormData({ ...lineItemFormData, quantity: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Unit Price ($)</label>
-                      <input
-                        type="number"
-                        required
-                        step="0.01"
-                        min="0"
-                        value={lineItemFormData.unit_price}
-                        onChange={(e) => setLineItemFormData({ ...lineItemFormData, unit_price: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Total</label>
-                      <input
-                        type="text"
-                        disabled
-                        value={`$${(parseFloat(lineItemFormData.quantity) * parseFloat(lineItemFormData.unit_price)).toFixed(2)}`}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
-                      />
-                    </div>
-                  </div>
-
                   <div className="flex justify-end gap-2">
                     <button
                       type="button"
-                      onClick={() => setShowLineItemForm(false)}
+                      onClick={() => {
+                        setShowTaskForm(false);
+                        setEditingTaskIndex(null);
+                        setTaskFormData({ task_name: '', task_overview: '' });
+                      }}
                       className="px-3 py-1 text-sm text-gray-700 bg-gray-100 rounded hover:bg-gray-200"
                     >
                       Cancel
                     </button>
                     <button
                       type="button"
-                      onClick={handleAddLineItem}
+                      onClick={handleAddTask}
                       className="px-3 py-1 text-sm text-white bg-blue-600 rounded hover:bg-blue-700"
                     >
-                      Add
+                      {editingTaskIndex !== null ? 'Update Task' : 'Add Task'}
                     </button>
                   </div>
                 </div>
               )}
 
-              {lineItems.length > 0 && (
-                <div className="border border-gray-200 rounded-lg overflow-hidden">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Description</th>
-                        <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Qty</th>
-                        <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Price</th>
-                        <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Total</th>
-                        <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {lineItems.map((item, index) => (
-                        <tr key={index} className="border-t">
-                          <td className="px-3 py-2">
-                            <span className="text-xs text-gray-500 uppercase">{item.line_type}</span>
-                            <div className="font-medium">{item.description}</div>
-                            {item.work_details && (
-                              <div className="text-xs text-gray-600 mt-1 whitespace-pre-wrap">
-                                {item.work_details}
-                              </div>
+              {tasks.length > 0 && (
+                <div className="space-y-3">
+                  {tasks.map((task, taskIndex) => (
+                    <div key={taskIndex} className="border border-gray-300 rounded-lg overflow-hidden">
+                      <div className="bg-gray-100 px-4 py-3 flex justify-between items-center">
+                        <div className="flex items-center gap-2 flex-1">
+                          <button
+                            type="button"
+                            onClick={() => toggleTaskExpanded(taskIndex)}
+                            className="text-gray-600 hover:text-gray-800"
+                          >
+                            {expandedTasks.has(taskIndex) ? (
+                              <ChevronUp className="w-5 h-5" />
+                            ) : (
+                              <ChevronDown className="w-5 h-5" />
                             )}
-                          </td>
-                          <td className="px-3 py-2 text-right align-top">{item.quantity}</td>
-                          <td className="px-3 py-2 text-right align-top">${item.unit_price.toFixed(2)}</td>
-                          <td className="px-3 py-2 text-right align-top">${item.total_price.toFixed(2)}</td>
-                          <td className="px-3 py-2 text-right align-top">
+                          </button>
+                          <div className="flex-1">
+                            <h5 className="font-semibold text-gray-900">{task.task_name}</h5>
+                            {task.task_overview && (
+                              <p className="text-sm text-gray-600 mt-1">{task.task_overview}</p>
+                            )}
+                            <p className="text-xs text-gray-500 mt-1">
+                              {task.lineItems.length} line item{task.lineItems.length !== 1 ? 's' : ''} -
+                              ${task.lineItems.reduce((sum, item) => sum + item.total_price, 0).toFixed(2)}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleEditTask(taskIndex)}
+                            className="text-blue-600 hover:text-blue-800"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteTask(taskIndex)}
+                            className="text-red-600 hover:text-red-800"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {expandedTasks.has(taskIndex) && (
+                        <div className="p-4 bg-white">
+                          <div className="flex justify-between items-center mb-3">
+                            <span className="text-sm font-medium text-gray-700">Line Items</span>
                             <button
                               type="button"
-                              onClick={() => handleRemoveLineItem(index)}
-                              className="text-red-600 hover:text-red-800"
+                              onClick={() => {
+                                setActiveTaskIndex(taskIndex);
+                                setShowLineItemForm(true);
+                              }}
+                              className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Plus className="w-4 h-4" />
+                              Add Line
                             </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                          </div>
+
+                          {showLineItemForm && activeTaskIndex === taskIndex && (
+                            <div className="mb-4 p-4 bg-gray-50 rounded-lg space-y-3">
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                                  <select
+                                    value={lineItemFormData.line_type}
+                                    onChange={(e) => setLineItemFormData({ ...lineItemFormData, line_type: e.target.value as any })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
+                                  >
+                                    <option value="labor">Labor</option>
+                                    <option value="part">Part</option>
+                                    <option value="shop_supplies">Shop Supplies</option>
+                                    <option value="park_fees">Park Fees</option>
+                                    <option value="surcharge">Surcharge</option>
+                                  </select>
+                                </div>
+
+                                {lineItemFormData.line_type === 'labor' && (
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Labor Code</label>
+                                    <select
+                                      value={lineItemFormData.labor_code_id}
+                                      onChange={(e) => handleLaborCodeChange(e.target.value)}
+                                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
+                                    >
+                                      <option value="">Select labor code</option>
+                                      {laborCodes.map((lc) => (
+                                        <option key={lc.id} value={lc.id}>
+                                          {lc.code} - {lc.name} (${lc.hourly_rate}/hr)
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                )}
+
+                                {lineItemFormData.line_type === 'part' && (
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Part</label>
+                                    <select
+                                      value={lineItemFormData.part_id}
+                                      onChange={(e) => handlePartChange(e.target.value)}
+                                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
+                                    >
+                                      <option value="">Select part</option>
+                                      {parts.map((part) => (
+                                        <option key={part.id} value={part.id}>
+                                          {part.part_number} - {part.name} (${part.unit_price})
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                )}
+                              </div>
+
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                                <input
+                                  type="text"
+                                  required
+                                  value={lineItemFormData.description}
+                                  onChange={(e) => setLineItemFormData({ ...lineItemFormData, description: e.target.value })}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Work Details / Notes</label>
+                                <textarea
+                                  value={lineItemFormData.work_details}
+                                  onChange={(e) => setLineItemFormData({ ...lineItemFormData, work_details: e.target.value })}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
+                                  rows={2}
+                                  placeholder="Describe the work performed or additional details..."
+                                />
+                              </div>
+
+                              <div className="grid grid-cols-3 gap-3">
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    {lineItemFormData.line_type === 'labor' ? 'Hours' : 'Quantity'}
+                                  </label>
+                                  <input
+                                    type="number"
+                                    required
+                                    step="0.01"
+                                    min="0"
+                                    value={lineItemFormData.quantity}
+                                    onChange={(e) => setLineItemFormData({ ...lineItemFormData, quantity: e.target.value })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">Unit Price ($)</label>
+                                  <input
+                                    type="number"
+                                    required
+                                    step="0.01"
+                                    min="0"
+                                    value={lineItemFormData.unit_price}
+                                    onChange={(e) => setLineItemFormData({ ...lineItemFormData, unit_price: e.target.value })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">Total</label>
+                                  <input
+                                    type="text"
+                                    disabled
+                                    value={`$${(parseFloat(lineItemFormData.quantity) * parseFloat(lineItemFormData.unit_price)).toFixed(2)}`}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-900"
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="flex justify-end gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setShowLineItemForm(false);
+                                    setActiveTaskIndex(null);
+                                  }}
+                                  className="px-3 py-1 text-sm text-gray-700 bg-gray-100 rounded hover:bg-gray-200"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={handleAddLineItem}
+                                  className="px-3 py-1 text-sm text-white bg-blue-600 rounded hover:bg-blue-700"
+                                >
+                                  Add Line
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {task.lineItems.length > 0 && (
+                            <div className="border border-gray-200 rounded-lg overflow-hidden">
+                              <table className="w-full text-sm">
+                                <thead className="bg-gray-50">
+                                  <tr>
+                                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Description</th>
+                                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Qty</th>
+                                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Price</th>
+                                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Total</th>
+                                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Action</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {task.lineItems.map((item, lineIndex) => (
+                                    <tr key={lineIndex} className="border-t">
+                                      <td className="px-3 py-2">
+                                        <span className="text-xs text-gray-500 uppercase">{item.line_type}</span>
+                                        <div className="font-medium text-gray-900">{item.description}</div>
+                                        {item.work_details && (
+                                          <div className="text-xs text-gray-600 mt-1 whitespace-pre-wrap">
+                                            {item.work_details}
+                                          </div>
+                                        )}
+                                      </td>
+                                      <td className="px-3 py-2 text-right align-top text-gray-900">{item.quantity}</td>
+                                      <td className="px-3 py-2 text-right align-top text-gray-900">${item.unit_price.toFixed(2)}</td>
+                                      <td className="px-3 py-2 text-right align-top text-gray-900">${item.total_price.toFixed(2)}</td>
+                                      <td className="px-3 py-2 text-right align-top">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleRemoveLineItem(taskIndex, lineIndex)}
+                                          className="text-red-600 hover:text-red-800"
+                                        >
+                                          <Trash2 className="w-4 h-4" />
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+
+                          {task.lineItems.length === 0 && !showLineItemForm && (
+                            <p className="text-sm text-gray-500 text-center py-4">No line items yet. Click "Add Line" to add one.</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
+              )}
+
+              {tasks.length === 0 && !showTaskForm && (
+                <p className="text-sm text-gray-500 text-center py-4">No tasks yet. Click "Add Task" to get started.</p>
               )}
             </div>
 
-            <div className="border-t pt-4">
-              <div className="flex justify-end space-y-2">
-                <div className="w-64 space-y-2">
-                  <div className="flex justify-between text-sm text-gray-900">
-                    <span>Subtotal:</span>
-                    <span className="font-medium">${calculateSubtotal().toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm items-center text-gray-900">
-                    <span>Tax Rate:</span>
-                    <input
-                      type="number"
-                      step="0.0001"
-                      min="0"
-                      max="1"
-                      value={formData.tax_rate}
-                      onChange={(e) => setFormData({ ...formData, tax_rate: e.target.value })}
-                      className="w-20 px-2 py-1 text-right border border-gray-300 rounded text-sm text-gray-900"
-                    />
-                  </div>
-                  <div className="flex justify-between text-sm text-gray-900">
-                    <span>Tax:</span>
-                    <span className="font-medium">${(calculateSubtotal() * parseFloat(formData.tax_rate)).toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-lg font-bold border-t pt-2 text-gray-900">
-                    <span>Total:</span>
-                    <span>${calculateTotal().toFixed(2)}</span>
+            {/* Totals Section */}
+            {tasks.length > 0 && (
+              <div className="border-t pt-4">
+                <div className="flex justify-end space-y-2">
+                  <div className="w-64 space-y-2">
+                    <div className="flex justify-between text-sm text-gray-900">
+                      <span>Subtotal:</span>
+                      <span className="font-medium">${calculateSubtotal().toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm items-center text-gray-900">
+                      <span>Tax Rate:</span>
+                      <input
+                        type="number"
+                        step="0.0001"
+                        min="0"
+                        max="1"
+                        value={formData.tax_rate}
+                        onChange={(e) => setFormData({ ...formData, tax_rate: e.target.value })}
+                        className="w-20 px-2 py-1 text-right border border-gray-300 rounded text-sm text-gray-900"
+                      />
+                    </div>
+                    <div className="flex justify-between text-sm text-gray-900">
+                      <span>Tax:</span>
+                      <span className="font-medium">${(calculateSubtotal() * parseFloat(formData.tax_rate)).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-lg font-bold border-t pt-2 text-gray-900">
+                      <span>Total:</span>
+                      <span>${calculateTotal().toFixed(2)}</span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -607,7 +855,7 @@ export function Estimates({ userId }: EstimatesProps) {
                 <textarea
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900"
                   rows={2}
                 />
               </div>
@@ -616,7 +864,7 @@ export function Estimates({ userId }: EstimatesProps) {
                 <textarea
                   value={formData.customer_notes}
                   onChange={(e) => setFormData({ ...formData, customer_notes: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900"
                   rows={2}
                 />
               </div>
@@ -650,41 +898,36 @@ export function Estimates({ userId }: EstimatesProps) {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Date</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {estimates.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
-                  No estimates found. Create one to get started.
+            {estimates.map((estimate) => (
+              <tr key={estimate.id} className="hover:bg-gray-50">
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-gray-400" />
+                    <span className="font-medium text-gray-900">{estimate.estimate_number}</span>
+                  </div>
+                </td>
+                <td className="px-6 py-4">
+                  <div className="text-sm text-gray-900">
+                    {estimate.is_retail_customer ? estimate.customer_name : estimate.yachts?.name}
+                  </div>
+                </td>
+                <td className="px-6 py-4">
+                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(estimate.status)}`}>
+                    {estimate.status}
+                  </span>
+                </td>
+                <td className="px-6 py-4 text-right text-sm font-medium text-gray-900">
+                  ${estimate.total_amount.toFixed(2)}
+                </td>
+                <td className="px-6 py-4 text-right text-sm text-gray-500">
+                  {new Date(estimate.created_at).toLocaleDateString()}
                 </td>
               </tr>
-            ) : (
-              estimates.map((estimate) => (
-                <tr key={estimate.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                    {estimate.estimate_number}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">
-                    {estimate.is_retail_customer
-                      ? estimate.customer_name
-                      : estimate.yachts?.name || 'N/A'}
-                  </td>
-                  <td className="px-6 py-4 text-sm">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(estimate.status)}`}>
-                      {estimate.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-right font-medium text-gray-900">
-                    ${estimate.total_amount.toFixed(2)}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
-                    {new Date(estimate.created_at).toLocaleDateString()}
-                  </td>
-                </tr>
-              ))
-            )}
+            ))}
           </tbody>
         </table>
       </div>
