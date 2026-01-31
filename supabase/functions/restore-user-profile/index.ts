@@ -20,7 +20,7 @@ Deno.serve(async (req: Request) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { email, first_name, last_name, phone, trip_number, street, city, state, zip_code, yacht_id, role } = await req.json();
+    const { email, first_name, last_name, phone, trip_number, street, city, state, zip_code, yacht_id, role, can_approve_repairs, can_approve_billing } = await req.json();
 
     if (!email) {
       throw new Error('Email is required');
@@ -60,6 +60,8 @@ Deno.serve(async (req: Request) => {
           zip_code,
           yacht_id: yacht_id || null,
           role,
+          can_approve_repairs: can_approve_repairs ?? false,
+          can_approve_billing: can_approve_billing ?? false,
           must_change_password: true
         })
         .eq('user_id', authUser.id);
@@ -96,6 +98,8 @@ Deno.serve(async (req: Request) => {
           zip_code,
           yacht_id: yacht_id || null,
           role,
+          can_approve_repairs: can_approve_repairs ?? false,
+          can_approve_billing: can_approve_billing ?? false,
           must_change_password: true
         });
 

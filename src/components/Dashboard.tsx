@@ -484,7 +484,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     sms_notifications_enabled: false,
     notification_email: '',
     notification_phone: '',
-    secondary_email: ''
+    secondary_email: '',
+    can_approve_repairs: false,
+    can_approve_billing: false
   });
   const [userLoading, setUserLoading] = useState(false);
   const [userError, setUserError] = useState('');
@@ -1083,7 +1085,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       sms_notifications_enabled: user.sms_notifications_enabled !== undefined ? user.sms_notifications_enabled : false,
       notification_email: user.notification_email || '',
       notification_phone: user.notification_phone || '',
-      secondary_email: user.secondary_email || ''
+      secondary_email: user.secondary_email || '',
+      can_approve_repairs: user.can_approve_repairs || false,
+      can_approve_billing: user.can_approve_billing || false
     });
     setUserError('');
     setUserSuccess('');
@@ -1162,6 +1166,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               notification_email: userEditForm.notification_email || null,
               notification_phone: userEditForm.notification_phone || null,
               secondary_email: userEditForm.secondary_email || null,
+              can_approve_repairs: userEditForm.can_approve_repairs || false,
+              can_approve_billing: userEditForm.can_approve_billing || false,
               must_change_password: true
             })
             .eq('user_id', existingProfile.user_id);
@@ -1198,7 +1204,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               sms_notifications_enabled: userEditForm.sms_notifications_enabled,
               notification_email: userEditForm.notification_email || null,
               notification_phone: userEditForm.notification_phone || null,
-              secondary_email: userEditForm.secondary_email || null
+              secondary_email: userEditForm.secondary_email || null,
+              can_approve_repairs: userEditForm.can_approve_repairs || false,
+              can_approve_billing: userEditForm.can_approve_billing || false
             })
           });
 
@@ -1227,7 +1235,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     zip_code: userEditForm.zip_code,
                     yacht_id: userEditForm.yacht_id || null,
                     role: userEditForm.role,
-                    employee_type: userEditForm.employee_type
+                    employee_type: userEditForm.employee_type,
+                    can_approve_repairs: userEditForm.can_approve_repairs || false,
+                    can_approve_billing: userEditForm.can_approve_billing || false
                   })
                 });
 
@@ -1298,7 +1308,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             sms_notifications_enabled: userEditForm.sms_notifications_enabled,
             notification_email: userEditForm.notification_email || null,
             notification_phone: userEditForm.notification_phone || null,
-            secondary_email: userEditForm.secondary_email || null
+            secondary_email: userEditForm.secondary_email || null,
+            can_approve_repairs: userEditForm.can_approve_repairs || false,
+            can_approve_billing: userEditForm.can_approve_billing || false
           })
           .eq('user_id', selectedUser.user_id);
 
@@ -12015,7 +12027,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 sms_notifications_enabled: false,
                                 notification_email: '',
                                 notification_phone: '',
-                                secondary_email: ''
+                                secondary_email: '',
+                                can_approve_repairs: false,
+                                can_approve_billing: false
                               });
                               setIsCreatingNewUser(true);
                               setSelectedUserGroup(null);
@@ -12377,6 +12391,41 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 <p className="text-xs text-slate-500 mt-1">Optional field to track owner trip sequence</p>
                               </div>
                             </div>
+
+                            {userEditForm.role === 'manager' && (
+                              <div className="mt-6 p-6 bg-slate-900/50 rounded-xl border border-slate-600">
+                                <h4 className="text-lg font-bold mb-4 text-amber-400">Manager Permissions</h4>
+                                <p className="text-sm text-slate-400 mb-4">Specify what this manager can approve</p>
+
+                                <div className="space-y-4">
+                                  <label className="flex items-center gap-3 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={userEditForm.can_approve_repairs}
+                                      onChange={(e) => setUserEditForm({ ...userEditForm, can_approve_repairs: e.target.checked })}
+                                      className="w-5 h-5 rounded border-slate-600 text-amber-500 focus:ring-2 focus:ring-amber-500"
+                                    />
+                                    <div>
+                                      <span className="text-slate-300 font-medium">Repair Approval</span>
+                                      <p className="text-xs text-slate-500 mt-0.5">This manager can approve repair requests</p>
+                                    </div>
+                                  </label>
+
+                                  <label className="flex items-center gap-3 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={userEditForm.can_approve_billing}
+                                      onChange={(e) => setUserEditForm({ ...userEditForm, can_approve_billing: e.target.checked })}
+                                      className="w-5 h-5 rounded border-slate-600 text-amber-500 focus:ring-2 focus:ring-amber-500"
+                                    />
+                                    <div>
+                                      <span className="text-slate-300 font-medium">Accounting/Billing Approval</span>
+                                      <p className="text-xs text-slate-500 mt-0.5">This manager can approve invoices and billing</p>
+                                    </div>
+                                  </label>
+                                </div>
+                              </div>
+                            )}
 
                             {(userEditForm.role === 'staff' || userEditForm.role === 'manager' || userEditForm.role === 'mechanic' || userEditForm.role === 'master') && (
                               <div className="mt-6 p-6 bg-slate-900/50 rounded-xl border border-slate-600">

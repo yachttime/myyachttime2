@@ -25,6 +25,8 @@ interface CreateUserRequest {
   notification_email?: string;
   notification_phone?: string;
   secondary_email?: string;
+  can_approve_repairs?: boolean;
+  can_approve_billing?: boolean;
 }
 
 Deno.serve(async (req: Request) => {
@@ -117,6 +119,8 @@ Deno.serve(async (req: Request) => {
         notification_email: requestData.notification_email || null,
         notification_phone: requestData.notification_phone || null,
         secondary_email: requestData.secondary_email || null,
+        can_approve_repairs: requestData.can_approve_repairs ?? false,
+        can_approve_billing: requestData.can_approve_billing ?? false,
         must_change_password: true
       });
 

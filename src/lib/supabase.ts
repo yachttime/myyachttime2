@@ -63,6 +63,8 @@ export interface UserProfile {
   last_sign_in_at?: string;
   last_sign_out_at?: string;
   trip_number?: string;
+  can_approve_repairs?: boolean;
+  can_approve_billing?: boolean;
   created_at: string;
   updated_at: string;
 }
