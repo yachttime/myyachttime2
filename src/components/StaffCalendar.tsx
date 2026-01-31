@@ -12,10 +12,12 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [timeOffRequests, setTimeOffRequests] = useState<StaffTimeOffRequest[]>([]);
   const [allStaff, setAllStaff] = useState<UserProfile[]>([]);
+  const [staffSchedules, setStaffSchedules] = useState<StaffSchedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [showRequestForm, setShowRequestForm] = useState(false);
   const [showApprovalPanel, setShowApprovalPanel] = useState(false);
   const [showWorkScheduleModal, setShowWorkScheduleModal] = useState(false);
+  const [showScheduleView, setShowScheduleView] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<StaffTimeOffRequest | null>(null);
 
   const isStaff = userProfile?.role === 'staff' || userProfile?.role === 'master';
@@ -82,9 +84,25 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
       )
       .subscribe();
 
+    const schedulesChannel = supabase
+      .channel('staff_schedules_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'staff_schedules'
+        },
+        () => {
+          loadData();
+        }
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(timeOffChannel);
       supabase.removeChannel(userProfilesChannel);
+      supabase.removeChannel(schedulesChannel);
     };
   };
 
@@ -131,6 +149,25 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
           throw staffError;
         }
         setAllStaff(staffData || []);
+
+        const { data: schedulesData, error: schedulesError } = await supabase
+          .from('staff_schedules')
+          .select(`
+            *,
+            user_profiles:user_id (
+              first_name,
+              last_name,
+              role
+            )
+          `)
+          .order('user_id', { ascending: true })
+          .order('day_of_week', { ascending: true });
+
+        if (schedulesError) {
+          console.error('Error loading schedules:', schedulesError);
+        } else {
+          setStaffSchedules(schedulesData || []);
+        }
       }
     } catch (error) {
       console.error('Error loading data:', error);
@@ -290,6 +327,15 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
             )}
             {canManageSchedules && (
               <button
+                onClick={() => setShowScheduleView(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 rounded-lg transition-colors"
+              >
+                <Clock className="w-5 h-5" />
+                View Work Schedules
+              </button>
+            )}
+            {canManageSchedules && (
+              <button
                 onClick={() => setShowWorkScheduleModal(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
               >
@@ -435,7 +481,18 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
         {showWorkScheduleModal && canManageSchedules && (
           <WorkScheduleModal
             staff={allStaff}
-            onClose={() => setShowWorkScheduleModal(false)}
+            onClose={() => {
+              setShowWorkScheduleModal(false);
+              loadData();
+            }}
+          />
+        )}
+
+        {showScheduleView && canManageSchedules && (
+          <ScheduleViewModal
+            schedules={staffSchedules}
+            staff={allStaff}
+            onClose={() => setShowScheduleView(false)}
           />
         )}
       </div>
@@ -1081,6 +1138,104 @@ function WorkScheduleModal({ staff, onClose }: { staff: UserProfile[]; onClose: 
             <p className="text-slate-400">Loading schedule...</p>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function ScheduleViewModal({ schedules, staff, onClose }: {
+  schedules: StaffSchedule[];
+  staff: UserProfile[];
+  onClose: () => void;
+}) {
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  const getSchedulesForDay = (dayOfWeek: number) => {
+    return schedules.filter(s => s.day_of_week === dayOfWeek && s.is_working_day);
+  };
+
+  const formatTime = (time: string | null) => {
+    if (!time) return '';
+    const [hours, minutes] = time.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+    return `${displayHour}:${minutes} ${ampm}`;
+  };
+
+  const getStaffName = (userId: string) => {
+    const staffMember = staff.find(s => s.user_id === userId);
+    if (!staffMember) return 'Unknown';
+    return `${staffMember.first_name} ${staffMember.last_name}`;
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-slate-800 rounded-lg p-6 max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-2xl font-bold flex items-center gap-2">
+            <Clock className="w-8 h-8 text-teal-500" />
+            Staff Work Schedules
+          </h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-white">
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        {schedules.length === 0 ? (
+          <div className="text-center py-12">
+            <AlertCircle className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+            <p className="text-xl text-slate-400 mb-2">No schedules found</p>
+            <p className="text-slate-500">Use the "Schedule Work Shifts" button to create work schedules for staff members.</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {dayNames.map((dayName, dayOfWeek) => {
+              const daySchedules = getSchedulesForDay(dayOfWeek);
+
+              return (
+                <div key={dayOfWeek} className="bg-slate-700 rounded-lg p-4">
+                  <h4 className="text-lg font-semibold mb-3 text-teal-400">{dayName}</h4>
+
+                  {daySchedules.length === 0 ? (
+                    <p className="text-slate-500 italic">No staff scheduled</p>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {daySchedules.map((schedule) => (
+                        <div key={schedule.id} className="bg-slate-600 rounded p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <User className="w-4 h-4 text-teal-400" />
+                            <span className="font-medium">{getStaffName(schedule.user_id)}</span>
+                          </div>
+                          <div className="text-sm text-slate-300">
+                            <div className="flex items-center gap-2">
+                              <Clock className="w-3 h-3" />
+                              {formatTime(schedule.start_time)} - {formatTime(schedule.end_time)}
+                            </div>
+                            {schedule.notes && (
+                              <div className="mt-2 text-slate-400 italic text-xs">
+                                {schedule.notes}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="mt-6 pt-4 border-t border-slate-600">
+          <button
+            onClick={onClose}
+            className="w-full px-4 py-2 bg-slate-600 hover:bg-slate-500 rounded-lg transition-colors"
+          >
+            Close
+          </button>
+        </div>
       </div>
     </div>
   );
