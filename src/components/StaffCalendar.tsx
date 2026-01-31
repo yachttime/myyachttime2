@@ -20,6 +20,7 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
 
   const isStaff = userProfile?.role === 'staff';
   const canAccessCalendar = userProfile?.role === 'staff' || userProfile?.role === 'mechanic';
+  const canManageSchedules = canAccessCalendar;
 
   if (!canAccessCalendar) {
     return (
@@ -45,7 +46,7 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
   }, [currentDate, user]);
 
   const subscribeToChanges = () => {
-    const channel = supabase
+    const timeOffChannel = supabase
       .channel('staff_time_off_changes')
       .on(
         'postgres_changes',
@@ -60,8 +61,24 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
       )
       .subscribe();
 
+    const userProfilesChannel = supabase
+      .channel('user_profiles_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_profiles'
+        },
+        () => {
+          loadData();
+        }
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(timeOffChannel);
+      supabase.removeChannel(userProfilesChannel);
     };
   };
 
@@ -95,7 +112,7 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
       if (requestsError) throw requestsError;
       setTimeOffRequests(requestsData || []);
 
-      if (isStaff) {
+      if (canManageSchedules) {
         const { data: staffData, error: staffError } = await supabase
           .from('user_profiles')
           .select('*')
@@ -253,7 +270,7 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
             Staff Calendar
           </h1>
           <div className="flex gap-2">
-            {isStaff && getPendingRequestsCount() > 0 && (
+            {canManageSchedules && getPendingRequestsCount() > 0 && (
               <button
                 onClick={() => setShowApprovalPanel(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 rounded-lg transition-colors"
@@ -262,7 +279,7 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
                 Pending Approvals ({getPendingRequestsCount()})
               </button>
             )}
-            {isStaff && (
+            {canManageSchedules && (
               <button
                 onClick={() => setShowWorkScheduleModal(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
@@ -362,7 +379,7 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
                       )}
                       {getRequestsForDate(day).map((request, idx) => (
                         <div key={idx} className="text-xs text-slate-700 truncate">
-                          {isStaff ? (
+                          {canManageSchedules ? (
                             <>
                               {request.user_profiles?.first_name} {request.user_profiles?.last_name}
                             </>
@@ -389,7 +406,7 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
           />
         )}
 
-        {showApprovalPanel && isStaff && (
+        {showApprovalPanel && canManageSchedules && (
           <ApprovalPanel
             requests={timeOffRequests.filter(r => r.status === 'pending')}
             onClose={() => setShowApprovalPanel(false)}
@@ -401,12 +418,12 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
           <RequestDetailsModal
             request={selectedRequest}
             onClose={() => setSelectedRequest(null)}
-            isStaff={isStaff}
+            canManage={canManageSchedules}
             onUpdate={loadData}
           />
         )}
 
-        {showWorkScheduleModal && isStaff && (
+        {showWorkScheduleModal && canManageSchedules && (
           <WorkScheduleModal
             staff={allStaff}
             onClose={() => setShowWorkScheduleModal(false)}
@@ -700,12 +717,12 @@ function ApprovalPanel({ requests, onClose, onSuccess }: { requests: StaffTimeOf
 function RequestDetailsModal({
   request,
   onClose,
-  isStaff,
+  canManage,
   onUpdate
 }: {
   request: StaffTimeOffRequest;
   onClose: () => void;
-  isStaff: boolean;
+  canManage: boolean;
   onUpdate: () => void;
 }) {
   const { user } = useAuth();
@@ -745,7 +762,7 @@ function RequestDetailsModal({
     }
   };
 
-  const canDelete = isStaff || (request.user_id === user?.id && request.status === 'pending');
+  const canDelete = canManage || (request.user_id === user?.id && request.status === 'pending');
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -758,7 +775,7 @@ function RequestDetailsModal({
         </div>
 
         <div className="space-y-4">
-          {isStaff && (
+          {canManage && (
             <div>
               <p className="text-xs text-slate-400">Employee</p>
               <p className="font-medium">
