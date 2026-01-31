@@ -15,7 +15,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   }
 });
 
-export type UserRole = 'owner' | 'manager' | 'staff';
+export type UserRole = 'owner' | 'manager' | 'staff' | 'mechanic';
 
 export interface Yacht {
   id: string;
@@ -418,6 +418,42 @@ export interface VesselManagementAgreement {
   yachts?: {
     name: string;
   };
+}
+
+export type TimeOffType = 'vacation' | 'sick_leave' | 'personal_day' | 'unpaid';
+export type TimeOffStatus = 'pending' | 'approved' | 'rejected';
+
+export interface StaffTimeOffRequest {
+  id: string;
+  user_id: string;
+  start_date: string;
+  end_date: string;
+  time_off_type: TimeOffType;
+  status: TimeOffStatus;
+  reason?: string;
+  submitted_at: string;
+  reviewed_by?: string;
+  reviewed_at?: string;
+  review_notes?: string;
+  created_at: string;
+  updated_at: string;
+  user_profiles?: {
+    first_name?: string;
+    last_name?: string;
+    role: UserRole;
+  };
+}
+
+export interface StaffSchedule {
+  id: string;
+  user_id: string;
+  day_of_week: number;
+  is_working_day: boolean;
+  start_time?: string;
+  end_time?: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export const logYachtActivity = async (

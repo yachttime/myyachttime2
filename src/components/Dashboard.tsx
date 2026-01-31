@@ -16,7 +16,7 @@ import { YachtQRCode } from './YachtQRCode';
 import { uploadFileToStorage, deleteFileFromStorage, isStorageUrl, UploadProgress, isTokenExpiredError } from '../utils/fileUpload';
 
 interface DashboardProps {
-  onNavigate: (page: 'maintenance' | 'education') => void;
+  onNavigate: (page: 'maintenance' | 'education' | 'staffCalendar') => void;
 }
 
 export const Dashboard = ({ onNavigate }: DashboardProps) => {
@@ -4260,6 +4260,18 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             >
               <BookOpen className="w-5 h-5" />
               <span className="font-medium">Education</span>
+            </button>
+          )}
+          {(userProfile?.role === 'mechanic' || userProfile?.role === 'staff' || userProfile?.role === 'manager') && (
+            <button
+              onClick={() => {
+                onNavigate('staffCalendar');
+                setSidebarOpen(false);
+              }}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-slate-400 hover:text-white hover:bg-slate-800/50"
+            >
+              <Clock className="w-5 h-5" />
+              <span className="font-medium">Staff Schedule</span>
             </button>
           )}
           {(userProfile?.role === 'admin' || userProfile?.role === 'mechanic' || userProfile?.role === 'staff' || userProfile?.role === 'manager' || userProfile?.role === 'owner') && (

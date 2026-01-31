@@ -1,0 +1,746 @@
+import { useState, useEffect } from 'react';
+import { Calendar, ChevronLeft, ChevronRight, User, X, Check, Clock, AlertCircle, Plus } from 'lucide-react';
+import { supabase, StaffTimeOffRequest, UserProfile } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
+
+interface StaffCalendarProps {
+  onBack: () => void;
+}
+
+export function StaffCalendar({ onBack }: StaffCalendarProps) {
+  const { user, userProfile } = useAuth();
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [timeOffRequests, setTimeOffRequests] = useState<StaffTimeOffRequest[]>([]);
+  const [allStaff, setAllStaff] = useState<UserProfile[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showRequestForm, setShowRequestForm] = useState(false);
+  const [showApprovalPanel, setShowApprovalPanel] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState<StaffTimeOffRequest | null>(null);
+
+  const isStaff = userProfile?.role === 'staff' || userProfile?.role === 'manager';
+
+  useEffect(() => {
+    loadData();
+    subscribeToChanges();
+  }, [currentDate, user]);
+
+  const subscribeToChanges = () => {
+    const channel = supabase
+      .channel('staff_time_off_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'staff_time_off_requests'
+        },
+        () => {
+          loadData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  };
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+
+      const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+      const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+
+      let requestsQuery = supabase
+        .from('staff_time_off_requests')
+        .select(`
+          *,
+          user_profiles:user_id (
+            first_name,
+            last_name,
+            role
+          )
+        `)
+        .gte('start_date', startOfMonth.toISOString().split('T')[0])
+        .lte('end_date', endOfMonth.toISOString().split('T')[0])
+        .order('start_date', { ascending: true });
+
+      if (!isStaff) {
+        requestsQuery = requestsQuery.eq('user_id', user?.id);
+      }
+
+      const { data: requestsData, error: requestsError } = await requestsQuery;
+
+      if (requestsError) throw requestsError;
+      setTimeOffRequests(requestsData || []);
+
+      if (isStaff) {
+        const { data: staffData, error: staffError } = await supabase
+          .from('user_profiles')
+          .select('*')
+          .in('role', ['staff', 'manager', 'mechanic'])
+          .eq('is_active', true)
+          .order('first_name', { ascending: true });
+
+        if (staffError) throw staffError;
+        setAllStaff(staffData || []);
+      }
+    } catch (error) {
+      console.error('Error loading data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getDaysInMonth = () => {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startingDayOfWeek = firstDay.getDay();
+
+    const days = [];
+    for (let i = 0; i < startingDayOfWeek; i++) {
+      days.push(null);
+    }
+    for (let i = 1; i <= daysInMonth; i++) {
+      days.push(i);
+    }
+    return days;
+  };
+
+  const getRequestsForDate = (day: number) => {
+    const dateStr = new Date(currentDate.getFullYear(), currentDate.getMonth(), day)
+      .toISOString()
+      .split('T')[0];
+
+    return timeOffRequests.filter(request => {
+      return dateStr >= request.start_date && dateStr <= request.end_date;
+    });
+  };
+
+  const getDateColor = (day: number) => {
+    const requests = getRequestsForDate(day);
+    if (requests.length === 0) return 'bg-white hover:bg-gray-50';
+
+    const hasApproved = requests.some(r => r.status === 'approved');
+    const hasPending = requests.some(r => r.status === 'pending');
+    const hasRejected = requests.some(r => r.status === 'rejected');
+
+    if (hasApproved) return 'bg-green-100 hover:bg-green-200';
+    if (hasPending) return 'bg-yellow-100 hover:bg-yellow-200';
+    if (hasRejected) return 'bg-red-100 hover:bg-red-200';
+
+    return 'bg-white hover:bg-gray-50';
+  };
+
+  const previousMonth = () => {
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
+  };
+
+  const nextMonth = () => {
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
+  };
+
+  const getPendingRequestsCount = () => {
+    return timeOffRequests.filter(r => r.status === 'pending').length;
+  };
+
+  const formatTimeOffType = (type: string) => {
+    return type.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+  };
+
+  const monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-amber-500 mx-auto mb-4"></div>
+          <p className="text-slate-400">Loading calendar...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white p-4">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex items-center justify-between mb-6">
+          <button
+            onClick={onBack}
+            className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
+          >
+            <ChevronLeft className="w-5 h-5" />
+            Back to Dashboard
+          </button>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Calendar className="w-8 h-8 text-amber-500" />
+            Staff Time Off Calendar
+          </h1>
+          <div className="flex gap-2">
+            {isStaff && getPendingRequestsCount() > 0 && (
+              <button
+                onClick={() => setShowApprovalPanel(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 rounded-lg transition-colors"
+              >
+                <AlertCircle className="w-5 h-5" />
+                Pending Approvals ({getPendingRequestsCount()})
+              </button>
+            )}
+            <button
+              onClick={() => setShowRequestForm(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+            >
+              <Plus className="w-5 h-5" />
+              Request Time Off
+            </button>
+          </div>
+        </div>
+
+        <div className="bg-slate-800 rounded-lg p-6 mb-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold">Color Legend</h2>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 bg-green-500 rounded"></div>
+              <span>Approved Time Off</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 bg-yellow-500 rounded"></div>
+              <span>Pending Request</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 bg-red-500 rounded"></div>
+              <span>Rejected Request</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 bg-slate-600 rounded"></div>
+              <span>Regular Day</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-slate-800 rounded-lg p-6">
+          <div className="flex justify-between items-center mb-6">
+            <button
+              onClick={previousMonth}
+              className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
+            >
+              <ChevronLeft className="w-6 h-6" />
+            </button>
+            <h2 className="text-2xl font-bold">
+              {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
+            </h2>
+            <button
+              onClick={nextMonth}
+              className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
+            >
+              <ChevronRight className="w-6 h-6" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-7 gap-2">
+            {dayNames.map(day => (
+              <div key={day} className="text-center font-semibold text-slate-400 py-2">
+                {day}
+              </div>
+            ))}
+
+            {getDaysInMonth().map((day, index) => (
+              <div
+                key={index}
+                className={`min-h-24 p-2 rounded-lg border border-slate-700 ${
+                  day ? getDateColor(day) : 'bg-slate-900'
+                } ${day ? 'cursor-pointer' : ''}`}
+                onClick={() => {
+                  if (day) {
+                    const requests = getRequestsForDate(day);
+                    if (requests.length > 0) {
+                      setSelectedRequest(requests[0]);
+                    }
+                  }
+                }}
+              >
+                {day && (
+                  <>
+                    <div className="font-semibold text-slate-900 mb-1">{day}</div>
+                    {getRequestsForDate(day).map((request, idx) => (
+                      <div key={idx} className="text-xs text-slate-700 truncate">
+                        {isStaff ? (
+                          <>
+                            {request.user_profiles?.first_name} {request.user_profiles?.last_name}
+                          </>
+                        ) : (
+                          formatTimeOffType(request.time_off_type)
+                        )}
+                      </div>
+                    ))}
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {showRequestForm && (
+          <TimeOffRequestModal
+            onClose={() => setShowRequestForm(false)}
+            onSuccess={() => {
+              setShowRequestForm(false);
+              loadData();
+            }}
+          />
+        )}
+
+        {showApprovalPanel && isStaff && (
+          <ApprovalPanel
+            requests={timeOffRequests.filter(r => r.status === 'pending')}
+            onClose={() => setShowApprovalPanel(false)}
+            onSuccess={loadData}
+          />
+        )}
+
+        {selectedRequest && (
+          <RequestDetailsModal
+            request={selectedRequest}
+            onClose={() => setSelectedRequest(null)}
+            isStaff={isStaff}
+            onUpdate={loadData}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TimeOffRequestModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
+  const { user } = useAuth();
+  const [formData, setFormData] = useState({
+    start_date: '',
+    end_date: '',
+    time_off_type: 'vacation' as const,
+    reason: ''
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (!formData.start_date || !formData.end_date) {
+      setError('Please select start and end dates');
+      return;
+    }
+
+    if (new Date(formData.start_date) > new Date(formData.end_date)) {
+      setError('End date must be after start date');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const { error: insertError } = await supabase
+        .from('staff_time_off_requests')
+        .insert({
+          user_id: user?.id,
+          ...formData
+        });
+
+      if (insertError) throw insertError;
+      onSuccess();
+    } catch (err) {
+      console.error('Error submitting request:', err);
+      setError('Failed to submit request. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-slate-800 rounded-lg p-6 max-w-md w-full">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xl font-bold">Request Time Off</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-white">
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-2">Start Date</label>
+            <input
+              type="date"
+              value={formData.start_date}
+              onChange={e => setFormData({ ...formData, start_date: e.target.value })}
+              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">End Date</label>
+            <input
+              type="date"
+              value={formData.end_date}
+              onChange={e => setFormData({ ...formData, end_date: e.target.value })}
+              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Type of Time Off</label>
+            <select
+              value={formData.time_off_type}
+              onChange={e => setFormData({ ...formData, time_off_type: e.target.value as any })}
+              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+            >
+              <option value="vacation">Vacation</option>
+              <option value="sick_leave">Sick Leave</option>
+              <option value="personal_day">Personal Day</option>
+              <option value="unpaid">Unpaid</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Reason (Optional)</label>
+            <textarea
+              value={formData.reason}
+              onChange={e => setFormData({ ...formData, reason: e.target.value })}
+              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+              rows={3}
+            />
+          </div>
+
+          {error && (
+            <div className="bg-red-500/20 border border-red-500 text-red-200 px-4 py-2 rounded-lg">
+              {error}
+            </div>
+          )}
+
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex-1 px-4 py-2 bg-amber-600 hover:bg-amber-700 rounded-lg transition-colors disabled:opacity-50"
+            >
+              {submitting ? 'Submitting...' : 'Submit Request'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function ApprovalPanel({ requests, onClose, onSuccess }: { requests: StaffTimeOffRequest[]; onClose: () => void; onSuccess: () => void }) {
+  const { user } = useAuth();
+  const [processing, setProcessing] = useState<string | null>(null);
+  const [reviewNotes, setReviewNotes] = useState<{ [key: string]: string }>({});
+
+  const handleApprove = async (requestId: string) => {
+    try {
+      setProcessing(requestId);
+      const { error } = await supabase
+        .from('staff_time_off_requests')
+        .update({
+          status: 'approved',
+          reviewed_by: user?.id,
+          reviewed_at: new Date().toISOString(),
+          review_notes: reviewNotes[requestId] || null
+        })
+        .eq('id', requestId);
+
+      if (error) throw error;
+      onSuccess();
+    } catch (err) {
+      console.error('Error approving request:', err);
+      alert('Failed to approve request');
+    } finally {
+      setProcessing(null);
+    }
+  };
+
+  const handleReject = async (requestId: string) => {
+    if (!reviewNotes[requestId]) {
+      alert('Please provide a reason for rejection');
+      return;
+    }
+
+    try {
+      setProcessing(requestId);
+      const { error } = await supabase
+        .from('staff_time_off_requests')
+        .update({
+          status: 'rejected',
+          reviewed_by: user?.id,
+          reviewed_at: new Date().toISOString(),
+          review_notes: reviewNotes[requestId]
+        })
+        .eq('id', requestId);
+
+      if (error) throw error;
+      onSuccess();
+    } catch (err) {
+      console.error('Error rejecting request:', err);
+      alert('Failed to reject request');
+    } finally {
+      setProcessing(null);
+    }
+  };
+
+  const formatTimeOffType = (type: string) => {
+    return type.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-slate-800 rounded-lg p-6 max-w-4xl w-full max-h-[80vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xl font-bold">Pending Time Off Requests</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-white">
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        {requests.length === 0 ? (
+          <p className="text-slate-400 text-center py-8">No pending requests</p>
+        ) : (
+          <div className="space-y-4">
+            {requests.map(request => (
+              <div key={request.id} className="bg-slate-700 rounded-lg p-4">
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <h4 className="font-semibold flex items-center gap-2">
+                      <User className="w-4 h-4" />
+                      {request.user_profiles?.first_name} {request.user_profiles?.last_name}
+                      <span className="text-xs text-slate-400 ml-2">
+                        ({request.user_profiles?.role})
+                      </span>
+                    </h4>
+                    <p className="text-sm text-slate-300 mt-1">
+                      {formatTimeOffType(request.time_off_type)}
+                    </p>
+                  </div>
+                  <span className="text-xs text-slate-400 flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    {new Date(request.submitted_at).toLocaleDateString()}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mb-3">
+                  <div>
+                    <p className="text-xs text-slate-400">Start Date</p>
+                    <p className="font-medium">{new Date(request.start_date).toLocaleDateString()}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-400">End Date</p>
+                    <p className="font-medium">{new Date(request.end_date).toLocaleDateString()}</p>
+                  </div>
+                </div>
+
+                {request.reason && (
+                  <div className="mb-3">
+                    <p className="text-xs text-slate-400">Reason</p>
+                    <p className="text-sm">{request.reason}</p>
+                  </div>
+                )}
+
+                <div className="mb-3">
+                  <label className="block text-xs text-slate-400 mb-1">Review Notes</label>
+                  <textarea
+                    value={reviewNotes[request.id] || ''}
+                    onChange={e => setReviewNotes({ ...reviewNotes, [request.id]: e.target.value })}
+                    placeholder="Add notes (required for rejection)"
+                    className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                    rows={2}
+                  />
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleApprove(request.id)}
+                    disabled={processing === request.id}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    <Check className="w-4 h-4" />
+                    Approve
+                  </button>
+                  <button
+                    onClick={() => handleReject(request.id)}
+                    disabled={processing === request.id}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    <X className="w-4 h-4" />
+                    Reject
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function RequestDetailsModal({
+  request,
+  onClose,
+  isStaff,
+  onUpdate
+}: {
+  request: StaffTimeOffRequest;
+  onClose: () => void;
+  isStaff: boolean;
+  onUpdate: () => void;
+}) {
+  const { user } = useAuth();
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!confirm('Are you sure you want to delete this time-off request?')) return;
+
+    try {
+      setDeleting(true);
+      const { error } = await supabase
+        .from('staff_time_off_requests')
+        .delete()
+        .eq('id', request.id);
+
+      if (error) throw error;
+      onUpdate();
+      onClose();
+    } catch (err) {
+      console.error('Error deleting request:', err);
+      alert('Failed to delete request');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const formatTimeOffType = (type: string) => {
+    return type.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'approved': return 'text-green-400';
+      case 'pending': return 'text-yellow-400';
+      case 'rejected': return 'text-red-400';
+      default: return 'text-slate-400';
+    }
+  };
+
+  const canDelete = isStaff || (request.user_id === user?.id && request.status === 'pending');
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-slate-800 rounded-lg p-6 max-w-md w-full">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xl font-bold">Time Off Details</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-white">
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          {isStaff && (
+            <div>
+              <p className="text-xs text-slate-400">Employee</p>
+              <p className="font-medium">
+                {request.user_profiles?.first_name} {request.user_profiles?.last_name}
+                <span className="text-xs text-slate-400 ml-2">({request.user_profiles?.role})</span>
+              </p>
+            </div>
+          )}
+
+          <div>
+            <p className="text-xs text-slate-400">Status</p>
+            <p className={`font-medium ${getStatusColor(request.status)}`}>
+              {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+            </p>
+          </div>
+
+          <div>
+            <p className="text-xs text-slate-400">Type</p>
+            <p className="font-medium">{formatTimeOffType(request.time_off_type)}</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs text-slate-400">Start Date</p>
+              <p className="font-medium">{new Date(request.start_date).toLocaleDateString()}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-400">End Date</p>
+              <p className="font-medium">{new Date(request.end_date).toLocaleDateString()}</p>
+            </div>
+          </div>
+
+          {request.reason && (
+            <div>
+              <p className="text-xs text-slate-400">Reason</p>
+              <p className="text-sm">{request.reason}</p>
+            </div>
+          )}
+
+          {request.review_notes && (
+            <div>
+              <p className="text-xs text-slate-400">Review Notes</p>
+              <p className="text-sm">{request.review_notes}</p>
+            </div>
+          )}
+
+          <div>
+            <p className="text-xs text-slate-400">Submitted</p>
+            <p className="text-sm">{new Date(request.submitted_at).toLocaleString()}</p>
+          </div>
+
+          {request.reviewed_at && (
+            <div>
+              <p className="text-xs text-slate-400">Reviewed</p>
+              <p className="text-sm">{new Date(request.reviewed_at).toLocaleString()}</p>
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-4">
+            <button
+              onClick={onClose}
+              className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
+            >
+              Close
+            </button>
+            {canDelete && (
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {deleting ? 'Deleting...' : 'Delete'}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

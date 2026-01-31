@@ -6,8 +6,9 @@ import { Dashboard } from './components/Dashboard';
 import { MaintenanceRequest } from './components/MaintenanceRequest';
 import { Education } from './components/Education';
 import { PasswordChange } from './components/PasswordChange';
+import { StaffCalendar } from './components/StaffCalendar';
 
-type Page = 'welcome' | 'signin' | 'dashboard' | 'maintenance' | 'education';
+type Page = 'welcome' | 'signin' | 'dashboard' | 'maintenance' | 'education' | 'staffCalendar';
 
 function AppContent() {
   const { user, userProfile, loading } = useAuth();
@@ -41,6 +42,10 @@ function AppContent() {
 
   if (page === 'education') {
     return <Education onBack={() => setPage('dashboard')} />;
+  }
+
+  if (page === 'staffCalendar') {
+    return <StaffCalendar onBack={() => setPage('dashboard')} />;
   }
 
   return <Dashboard onNavigate={(newPage) => setPage(newPage)} />;
