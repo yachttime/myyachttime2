@@ -990,6 +990,16 @@ function WorkScheduleModal({ staff, onClose }: { staff: UserProfile[]; onClose: 
 
         <div className="mb-6">
           <label className="block text-sm font-medium mb-2">Select Staff Member</label>
+          {staff.length === 0 && (
+            <div className="mb-2 text-amber-400 text-sm">
+              DEBUG: No staff members found. Staff array length: {staff.length}
+            </div>
+          )}
+          {staff.length > 0 && (
+            <div className="mb-2 text-green-400 text-sm">
+              DEBUG: Found {staff.length} staff members: {staff.map(s => s.first_name).join(', ')}
+            </div>
+          )}
           <select
             value={selectedStaffId}
             onChange={e => setSelectedStaffId(e.target.value)}
