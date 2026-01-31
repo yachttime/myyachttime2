@@ -16,6 +16,7 @@ export const Education = ({ onBack }: EducationProps) => {
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [introVideo, setIntroVideo] = useState<EducationVideo | null>(null);
+  const [introductionVideos, setIntroductionVideos] = useState<EducationVideo[]>([]);
   const [videoError, setVideoError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [editingVideo, setEditingVideo] = useState<EducationVideo | null>(null);
@@ -42,14 +43,18 @@ export const Education = ({ onBack }: EducationProps) => {
       console.log('🎬 RAW DATA FROM DATABASE:', data?.length, 'videos');
       console.log('🎬 ALL CATEGORIES:', data?.map(v => ({ title: v.title, category: v.category })));
 
-      const intro = data?.find(v => v.category?.trim() === 'Introduction' || v.title.toLowerCase().includes('introduction'));
-      const others = data?.filter(v => v.id !== intro?.id) || [];
+      const welcomeVideo = data?.find(v => v.category?.trim() === 'Welcome');
+      const introductionVideos = data?.filter(v => v.category?.trim() === 'Introduction') || [];
 
-      console.log('🎬 INTRO VIDEO:', intro ? `"${intro.title}" (${intro.category})` : 'NONE');
+      const specialCategories = ['Welcome', 'Introduction', 'SignIn'];
+      const others = data?.filter(v => !specialCategories.includes(v.category?.trim())) || [];
+
+      console.log('🎬 WELCOME VIDEO:', welcomeVideo ? `"${welcomeVideo.title}"` : 'NONE');
+      console.log('🎬 INTRODUCTION VIDEOS:', introductionVideos.length, 'videos');
       console.log('🎬 OTHER VIDEOS:', others.length, 'videos');
-      console.log('🎬 OTHER VIDEOS CATEGORIES:', others.map(v => ({ title: v.title, category: v.category })));
 
-      setIntroVideo(intro || null);
+      setIntroVideo(welcomeVideo || null);
+      setIntroductionVideos(introductionVideos);
       setVideos(others);
     } catch (error) {
       console.error('Error loading videos:', error);
@@ -431,7 +436,7 @@ export const Education = ({ onBack }: EducationProps) => {
 
   const handleEnterBulkEdit = () => {
     const forms: { [key: string]: any } = {};
-    [...videos, ...(introVideo ? [introVideo] : [])].forEach(video => {
+    [...videos, ...(introVideo ? [introVideo] : []), ...introductionVideos].forEach(video => {
       forms[video.id] = {
         order_index: video.order_index || 0,
         category: video.category,
@@ -484,7 +489,7 @@ export const Education = ({ onBack }: EducationProps) => {
 
   const handleSaveBulkChanges = async () => {
     try {
-      const allVideos = [...videos, ...(introVideo ? [introVideo] : [])];
+      const allVideos = [...videos, ...(introVideo ? [introVideo] : []), ...introductionVideos];
 
       for (const video of allVideos) {
         const form = bulkEditForms[video.id];
@@ -619,8 +624,9 @@ export const Education = ({ onBack }: EducationProps) => {
       <div style={{ fontWeight: 'bold', fontSize: '24px', marginBottom: '8px' }}>🚨 EDUCATION DEBUG - YOU SHOULD SEE THIS 🚨</div>
       <div style={{ fontFamily: 'monospace', fontSize: '14px' }}>
         <div>loading: {loading ? 'TRUE' : 'FALSE'}</div>
-        <div>introVideo: {introVideo ? `"${introVideo.title}"` : 'NULL'}</div>
-        <div>videos (non-intro): {videos.length} videos</div>
+        <div>introVideo (Welcome): {introVideo ? `"${introVideo.title}"` : 'NULL'}</div>
+        <div>introductionVideos: {introductionVideos.length} videos</div>
+        <div>videos (other categories): {videos.length} videos</div>
         <div>categories: [{categories.join(', ')}]</div>
         <div>categories.length: {categories.length}</div>
         <div>selectedVideo: {selectedVideo ? 'SET' : 'NULL'}</div>
@@ -773,7 +779,7 @@ export const Education = ({ onBack }: EducationProps) => {
   }
 
   if (bulkEditMode) {
-    const allVideos = [...videos, ...(introVideo ? [introVideo] : [])].sort((a, b) => a.order_index - b.order_index);
+    const allVideos = [...videos, ...(introVideo ? [introVideo] : []), ...introductionVideos].sort((a, b) => a.order_index - b.order_index);
 
     return (
       <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white">
@@ -1215,7 +1221,13 @@ export const Education = ({ onBack }: EducationProps) => {
     );
   }
 
-  const getCategoryVideos = (category: string) => videos.filter(v => v.category?.trim() === category);
+  const getCategoryVideos = (category: string) => {
+    if (category === 'Introduction') {
+      return introductionVideos;
+    }
+    return videos.filter(v => v.category?.trim() === category);
+  };
+
   const getCategoryThumbnail = (category: string) => {
     const firstVideo = videos.find(v => v.category?.trim() === category);
     return firstVideo?.thumbnail_url || 'https://images.pexels.com/photos/163236/luxury-yacht-boat-speed-water-163236.jpeg?auto=compress&cs=tinysrgb&w=400';
@@ -1429,13 +1441,13 @@ export const Education = ({ onBack }: EducationProps) => {
             <>
               {introVideo && (
                 <div className="mb-8">
-                  <h3 className="text-xl font-semibold mb-4">Getting Started</h3>
+                  <h3 className="text-xl font-semibold mb-4">Welcome</h3>
                   <div className="relative group bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:shadow-xl hover:shadow-amber-500/20">
                     {(userProfile?.role === 'staff' || userProfile?.role === 'manager' || userProfile?.role === 'master') && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          console.log('EDIT BUTTON CLICKED - INTRO');
+                          console.log('EDIT BUTTON CLICKED - WELCOME');
                           handleEditVideo(introVideo);
                         }}
                         className="absolute top-2 right-2 z-[9999] bg-yellow-400 hover:bg-yellow-500 text-black px-5 py-3 rounded-xl transition-colors shadow-2xl font-extrabold flex items-center gap-2 border-4 border-black"
@@ -1485,6 +1497,40 @@ export const Education = ({ onBack }: EducationProps) => {
                 </div>
               )}
 
+              {introductionVideos.length > 0 && (
+                <div className="mb-8">
+                  <h3 className="text-xl font-semibold mb-4">Introduction</h3>
+                  <div
+                    onClick={() => setSelectedCategory('Introduction')}
+                    className="group cursor-pointer bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:shadow-xl hover:shadow-amber-500/20"
+                  >
+                    <div className="relative aspect-video bg-slate-900 overflow-hidden rounded-t-2xl">
+                      <img
+                        src={introductionVideos[0]?.thumbnail_url || 'https://images.pexels.com/photos/163236/luxury-yacht-boat-speed-water-163236.jpeg?auto=compress&cs=tinysrgb&w=400'}
+                        alt="Introduction"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/60 to-transparent"></div>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="text-center">
+                          <div className="bg-amber-500 rounded-2xl p-5 mx-auto mb-3 group-hover:scale-110 transition-transform duration-300 shadow-2xl">
+                            <Folder className="w-10 h-10 text-slate-900" />
+                          </div>
+                          <div className="bg-amber-500/90 text-slate-900 px-4 py-2 rounded-full text-sm font-bold">
+                            {introductionVideos.length} {introductionVideos.length === 1 ? 'Video' : 'Videos'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-6">
+                      <h4 className="text-2xl font-bold text-center group-hover:text-amber-500 transition-colors">
+                        Introduction
+                      </h4>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {categories.length > 0 && (
                 <div>
                   <h3 className="text-xl font-semibold mb-4">Topics</h3>
@@ -1527,7 +1573,7 @@ export const Education = ({ onBack }: EducationProps) => {
                 </div>
               )}
 
-              {!introVideo && categories.length === 0 && (
+              {!introVideo && introductionVideos.length === 0 && categories.length === 0 && (
                 <div className="text-center py-12">
                   <p className="text-slate-400">No educational content available yet</p>
                 </div>
