@@ -156,7 +156,7 @@ export function Estimates({ userId }: EstimatesProps) {
           .order('name'),
         supabase
           .from('labor_codes')
-          .select('id, code, name, hourly_rate')
+          .select('id, code, name, hourly_rate, is_taxable')
           .eq('is_active', true)
           .order('code'),
         supabase
