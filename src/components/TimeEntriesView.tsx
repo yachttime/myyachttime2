@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, AlertCircle, Edit, ChevronDown, ChevronUp } from 'lucide-react';
+import { Calendar, Clock, AlertCircle, Edit, ChevronDown, ChevronUp, FileText, RefreshCw } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -10,6 +10,8 @@ import {
   TimeEntry,
   DailyTimeEntry
 } from '../utils/timeClockHelpers';
+import { InspectionPDFView } from './InspectionPDFView';
+import { OwnerHandoffPDFView } from './OwnerHandoffPDFView';
 
 interface TimeEntriesViewProps {
   userId?: string;
@@ -24,6 +26,9 @@ export function TimeEntriesView({ userId, onEditEntry, showEditButton = false }:
   const [dateRange, setDateRange] = useState<'week' | 'month' | 'all'>('week');
   const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
   const [yachtNames, setYachtNames] = useState<Record<string, string>>({});
+  const [loadingPdfId, setLoadingPdfId] = useState<string | null>(null);
+  const [viewingInspectionData, setViewingInspectionData] = useState<any>(null);
+  const [viewingHandoffData, setViewingHandoffData] = useState<any>(null);
 
   const targetUserId = userId || user?.id;
 
@@ -89,6 +94,70 @@ export function TimeEntriesView({ userId, onEditEntry, showEditButton = false }:
       newExpanded.add(date);
     }
     setExpandedDates(newExpanded);
+  };
+
+  const viewInspectionPDF = async (referenceId: string) => {
+    if (loadingPdfId) return;
+
+    try {
+      setLoadingPdfId(referenceId);
+
+      const { data: inspectionData, error: inspectionError } = await supabase
+        .from('trip_inspections')
+        .select('*, yachts(name)')
+        .eq('id', referenceId)
+        .maybeSingle();
+
+      if (inspectionError) {
+        console.error('Error loading inspection:', inspectionError);
+        alert(`Failed to load inspection report: ${inspectionError.message}`);
+        return;
+      }
+
+      if (!inspectionData) {
+        alert('Inspection not found');
+        return;
+      }
+
+      setViewingInspectionData(inspectionData);
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Failed to load inspection report');
+    } finally {
+      setLoadingPdfId(null);
+    }
+  };
+
+  const viewOwnerHandoffPDF = async (referenceId: string) => {
+    if (loadingPdfId) return;
+
+    try {
+      setLoadingPdfId(referenceId);
+
+      const { data: handoffData, error: handoffError } = await supabase
+        .from('owner_handoff_inspections')
+        .select('*, yachts(name)')
+        .eq('id', referenceId)
+        .maybeSingle();
+
+      if (handoffError) {
+        console.error('Error loading owner handoff:', handoffError);
+        alert(`Failed to load owner handoff report: ${handoffError.message}`);
+        return;
+      }
+
+      if (!handoffData) {
+        alert('Owner handoff inspection not found');
+        return;
+      }
+
+      setViewingHandoffData(handoffData);
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Failed to load owner handoff report');
+    } finally {
+      setLoadingPdfId(null);
+    }
   };
 
   const dailyEntries = groupEntriesByDate(entries);
@@ -245,6 +314,40 @@ export function TimeEntriesView({ userId, onEditEntry, showEditButton = false }:
                             </div>
                           )}
 
+                          {entry.reference_type && entry.reference_id && (
+                            <div className="flex items-center gap-2 ml-7 mt-2">
+                              <FileText className="w-4 h-4 text-blue-500" />
+                              <span className="text-sm text-gray-700">
+                                {entry.reference_type === 'trip_inspection' && 'Trip Inspection Completed'}
+                                {entry.reference_type === 'owner_handoff_inspection' && 'Meet the Yacht Owner Completed'}
+                              </span>
+                              <button
+                                onClick={() => {
+                                  if (entry.reference_type === 'trip_inspection') {
+                                    viewInspectionPDF(entry.reference_id!);
+                                  } else if (entry.reference_type === 'owner_handoff_inspection') {
+                                    viewOwnerHandoffPDF(entry.reference_id!);
+                                  }
+                                }}
+                                disabled={loadingPdfId === entry.reference_id}
+                                className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+                                  loadingPdfId === entry.reference_id
+                                    ? 'bg-blue-500/10 text-blue-500/50 cursor-not-allowed'
+                                    : 'bg-blue-500/20 text-blue-600 hover:bg-blue-500/30'
+                                }`}
+                              >
+                                {loadingPdfId === entry.reference_id ? (
+                                  <span className="flex items-center gap-1">
+                                    <RefreshCw className="w-3 h-3 animate-spin" />
+                                    Loading...
+                                  </span>
+                                ) : (
+                                  'View PDF'
+                                )}
+                              </button>
+                            </div>
+                          )}
+
                           {entry.is_edited && (
                             <div className="flex items-center gap-1 text-xs text-orange-600 ml-7">
                               <AlertCircle className="w-3 h-3" />
@@ -287,6 +390,20 @@ export function TimeEntriesView({ userId, onEditEntry, showEditButton = false }:
             </div>
           ))}
         </div>
+      )}
+
+      {viewingInspectionData && (
+        <InspectionPDFView
+          inspection={viewingInspectionData}
+          onClose={() => setViewingInspectionData(null)}
+        />
+      )}
+
+      {viewingHandoffData && (
+        <OwnerHandoffPDFView
+          handoff={viewingHandoffData}
+          onClose={() => setViewingHandoffData(null)}
+        />
       )}
     </div>
   );

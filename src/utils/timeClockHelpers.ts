@@ -143,6 +143,8 @@ export interface TimeEntry {
   notes: string | null;
   is_edited: boolean;
   yacht_id: string | null;
+  reference_id?: string | null;
+  reference_type?: string | null;
 }
 
 export interface DailyTimeEntry {
