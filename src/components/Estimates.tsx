@@ -103,6 +103,7 @@ export function Estimates({ userId }: EstimatesProps) {
   const [showAutoSaveIndicator, setShowAutoSaveIndicator] = useState(false);
   const [filteredParts, setFilteredParts] = useState<typeof parts>([]);
   const [showPartDropdown, setShowPartDropdown] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -451,6 +452,8 @@ export function Estimates({ userId }: EstimatesProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (isSubmitting) return;
+
     if (tasks.length === 0) {
       setError('Please add at least one task');
       return;
@@ -464,8 +467,8 @@ export function Estimates({ userId }: EstimatesProps) {
 
     try {
       setError(null);
+      setIsSubmitting(true);
 
-      const estimateNumber = await generateEstimateNumber();
       const subtotal = calculateSubtotal();
       const salesTaxRate = parseFloat(formData.sales_tax_rate);
       const salesTaxAmount = calculateSalesTax();
@@ -477,36 +480,77 @@ export function Estimates({ userId }: EstimatesProps) {
       const surchargeAmount = calculateSurcharge();
       const totalAmount = calculateTotal();
 
-      const estimateData = {
-        estimate_number: estimateNumber,
-        yacht_id: formData.is_retail_customer ? null : formData.yacht_id,
-        customer_name: formData.is_retail_customer ? formData.customer_name : null,
-        customer_email: formData.is_retail_customer ? formData.customer_email : null,
-        customer_phone: formData.is_retail_customer ? formData.customer_phone : null,
-        is_retail_customer: formData.is_retail_customer,
-        status: 'draft',
-        subtotal,
-        sales_tax_rate: salesTaxRate,
-        sales_tax_amount: salesTaxAmount,
-        shop_supplies_rate: shopSuppliesRate,
-        shop_supplies_amount: shopSuppliesAmount,
-        park_fees_rate: parkFeesRate,
-        park_fees_amount: parkFeesAmount,
-        surcharge_rate: surchargeRate,
-        surcharge_amount: surchargeAmount,
-        total_amount: totalAmount,
-        notes: formData.notes || null,
-        customer_notes: formData.customer_notes || null,
-        created_by: userId
-      };
+      let estimate;
 
-      const { data: estimate, error: estimateError } = await supabase
-        .from('estimates')
-        .insert(estimateData)
-        .select()
-        .single();
+      if (editingId) {
+        // Update existing estimate
+        const estimateData = {
+          yacht_id: formData.is_retail_customer ? null : formData.yacht_id,
+          customer_name: formData.is_retail_customer ? formData.customer_name : null,
+          customer_email: formData.is_retail_customer ? formData.customer_email : null,
+          customer_phone: formData.is_retail_customer ? formData.customer_phone : null,
+          is_retail_customer: formData.is_retail_customer,
+          subtotal,
+          sales_tax_rate: salesTaxRate,
+          sales_tax_amount: salesTaxAmount,
+          shop_supplies_rate: shopSuppliesRate,
+          shop_supplies_amount: shopSuppliesAmount,
+          park_fees_rate: parkFeesRate,
+          park_fees_amount: parkFeesAmount,
+          surcharge_rate: surchargeRate,
+          surcharge_amount: surchargeAmount,
+          total_amount: totalAmount,
+          notes: formData.notes || null,
+          customer_notes: formData.customer_notes || null
+        };
 
-      if (estimateError) throw estimateError;
+        const { data, error: estimateError } = await supabase
+          .from('estimates')
+          .update(estimateData)
+          .eq('id', editingId)
+          .select()
+          .single();
+
+        if (estimateError) throw estimateError;
+        estimate = data;
+
+        // Delete existing tasks and line items
+        await supabase.from('estimate_tasks').delete().eq('estimate_id', editingId);
+      } else {
+        // Create new estimate
+        const estimateNumber = await generateEstimateNumber();
+        const estimateData = {
+          estimate_number: estimateNumber,
+          yacht_id: formData.is_retail_customer ? null : formData.yacht_id,
+          customer_name: formData.is_retail_customer ? formData.customer_name : null,
+          customer_email: formData.is_retail_customer ? formData.customer_email : null,
+          customer_phone: formData.is_retail_customer ? formData.customer_phone : null,
+          is_retail_customer: formData.is_retail_customer,
+          status: 'draft',
+          subtotal,
+          sales_tax_rate: salesTaxRate,
+          sales_tax_amount: salesTaxAmount,
+          shop_supplies_rate: shopSuppliesRate,
+          shop_supplies_amount: shopSuppliesAmount,
+          park_fees_rate: parkFeesRate,
+          park_fees_amount: parkFeesAmount,
+          surcharge_rate: surchargeRate,
+          surcharge_amount: surchargeAmount,
+          total_amount: totalAmount,
+          notes: formData.notes || null,
+          customer_notes: formData.customer_notes || null,
+          created_by: userId
+        };
+
+        const { data, error: estimateError } = await supabase
+          .from('estimates')
+          .insert(estimateData)
+          .select()
+          .single();
+
+        if (estimateError) throw estimateError;
+        estimate = data;
+      }
 
       // Insert tasks and their line items
       for (let i = 0; i < tasks.length; i++) {
@@ -542,41 +586,43 @@ export function Estimates({ userId }: EstimatesProps) {
         }
       }
 
-      // Process inventory deductions
-      const { data: inventoryResult, error: inventoryError } = await supabase
-        .rpc('process_estimate_inventory_deduction', {
-          p_estimate_id: estimate.id,
-          p_user_id: userId
-        });
-
-      if (inventoryError) {
-        console.error('Error processing inventory:', inventoryError);
-      }
-
-      // Display low stock alerts
-      if (inventoryResult?.low_stock_alerts && inventoryResult.low_stock_alerts.length > 0) {
-        const alerts = inventoryResult.low_stock_alerts;
-        const negativeStock = alerts.filter((a: any) => a.is_negative);
-        const lowStock = alerts.filter((a: any) => !a.is_negative);
-
-        let alertMessage = 'Estimate created successfully!\n\n';
-
-        if (negativeStock.length > 0) {
-          alertMessage += '⚠️ CRITICAL - NEGATIVE INVENTORY:\n';
-          negativeStock.forEach((alert: any) => {
-            alertMessage += `• ${alert.part_number} - ${alert.part_name}: ${alert.current_quantity} (ORDER IMMEDIATELY)\n`;
+      // Process inventory deductions (only for new estimates)
+      if (!editingId) {
+        const { data: inventoryResult, error: inventoryError } = await supabase
+          .rpc('process_estimate_inventory_deduction', {
+            p_estimate_id: estimate.id,
+            p_user_id: userId
           });
-          alertMessage += '\n';
+
+        if (inventoryError) {
+          console.error('Error processing inventory:', inventoryError);
         }
 
-        if (lowStock.length > 0) {
-          alertMessage += '📦 LOW STOCK - REORDER NEEDED:\n';
-          lowStock.forEach((alert: any) => {
-            alertMessage += `• ${alert.part_number} - ${alert.part_name}: ${alert.current_quantity} remaining\n`;
-          });
-        }
+        // Display low stock alerts
+        if (inventoryResult?.low_stock_alerts && inventoryResult.low_stock_alerts.length > 0) {
+          const alerts = inventoryResult.low_stock_alerts;
+          const negativeStock = alerts.filter((a: any) => a.is_negative);
+          const lowStock = alerts.filter((a: any) => !a.is_negative);
 
-        alert(alertMessage);
+          let alertMessage = 'Estimate created successfully!\n\n';
+
+          if (negativeStock.length > 0) {
+            alertMessage += '⚠️ CRITICAL - NEGATIVE INVENTORY:\n';
+            negativeStock.forEach((alert: any) => {
+              alertMessage += `• ${alert.part_number} - ${alert.part_name}: ${alert.current_quantity} (ORDER IMMEDIATELY)\n`;
+            });
+            alertMessage += '\n';
+          }
+
+          if (lowStock.length > 0) {
+            alertMessage += '📦 LOW STOCK - REORDER NEEDED:\n';
+            lowStock.forEach((alert: any) => {
+              alertMessage += `• ${alert.part_number} - ${alert.part_name}: ${alert.current_quantity} remaining\n`;
+            });
+          }
+
+          alert(alertMessage);
+        }
       }
 
       resetForm();
@@ -584,6 +630,8 @@ export function Estimates({ userId }: EstimatesProps) {
     } catch (err: any) {
       console.error('Error saving estimate:', err);
       setError(err.message || 'Failed to save estimate');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -1310,10 +1358,11 @@ export function Estimates({ userId }: EstimatesProps) {
               </button>
               <button
                 type="submit"
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                disabled={isSubmitting}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Check className="w-4 h-4" />
-                Create Estimate
+                {isSubmitting ? 'Saving...' : editingId ? 'Save Estimate' : 'Create Estimate'}
               </button>
             </div>
           </form>
