@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, User, X, Check, Clock, AlertCircle, Plus, Briefcase, Sun, BarChart3, Edit3 } from 'lucide-react';
 import { supabase, StaffTimeOffRequest, StaffSchedule, UserProfile, canAccessAllYachts, isStaffRole } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useRoleImpersonation } from '../contexts/RoleImpersonationContext';
 
 interface StaffScheduleOverride {
   id: string;
@@ -54,6 +55,7 @@ interface StaffCalendarProps {
 
 export function StaffCalendar({ onBack }: StaffCalendarProps) {
   const { user, userProfile } = useAuth();
+  const { getEffectiveRole } = useRoleImpersonation();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [timeOffRequests, setTimeOffRequests] = useState<StaffTimeOffRequest[]>([]);
   const [allTimeOffRequests, setAllTimeOffRequests] = useState<StaffTimeOffRequest[]>([]);
@@ -72,10 +74,11 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
   const [selectedRequest, setSelectedRequest] = useState<StaffTimeOffRequest | null>(null);
   const [viewFilter, setViewFilter] = useState<'all' | 'working' | 'off'>('working');
 
-  const isStaff = canAccessAllYachts(userProfile?.role);
-  const canAccessCalendar = isStaffRole(userProfile?.role);
+  const effectiveRole = getEffectiveRole(userProfile?.role);
+  const isStaff = canAccessAllYachts(effectiveRole);
+  const canAccessCalendar = isStaffRole(effectiveRole);
   const canManageSchedules = canAccessCalendar;
-  const isMaster = userProfile?.role === 'master';
+  const isMaster = effectiveRole === 'master';
 
   if (!canAccessCalendar) {
     return (
