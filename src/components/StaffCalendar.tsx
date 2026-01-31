@@ -41,9 +41,15 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
   }
 
   useEffect(() => {
-    loadData();
-    subscribeToChanges();
-  }, [currentDate, user]);
+    if (userProfile) {
+      loadData();
+    }
+  }, [currentDate, user, userProfile]);
+
+  useEffect(() => {
+    const cleanup = subscribeToChanges();
+    return cleanup;
+  }, []);
 
   const subscribeToChanges = () => {
     const timeOffChannel = supabase
@@ -103,7 +109,7 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
         .lte('end_date', endOfMonth.toISOString().split('T')[0])
         .order('start_date', { ascending: true });
 
-      if (!isStaff) {
+      if (!isStaff && !canManageSchedules) {
         requestsQuery = requestsQuery.eq('user_id', user?.id);
       }
 
