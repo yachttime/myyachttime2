@@ -430,12 +430,12 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
     const isDateInSeason = isInSeason(date);
     const isDateWeekend = isWeekend(dayOfWeek);
 
-    // Get overrides for this date
-    const dateOverrides = scheduleOverrides.filter(override => override.override_date === dateStr);
+    // Get overrides for this date from ALL overrides
+    const dateOverrides = allScheduleOverrides.filter(override => override.override_date === dateStr);
 
     return staffSchedules.filter(schedule => {
-      // Check if there's an approved time-off request for this user on this date
-      const hasApprovedTimeOff = timeOffRequests.some(request =>
+      // Check if there's an approved time-off request for this user on this date from ALL requests
+      const hasApprovedTimeOff = allTimeOffRequests.some(request =>
         request.user_id === schedule.user_id &&
         request.status === 'approved' &&
         dateStr >= request.start_date &&
