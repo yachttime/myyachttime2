@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Clock, Users, History, FileText } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useRoleImpersonation } from '../contexts/RoleImpersonationContext';
 import { supabase, isMasterRole } from '../lib/supabase';
 import { TimeClockPanel } from './TimeClockPanel';
 import { TimeEntriesView } from './TimeEntriesView';
@@ -10,10 +11,12 @@ import { TimeEntry } from '../utils/timeClockHelpers';
 
 export function TimeClock() {
   const { userProfile } = useAuth();
+  const { getEffectiveRole } = useRoleImpersonation();
   const [activeSubTab, setActiveSubTab] = useState<'punch' | 'myTime' | 'allTime' | 'payroll'>('punch');
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
 
-  const isMaster = isMasterRole(userProfile?.role);
+  const effectiveRole = getEffectiveRole(userProfile?.role);
+  const isMaster = isMasterRole(effectiveRole);
 
   return (
     <div className="space-y-6">
