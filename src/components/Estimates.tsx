@@ -625,8 +625,8 @@ export function Estimates({ userId }: EstimatesProps) {
         }
       }
 
-      resetForm();
-      loadData();
+      await resetForm();
+      await loadData();
     } catch (err: any) {
       console.error('Error saving estimate:', err);
       setError(err.message || 'Failed to save estimate');
