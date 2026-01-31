@@ -203,7 +203,7 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
           </button>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Calendar className="w-8 h-8 text-amber-500" />
-            Staff Time Off Calendar
+            Staff Calendar
           </h1>
           <div className="flex gap-2">
             {isStaff && getPendingRequestsCount() > 0 && (
