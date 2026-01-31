@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Clock, Users, History, FileText } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { isMasterRole } from '../lib/supabase';
+import { supabase, isMasterRole } from '../lib/supabase';
 import { TimeClockPanel } from './TimeClockPanel';
 import { TimeEntriesView } from './TimeEntriesView';
 import { TimeEntryEditor } from './TimeEntryEditor';
@@ -162,5 +162,3 @@ function AllStaffTimeView({ onEditEntry }: { onEditEntry: (entry: TimeEntry) => 
     </div>
   );
 }
-
-import { supabase } from '../lib/supabase';
