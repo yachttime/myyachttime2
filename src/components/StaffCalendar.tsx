@@ -896,7 +896,7 @@ function WorkScheduleModal({ staff, onClose }: { staff: UserProfile[]; onClose: 
         const existingSchedule = data?.find(s => s.day_of_week === i);
         scheduleMap[i] = {
           isWorking: existingSchedule?.is_working_day ?? false,
-          startTime: existingSchedule?.start_time || '09:00',
+          startTime: existingSchedule?.start_time || '08:00',
           endTime: existingSchedule?.end_time || '17:00',
           notes: existingSchedule?.notes || ''
         };
@@ -1028,7 +1028,7 @@ function WorkScheduleModal({ staff, onClose }: { staff: UserProfile[]; onClose: 
                       <label className="block text-xs text-slate-400 mb-1">Start Time</label>
                       <input
                         type="time"
-                        value={schedules[dayOfWeek]?.startTime || '09:00'}
+                        value={schedules[dayOfWeek]?.startTime || '08:00'}
                         onChange={e => updateSchedule(dayOfWeek, 'startTime', e.target.value)}
                         className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
                       />
