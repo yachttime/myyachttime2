@@ -891,7 +891,10 @@ export function Estimates({ userId }: EstimatesProps) {
 
       const yachtName = estimateData.yachts?.name || null;
       const pdf = generateEstimatePDF(estimateData, tasksWithLineItems, yachtName);
-      pdf.save(`Estimate_${estimateData.estimate_number}.pdf`);
+
+      const pdfBlob = pdf.output('blob');
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      window.open(pdfUrl, '_blank');
     } catch (err) {
       console.error('Error printing estimate:', err);
       setError('Failed to print estimate');
