@@ -136,28 +136,42 @@ function AllStaffTimeView({ onEditEntry }: { onEditEntry: (entry: TimeEntry) => 
   return (
     <div className="space-y-6">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Select Employee
-        </label>
-        <select
-          value={selectedUserId}
-          onChange={(e) => setSelectedUserId(e.target.value)}
-          className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Select Employee</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mb-6 max-h-[400px] overflow-y-auto p-1">
           {users.map((user) => (
-            <option key={user.user_id} value={user.user_id}>
-              {user.last_name}, {user.first_name}
-            </option>
+            <button
+              key={user.user_id}
+              onClick={() => setSelectedUserId(user.user_id)}
+              className={`p-4 rounded-lg border-2 transition-all text-left ${
+                selectedUserId === user.user_id
+                  ? 'border-blue-500 bg-blue-50 shadow-md'
+                  : 'border-gray-200 bg-white hover:border-blue-300 hover:shadow-sm'
+              }`}
+            >
+              <div className="font-medium text-gray-900">
+                {user.first_name} {user.last_name}
+              </div>
+              <div className="text-sm text-gray-500 mt-1">
+                View time entries
+              </div>
+            </button>
           ))}
-        </select>
+        </div>
+        {users.length === 0 && (
+          <div className="text-center py-8 text-gray-500">
+            No staff members found
+          </div>
+        )}
       </div>
 
       {selectedUserId && (
-        <TimeEntriesView
-          userId={selectedUserId}
-          onEditEntry={onEditEntry}
-          showEditButton={true}
-        />
+        <div className="border-t pt-6">
+          <TimeEntriesView
+            userId={selectedUserId}
+            onEditEntry={onEditEntry}
+            showEditButton={true}
+          />
+        </div>
       )}
     </div>
   );
