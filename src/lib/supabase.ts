@@ -454,6 +454,11 @@ export interface StaffSchedule {
   notes?: string;
   created_at: string;
   updated_at: string;
+  user_profiles?: {
+    first_name: string;
+    last_name: string;
+    role: string;
+  };
 }
 
 export const logYachtActivity = async (

@@ -247,6 +247,15 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
     });
   };
 
+  const getSchedulesForDate = (day: number) => {
+    const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+    const dayOfWeek = date.getDay();
+
+    return staffSchedules.filter(schedule =>
+      schedule.day_of_week === dayOfWeek && schedule.is_working_day
+    );
+  };
+
   const getDateColor = (day: number) => {
     const requests = getRequestsForDate(day);
     const holiday = getHolidayForDate(day);
@@ -357,10 +366,14 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold">Color Legend</h2>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 bg-blue-500 rounded"></div>
               <span>Federal Holiday</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 bg-teal-500 rounded"></div>
+              <span>Staff Scheduled</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 bg-green-500 rounded"></div>
@@ -409,6 +422,7 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
 
             {getDaysInMonth().map((day, index) => {
               const holiday = day ? getHolidayForDate(day) : null;
+              const schedules = day ? getSchedulesForDate(day) : [];
               return (
                 <div
                   key={index}
@@ -432,6 +446,11 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
                           {holiday.name}
                         </div>
                       )}
+                      {schedules.map((schedule, idx) => (
+                        <div key={`schedule-${idx}`} className="text-xs font-medium text-teal-700 truncate">
+                          {schedule.user_profiles?.first_name} {schedule.user_profiles?.last_name}
+                        </div>
+                      ))}
                       {getRequestsForDate(day).map((request, idx) => (
                         <div key={idx} className="text-xs text-slate-700 truncate">
                           {canManageSchedules ? (
