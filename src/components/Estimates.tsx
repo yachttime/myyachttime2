@@ -97,11 +97,24 @@ export function Estimates({ userId }: EstimatesProps) {
           .order('part_number')
       ]);
 
-      if (estimatesResult.error) throw estimatesResult.error;
-      if (yachtsResult.error) throw yachtsResult.error;
-      if (laborResult.error) throw laborResult.error;
-      if (partsResult.error) throw partsResult.error;
+      if (estimatesResult.error) {
+        console.error('Estimates error:', estimatesResult.error);
+        throw estimatesResult.error;
+      }
+      if (yachtsResult.error) {
+        console.error('Yachts error:', yachtsResult.error);
+        throw yachtsResult.error;
+      }
+      if (laborResult.error) {
+        console.error('Labor codes error:', laborResult.error);
+        throw laborResult.error;
+      }
+      if (partsResult.error) {
+        console.error('Parts error:', partsResult.error);
+        throw partsResult.error;
+      }
 
+      console.log('Loaded yachts:', yachtsResult.data);
       setEstimates(estimatesResult.data || []);
       setYachts(yachtsResult.data || []);
       setLaborCodes(laborResult.data || []);
@@ -351,18 +364,27 @@ export function Estimates({ userId }: EstimatesProps) {
               </div>
             ) : (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Yacht *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Yacht * {yachts.length > 0 && <span className="text-xs text-gray-500">({yachts.length} available)</span>}
+                </label>
                 <select
                   required
                   value={formData.yacht_id}
                   onChange={(e) => setFormData({ ...formData, yacht_id: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
                 >
-                  <option value="">Select a yacht</option>
-                  {yachts.map((yacht) => (
-                    <option key={yacht.id} value={yacht.id}>{yacht.name}</option>
-                  ))}
+                  <option value="" className="text-gray-500">Select a yacht</option>
+                  {yachts.length === 0 ? (
+                    <option value="" disabled>No yachts available</option>
+                  ) : (
+                    yachts.map((yacht) => (
+                      <option key={yacht.id} value={yacht.id} className="text-gray-900">{yacht.name}</option>
+                    ))
+                  )}
                 </select>
+                {yachts.length === 0 && (
+                  <p className="mt-1 text-sm text-red-600">No active yachts found. Please check your permissions.</p>
+                )}
               </div>
             )}
 
