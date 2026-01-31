@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, User, X, Check, Clock, AlertCircle, Plus, Briefcase, Sun, BarChart3, Edit3 } from 'lucide-react';
 import { supabase, StaffTimeOffRequest, StaffSchedule, UserProfile, canAccessAllYachts, isStaffRole } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -94,11 +94,17 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
     );
   }
 
+  const loadDataRef = useRef<() => Promise<void>>();
+
   useEffect(() => {
     if (userProfile) {
       loadData();
     }
   }, [currentDate, user, userProfile]);
+
+  useEffect(() => {
+    loadDataRef.current = loadData;
+  });
 
   useEffect(() => {
     const cleanup = subscribeToChanges();
@@ -116,7 +122,7 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
           table: 'staff_time_off_requests'
         },
         () => {
-          loadData();
+          loadDataRef.current?.();
         }
       )
       .subscribe();
@@ -131,7 +137,7 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
           table: 'user_profiles'
         },
         () => {
-          loadData();
+          loadDataRef.current?.();
         }
       )
       .subscribe();
@@ -146,7 +152,7 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
           table: 'staff_schedules'
         },
         () => {
-          loadData();
+          loadDataRef.current?.();
         }
       )
       .subscribe();
@@ -161,7 +167,7 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
           table: 'staff_schedule_overrides'
         },
         () => {
-          loadData();
+          loadDataRef.current?.();
         }
       )
       .subscribe();
