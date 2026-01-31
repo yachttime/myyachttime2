@@ -268,7 +268,8 @@ export function Estimates({ userId }: EstimatesProps) {
         ...lineItemFormData,
         labor_code_id: laborCodeId,
         description: laborCode.name,
-        unit_price: laborCode.hourly_rate.toString()
+        unit_price: laborCode.hourly_rate.toString(),
+        is_taxable: laborCode.is_taxable
       });
     }
   };
@@ -280,7 +281,8 @@ export function Estimates({ userId }: EstimatesProps) {
         ...lineItemFormData,
         part_id: partId,
         description: `${part.part_number} - ${part.name}`,
-        unit_price: part.unit_price.toString()
+        unit_price: part.unit_price.toString(),
+        is_taxable: part.is_taxable
       });
     }
   };
@@ -827,18 +829,6 @@ export function Estimates({ userId }: EstimatesProps) {
                                 </div>
                               </div>
 
-                              <div>
-                                <label className="flex items-center gap-2">
-                                  <input
-                                    type="checkbox"
-                                    checked={lineItemFormData.is_taxable}
-                                    onChange={(e) => setLineItemFormData({ ...lineItemFormData, is_taxable: e.target.checked })}
-                                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                  />
-                                  <span className="text-sm font-medium text-gray-700">Taxable (applies sales tax)</span>
-                                </label>
-                              </div>
-
                               <div className="flex justify-end gap-2">
                                 <button
                                   type="button"
@@ -946,6 +936,12 @@ export function Estimates({ userId }: EstimatesProps) {
             {tasks.length > 0 && (
               <div className="border-t pt-4">
                 <h4 className="text-md font-semibold text-gray-900 mb-4">Taxes & Surcharges</h4>
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-800">
+                    <strong>Note:</strong> Sales tax is only applied to line items marked as taxable.
+                    Labor codes and parts have individual taxable settings that are automatically applied when added to estimates.
+                  </p>
+                </div>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">

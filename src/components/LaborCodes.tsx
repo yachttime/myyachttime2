@@ -11,6 +11,7 @@ interface LaborCode {
   overtime_rate: number | null;
   accounting_code_id: string | null;
   is_active: boolean;
+  is_taxable: boolean;
   accounting_codes?: {
     code: string;
     name: string;
@@ -40,7 +41,8 @@ export function LaborCodes({ userId }: LaborCodesProps) {
     description: '',
     hourly_rate: '',
     accounting_code_id: '',
-    is_active: true
+    is_active: true,
+    is_taxable: true
   });
 
   useEffect(() => {
@@ -92,7 +94,8 @@ export function LaborCodes({ userId }: LaborCodesProps) {
         description: formData.description || null,
         hourly_rate: parseFloat(formData.hourly_rate),
         accounting_code_id: formData.accounting_code_id || null,
-        is_active: formData.is_active
+        is_active: formData.is_active,
+        is_taxable: formData.is_taxable
       };
 
       if (editingId) {
@@ -128,7 +131,8 @@ export function LaborCodes({ userId }: LaborCodesProps) {
       description: code.description || '',
       hourly_rate: code.hourly_rate.toString(),
       accounting_code_id: code.accounting_code_id || '',
-      is_active: code.is_active
+      is_active: code.is_active,
+      is_taxable: code.is_taxable
     });
     setEditingId(code.id);
     setShowForm(true);
@@ -158,7 +162,8 @@ export function LaborCodes({ userId }: LaborCodesProps) {
       description: '',
       hourly_rate: '',
       accounting_code_id: '',
-      is_active: true
+      is_active: true,
+      is_taxable: true
     });
     setEditingId(null);
     setShowForm(false);
@@ -270,17 +275,32 @@ export function LaborCodes({ userId }: LaborCodesProps) {
               </select>
             </div>
 
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="is_active"
-                checked={formData.is_active}
-                onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-              />
-              <label htmlFor="is_active" className="text-sm font-medium text-gray-700">
-                Active
-              </label>
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="is_active"
+                  checked={formData.is_active}
+                  onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <label htmlFor="is_active" className="text-sm font-medium text-gray-700">
+                  Active
+                </label>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="is_taxable"
+                  checked={formData.is_taxable}
+                  onChange={(e) => setFormData({ ...formData, is_taxable: e.target.checked })}
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <label htmlFor="is_taxable" className="text-sm font-medium text-gray-700">
+                  Taxable (applies sales tax when used in estimates)
+                </label>
+              </div>
             </div>
 
             <div className="flex justify-end gap-3">

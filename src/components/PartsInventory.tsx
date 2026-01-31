@@ -17,6 +17,7 @@ interface Part {
   location: string | null;
   accounting_code_id: string | null;
   is_active: boolean;
+  is_taxable: boolean;
   accounting_codes?: {
     code: string;
     name: string;
@@ -56,7 +57,8 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
     reorder_quantity: '0',
     location: '',
     accounting_code_id: '',
-    is_active: true
+    is_active: true,
+    is_taxable: true
   });
   const [adjustmentData, setAdjustmentData] = useState({
     transaction_type: 'add' as 'add' | 'remove' | 'adjustment',
@@ -120,7 +122,8 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
         reorder_quantity: parseInt(formData.reorder_quantity),
         location: formData.location || null,
         accounting_code_id: formData.accounting_code_id || null,
-        is_active: formData.is_active
+        is_active: formData.is_active,
+        is_taxable: formData.is_taxable
       };
 
       if (editingId) {
@@ -208,7 +211,8 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
       reorder_quantity: part.reorder_quantity.toString(),
       location: part.location || '',
       accounting_code_id: part.accounting_code_id || '',
-      is_active: part.is_active
+      is_active: part.is_active,
+      is_taxable: part.is_taxable
     });
     setEditingId(part.id);
     setShowForm(true);
@@ -233,7 +237,8 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
       reorder_quantity: '0',
       location: '',
       accounting_code_id: '',
-      is_active: true
+      is_active: true,
+      is_taxable: true
     });
     setEditingId(null);
     setShowForm(false);
@@ -459,15 +464,30 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
               </select>
             </div>
 
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="is_active"
-                checked={formData.is_active}
-                onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-              />
-              <label htmlFor="is_active" className="text-sm font-medium text-gray-700">Active</label>
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="is_active"
+                  checked={formData.is_active}
+                  onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <label htmlFor="is_active" className="text-sm font-medium text-gray-700">Active</label>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="is_taxable"
+                  checked={formData.is_taxable}
+                  onChange={(e) => setFormData({ ...formData, is_taxable: e.target.checked })}
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <label htmlFor="is_taxable" className="text-sm font-medium text-gray-700">
+                  Taxable (applies sales tax when used in estimates)
+                </label>
+              </div>
             </div>
 
             <div className="flex justify-end gap-3">
