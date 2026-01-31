@@ -26,6 +26,7 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
   console.log('canAccessCalendar:', canAccessCalendar);
   console.log('canManageSchedules:', canManageSchedules);
   console.log('allStaff count:', allStaff.length);
+  console.log('allStaff data:', allStaff);
 
   if (!canAccessCalendar) {
     return (
@@ -123,7 +124,9 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
       if (requestsError) throw requestsError;
       setTimeOffRequests(requestsData || []);
 
+      console.log('About to load staff, canManageSchedules:', canManageSchedules);
       if (canManageSchedules) {
+        console.log('Loading staff from database...');
         const { data: staffData, error: staffError } = await supabase
           .from('user_profiles')
           .select('*')
@@ -131,9 +134,15 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
           .eq('is_active', true)
           .order('first_name', { ascending: true });
 
-        if (staffError) throw staffError;
+        if (staffError) {
+          console.error('Error loading staff:', staffError);
+          throw staffError;
+        }
         console.log('Staff data loaded:', staffData);
         setAllStaff(staffData || []);
+        console.log('allStaff state set to:', staffData);
+      } else {
+        console.log('NOT loading staff because canManageSchedules is false');
       }
     } catch (error) {
       console.error('Error loading data:', error);
