@@ -428,6 +428,8 @@ export interface StaffTimeOffRequest {
   user_id: string;
   start_date: string;
   end_date: string;
+  start_time?: string | null;
+  end_time?: string | null;
   time_off_type: TimeOffType;
   status: TimeOffStatus;
   reason?: string;

@@ -965,6 +965,8 @@ function TimeOffRequestModal({ onClose, onSuccess }: { onClose: () => void; onSu
   const [formData, setFormData] = useState({
     start_date: '',
     end_date: '',
+    start_time: '',
+    end_time: '',
     time_off_type: 'vacation' as const,
     reason: ''
   });
@@ -985,13 +987,28 @@ function TimeOffRequestModal({ onClose, onSuccess }: { onClose: () => void; onSu
       return;
     }
 
+    if ((formData.start_time && !formData.end_time) || (!formData.start_time && formData.end_time)) {
+      setError('Please provide both start and end times, or leave both empty for full day');
+      return;
+    }
+
+    if (formData.start_time && formData.end_time && formData.start_time >= formData.end_time) {
+      setError('End time must be after start time');
+      return;
+    }
+
     try {
       setSubmitting(true);
       const { error: insertError } = await supabase
         .from('staff_time_off_requests')
         .insert({
           user_id: user?.id,
-          ...formData
+          start_date: formData.start_date,
+          end_date: formData.end_date,
+          start_time: formData.start_time || null,
+          end_time: formData.end_time || null,
+          time_off_type: formData.time_off_type,
+          reason: formData.reason || null
         });
 
       if (insertError) throw insertError;
@@ -1035,6 +1052,36 @@ function TimeOffRequestModal({ onClose, onSuccess }: { onClose: () => void; onSu
               className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
               required
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2 flex items-center gap-2">
+              <Clock className="w-4 h-4" />
+              Time (Optional - for partial days)
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Start Time</label>
+                <input
+                  type="time"
+                  value={formData.start_time}
+                  onChange={e => setFormData({ ...formData, start_time: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">End Time</label>
+                <input
+                  type="time"
+                  value={formData.end_time}
+                  onChange={e => setFormData({ ...formData, end_time: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+            <p className="text-xs text-slate-400 mt-1">
+              Leave empty for full day. Add times for partial day requests (e.g., morning or afternoon off).
+            </p>
           </div>
 
           <div>
@@ -1149,6 +1196,15 @@ function ApprovalPanel({ requests, onClose, onSuccess }: { requests: StaffTimeOf
     return type.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   };
 
+  const formatTime = (time: string | null) => {
+    if (!time) return '';
+    const [hours, minutes] = time.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour % 12 || 12;
+    return `${displayHour}:${minutes} ${ampm}`;
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-slate-800 rounded-lg p-6 max-w-4xl w-full max-h-[80vh] overflow-y-auto">
@@ -1188,10 +1244,22 @@ function ApprovalPanel({ requests, onClose, onSuccess }: { requests: StaffTimeOf
                   <div>
                     <p className="text-xs text-slate-400">Start Date</p>
                     <p className="font-medium">{new Date(request.start_date).toLocaleDateString()}</p>
+                    {request.start_time && (
+                      <p className="text-sm text-amber-400 flex items-center gap-1 mt-1">
+                        <Clock className="w-3 h-3" />
+                        {formatTime(request.start_time)}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <p className="text-xs text-slate-400">End Date</p>
                     <p className="font-medium">{new Date(request.end_date).toLocaleDateString()}</p>
+                    {request.end_time && (
+                      <p className="text-sm text-amber-400 flex items-center gap-1 mt-1">
+                        <Clock className="w-3 h-3" />
+                        {formatTime(request.end_time)}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -1279,6 +1347,15 @@ function RequestDetailsModal({
     return type.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   };
 
+  const formatTime = (time: string | null) => {
+    if (!time) return '';
+    const [hours, minutes] = time.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour % 12 || 12;
+    return `${displayHour}:${minutes} ${ampm}`;
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'approved': return 'text-green-400';
@@ -1327,10 +1404,22 @@ function RequestDetailsModal({
             <div>
               <p className="text-xs text-slate-400">Start Date</p>
               <p className="font-medium">{new Date(request.start_date).toLocaleDateString()}</p>
+              {request.start_time && (
+                <p className="text-sm text-amber-400 flex items-center gap-1 mt-1">
+                  <Clock className="w-3 h-3" />
+                  {formatTime(request.start_time)}
+                </p>
+              )}
             </div>
             <div>
               <p className="text-xs text-slate-400">End Date</p>
               <p className="font-medium">{new Date(request.end_date).toLocaleDateString()}</p>
+              {request.end_time && (
+                <p className="text-sm text-amber-400 flex items-center gap-1 mt-1">
+                  <Clock className="w-3 h-3" />
+                  {formatTime(request.end_time)}
+                </p>
+              )}
             </div>
           </div>
 
