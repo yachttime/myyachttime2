@@ -531,7 +531,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     loadMechanics();
     loadStaffMessages();
     checkSmartDevices();
-  }, [user, yacht]);
+  }, [user, yacht, effectiveRole]);
 
   useEffect(() => {
     if (activeTab === 'admin' && adminView === 'repairs') {
@@ -1409,8 +1409,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         // No filter - master sees everything
       }
       // Manager role: see only their assigned yacht
-      else if (effectiveRole === 'manager' && userProfile.yacht_id) {
-        query = query.eq('id', userProfile.yacht_id).eq('is_active', true);
+      else if (effectiveRole === 'manager') {
+        if (userProfile.yacht_id) {
+          query = query.eq('id', userProfile.yacht_id).eq('is_active', true);
+        } else {
+          setAllYachts([]);
+          return;
+        }
       }
       // Staff/Mechanic: see all active yachts
       else {
