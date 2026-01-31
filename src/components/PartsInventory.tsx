@@ -80,10 +80,7 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
     quantity_on_hand: '0',
     unit_cost: '',
     unit_price: '',
-    msrp: '',
     alternative_part_numbers: '',
-    reorder_level: '0',
-    reorder_quantity: '0',
     location: '',
     accounting_code_id: '',
     is_active: true,
@@ -189,10 +186,10 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
         quantity_on_hand: parseInt(formData.quantity_on_hand) || 0,
         unit_cost: unitCost,
         unit_price: unitPrice,
-        msrp: formData.msrp ? parseFloat(formData.msrp) : null,
+        msrp: null,
         alternative_part_numbers: formData.alternative_part_numbers || null,
-        reorder_level: parseInt(formData.reorder_level) || 0,
-        reorder_quantity: parseInt(formData.reorder_quantity) || 0,
+        reorder_level: 0,
+        reorder_quantity: 0,
         location: formData.location || null,
         accounting_code_id: formData.accounting_code_id || null,
         is_active: formData.is_active,
@@ -279,10 +276,7 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
       quantity_on_hand: part.quantity_on_hand.toString(),
       unit_cost: part.unit_cost.toString(),
       unit_price: part.unit_price.toString(),
-      msrp: part.msrp?.toString() || '',
       alternative_part_numbers: part.alternative_part_numbers || '',
-      reorder_level: part.reorder_level.toString(),
-      reorder_quantity: part.reorder_quantity.toString(),
       location: part.location || '',
       accounting_code_id: part.accounting_code_id || '',
       is_active: part.is_active,
@@ -306,10 +300,7 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
       quantity_on_hand: '0',
       unit_cost: '',
       unit_price: '',
-      msrp: '',
       alternative_part_numbers: '',
-      reorder_level: '0',
-      reorder_quantity: '0',
       location: '',
       accounting_code_id: '',
       is_active: true,
@@ -435,7 +426,6 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
     (vendor.phone && vendor.phone.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const lowStockParts = parts.filter(part => part.quantity_on_hand <= part.reorder_level);
   const totalInventoryValue = parts.reduce((sum, part) => sum + (part.quantity_on_hand * part.unit_cost), 0);
 
   if (loading) {
@@ -507,10 +497,15 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
           <div className="bg-white border border-gray-200 rounded-lg p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Low Stock Alerts</p>
-                <p className="text-2xl font-bold text-orange-600">{lowStockParts.length}</p>
+                <p className="text-sm text-gray-600">Avg. Gross Profit</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {parts.length > 0
+                    ? `${(parts.reduce((sum, part) => sum + ((part.unit_price - part.unit_cost) / part.unit_cost * 100), 0) / parts.length).toFixed(1)}%`
+                    : '0%'
+                  }
+                </p>
               </div>
-              <AlertCircle className="w-8 h-8 text-orange-500" />
+              <TrendingUp className="w-8 h-8 text-green-500" />
             </div>
           </div>
           <div className="bg-white border border-gray-200 rounded-lg p-4">
@@ -672,17 +667,6 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">MSRP ($)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.msrp}
-                  onChange={(e) => setFormData({ ...formData, msrp: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
-                />
-              </div>
-              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Unit Price ($) *</label>
                 <input
                   type="number"
@@ -694,28 +678,17 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
                 />
               </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Reorder Level</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={formData.reorder_level}
-                  onChange={(e) => setFormData({ ...formData, reorder_level: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Reorder Quantity</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={formData.reorder_quantity}
-                  onChange={(e) => setFormData({ ...formData, reorder_quantity: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Gross Profit %</label>
+                <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-900 font-semibold">
+                  {(() => {
+                    const cost = parseFloat(formData.unit_cost) || 0;
+                    const price = parseFloat(formData.unit_price) || 0;
+                    if (cost === 0 || price === 0) return '-';
+                    const profitPercent = ((price - cost) / cost * 100);
+                    return `${profitPercent.toFixed(1)}%`;
+                  })()}
+                </div>
               </div>
             </div>
 
@@ -870,8 +843,8 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vendor</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Qty</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unit Cost</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">MSRP</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unit Price</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Gross Profit %</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Value</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
               </tr>
@@ -885,19 +858,20 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
                 </tr>
               ) : (
                 filteredParts.map((part) => (
-                  <tr key={part.id} className={`hover:bg-gray-50 ${part.quantity_on_hand <= part.reorder_level ? 'bg-orange-50' : ''}`}>
+                  <tr key={part.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">{part.part_number}</td>
-                    <td className="px-6 py-4 text-sm text-gray-900">
-                      {part.name}
-                      {part.quantity_on_hand <= part.reorder_level && (
-                        <span className="ml-2 text-xs text-orange-600 font-medium">LOW STOCK</span>
-                      )}
-                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-900">{part.name}</td>
                     <td className="px-6 py-4 text-sm text-gray-500">{part.vendors?.vendor_name || '-'}</td>
                     <td className="px-6 py-4 text-sm text-gray-900">{part.quantity_on_hand}</td>
                     <td className="px-6 py-4 text-sm text-gray-900">${part.unit_cost.toFixed(2)}</td>
-                    <td className="px-6 py-4 text-sm text-gray-900">{part.msrp ? `$${part.msrp.toFixed(2)}` : '-'}</td>
                     <td className="px-6 py-4 text-sm text-gray-900">${part.unit_price.toFixed(2)}</td>
+                    <td className="px-6 py-4 text-sm font-semibold text-gray-900">
+                      {(() => {
+                        const profitPercent = ((part.unit_price - part.unit_cost) / part.unit_cost * 100);
+                        const color = profitPercent >= 30 ? 'text-green-600' : profitPercent >= 15 ? 'text-blue-600' : 'text-orange-600';
+                        return <span className={color}>{profitPercent.toFixed(1)}%</span>;
+                      })()}
+                    </td>
                     <td className="px-6 py-4 text-sm text-gray-900">
                       ${(part.quantity_on_hand * part.unit_cost).toFixed(2)}
                     </td>
