@@ -1,7 +1,23 @@
 import { useState, useEffect } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, User, X, Check, Clock, AlertCircle, Plus, Briefcase, Sun, BarChart3 } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, User, X, Check, Clock, AlertCircle, Plus, Briefcase, Sun, BarChart3, Edit3 } from 'lucide-react';
 import { supabase, StaffTimeOffRequest, StaffSchedule, UserProfile, canAccessAllYachts, isStaffRole } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+
+interface StaffScheduleOverride {
+  id: string;
+  user_id: string;
+  override_date: string;
+  status: 'working' | 'approved_day_off' | 'sick_leave';
+  notes: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  user_profiles?: {
+    first_name: string;
+    last_name: string;
+    role: string;
+  };
+}
 
 function isInSeason(date: Date): boolean {
   const month = date.getMonth();
@@ -41,12 +57,15 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
   const [allTimeOffRequests, setAllTimeOffRequests] = useState<StaffTimeOffRequest[]>([]);
   const [allStaff, setAllStaff] = useState<UserProfile[]>([]);
   const [staffSchedules, setStaffSchedules] = useState<StaffSchedule[]>([]);
+  const [scheduleOverrides, setScheduleOverrides] = useState<StaffScheduleOverride[]>([]);
   const [loading, setLoading] = useState(true);
   const [showRequestForm, setShowRequestForm] = useState(false);
   const [showApprovalPanel, setShowApprovalPanel] = useState(false);
   const [showWorkScheduleModal, setShowWorkScheduleModal] = useState(false);
   const [showScheduleView, setShowScheduleView] = useState(false);
   const [showWeekendApprovalPanel, setShowWeekendApprovalPanel] = useState(false);
+  const [showDateEditModal, setShowDateEditModal] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedRequest, setSelectedRequest] = useState<StaffTimeOffRequest | null>(null);
 
   const isStaff = canAccessAllYachts(userProfile?.role);
@@ -129,10 +148,26 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
       )
       .subscribe();
 
+    const overridesChannel = supabase
+      .channel('staff_schedule_overrides_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'staff_schedule_overrides'
+        },
+        () => {
+          loadData();
+        }
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(timeOffChannel);
       supabase.removeChannel(userProfilesChannel);
       supabase.removeChannel(schedulesChannel);
+      supabase.removeChannel(overridesChannel);
     };
   };
 
@@ -228,6 +263,27 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
         } else {
           setStaffSchedules(schedulesData || []);
         }
+
+        // Load schedule overrides for the current month
+        const { data: overridesData, error: overridesError } = await supabase
+          .from('staff_schedule_overrides')
+          .select(`
+            *,
+            user_profiles:user_id (
+              first_name,
+              last_name,
+              role
+            )
+          `)
+          .gte('override_date', startOfMonth.toISOString().split('T')[0])
+          .lte('override_date', endOfMonth.toISOString().split('T')[0])
+          .order('override_date', { ascending: true });
+
+        if (overridesError) {
+          console.error('Error loading schedule overrides:', overridesError);
+        } else {
+          setScheduleOverrides(overridesData || []);
+        }
       }
     } catch (error) {
       console.error('Error loading data:', error);
@@ -309,13 +365,30 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
 
   const getSchedulesForDate = (day: number) => {
     const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+    const dateStr = date.toISOString().split('T')[0];
     const dayOfWeek = date.getDay();
     const today = new Date();
     const currentYear = today.getFullYear();
     const isDateInSeason = isInSeason(date);
     const isDateWeekend = isWeekend(dayOfWeek);
 
+    // Get overrides for this date
+    const dateOverrides = scheduleOverrides.filter(override => override.override_date === dateStr);
+
     return staffSchedules.filter(schedule => {
+      // Check if there's an override for this user on this date
+      const override = dateOverrides.find(o => o.user_id === schedule.user_id);
+
+      // If override exists and is sick_leave or approved_day_off, hide this employee
+      if (override && (override.status === 'sick_leave' || override.status === 'approved_day_off')) {
+        return false;
+      }
+
+      // If override exists and is 'working', show this employee regardless of regular schedule
+      if (override && override.status === 'working') {
+        return true;
+      }
+
       if (!schedule.is_working_day || schedule.day_of_week !== dayOfWeek) {
         return false;
       }
@@ -523,6 +596,12 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
         <div className="bg-slate-800 rounded-lg p-3 mb-6">
           <div className="flex justify-between items-center mb-2">
             <h2 className="text-sm font-semibold">Color Legend</h2>
+            {(userProfile?.role === 'master' || userProfile?.role === 'staff') && (
+              <span className="text-xs text-amber-400 flex items-center gap-1">
+                <Edit3 className="w-3 h-3" />
+                Click dates to edit staff schedules
+              </span>
+            )}
           </div>
           <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
             <div className="flex items-center gap-1">
@@ -589,24 +668,36 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
             {getDaysInMonth().map((day, index) => {
               const holiday = day ? getHolidayForDate(day) : null;
               const schedules = day ? getSchedulesForDate(day) : [];
+              const canEditDate = (userProfile?.role === 'master' || userProfile?.role === 'staff');
               return (
                 <div
                   key={index}
                   className={`min-h-24 p-2 rounded-lg border border-slate-700 ${
                     day ? getDateColor(day) : 'bg-slate-900'
-                  } ${day ? 'cursor-pointer' : ''}`}
+                  } ${day && canEditDate ? 'cursor-pointer hover:border-amber-500' : day ? 'cursor-pointer' : ''} relative`}
                   onClick={() => {
                     if (day) {
-                      const requests = getRequestsForDate(day);
-                      if (requests.length > 0) {
-                        setSelectedRequest(requests[0]);
+                      if (canEditDate) {
+                        const clickedDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+                        setSelectedDate(clickedDate);
+                        setShowDateEditModal(true);
+                      } else {
+                        const requests = getRequestsForDate(day);
+                        if (requests.length > 0) {
+                          setSelectedRequest(requests[0]);
+                        }
                       }
                     }
                   }}
                 >
                   {day && (
                     <>
-                      <div className="font-bold text-slate-900 mb-1">{day}</div>
+                      <div className="flex justify-between items-start mb-1">
+                        <div className="font-bold text-slate-900">{day}</div>
+                        {canEditDate && (
+                          <Edit3 className="w-3 h-3 text-slate-600 hover:text-amber-600" />
+                        )}
+                      </div>
                       {holiday && (
                         <div className="text-xs font-semibold text-blue-800 mb-1 truncate">
                           {holiday.name}
@@ -778,6 +869,23 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
             )}
             onClose={() => setShowWeekendApprovalPanel(false)}
             onSuccess={loadData}
+          />
+        )}
+
+        {showDateEditModal && selectedDate && canManageSchedules && (
+          <DateScheduleEditModal
+            date={selectedDate}
+            staff={allStaff}
+            scheduleOverrides={scheduleOverrides}
+            onClose={() => {
+              setShowDateEditModal(false);
+              setSelectedDate(null);
+            }}
+            onSuccess={() => {
+              loadData();
+              setShowDateEditModal(false);
+              setSelectedDate(null);
+            }}
           />
         )}
       </div>
@@ -1759,6 +1867,254 @@ function ScheduleViewModal({ schedules, staff, onClose }: {
             className="w-full px-4 py-2 bg-slate-600 hover:bg-slate-500 rounded-lg transition-colors"
           >
             Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DateScheduleEditModal({ date, staff, scheduleOverrides, onClose, onSuccess }: {
+  date: Date;
+  staff: UserProfile[];
+  scheduleOverrides: StaffScheduleOverride[];
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const { user } = useAuth();
+  const dateStr = date.toISOString().split('T')[0];
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const dayName = dayNames[date.getDay()];
+
+  const [overrideStates, setOverrideStates] = useState<{
+    [userId: string]: {
+      status: 'working' | 'approved_day_off' | 'sick_leave' | 'default';
+      notes: string;
+      overrideId?: string;
+    };
+  }>({});
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const initialStates: typeof overrideStates = {};
+    staff.forEach(staffMember => {
+      const existingOverride = scheduleOverrides.find(o => o.user_id === staffMember.user_id && o.override_date === dateStr);
+      if (existingOverride) {
+        initialStates[staffMember.user_id] = {
+          status: existingOverride.status,
+          notes: existingOverride.notes || '',
+          overrideId: existingOverride.id
+        };
+      } else {
+        initialStates[staffMember.user_id] = {
+          status: 'default',
+          notes: ''
+        };
+      }
+    });
+    setOverrideStates(initialStates);
+  }, [staff, scheduleOverrides, dateStr]);
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+
+      for (const staffMember of staff) {
+        const state = overrideStates[staffMember.user_id];
+        if (!state) continue;
+
+        if (state.status === 'default') {
+          if (state.overrideId) {
+            const { error } = await supabase
+              .from('staff_schedule_overrides')
+              .delete()
+              .eq('id', state.overrideId);
+
+            if (error) throw error;
+          }
+        } else {
+          const { error } = await supabase
+            .from('staff_schedule_overrides')
+            .upsert({
+              id: state.overrideId,
+              user_id: staffMember.user_id,
+              override_date: dateStr,
+              status: state.status,
+              notes: state.notes || null,
+              created_by: user?.id,
+              updated_at: new Date().toISOString()
+            }, {
+              onConflict: 'user_id,override_date'
+            });
+
+          if (error) throw error;
+        }
+      }
+
+      onSuccess();
+    } catch (err) {
+      console.error('Error saving schedule overrides:', err);
+      alert('Failed to save schedule changes');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateStaffStatus = (userId: string, status: typeof overrideStates[string]['status']) => {
+    setOverrideStates({
+      ...overrideStates,
+      [userId]: {
+        ...overrideStates[userId],
+        status
+      }
+    });
+  };
+
+  const updateStaffNotes = (userId: string, notes: string) => {
+    setOverrideStates({
+      ...overrideStates,
+      [userId]: {
+        ...overrideStates[userId],
+        notes
+      }
+    });
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'working': return 'bg-teal-600';
+      case 'approved_day_off': return 'bg-green-600';
+      case 'sick_leave': return 'bg-red-600';
+      default: return 'bg-slate-600';
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'working': return 'Working';
+      case 'approved_day_off': return 'Approved Day Off';
+      case 'sick_leave': return 'Sick Leave';
+      default: return 'Default Schedule';
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-slate-800 rounded-lg p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h3 className="text-2xl font-bold flex items-center gap-2">
+              <Edit3 className="w-8 h-8 text-amber-500" />
+              Edit Staff Schedule
+            </h3>
+            <p className="text-slate-400 mt-1">
+              {dayName}, {date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+            </p>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-white">
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        <div className="mb-6 bg-amber-600/20 border border-amber-600 text-amber-200 px-4 py-3 rounded-lg">
+          <p className="text-sm">
+            Set individual staff member schedules for this specific date. Changes override their regular weekly schedules.
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          {staff.map(staffMember => {
+            const state = overrideStates[staffMember.user_id] || { status: 'default', notes: '' };
+            return (
+              <div key={staffMember.user_id} className="bg-slate-700 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <User className="w-5 h-5 text-slate-400" />
+                    <div>
+                      <h4 className="font-semibold">
+                        {staffMember.first_name} {staffMember.last_name}
+                      </h4>
+                      <p className="text-xs text-slate-400 capitalize">{staffMember.role}</p>
+                    </div>
+                  </div>
+                  <div className={`px-3 py-1 rounded text-sm font-medium ${getStatusColor(state.status)}`}>
+                    {getStatusLabel(state.status)}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
+                  <button
+                    onClick={() => updateStaffStatus(staffMember.user_id, 'default')}
+                    className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
+                      state.status === 'default'
+                        ? 'bg-slate-500 text-white'
+                        : 'bg-slate-600 text-slate-300 hover:bg-slate-500'
+                    }`}
+                  >
+                    Default
+                  </button>
+                  <button
+                    onClick={() => updateStaffStatus(staffMember.user_id, 'working')}
+                    className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
+                      state.status === 'working'
+                        ? 'bg-teal-600 text-white'
+                        : 'bg-slate-600 text-slate-300 hover:bg-teal-700'
+                    }`}
+                  >
+                    Working
+                  </button>
+                  <button
+                    onClick={() => updateStaffStatus(staffMember.user_id, 'approved_day_off')}
+                    className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
+                      state.status === 'approved_day_off'
+                        ? 'bg-green-600 text-white'
+                        : 'bg-slate-600 text-slate-300 hover:bg-green-700'
+                    }`}
+                  >
+                    Day Off
+                  </button>
+                  <button
+                    onClick={() => updateStaffStatus(staffMember.user_id, 'sick_leave')}
+                    className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
+                      state.status === 'sick_leave'
+                        ? 'bg-red-600 text-white'
+                        : 'bg-slate-600 text-slate-300 hover:bg-red-700'
+                    }`}
+                  >
+                    Sick
+                  </button>
+                </div>
+
+                {state.status !== 'default' && (
+                  <div>
+                    <label className="block text-xs text-slate-400 mb-1">Notes (Optional)</label>
+                    <input
+                      type="text"
+                      value={state.notes}
+                      onChange={e => updateStaffNotes(staffMember.user_id, e.target.value)}
+                      placeholder="Add notes..."
+                      className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="flex gap-3 mt-6 pt-4 border-t border-slate-600">
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex-1 px-4 py-2 bg-amber-600 hover:bg-amber-700 rounded-lg transition-colors disabled:opacity-50"
+          >
+            {saving ? 'Saving...' : 'Save Changes'}
           </button>
         </div>
       </div>
