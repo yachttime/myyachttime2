@@ -101,6 +101,8 @@ export function Estimates({ userId }: EstimatesProps) {
     work_details: ''
   });
   const [showAutoSaveIndicator, setShowAutoSaveIndicator] = useState(false);
+  const [filteredParts, setFilteredParts] = useState<typeof parts>([]);
+  const [showPartDropdown, setShowPartDropdown] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -125,6 +127,18 @@ export function Estimates({ userId }: EstimatesProps) {
     }
   }, [formData, tasks, showForm]);
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (showPartDropdown && !target.closest('.part-search-container')) {
+        setShowPartDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showPartDropdown]);
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -147,7 +161,7 @@ export function Estimates({ userId }: EstimatesProps) {
           .order('code'),
         supabase
           .from('parts_inventory')
-          .select('id, part_number, name, unit_price')
+          .select('id, part_number, name, unit_price, is_taxable')
           .eq('is_active', true)
           .order('part_number'),
         supabase
@@ -307,6 +321,8 @@ export function Estimates({ userId }: EstimatesProps) {
     });
     setShowLineItemForm(false);
     setActiveTaskIndex(null);
+    setFilteredParts([]);
+    setShowPartDropdown(false);
   };
 
   const handleRemoveLineItem = (taskIndex: number, lineIndex: number) => {
@@ -345,25 +361,34 @@ export function Estimates({ userId }: EstimatesProps) {
   const handlePartNumberSearch = (searchValue: string) => {
     setLineItemFormData({
       ...lineItemFormData,
-      part_number_search: searchValue
+      part_number_search: searchValue,
+      part_id: ''
     });
 
     if (searchValue.trim()) {
-      const matchingPart = parts.find(p =>
-        p.part_number.toLowerCase() === searchValue.toLowerCase()
+      const filtered = parts.filter(p =>
+        p.part_number.toLowerCase().includes(searchValue.toLowerCase()) ||
+        p.name.toLowerCase().includes(searchValue.toLowerCase())
       );
-
-      if (matchingPart) {
-        setLineItemFormData({
-          ...lineItemFormData,
-          part_number_search: searchValue,
-          part_id: matchingPart.id,
-          description: `${matchingPart.part_number} - ${matchingPart.name}`,
-          unit_price: matchingPart.unit_price.toString(),
-          is_taxable: matchingPart.is_taxable
-        });
-      }
+      setFilteredParts(filtered);
+      setShowPartDropdown(true);
+    } else {
+      setFilteredParts([]);
+      setShowPartDropdown(false);
     }
+  };
+
+  const handleSelectPartFromDropdown = (part: typeof parts[0]) => {
+    setLineItemFormData({
+      ...lineItemFormData,
+      part_id: part.id,
+      part_number_search: part.part_number,
+      description: `${part.part_number} - ${part.name}`,
+      unit_price: part.unit_price.toString(),
+      is_taxable: part.is_taxable
+    });
+    setShowPartDropdown(false);
+    setFilteredParts([]);
   };
 
   const calculateSubtotal = () => {
@@ -960,24 +985,47 @@ export function Estimates({ userId }: EstimatesProps) {
 
                                 {lineItemFormData.line_type === 'part' && (
                                   <>
-                                    <div>
-                                      <label className="block text-sm font-medium text-gray-700 mb-1">Part Number</label>
+                                    <div className="relative part-search-container">
+                                      <label className="block text-sm font-medium text-gray-700 mb-1">Part Number / Name</label>
                                       <input
                                         type="text"
                                         value={lineItemFormData.part_number_search}
                                         onChange={(e) => handlePartNumberSearch(e.target.value)}
-                                        placeholder="Enter part number to search..."
+                                        onFocus={() => {
+                                          if (lineItemFormData.part_number_search.trim() && filteredParts.length > 0) {
+                                            setShowPartDropdown(true);
+                                          }
+                                        }}
+                                        placeholder="Start typing part number or name..."
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
                                       />
-                                      {lineItemFormData.part_number_search && !lineItemFormData.part_id && (
-                                        <p className="text-xs text-orange-600 mt-1">No matching part found</p>
+
+                                      {showPartDropdown && filteredParts.length > 0 && (
+                                        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                                          {filteredParts.map((part) => (
+                                            <button
+                                              key={part.id}
+                                              type="button"
+                                              onClick={() => handleSelectPartFromDropdown(part)}
+                                              className="w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-gray-100 last:border-b-0 transition-colors"
+                                            >
+                                              <div className="font-medium text-gray-900">{part.part_number}</div>
+                                              <div className="text-sm text-gray-600">{part.name}</div>
+                                              <div className="text-sm text-green-600 font-medium">${part.unit_price.toFixed(2)}</div>
+                                            </button>
+                                          ))}
+                                        </div>
+                                      )}
+
+                                      {lineItemFormData.part_number_search && !lineItemFormData.part_id && !showPartDropdown && filteredParts.length === 0 && (
+                                        <p className="text-xs text-orange-600 mt-1">No matching parts found</p>
                                       )}
                                       {lineItemFormData.part_id && (
-                                        <p className="text-xs text-green-600 mt-1">Part found and selected</p>
+                                        <p className="text-xs text-green-600 mt-1">Part selected</p>
                                       )}
                                     </div>
                                     <div>
-                                      <label className="block text-sm font-medium text-gray-700 mb-1">Or Select Part</label>
+                                      <label className="block text-sm font-medium text-gray-700 mb-1">Or Browse All Parts</label>
                                       <select
                                         value={lineItemFormData.part_id}
                                         onChange={(e) => handlePartChange(e.target.value)}
