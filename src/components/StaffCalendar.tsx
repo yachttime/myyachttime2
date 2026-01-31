@@ -22,6 +22,11 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
   const canAccessCalendar = userProfile?.role === 'staff' || userProfile?.role === 'mechanic';
   const canManageSchedules = canAccessCalendar;
 
+  console.log('User role:', userProfile?.role);
+  console.log('canAccessCalendar:', canAccessCalendar);
+  console.log('canManageSchedules:', canManageSchedules);
+  console.log('allStaff count:', allStaff.length);
+
   if (!canAccessCalendar) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white flex items-center justify-center">
@@ -122,11 +127,12 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
         const { data: staffData, error: staffError } = await supabase
           .from('user_profiles')
           .select('*')
-          .in('role', ['staff', 'manager', 'mechanic'])
+          .in('role', ['staff', 'mechanic'])
           .eq('is_active', true)
           .order('first_name', { ascending: true });
 
         if (staffError) throw staffError;
+        console.log('Staff data loaded:', staffData);
         setAllStaff(staffData || []);
       }
     } catch (error) {
@@ -870,6 +876,8 @@ function WorkScheduleModal({ staff, onClose }: { staff: UserProfile[]; onClose: 
   const [saving, setSaving] = useState(false);
 
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  console.log('WorkScheduleModal received staff:', staff);
 
   useEffect(() => {
     if (selectedStaffId) {
