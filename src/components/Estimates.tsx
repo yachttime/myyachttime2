@@ -28,6 +28,7 @@ interface EstimateLineItem {
   labor_code_id?: string | null;
   part_id?: string | null;
   line_order: number;
+  work_details?: string | null;
 }
 
 interface EstimatesProps {
@@ -63,7 +64,8 @@ export function Estimates({ userId }: EstimatesProps) {
     quantity: '1',
     unit_price: '0',
     labor_code_id: '',
-    part_id: ''
+    part_id: '',
+    work_details: ''
   });
 
   useEffect(() => {
@@ -126,7 +128,8 @@ export function Estimates({ userId }: EstimatesProps) {
       total_price: quantity * unit_price,
       labor_code_id: lineItemFormData.labor_code_id || null,
       part_id: lineItemFormData.part_id || null,
-      line_order: lineItems.length
+      line_order: lineItems.length,
+      work_details: lineItemFormData.work_details || null
     };
 
     setLineItems([...lineItems, newLineItem]);
@@ -137,7 +140,8 @@ export function Estimates({ userId }: EstimatesProps) {
       quantity: '1',
       unit_price: '0',
       labor_code_id: '',
-      part_id: ''
+      part_id: '',
+      work_details: ''
     });
     setShowLineItemForm(false);
   };
@@ -454,6 +458,17 @@ export function Estimates({ userId }: EstimatesProps) {
                     />
                   </div>
 
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Work Details / Notes</label>
+                    <textarea
+                      value={lineItemFormData.work_details}
+                      onChange={(e) => setLineItemFormData({ ...lineItemFormData, work_details: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
+                      rows={3}
+                      placeholder="Describe the work performed or additional details..."
+                    />
+                  </div>
+
                   <div className="grid grid-cols-3 gap-3">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -528,12 +543,17 @@ export function Estimates({ userId }: EstimatesProps) {
                         <tr key={index} className="border-t">
                           <td className="px-3 py-2">
                             <span className="text-xs text-gray-500 uppercase">{item.line_type}</span>
-                            <div>{item.description}</div>
+                            <div className="font-medium">{item.description}</div>
+                            {item.work_details && (
+                              <div className="text-xs text-gray-600 mt-1 whitespace-pre-wrap">
+                                {item.work_details}
+                              </div>
+                            )}
                           </td>
-                          <td className="px-3 py-2 text-right">{item.quantity}</td>
-                          <td className="px-3 py-2 text-right">${item.unit_price.toFixed(2)}</td>
-                          <td className="px-3 py-2 text-right">${item.total_price.toFixed(2)}</td>
-                          <td className="px-3 py-2 text-right">
+                          <td className="px-3 py-2 text-right align-top">{item.quantity}</td>
+                          <td className="px-3 py-2 text-right align-top">${item.unit_price.toFixed(2)}</td>
+                          <td className="px-3 py-2 text-right align-top">${item.total_price.toFixed(2)}</td>
+                          <td className="px-3 py-2 text-right align-top">
                             <button
                               type="button"
                               onClick={() => handleRemoveLineItem(index)}
