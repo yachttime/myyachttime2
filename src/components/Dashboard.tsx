@@ -1399,7 +1399,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         .select('*')
         .eq('is_active', true);
 
-      if (isManagerRole(userProfile?.role) && userProfile.yacht_id) {
+      if (userProfile?.role === 'manager' && userProfile.yacht_id) {
         query = query.eq('id', userProfile.yacht_id);
       }
 
