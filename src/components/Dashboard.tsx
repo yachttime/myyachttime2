@@ -16,6 +16,7 @@ import { PrintableOwnerTrips } from './PrintableOwnerTrips';
 import { EmailComposeModal } from './EmailComposeModal';
 import { YachtQRCode } from './YachtQRCode';
 import { StaffCalendar } from './StaffCalendar';
+import { TimeClock } from './TimeClock';
 import { uploadFileToStorage, deleteFileFromStorage, isStorageUrl, UploadProgress, isTokenExpiredError } from '../utils/fileUpload';
 
 interface DashboardProps {
@@ -35,7 +36,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [videos, setVideos] = useState<EducationVideo[]>([]);
   const [welcomeVideo, setWelcomeVideo] = useState<EducationVideo | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'calendar' | 'maintenance' | 'education' | 'admin' | 'staffCalendar'>('calendar');
+  const [activeTab, setActiveTab] = useState<'calendar' | 'maintenance' | 'education' | 'admin' | 'staffCalendar' | 'timeClock'>('calendar');
   const [activeBooking, setActiveBooking] = useState<YachtBooking | null>(null);
   const [selectedVideo, setSelectedVideo] = useState<EducationVideo | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -4298,8 +4299,24 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                   : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
               }`}
             >
-              <Clock className="w-5 h-5" />
+              <CalendarPlus className="w-5 h-5" />
               <span className="font-medium">Staff Schedule</span>
+            </button>
+          )}
+          {isStaffRole(effectiveRole) && (
+            <button
+              onClick={() => {
+                setActiveTab('timeClock');
+                setSidebarOpen(false);
+              }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                activeTab === 'timeClock'
+                  ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+              }`}
+            >
+              <Clock className="w-5 h-5" />
+              <span className="font-medium">Time Clock</span>
             </button>
           )}
           {(isStaffOrManager(effectiveRole) || isOwnerRole(effectiveRole)) && (
@@ -5514,6 +5531,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           {activeTab === 'staffCalendar' && (
             <div>
               <StaffCalendar onBack={() => setActiveTab('calendar')} />
+            </div>
+          )}
+
+          {activeTab === 'timeClock' && (
+            <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700">
+              <TimeClock />
             </div>
           )}
 

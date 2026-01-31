@@ -730,3 +730,236 @@ export function generateOwnerTripsPDF(trips: YachtBooking[], yachtName: string):
 
   return doc;
 }
+
+interface EmployeeReport {
+  user: {
+    user_id: string;
+    first_name: string;
+    last_name: string;
+    employee_type: 'hourly' | 'salary';
+  };
+  entries: any[];
+  totalStandardHours: number;
+  totalOvertimeHours: number;
+  totalHours: number;
+}
+
+export async function generatePayrollReportPDF(
+  employeeReports: EmployeeReport[],
+  startDate: string,
+  endDate: string,
+  yachtMap: Record<string, string>
+): Promise<void> {
+  const doc = new jsPDF({
+    orientation: 'landscape',
+    unit: 'in',
+    format: 'letter',
+  });
+
+  const pageWidth = 11;
+  const pageHeight = 8.5;
+  const margin = 0.5;
+  const contentWidth = pageWidth - (margin * 2);
+  let yPos = margin;
+
+  const addText = (text: string, fontSize: number = 10, style: 'normal' | 'bold' = 'normal', align: 'left' | 'center' | 'right' = 'left') => {
+    doc.setFontSize(fontSize);
+    doc.setFont('helvetica', style);
+
+    if (yPos > pageHeight - margin) {
+      doc.addPage();
+      yPos = margin;
+    }
+
+    if (align === 'center') {
+      const textWidth = doc.getTextWidth(text);
+      doc.text(text, (pageWidth - textWidth) / 2, yPos);
+    } else if (align === 'right') {
+      doc.text(text, pageWidth - margin, yPos, { align: 'right' });
+    } else {
+      doc.text(text, margin, yPos);
+    }
+    yPos += fontSize / 72 * 1.2;
+  };
+
+  const addSpace = (inches: number = 0.15) => {
+    yPos += inches;
+    if (yPos > pageHeight - margin) {
+      doc.addPage();
+      yPos = margin;
+    }
+  };
+
+  addText('PAYROLL REPORT', 16, 'bold', 'center');
+  addText(`Pay Period: ${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}`, 12, 'normal', 'center');
+  addSpace(0.3);
+
+  const summaryHeaders = [['Employee', 'Type', 'Standard Hours', 'Overtime Hours', 'Total Hours']];
+  const summaryData = employeeReports.map(report => {
+    return [
+      `${report.user.last_name}, ${report.user.first_name}`,
+      report.user.employee_type === 'hourly' ? 'Hourly' : 'Salary',
+      report.totalStandardHours.toFixed(2),
+      report.totalOvertimeHours.toFixed(2),
+      report.totalHours.toFixed(2)
+    ];
+  });
+
+  const grandTotalStandard = employeeReports.reduce((sum, r) => sum + r.totalStandardHours, 0);
+  const grandTotalOvertime = employeeReports.reduce((sum, r) => sum + r.totalOvertimeHours, 0);
+  const grandTotal = grandTotalStandard + grandTotalOvertime;
+
+  summaryData.push([
+    'TOTALS',
+    '',
+    grandTotalStandard.toFixed(2),
+    grandTotalOvertime.toFixed(2),
+    grandTotal.toFixed(2)
+  ]);
+
+  autoTable(doc, {
+    startY: yPos,
+    head: summaryHeaders,
+    body: summaryData,
+    theme: 'grid',
+    styles: {
+      fontSize: 10,
+      cellPadding: 0.08,
+      font: 'helvetica'
+    },
+    headStyles: {
+      fillColor: [59, 130, 246],
+      textColor: [255, 255, 255],
+      fontStyle: 'bold'
+    },
+    columnStyles: {
+      0: { cellWidth: 2.5 },
+      1: { cellWidth: 1.5 },
+      2: { halign: 'right', cellWidth: 2.0 },
+      3: { halign: 'right', cellWidth: 2.0 },
+      4: { halign: 'right', cellWidth: 2.0, fontStyle: 'bold' }
+    },
+    didParseCell: function(data: any) {
+      if (data.row.index === summaryData.length - 1) {
+        data.cell.styles.fontStyle = 'bold';
+        data.cell.styles.fillColor = [243, 244, 246];
+      }
+    },
+    margin: { left: margin, right: margin },
+  });
+
+  yPos = (doc as any).lastAutoTable.finalY + 0.4;
+
+  employeeReports.forEach((report, reportIndex) => {
+    if (report.entries.length === 0) return;
+
+    if (yPos > pageHeight - 2) {
+      doc.addPage();
+      yPos = margin;
+    }
+
+    addText(`${report.user.last_name}, ${report.user.first_name} - Detailed Time Entries`, 12, 'bold');
+    addSpace(0.1);
+
+    const detailHeaders = [['Date', 'Yacht', 'Punch In', 'Punch Out', 'Lunch', 'Std Hours', 'OT Hours', 'Total', 'Notes']];
+    const detailData = report.entries.map(entry => {
+      const date = new Date(entry.punch_in_time).toLocaleDateString();
+      const yacht = entry.yacht_id ? yachtMap[entry.yacht_id] || 'N/A' : 'N/A';
+      const punchIn = new Date(entry.punch_in_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      const punchOut = entry.punch_out_time
+        ? new Date(entry.punch_out_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+        : 'Active';
+
+      let lunch = 'N/A';
+      if (report.user.employee_type === 'salary') {
+        lunch = '1h (auto)';
+      } else if (entry.lunch_break_start && entry.lunch_break_end) {
+        const lunchStart = new Date(entry.lunch_break_start).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        const lunchEnd = new Date(entry.lunch_break_end).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        lunch = `${lunchStart}-${lunchEnd}`;
+      }
+
+      const notes = entry.notes || '';
+      const editFlag = entry.is_edited ? ' [EDITED]' : '';
+
+      return [
+        date,
+        yacht,
+        punchIn,
+        punchOut,
+        lunch,
+        entry.standard_hours?.toFixed(2) || '0.00',
+        entry.overtime_hours?.toFixed(2) || '0.00',
+        entry.total_hours?.toFixed(2) || '0.00',
+        notes + editFlag
+      ];
+    });
+
+    detailData.push([
+      'SUBTOTAL',
+      '',
+      '',
+      '',
+      '',
+      report.totalStandardHours.toFixed(2),
+      report.totalOvertimeHours.toFixed(2),
+      report.totalHours.toFixed(2),
+      ''
+    ]);
+
+    autoTable(doc, {
+      startY: yPos,
+      head: detailHeaders,
+      body: detailData,
+      theme: 'grid',
+      styles: {
+        fontSize: 8,
+        cellPadding: 0.05,
+        font: 'helvetica'
+      },
+      headStyles: {
+        fillColor: [229, 231, 235],
+        textColor: [0, 0, 0],
+        fontStyle: 'bold',
+        fontSize: 8
+      },
+      columnStyles: {
+        0: { cellWidth: 0.9 },
+        1: { cellWidth: 1.2 },
+        2: { cellWidth: 0.9 },
+        3: { cellWidth: 0.9 },
+        4: { cellWidth: 1.1 },
+        5: { halign: 'right', cellWidth: 0.7 },
+        6: { halign: 'right', cellWidth: 0.7 },
+        7: { halign: 'right', cellWidth: 0.7, fontStyle: 'bold' },
+        8: { cellWidth: 2.9, fontSize: 7 }
+      },
+      didParseCell: function(data: any) {
+        if (data.row.index === detailData.length - 1) {
+          data.cell.styles.fontStyle = 'bold';
+          data.cell.styles.fillColor = [243, 244, 246];
+        }
+        if (data.column.index === 8 && data.cell.text[0] && data.cell.text[0].includes('[EDITED]')) {
+          data.cell.styles.textColor = [234, 88, 12];
+        }
+      },
+      margin: { left: margin, right: margin },
+    });
+
+    yPos = (doc as any).lastAutoTable.finalY + 0.3;
+  });
+
+  const pageCount = doc.getNumberOfPages();
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(100);
+
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, margin, pageHeight - 0.3);
+    doc.text(`Page ${i} of ${pageCount}`, pageWidth - margin - 0.5, pageHeight - 0.3, { align: 'right' });
+  }
+
+  const fileName = `Payroll_Report_${new Date(startDate).toLocaleDateString().replace(/\//g, '-')}_to_${new Date(endDate).toLocaleDateString().replace(/\//g, '-')}.pdf`;
+  doc.save(fileName);
+}
