@@ -973,12 +973,12 @@ export async function generateEstimatePDF(
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.text('Customer Information', rightColumnX, yPos);
-  yPos += 0.13;
+  yPos += 0.15;
 
   doc.setDrawColor(0);
   doc.setLineWidth(0.01);
   doc.line(rightColumnX, yPos, pageWidth - margin, yPos);
-  yPos += 0.08;
+  yPos += 0.12;
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
