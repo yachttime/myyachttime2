@@ -808,6 +808,8 @@ export async function generateEstimatePDF(
   };
 
   let logoAdded = false;
+  let logoWidth = 0;
+  let logoHeight = 0;
 
   if (companyInfo?.logo_url) {
     try {
@@ -819,16 +821,40 @@ export async function generateEstimatePDF(
         reader.onloadend = () => {
           try {
             const base64data = reader.result as string;
-            const logoWidth = 1.5;
-            const logoHeight = 1.5;
-            const logoX = margin;
-            const logoY = yPos;
 
-            doc.addImage(base64data, 'PNG', logoX, logoY, logoWidth, logoHeight);
-            logoAdded = true;
-            resolve(true);
+            const img = new Image();
+            img.onload = () => {
+              try {
+                const maxLogoWidth = 2.0;
+                const maxLogoHeight = 1.5;
+
+                const aspectRatio = img.width / img.height;
+                logoWidth = maxLogoWidth;
+                logoHeight = logoWidth / aspectRatio;
+
+                if (logoHeight > maxLogoHeight) {
+                  logoHeight = maxLogoHeight;
+                  logoWidth = logoHeight * aspectRatio;
+                }
+
+                const logoX = margin;
+                const logoY = yPos;
+
+                doc.addImage(base64data, 'PNG', logoX, logoY, logoWidth, logoHeight);
+                logoAdded = true;
+                resolve(true);
+              } catch (err) {
+                console.warn('Could not add logo to PDF:', err);
+                resolve(false);
+              }
+            };
+            img.onerror = () => {
+              console.warn('Could not load logo image');
+              resolve(false);
+            };
+            img.src = base64data;
           } catch (err) {
-            console.warn('Could not add logo to PDF:', err);
+            console.warn('Could not process logo:', err);
             resolve(false);
           }
         };
@@ -841,7 +867,7 @@ export async function generateEstimatePDF(
   }
 
   if (logoAdded) {
-    const companyInfoX = margin + 1.7;
+    const companyInfoX = margin + logoWidth + 0.2;
     const originalYPos = yPos;
     yPos = originalYPos;
 
@@ -888,7 +914,7 @@ export async function generateEstimatePDF(
       yPos += 0.14;
     }
 
-    yPos = Math.max(yPos, originalYPos + 1.5);
+    yPos = Math.max(yPos, originalYPos + logoHeight);
   } else {
     if (companyInfo?.company_name) {
       addText(companyInfo.company_name, 14, 'bold', 'center');
