@@ -1096,19 +1096,67 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                 </div>
               </div>
             ) : (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Yacht</label>
-                <select
-                  value={formData.yacht_id}
-                  disabled
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-gray-50 text-gray-900"
-                >
-                  <option value="">Select a yacht</option>
-                  {yachts.map((yacht) => (
-                    <option key={yacht.id} value={yacht.id}>{yacht.name}</option>
-                  ))}
-                </select>
-              </div>
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Yacht</label>
+                  <select
+                    value={formData.yacht_id}
+                    disabled
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-gray-50 text-gray-900"
+                  >
+                    <option value="">Select a yacht</option>
+                    {yachts.map((yacht) => (
+                      <option key={yacht.id} value={yacht.id}>{yacht.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 bg-blue-50 p-4 rounded-lg border border-blue-200">
+                  <div className="col-span-2">
+                    <h4 className="text-sm font-semibold text-blue-900 mb-2">Billing Manager Information</h4>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Marina Name</label>
+                    <input
+                      type="text"
+                      value={formData.marina_name}
+                      onChange={(e) => setFormData({ ...formData, marina_name: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
+                      placeholder="Marina name"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Manager Name</label>
+                    <input
+                      type="text"
+                      value={formData.manager_name}
+                      onChange={(e) => setFormData({ ...formData, manager_name: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
+                      placeholder="Manager name"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Manager Email</label>
+                    <input
+                      type="email"
+                      value={formData.manager_email}
+                      onChange={(e) => setFormData({ ...formData, manager_email: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
+                      placeholder="manager@example.com"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Manager Phone</label>
+                    <input
+                      type="tel"
+                      value={formData.manager_phone}
+                      onChange={(e) => setFormData({ ...formData, manager_phone: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
+                      placeholder="(555) 123-4567"
+                    />
+                  </div>
+                </div>
+              </>
             )}
 
             {/* Tasks Section - Same as Estimates */}

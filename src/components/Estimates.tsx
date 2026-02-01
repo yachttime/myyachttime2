@@ -1188,26 +1188,49 @@ export function Estimates({ userId }: EstimatesProps) {
                 )}
 
                 {formData.yacht_id && (
-                  <div className="mt-4 grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Marina</label>
-                      <input
-                        type="text"
-                        value={formData.marina_name}
-                        readOnly
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700"
-                        placeholder="No marina assigned"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Repair Approval Manager</label>
-                      <input
-                        type="text"
-                        value={formData.manager_name}
-                        readOnly
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700"
-                        placeholder="No manager assigned"
-                      />
+                  <div className="mt-4 bg-blue-50 p-4 rounded-lg border border-blue-200">
+                    <h4 className="text-sm font-semibold text-blue-900 mb-3">Billing Manager Information</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Marina Name</label>
+                        <input
+                          type="text"
+                          value={formData.marina_name}
+                          onChange={(e) => setFormData({ ...formData, marina_name: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
+                          placeholder="Marina name"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Manager Name</label>
+                        <input
+                          type="text"
+                          value={formData.manager_name}
+                          onChange={(e) => setFormData({ ...formData, manager_name: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
+                          placeholder="Manager name"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Manager Email</label>
+                        <input
+                          type="email"
+                          value={formData.manager_email}
+                          onChange={(e) => setFormData({ ...formData, manager_email: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
+                          placeholder="manager@example.com"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Manager Phone</label>
+                        <input
+                          type="tel"
+                          value={formData.manager_phone}
+                          onChange={(e) => setFormData({ ...formData, manager_phone: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
+                          placeholder="(555) 123-4567"
+                        />
+                      </div>
                     </div>
                   </div>
                 )}
