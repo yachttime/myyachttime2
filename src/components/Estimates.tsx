@@ -163,6 +163,7 @@ export function Estimates({ userId }: EstimatesProps) {
         supabase
           .from('estimates')
           .select('*, yachts(name)')
+          .neq('status', 'converted')
           .order('created_at', { ascending: false }),
         supabase
           .from('yachts')
