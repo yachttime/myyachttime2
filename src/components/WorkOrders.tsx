@@ -862,7 +862,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                     type="text"
                     value={formData.customer_name}
                     onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
@@ -871,7 +871,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                     type="email"
                     value={formData.customer_email}
                     onChange={(e) => setFormData({ ...formData, customer_email: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
@@ -880,7 +880,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                     type="tel"
                     value={formData.customer_phone}
                     onChange={(e) => setFormData({ ...formData, customer_phone: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
@@ -1290,7 +1290,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                           step="0.01"
                           value={(parseFloat(formData.sales_tax_rate) * 100).toFixed(2)}
                           onChange={(e) => setFormData({ ...formData, sales_tax_rate: (parseFloat(e.target.value) / 100).toString() })}
-                          className="w-16 px-1.5 py-0.5 text-right border border-gray-300 rounded text-xs"
+                          className="w-16 px-1.5 py-0.5 text-right border border-gray-300 rounded text-xs bg-white text-gray-900"
                         />
                         <span className="text-xs text-gray-500">= ${calculateSalesTax().toFixed(2)}</span>
                       </div>
@@ -1313,7 +1313,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                           value={(parseFloat(formData.shop_supplies_rate) * 100).toFixed(2)}
                           onChange={(e) => setFormData({ ...formData, shop_supplies_rate: (parseFloat(e.target.value) / 100).toString() })}
                           disabled={!formData.apply_shop_supplies}
-                          className="w-16 px-1.5 py-0.5 text-right border border-gray-300 rounded text-xs disabled:bg-gray-100"
+                          className="w-16 px-1.5 py-0.5 text-right border border-gray-300 rounded text-xs bg-white text-gray-900 disabled:bg-gray-100"
                         />
                         <span className="text-xs text-gray-500">= ${calculateShopSupplies().toFixed(2)}</span>
                       </div>
@@ -1336,7 +1336,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                           value={(parseFloat(formData.park_fees_rate) * 100).toFixed(2)}
                           onChange={(e) => setFormData({ ...formData, park_fees_rate: (parseFloat(e.target.value) / 100).toString() })}
                           disabled={!formData.apply_park_fees}
-                          className="w-16 px-1.5 py-0.5 text-right border border-gray-300 rounded text-xs disabled:bg-gray-100"
+                          className="w-16 px-1.5 py-0.5 text-right border border-gray-300 rounded text-xs bg-white text-gray-900 disabled:bg-gray-100"
                         />
                         <span className="text-xs text-gray-500">= ${calculateParkFees().toFixed(2)}</span>
                       </div>
@@ -1350,7 +1350,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                           step="0.01"
                           value={(parseFloat(formData.surcharge_rate) * 100).toFixed(2)}
                           onChange={(e) => setFormData({ ...formData, surcharge_rate: (parseFloat(e.target.value) / 100).toString() })}
-                          className="w-16 px-1.5 py-0.5 text-right border border-gray-300 rounded text-xs"
+                          className="w-16 px-1.5 py-0.5 text-right border border-gray-300 rounded text-xs bg-white text-gray-900"
                         />
                         <span className="text-xs text-gray-500">= ${calculateSurcharge().toFixed(2)}</span>
                       </div>
