@@ -744,11 +744,12 @@ interface EmployeeReport {
   totalHours: number;
 }
 
-export function generateEstimatePDF(
+export async function generateEstimatePDF(
   estimate: any,
   tasks: any[],
-  yachtName: string | null
-): jsPDF {
+  yachtName: string | null,
+  companyInfo?: any
+): Promise<jsPDF> {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'in',
@@ -806,9 +807,125 @@ export function generateEstimatePDF(
     yPos += 0.1;
   };
 
-  addText('AZ MARINE SERVICES', 14, 'bold', 'center');
+  let logoAdded = false;
+
+  if (companyInfo?.logo_url) {
+    try {
+      const response = await fetch(companyInfo.logo_url);
+      const blob = await response.blob();
+      const reader = new FileReader();
+
+      await new Promise((resolve, reject) => {
+        reader.onloadend = () => {
+          try {
+            const base64data = reader.result as string;
+            const logoWidth = 1.5;
+            const logoHeight = 1.5;
+            const logoX = margin;
+            const logoY = yPos;
+
+            doc.addImage(base64data, 'PNG', logoX, logoY, logoWidth, logoHeight);
+            logoAdded = true;
+            resolve(true);
+          } catch (err) {
+            console.warn('Could not add logo to PDF:', err);
+            resolve(false);
+          }
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch (err) {
+      console.warn('Could not load logo for PDF:', err);
+    }
+  }
+
+  if (logoAdded) {
+    const companyInfoX = margin + 1.7;
+    const originalYPos = yPos;
+    yPos = originalYPos;
+
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text(companyInfo?.company_name || 'AZ MARINE SERVICES', companyInfoX, yPos);
+    yPos += 0.18;
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+
+    if (companyInfo?.address_line1) {
+      doc.text(companyInfo.address_line1, companyInfoX, yPos);
+      yPos += 0.14;
+    }
+
+    if (companyInfo?.address_line2) {
+      doc.text(companyInfo.address_line2, companyInfoX, yPos);
+      yPos += 0.14;
+    }
+
+    if (companyInfo?.city || companyInfo?.state || companyInfo?.zip_code) {
+      const cityStateZip = [
+        companyInfo.city,
+        companyInfo.state,
+        companyInfo.zip_code
+      ].filter(Boolean).join(', ');
+      doc.text(cityStateZip, companyInfoX, yPos);
+      yPos += 0.14;
+    }
+
+    if (companyInfo?.phone) {
+      doc.text(`Phone: ${companyInfo.phone}`, companyInfoX, yPos);
+      yPos += 0.14;
+    }
+
+    if (companyInfo?.email) {
+      doc.text(`Email: ${companyInfo.email}`, companyInfoX, yPos);
+      yPos += 0.14;
+    }
+
+    if (companyInfo?.website) {
+      doc.text(`Web: ${companyInfo.website}`, companyInfoX, yPos);
+      yPos += 0.14;
+    }
+
+    yPos = Math.max(yPos, originalYPos + 1.5);
+  } else {
+    if (companyInfo?.company_name) {
+      addText(companyInfo.company_name, 14, 'bold', 'center');
+    } else {
+      addText('AZ MARINE SERVICES', 14, 'bold', 'center');
+    }
+
+    if (companyInfo?.address_line1) {
+      addText(companyInfo.address_line1, 9, 'normal', 'center');
+    }
+
+    if (companyInfo?.city || companyInfo?.state || companyInfo?.zip_code) {
+      const cityStateZip = [
+        companyInfo?.city,
+        companyInfo?.state,
+        companyInfo?.zip_code
+      ].filter(Boolean).join(', ');
+      addText(cityStateZip, 9, 'normal', 'center');
+    }
+
+    if (companyInfo?.phone) {
+      addText(`Phone: ${companyInfo.phone}`, 9, 'normal', 'center');
+    }
+
+    if (companyInfo?.email) {
+      addText(`Email: ${companyInfo.email}`, 9, 'normal', 'center');
+    }
+
+    if (companyInfo?.website) {
+      addText(`Web: ${companyInfo.website}`, 9, 'normal', 'center');
+    }
+
+    addSpace(0.1);
+  }
+
   addSpace(0.05);
-  addText('Estimate', 18, 'bold', 'center');
+  addText('ESTIMATE', 18, 'bold', 'center');
   addSpace(0.3);
 
   addText(`Estimate #: ${estimate.estimate_number}`, 11, 'bold');

@@ -958,6 +958,14 @@ export function Estimates({ userId }: EstimatesProps) {
 
       if (estimateError) throw estimateError;
 
+      const { data: companyInfo, error: companyError } = await supabase
+        .from('company_info')
+        .select('*')
+        .limit(1)
+        .maybeSingle();
+
+      if (companyError) console.warn('Could not load company info:', companyError);
+
       const { data: tasksData, error: tasksError } = await supabase
         .from('estimate_tasks')
         .select('*')
@@ -984,7 +992,7 @@ export function Estimates({ userId }: EstimatesProps) {
       );
 
       const yachtName = estimateData.yachts?.name || null;
-      const pdf = generateEstimatePDF(estimateData, tasksWithLineItems, yachtName);
+      const pdf = await generateEstimatePDF(estimateData, tasksWithLineItems, yachtName, companyInfo);
 
       const pdfBlob = pdf.output('blob');
       const pdfUrl = URL.createObjectURL(pdfBlob);
