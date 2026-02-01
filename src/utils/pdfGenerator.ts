@@ -1163,6 +1163,31 @@ export async function generateEstimatePDF(
   }
 
   if (estimate.customer_notes) {
+    const lines = estimate.customer_notes.split('\n');
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    let totalWrappedLines = 0;
+    let emptyLineCount = 0;
+
+    lines.forEach(line => {
+      if (line.trim()) {
+        const wrappedLines = doc.splitTextToSize(line, contentWidth);
+        totalWrappedLines += wrappedLines.length;
+      } else {
+        emptyLineCount++;
+      }
+    });
+
+    const lineHeight = 8 / 72 * 1.2;
+    const titleHeight = 11 / 72 * 1.2;
+    const estimatedHeight = 0.3 + 0.15 + titleHeight + 0.1 + (totalWrappedLines * lineHeight) + (emptyLineCount * 0.1) + 0.3;
+
+    if (yPos + estimatedHeight > 10.25) {
+      doc.addPage();
+      yPos = margin;
+    }
+
     addSpace(0.3);
     doc.setDrawColor(0);
     doc.setLineWidth(0.02);
@@ -1172,7 +1197,6 @@ export async function generateEstimatePDF(
     addText('TERMS AND CONDITIONS', 11, 'bold');
     addSpace(0.1);
 
-    const lines = estimate.customer_notes.split('\n');
     lines.forEach(line => {
       if (line.trim()) {
         addText(line, 8);
