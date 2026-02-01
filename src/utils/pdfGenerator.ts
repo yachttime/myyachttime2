@@ -1092,7 +1092,7 @@ export async function generateEstimatePDF(
   doc.setDrawColor(0);
   doc.setLineWidth(0.03);
   doc.line(margin + 3.5, yPos, pageWidth - margin, yPos);
-  yPos += 0.15;
+  yPos += 0.1125;
 
   const summaryData = [
     ['Subtotal:', `$${estimate.subtotal.toFixed(2)}`],
@@ -1117,8 +1117,8 @@ export async function generateEstimatePDF(
     body: summaryData,
     theme: 'plain',
     styles: {
-      fontSize: 10,
-      cellPadding: 0.05,
+      fontSize: 7.5,
+      cellPadding: 0.0375,
       font: 'helvetica'
     },
     columnStyles: {
@@ -1133,15 +1133,15 @@ export async function generateEstimatePDF(
 
   doc.setLineWidth(0.03);
   doc.line(margin + 3.5, yPos, pageWidth - margin, yPos);
-  yPos += 0.15;
+  yPos += 0.1125;
 
   autoTable(doc, {
     startY: yPos,
     body: [['TOTAL:', `$${estimate.total_amount.toFixed(2)}`]],
     theme: 'plain',
     styles: {
-      fontSize: 12,
-      cellPadding: 0.05,
+      fontSize: 9,
+      cellPadding: 0.0375,
       font: 'helvetica',
       fontStyle: 'bold'
     },
