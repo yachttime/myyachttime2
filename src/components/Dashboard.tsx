@@ -3236,8 +3236,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         `)
         .order('start_date', { ascending: false });
 
-      // Filter by yacht_id for managers and owners
-      if ((isManagerRole(effectiveRole) || isOwnerRole(effectiveRole)) && effectiveYacht) {
+      // Filter by yacht_id for managers and owners (but not master role)
+      if ((effectiveRole === 'manager' || effectiveRole === 'owner') && effectiveYacht) {
         console.log('Master Calendar: Filtering for yacht:', effectiveYacht.id);
         bookingsQuery = bookingsQuery.eq('yacht_id', effectiveYacht.id);
       }
@@ -3257,7 +3257,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         .select('*')
         .order('date', { ascending: false });
 
-      if ((isManagerRole(effectiveRole) || isOwnerRole(effectiveRole)) && effectiveYacht) {
+      if ((effectiveRole === 'manager' || effectiveRole === 'owner') && effectiveYacht) {
         appointmentsQuery = appointmentsQuery.eq('yacht_name', effectiveYacht.name);
       }
 
@@ -4163,8 +4163,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const getBookingsForDate = (date: Date) => {
     const dateStr = date.toDateString();
     return masterCalendarBookings.filter(booking => {
-      // Filter by yacht if user is owner (but not if master)
-      if (effectiveRole === 'owner' && effectiveYacht && booking.yacht_id !== effectiveYacht.id) {
+      // Filter by yacht if user is owner or manager (but not staff, mechanic, or master)
+      if ((effectiveRole === 'owner' || effectiveRole === 'manager') && effectiveYacht && booking.yacht_id !== effectiveYacht.id) {
         return false;
       }
 
