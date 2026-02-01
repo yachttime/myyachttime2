@@ -3236,9 +3236,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         `)
         .order('start_date', { ascending: false });
 
-      // Filter by yacht_id for managers
-      if (isManagerRole(effectiveRole) && effectiveYacht) {
-        console.log('Master Calendar: Filtering for manager yacht:', effectiveYacht.id);
+      // Filter by yacht_id for managers and owners
+      if ((isManagerRole(effectiveRole) || isOwnerRole(effectiveRole)) && effectiveYacht) {
+        console.log('Master Calendar: Filtering for yacht:', effectiveYacht.id);
         bookingsQuery = bookingsQuery.eq('yacht_id', effectiveYacht.id);
       }
 
@@ -3257,7 +3257,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         .select('*')
         .order('date', { ascending: false });
 
-      if (isManagerRole(effectiveRole) && effectiveYacht) {
+      if ((isManagerRole(effectiveRole) || isOwnerRole(effectiveRole)) && effectiveYacht) {
         appointmentsQuery = appointmentsQuery.eq('yacht_name', effectiveYacht.name);
       }
 
