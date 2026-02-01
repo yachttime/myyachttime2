@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { RoleImpersonationProvider } from './contexts/RoleImpersonationContext';
 import { YachtImpersonationProvider } from './contexts/YachtImpersonationContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 import { Welcome } from './components/Welcome';
 import { SignIn } from './components/SignIn';
 import { Dashboard } from './components/Dashboard';
@@ -72,11 +73,13 @@ function AppContent() {
 function App() {
   return (
     <AuthProvider>
-      <RoleImpersonationProvider>
-        <YachtImpersonationProvider>
-          <AppContent />
-        </YachtImpersonationProvider>
-      </RoleImpersonationProvider>
+      <NotificationProvider>
+        <RoleImpersonationProvider>
+          <YachtImpersonationProvider>
+            <AppContent />
+          </YachtImpersonationProvider>
+        </RoleImpersonationProvider>
+      </NotificationProvider>
     </AuthProvider>
   );
 }

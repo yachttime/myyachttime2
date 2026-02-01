@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Plus, FileText, AlertCircle, Edit2, Trash2, Check, X, ChevronDown, ChevronUp, Printer, CheckCircle, XCircle } from 'lucide-react';
 import { generateEstimatePDF } from '../utils/pdfGenerator';
+import { useNotification } from '../contexts/NotificationContext';
 
 const DEFAULT_CUSTOMER_NOTES = `I hereby authorize the above repair work to be done along with necessary materials. It is distinctly understood that all labor and materials so used shall be charged to this job at current billing rates. You and your employees may operate above equipment for purpose of testing, inspecting or delivering at my risk. An express mechanic's lien is acknowledged to secure the amount of repairs thereto. It is understood that this company assumes no responsibility for loss or damage by fire or theft or weather hazards incidental to equipment or materials placed with them for sale, repair or testing. If legal action is necessary to enforce this contract I will pay all reasonable attorney's fees and other costs incurred. All payments are C.O.D. unless prior arrangements are made. If equipment is not removed within 10 days after completion of service, storage charges will accrue at $15 per day.
 
@@ -62,6 +63,7 @@ interface EstimatesProps {
 }
 
 export function Estimates({ userId }: EstimatesProps) {
+  const { showSuccess, showError } = useNotification();
   const [estimates, setEstimates] = useState<Estimate[]>([]);
   const [yachts, setYachts] = useState<any[]>([]);
   const [managers, setManagers] = useState<any[]>([]);
@@ -656,7 +658,7 @@ export function Estimates({ userId }: EstimatesProps) {
         }
       }
 
-      alert(editingId ? 'Estimate updated successfully!' : 'Estimate created successfully! Use the Approve button to convert it to a work order and adjust inventory.');
+      showSuccess(editingId ? 'Estimate updated successfully!' : 'Estimate created successfully! Use the Approve button to convert it to a work order and adjust inventory.');
 
       localStorage.removeItem('estimate_draft');
       await resetForm();
@@ -954,16 +956,16 @@ export function Estimates({ userId }: EstimatesProps) {
           });
         }
 
-        alert(alertMessage);
+        showSuccess(alertMessage);
       } else {
-        alert(`Estimate approved and converted to Work Order ${data.work_order_number}!`);
+        showSuccess(`Estimate approved and converted to Work Order ${data.work_order_number}!`);
       }
 
       await loadData();
     } catch (err: any) {
       console.error('Error approving estimate:', err);
       setError(err.message || 'Failed to approve estimate');
-      alert('Error: ' + (err.message || 'Failed to approve estimate'));
+      showError('Error: ' + (err.message || 'Failed to approve estimate'));
     } finally {
       setLoading(false);
     }
@@ -986,12 +988,12 @@ export function Estimates({ userId }: EstimatesProps) {
 
       if (error) throw error;
 
-      alert('Estimate has been denied and archived.');
+      showSuccess('Estimate has been denied and archived.');
       await loadData();
     } catch (err: any) {
       console.error('Error denying estimate:', err);
       setError(err.message || 'Failed to deny estimate');
-      alert('Error: ' + (err.message || 'Failed to deny estimate'));
+      showError('Error: ' + (err.message || 'Failed to deny estimate'));
     } finally {
       setLoading(false);
     }

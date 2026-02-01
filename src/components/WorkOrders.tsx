@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Plus, Wrench, AlertCircle, Edit2, Trash2, Check, X, ChevronDown, ChevronUp, Printer, CheckCircle } from 'lucide-react';
 import { generateWorkOrderPDF } from '../utils/pdfGenerator';
+import { useNotification } from '../contexts/NotificationContext';
 
 interface WorkOrder {
   id: string;
@@ -62,6 +63,7 @@ interface WorkOrdersProps {
 }
 
 export function WorkOrders({ userId }: WorkOrdersProps) {
+  const { showSuccess } = useNotification();
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [yachts, setYachts] = useState<any[]>([]);
   const [laborCodes, setLaborCodes] = useState<any[]>([]);
@@ -523,7 +525,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
         }
       }
 
-      alert('Work order updated successfully!');
+      showSuccess('Work order updated successfully!');
 
       await resetForm();
       await loadData();
@@ -725,7 +727,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
 
       if (updateError) throw updateError;
 
-      alert('Work order marked as completed!');
+      showSuccess('Work order marked as completed!');
       await loadData();
     } catch (err: any) {
       console.error('Error completing work order:', err);
