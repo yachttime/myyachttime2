@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, LogIn, LogOut, Coffee, AlertCircle, CheckCircle } from 'lucide-react';
+import { Clock, LogIn, LogOut, Coffee, AlertCircle, CheckCircle, Wrench } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { calculateElapsedTime, formatTime, getClientIP } from '../utils/timeClockHelpers';
@@ -19,6 +19,15 @@ interface UserProfile {
   employee_type: 'hourly' | 'salary';
 }
 
+interface AssignedWorkOrder {
+  id: string;
+  work_order_number: string;
+  status: string;
+  is_retail_customer: boolean;
+  customer_name: string | null;
+  yacht_name: string | null;
+}
+
 export function TimeClockPanel() {
   const { user, userProfile } = useAuth();
   const [currentEntry, setCurrentEntry] = useState<TimeEntry | null>(null);
@@ -27,11 +36,13 @@ export function TimeClockPanel() {
   const [elapsedTime, setElapsedTime] = useState('');
   const [notes, setNotes] = useState('');
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [assignedWorkOrders, setAssignedWorkOrders] = useState<AssignedWorkOrder[]>([]);
 
   useEffect(() => {
     if (user) {
       loadCurrentEntry();
       loadProfile();
+      loadAssignedWorkOrders();
     }
   }, [user]);
 
@@ -44,6 +55,40 @@ export function TimeClockPanel() {
     }
   }, [currentEntry]);
 
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('work_order_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'work_orders'
+        },
+        () => {
+          loadAssignedWorkOrders();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'work_order_task_assignments'
+        },
+        () => {
+          loadAssignedWorkOrders();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
   const loadProfile = async () => {
     if (!user) return;
 
@@ -55,6 +100,63 @@ export function TimeClockPanel() {
 
     if (data) {
       setProfile(data);
+    }
+  };
+
+  const loadAssignedWorkOrders = async () => {
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from('work_order_task_assignments')
+      .select(`
+        task_id,
+        work_order_tasks!inner (
+          work_order_id,
+          work_orders!inner (
+            id,
+            work_order_number,
+            status,
+            is_retail_customer,
+            customer_name,
+            yachts (
+              name
+            )
+          )
+        )
+      `)
+      .eq('employee_id', user.id);
+
+    if (error) {
+      console.error('Error loading assigned work orders:', error);
+      return;
+    }
+
+    if (data) {
+      const workOrders: AssignedWorkOrder[] = data
+        .map((assignment: any) => {
+          const workOrder = assignment.work_order_tasks?.work_orders;
+          if (!workOrder) return null;
+
+          return {
+            id: workOrder.id,
+            work_order_number: workOrder.work_order_number,
+            status: workOrder.status,
+            is_retail_customer: workOrder.is_retail_customer,
+            customer_name: workOrder.customer_name,
+            yacht_name: workOrder.yachts?.name || null
+          };
+        })
+        .filter((wo): wo is AssignedWorkOrder =>
+          wo !== null && wo.status !== 'completed'
+        )
+        .reduce((unique: AssignedWorkOrder[], wo: AssignedWorkOrder) => {
+          if (!unique.find(u => u.id === wo.id)) {
+            unique.push(wo);
+          }
+          return unique;
+        }, []);
+
+      setAssignedWorkOrders(workOrders);
     }
   };
 
@@ -248,6 +350,40 @@ export function TimeClockPanel() {
             )}
           </div>
 
+          {assignedWorkOrders.length > 0 && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Wrench className="w-5 h-5 text-blue-600" />
+                <h3 className="font-semibold text-blue-900">Assigned Work Orders</h3>
+              </div>
+              <div className="space-y-2">
+                {assignedWorkOrders.map((wo) => (
+                  <div
+                    key={wo.id}
+                    className="bg-white rounded p-3 border border-blue-200"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-semibold text-gray-900">{wo.work_order_number}</div>
+                        <div className="text-sm text-gray-600">
+                          {wo.is_retail_customer ? wo.customer_name : wo.yacht_name}
+                        </div>
+                      </div>
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                        wo.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                        wo.status === 'waiting_for_parts' ? 'bg-orange-100 text-orange-800' :
+                        wo.status === 'in_process' ? 'bg-blue-100 text-blue-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {wo.status.replace('_', ' ')}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {isHourlyEmployee && (
             <div className="flex gap-3">
               {!currentEntry.lunch_break_start ? (
@@ -306,6 +442,40 @@ export function TimeClockPanel() {
         </div>
       ) : (
         <div className="space-y-4">
+          {assignedWorkOrders.length > 0 && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Wrench className="w-5 h-5 text-blue-600" />
+                <h3 className="font-semibold text-blue-900">Assigned Work Orders</h3>
+              </div>
+              <div className="space-y-2">
+                {assignedWorkOrders.map((wo) => (
+                  <div
+                    key={wo.id}
+                    className="bg-white rounded p-3 border border-blue-200"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-semibold text-gray-900">{wo.work_order_number}</div>
+                        <div className="text-sm text-gray-600">
+                          {wo.is_retail_customer ? wo.customer_name : wo.yacht_name}
+                        </div>
+                      </div>
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                        wo.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                        wo.status === 'waiting_for_parts' ? 'bg-orange-100 text-orange-800' :
+                        wo.status === 'in_process' ? 'bg-blue-100 text-blue-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {wo.status.replace('_', ' ')}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Notes (optional)
