@@ -33,8 +33,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const effectiveYacht = getEffectiveYacht(yacht, userProfile?.role);
 
   // Helper function to set active tab and persist to localStorage
-  const setActiveTabPersistedPersisted = (tab: 'calendar' | 'maintenance' | 'education' | 'admin' | 'staffCalendar' | 'timeClock' | 'estimating') => {
-    setActiveTabPersisted(tab);
+  const setActiveTabPersisted = (tab: 'calendar' | 'maintenance' | 'education' | 'admin' | 'staffCalendar' | 'timeClock' | 'estimating') => {
+    setActiveTab(tab);
     try {
       localStorage.setItem('activeTab', tab);
     } catch (error) {
