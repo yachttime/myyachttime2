@@ -1435,10 +1435,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       if (isMasterRole(effectiveRole)) {
         // No filter - master sees everything
       }
-      // Manager role: see only their assigned yacht
+      // Manager role: see only their assigned yacht (or impersonated yacht)
       else if (effectiveRole === 'manager') {
-        if (userProfile.yacht_id) {
-          query = query.eq('id', userProfile.yacht_id).eq('is_active', true);
+        if (effectiveYacht?.id) {
+          query = query.eq('id', effectiveYacht.id).eq('is_active', true);
         } else {
           setAllYachts([]);
           return;
@@ -7541,8 +7541,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {allYachts
                       .filter((yacht) => {
-                        if (effectiveRole === 'manager' && userProfile.yacht_id) {
-                          if (yacht.id !== userProfile.yacht_id) return false;
+                        if (effectiveRole === 'manager' && effectiveYacht?.id) {
+                          if (yacht.id !== effectiveYacht.id) return false;
                         }
                         if (yachtFilter === 'active') return yacht.is_active;
                         if (yachtFilter === 'inactive') return !yacht.is_active;
@@ -12032,8 +12032,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 if (printYachtFilter !== 'all') {
                                   filteredUsers = filteredUsers.filter((user) => user.yacht_id === printYachtFilter);
                                 }
-                              } else if ((effectiveRole === 'owner' || effectiveRole === 'manager') && userProfile.yacht_id) {
-                                filteredUsers = filteredUsers.filter((user) => user.yacht_id === userProfile.yacht_id);
+                              } else if ((effectiveRole === 'owner' || effectiveRole === 'manager') && effectiveYacht?.id) {
+                                filteredUsers = filteredUsers.filter((user) => user.yacht_id === effectiveYacht.id);
                               }
 
                               if (filteredUsers.length === 0) {
@@ -12056,8 +12056,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 }
                               } else if (effectiveRole === 'master') {
                                 title = 'All Yachts - User List';
-                              } else if ((effectiveRole === 'owner' || effectiveRole === 'manager') && userProfile.yacht_id) {
-                                const yachtName = allYachts.find(y => y.id === userProfile.yacht_id)?.name;
+                              } else if ((effectiveRole === 'owner' || effectiveRole === 'manager') && effectiveYacht?.id) {
+                                const yachtName = allYachts.find(y => y.id === effectiveYacht.id)?.name;
                                 title = yachtName ? `${yachtName} - User List` : 'User List';
                               }
 
@@ -12081,7 +12081,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 trip_number: '',
                                 role: 'owner',
                                 employee_type: 'hourly',
-                                yacht_id: (effectiveRole === 'manager' && userProfile.yacht_id) ? userProfile.yacht_id : '',
+                                yacht_id: (effectiveRole === 'manager' && effectiveYacht?.id) ? effectiveYacht.id : '',
                                 phone: '',
                                 street: '',
                                 city: '',
@@ -12419,7 +12419,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   <>
                                     <input
                                       type="text"
-                                      value={allYachts.find(y => y.id === (userEditForm.yacht_id || userProfile.yacht_id))?.name || 'No Yacht Assigned'}
+                                      value={allYachts.find(y => y.id === (userEditForm.yacht_id || effectiveYacht?.id))?.name || 'No Yacht Assigned'}
                                       className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-400"
                                       disabled
                                     />
@@ -12599,8 +12599,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               if (userProfile?.role !== 'master') {
                                 if (user.is_active === false) return false;
                                 // Apply yacht filters for non-master roles
-                                if ((effectiveRole === 'owner' || effectiveRole === 'manager') && userProfile.yacht_id) {
-                                  if (user.yacht_id !== userProfile.yacht_id) return false;
+                                if ((effectiveRole === 'owner' || effectiveRole === 'manager') && effectiveYacht?.id) {
+                                  if (user.yacht_id !== effectiveYacht.id) return false;
                                 }
                               }
                               if (!userSearchTerm) return true;
