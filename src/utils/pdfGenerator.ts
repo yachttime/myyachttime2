@@ -739,9 +739,12 @@ interface EmployeeReport {
     employee_type: 'hourly' | 'salary';
   };
   entries: any[];
+  workOrderLabor: any[];
   totalStandardHours: number;
   totalOvertimeHours: number;
   totalHours: number;
+  totalWorkOrderHours: number;
+  grandTotalHours: number;
 }
 
 export async function generateEstimatePDF(
@@ -1690,26 +1693,32 @@ export async function generatePayrollReportPDF(
   addText(`Pay Period: ${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}`, 12, 'normal', 'center');
   addSpace(0.3);
 
-  const summaryHeaders = [['Employee', 'Type', 'Standard Hours', 'Overtime Hours', 'Total Hours']];
+  const summaryHeaders = [['Employee', 'Type', 'Standard Hrs', 'Overtime Hrs', 'Time Clock', 'Work Order Hrs', 'Grand Total']];
   const summaryData = employeeReports.map(report => {
     return [
       `${report.user.last_name}, ${report.user.first_name}`,
       report.user.employee_type === 'hourly' ? 'Hourly' : 'Salary',
       report.totalStandardHours.toFixed(2),
       report.totalOvertimeHours.toFixed(2),
-      report.totalHours.toFixed(2)
+      report.totalHours.toFixed(2),
+      report.totalWorkOrderHours.toFixed(2),
+      report.grandTotalHours.toFixed(2)
     ];
   });
 
   const grandTotalStandard = employeeReports.reduce((sum, r) => sum + r.totalStandardHours, 0);
   const grandTotalOvertime = employeeReports.reduce((sum, r) => sum + r.totalOvertimeHours, 0);
-  const grandTotal = grandTotalStandard + grandTotalOvertime;
+  const grandTotalTimeClock = grandTotalStandard + grandTotalOvertime;
+  const grandTotalWorkOrder = employeeReports.reduce((sum, r) => sum + r.totalWorkOrderHours, 0);
+  const grandTotal = grandTotalTimeClock + grandTotalWorkOrder;
 
   summaryData.push([
     'TOTALS',
     '',
     grandTotalStandard.toFixed(2),
     grandTotalOvertime.toFixed(2),
+    grandTotalTimeClock.toFixed(2),
+    grandTotalWorkOrder.toFixed(2),
     grandTotal.toFixed(2)
   ]);
 
@@ -1719,7 +1728,7 @@ export async function generatePayrollReportPDF(
     body: summaryData,
     theme: 'grid',
     styles: {
-      fontSize: 10,
+      fontSize: 9,
       cellPadding: 0.08,
       font: 'helvetica',
       textColor: [0, 0, 0]
@@ -1727,14 +1736,17 @@ export async function generatePayrollReportPDF(
     headStyles: {
       fillColor: [59, 130, 246],
       textColor: [255, 255, 255],
-      fontStyle: 'bold'
+      fontStyle: 'bold',
+      fontSize: 8
     },
     columnStyles: {
-      0: { cellWidth: 2.5 },
-      1: { cellWidth: 1.5 },
-      2: { halign: 'right', cellWidth: 2.0 },
-      3: { halign: 'right', cellWidth: 2.0 },
-      4: { halign: 'right', cellWidth: 2.0, fontStyle: 'bold' }
+      0: { cellWidth: 2.0 },
+      1: { cellWidth: 1.0 },
+      2: { halign: 'right', cellWidth: 1.3 },
+      3: { halign: 'right', cellWidth: 1.3 },
+      4: { halign: 'right', cellWidth: 1.3 },
+      5: { halign: 'right', cellWidth: 1.5 },
+      6: { halign: 'right', cellWidth: 1.3, fontStyle: 'bold' }
     },
     didParseCell: function(data: any) {
       if (data.row.index === summaryData.length - 1) {
@@ -1846,7 +1858,72 @@ export async function generatePayrollReportPDF(
       margin: { left: margin, right: margin },
     });
 
-    yPos = (doc as any).lastAutoTable.finalY + 0.3;
+    yPos = (doc as any).lastAutoTable.finalY + 0.2;
+
+    if (report.workOrderLabor && report.workOrderLabor.length > 0) {
+      if (yPos > pageHeight - 1.5) {
+        doc.addPage();
+        yPos = margin;
+      }
+
+      addText(`Work Order Labor Hours`, 10, 'bold');
+      addSpace(0.05);
+
+      const workOrderHeaders = [['Work Order', 'Task', 'Description', 'Hours']];
+      const workOrderData = report.workOrderLabor.map(labor => {
+        const customerOrYacht = labor.yacht_name || labor.customer_name || 'N/A';
+        return [
+          labor.work_order_number,
+          labor.task_name,
+          `${labor.description} (${customerOrYacht})`,
+          labor.quantity.toFixed(2)
+        ];
+      });
+
+      workOrderData.push([
+        'SUBTOTAL',
+        '',
+        '',
+        report.totalWorkOrderHours.toFixed(2)
+      ]);
+
+      autoTable(doc, {
+        startY: yPos,
+        head: workOrderHeaders,
+        body: workOrderData,
+        theme: 'grid',
+        styles: {
+          fontSize: 8,
+          cellPadding: 0.05,
+          font: 'helvetica',
+          textColor: [0, 0, 0]
+        },
+        headStyles: {
+          fillColor: [219, 234, 254],
+          textColor: [0, 0, 0],
+          fontStyle: 'bold',
+          fontSize: 8
+        },
+        columnStyles: {
+          0: { cellWidth: 1.5 },
+          1: { cellWidth: 2.0 },
+          2: { cellWidth: 5.5 },
+          3: { halign: 'right', cellWidth: 1.0, fontStyle: 'bold' }
+        },
+        didParseCell: function(data: any) {
+          if (data.row.index === workOrderData.length - 1) {
+            data.cell.styles.fontStyle = 'bold';
+            data.cell.styles.fillColor = [243, 244, 246];
+            data.cell.styles.textColor = [0, 0, 0];
+          }
+        },
+        margin: { left: margin, right: margin },
+      });
+
+      yPos = (doc as any).lastAutoTable.finalY + 0.3;
+    } else {
+      yPos = (doc as any).lastAutoTable.finalY + 0.3;
+    }
   });
 
   const pageCount = doc.getNumberOfPages();

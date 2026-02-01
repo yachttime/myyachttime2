@@ -11,12 +11,25 @@ interface UserProfile {
   employee_type: 'hourly' | 'salary';
 }
 
+interface WorkOrderLabor {
+  work_order_number: string;
+  task_name: string;
+  description: string;
+  quantity: number;
+  created_at: string;
+  yacht_name?: string;
+  customer_name?: string;
+}
+
 interface EmployeeReport {
   user: UserProfile;
   entries: TimeEntry[];
+  workOrderLabor: WorkOrderLabor[];
   totalStandardHours: number;
   totalOvertimeHours: number;
   totalHours: number;
+  totalWorkOrderHours: number;
+  grandTotalHours: number;
 }
 
 export function PayrollReportView() {
@@ -76,31 +89,87 @@ export function PayrollReportView() {
 
     setLoading(true);
     try {
-      const { data: entries, error } = await supabase
-        .from('staff_time_entries')
-        .select('*')
-        .in('user_id', Array.from(selectedUsers))
-        .gte('punch_in_time', new Date(startDate).toISOString())
-        .lte('punch_in_time', new Date(new Date(endDate).setHours(23, 59, 59)).toISOString())
-        .not('punch_out_time', 'is', null)
-        .order('punch_in_time');
+      const [entriesResult, workOrderLaborResult] = await Promise.all([
+        supabase
+          .from('staff_time_entries')
+          .select('*')
+          .in('user_id', Array.from(selectedUsers))
+          .gte('punch_in_time', new Date(startDate).toISOString())
+          .lte('punch_in_time', new Date(new Date(endDate).setHours(23, 59, 59)).toISOString())
+          .not('punch_out_time', 'is', null)
+          .order('punch_in_time'),
 
-      if (error) throw error;
+        supabase
+          .from('work_order_task_assignments')
+          .select(`
+            employee_id,
+            work_order_tasks!inner (
+              task_name,
+              work_order_id,
+              work_orders!inner (
+                work_order_number,
+                customer_name,
+                created_at,
+                yachts (
+                  name
+                )
+              )
+            ),
+            work_order_line_items!work_order_line_items_task_id_fkey (
+              description,
+              quantity,
+              line_type,
+              created_at
+            )
+          `)
+          .in('employee_id', Array.from(selectedUsers))
+          .eq('work_order_line_items.line_type', 'labor')
+          .gte('work_order_tasks.work_orders.created_at', new Date(startDate).toISOString())
+          .lte('work_order_tasks.work_orders.created_at', new Date(new Date(endDate).setHours(23, 59, 59)).toISOString())
+      ]);
+
+      if (entriesResult.error) throw entriesResult.error;
+
+      const entries = entriesResult.data || [];
+      const workOrderData = workOrderLaborResult.data || [];
 
       const reports: EmployeeReport[] = [];
       allUsers.forEach(user => {
         if (selectedUsers.has(user.user_id)) {
-          const userEntries = (entries || []).filter(e => e.user_id === user.user_id);
+          const userEntries = entries.filter(e => e.user_id === user.user_id);
           const totalStandardHours = userEntries.reduce((sum, e) => sum + (e.standard_hours || 0), 0);
           const totalOvertimeHours = userEntries.reduce((sum, e) => sum + (e.overtime_hours || 0), 0);
           const totalHours = totalStandardHours + totalOvertimeHours;
 
+          const userWorkOrderLabor: WorkOrderLabor[] = workOrderData
+            .filter((item: any) => item.employee_id === user.user_id)
+            .flatMap((assignment: any) => {
+              const task = assignment.work_order_tasks;
+              const workOrder = task?.work_orders;
+
+              return (assignment.work_order_line_items || []).map((lineItem: any) => ({
+                work_order_number: workOrder?.work_order_number || 'N/A',
+                task_name: task?.task_name || 'N/A',
+                description: lineItem.description,
+                quantity: lineItem.quantity,
+                created_at: lineItem.created_at,
+                yacht_name: workOrder?.yachts?.name,
+                customer_name: workOrder?.customer_name
+              }));
+            });
+
+          const totalWorkOrderHours = userWorkOrderLabor.reduce((sum, labor) => sum + labor.quantity, 0);
+          const grandTotalHours = totalHours + totalWorkOrderHours;
+
           reports.push({
             user,
             entries: userEntries,
+            workOrderLabor: userWorkOrderLabor,
             totalStandardHours: Math.round(totalStandardHours * 100) / 100,
             totalOvertimeHours: Math.round(totalOvertimeHours * 100) / 100,
-            totalHours: Math.round(totalHours * 100) / 100
+            totalHours: Math.round(totalHours * 100) / 100,
+            totalWorkOrderHours: Math.round(totalWorkOrderHours * 100) / 100,
+            grandTotalHours: Math.round(grandTotalHours * 100) / 100
           });
         }
       });
@@ -163,7 +232,9 @@ export function PayrollReportView() {
 
   const grandTotalStandard = employeeReports.reduce((sum, r) => sum + r.totalStandardHours, 0);
   const grandTotalOvertime = employeeReports.reduce((sum, r) => sum + r.totalOvertimeHours, 0);
-  const grandTotal = grandTotalStandard + grandTotalOvertime;
+  const grandTotalTimeClock = grandTotalStandard + grandTotalOvertime;
+  const grandTotalWorkOrder = employeeReports.reduce((sum, r) => sum + r.totalWorkOrderHours, 0);
+  const grandTotal = grandTotalTimeClock + grandTotalWorkOrder;
 
   return (
     <div className="space-y-6">
@@ -296,7 +367,13 @@ export function PayrollReportView() {
                     Overtime Hours
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Total Hours
+                    Time Clock Total
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Work Order Hours
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Grand Total
                   </th>
                 </tr>
               </thead>
@@ -323,8 +400,14 @@ export function PayrollReportView() {
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-orange-600 font-medium">
                       {report.totalOvertimeHours.toFixed(2)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-bold text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
                       {report.totalHours.toFixed(2)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-blue-600 font-medium">
+                      {report.totalWorkOrderHours.toFixed(2)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-bold text-gray-900">
+                      {report.grandTotalHours.toFixed(2)}
                     </td>
                   </tr>
                 ))}
@@ -339,6 +422,12 @@ export function PayrollReportView() {
                   </td>
                   <td className="px-6 py-4 text-right text-sm font-bold text-orange-600">
                     {grandTotalOvertime.toFixed(2)}
+                  </td>
+                  <td className="px-6 py-4 text-right text-sm font-bold text-gray-900">
+                    {grandTotalTimeClock.toFixed(2)}
+                  </td>
+                  <td className="px-6 py-4 text-right text-sm font-bold text-blue-600">
+                    {grandTotalWorkOrder.toFixed(2)}
                   </td>
                   <td className="px-6 py-4 text-right text-sm font-bold text-gray-900">
                     {grandTotal.toFixed(2)}
