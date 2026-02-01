@@ -140,3 +140,39 @@ export const deleteFileFromStorage = async (fileUrl: string): Promise<void> => {
 export const isStorageUrl = (url: string): boolean => {
   return url.includes('/yacht-documents/');
 };
+
+export const uploadFile = async (
+  bucketName: string,
+  filePath: string,
+  file: File
+): Promise<string> => {
+  const { data, error } = await supabase.storage
+    .from(bucketName)
+    .upload(filePath, file, {
+      cacheControl: '3600',
+      upsert: true
+    });
+
+  if (error) {
+    throw error;
+  }
+
+  const { data: urlData } = supabase.storage
+    .from(bucketName)
+    .getPublicUrl(filePath);
+
+  return urlData.publicUrl;
+};
+
+export const deleteFile = async (
+  bucketName: string,
+  filePath: string
+): Promise<void> => {
+  const { error } = await supabase.storage
+    .from(bucketName)
+    .remove([filePath]);
+
+  if (error) {
+    throw error;
+  }
+};
