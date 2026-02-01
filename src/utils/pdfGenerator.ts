@@ -994,12 +994,18 @@ export async function generateEstimatePDF(
 
     if (task.lineItems && task.lineItems.length > 0) {
       const lineItemHeaders = [['Description', 'Qty', 'Unit Price', 'Total']];
-      const lineItemData = task.lineItems.map((item: any) => [
-        item.description || '',
-        item.quantity?.toString() || '0',
-        `$${(item.unit_price || 0).toFixed(2)}`,
-        `$${(item.total_price || 0).toFixed(2)}`
-      ]);
+      const lineItemData = task.lineItems.map((item: any) => {
+        let description = item.description || '';
+        if (item.work_details) {
+          description += `\n  ${item.work_details}`;
+        }
+        return [
+          description,
+          item.quantity?.toString() || '0',
+          `$${(item.unit_price || 0).toFixed(2)}`,
+          `$${(item.total_price || 0).toFixed(2)}`
+        ];
+      });
 
       const taskSubtotal = task.lineItems.reduce((sum: number, item: any) => sum + (item.total_price || 0), 0);
 
@@ -1013,7 +1019,9 @@ export async function generateEstimatePDF(
           cellPadding: 0.08,
           font: 'helvetica',
           lineColor: [203, 213, 225],
-          lineWidth: 0.01
+          lineWidth: 0.01,
+          minCellHeight: 0.15,
+          cellWidth: 'wrap'
         },
         headStyles: {
           fillColor: [241, 245, 249],
@@ -1022,10 +1030,10 @@ export async function generateEstimatePDF(
           halign: 'left'
         },
         columnStyles: {
-          0: { cellWidth: 3.5 },
-          1: { cellWidth: 0.8, halign: 'center' },
-          2: { cellWidth: 1.2, halign: 'right' },
-          3: { cellWidth: 1.2, halign: 'right' }
+          0: { cellWidth: 3.5, valign: 'top' },
+          1: { cellWidth: 0.8, halign: 'center', valign: 'top' },
+          2: { cellWidth: 1.2, halign: 'right', valign: 'top' },
+          3: { cellWidth: 1.2, halign: 'right', valign: 'top' }
         },
         margin: { left: margin, right: margin },
         didDrawPage: (data: any) => {
