@@ -4164,7 +4164,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     const dateStr = date.toDateString();
     return masterCalendarBookings.filter(booking => {
       // Filter by yacht if user is owner (but not if master)
-      if (effectiveRole === 'owner' && yacht && booking.yacht_id !== yacht.id) {
+      if (effectiveRole === 'owner' && effectiveYacht && booking.yacht_id !== effectiveYacht.id) {
         return false;
       }
 
