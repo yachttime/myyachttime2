@@ -1,45 +1,26 @@
 /*
-  # Add Work Order Time Tracking with Employee Hour Division
+  # Revert Work Order Time Tracking - Divide Hours Among Employees
 
   ## Overview
-  Implements automatic time entry creation from work order labor hours, dividing hours equally
-  among all assigned employees when multiple employees are assigned to the same task.
+  Reverts the time tracking to correctly divide labor hours among employees.
+  The task labor hours represent the TOTAL hours, which should be split among all assigned employees.
 
   ## Changes
-  1. Add function to create time entries from work order tasks
-     - Divides labor hours equally among assigned employees
-     - Creates individual time entries for each employee
-     - Links entries to work order using reference_id and reference_type
+  1. Update create_time_entries_from_work_order function
+     - Divide total hours by number of employees
+     - Each employee gets their share of the total hours
 
-  2. Add work_order_id to staff_time_entries if not exists
-     - Allows direct linking of time entries to work orders
+  2. Update preview_work_order_time_entries function
+     - Show hours divided by employee count
+     - Display correct per-employee hours
 
-  ## Logic
-  - For each task in a work order:
-    - Sum all labor line item hours (quantity field)
-    - Count assigned employees
-    - Divide total hours by number of employees
-    - Create time entry for each employee with their share of hours
-
-  ## Security
-  - Only staff, mechanic, and master roles can create time entries from work orders
-  - Time entries are created with calculated punch in/out times based on hours
+  ## Example
+  - 4 hours ÷ 2 employees = 2 hours each
+  - 3 hours ÷ 1 employee = 3 hours each
+  - 10 hours ÷ 3 employees = 3.33 hours each
 */
 
--- Add work_order_id column to staff_time_entries if it doesn't exist
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'staff_time_entries' AND column_name = 'work_order_id'
-  ) THEN
-    ALTER TABLE staff_time_entries ADD COLUMN work_order_id uuid REFERENCES work_orders(id) ON DELETE SET NULL;
-    CREATE INDEX IF NOT EXISTS idx_staff_time_entries_work_order_id ON staff_time_entries(work_order_id);
-  END IF;
-END $$;
-
--- Function to create time entries from work order tasks
--- Divides labor hours equally among assigned employees
+-- Update the create_time_entries_from_work_order function
 CREATE OR REPLACE FUNCTION create_time_entries_from_work_order(
   p_work_order_id uuid,
   p_created_by uuid DEFAULT NULL
@@ -104,7 +85,7 @@ BEGIN
       CONTINUE;
     END IF;
 
-    -- Calculate hours per employee (divided equally)
+    -- Divide total hours among employees
     v_hours_per_employee := v_total_labor_hours / v_employee_count;
 
     -- Calculate punch out time based on hours per employee
@@ -159,10 +140,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Grant execute permission to authenticated users
-GRANT EXECUTE ON FUNCTION create_time_entries_from_work_order(uuid, uuid) TO authenticated;
-
--- Function to get preview of time entries that would be created (for UI display)
+-- Update the preview function
 CREATE OR REPLACE FUNCTION preview_work_order_time_entries(
   p_work_order_id uuid
 )
@@ -203,6 +181,3 @@ BEGIN
   ORDER BY wot.task_order, employee_name;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Grant execute permission to authenticated users
-GRANT EXECUTE ON FUNCTION preview_work_order_time_entries(uuid) TO authenticated;

@@ -1003,7 +1003,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                         <div>
                           <h4 className="font-semibold text-gray-900">{task.task_name}</h4>
                           <p className="text-sm text-gray-600">
-                            {task.total_hours} hours per employee × {task.employee_count} employee{task.employee_count !== 1 ? 's' : ''} = {(task.total_hours * task.employee_count).toFixed(2)} total hours
+                            Total: {task.total_hours} hours ÷ {task.employee_count} employee{task.employee_count !== 1 ? 's' : ''} = {(task.total_hours / task.employee_count).toFixed(2)} hours each
                           </p>
                         </div>
                       </div>
