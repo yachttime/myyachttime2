@@ -915,6 +915,7 @@ export async function generateEstimatePDF(
     }
 
     yPos = Math.max(yPos, originalYPos + logoHeight);
+    addSpace(0.3);
   } else {
     if (companyInfo?.company_name) {
       addText(companyInfo.company_name, 14, 'bold', 'center');
@@ -950,7 +951,6 @@ export async function generateEstimatePDF(
     addSpace(0.1);
   }
 
-  addSpace(0.05);
   addText('ESTIMATE', 18, 'bold', 'center');
   addSpace(0.3);
 
