@@ -11,20 +11,21 @@ interface UserProfile {
   employee_type: 'hourly' | 'salary';
 }
 
-interface WorkOrderLabor {
+interface WorkOrderTimeEntry {
   work_order_number: string;
-  task_name: string;
-  description: string;
-  quantity: number;
-  created_at: string;
+  work_order_id: string;
   yacht_name?: string;
   customer_name?: string;
+  punch_in_time: string;
+  punch_out_time: string;
+  total_hours: number;
+  notes?: string;
 }
 
 interface EmployeeReport {
   user: UserProfile;
   entries: TimeEntry[];
-  workOrderLabor: WorkOrderLabor[];
+  workOrderEntries: WorkOrderTimeEntry[];
   totalStandardHours: number;
   totalOvertimeHours: number;
   totalHours: number;
@@ -89,84 +90,77 @@ export function PayrollReportView() {
 
     setLoading(true);
     try {
-      const [entriesResult, assignmentsResult, lineItemsResult] = await Promise.all([
+      const [regularEntriesResult, workOrderEntriesResult] = await Promise.all([
         supabase
           .from('staff_time_entries')
           .select('*')
           .in('user_id', Array.from(selectedUsers))
+          .is('work_order_id', null)
           .gte('punch_in_time', new Date(startDate).toISOString())
           .lte('punch_in_time', new Date(new Date(endDate).setHours(23, 59, 59)).toISOString())
           .not('punch_out_time', 'is', null)
           .order('punch_in_time'),
 
         supabase
-          .from('work_order_task_assignments')
+          .from('staff_time_entries')
           .select(`
-            employee_id,
-            task_id,
-            work_order_tasks!inner (
-              id,
-              task_name,
-              work_orders!inner (
-                id,
-                work_order_number,
-                customer_name,
-                created_at,
-                yachts (
-                  name
-                )
+            *,
+            work_orders!inner (
+              work_order_number,
+              customer_name,
+              yachts (
+                name
               )
             )
           `)
-          .in('employee_id', Array.from(selectedUsers))
-          .gte('work_order_tasks.work_orders.created_at', new Date(startDate).toISOString())
-          .lte('work_order_tasks.work_orders.created_at', new Date(new Date(endDate).setHours(23, 59, 59)).toISOString()),
-
-        supabase
-          .from('work_order_line_items')
-          .select('task_id, description, quantity, line_type, created_at')
-          .eq('line_type', 'labor')
+          .in('user_id', Array.from(selectedUsers))
+          .not('work_order_id', 'is', null)
+          .gte('punch_in_time', new Date(startDate).toISOString())
+          .lte('punch_in_time', new Date(new Date(endDate).setHours(23, 59, 59)).toISOString())
+          .not('punch_out_time', 'is', null)
+          .order('punch_in_time')
       ]);
 
-      if (entriesResult.error) throw entriesResult.error;
+      if (regularEntriesResult.error) throw regularEntriesResult.error;
+      if (workOrderEntriesResult.error) throw workOrderEntriesResult.error;
 
-      const entries = entriesResult.data || [];
-      const assignments = assignmentsResult.data || [];
-      const lineItems = lineItemsResult.data || [];
+      const regularEntries = regularEntriesResult.data || [];
+      const workOrderEntries = workOrderEntriesResult.data || [];
 
       const reports: EmployeeReport[] = [];
       allUsers.forEach(user => {
         if (selectedUsers.has(user.user_id)) {
-          const userEntries = entries.filter(e => e.user_id === user.user_id);
+          const userEntries = regularEntries.filter(e => e.user_id === user.user_id);
           const totalStandardHours = userEntries.reduce((sum, e) => sum + (e.standard_hours || 0), 0);
           const totalOvertimeHours = userEntries.reduce((sum, e) => sum + (e.overtime_hours || 0), 0);
           const totalHours = totalStandardHours + totalOvertimeHours;
 
-          const userAssignments = assignments.filter((a: any) => a.employee_id === user.user_id);
+          const userWorkOrderEntries: WorkOrderTimeEntry[] = workOrderEntries
+            .filter((e: any) => e.user_id === user.user_id)
+            .map((e: any) => {
+              const punchIn = new Date(e.punch_in_time);
+              const punchOut = new Date(e.punch_out_time);
+              const hours = (punchOut.getTime() - punchIn.getTime()) / (1000 * 60 * 60);
 
-          const userWorkOrderLabor: WorkOrderLabor[] = userAssignments.flatMap((assignment: any) => {
-            const task = assignment.work_order_tasks;
-            const workOrder = task?.work_orders;
-            const taskLineItems = lineItems.filter((item: any) => item.task_id === assignment.task_id);
+              return {
+                work_order_number: e.work_orders?.work_order_number || 'N/A',
+                work_order_id: e.work_order_id,
+                yacht_name: e.work_orders?.yachts?.name,
+                customer_name: e.work_orders?.customer_name,
+                punch_in_time: e.punch_in_time,
+                punch_out_time: e.punch_out_time,
+                total_hours: Math.round(hours * 100) / 100,
+                notes: e.notes
+              };
+            });
 
-            return taskLineItems.map((lineItem: any) => ({
-              work_order_number: workOrder?.work_order_number || 'N/A',
-              task_name: task?.task_name || 'N/A',
-              description: lineItem.description,
-              quantity: parseFloat(lineItem.quantity) || 0,
-              created_at: lineItem.created_at,
-              yacht_name: workOrder?.yachts?.name,
-              customer_name: workOrder?.customer_name
-            }));
-          });
-
-          const totalWorkOrderHours = userWorkOrderLabor.reduce((sum, labor) => sum + labor.quantity, 0);
+          const totalWorkOrderHours = userWorkOrderEntries.reduce((sum, e) => sum + e.total_hours, 0);
           const grandTotalHours = totalHours + totalWorkOrderHours;
 
           reports.push({
             user,
             entries: userEntries,
-            workOrderLabor: userWorkOrderLabor,
+            workOrderEntries: userWorkOrderEntries,
             totalStandardHours: Math.round(totalStandardHours * 100) / 100,
             totalOvertimeHours: Math.round(totalOvertimeHours * 100) / 100,
             totalHours: Math.round(totalHours * 100) / 100,

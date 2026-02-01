@@ -739,7 +739,7 @@ interface EmployeeReport {
     employee_type: 'hourly' | 'salary';
   };
   entries: any[];
-  workOrderLabor: any[];
+  workOrderEntries: any[];
   totalStandardHours: number;
   totalOvertimeHours: number;
   totalHours: number;
@@ -1761,7 +1761,7 @@ export async function generatePayrollReportPDF(
   yPos = (doc as any).lastAutoTable.finalY + 0.4;
 
   employeeReports.forEach((report, reportIndex) => {
-    if (report.entries.length === 0) return;
+    if (report.entries.length === 0 && report.workOrderEntries.length === 0) return;
 
     if (yPos > pageHeight - 2) {
       doc.addPage();
@@ -1771,8 +1771,9 @@ export async function generatePayrollReportPDF(
     addText(`${report.user.last_name}, ${report.user.first_name} - Detailed Time Entries`, 12, 'bold');
     addSpace(0.1);
 
-    const detailHeaders = [['Date', 'Yacht', 'Punch In', 'Punch Out', 'Lunch', 'Std Hours', 'OT Hours', 'Total', 'Notes']];
-    const detailData = report.entries.map(entry => {
+    if (report.entries.length > 0) {
+      const detailHeaders = [['Date', 'Yacht', 'Punch In', 'Punch Out', 'Lunch', 'Std Hours', 'OT Hours', 'Total', 'Notes']];
+      const detailData = report.entries.map(entry => {
       const date = new Date(entry.punch_in_time).toLocaleDateString();
       const yacht = entry.yacht_id ? yachtMap[entry.yacht_id] || 'N/A' : 'N/A';
       const punchIn = new Date(entry.punch_in_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
@@ -1858,25 +1859,40 @@ export async function generatePayrollReportPDF(
       margin: { left: margin, right: margin },
     });
 
-    yPos = (doc as any).lastAutoTable.finalY + 0.2;
+      yPos = (doc as any).lastAutoTable.finalY + 0.2;
+    } else if (report.workOrderEntries.length > 0) {
+      yPos += 0.1;
+    }
 
-    if (report.workOrderLabor && report.workOrderLabor.length > 0) {
+    if (report.workOrderEntries && report.workOrderEntries.length > 0) {
       if (yPos > pageHeight - 1.5) {
         doc.addPage();
         yPos = margin;
       }
 
-      addText(`Work Order Labor Hours`, 10, 'bold');
+      if (report.entries.length > 0) {
+        addText(`Work Order Time Entries`, 10, 'bold');
+      } else {
+        addText(`Work Order Time Entries (only)`, 10, 'bold');
+      }
       addSpace(0.05);
 
-      const workOrderHeaders = [['Work Order', 'Task', 'Description', 'Hours']];
-      const workOrderData = report.workOrderLabor.map(labor => {
-        const customerOrYacht = labor.yacht_name || labor.customer_name || 'N/A';
+      const workOrderHeaders = [['Date', 'Work Order', 'Yacht/Customer', 'Punch In', 'Punch Out', 'Hours', 'Notes']];
+      const workOrderData = report.workOrderEntries.map((entry: any) => {
+        const date = new Date(entry.punch_in_time).toLocaleDateString();
+        const customerOrYacht = entry.yacht_name || entry.customer_name || 'N/A';
+        const punchIn = new Date(entry.punch_in_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        const punchOut = new Date(entry.punch_out_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        const notes = entry.notes || '';
+
         return [
-          labor.work_order_number,
-          labor.task_name,
-          `${labor.description} (${customerOrYacht})`,
-          labor.quantity.toFixed(2)
+          date,
+          entry.work_order_number,
+          customerOrYacht,
+          punchIn,
+          punchOut,
+          entry.total_hours.toFixed(2),
+          notes
         ];
       });
 
@@ -1884,7 +1900,10 @@ export async function generatePayrollReportPDF(
         'SUBTOTAL',
         '',
         '',
-        report.totalWorkOrderHours.toFixed(2)
+        '',
+        '',
+        report.totalWorkOrderHours.toFixed(2),
+        ''
       ]);
 
       autoTable(doc, {
@@ -1905,10 +1924,13 @@ export async function generatePayrollReportPDF(
           fontSize: 8
         },
         columnStyles: {
-          0: { cellWidth: 1.5 },
-          1: { cellWidth: 2.0 },
-          2: { cellWidth: 5.5 },
-          3: { halign: 'right', cellWidth: 1.0, fontStyle: 'bold' }
+          0: { cellWidth: 0.9 },
+          1: { cellWidth: 1.3 },
+          2: { cellWidth: 1.5 },
+          3: { cellWidth: 0.9 },
+          4: { cellWidth: 0.9 },
+          5: { halign: 'right', cellWidth: 0.7, fontStyle: 'bold' },
+          6: { cellWidth: 3.8, fontSize: 7 }
         },
         didParseCell: function(data: any) {
           if (data.row.index === workOrderData.length - 1) {
