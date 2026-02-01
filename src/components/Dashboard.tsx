@@ -695,9 +695,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           yachts:yacht_id (name)
         `);
 
-      // Staff, mechanic, manager, and master see all requests
-      if (['staff', 'mechanic', 'manager', 'master'].includes(effectiveRole)) {
+      // Staff, mechanic, and master see all requests
+      if (['staff', 'mechanic', 'master'].includes(effectiveRole)) {
         // No filter - show all requests
+      } else if (effectiveRole === 'manager' && effectiveYacht) {
+        // Managers see requests for their assigned/impersonated yacht
+        query = query.eq('yacht_id', effectiveYacht.id);
       } else if (isOwnerRole(effectiveRole) && effectiveYacht) {
         // Owners see all requests for their yacht
         query = query.eq('yacht_id', effectiveYacht.id);
