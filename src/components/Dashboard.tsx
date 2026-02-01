@@ -695,10 +695,14 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           yachts:yacht_id (name)
         `);
 
-      // Owners see all requests for their yacht, others see only their own
-      if (isOwnerRole(effectiveRole) && effectiveYacht) {
+      // Staff, mechanic, manager, and master see all requests
+      if (['staff', 'mechanic', 'manager', 'master'].includes(effectiveRole)) {
+        // No filter - show all requests
+      } else if (isOwnerRole(effectiveRole) && effectiveYacht) {
+        // Owners see all requests for their yacht
         query = query.eq('yacht_id', effectiveYacht.id);
       } else {
+        // Others see only their own
         query = query.eq('submitted_by', user.id);
       }
 
@@ -1914,8 +1918,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         `)
         .order('created_at', { ascending: false });
 
-      // Filter by yacht_id for managers
-      if (isManagerRole(effectiveRole) && effectiveYacht) {
+      // Staff, mechanic, and master see all requests (no filter)
+      // Managers see only their yacht's requests
+      if (['staff', 'mechanic', 'master'].includes(effectiveRole)) {
+        // No filter - show all requests
+      } else if (isManagerRole(effectiveRole) && effectiveYacht) {
         query = query.eq('yacht_id', effectiveYacht.id);
       }
 
