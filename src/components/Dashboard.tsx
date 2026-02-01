@@ -8732,7 +8732,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                       <div className="bg-slate-800 rounded-2xl border border-slate-700 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
                         <div className="sticky top-0 bg-slate-800 border-b border-slate-700 p-6 flex items-center justify-between">
-                          <h3 className="text-2xl font-bold">Edit Yacht Information</h3>
+                          <h3 className="text-2xl font-bold">Edit Yacht Information: {editingYacht.name}</h3>
                           <button
                             onClick={() => {
                               setEditingYacht(null);
