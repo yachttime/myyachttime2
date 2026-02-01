@@ -1721,7 +1721,8 @@ export async function generatePayrollReportPDF(
     styles: {
       fontSize: 10,
       cellPadding: 0.08,
-      font: 'helvetica'
+      font: 'helvetica',
+      textColor: [0, 0, 0]
     },
     headStyles: {
       fillColor: [59, 130, 246],
@@ -1739,6 +1740,7 @@ export async function generatePayrollReportPDF(
       if (data.row.index === summaryData.length - 1) {
         data.cell.styles.fontStyle = 'bold';
         data.cell.styles.fillColor = [243, 244, 246];
+        data.cell.styles.textColor = [0, 0, 0];
       }
     },
     margin: { left: margin, right: margin },
@@ -1811,7 +1813,8 @@ export async function generatePayrollReportPDF(
       styles: {
         fontSize: 8,
         cellPadding: 0.05,
-        font: 'helvetica'
+        font: 'helvetica',
+        textColor: [0, 0, 0]
       },
       headStyles: {
         fillColor: [229, 231, 235],
@@ -1834,6 +1837,7 @@ export async function generatePayrollReportPDF(
         if (data.row.index === detailData.length - 1) {
           data.cell.styles.fontStyle = 'bold';
           data.cell.styles.fillColor = [243, 244, 246];
+          data.cell.styles.textColor = [0, 0, 0];
         }
         if (data.column.index === 8 && data.cell.text[0] && data.cell.text[0].includes('[EDITED]')) {
           data.cell.styles.textColor = [234, 88, 12];
