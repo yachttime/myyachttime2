@@ -66,6 +66,7 @@ export function Estimates({ userId }: EstimatesProps) {
   const [yachts, setYachts] = useState<any[]>([]);
   const [managers, setManagers] = useState<any[]>([]);
   const [laborCodes, setLaborCodes] = useState<any[]>([]);
+  const [parts, setParts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -114,6 +115,8 @@ export function Estimates({ userId }: EstimatesProps) {
     work_details: ''
   });
   const [showAutoSaveIndicator, setShowAutoSaveIndicator] = useState(false);
+  const [filteredParts, setFilteredParts] = useState<typeof parts>([]);
+  const [showPartDropdown, setShowPartDropdown] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -156,7 +159,7 @@ export function Estimates({ userId }: EstimatesProps) {
       setLoading(true);
       setError(null);
 
-      const [estimatesResult, yachtsResult, managersResult, laborResult, settingsResult] = await Promise.all([
+      const [estimatesResult, yachtsResult, managersResult, laborResult, partsResult, settingsResult] = await Promise.all([
         supabase
           .from('estimates')
           .select('*, yachts(name)')
@@ -177,6 +180,11 @@ export function Estimates({ userId }: EstimatesProps) {
           .eq('is_active', true)
           .order('code'),
         supabase
+          .from('parts_inventory')
+          .select('id, part_number, name, unit_price, is_taxable')
+          .eq('is_active', true)
+          .order('part_number'),
+        supabase
           .from('estimate_settings')
           .select('*')
           .maybeSingle()
@@ -186,11 +194,13 @@ export function Estimates({ userId }: EstimatesProps) {
       if (yachtsResult.error) throw yachtsResult.error;
       if (managersResult.error) throw managersResult.error;
       if (laborResult.error) throw laborResult.error;
+      if (partsResult.error) throw partsResult.error;
 
       setEstimates(estimatesResult.data || []);
       setYachts(yachtsResult.data || []);
       setManagers(managersResult.data || []);
       setLaborCodes(laborResult.data || []);
+      setParts(partsResult.data || []);
 
       if (settingsResult.data) {
         setFormData(prev => ({
@@ -390,6 +400,53 @@ export function Estimates({ userId }: EstimatesProps) {
         is_taxable: laborCode.is_taxable
       });
     }
+  };
+
+  const handlePartChange = (partId: string) => {
+    const part = parts.find(p => p.id === partId);
+    if (part) {
+      setLineItemFormData({
+        ...lineItemFormData,
+        part_id: partId,
+        part_number_search: part.part_number,
+        description: `${part.part_number} - ${part.name}`,
+        unit_price: part.unit_price.toString(),
+        is_taxable: part.is_taxable
+      });
+    }
+  };
+
+  const handlePartNumberSearch = (searchValue: string) => {
+    setLineItemFormData({
+      ...lineItemFormData,
+      part_number_search: searchValue,
+      part_id: ''
+    });
+
+    if (searchValue.trim()) {
+      const filtered = parts.filter(p =>
+        p.part_number.toLowerCase().includes(searchValue.toLowerCase()) ||
+        p.name.toLowerCase().includes(searchValue.toLowerCase())
+      );
+      setFilteredParts(filtered);
+      setShowPartDropdown(true);
+    } else {
+      setFilteredParts([]);
+      setShowPartDropdown(false);
+    }
+  };
+
+  const handleSelectPartFromDropdown = (part: typeof parts[0]) => {
+    setLineItemFormData({
+      ...lineItemFormData,
+      part_id: part.id,
+      part_number_search: part.part_number,
+      description: `${part.part_number} - ${part.name}`,
+      unit_price: part.unit_price.toString(),
+      is_taxable: part.is_taxable
+    });
+    setShowPartDropdown(false);
+    setFilteredParts([]);
   };
 
   const calculateSubtotal = () => {
@@ -1324,16 +1381,62 @@ export function Estimates({ userId }: EstimatesProps) {
                                 )}
 
                                 {lineItemFormData.line_type === 'part' && (
-                                  <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Part Number</label>
-                                    <input
-                                      type="text"
-                                      value={lineItemFormData.part_number_search}
-                                      onChange={(e) => setLineItemFormData({ ...lineItemFormData, part_number_search: e.target.value })}
-                                      placeholder="Enter part number"
-                                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
-                                    />
-                                  </div>
+                                  <>
+                                    <div className="relative part-search-container">
+                                      <label className="block text-sm font-medium text-gray-700 mb-1">Part Number / Name</label>
+                                      <input
+                                        type="text"
+                                        value={lineItemFormData.part_number_search}
+                                        onChange={(e) => handlePartNumberSearch(e.target.value)}
+                                        onFocus={() => {
+                                          if (lineItemFormData.part_number_search.trim() && filteredParts.length > 0) {
+                                            setShowPartDropdown(true);
+                                          }
+                                        }}
+                                        placeholder="Start typing part number or name..."
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
+                                      />
+
+                                      {showPartDropdown && filteredParts.length > 0 && (
+                                        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                                          {filteredParts.map((part) => (
+                                            <button
+                                              key={part.id}
+                                              type="button"
+                                              onClick={() => handleSelectPartFromDropdown(part)}
+                                              className="w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-gray-100 last:border-b-0 transition-colors"
+                                            >
+                                              <div className="font-medium text-gray-900">{part.part_number}</div>
+                                              <div className="text-sm text-gray-600">{part.name}</div>
+                                              <div className="text-sm text-green-600 font-medium">${part.unit_price.toFixed(2)}</div>
+                                            </button>
+                                          ))}
+                                        </div>
+                                      )}
+
+                                      {lineItemFormData.part_number_search && !lineItemFormData.part_id && !showPartDropdown && filteredParts.length === 0 && (
+                                        <p className="text-xs text-orange-600 mt-1">No matching parts found</p>
+                                      )}
+                                      {lineItemFormData.part_id && (
+                                        <p className="text-xs text-green-600 mt-1">Part selected</p>
+                                      )}
+                                    </div>
+                                    <div>
+                                      <label className="block text-sm font-medium text-gray-700 mb-1">Or Browse All Parts</label>
+                                      <select
+                                        value={lineItemFormData.part_id}
+                                        onChange={(e) => handlePartChange(e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
+                                      >
+                                        <option value="">Select part</option>
+                                        {parts.map((part) => (
+                                          <option key={part.id} value={part.id}>
+                                            {part.part_number} - {part.name} (${part.unit_price})
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                  </>
                                 )}
                               </div>
 
