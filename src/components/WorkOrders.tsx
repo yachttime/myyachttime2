@@ -155,7 +155,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
         supabase
           .from('user_profiles')
           .select('user_id, first_name, last_name, role')
-          .in('role', ['staff', 'mechanic'])
+          .in('role', ['staff', 'master', 'mechanic'])
           .eq('is_active', true)
           .order('first_name'),
         supabase
