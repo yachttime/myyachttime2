@@ -14,6 +14,7 @@ export function TimeClock() {
   const { getEffectiveRole } = useRoleImpersonation();
   const [activeSubTab, setActiveSubTab] = useState<'punch' | 'myTime' | 'allTime' | 'payroll'>('punch');
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const effectiveRole = getEffectiveRole(userProfile?.role);
   const isMaster = isMasterRole(effectiveRole);
@@ -86,11 +87,11 @@ export function TimeClock() {
         )}
 
         {activeSubTab === 'myTime' && (
-          <TimeEntriesView />
+          <TimeEntriesView key={refreshKey} />
         )}
 
         {activeSubTab === 'allTime' && isMaster && (
-          <AllStaffTimeView onEditEntry={setEditingEntry} />
+          <AllStaffTimeView key={refreshKey} onEditEntry={setEditingEntry} />
         )}
 
         {activeSubTab === 'payroll' && isMaster && (
@@ -104,7 +105,7 @@ export function TimeClock() {
           onClose={() => setEditingEntry(null)}
           onSave={() => {
             setEditingEntry(null);
-            window.location.reload();
+            setRefreshKey(prev => prev + 1);
           }}
         />
       )}
