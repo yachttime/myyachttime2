@@ -202,6 +202,8 @@ export function EstimateTaxSettings({ userId }: EstimateTaxSettingsProps) {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    console.log('File selected:', file.name, file.type, file.size);
+
     if (!file.type.startsWith('image/')) {
       setError('Please upload an image file');
       return;
@@ -217,17 +219,25 @@ export function EstimateTaxSettings({ userId }: EstimateTaxSettingsProps) {
       setError(null);
 
       if (companyFormData.logo_url) {
-        const oldPath = companyFormData.logo_url.split('/').pop();
-        if (oldPath) {
-          await deleteFile('company-logos', oldPath);
+        try {
+          const oldPath = companyFormData.logo_url.split('/').pop();
+          if (oldPath) {
+            console.log('Deleting old logo:', oldPath);
+            await deleteFile('company-logos', oldPath);
+          }
+        } catch (deleteErr) {
+          console.warn('Could not delete old logo:', deleteErr);
         }
       }
 
       const fileName = `logo-${Date.now()}-${file.name}`;
+      console.log('Uploading to:', fileName);
       const url = await uploadFile('company-logos', fileName, file);
+      console.log('Upload successful, URL:', url);
 
       setCompanyFormData({ ...companyFormData, logo_url: url });
 
+      console.log('Updating database with logo URL...');
       const { error: updateError } = await supabase
         .from('company_info')
         .update({ logo_url: url })
@@ -235,8 +245,10 @@ export function EstimateTaxSettings({ userId }: EstimateTaxSettingsProps) {
 
       if (updateError) throw updateError;
 
+      console.log('Database updated successfully');
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
+      await loadSettings();
     } catch (err: any) {
       console.error('Error uploading logo:', err);
       setError(err.message || 'Failed to upload logo');
@@ -475,6 +487,12 @@ export function EstimateTaxSettings({ userId }: EstimateTaxSettingsProps) {
       {activeTab === 'company' && (
         <form onSubmit={handleCompanySubmit} className="bg-white border border-gray-200 rounded-lg p-6">
           <div className="space-y-6">
+            {uploadingLogo && (
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2 text-blue-700">
+                <div className="animate-spin w-5 h-5 border-2 border-blue-700 border-t-transparent rounded-full"></div>
+                Uploading logo...
+              </div>
+            )}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Company Logo
@@ -502,7 +520,7 @@ export function EstimateTaxSettings({ userId }: EstimateTaxSettingsProps) {
                   </div>
                 )}
                 <div className="flex-1">
-                  <label className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer disabled:opacity-50">
+                  <label className={`inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer transition-all ${uploadingLogo ? 'opacity-50 cursor-not-allowed' : ''}`}>
                     <Upload className="w-4 h-4" />
                     {uploadingLogo ? 'Uploading...' : 'Upload Logo'}
                     <input
