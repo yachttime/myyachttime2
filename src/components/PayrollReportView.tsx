@@ -89,7 +89,7 @@ export function PayrollReportView() {
 
     setLoading(true);
     try {
-      const [entriesResult, workOrderLaborResult] = await Promise.all([
+      const [entriesResult, assignmentsResult, lineItemsResult] = await Promise.all([
         supabase
           .from('staff_time_entries')
           .select('*')
@@ -103,10 +103,12 @@ export function PayrollReportView() {
           .from('work_order_task_assignments')
           .select(`
             employee_id,
+            task_id,
             work_order_tasks!inner (
+              id,
               task_name,
-              work_order_id,
               work_orders!inner (
+                id,
                 work_order_number,
                 customer_name,
                 created_at,
@@ -114,24 +116,23 @@ export function PayrollReportView() {
                   name
                 )
               )
-            ),
-            work_order_line_items!work_order_line_items_task_id_fkey (
-              description,
-              quantity,
-              line_type,
-              created_at
             )
           `)
           .in('employee_id', Array.from(selectedUsers))
-          .eq('work_order_line_items.line_type', 'labor')
           .gte('work_order_tasks.work_orders.created_at', new Date(startDate).toISOString())
-          .lte('work_order_tasks.work_orders.created_at', new Date(new Date(endDate).setHours(23, 59, 59)).toISOString())
+          .lte('work_order_tasks.work_orders.created_at', new Date(new Date(endDate).setHours(23, 59, 59)).toISOString()),
+
+        supabase
+          .from('work_order_line_items')
+          .select('task_id, description, quantity, line_type, created_at')
+          .eq('line_type', 'labor')
       ]);
 
       if (entriesResult.error) throw entriesResult.error;
 
       const entries = entriesResult.data || [];
-      const workOrderData = workOrderLaborResult.data || [];
+      const assignments = assignmentsResult.data || [];
+      const lineItems = lineItemsResult.data || [];
 
       const reports: EmployeeReport[] = [];
       allUsers.forEach(user => {
@@ -141,22 +142,23 @@ export function PayrollReportView() {
           const totalOvertimeHours = userEntries.reduce((sum, e) => sum + (e.overtime_hours || 0), 0);
           const totalHours = totalStandardHours + totalOvertimeHours;
 
-          const userWorkOrderLabor: WorkOrderLabor[] = workOrderData
-            .filter((item: any) => item.employee_id === user.user_id)
-            .flatMap((assignment: any) => {
-              const task = assignment.work_order_tasks;
-              const workOrder = task?.work_orders;
+          const userAssignments = assignments.filter((a: any) => a.employee_id === user.user_id);
 
-              return (assignment.work_order_line_items || []).map((lineItem: any) => ({
-                work_order_number: workOrder?.work_order_number || 'N/A',
-                task_name: task?.task_name || 'N/A',
-                description: lineItem.description,
-                quantity: lineItem.quantity,
-                created_at: lineItem.created_at,
-                yacht_name: workOrder?.yachts?.name,
-                customer_name: workOrder?.customer_name
-              }));
-            });
+          const userWorkOrderLabor: WorkOrderLabor[] = userAssignments.flatMap((assignment: any) => {
+            const task = assignment.work_order_tasks;
+            const workOrder = task?.work_orders;
+            const taskLineItems = lineItems.filter((item: any) => item.task_id === assignment.task_id);
+
+            return taskLineItems.map((lineItem: any) => ({
+              work_order_number: workOrder?.work_order_number || 'N/A',
+              task_name: task?.task_name || 'N/A',
+              description: lineItem.description,
+              quantity: parseFloat(lineItem.quantity) || 0,
+              created_at: lineItem.created_at,
+              yacht_name: workOrder?.yachts?.name,
+              customer_name: workOrder?.customer_name
+            }));
+          });
 
           const totalWorkOrderHours = userWorkOrderLabor.reduce((sum, labor) => sum + labor.quantity, 0);
           const grandTotalHours = totalHours + totalWorkOrderHours;
