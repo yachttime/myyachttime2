@@ -409,7 +409,12 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (isSubmitting) return;
+    console.log('Submit clicked, isSubmitting:', isSubmitting);
+
+    if (isSubmitting) {
+      console.log('Already submitting, returning');
+      return;
+    }
 
     if (tasks.length === 0) {
       setError('Please add at least one task');
@@ -425,6 +430,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
     try {
       setError(null);
       setIsSubmitting(true);
+      console.log('Starting work order update...');
 
       const subtotal = calculateSubtotal();
       const salesTaxRate = parseFloat(formData.sales_tax_rate);
@@ -466,6 +472,8 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
         customer_notes: formData.customer_notes || null
       };
 
+      console.log('Updating work order with data:', workOrderData);
+
       const { data: workOrder, error: workOrderError } = await supabase
         .from('work_orders')
         .update(workOrderData)
@@ -473,12 +481,29 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
         .select()
         .single();
 
-      if (workOrderError) throw workOrderError;
+      if (workOrderError) {
+        console.error('Error updating work order:', workOrderError);
+        throw workOrderError;
+      }
 
-      await supabase.from('work_order_tasks').delete().eq('work_order_id', editingId);
+      console.log('Work order updated successfully, deleting old tasks...');
+
+      const { error: deleteTasksError } = await supabase
+        .from('work_order_tasks')
+        .delete()
+        .eq('work_order_id', editingId);
+
+      if (deleteTasksError) {
+        console.error('Error deleting tasks:', deleteTasksError);
+        throw deleteTasksError;
+      }
+
+      console.log('Old tasks deleted, creating', tasks.length, 'new tasks...');
 
       for (let i = 0; i < tasks.length; i++) {
         const task = tasks[i];
+
+        console.log(`Creating task ${i + 1}/${tasks.length}:`, task.task_name);
 
         const { data: workOrderTask, error: taskError } = await supabase
           .from('work_order_tasks')
@@ -492,7 +517,12 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
           .select()
           .single();
 
-        if (taskError) throw taskError;
+        if (taskError) {
+          console.error(`Error creating task ${i + 1}:`, taskError);
+          throw taskError;
+        }
+
+        console.log(`Task ${i + 1} created, adding ${task.lineItems.length} line items...`);
 
         if (task.lineItems.length > 0) {
           const lineItemsToInsert = task.lineItems.map((item, index) => ({
@@ -510,6 +540,8 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
             line_order: index
           }));
 
+          console.log(`Inserting ${lineItemsToInsert.length} line items for task ${i + 1}...`);
+
           const { error: lineItemsError } = await supabase
             .from('work_order_line_items')
             .insert(lineItemsToInsert);
@@ -518,13 +550,21 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
             console.error('Error inserting line items:', lineItemsError);
             throw lineItemsError;
           }
+
+          console.log(`Line items inserted successfully for task ${i + 1}`);
         }
       }
 
+      console.log('All tasks and line items created successfully!');
+
       alert('Work order updated successfully!');
+
+      console.log('Resetting form and reloading data...');
 
       await resetForm();
       await loadData();
+
+      console.log('Work order save complete!');
     } catch (err: any) {
       console.error('Error saving work order:', err);
       setError(err.message || 'Failed to save work order');
