@@ -3,6 +3,10 @@ import { supabase } from '../lib/supabase';
 import { Plus, FileText, AlertCircle, Edit2, Trash2, Check, X, ChevronDown, ChevronUp, Printer } from 'lucide-react';
 import { generateEstimatePDF } from '../utils/pdfGenerator';
 
+const DEFAULT_CUSTOMER_NOTES = `I hereby authorize the above repair work to be done along with necessary materials. It is distinctly understood that all labor and materials so used shall be charged to this job at current billing rates. You and your employees may operate above equipment for purpose of testing, inspecting or delivering at my risk. An express mechanic's lien is acknowledged to secure the amount of repairs thereto. It is understood that this company assumes no responsibility for loss or damage by fire or theft or weather hazards incidental to equipment or materials placed with them for sale, repair or testing. If legal action is necessary to enforce this contract I will pay all reasonable attorney's fees and other costs incurred. All payments are C.O.D. unless prior arrangements are made. If equipment is not removed within 10 days after completion of service, storage charges will accrue at $15 per day.
+
+Customer Signature: _________________________________     Date: ______________`;
+
 interface Estimate {
   id: string;
   estimate_number: string;
@@ -85,7 +89,7 @@ export function Estimates({ userId }: EstimatesProps) {
     apply_shop_supplies: true,
     apply_park_fees: true,
     notes: '',
-    customer_notes: ''
+    customer_notes: DEFAULT_CUSTOMER_NOTES
   });
 
   const [tasks, setTasks] = useState<EstimateTask[]>([]);
@@ -750,7 +754,7 @@ export function Estimates({ userId }: EstimatesProps) {
       apply_shop_supplies: true,
       apply_park_fees: true,
       notes: '',
-      customer_notes: ''
+      customer_notes: DEFAULT_CUSTOMER_NOTES
     });
     setTasks([]);
     setShowForm(false);
@@ -1673,12 +1677,15 @@ export function Estimates({ userId }: EstimatesProps) {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Customer Notes</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Customer Terms & Conditions
+                  <span className="text-xs text-gray-500 ml-2">(Printed at bottom of estimate)</span>
+                </label>
                 <textarea
                   value={formData.customer_notes}
                   onChange={(e) => setFormData({ ...formData, customer_notes: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900"
-                  rows={2}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 text-sm"
+                  rows={6}
                 />
               </div>
             </div>

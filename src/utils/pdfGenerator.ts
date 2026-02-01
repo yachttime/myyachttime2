@@ -1124,10 +1124,23 @@ export async function generateEstimatePDF(
   }
 
   if (estimate.customer_notes) {
+    addSpace(0.3);
+    doc.setDrawColor(0);
+    doc.setLineWidth(0.02);
+    doc.line(margin, yPos, pageWidth - margin, yPos);
     addSpace(0.15);
-    addText('Customer Notes', 11, 'bold');
-    addSpace(0.05);
-    addText(estimate.customer_notes, 9);
+
+    addText('TERMS AND CONDITIONS', 11, 'bold');
+    addSpace(0.1);
+
+    const lines = estimate.customer_notes.split('\n');
+    lines.forEach(line => {
+      if (line.trim()) {
+        addText(line, 8);
+      } else {
+        addSpace(0.1);
+      }
+    });
   }
 
   const pageCount = doc.getNumberOfPages();
