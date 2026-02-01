@@ -124,6 +124,11 @@ export function Estimates({ userId }: EstimatesProps) {
   const [estimateToApprove, setEstimateToApprove] = useState<string | null>(null);
   const [showDenyModal, setShowDenyModal] = useState(false);
   const [estimateToDeny, setEstimateToDeny] = useState<string | null>(null);
+  const [showRestoreDraftModal, setShowRestoreDraftModal] = useState(false);
+  const [draftToRestore, setDraftToRestore] = useState<any>(null);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [estimateToDelete, setEstimateToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -235,26 +240,8 @@ export function Estimates({ userId }: EstimatesProps) {
         const oneDay = 24 * 60 * 60 * 1000;
 
         if (draftAge < oneDay) {
-          const userWantsToRestore = window.confirm(
-            'You have an unsaved estimate draft. Would you like to restore it?'
-          );
-
-          if (userWantsToRestore) {
-            setFormData(draft.formData);
-            const restoredTasks = draft.tasks.map((task: any) => ({
-              ...task,
-              lineItems: (task.lineItems || []).map((item: any) => ({
-                ...item,
-                is_taxable: item.is_taxable ?? true
-              }))
-            }));
-            setTasks(restoredTasks);
-            const allTaskIndexes = restoredTasks.map((_: any, index: number) => index);
-            setExpandedTasks(new Set(allTaskIndexes));
-            setShowForm(true);
-          } else {
-            localStorage.removeItem('estimate_draft');
-          }
+          setDraftToRestore(draft);
+          setShowRestoreDraftModal(true);
         } else {
           localStorage.removeItem('estimate_draft');
         }
@@ -263,6 +250,31 @@ export function Estimates({ userId }: EstimatesProps) {
       console.error('Error loading draft:', err);
       localStorage.removeItem('estimate_draft');
     }
+  };
+
+  const handleRestoreDraft = () => {
+    if (draftToRestore) {
+      setFormData(draftToRestore.formData);
+      const restoredTasks = draftToRestore.tasks.map((task: any) => ({
+        ...task,
+        lineItems: (task.lineItems || []).map((item: any) => ({
+          ...item,
+          is_taxable: item.is_taxable ?? true
+        }))
+      }));
+      setTasks(restoredTasks);
+      const allTaskIndexes = restoredTasks.map((_: any, index: number) => index);
+      setExpandedTasks(new Set(allTaskIndexes));
+      setShowForm(true);
+    }
+    setShowRestoreDraftModal(false);
+    setDraftToRestore(null);
+  };
+
+  const handleDeclineDraft = () => {
+    localStorage.removeItem('estimate_draft');
+    setShowRestoreDraftModal(false);
+    setDraftToRestore(null);
   };
 
   const handleYachtChange = (yachtId: string) => {
@@ -685,12 +697,14 @@ export function Estimates({ userId }: EstimatesProps) {
     const hasDraft = tasks.length > 0 || formData.yacht_id || formData.customer_name;
 
     if (hasDraft) {
-      const confirmed = window.confirm(
-        'Are you sure you want to cancel? Your draft will be saved and you can restore it later.'
-      );
-      if (!confirmed) return;
+      setShowCancelModal(true);
+    } else {
+      resetForm();
     }
+  };
 
+  const handleConfirmCancel = () => {
+    setShowCancelModal(false);
     resetForm();
   };
 
@@ -896,24 +910,28 @@ export function Estimates({ userId }: EstimatesProps) {
     }
   };
 
-  const handleDeleteEstimate = async (estimateId: string) => {
-    if (!window.confirm('Are you sure you want to delete this estimate? This action cannot be undone.')) {
-      return;
-    }
+  const handleDeleteEstimate = (estimateId: string) => {
+    setEstimateToDelete(estimateId);
+    setShowDeleteModal(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!estimateToDelete) return;
+
+    setShowDeleteModal(false);
 
     try {
       setError(null);
 
-      // Delete estimate (cascading delete will handle tasks and line items)
       const { error: deleteError } = await supabase
         .from('estimates')
         .delete()
-        .eq('id', estimateId);
+        .eq('id', estimateToDelete);
 
       if (deleteError) throw deleteError;
 
-      // Refresh estimates list
       await loadData();
+      setEstimateToDelete(null);
     } catch (err) {
       console.error('Error deleting estimate:', err);
       setError('Failed to delete estimate');
@@ -1940,6 +1958,90 @@ export function Estimates({ userId }: EstimatesProps) {
                 className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
               >
                 Deny
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showRestoreDraftModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Restore Draft
+            </h3>
+            <p className="text-gray-700 mb-6">
+              You have an unsaved estimate draft. Would you like to restore it?
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={handleDeclineDraft}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                No
+              </button>
+              <button
+                onClick={handleRestoreDraft}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Yes, Restore
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCancelModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Cancel Estimate
+            </h3>
+            <p className="text-gray-700 mb-6">
+              Are you sure you want to cancel? Your draft will be saved and you can restore it later.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowCancelModal(false)}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                No, Keep Editing
+              </button>
+              <button
+                onClick={handleConfirmCancel}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Yes, Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Delete Estimate
+            </h3>
+            <p className="text-gray-700 mb-6">
+              Are you sure you want to delete this estimate? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setEstimateToDelete(null);
+                }}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Delete
               </button>
             </div>
           </div>
