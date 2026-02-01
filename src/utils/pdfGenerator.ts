@@ -1229,6 +1229,21 @@ export async function generateWorkOrderPDF(
   yachtName: string | null,
   companyInfo?: any
 ): Promise<jsPDF> {
+  const estimate = workOrder.estimates || {
+    subtotal: 0,
+    sales_tax_rate: 0,
+    sales_tax_amount: 0,
+    shop_supplies_rate: 0,
+    shop_supplies_amount: 0,
+    park_fees_rate: 0,
+    park_fees_amount: 0,
+    surcharge_rate: 0,
+    surcharge_amount: 0,
+    total_amount: 0,
+    notes: null,
+    customer_notes: null
+  };
+
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'in',
@@ -1560,22 +1575,22 @@ export async function generateWorkOrderPDF(
   yPos += 0.1125;
 
   const summaryData = [
-    ['Subtotal:', `$${(workOrder.subtotal || 0).toFixed(2)}`],
+    ['Subtotal:', `$${estimate.subtotal.toFixed(2)}`],
   ];
 
-  if (workOrder.shop_supplies_amount > 0) {
-    summaryData.push([`Shop Supplies (${((workOrder.shop_supplies_rate || 0) * 100).toFixed(1)}%):`, `$${workOrder.shop_supplies_amount.toFixed(2)}`]);
+  if (estimate.shop_supplies_amount > 0) {
+    summaryData.push([`Shop Supplies (${(estimate.shop_supplies_rate * 100).toFixed(1)}%):`, `$${estimate.shop_supplies_amount.toFixed(2)}`]);
   }
 
-  if (workOrder.park_fees_amount > 0) {
-    summaryData.push([`Park Fees (${((workOrder.park_fees_rate || 0) * 100).toFixed(1)}%):`, `$${workOrder.park_fees_amount.toFixed(2)}`]);
+  if (estimate.park_fees_amount > 0) {
+    summaryData.push([`Park Fees (${(estimate.park_fees_rate * 100).toFixed(1)}%):`, `$${estimate.park_fees_amount.toFixed(2)}`]);
   }
 
-  if (workOrder.surcharge_amount > 0) {
-    summaryData.push([`Surcharge (${((workOrder.surcharge_rate || 0) * 100).toFixed(1)}%):`, `$${workOrder.surcharge_amount.toFixed(2)}`]);
+  if (estimate.surcharge_amount > 0) {
+    summaryData.push([`Surcharge (${(estimate.surcharge_rate * 100).toFixed(1)}%):`, `$${estimate.surcharge_amount.toFixed(2)}`]);
   }
 
-  summaryData.push([`Sales Tax (${((workOrder.sales_tax_rate || 0) * 100).toFixed(1)}%):`, `$${(workOrder.sales_tax_amount || 0).toFixed(2)}`]);
+  summaryData.push([`Sales Tax (${(estimate.sales_tax_rate * 100).toFixed(1)}%):`, `$${estimate.sales_tax_amount.toFixed(2)}`]);
 
   autoTable(doc, {
     startY: yPos,
@@ -1602,7 +1617,7 @@ export async function generateWorkOrderPDF(
 
   autoTable(doc, {
     startY: yPos,
-    body: [['TOTAL:', `$${(workOrder.total_amount || 0).toFixed(2)}`]],
+    body: [['TOTAL:', `$${estimate.total_amount.toFixed(2)}`]],
     theme: 'plain',
     styles: {
       fontSize: 9,
@@ -1620,15 +1635,15 @@ export async function generateWorkOrderPDF(
     }
   });
 
-  if (workOrder.notes) {
+  if (estimate.notes) {
     addSpace(0.15);
     addText('Notes', 11, 'bold');
     addSpace(0.05);
-    addText(workOrder.notes, 9);
+    addText(estimate.notes, 9);
   }
 
-  if (workOrder.customer_notes) {
-    const lines = workOrder.customer_notes.split('\n');
+  if (estimate.customer_notes) {
+    const lines = estimate.customer_notes.split('\n');
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
