@@ -825,8 +825,8 @@ export async function generateEstimatePDF(
             const img = new Image();
             img.onload = () => {
               try {
-                const maxLogoWidth = 1.2;
-                const maxLogoHeight = 0.9;
+                const maxLogoWidth = 1.8;
+                const maxLogoHeight = 1.3;
 
                 const aspectRatio = img.width / img.height;
                 logoWidth = maxLogoWidth;
