@@ -943,7 +943,7 @@ export function Estimates({ userId }: EstimatesProps) {
       if (deleteError) throw deleteError;
 
       // Refresh estimates list
-      await loadEstimates();
+      await loadData();
     } catch (err) {
       console.error('Error deleting estimate:', err);
       setError('Failed to delete estimate');
