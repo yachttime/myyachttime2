@@ -167,7 +167,7 @@ export function Estimates({ userId }: EstimatesProps) {
           .order('name'),
         supabase
           .from('user_profiles')
-          .select('id, yacht_id, first_name, last_name, can_approve_repairs, email_address, phone_number')
+          .select('id, yacht_id, first_name, last_name, can_approve_repairs, email, phone_number')
           .eq('role', 'manager')
           .eq('is_active', true),
         supabase
@@ -264,7 +264,7 @@ export function Estimates({ userId }: EstimatesProps) {
     const managerName = repairManager
       ? `${repairManager.first_name} ${repairManager.last_name}`.trim()
       : '';
-    const managerEmail = repairManager?.email_address || '';
+    const managerEmail = repairManager?.email || '';
     const managerPhone = repairManager?.phone_number || '';
 
     setFormData({
@@ -799,7 +799,7 @@ export function Estimates({ userId }: EstimatesProps) {
         // Load manager with repair approval
         const { data: managerData } = await supabase
           .from('user_profiles')
-          .select('first_name, last_name, email_address, phone_number')
+          .select('first_name, last_name, email, phone_number')
           .eq('yacht_id', estimate.yacht_id)
           .eq('role', 'manager')
           .eq('can_approve_repairs', true)
@@ -811,7 +811,7 @@ export function Estimates({ userId }: EstimatesProps) {
             managerName = `${managerData.first_name} ${managerData.last_name}`.trim();
           }
           if (!managerEmail) {
-            managerEmail = managerData.email_address || '';
+            managerEmail = managerData.email || '';
           }
           if (!managerPhone) {
             managerPhone = managerData.phone_number || '';
