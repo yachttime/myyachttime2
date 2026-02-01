@@ -17,16 +17,16 @@ interface WorkOrder {
   manager_name: string | null;
   manager_email: string | null;
   manager_phone: string | null;
-  sales_tax_rate: number;
-  sales_tax_amount: number;
-  shop_supplies_rate: number;
-  shop_supplies_amount: number;
-  park_fees_rate: number;
-  park_fees_amount: number;
-  surcharge_rate: number;
-  surcharge_amount: number;
-  subtotal: number;
-  total_amount: number;
+  sales_tax_rate: number | null;
+  sales_tax_amount: number | null;
+  shop_supplies_rate: number | null;
+  shop_supplies_amount: number | null;
+  park_fees_rate: number | null;
+  park_fees_amount: number | null;
+  surcharge_rate: number | null;
+  surcharge_amount: number | null;
+  subtotal: number | null;
+  total_amount: number | null;
   notes: string | null;
   customer_notes: string | null;
   created_at: string;
@@ -620,12 +620,12 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
         manager_name: workOrder.manager_name || '',
         manager_email: workOrder.manager_email || '',
         manager_phone: workOrder.manager_phone || '',
-        sales_tax_rate: workOrder.sales_tax_rate.toString(),
-        shop_supplies_rate: workOrder.shop_supplies_rate.toString(),
-        park_fees_rate: workOrder.park_fees_rate.toString(),
-        surcharge_rate: workOrder.surcharge_rate.toString(),
-        apply_shop_supplies: workOrder.shop_supplies_amount > 0,
-        apply_park_fees: workOrder.park_fees_amount > 0,
+        sales_tax_rate: (workOrder.sales_tax_rate || 0).toString(),
+        shop_supplies_rate: (workOrder.shop_supplies_rate || 0).toString(),
+        park_fees_rate: (workOrder.park_fees_rate || 0).toString(),
+        surcharge_rate: (workOrder.surcharge_rate || 0).toString(),
+        apply_shop_supplies: (workOrder.shop_supplies_amount || 0) > 0,
+        apply_park_fees: (workOrder.park_fees_amount || 0) > 0,
         notes: workOrder.notes || '',
         customer_notes: workOrder.customer_notes || ''
       });
@@ -647,23 +647,23 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
             id: item.id,
             task_id: item.task_id,
             line_type: item.line_type,
-            description: item.description,
-            quantity: item.quantity,
-            unit_price: item.unit_price,
-            total_price: item.total_price,
-            is_taxable: item.is_taxable,
+            description: item.description || '',
+            quantity: item.quantity || 0,
+            unit_price: item.unit_price || 0,
+            total_price: item.total_price || 0,
+            is_taxable: item.is_taxable ?? true,
             labor_code_id: item.labor_code_id,
             part_id: item.part_id,
-            line_order: item.line_order,
+            line_order: item.line_order || 0,
             work_details: item.work_details
           }));
 
         return {
           id: task.id,
-          task_name: task.task_name,
-          task_overview: task.task_overview,
-          task_order: task.task_order,
-          apply_surcharge: task.apply_surcharge,
+          task_name: task.task_name || '',
+          task_overview: task.task_overview || '',
+          task_order: task.task_order || 0,
+          apply_surcharge: task.apply_surcharge ?? true,
           lineItems: taskLineItems
         };
       });
@@ -781,16 +781,16 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
       const workOrderWithEstimates = {
         ...workOrderData,
         estimates: {
-          subtotal: workOrderData.subtotal,
-          sales_tax_rate: workOrderData.sales_tax_rate,
-          sales_tax_amount: workOrderData.sales_tax_amount,
-          shop_supplies_rate: workOrderData.shop_supplies_rate,
-          shop_supplies_amount: workOrderData.shop_supplies_amount,
-          park_fees_rate: workOrderData.park_fees_rate,
-          park_fees_amount: workOrderData.park_fees_amount,
-          surcharge_rate: workOrderData.surcharge_rate,
-          surcharge_amount: workOrderData.surcharge_amount,
-          total_amount: workOrderData.total_amount,
+          subtotal: workOrderData.subtotal || 0,
+          sales_tax_rate: workOrderData.sales_tax_rate || 0,
+          sales_tax_amount: workOrderData.sales_tax_amount || 0,
+          shop_supplies_rate: workOrderData.shop_supplies_rate || 0,
+          shop_supplies_amount: workOrderData.shop_supplies_amount || 0,
+          park_fees_rate: workOrderData.park_fees_rate || 0,
+          park_fees_amount: workOrderData.park_fees_amount || 0,
+          surcharge_rate: workOrderData.surcharge_rate || 0,
+          surcharge_amount: workOrderData.surcharge_amount || 0,
+          total_amount: workOrderData.total_amount || 0,
           notes: workOrderData.notes,
           customer_notes: workOrderData.customer_notes
         }
@@ -1462,7 +1462,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                   </span>
                 </td>
                 <td className="px-6 py-4 text-right text-sm font-medium text-gray-900">
-                  ${workOrder.total_amount.toFixed(2)}
+                  ${(workOrder.total_amount || 0).toFixed(2)}
                 </td>
                 <td className="px-6 py-4 text-right text-sm text-gray-500">
                   {new Date(workOrder.created_at).toLocaleDateString()}
