@@ -1,8 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Download, Calendar, Users, Clock } from 'lucide-react';
+import { Download, Calendar, Users, Clock, Plus, Edit2, Trash2, X, Check } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { TimeEntry, getPayrollPeriodsForDateRange } from '../utils/timeClockHelpers';
 import { generatePayrollReportPDF } from '../utils/pdfGenerator';
+
+interface PayPeriod {
+  id: string;
+  period_start: string;
+  period_end: string;
+  pay_date: string;
+  year: number;
+  period_number: number;
+  is_processed: boolean;
+  notes?: string;
+}
 
 interface UserProfile {
   user_id: string;
@@ -40,11 +51,24 @@ export function PayrollReportView() {
   const [employeeReports, setEmployeeReports] = useState<EmployeeReport[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
+  const [payPeriods, setPayPeriods] = useState<PayPeriod[]>([]);
+  const [showPayPeriodForm, setShowPayPeriodForm] = useState(false);
+  const [editingPeriod, setEditingPeriod] = useState<PayPeriod | null>(null);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [formData, setFormData] = useState({
+    period_start: '',
+    period_end: '',
+    pay_date: '',
+    year: new Date().getFullYear(),
+    period_number: 1,
+    notes: ''
+  });
 
   useEffect(() => {
     loadUsers();
+    loadPayPeriods();
     setDefaultDates();
-  }, []);
+  }, [selectedYear]);
 
   const setDefaultDates = () => {
     const today = new Date();
@@ -75,6 +99,122 @@ export function PayrollReportView() {
       setAllUsers(data);
       setSelectedUsers(new Set(data.map(u => u.user_id)));
     }
+  };
+
+  const loadPayPeriods = async () => {
+    const { data } = await supabase
+      .from('pay_periods')
+      .select('*')
+      .eq('year', selectedYear)
+      .order('period_number');
+
+    if (data) {
+      setPayPeriods(data);
+    }
+  };
+
+  const handleSavePayPeriod = async () => {
+    if (!formData.period_start || !formData.period_end || !formData.pay_date) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    try {
+      if (editingPeriod) {
+        const { error } = await supabase
+          .from('pay_periods')
+          .update({
+            period_start: formData.period_start,
+            period_end: formData.period_end,
+            pay_date: formData.pay_date,
+            year: formData.year,
+            period_number: formData.period_number,
+            notes: formData.notes || null,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', editingPeriod.id);
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('pay_periods')
+          .insert({
+            period_start: formData.period_start,
+            period_end: formData.period_end,
+            pay_date: formData.pay_date,
+            year: formData.year,
+            period_number: formData.period_number,
+            notes: formData.notes || null
+          });
+
+        if (error) throw error;
+      }
+
+      setShowPayPeriodForm(false);
+      setEditingPeriod(null);
+      setFormData({
+        period_start: '',
+        period_end: '',
+        pay_date: '',
+        year: selectedYear,
+        period_number: payPeriods.length + 1,
+        notes: ''
+      });
+      loadPayPeriods();
+    } catch (error: any) {
+      console.error('Error saving pay period:', error);
+      alert(error.message || 'Failed to save pay period');
+    }
+  };
+
+  const handleEditPayPeriod = (period: PayPeriod) => {
+    setEditingPeriod(period);
+    setFormData({
+      period_start: period.period_start,
+      period_end: period.period_end,
+      pay_date: period.pay_date,
+      year: period.year,
+      period_number: period.period_number,
+      notes: period.notes || ''
+    });
+    setShowPayPeriodForm(true);
+  };
+
+  const handleDeletePayPeriod = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this pay period?')) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('pay_periods')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      loadPayPeriods();
+    } catch (error) {
+      console.error('Error deleting pay period:', error);
+      alert('Failed to delete pay period');
+    }
+  };
+
+  const handleSelectPayPeriod = (period: PayPeriod) => {
+    setStartDate(period.period_start);
+    setEndDate(period.period_end);
+  };
+
+  const handleNewPayPeriod = () => {
+    setEditingPeriod(null);
+    setFormData({
+      period_start: '',
+      period_end: '',
+      pay_date: '',
+      year: selectedYear,
+      period_number: payPeriods.length + 1,
+      notes: ''
+    });
+    setShowPayPeriodForm(true);
   };
 
   const handleGenerateReport = async () => {
@@ -237,6 +377,190 @@ export function PayrollReportView() {
       <div>
         <h2 className="text-2xl font-bold text-amber-500 mb-2">Payroll Report</h2>
         <p className="text-gray-600">Generate time clock reports for payroll processing</p>
+      </div>
+
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Pay Periods</h3>
+            <p className="text-sm text-gray-600">Manage pay cycles for the year</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+            >
+              {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map(year => (
+                <option key={year} value={year}>{year}</option>
+              ))}
+            </select>
+            <button
+              onClick={handleNewPayPeriod}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-medium"
+            >
+              <Plus className="w-4 h-4" />
+              Add Pay Period
+            </button>
+          </div>
+        </div>
+
+        {showPayPeriodForm && (
+          <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="font-medium text-gray-900">
+                {editingPeriod ? 'Edit Pay Period' : 'New Pay Period'}
+              </h4>
+              <button
+                onClick={() => {
+                  setShowPayPeriodForm(false);
+                  setEditingPeriod(null);
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Period Number
+                </label>
+                <input
+                  type="number"
+                  value={formData.period_number}
+                  onChange={(e) => setFormData({ ...formData, period_number: parseInt(e.target.value) })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                  min="1"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Period Start
+                </label>
+                <input
+                  type="date"
+                  value={formData.period_start}
+                  onChange={(e) => setFormData({ ...formData, period_start: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Period End
+                </label>
+                <input
+                  type="date"
+                  value={formData.period_end}
+                  onChange={(e) => setFormData({ ...formData, period_end: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Pay Date
+                </label>
+                <input
+                  type="date"
+                  value={formData.pay_date}
+                  onChange={(e) => setFormData({ ...formData, pay_date: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                />
+              </div>
+            </div>
+            <div className="mb-3">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Notes (Optional)
+              </label>
+              <input
+                type="text"
+                value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                placeholder="Holiday pay, special notes, etc."
+              />
+            </div>
+            <div className="flex justify-end">
+              <button
+                onClick={handleSavePayPeriod}
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-medium"
+              >
+                <Check className="w-4 h-4" />
+                Save Pay Period
+              </button>
+            </div>
+          </div>
+        )}
+
+        {payPeriods.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Period #</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Period Start</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Period End</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pay Date</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Notes</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {payPeriods.map(period => (
+                  <tr key={period.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm text-gray-900 font-medium">#{period.period_number}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900">
+                      {new Date(period.period_start).toLocaleDateString()}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900">
+                      {new Date(period.period_end).toLocaleDateString()}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900 font-medium">
+                      {new Date(period.pay_date).toLocaleDateString()}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{period.notes || '-'}</td>
+                    <td className="px-4 py-3 text-sm">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        period.is_processed
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {period.is_processed ? 'Processed' : 'Pending'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-right space-x-2">
+                      <button
+                        onClick={() => handleSelectPayPeriod(period)}
+                        className="text-blue-600 hover:text-blue-700 font-medium"
+                      >
+                        Use Dates
+                      </button>
+                      <button
+                        onClick={() => handleEditPayPeriod(period)}
+                        className="text-gray-600 hover:text-gray-700"
+                      >
+                        <Edit2 className="w-4 h-4 inline" />
+                      </button>
+                      <button
+                        onClick={() => handleDeletePayPeriod(period.id)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="w-4 h-4 inline" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="text-center py-8">
+            <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+            <p className="text-gray-600">No pay periods configured for {selectedYear}</p>
+            <p className="text-sm text-gray-500">Click "Add Pay Period" to get started</p>
+          </div>
+        )}
       </div>
 
       <div className="bg-white rounded-lg shadow p-6 space-y-4">
