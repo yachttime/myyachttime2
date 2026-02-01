@@ -540,7 +540,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     loadMechanics();
     loadStaffMessages();
     checkSmartDevices();
-  }, [user, yacht, effectiveRole, effectiveYacht]);
+  }, [user, yacht, effectiveRole, effectiveYacht, impersonatedYacht]);
 
   useEffect(() => {
     if (activeTab === 'admin' && adminView === 'repairs') {
@@ -696,7 +696,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         `);
 
       // When impersonating a yacht, filter by that yacht (for all roles)
-      if (isImpersonatingYacht() && effectiveYacht) {
+      if (isImpersonatingYacht && effectiveYacht) {
         // User is impersonating - show only this yacht's requests
         query = query.eq('yacht_id', effectiveYacht.id);
       } else if (['staff', 'mechanic', 'master'].includes(effectiveRole)) {
@@ -1926,7 +1926,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         .order('created_at', { ascending: false });
 
       // When impersonating a yacht, filter by that yacht (for all roles)
-      if (isImpersonatingYacht() && effectiveYacht) {
+      if (isImpersonatingYacht && effectiveYacht) {
         // User is impersonating - show only this yacht's requests
         query = query.eq('yacht_id', effectiveYacht.id);
       } else if (['staff', 'mechanic', 'master'].includes(effectiveRole)) {
