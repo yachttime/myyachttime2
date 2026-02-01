@@ -120,6 +120,10 @@ export function Estimates({ userId }: EstimatesProps) {
   const [filteredParts, setFilteredParts] = useState<typeof parts>([]);
   const [showPartDropdown, setShowPartDropdown] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showApproveModal, setShowApproveModal] = useState(false);
+  const [estimateToApprove, setEstimateToApprove] = useState<string | null>(null);
+  const [showDenyModal, setShowDenyModal] = useState(false);
+  const [estimateToDeny, setEstimateToDeny] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -916,10 +920,15 @@ export function Estimates({ userId }: EstimatesProps) {
     }
   };
 
-  const handleApproveEstimate = async (estimateId: string) => {
-    if (!window.confirm('Approve this estimate and convert it to a work order? This will adjust parts inventory.')) {
-      return;
-    }
+  const openApproveModal = (estimateId: string) => {
+    setEstimateToApprove(estimateId);
+    setShowApproveModal(true);
+  };
+
+  const handleApproveEstimate = async () => {
+    if (!estimateToApprove) return;
+
+    setShowApproveModal(false);
 
     try {
       setError(null);
@@ -927,7 +936,7 @@ export function Estimates({ userId }: EstimatesProps) {
 
       const { data, error } = await supabase
         .rpc('approve_estimate', {
-          p_estimate_id: estimateId,
+          p_estimate_id: estimateToApprove,
           p_user_id: userId
         });
 
@@ -971,10 +980,15 @@ export function Estimates({ userId }: EstimatesProps) {
     }
   };
 
-  const handleDenyEstimate = async (estimateId: string) => {
-    if (!window.confirm('Deny this estimate? It will be marked as rejected and archived.')) {
-      return;
-    }
+  const openDenyModal = (estimateId: string) => {
+    setEstimateToDeny(estimateId);
+    setShowDenyModal(true);
+  };
+
+  const handleDenyEstimate = async () => {
+    if (!estimateToDeny) return;
+
+    setShowDenyModal(false);
 
     try {
       setError(null);
@@ -982,7 +996,7 @@ export function Estimates({ userId }: EstimatesProps) {
 
       const { error } = await supabase
         .rpc('deny_estimate', {
-          p_estimate_id: estimateId,
+          p_estimate_id: estimateToDeny,
           p_user_id: userId
         });
 
@@ -1804,14 +1818,14 @@ export function Estimates({ userId }: EstimatesProps) {
                     {(estimate.status === 'draft' || estimate.status === 'sent') && (
                       <>
                         <button
-                          onClick={() => handleApproveEstimate(estimate.id)}
+                          onClick={() => openApproveModal(estimate.id)}
                           className="text-green-600 hover:text-green-800"
                           title="Approve and convert to work order"
                         >
                           <CheckCircle className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => handleDenyEstimate(estimate.id)}
+                          onClick={() => openDenyModal(estimate.id)}
                           className="text-red-600 hover:text-red-800"
                           title="Deny estimate"
                         >
@@ -1851,6 +1865,66 @@ export function Estimates({ userId }: EstimatesProps) {
           </tbody>
         </table>
       </div>
+
+      {showApproveModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Approve Estimate
+            </h3>
+            <p className="text-gray-700 mb-6">
+              Approve this estimate and convert it to a work order? This will adjust parts inventory.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowApproveModal(false);
+                  setEstimateToApprove(null);
+                }}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleApproveEstimate}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Approve
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDenyModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Deny Estimate
+            </h3>
+            <p className="text-gray-700 mb-6">
+              Deny this estimate? It will be marked as rejected and archived.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowDenyModal(false);
+                  setEstimateToDeny(null);
+                }}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDenyEstimate}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Deny
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
