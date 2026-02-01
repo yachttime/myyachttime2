@@ -1220,6 +1220,426 @@ export async function generateEstimatePDF(
   return doc;
 }
 
+export async function generateWorkOrderPDF(
+  workOrder: any,
+  tasks: any[],
+  yachtName: string | null,
+  companyInfo?: any
+): Promise<jsPDF> {
+  const estimate = workOrder.estimates || {
+    subtotal: 0,
+    sales_tax_rate: 0,
+    sales_tax_amount: 0,
+    shop_supplies_rate: 0,
+    shop_supplies_amount: 0,
+    park_fees_rate: 0,
+    park_fees_amount: 0,
+    surcharge_rate: 0,
+    surcharge_amount: 0,
+    total_amount: 0,
+    notes: null,
+    customer_notes: null
+  };
+
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'in',
+    format: 'letter',
+  });
+
+  const pageWidth = 8.5;
+  const margin = 0.75;
+  const contentWidth = pageWidth - (margin * 2);
+  let yPos = margin;
+
+  const addText = (text: string, fontSize: number = 10, style: 'normal' | 'bold' = 'normal', align: 'left' | 'center' | 'right' = 'left') => {
+    doc.setFontSize(fontSize);
+    doc.setFont('helvetica', style);
+
+    if (yPos > 10.25) {
+      doc.addPage();
+      yPos = margin;
+    }
+
+    const lines = doc.splitTextToSize(text, contentWidth);
+
+    if (align === 'center') {
+      lines.forEach((line: string) => {
+        const textWidth = doc.getTextWidth(line);
+        doc.text(line, (pageWidth - textWidth) / 2, yPos);
+        yPos += fontSize / 72 * 1.2;
+      });
+    } else if (align === 'right') {
+      lines.forEach((line: string) => {
+        doc.text(line, pageWidth - margin, yPos, { align: 'right' });
+        yPos += fontSize / 72 * 1.2;
+      });
+    } else {
+      doc.text(lines, margin, yPos);
+      yPos += (lines.length * fontSize / 72 * 1.2);
+    }
+  };
+
+  const addSpace = (inches: number = 0.15) => {
+    yPos += inches;
+    if (yPos > 10.25) {
+      doc.addPage();
+      yPos = margin;
+    }
+  };
+
+  const addLine = () => {
+    if (yPos > 10.25) {
+      doc.addPage();
+      yPos = margin;
+    }
+    doc.setLineWidth(0.02);
+    doc.line(margin, yPos, pageWidth - margin, yPos);
+    yPos += 0.1;
+  };
+
+  let logoAdded = false;
+  let logoWidth = 0;
+  let logoHeight = 0;
+
+  if (companyInfo?.logo_url) {
+    try {
+      const response = await fetch(companyInfo.logo_url);
+      const blob = await response.blob();
+      const reader = new FileReader();
+
+      await new Promise((resolve, reject) => {
+        reader.onloadend = () => {
+          try {
+            const base64data = reader.result as string;
+
+            const img = new Image();
+            img.onload = () => {
+              try {
+                const maxLogoWidth = 1.8;
+                const maxLogoHeight = 1.3;
+
+                const aspectRatio = img.width / img.height;
+                logoWidth = maxLogoWidth;
+                logoHeight = logoWidth / aspectRatio;
+
+                if (logoHeight > maxLogoHeight) {
+                  logoHeight = maxLogoHeight;
+                  logoWidth = logoHeight * aspectRatio;
+                }
+
+                const logoX = margin;
+                const logoY = yPos;
+
+                doc.addImage(base64data, 'PNG', logoX, logoY, logoWidth, logoHeight);
+                logoAdded = true;
+                resolve(true);
+              } catch (err) {
+                console.warn('Could not add logo to PDF:', err);
+                resolve(false);
+              }
+            };
+            img.onerror = () => {
+              console.warn('Could not load logo image');
+              resolve(false);
+            };
+            img.src = base64data;
+          } catch (err) {
+            console.warn('Could not process logo:', err);
+            resolve(false);
+          }
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch (err) {
+      console.warn('Could not load logo for PDF:', err);
+    }
+  }
+
+  if (logoAdded) {
+    const companyInfoX = margin + logoWidth + 0.15;
+    const originalYPos = yPos;
+    yPos = originalYPos;
+
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text(companyInfo?.company_name || 'AZ MARINE SERVICES', companyInfoX, yPos);
+    yPos += 0.13;
+
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+
+    if (companyInfo?.address_line1) {
+      doc.text(companyInfo.address_line1, companyInfoX, yPos);
+      yPos += 0.11;
+    }
+
+    if (companyInfo?.address_line2) {
+      doc.text(companyInfo.address_line2, companyInfoX, yPos);
+      yPos += 0.11;
+    }
+
+    if (companyInfo?.city || companyInfo?.state || companyInfo?.zip_code) {
+      const cityStateZip = [
+        companyInfo.city,
+        companyInfo.state,
+        companyInfo.zip_code
+      ].filter(Boolean).join(', ');
+      doc.text(cityStateZip, companyInfoX, yPos);
+      yPos += 0.11;
+    }
+
+    if (companyInfo?.phone) {
+      doc.text(`Phone: ${companyInfo.phone}`, companyInfoX, yPos);
+      yPos += 0.11;
+    }
+
+    if (companyInfo?.email) {
+      doc.text(`Email: ${companyInfo.email}`, companyInfoX, yPos);
+      yPos += 0.11;
+    }
+
+    yPos = Math.max(yPos, originalYPos + logoHeight);
+  } else {
+    addText(companyInfo?.company_name || 'AZ MARINE SERVICES', 14, 'bold', 'center');
+    if (companyInfo?.address_line1) addText(companyInfo.address_line1, 9, 'normal', 'center');
+    if (companyInfo?.city || companyInfo?.state) {
+      const cityState = [companyInfo.city, companyInfo.state].filter(Boolean).join(', ');
+      addText(cityState, 9, 'normal', 'center');
+    }
+    if (companyInfo?.phone) addText(`Phone: ${companyInfo.phone}`, 9, 'normal', 'center');
+  }
+
+  addSpace(0.3);
+  addText('WORK ORDER', 18, 'bold', 'center');
+  addSpace(0.2);
+
+  const rightColX = pageWidth - margin - 2.5;
+  const savedYPos = yPos;
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Work Order #:', margin, yPos);
+  doc.setFont('helvetica', 'normal');
+  doc.text(workOrder.work_order_number, margin + 1.2, yPos);
+  yPos += 0.15;
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Date:', margin, yPos);
+  doc.setFont('helvetica', 'normal');
+  doc.text(new Date(workOrder.created_at).toLocaleDateString(), margin + 1.2, yPos);
+  yPos += 0.15;
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Status:', margin, yPos);
+  doc.setFont('helvetica', 'normal');
+  doc.text(workOrder.status.toUpperCase(), margin + 1.2, yPos);
+
+  yPos = savedYPos;
+  if (workOrder.is_retail_customer) {
+    doc.setFont('helvetica', 'bold');
+    doc.text('Customer:', rightColX, yPos);
+    doc.setFont('helvetica', 'normal');
+    doc.text(workOrder.customer_name || '', rightColX + 1, yPos);
+    yPos += 0.15;
+
+    if (workOrder.customer_email) {
+      doc.setFont('helvetica', 'bold');
+      doc.text('Email:', rightColX, yPos);
+      doc.setFont('helvetica', 'normal');
+      doc.text(workOrder.customer_email, rightColX + 1, yPos);
+    }
+  } else {
+    doc.setFont('helvetica', 'bold');
+    doc.text('Vessel:', rightColX, yPos);
+    doc.setFont('helvetica', 'normal');
+    doc.text(yachtName || 'N/A', rightColX + 1, yPos);
+  }
+
+  yPos = Math.max(yPos, savedYPos) + 0.3;
+  addLine();
+  addSpace(0.2);
+
+  tasks.forEach((task, taskIndex) => {
+    if (yPos > 9.5) {
+      doc.addPage();
+      yPos = margin;
+    }
+
+    addText(`Task ${taskIndex + 1}: ${task.task_name}`, 11, 'bold');
+    if (task.task_overview) {
+      addSpace(0.05);
+      addText(task.task_overview, 9);
+    }
+    addSpace(0.1);
+
+    const tableData = task.lineItems.map((item: any) => {
+      const taxIndicator = item.is_taxable ? 'T' : '';
+      return [
+        item.line_type.toUpperCase(),
+        item.description + (item.work_details ? `\n${item.work_details}` : ''),
+        item.quantity.toString(),
+        `$${item.unit_price.toFixed(2)}`,
+        `$${item.total_price.toFixed(2)}`,
+        taxIndicator
+      ];
+    });
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [['Type', 'Description', 'Qty', 'Unit Price', 'Total', 'Tax']],
+      body: tableData,
+      theme: 'grid',
+      styles: {
+        fontSize: 9,
+        cellPadding: 0.06,
+        font: 'helvetica'
+      },
+      headStyles: {
+        fillColor: [59, 130, 246],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold'
+      },
+      columnStyles: {
+        0: { cellWidth: 0.6 },
+        2: { halign: 'right', cellWidth: 0.5 },
+        3: { halign: 'right', cellWidth: 0.9 },
+        4: { halign: 'right', cellWidth: 0.9 },
+        5: { halign: 'center', cellWidth: 0.4 }
+      },
+      margin: { left: margin, right: margin },
+      didDrawPage: (data: any) => {
+        yPos = data.cursor.y + 0.2;
+      }
+    });
+
+    addSpace(0.15);
+  });
+
+  addLine();
+  addSpace(0.1);
+
+  const summaryX = pageWidth - margin - 2.8;
+  const labelX = summaryX;
+  const valueX = summaryX + 1.5;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.text('Subtotal:', labelX, yPos);
+  doc.text(`$${estimate.subtotal.toFixed(2)}`, valueX, yPos, { align: 'right' });
+  yPos += 0.15;
+
+  if (estimate.sales_tax_amount > 0) {
+    doc.text(`Sales Tax (${(estimate.sales_tax_rate * 100).toFixed(2)}%):`, labelX, yPos);
+    doc.text(`$${estimate.sales_tax_amount.toFixed(2)}`, valueX, yPos, { align: 'right' });
+    yPos += 0.15;
+  }
+
+  if (estimate.shop_supplies_amount > 0) {
+    doc.text(`Shop Supplies (${(estimate.shop_supplies_rate * 100).toFixed(2)}%):`, labelX, yPos);
+    doc.text(`$${estimate.shop_supplies_amount.toFixed(2)}`, valueX, yPos, { align: 'right' });
+    yPos += 0.15;
+  }
+
+  if (estimate.park_fees_amount > 0) {
+    doc.text(`Park Fees (${(estimate.park_fees_rate * 100).toFixed(2)}%):`, labelX, yPos);
+    doc.text(`$${estimate.park_fees_amount.toFixed(2)}`, valueX, yPos, { align: 'right' });
+    yPos += 0.15;
+  }
+
+  if (estimate.surcharge_amount > 0) {
+    doc.text(`Surcharge (${(estimate.surcharge_rate * 100).toFixed(2)}%):`, labelX, yPos);
+    doc.text(`$${estimate.surcharge_amount.toFixed(2)}`, valueX, yPos, { align: 'right' });
+    yPos += 0.15;
+  }
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.text('TOTAL:', labelX, yPos);
+  doc.text(`$${estimate.total_amount.toFixed(2)}`, valueX, yPos, { align: 'right' });
+  yPos += 0.2;
+
+  autoTable(doc, {
+    startY: yPos - 0.01,
+    body: [[' ']],
+    theme: 'plain',
+    styles: { cellPadding: 0, fontSize: 1 },
+    columnStyles: {
+      0: { cellWidth: 2.8 },
+      1: { halign: 'right', cellWidth: 1.2 }
+    },
+    margin: { left: margin, right: margin },
+    didDrawPage: (data: any) => {
+      yPos = data.cursor.y + 0.2;
+    }
+  });
+
+  if (estimate.notes) {
+    addSpace(0.15);
+    addText('Notes', 11, 'bold');
+    addSpace(0.05);
+    addText(estimate.notes, 9);
+  }
+
+  if (estimate.customer_notes) {
+    const lines = estimate.customer_notes.split('\n');
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    let totalWrappedLines = 0;
+    let emptyLineCount = 0;
+
+    lines.forEach(line => {
+      if (line.trim()) {
+        const wrappedLines = doc.splitTextToSize(line, contentWidth);
+        totalWrappedLines += wrappedLines.length;
+      } else {
+        emptyLineCount++;
+      }
+    });
+
+    const lineHeight = 8 / 72 * 1.2;
+    const titleHeight = 11 / 72 * 1.2;
+    const estimatedHeight = 0.3 + 0.15 + titleHeight + 0.1 + (totalWrappedLines * lineHeight) + (emptyLineCount * 0.1) + 0.3;
+
+    if (yPos + estimatedHeight > 10.25) {
+      doc.addPage();
+      yPos = margin;
+    }
+
+    addSpace(0.3);
+    doc.setDrawColor(0);
+    doc.setLineWidth(0.02);
+    doc.line(margin, yPos, pageWidth - margin, yPos);
+    addSpace(0.15);
+
+    addText('TERMS AND CONDITIONS', 11, 'bold');
+    addSpace(0.1);
+
+    lines.forEach(line => {
+      if (line.trim()) {
+        addText(line, 8);
+      } else {
+        addSpace(0.1);
+      }
+    });
+  }
+
+  const pageCount = doc.getNumberOfPages();
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(100);
+
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, margin, 10.5);
+    doc.text(`Page ${i} of ${pageCount}`, pageWidth - margin - 0.5, 10.5, { align: 'right' });
+  }
+
+  return doc;
+}
+
 export async function generatePayrollReportPDF(
   employeeReports: EmployeeReport[],
   startDate: string,

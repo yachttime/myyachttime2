@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { FileText, Package, Briefcase, DollarSign, Settings } from 'lucide-react';
+import { FileText, Package, Briefcase, Wrench, Settings } from 'lucide-react';
 import { Estimates } from './Estimates';
+import { WorkOrders } from './WorkOrders';
 import { PartsInventory } from './PartsInventory';
 import { AccountingCodes } from './AccountingCodes';
 import { LaborCodes } from './LaborCodes';
@@ -10,13 +11,14 @@ interface EstimatingDashboardProps {
   userId: string;
 }
 
-type TabType = 'estimates' | 'parts' | 'settings';
+type TabType = 'estimates' | 'workorders' | 'parts' | 'settings';
 
 export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
   const [activeTab, setActiveTab] = useState<TabType>('estimates');
 
   const tabs = [
-    { id: 'estimates' as TabType, label: 'Estimates & Work Orders', icon: FileText },
+    { id: 'estimates' as TabType, label: 'Estimates', icon: FileText },
+    { id: 'workorders' as TabType, label: 'Work Orders', icon: Wrench },
     { id: 'parts' as TabType, label: 'Parts Inventory', icon: Package },
     { id: 'settings' as TabType, label: 'Settings', icon: Settings }
   ];
@@ -56,6 +58,10 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
       <div className="max-w-7xl mx-auto">
         {activeTab === 'estimates' && (
           <Estimates userId={userId} />
+        )}
+
+        {activeTab === 'workorders' && (
+          <WorkOrders userId={userId} />
         )}
 
         {activeTab === 'parts' && (
