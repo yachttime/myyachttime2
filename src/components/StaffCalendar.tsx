@@ -865,26 +865,33 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
               const staffOff = day ? getStaffOffForDate(day) : [];
               const canEditDate = (userProfile?.role === 'master' || userProfile?.role === 'staff');
 
+              const uniqueSchedulesWorking = schedulesWorking.filter((s, idx, arr) =>
+                arr.findIndex(item => item.user_id === s.user_id) === idx
+              );
+              const uniqueStaffOff = staffOff.filter((s, idx, arr) =>
+                arr.findIndex(item => item.user_id === s.user_id) === idx
+              );
+
               let displayItems: Array<{ name: string; type: 'working' | 'off' }> = [];
 
               if (viewFilter === 'all') {
                 displayItems = [
-                  ...schedulesWorking.map(s => ({
+                  ...uniqueSchedulesWorking.map(s => ({
                     name: `${s.user_profiles?.first_name} ${s.user_profiles?.last_name}`,
                     type: 'working' as const
                   })),
-                  ...staffOff.map(s => ({
+                  ...uniqueStaffOff.map(s => ({
                     name: `${s.user_profiles?.first_name} ${s.user_profiles?.last_name}`,
                     type: 'off' as const
                   }))
                 ];
               } else if (viewFilter === 'working') {
-                displayItems = schedulesWorking.map(s => ({
+                displayItems = uniqueSchedulesWorking.map(s => ({
                   name: `${s.user_profiles?.first_name} ${s.user_profiles?.last_name}`,
                   type: 'working' as const
                 }));
               } else if (viewFilter === 'off') {
-                displayItems = staffOff.map(s => ({
+                displayItems = uniqueStaffOff.map(s => ({
                   name: `${s.user_profiles?.first_name} ${s.user_profiles?.last_name}`,
                   type: 'off' as const
                 }));
