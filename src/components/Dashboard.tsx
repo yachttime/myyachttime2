@@ -3276,6 +3276,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       const combinedData = [...(bookingsData || []), ...formattedAppointments];
 
+      console.log('Master Calendar: Loaded', combinedData.length, 'bookings/appointments');
       setMasterCalendarBookings(combinedData);
     } catch (error) {
       console.error('Error loading master calendar:', error);
@@ -11117,8 +11118,29 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           >
                             Today
                           </button>
+                          {masterCalendarBookings.length > 0 && (() => {
+                            const nextBooking = [...masterCalendarBookings].sort((a, b) =>
+                              new Date(a.start_date).getTime() - new Date(b.start_date).getTime()
+                            ).find(b => new Date(b.start_date) >= new Date());
+
+                            if (nextBooking) {
+                              return (
+                                <button
+                                  onClick={() => setCurrentDate(new Date(nextBooking.start_date))}
+                                  className="px-4 py-2 bg-teal-600/20 hover:bg-teal-600/30 border border-teal-500/30 rounded-lg transition-colors font-medium text-teal-300"
+                                >
+                                  Next Trip
+                                </button>
+                              );
+                            }
+                          })()}
                         </div>
-                        <h3 className="text-xl font-semibold">{formatCalendarTitle()}</h3>
+                        <div className="flex items-center gap-4">
+                          <span className="text-sm text-slate-400">
+                            {masterCalendarBookings.length} total {masterCalendarBookings.length === 1 ? 'booking' : 'bookings'}
+                          </span>
+                          <h3 className="text-xl font-semibold">{formatCalendarTitle()}</h3>
+                        </div>
                       </div>
 
                       <div className="mt-4 p-4 bg-slate-900/50 rounded-lg border border-slate-600">
@@ -11156,8 +11178,33 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                         days.push(day);
                       }
 
+                      // Check if there are any bookings in this month
+                      const monthHasBookings = days.some(day => {
+                        if (!day) return false;
+                        const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+                        return getBookingsForDate(date).length > 0;
+                      });
+
                       return (
                         <div className="p-4">
+                          {!monthHasBookings && masterCalendarBookings.length > 0 && (
+                            <div className="mb-4 p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                              <div className="flex items-center gap-3 text-amber-400">
+                                <Calendar className="w-5 h-5" />
+                                <div>
+                                  <p className="font-medium">No bookings in {formatCalendarTitle()}</p>
+                                  <p className="text-sm text-amber-300/80">Use the "Next Trip" button or navigate to view scheduled trips</p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          {masterCalendarBookings.length === 0 && (
+                            <div className="mb-4 p-6 bg-slate-800/50 border border-slate-600 rounded-lg text-center">
+                              <Calendar className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                              <p className="text-lg font-medium text-slate-300 mb-2">No Trips Scheduled</p>
+                              <p className="text-sm text-slate-400">There are currently no yacht bookings or appointments in the system.</p>
+                            </div>
+                          )}
                           <div className="grid grid-cols-7 gap-px bg-slate-700 border border-slate-700 rounded-lg overflow-hidden">
                             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
                               <div key={day} className="bg-slate-800 p-3 text-center font-semibold text-slate-400 text-sm">
