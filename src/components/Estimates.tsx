@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, FileText, AlertCircle, Edit2, Trash2, Check, X, ChevronDown, ChevronUp, Printer } from 'lucide-react';
+import { Plus, FileText, AlertCircle, Edit2, Trash2, Check, X, ChevronDown, ChevronUp, Printer, CheckCircle, XCircle } from 'lucide-react';
 import { generateEstimatePDF } from '../utils/pdfGenerator';
 
 const DEFAULT_CUSTOMER_NOTES = `I hereby authorize the above repair work to be done along with necessary materials. It is distinctly understood that all labor and materials so used shall be charged to this job at current billing rates. You and your employees may operate above equipment for purpose of testing, inspecting or delivering at my risk. An express mechanic's lien is acknowledged to secure the amount of repairs thereto. It is understood that this company assumes no responsibility for loss or damage by fire or theft or weather hazards incidental to equipment or materials placed with them for sale, repair or testing. If legal action is necessary to enforce this contract I will pay all reasonable attorney's fees and other costs incurred. All payments are C.O.D. unless prior arrangements are made. If equipment is not removed within 10 days after completion of service, storage charges will accrue at $15 per day.
@@ -655,44 +655,7 @@ export function Estimates({ userId }: EstimatesProps) {
         }
       }
 
-      // Process inventory deductions (only for new estimates)
-      if (!editingId) {
-        const { data: inventoryResult, error: inventoryError } = await supabase
-          .rpc('process_estimate_inventory_deduction', {
-            p_estimate_id: estimate.id,
-            p_user_id: userId
-          });
-
-        if (inventoryError) {
-          console.error('Error processing inventory:', inventoryError);
-        }
-
-        // Display low stock alerts
-        if (inventoryResult?.low_stock_alerts && inventoryResult.low_stock_alerts.length > 0) {
-          const alerts = inventoryResult.low_stock_alerts;
-          const negativeStock = alerts.filter((a: any) => a.is_negative);
-          const lowStock = alerts.filter((a: any) => !a.is_negative);
-
-          let alertMessage = 'Estimate created successfully!\n\n';
-
-          if (negativeStock.length > 0) {
-            alertMessage += '⚠️ CRITICAL - NEGATIVE INVENTORY:\n';
-            negativeStock.forEach((alert: any) => {
-              alertMessage += `• ${alert.part_number} - ${alert.part_name}: ${alert.current_quantity} (ORDER IMMEDIATELY)\n`;
-            });
-            alertMessage += '\n';
-          }
-
-          if (lowStock.length > 0) {
-            alertMessage += '📦 LOW STOCK - REORDER NEEDED:\n';
-            lowStock.forEach((alert: any) => {
-              alertMessage += `• ${alert.part_number} - ${alert.part_name}: ${alert.current_quantity} remaining\n`;
-            });
-          }
-
-          alert(alertMessage);
-        }
-      }
+      alert(editingId ? 'Estimate updated successfully!' : 'Estimate created successfully! Use the Approve button to convert it to a work order and adjust inventory.');
 
       localStorage.removeItem('estimate_draft');
       await resetForm();
@@ -947,6 +910,89 @@ export function Estimates({ userId }: EstimatesProps) {
     } catch (err) {
       console.error('Error deleting estimate:', err);
       setError('Failed to delete estimate');
+    }
+  };
+
+  const handleApproveEstimate = async (estimateId: string) => {
+    if (!window.confirm('Approve this estimate and convert it to a work order? This will adjust parts inventory.')) {
+      return;
+    }
+
+    try {
+      setError(null);
+      setLoading(true);
+
+      const { data, error } = await supabase
+        .rpc('approve_estimate', {
+          p_estimate_id: estimateId,
+          p_user_id: userId
+        });
+
+      if (error) throw error;
+
+      // Display low stock alerts if any
+      if (data?.low_stock_alerts && data.low_stock_alerts.length > 0) {
+        const alerts = data.low_stock_alerts;
+        const negativeStock = alerts.filter((a: any) => a.is_negative);
+        const lowStock = alerts.filter((a: any) => !a.is_negative);
+
+        let alertMessage = `Estimate approved and converted to Work Order ${data.work_order_number}!\n\n`;
+
+        if (negativeStock.length > 0) {
+          alertMessage += '⚠️ CRITICAL - NEGATIVE INVENTORY:\n';
+          negativeStock.forEach((alert: any) => {
+            alertMessage += `• ${alert.part_number} - ${alert.part_name}: ${alert.current_quantity} (ORDER IMMEDIATELY)\n`;
+          });
+          alertMessage += '\n';
+        }
+
+        if (lowStock.length > 0) {
+          alertMessage += '📦 LOW STOCK - REORDER NEEDED:\n';
+          lowStock.forEach((alert: any) => {
+            alertMessage += `• ${alert.part_number} - ${alert.part_name}: ${alert.current_quantity} remaining\n`;
+          });
+        }
+
+        alert(alertMessage);
+      } else {
+        alert(`Estimate approved and converted to Work Order ${data.work_order_number}!`);
+      }
+
+      await loadData();
+    } catch (err: any) {
+      console.error('Error approving estimate:', err);
+      setError(err.message || 'Failed to approve estimate');
+      alert('Error: ' + (err.message || 'Failed to approve estimate'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDenyEstimate = async (estimateId: string) => {
+    if (!window.confirm('Deny this estimate? It will be marked as rejected and archived.')) {
+      return;
+    }
+
+    try {
+      setError(null);
+      setLoading(true);
+
+      const { error } = await supabase
+        .rpc('deny_estimate', {
+          p_estimate_id: estimateId,
+          p_user_id: userId
+        });
+
+      if (error) throw error;
+
+      alert('Estimate has been denied and archived.');
+      await loadData();
+    } catch (err: any) {
+      console.error('Error denying estimate:', err);
+      setError(err.message || 'Failed to deny estimate');
+      alert('Error: ' + (err.message || 'Failed to deny estimate'));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -1752,6 +1798,24 @@ export function Estimates({ userId }: EstimatesProps) {
                 </td>
                 <td className="px-6 py-4 text-right">
                   <div className="flex justify-end gap-2">
+                    {(estimate.status === 'draft' || estimate.status === 'sent') && (
+                      <>
+                        <button
+                          onClick={() => handleApproveEstimate(estimate.id)}
+                          className="text-green-600 hover:text-green-800"
+                          title="Approve and convert to work order"
+                        >
+                          <CheckCircle className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDenyEstimate(estimate.id)}
+                          className="text-red-600 hover:text-red-800"
+                          title="Deny estimate"
+                        >
+                          <XCircle className="w-4 h-4" />
+                        </button>
+                      </>
+                    )}
                     <button
                       onClick={() => handlePrintEstimate(estimate.id)}
                       className="text-gray-600 hover:text-gray-800"
@@ -1759,20 +1823,24 @@ export function Estimates({ userId }: EstimatesProps) {
                     >
                       <Printer className="w-4 h-4" />
                     </button>
-                    <button
-                      onClick={() => handleEditEstimate(estimate.id)}
-                      className="text-blue-600 hover:text-blue-800"
-                      title="Edit estimate"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteEstimate(estimate.id)}
-                      className="text-red-600 hover:text-red-800"
-                      title="Delete estimate"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {(estimate.status === 'draft' || estimate.status === 'sent') && (
+                      <button
+                        onClick={() => handleEditEstimate(estimate.id)}
+                        className="text-blue-600 hover:text-blue-800"
+                        title="Edit estimate"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                    )}
+                    {estimate.status === 'draft' && (
+                      <button
+                        onClick={() => handleDeleteEstimate(estimate.id)}
+                        className="text-red-600 hover:text-red-800"
+                        title="Delete estimate"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
