@@ -32,12 +32,32 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const effectiveRole = getEffectiveRole(userProfile?.role);
   const effectiveYacht = getEffectiveYacht(yacht, userProfile?.role);
 
+  // Helper function to set active tab and persist to localStorage
+  const setActiveTabPersistedPersisted = (tab: 'calendar' | 'maintenance' | 'education' | 'admin' | 'staffCalendar' | 'timeClock' | 'estimating') => {
+    setActiveTabPersisted(tab);
+    try {
+      localStorage.setItem('activeTab', tab);
+    } catch (error) {
+      console.error('Error saving active tab to localStorage:', error);
+    }
+  };
+
   const [bookings, setBookings] = useState<YachtBooking[]>([]);
   const [maintenanceRequests, setMaintenanceRequests] = useState<MaintenanceRequest[]>([]);
   const [videos, setVideos] = useState<EducationVideo[]>([]);
   const [welcomeVideo, setWelcomeVideo] = useState<EducationVideo | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'calendar' | 'maintenance' | 'education' | 'admin' | 'staffCalendar' | 'timeClock' | 'estimating'>('calendar');
+  const [activeTab, setActiveTab] = useState<'calendar' | 'maintenance' | 'education' | 'admin' | 'staffCalendar' | 'timeClock' | 'estimating'>(() => {
+    try {
+      const stored = localStorage.getItem('activeTab');
+      if (stored && ['calendar', 'maintenance', 'education', 'admin', 'staffCalendar', 'timeClock', 'estimating'].includes(stored)) {
+        return stored as 'calendar' | 'maintenance' | 'education' | 'admin' | 'staffCalendar' | 'timeClock' | 'estimating';
+      }
+    } catch (error) {
+      console.error('Error loading active tab from localStorage:', error);
+    }
+    return 'calendar';
+  });
   const [activeBooking, setActiveBooking] = useState<YachtBooking | null>(null);
   const [selectedVideo, setSelectedVideo] = useState<EducationVideo | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -4292,7 +4312,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         <nav className="flex-1 px-3 py-4 space-y-1">
           <button
             onClick={() => {
-              setActiveTab('calendar');
+              setActiveTabPersisted('calendar');
               setSidebarOpen(false);
             }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
@@ -4306,7 +4326,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           </button>
           <button
             onClick={() => {
-              setActiveTab('maintenance');
+              setActiveTabPersisted('maintenance');
               setSidebarOpen(false);
             }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
@@ -4321,7 +4341,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           {yacht?.name !== 'LOVIN LIFE' && (
             <button
               onClick={() => {
-                setActiveTab('education');
+                setActiveTabPersisted('education');
                 setSidebarOpen(false);
               }}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
@@ -4337,7 +4357,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           {isStaffRole(effectiveRole) && (
             <button
               onClick={() => {
-                setActiveTab('staffCalendar');
+                setActiveTabPersisted('staffCalendar');
                 setSidebarOpen(false);
               }}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
@@ -4353,7 +4373,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           {isStaffRole(effectiveRole) && (
             <button
               onClick={() => {
-                setActiveTab('timeClock');
+                setActiveTabPersisted('timeClock');
                 setSidebarOpen(false);
               }}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
@@ -4369,7 +4389,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           {isMasterRole(effectiveRole) && (
             <button
               onClick={() => {
-                setActiveTab('estimating');
+                setActiveTabPersisted('estimating');
                 setSidebarOpen(false);
               }}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
@@ -4385,7 +4405,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           {(isStaffOrManager(effectiveRole) || isOwnerRole(effectiveRole)) && (
             <button
               onClick={() => {
-                setActiveTab('admin');
+                setActiveTabPersisted('admin');
                 setSidebarOpen(false);
               }}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
@@ -4751,7 +4771,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                       {!activeBooking.checked_out && (
                         <button
-                          onClick={() => setActiveTab('maintenance')}
+                          onClick={() => setActiveTabPersisted('maintenance')}
                           className="w-full bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold py-3 rounded-lg transition-all duration-300"
                         >
                           Make Maintenance Request
@@ -5593,7 +5613,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
           {activeTab === 'staffCalendar' && (
             <div>
-              <StaffCalendar onBack={() => setActiveTab('calendar')} />
+              <StaffCalendar onBack={() => setActiveTabPersisted('calendar')} />
             </div>
           )}
 
