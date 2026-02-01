@@ -8656,6 +8656,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       (request.status === 'completed' || request.status === 'rejected' || repairInvoices[request.id]?.payment_status === 'paid')
                     );
 
+                    // Only show to staff, mechanics, and masters
+                    if (!['staff', 'mechanic', 'master'].includes(effectiveRole)) {
+                      return null;
+                    }
+
                     return (
                       <div className="mt-8">
                         <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
