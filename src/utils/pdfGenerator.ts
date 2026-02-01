@@ -985,6 +985,13 @@ export async function generateEstimatePDF(
   addSpace(0.15);
 
   tasks.forEach((task, taskIndex) => {
+    // Check if we need a page break before starting a new task
+    // Ensure at least 2 inches of space for task header + some content
+    if (yPos > 8.5) {
+      doc.addPage();
+      yPos = margin;
+    }
+
     addText(`Task ${taskIndex + 1}: ${task.task_name}`, 12, 'bold');
     if (task.task_overview) {
       addSpace(0.05);
