@@ -1672,8 +1672,9 @@ export function Estimates({ userId }: EstimatesProps) {
                 <textarea
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
                   rows={2}
+                  style={{ color: '#111827' }}
                 />
               </div>
               <div>
@@ -1684,8 +1685,9 @@ export function Estimates({ userId }: EstimatesProps) {
                 <textarea
                   value={formData.customer_notes}
                   onChange={(e) => setFormData({ ...formData, customer_notes: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm"
                   rows={6}
+                  style={{ color: '#111827' }}
                 />
               </div>
             </div>
