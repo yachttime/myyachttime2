@@ -3039,8 +3039,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         .select('*')
         .order('created_at', { ascending: false });
 
-      // Filter by yacht_id for managers
-      if (isManagerRole(effectiveRole) && effectiveYacht) {
+      // Don't filter for master, staff, or mechanic - they should see all messages
+      // Only filter by yacht_id for managers who are yacht-specific
+      if (isManagerRole(effectiveRole) && effectiveYacht && !isMasterRole(effectiveRole) && !isStaffRole(effectiveRole)) {
         messagesQuery = messagesQuery.eq('yacht_id', effectiveYacht.id);
       }
 
@@ -3096,8 +3097,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         .select('*')
         .order('created_at', { ascending: false });
 
-      // Filter by yacht_id for managers
-      if (isManagerRole(effectiveRole) && effectiveYacht) {
+      // Don't filter for master, staff, or mechanic - they should see all notifications
+      // Only filter by yacht_id for managers who are yacht-specific
+      if (isManagerRole(effectiveRole) && effectiveYacht && !isMasterRole(effectiveRole) && !isStaffRole(effectiveRole)) {
         notificationsQuery = notificationsQuery.eq('yacht_id', effectiveYacht.id);
       }
 
@@ -3115,8 +3117,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         .or('message.ilike.%Check-In Alert:%,message.ilike.%Check-Out Alert:%')
         .order('created_at', { ascending: false });
 
-      // Filter by yacht_id for managers
-      if (isManagerRole(effectiveRole) && effectiveYacht) {
+      // Don't filter for master, staff, or mechanic - they should see all legacy messages
+      // Only filter by yacht_id for managers who are yacht-specific
+      if (isManagerRole(effectiveRole) && effectiveYacht && !isMasterRole(effectiveRole) && !isStaffRole(effectiveRole)) {
         legacyQuery = legacyQuery.eq('yacht_id', effectiveYacht.id);
       }
 
