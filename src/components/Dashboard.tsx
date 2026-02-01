@@ -695,11 +695,15 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           yachts:yacht_id (name)
         `);
 
-      // Staff, mechanic, and master see all requests
-      if (['staff', 'mechanic', 'master'].includes(effectiveRole)) {
+      // When impersonating a yacht, filter by that yacht (for all roles)
+      if (isImpersonatingYacht() && effectiveYacht) {
+        // User is impersonating - show only this yacht's requests
+        query = query.eq('yacht_id', effectiveYacht.id);
+      } else if (['staff', 'mechanic', 'master'].includes(effectiveRole)) {
+        // Staff, mechanic, and master (not impersonating) see all requests
         // No filter - show all requests
       } else if (effectiveRole === 'manager' && effectiveYacht) {
-        // Managers see requests for their assigned/impersonated yacht
+        // Managers see requests for their assigned yacht
         query = query.eq('yacht_id', effectiveYacht.id);
       } else if (isOwnerRole(effectiveRole) && effectiveYacht) {
         // Owners see all requests for their yacht
@@ -1921,11 +1925,15 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         `)
         .order('created_at', { ascending: false });
 
-      // Staff, mechanic, and master see all requests (no filter)
-      // Managers see only their yacht's requests
-      if (['staff', 'mechanic', 'master'].includes(effectiveRole)) {
+      // When impersonating a yacht, filter by that yacht (for all roles)
+      if (isImpersonatingYacht() && effectiveYacht) {
+        // User is impersonating - show only this yacht's requests
+        query = query.eq('yacht_id', effectiveYacht.id);
+      } else if (['staff', 'mechanic', 'master'].includes(effectiveRole)) {
+        // Staff, mechanic, and master (not impersonating) see all requests
         // No filter - show all requests
       } else if (isManagerRole(effectiveRole) && effectiveYacht) {
+        // Managers see requests for their assigned yacht
         query = query.eq('yacht_id', effectiveYacht.id);
       }
 
