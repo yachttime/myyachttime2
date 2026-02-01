@@ -23,6 +23,8 @@ interface Estimate {
   total_amount: number;
   marina_name: string | null;
   manager_name: string | null;
+  manager_email: string | null;
+  manager_phone: string | null;
   created_at: string;
   yachts?: { name: string };
 }
