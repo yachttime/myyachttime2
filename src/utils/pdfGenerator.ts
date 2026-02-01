@@ -825,8 +825,8 @@ export async function generateEstimatePDF(
             const img = new Image();
             img.onload = () => {
               try {
-                const maxLogoWidth = 2.0;
-                const maxLogoHeight = 1.5;
+                const maxLogoWidth = 1.2;
+                const maxLogoHeight = 0.9;
 
                 const aspectRatio = img.width / img.height;
                 logoWidth = maxLogoWidth;
@@ -867,26 +867,26 @@ export async function generateEstimatePDF(
   }
 
   if (logoAdded) {
-    const companyInfoX = margin + logoWidth + 0.2;
+    const companyInfoX = margin + logoWidth + 0.15;
     const originalYPos = yPos;
     yPos = originalYPos;
 
-    doc.setFontSize(14);
+    doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
     doc.text(companyInfo?.company_name || 'AZ MARINE SERVICES', companyInfoX, yPos);
-    yPos += 0.18;
+    yPos += 0.13;
 
-    doc.setFontSize(9);
+    doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
 
     if (companyInfo?.address_line1) {
       doc.text(companyInfo.address_line1, companyInfoX, yPos);
-      yPos += 0.14;
+      yPos += 0.11;
     }
 
     if (companyInfo?.address_line2) {
       doc.text(companyInfo.address_line2, companyInfoX, yPos);
-      yPos += 0.14;
+      yPos += 0.11;
     }
 
     if (companyInfo?.city || companyInfo?.state || companyInfo?.zip_code) {
@@ -896,35 +896,35 @@ export async function generateEstimatePDF(
         companyInfo.zip_code
       ].filter(Boolean).join(', ');
       doc.text(cityStateZip, companyInfoX, yPos);
-      yPos += 0.14;
+      yPos += 0.11;
     }
 
     if (companyInfo?.phone) {
       doc.text(`Phone: ${companyInfo.phone}`, companyInfoX, yPos);
-      yPos += 0.14;
+      yPos += 0.11;
     }
 
     if (companyInfo?.email) {
       doc.text(`Email: ${companyInfo.email}`, companyInfoX, yPos);
-      yPos += 0.14;
+      yPos += 0.11;
     }
 
     if (companyInfo?.website) {
       doc.text(`Web: ${companyInfo.website}`, companyInfoX, yPos);
-      yPos += 0.14;
+      yPos += 0.11;
     }
 
     yPos = Math.max(yPos, originalYPos + logoHeight);
-    addSpace(0.3);
+    addSpace(0.15);
   } else {
     if (companyInfo?.company_name) {
-      addText(companyInfo.company_name, 14, 'bold', 'center');
+      addText(companyInfo.company_name, 11, 'bold', 'center');
     } else {
-      addText('AZ MARINE SERVICES', 14, 'bold', 'center');
+      addText('AZ MARINE SERVICES', 11, 'bold', 'center');
     }
 
     if (companyInfo?.address_line1) {
-      addText(companyInfo.address_line1, 9, 'normal', 'center');
+      addText(companyInfo.address_line1, 8, 'normal', 'center');
     }
 
     if (companyInfo?.city || companyInfo?.state || companyInfo?.zip_code) {
@@ -933,56 +933,56 @@ export async function generateEstimatePDF(
         companyInfo?.state,
         companyInfo?.zip_code
       ].filter(Boolean).join(', ');
-      addText(cityStateZip, 9, 'normal', 'center');
+      addText(cityStateZip, 8, 'normal', 'center');
     }
 
     if (companyInfo?.phone) {
-      addText(`Phone: ${companyInfo.phone}`, 9, 'normal', 'center');
+      addText(`Phone: ${companyInfo.phone}`, 8, 'normal', 'center');
     }
 
     if (companyInfo?.email) {
-      addText(`Email: ${companyInfo.email}`, 9, 'normal', 'center');
+      addText(`Email: ${companyInfo.email}`, 8, 'normal', 'center');
     }
 
     if (companyInfo?.website) {
-      addText(`Web: ${companyInfo.website}`, 9, 'normal', 'center');
+      addText(`Web: ${companyInfo.website}`, 8, 'normal', 'center');
     }
 
-    addSpace(0.1);
+    addSpace(0.05);
   }
 
-  addText('ESTIMATE', 18, 'bold', 'center');
-  addSpace(0.3);
+  addText('ESTIMATE', 14, 'bold', 'center');
+  addSpace(0.15);
 
-  addText(`Estimate #: ${estimate.estimate_number}`, 11, 'bold');
-  addText(`Date: ${new Date(estimate.created_at).toLocaleDateString()}`, 10);
-  addText(`Status: ${estimate.status.charAt(0).toUpperCase() + estimate.status.slice(1)}`, 10);
-  addSpace(0.25);
+  addText(`Estimate #: ${estimate.estimate_number}`, 10, 'bold');
+  addText(`Date: ${new Date(estimate.created_at).toLocaleDateString()}`, 9);
+  addText(`Status: ${estimate.status.charAt(0).toUpperCase() + estimate.status.slice(1)}`, 9);
+  addSpace(0.15);
 
-  addText('Customer Information', 12, 'bold');
+  addText('Customer Information', 11, 'bold');
   addLine();
-  addSpace(0.1);
+  addSpace(0.05);
 
   if (estimate.is_retail_customer) {
-    addText(`Customer: ${estimate.customer_name || 'N/A'}`, 10);
-    if (estimate.customer_email) addText(`Email: ${estimate.customer_email}`, 10);
-    if (estimate.customer_phone) addText(`Phone: ${estimate.customer_phone}`, 10);
+    addText(`Customer: ${estimate.customer_name || 'N/A'}`, 9);
+    if (estimate.customer_email) addText(`Email: ${estimate.customer_email}`, 9);
+    if (estimate.customer_phone) addText(`Phone: ${estimate.customer_phone}`, 9);
   } else {
-    addText(`Yacht: ${yachtName || 'N/A'}`, 10);
+    addText(`Yacht: ${yachtName || 'N/A'}`, 9);
     if (estimate.marina_name) {
-      addText(`Marina: ${estimate.marina_name}`, 10);
+      addText(`Marina: ${estimate.marina_name}`, 9);
     }
     if (estimate.manager_name) {
-      addText(`Repair Approval Manager: ${estimate.manager_name}`, 10);
+      addText(`Repair Approval Manager: ${estimate.manager_name}`, 9);
       if (estimate.manager_email) {
-        addText(`Manager Email: ${estimate.manager_email}`, 10);
+        addText(`Manager Email: ${estimate.manager_email}`, 9);
       }
       if (estimate.manager_phone) {
-        addText(`Manager Phone: ${estimate.manager_phone}`, 10);
+        addText(`Manager Phone: ${estimate.manager_phone}`, 9);
       }
     }
   }
-  addSpace(0.25);
+  addSpace(0.15);
 
   tasks.forEach((task, taskIndex) => {
     addText(`Task ${taskIndex + 1}: ${task.task_name}`, 12, 'bold');
