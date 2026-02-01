@@ -1229,21 +1229,6 @@ export async function generateWorkOrderPDF(
   yachtName: string | null,
   companyInfo?: any
 ): Promise<jsPDF> {
-  const estimate = workOrder.estimates || {
-    subtotal: 0,
-    sales_tax_rate: 0,
-    sales_tax_amount: 0,
-    shop_supplies_rate: 0,
-    shop_supplies_amount: 0,
-    park_fees_rate: 0,
-    park_fees_amount: 0,
-    surcharge_rate: 0,
-    surcharge_amount: 0,
-    total_amount: 0,
-    notes: null,
-    customer_notes: null
-  };
-
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'in',
@@ -1289,16 +1274,6 @@ export async function generateWorkOrderPDF(
       doc.addPage();
       yPos = margin;
     }
-  };
-
-  const addLine = () => {
-    if (yPos > 10.25) {
-      doc.addPage();
-      yPos = margin;
-    }
-    doc.setLineWidth(0.02);
-    doc.line(margin, yPos, pageWidth - margin, yPos);
-    yPos += 0.1;
   };
 
   let logoAdded = false;
@@ -1403,173 +1378,240 @@ export async function generateWorkOrderPDF(
       yPos += 0.11;
     }
 
+    if (companyInfo?.website) {
+      doc.text(`Web: ${companyInfo.website}`, companyInfoX, yPos);
+      yPos += 0.11;
+    }
+
     yPos = Math.max(yPos, originalYPos + logoHeight);
+    addSpace(0.15);
   } else {
-    addText(companyInfo?.company_name || 'AZ MARINE SERVICES', 14, 'bold', 'center');
-    if (companyInfo?.address_line1) addText(companyInfo.address_line1, 9, 'normal', 'center');
-    if (companyInfo?.city || companyInfo?.state) {
-      const cityState = [companyInfo.city, companyInfo.state].filter(Boolean).join(', ');
-      addText(cityState, 9, 'normal', 'center');
+    if (companyInfo?.company_name) {
+      addText(companyInfo.company_name, 11, 'bold', 'center');
+    } else {
+      addText('AZ MARINE SERVICES', 11, 'bold', 'center');
     }
-    if (companyInfo?.phone) addText(`Phone: ${companyInfo.phone}`, 9, 'normal', 'center');
+
+    if (companyInfo?.address_line1) {
+      addText(companyInfo.address_line1, 8, 'normal', 'center');
+    }
+
+    if (companyInfo?.city || companyInfo?.state || companyInfo?.zip_code) {
+      const cityStateZip = [
+        companyInfo?.city,
+        companyInfo?.state,
+        companyInfo?.zip_code
+      ].filter(Boolean).join(', ');
+      addText(cityStateZip, 8, 'normal', 'center');
+    }
+
+    if (companyInfo?.phone) {
+      addText(`Phone: ${companyInfo.phone}`, 8, 'normal', 'center');
+    }
+
+    if (companyInfo?.email) {
+      addText(`Email: ${companyInfo.email}`, 8, 'normal', 'center');
+    }
+
+    if (companyInfo?.website) {
+      addText(`Web: ${companyInfo.website}`, 8, 'normal', 'center');
+    }
+
+    addSpace(0.05);
   }
 
-  addSpace(0.3);
-  addText('WORK ORDER', 18, 'bold', 'center');
-  addSpace(0.2);
+  const startY = yPos;
+  const leftColumnX = margin;
+  const rightColumnX = pageWidth / 2 + 0.2;
 
-  const rightColX = pageWidth - margin - 2.5;
-  const savedYPos = yPos;
-
-  doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
-  doc.text('Work Order #:', margin, yPos);
+  doc.setFontSize(12);
+  doc.text(`Work Order #: ${workOrder.work_order_number}`, leftColumnX, yPos);
+  yPos += 0.13;
+
   doc.setFont('helvetica', 'normal');
-  doc.text(workOrder.work_order_number, margin + 1.2, yPos);
+  doc.setFontSize(9);
+  doc.text(`Date: ${new Date(workOrder.created_at).toLocaleDateString()}`, leftColumnX, yPos);
+  yPos += 0.13;
+  doc.text(`Status: ${workOrder.status.charAt(0).toUpperCase() + workOrder.status.slice(1)}`, leftColumnX, yPos);
+
+  yPos = startY;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.text('Customer Information', rightColumnX, yPos);
   yPos += 0.15;
 
-  doc.setFont('helvetica', 'bold');
-  doc.text('Date:', margin, yPos);
-  doc.setFont('helvetica', 'normal');
-  doc.text(new Date(workOrder.created_at).toLocaleDateString(), margin + 1.2, yPos);
-  yPos += 0.15;
+  doc.setDrawColor(0);
+  doc.setLineWidth(0.01);
+  doc.line(rightColumnX, yPos, pageWidth - margin, yPos);
+  yPos += 0.12;
 
-  doc.setFont('helvetica', 'bold');
-  doc.text('Status:', margin, yPos);
   doc.setFont('helvetica', 'normal');
-  doc.text(workOrder.status.toUpperCase(), margin + 1.2, yPos);
+  doc.setFontSize(9);
 
-  yPos = savedYPos;
   if (workOrder.is_retail_customer) {
-    doc.setFont('helvetica', 'bold');
-    doc.text('Customer:', rightColX, yPos);
-    doc.setFont('helvetica', 'normal');
-    doc.text(workOrder.customer_name || '', rightColX + 1, yPos);
-    yPos += 0.15;
-
+    doc.text(`Customer: ${workOrder.customer_name || 'N/A'}`, rightColumnX, yPos);
+    yPos += 0.13;
     if (workOrder.customer_email) {
-      doc.setFont('helvetica', 'bold');
-      doc.text('Email:', rightColX, yPos);
-      doc.setFont('helvetica', 'normal');
-      doc.text(workOrder.customer_email, rightColX + 1, yPos);
+      doc.text(`Email: ${workOrder.customer_email}`, rightColumnX, yPos);
+      yPos += 0.13;
+    }
+    if (workOrder.customer_phone) {
+      doc.text(`Phone: ${workOrder.customer_phone}`, rightColumnX, yPos);
+      yPos += 0.13;
     }
   } else {
-    doc.setFont('helvetica', 'bold');
-    doc.text('Vessel:', rightColX, yPos);
-    doc.setFont('helvetica', 'normal');
-    doc.text(yachtName || 'N/A', rightColX + 1, yPos);
+    doc.text(`Yacht: ${yachtName || 'N/A'}`, rightColumnX, yPos);
+    yPos += 0.13;
+    if (workOrder.marina_name) {
+      doc.text(`Marina: ${workOrder.marina_name}`, rightColumnX, yPos);
+      yPos += 0.13;
+    }
+    if (workOrder.manager_name) {
+      doc.text(`Repair Approval Manager: ${workOrder.manager_name}`, rightColumnX, yPos);
+      yPos += 0.13;
+      if (workOrder.manager_email) {
+        doc.text(`Manager Email: ${workOrder.manager_email}`, rightColumnX, yPos);
+        yPos += 0.13;
+      }
+      if (workOrder.manager_phone) {
+        doc.text(`Manager Phone: ${workOrder.manager_phone}`, rightColumnX, yPos);
+        yPos += 0.13;
+      }
+    }
   }
 
-  yPos = Math.max(yPos, savedYPos) + 0.3;
-  addLine();
-  addSpace(0.2);
+  const leftColumnEndY = startY + 0.13 + 0.13;
+  yPos = Math.max(yPos, leftColumnEndY);
+  addSpace(0.15);
 
   tasks.forEach((task, taskIndex) => {
-    if (yPos > 9.5) {
+    if (yPos > 8.5) {
       doc.addPage();
       yPos = margin;
     }
 
-    addText(`Task ${taskIndex + 1}: ${task.task_name}`, 11, 'bold');
+    addText(`Task ${taskIndex + 1}: ${task.task_name}`, 12, 'bold');
     if (task.task_overview) {
       addSpace(0.05);
       addText(task.task_overview, 9);
     }
-    addSpace(0.1);
-
-    const tableData = task.lineItems.map((item: any) => {
-      const taxIndicator = item.is_taxable ? 'T' : '';
-      return [
-        item.line_type.toUpperCase(),
-        item.description + (item.work_details ? `\n${item.work_details}` : ''),
-        item.quantity.toString(),
-        `$${item.unit_price.toFixed(2)}`,
-        `$${item.total_price.toFixed(2)}`,
-        taxIndicator
-      ];
-    });
-
-    autoTable(doc, {
-      startY: yPos,
-      head: [['Type', 'Description', 'Qty', 'Unit Price', 'Total', 'Tax']],
-      body: tableData,
-      theme: 'grid',
-      styles: {
-        fontSize: 9,
-        cellPadding: 0.06,
-        font: 'helvetica'
-      },
-      headStyles: {
-        fillColor: [59, 130, 246],
-        textColor: [255, 255, 255],
-        fontStyle: 'bold'
-      },
-      columnStyles: {
-        0: { cellWidth: 0.6 },
-        2: { halign: 'right', cellWidth: 0.5 },
-        3: { halign: 'right', cellWidth: 0.9 },
-        4: { halign: 'right', cellWidth: 0.9 },
-        5: { halign: 'center', cellWidth: 0.4 }
-      },
-      margin: { left: margin, right: margin },
-      didDrawPage: (data: any) => {
-        yPos = data.cursor.y + 0.2;
-      }
-    });
-
     addSpace(0.15);
+
+    if (task.lineItems && task.lineItems.length > 0) {
+      const lineItemHeaders = [['Description', 'Qty', 'Unit Price', 'Total']];
+      const lineItemData = task.lineItems.map((item: any) => {
+        let description = item.description || '';
+        if (item.work_details) {
+          description += `\n  ${item.work_details}`;
+        }
+        return [
+          description,
+          item.quantity?.toString() || '0',
+          `$${(item.unit_price || 0).toFixed(2)}`,
+          `$${(item.total_price || 0).toFixed(2)}`
+        ];
+      });
+
+      autoTable(doc, {
+        startY: yPos,
+        head: lineItemHeaders,
+        body: lineItemData,
+        theme: 'grid',
+        styles: {
+          fontSize: 9,
+          cellPadding: 0.08,
+          font: 'helvetica',
+          lineColor: [203, 213, 225],
+          lineWidth: 0.01,
+          minCellHeight: 0.15,
+          cellWidth: 'wrap'
+        },
+        headStyles: {
+          fillColor: [241, 245, 249],
+          textColor: [0, 0, 0],
+          fontStyle: 'bold',
+          halign: 'left'
+        },
+        columnStyles: {
+          0: { cellWidth: 3.5, valign: 'top' },
+          1: { cellWidth: 0.8, halign: 'center', valign: 'top' },
+          2: { cellWidth: 1.2, halign: 'right', valign: 'top' },
+          3: { cellWidth: 1.2, halign: 'right', valign: 'top' }
+        },
+        margin: { left: margin, right: margin },
+        didDrawPage: (data: any) => {
+          yPos = data.cursor.y + 0.1;
+        }
+      });
+
+      if (task.apply_surcharge) {
+        addText(`Note: Surcharge will be applied to this task`, 8, 'normal');
+        addSpace(0.1);
+      }
+
+      addSpace(0.15);
+    }
   });
 
-  addLine();
-  addSpace(0.1);
+  doc.setDrawColor(0);
+  doc.setLineWidth(0.03);
+  doc.line(margin + 3.5, yPos, pageWidth - margin, yPos);
+  yPos += 0.1125;
 
-  const summaryX = pageWidth - margin - 2.8;
-  const labelX = summaryX;
-  const valueX = summaryX + 1.5;
+  const summaryData = [
+    ['Subtotal:', `$${(workOrder.subtotal || 0).toFixed(2)}`],
+  ];
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10);
-  doc.text('Subtotal:', labelX, yPos);
-  doc.text(`$${estimate.subtotal.toFixed(2)}`, valueX, yPos, { align: 'right' });
-  yPos += 0.15;
-
-  if (estimate.sales_tax_amount > 0) {
-    doc.text(`Sales Tax (${(estimate.sales_tax_rate * 100).toFixed(2)}%):`, labelX, yPos);
-    doc.text(`$${estimate.sales_tax_amount.toFixed(2)}`, valueX, yPos, { align: 'right' });
-    yPos += 0.15;
+  if (workOrder.shop_supplies_amount > 0) {
+    summaryData.push([`Shop Supplies (${((workOrder.shop_supplies_rate || 0) * 100).toFixed(1)}%):`, `$${workOrder.shop_supplies_amount.toFixed(2)}`]);
   }
 
-  if (estimate.shop_supplies_amount > 0) {
-    doc.text(`Shop Supplies (${(estimate.shop_supplies_rate * 100).toFixed(2)}%):`, labelX, yPos);
-    doc.text(`$${estimate.shop_supplies_amount.toFixed(2)}`, valueX, yPos, { align: 'right' });
-    yPos += 0.15;
+  if (workOrder.park_fees_amount > 0) {
+    summaryData.push([`Park Fees (${((workOrder.park_fees_rate || 0) * 100).toFixed(1)}%):`, `$${workOrder.park_fees_amount.toFixed(2)}`]);
   }
 
-  if (estimate.park_fees_amount > 0) {
-    doc.text(`Park Fees (${(estimate.park_fees_rate * 100).toFixed(2)}%):`, labelX, yPos);
-    doc.text(`$${estimate.park_fees_amount.toFixed(2)}`, valueX, yPos, { align: 'right' });
-    yPos += 0.15;
+  if (workOrder.surcharge_amount > 0) {
+    summaryData.push([`Surcharge (${((workOrder.surcharge_rate || 0) * 100).toFixed(1)}%):`, `$${workOrder.surcharge_amount.toFixed(2)}`]);
   }
 
-  if (estimate.surcharge_amount > 0) {
-    doc.text(`Surcharge (${(estimate.surcharge_rate * 100).toFixed(2)}%):`, labelX, yPos);
-    doc.text(`$${estimate.surcharge_amount.toFixed(2)}`, valueX, yPos, { align: 'right' });
-    yPos += 0.15;
-  }
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(12);
-  doc.text('TOTAL:', labelX, yPos);
-  doc.text(`$${estimate.total_amount.toFixed(2)}`, valueX, yPos, { align: 'right' });
-  yPos += 0.2;
+  summaryData.push([`Sales Tax (${((workOrder.sales_tax_rate || 0) * 100).toFixed(1)}%):`, `$${(workOrder.sales_tax_amount || 0).toFixed(2)}`]);
 
   autoTable(doc, {
-    startY: yPos - 0.01,
-    body: [[' ']],
+    startY: yPos,
+    body: summaryData,
     theme: 'plain',
-    styles: { cellPadding: 0, fontSize: 1 },
+    styles: {
+      fontSize: 7.5,
+      cellPadding: 0.0375,
+      font: 'helvetica'
+    },
     columnStyles: {
-      0: { cellWidth: 2.8 },
+      0: { halign: 'right', cellWidth: 5.5 },
+      1: { halign: 'right', cellWidth: 1.2, fontStyle: 'bold' }
+    },
+    margin: { left: margin, right: margin },
+    didDrawPage: (data: any) => {
+      yPos = data.cursor.y;
+    }
+  });
+
+  doc.setLineWidth(0.03);
+  doc.line(margin + 3.5, yPos, pageWidth - margin, yPos);
+  yPos += 0.1125;
+
+  autoTable(doc, {
+    startY: yPos,
+    body: [['TOTAL:', `$${(workOrder.total_amount || 0).toFixed(2)}`]],
+    theme: 'plain',
+    styles: {
+      fontSize: 9,
+      cellPadding: 0.0375,
+      font: 'helvetica',
+      fontStyle: 'bold'
+    },
+    columnStyles: {
+      0: { halign: 'right', cellWidth: 5.5 },
       1: { halign: 'right', cellWidth: 1.2 }
     },
     margin: { left: margin, right: margin },
@@ -1578,15 +1620,15 @@ export async function generateWorkOrderPDF(
     }
   });
 
-  if (estimate.notes) {
+  if (workOrder.notes) {
     addSpace(0.15);
     addText('Notes', 11, 'bold');
     addSpace(0.05);
-    addText(estimate.notes, 9);
+    addText(workOrder.notes, 9);
   }
 
-  if (estimate.customer_notes) {
-    const lines = estimate.customer_notes.split('\n');
+  if (workOrder.customer_notes) {
+    const lines = workOrder.customer_notes.split('\n');
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
