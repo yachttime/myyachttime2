@@ -3263,6 +3263,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             owner_name,
             owner_contact,
             created_at
+          ),
+          user_profiles:user_id (
+            first_name,
+            last_name,
+            email,
+            phone
           )
         `)
         .order('start_date', { ascending: false });
@@ -4012,15 +4018,46 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     }
   };
 
+  const getBookingDisplayName = (booking: any): string => {
+    if (booking.yacht_booking_owners && booking.yacht_booking_owners.length > 0) {
+      return booking.yacht_booking_owners.map((o: any) => o.owner_name).join(', ');
+    } else if (booking.user_profiles) {
+      const firstName = booking.user_profiles.first_name || '';
+      const lastName = booking.user_profiles.last_name || '';
+      return `${firstName} ${lastName}`.trim() || booking.user_profiles.email || 'Unknown';
+    } else if (booking.owner_name) {
+      return booking.owner_name;
+    }
+    return 'Unknown';
+  };
+
   const handleEditBooking = (booking: any, clickedDate?: Date) => {
     setEditingBooking(booking);
     setEditingBookingClickedDate(clickedDate || null);
     const startDate = new Date(booking.start_date);
     const endDate = new Date(booking.end_date);
 
+    // Determine owner name and contact from either yacht_booking_owners or user_profiles
+    let ownerName = '';
+    let ownerContact = '';
+
+    if (booking.yacht_booking_owners && booking.yacht_booking_owners.length > 0) {
+      // Legacy booking with yacht_booking_owners
+      ownerName = booking.yacht_booking_owners[0].owner_name || '';
+      ownerContact = booking.yacht_booking_owners[0].owner_contact || '';
+    } else if (booking.user_profiles) {
+      // New booking with user_id reference
+      ownerName = `${booking.user_profiles.first_name || ''} ${booking.user_profiles.last_name || ''}`.trim();
+      ownerContact = booking.user_profiles.phone || booking.user_profiles.email || '';
+    } else if (booking.owner_name) {
+      // Fallback to direct properties
+      ownerName = booking.owner_name;
+      ownerContact = booking.owner_contact || '';
+    }
+
     setEditBookingForm({
-      owner_name: booking.owner_name || '',
-      owner_contact: booking.owner_contact || '',
+      owner_name: ownerName,
+      owner_contact: ownerContact,
       start_date: startDate.toISOString().slice(0, 10),
       departure_time: startDate.toTimeString().slice(0, 5),
       end_date: endDate.toISOString().slice(0, 10),
@@ -4133,7 +4170,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           await logYachtActivity(
             yacht.id,
             yacht.name,
-            `Trip deleted for ${bookingToDelete.owner_name}`,
+            `Trip deleted for ${getBookingDisplayName(bookingToDelete)}`,
             user?.id,
             userName
           );
@@ -11325,10 +11362,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                 {booking.yachts?.name || 'Yacht'}
                                               </div>
                                               <div className="text-slate-400 truncate">
-                                                {booking.yacht_booking_owners && booking.yacht_booking_owners.length > 0
-                                                  ? booking.yacht_booking_owners.map(o => o.owner_name).join(', ')
-                                                  : booking.owner_name
-                                                }
+                                                {getBookingDisplayName(booking)}
                                               </div>
                                               <div className={`text-xs ${booking.is_appointment ? 'text-pink-400' : isDeparture ? 'text-green-400' : !isDeparture && booking.oil_change_needed ? 'text-yellow-400' : 'text-red-400'}`}>
                                                 {booking.is_appointment
@@ -11420,10 +11454,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                             {booking.yachts?.name || 'Yacht'}
                                           </div>
                                           <div className="text-xs text-slate-400 mb-2">
-                                            {booking.yacht_booking_owners && booking.yacht_booking_owners.length > 0
-                                              ? booking.yacht_booking_owners.map(o => o.owner_name).join(', ')
-                                              : booking.owner_name
-                                            }
+                                            {getBookingDisplayName(booking)}
                                           </div>
                                           <div className={`text-xs font-medium ${
                                             booking.is_appointment
@@ -11517,10 +11548,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                             <div>
                                               <h4 className="font-bold text-lg">{booking.yachts?.name || 'Yacht'}</h4>
                                               <p className="text-sm text-slate-400">
-                                                {booking.yacht_booking_owners && booking.yacht_booking_owners.length > 0
-                                                  ? booking.yacht_booking_owners.map(o => o.owner_name).join(', ')
-                                                  : booking.owner_name
-                                                }
+                                                {getBookingDisplayName(booking)}
                                               </p>
                                               <div className={`text-xs font-medium mt-1 ${
                                                 booking.is_appointment
@@ -13019,10 +13047,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               {booking.yachts?.name || 'Yacht'}
                             </h3>
                             <p className="text-slate-400">
-                              {booking.yacht_booking_owners && booking.yacht_booking_owners.length > 0
-                                ? booking.yacht_booking_owners.map(o => o.owner_name).join(', ')
-                                : booking.owner_name
-                              }
+                              {getBookingDisplayName(booking)}
                             </p>
                           </div>
                         </div>
