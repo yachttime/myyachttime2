@@ -951,15 +951,12 @@ export async function generateEstimatePDF(
     addSpace(0.05);
   }
 
-  addText('ESTIMATE', 14, 'bold', 'center');
-  addSpace(0.15);
-
   const startY = yPos;
   const leftColumnX = margin;
   const rightColumnX = pageWidth / 2 + 0.2;
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
+  doc.setFontSize(12);
   doc.text(`Estimate #: ${estimate.estimate_number}`, leftColumnX, yPos);
   yPos += 0.13;
 
