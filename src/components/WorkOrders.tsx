@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { Plus, Wrench, AlertCircle, Edit2, Trash2, Check, X, ChevronDown, ChevronUp, Printer, CheckCircle } from 'lucide-react';
 import { generateWorkOrderPDF } from '../utils/pdfGenerator';
 import { useNotification } from '../contexts/NotificationContext';
+import { useAuth } from '../contexts/AuthContext';
 
 interface WorkOrder {
   id: string;
@@ -65,6 +66,7 @@ interface WorkOrdersProps {
 
 export function WorkOrders({ userId }: WorkOrdersProps) {
   const { showSuccess } = useNotification();
+  const { userProfile } = useAuth();
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [yachts, setYachts] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
@@ -895,6 +897,8 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
     }
   };
 
+  const canDeleteAssignedEmployees = userProfile?.role === 'master' || userProfile?.role === 'staff';
+
   if (loading && !showForm) {
     return <div className="p-8 text-center">Loading work orders...</div>;
   }
@@ -1099,13 +1103,15 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                                     className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm font-medium"
                                   >
                                     {employee.first_name} {employee.last_name}
-                                    <button
-                                      type="button"
-                                      onClick={() => handleAssignEmployee(taskIndex, employeeId)}
-                                      className="hover:text-gray-200 ml-1"
-                                    >
-                                      <X className="w-3.5 h-3.5" />
-                                    </button>
+                                    {canDeleteAssignedEmployees && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleAssignEmployee(taskIndex, employeeId)}
+                                        className="hover:text-gray-200 ml-1"
+                                      >
+                                        <X className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
                                   </span>
                                 ) : null;
                               })}
