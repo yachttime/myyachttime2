@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, Wrench, AlertCircle, Edit2, Trash2, Check, X, ChevronDown, ChevronUp, Printer, CheckCircle } from 'lucide-react';
+import { Plus, Wrench, AlertCircle, Edit2, Trash2, Check, X, ChevronDown, ChevronUp, Printer, CheckCircle, Clock } from 'lucide-react';
 import { generateWorkOrderPDF } from '../utils/pdfGenerator';
 import { useNotification } from '../contexts/NotificationContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -122,6 +122,9 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
   const [filteredParts, setFilteredParts] = useState<typeof parts>([]);
   const [showPartDropdown, setShowPartDropdown] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showTimeEntryPreview, setShowTimeEntryPreview] = useState(false);
+  const [timeEntryPreview, setTimeEntryPreview] = useState<any[]>([]);
+  const [selectedWorkOrderForTime, setSelectedWorkOrderForTime] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -899,6 +902,50 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
 
   const canDeleteAssignedEmployees = userProfile?.role === 'master' || userProfile?.role === 'staff';
 
+  const handlePreviewTimeEntries = async (workOrderId: string) => {
+    try {
+      setError(null);
+      const { data, error: previewError } = await supabase.rpc('preview_work_order_time_entries', {
+        p_work_order_id: workOrderId
+      });
+
+      if (previewError) throw previewError;
+
+      setTimeEntryPreview(data || []);
+      setSelectedWorkOrderForTime(workOrderId);
+      setShowTimeEntryPreview(true);
+    } catch (err: any) {
+      console.error('Error previewing time entries:', err);
+      setError(err.message || 'Failed to preview time entries');
+    }
+  };
+
+  const handleCreateTimeEntries = async () => {
+    if (!selectedWorkOrderForTime) return;
+
+    try {
+      setError(null);
+      setIsSubmitting(true);
+
+      const { data, error: createError } = await supabase.rpc('create_time_entries_from_work_order', {
+        p_work_order_id: selectedWorkOrderForTime,
+        p_created_by: userId
+      });
+
+      if (createError) throw createError;
+
+      showSuccess(`Created ${data.entries_created} time entries successfully!`);
+      setShowTimeEntryPreview(false);
+      setTimeEntryPreview([]);
+      setSelectedWorkOrderForTime(null);
+    } catch (err: any) {
+      console.error('Error creating time entries:', err);
+      setError(err.message || 'Failed to create time entries');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   if (loading && !showForm) {
     return <div className="p-8 text-center">Loading work orders...</div>;
   }
@@ -913,6 +960,90 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
           <AlertCircle className="w-5 h-5" />
           {error}
+        </div>
+      )}
+
+      {showTimeEntryPreview && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Preview Time Entries</h3>
+              <p className="text-sm text-gray-600 mt-1">
+                Labor hours will be divided equally among assigned employees
+              </p>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              {timeEntryPreview.length === 0 ? (
+                <div className="text-center py-8">
+                  <Clock className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600">No time entries to create. Tasks need labor hours and assigned employees.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {Object.entries(
+                    timeEntryPreview.reduce((acc: any, entry: any) => {
+                      if (!acc[entry.task_id]) {
+                        acc[entry.task_id] = {
+                          task_name: entry.task_name,
+                          total_hours: entry.total_task_hours,
+                          employee_count: entry.employee_count,
+                          employees: []
+                        };
+                      }
+                      acc[entry.task_id].employees.push({
+                        name: entry.employee_name,
+                        hours: entry.employee_hours
+                      });
+                      return acc;
+                    }, {})
+                  ).map(([taskId, task]: [string, any]) => (
+                    <div key={taskId} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <h4 className="font-semibold text-gray-900">{task.task_name}</h4>
+                          <p className="text-sm text-gray-600">
+                            Total: {task.total_hours} hours ÷ {task.employee_count} employee{task.employee_count !== 1 ? 's' : ''} = {(task.total_hours / task.employee_count).toFixed(2)} hours each
+                          </p>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        {task.employees.map((emp: any, idx: number) => (
+                          <div key={idx} className="flex justify-between items-center bg-white p-3 rounded border border-gray-200">
+                            <span className="text-sm font-medium text-gray-900">{emp.name}</span>
+                            <span className="text-sm text-blue-600 font-semibold">{emp.hours} hours</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowTimeEntryPreview(false);
+                  setTimeEntryPreview([]);
+                  setSelectedWorkOrderForTime(null);
+                }}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+              >
+                Cancel
+              </button>
+              {timeEntryPreview.length > 0 && (
+                <button
+                  onClick={handleCreateTimeEntries}
+                  disabled={isSubmitting}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50"
+                >
+                  <Clock className="w-4 h-4" />
+                  {isSubmitting ? 'Creating...' : 'Create Time Entries'}
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
@@ -1633,6 +1764,15 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                           <Edit2 className="w-4 h-4" />
                         </button>
                       </>
+                    )}
+                    {workOrder.status === 'completed' && (
+                      <button
+                        onClick={() => handlePreviewTimeEntries(workOrder.id)}
+                        className="text-blue-600 hover:text-blue-800"
+                        title="Create time entries from labor hours"
+                      >
+                        <Clock className="w-4 h-4" />
+                      </button>
                     )}
                     <button
                       onClick={() => handlePrintWorkOrder(workOrder.id)}
