@@ -40,6 +40,7 @@ interface WorkOrderTask {
   task_overview: string;
   task_order: number;
   apply_surcharge: boolean;
+  assignedEmployees: string[];
   lineItems: WorkOrderLineItem[];
 }
 
@@ -66,6 +67,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
   const { showSuccess } = useNotification();
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [yachts, setYachts] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<any[]>([]);
   const [laborCodes, setLaborCodes] = useState<any[]>([]);
   const [parts, setParts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -140,7 +142,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
       setLoading(true);
       setError(null);
 
-      const [workOrdersResult, yachtsResult, laborResult, partsResult, settingsResult] = await Promise.all([
+      const [workOrdersResult, yachtsResult, employeesResult, laborResult, partsResult, settingsResult] = await Promise.all([
         supabase
           .from('work_orders')
           .select('*, yachts(name)')
@@ -150,6 +152,12 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
           .select('id, name, marina_name')
           .eq('is_active', true)
           .order('name'),
+        supabase
+          .from('user_profiles')
+          .select('user_id, first_name, last_name, role')
+          .in('role', ['staff', 'mechanic'])
+          .eq('is_active', true)
+          .order('first_name'),
         supabase
           .from('labor_codes')
           .select('id, code, name, hourly_rate, is_taxable')
@@ -168,11 +176,13 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
 
       if (workOrdersResult.error) throw workOrdersResult.error;
       if (yachtsResult.error) throw yachtsResult.error;
+      if (employeesResult.error) throw employeesResult.error;
       if (laborResult.error) throw laborResult.error;
       if (partsResult.error) throw partsResult.error;
 
       setWorkOrders(workOrdersResult.data || []);
       setYachts(yachtsResult.data || []);
+      setEmployees(employeesResult.data || []);
       setLaborCodes(laborResult.data || []);
       setParts(partsResult.data || []);
 
@@ -214,6 +224,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
         task_overview: taskFormData.task_overview,
         task_order: tasks.length,
         apply_surcharge: true,
+        assignedEmployees: [],
         lineItems: []
       };
       setTasks([...tasks, newTask]);
@@ -359,6 +370,19 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
     });
     setShowPartDropdown(false);
     setFilteredParts([]);
+  };
+
+  const handleAssignEmployee = (taskIndex: number, employeeId: string) => {
+    const updatedTasks = [...tasks];
+    const currentEmployees = updatedTasks[taskIndex].assignedEmployees || [];
+
+    if (currentEmployees.includes(employeeId)) {
+      updatedTasks[taskIndex].assignedEmployees = currentEmployees.filter(id => id !== employeeId);
+    } else {
+      updatedTasks[taskIndex].assignedEmployees = [...currentEmployees, employeeId];
+    }
+
+    setTasks(updatedTasks);
   };
 
   const calculateSubtotal = () => {
@@ -523,6 +547,20 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
 
           if (lineItemsError) throw lineItemsError;
         }
+
+        if (task.assignedEmployees && task.assignedEmployees.length > 0) {
+          const assignmentsToInsert = task.assignedEmployees.map(employeeId => ({
+            task_id: workOrderTask.id,
+            employee_id: employeeId,
+            assigned_by: userId
+          }));
+
+          const { error: assignmentsError } = await supabase
+            .from('work_order_task_assignments')
+            .insert(assignmentsToInsert);
+
+          if (assignmentsError) throw assignmentsError;
+        }
       }
 
       showSuccess('Work order updated successfully!');
@@ -614,6 +652,21 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
 
       if (lineItemsError) throw lineItemsError;
 
+      const { data: assignmentsData, error: assignmentsError } = await supabase
+        .from('work_order_task_assignments')
+        .select('task_id, employee_id')
+        .in('task_id', (tasksData || []).map(t => t.id));
+
+      if (assignmentsError) throw assignmentsError;
+
+      const assignmentsByTask: Record<string, string[]> = {};
+      (assignmentsData || []).forEach((assignment: any) => {
+        if (!assignmentsByTask[assignment.task_id]) {
+          assignmentsByTask[assignment.task_id] = [];
+        }
+        assignmentsByTask[assignment.task_id].push(assignment.employee_id);
+      });
+
       setFormData({
         is_retail_customer: workOrder.is_retail_customer,
         yacht_id: workOrder.yacht_id || '',
@@ -668,6 +721,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
           task_overview: task.task_overview || '',
           task_order: task.task_order || 0,
           apply_surcharge: task.apply_surcharge ?? true,
+          assignedEmployees: assignmentsByTask[task.id] || [],
           lineItems: taskLineItems
         };
       });
@@ -814,11 +868,31 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
       pending: 'bg-yellow-100 text-yellow-800',
-      in_progress: 'bg-blue-100 text-blue-800',
+      waiting_for_parts: 'bg-orange-100 text-orange-800',
+      in_process: 'bg-blue-100 text-blue-800',
       completed: 'bg-green-100 text-green-800',
       cancelled: 'bg-red-100 text-red-800'
     };
     return colors[status] || colors.pending;
+  };
+
+  const handleStatusChange = async (workOrderId: string, newStatus: string) => {
+    try {
+      setError(null);
+
+      const { error: updateError } = await supabase
+        .from('work_orders')
+        .update({ status: newStatus })
+        .eq('id', workOrderId);
+
+      if (updateError) throw updateError;
+
+      showSuccess(`Work order status updated to ${newStatus.replace('_', ' ')}!`);
+      await loadData();
+    } catch (err: any) {
+      console.error('Error updating status:', err);
+      setError(err.message || 'Failed to update status');
+    }
   };
 
   if (loading && !showForm) {
@@ -1012,6 +1086,55 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
 
                       {expandedTasks.has(taskIndex) && (
                         <div className="p-4 bg-white">
+                          <div className="mb-4 pb-4 border-b border-gray-200">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Assigned Employees
+                            </label>
+                            <div className="flex flex-wrap gap-2 mb-2">
+                              {(task.assignedEmployees || []).map(employeeId => {
+                                const employee = employees.find(e => e.user_id === employeeId);
+                                return employee ? (
+                                  <span
+                                    key={employeeId}
+                                    className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm"
+                                  >
+                                    {employee.first_name} {employee.last_name}
+                                    <button
+                                      type="button"
+                                      onClick={() => handleAssignEmployee(taskIndex, employeeId)}
+                                      className="hover:text-blue-900"
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                  </span>
+                                ) : null;
+                              })}
+                              {(!task.assignedEmployees || task.assignedEmployees.length === 0) && (
+                                <span className="text-sm text-gray-500 italic">No employees assigned</span>
+                              )}
+                            </div>
+                            <select
+                              value=""
+                              onChange={(e) => {
+                                if (e.target.value) {
+                                  handleAssignEmployee(taskIndex, e.target.value);
+                                }
+                              }}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                            >
+                              <option value="">Select employee to assign...</option>
+                              {employees.map(employee => (
+                                <option
+                                  key={employee.user_id}
+                                  value={employee.user_id}
+                                  disabled={(task.assignedEmployees || []).includes(employee.user_id)}
+                                >
+                                  {employee.first_name} {employee.last_name} ({employee.role})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
                           <div className="flex justify-between items-center mb-3">
                             <span className="text-sm font-medium text-gray-700">Line Items</span>
                             <button
@@ -1461,9 +1584,22 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                   </div>
                 </td>
                 <td className="px-6 py-4">
-                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(workOrder.status)}`}>
-                    {workOrder.status.replace('_', ' ')}
-                  </span>
+                  {workOrder.status !== 'completed' ? (
+                    <select
+                      value={workOrder.status}
+                      onChange={(e) => handleStatusChange(workOrder.id, e.target.value)}
+                      className={`px-2 py-1 text-xs font-medium rounded-full border-0 ${getStatusColor(workOrder.status)}`}
+                    >
+                      <option value="pending">Pending</option>
+                      <option value="waiting_for_parts">Waiting for Parts</option>
+                      <option value="in_process">In Process</option>
+                      <option value="completed">Completed</option>
+                    </select>
+                  ) : (
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(workOrder.status)}`}>
+                      {workOrder.status.replace('_', ' ')}
+                    </span>
+                  )}
                 </td>
                 <td className="px-6 py-4 text-right text-sm font-medium text-gray-900">
                   ${(workOrder.total_amount || 0).toFixed(2)}
