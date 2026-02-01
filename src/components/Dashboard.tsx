@@ -3468,7 +3468,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
   const handleMaintenanceSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !yacht) return;
+    if (!user || !effectiveYacht) return;
 
     setMaintenanceLoading(true);
     setMaintenanceError('');
@@ -3497,7 +3497,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       const { error: dbError } = await supabase.from('maintenance_requests').insert({
         user_id: user.id,
-        yacht_id: yacht.id,
+        yacht_id: effectiveYacht.id,
         subject: maintenanceSubject,
         description: maintenanceDescription,
         priority: 'medium',
@@ -3516,7 +3516,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       const { error: notifError } = await supabase
         .from('admin_notifications')
         .insert({
-          yacht_id: yacht.id,
+          yacht_id: effectiveYacht.id,
           user_id: user.id,
           message: maintenanceMessage,
           notification_type: 'maintenance_request'
@@ -3527,8 +3527,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       }
 
       await logYachtActivity(
-        yacht.id,
-        yacht.name,
+        effectiveYacht.id,
+        effectiveYacht.name,
         `Maintenance request submitted: "${maintenanceSubject}"`,
         user.id,
         userName
@@ -5056,7 +5056,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700">
                 <div className="mb-4">
                   <p className="text-slate-400">Yacht:</p>
-                  <p className="text-lg font-semibold">{yacht?.name || 'No yacht assigned'}</p>
+                  <p className="text-lg font-semibold">{effectiveYacht?.name || 'No yacht assigned'}</p>
                 </div>
                 <div>
                   <p className="text-slate-400">Owner Email:</p>
