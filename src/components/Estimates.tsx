@@ -1442,9 +1442,6 @@ export function Estimates({ userId }: EstimatesProps) {
                                   >
                                     <option value="labor">Labor</option>
                                     <option value="part">Part</option>
-                                    <option value="shop_supplies">Shop Supplies</option>
-                                    <option value="park_fees">Park Fees</option>
-                                    <option value="surcharge">Surcharge</option>
                                   </select>
                                 </div>
 
