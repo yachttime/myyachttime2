@@ -47,10 +47,12 @@ export default defineConfig({
   server: {
     hmr: {
       overlay: true,
+      protocol: 'ws',
     },
     watch: {
       usePolling: true,
     },
+    cors: true,
   },
   build: {
     outDir: 'dist',
