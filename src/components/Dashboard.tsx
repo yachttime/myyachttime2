@@ -3216,8 +3216,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const loadMasterCalendar = async () => {
     try {
       if (!user) {
+        console.log('Master Calendar: No user logged in');
         return;
       }
+
+      console.log('Master Calendar: Loading data for user:', user.id, 'Role:', effectiveRole, 'Profile:', userProfile?.role);
 
       let bookingsQuery = supabase
         .from('yacht_bookings')
@@ -3235,6 +3238,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       // Filter by yacht_id for managers
       if (isManagerRole(effectiveRole) && effectiveYacht) {
+        console.log('Master Calendar: Filtering for manager yacht:', effectiveYacht.id);
         bookingsQuery = bookingsQuery.eq('yacht_id', effectiveYacht.id);
       }
 
@@ -3242,8 +3246,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       if (bookingsError) {
         console.error('Master Calendar Error:', bookingsError);
+        console.error('Master Calendar Error Details:', JSON.stringify(bookingsError, null, 2));
         throw bookingsError;
       }
+
+      console.log('Master Calendar: Fetched', bookingsData?.length || 0, 'bookings from database');
 
       let appointmentsQuery = supabase
         .from('appointments')
@@ -3259,6 +3266,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       if (appointmentsError) {
         console.error('Appointments Error:', appointmentsError);
       }
+
+      console.log('Master Calendar: Fetched', appointmentsData?.length || 0, 'appointments from database');
 
       const formattedAppointments = (appointmentsData || []).map(apt => ({
         ...apt,
@@ -3276,7 +3285,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       const combinedData = [...(bookingsData || []), ...formattedAppointments];
 
-      console.log('Master Calendar: Loaded', combinedData.length, 'bookings/appointments');
+      console.log('Master Calendar: Total combined data:', combinedData.length, 'bookings/appointments');
+      console.log('Master Calendar: Sample data:', combinedData.slice(0, 3));
       setMasterCalendarBookings(combinedData);
     } catch (error) {
       console.error('Error loading master calendar:', error);
