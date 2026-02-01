@@ -2302,19 +2302,24 @@ function DateScheduleEditModal({ date, staff, scheduleOverrides, onClose, onSucc
             if (error) throw error;
           }
         } else {
+          const overrideData: any = {
+            user_id: staffMember.user_id,
+            override_date: dateStr,
+            status: state.status,
+            notes: state.notes || null,
+            start_time: state.start_time || null,
+            end_time: state.end_time || null,
+            created_by: user?.id,
+            updated_at: new Date().toISOString()
+          };
+
+          if (state.overrideId) {
+            overrideData.id = state.overrideId;
+          }
+
           const { error } = await supabase
             .from('staff_schedule_overrides')
-            .upsert({
-              id: state.overrideId,
-              user_id: staffMember.user_id,
-              override_date: dateStr,
-              status: state.status,
-              notes: state.notes || null,
-              start_time: state.start_time || null,
-              end_time: state.end_time || null,
-              created_by: user?.id,
-              updated_at: new Date().toISOString()
-            }, {
+            .upsert(overrideData, {
               onConflict: 'user_id,override_date'
             });
 
