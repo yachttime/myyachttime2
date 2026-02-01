@@ -954,34 +954,69 @@ export async function generateEstimatePDF(
   addText('ESTIMATE', 14, 'bold', 'center');
   addSpace(0.15);
 
-  addText(`Estimate #: ${estimate.estimate_number}`, 10, 'bold');
-  addText(`Date: ${new Date(estimate.created_at).toLocaleDateString()}`, 9);
-  addText(`Status: ${estimate.status.charAt(0).toUpperCase() + estimate.status.slice(1)}`, 9);
-  addSpace(0.15);
+  const startY = yPos;
+  const leftColumnX = margin;
+  const rightColumnX = pageWidth / 2 + 0.2;
 
-  addText('Customer Information', 11, 'bold');
-  addLine();
-  addSpace(0.05);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.text(`Estimate #: ${estimate.estimate_number}`, leftColumnX, yPos);
+  yPos += 0.13;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.text(`Date: ${new Date(estimate.created_at).toLocaleDateString()}`, leftColumnX, yPos);
+  yPos += 0.13;
+  doc.text(`Status: ${estimate.status.charAt(0).toUpperCase() + estimate.status.slice(1)}`, leftColumnX, yPos);
+
+  yPos = startY;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.text('Customer Information', rightColumnX, yPos);
+  yPos += 0.13;
+
+  doc.setDrawColor(0);
+  doc.setLineWidth(0.01);
+  doc.line(rightColumnX, yPos, pageWidth - margin, yPos);
+  yPos += 0.08;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
 
   if (estimate.is_retail_customer) {
-    addText(`Customer: ${estimate.customer_name || 'N/A'}`, 9);
-    if (estimate.customer_email) addText(`Email: ${estimate.customer_email}`, 9);
-    if (estimate.customer_phone) addText(`Phone: ${estimate.customer_phone}`, 9);
+    doc.text(`Customer: ${estimate.customer_name || 'N/A'}`, rightColumnX, yPos);
+    yPos += 0.13;
+    if (estimate.customer_email) {
+      doc.text(`Email: ${estimate.customer_email}`, rightColumnX, yPos);
+      yPos += 0.13;
+    }
+    if (estimate.customer_phone) {
+      doc.text(`Phone: ${estimate.customer_phone}`, rightColumnX, yPos);
+      yPos += 0.13;
+    }
   } else {
-    addText(`Yacht: ${yachtName || 'N/A'}`, 9);
+    doc.text(`Yacht: ${yachtName || 'N/A'}`, rightColumnX, yPos);
+    yPos += 0.13;
     if (estimate.marina_name) {
-      addText(`Marina: ${estimate.marina_name}`, 9);
+      doc.text(`Marina: ${estimate.marina_name}`, rightColumnX, yPos);
+      yPos += 0.13;
     }
     if (estimate.manager_name) {
-      addText(`Repair Approval Manager: ${estimate.manager_name}`, 9);
+      doc.text(`Repair Approval Manager: ${estimate.manager_name}`, rightColumnX, yPos);
+      yPos += 0.13;
       if (estimate.manager_email) {
-        addText(`Manager Email: ${estimate.manager_email}`, 9);
+        doc.text(`Manager Email: ${estimate.manager_email}`, rightColumnX, yPos);
+        yPos += 0.13;
       }
       if (estimate.manager_phone) {
-        addText(`Manager Phone: ${estimate.manager_phone}`, 9);
+        doc.text(`Manager Phone: ${estimate.manager_phone}`, rightColumnX, yPos);
+        yPos += 0.13;
       }
     }
   }
+
+  const leftColumnEndY = startY + 0.13 + 0.13;
+  yPos = Math.max(yPos, leftColumnEndY);
   addSpace(0.15);
 
   tasks.forEach((task, taskIndex) => {
