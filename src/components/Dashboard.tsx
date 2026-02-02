@@ -13166,13 +13166,18 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               );
                             });
 
-                            const staffRoles = ['mechanic', 'staff', 'master'];
-                            const staffUsers = filteredUsers.filter(user =>
-                              staffRoles.includes(user.role) && user.is_active !== false
-                            );
-                            const yachtAssignedUsers = filteredUsers.filter(user =>
-                              (user.role === 'owner' || user.role === 'manager') && user.yacht_id && user.is_active !== false
-                            );
+                            // Staff: mechanic, staff, and master users WITHOUT yacht assignment
+                            const staffUsers = filteredUsers.filter(user => {
+                              if (user.is_active === false) return false;
+                              if (user.role === 'mechanic' || user.role === 'staff') return true;
+                              // Master users with yacht_id are yacht representatives, not staff
+                              if (user.role === 'master' && !user.yacht_id) return true;
+                              return false;
+                            });
+                            const yachtAssignedUsers = filteredUsers.filter(user => {
+                              if (!user.yacht_id || user.is_active === false) return false;
+                              return user.role === 'owner' || user.role === 'manager' || user.role === 'master';
+                            });
 
                             const yachtGroups: { [key: string]: typeof yachtAssignedUsers } = {};
 
