@@ -118,7 +118,9 @@ export const Welcome = ({ onGetStarted }: WelcomeProps) => {
             src={yachtWelcomeVideo.video_url}
             className="max-w-full max-h-full object-contain"
             autoPlay
+            muted
             playsInline
+            controls
             poster={yachtWelcomeVideo.thumbnail_url || undefined}
             onEnded={handleVideoEnd}
             onError={(e) => {
