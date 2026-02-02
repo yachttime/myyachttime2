@@ -481,11 +481,11 @@ export const isStaffRole = (role?: UserRole): boolean => {
 };
 
 export const isManagerRole = (role?: UserRole): boolean => {
-  return role === 'manager' || role === 'master';
+  return role === 'master';
 };
 
 export const isStaffOrManager = (role?: UserRole): boolean => {
-  return role === 'staff' || role === 'manager' || role === 'mechanic' || role === 'master';
+  return role === 'staff' || role === 'mechanic' || role === 'master';
 };
 
 export const isMasterRole = (role?: UserRole): boolean => {

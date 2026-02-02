@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useRoleImpersonation } from '../contexts/RoleImpersonationContext';
 import { Users, Plus, X, Ship, FileText, Wrench, DollarSign, Search, Edit2, Trash2 } from 'lucide-react';
 
 interface Customer {
@@ -48,6 +49,7 @@ interface CustomerHistory {
 
 export default function CustomerManagement() {
   const { user, profile } = useAuth();
+  const { effectiveRole } = useRoleImpersonation();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -282,7 +284,7 @@ export default function CustomerManagement() {
     return `${customer.first_name} ${customer.last_name}`;
   };
 
-  if (!profile || !['staff', 'mechanic', 'master'].includes(profile.role)) {
+  if (!profile || !['staff', 'mechanic', 'master'].includes(effectiveRole)) {
     return (
       <div className="p-8 text-center">
         <p className="text-gray-600">Access denied. Staff only.</p>
