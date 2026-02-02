@@ -4376,7 +4376,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-3 py-4 space-y-1">
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto overflow-x-hidden" style={{ WebkitOverflowScrolling: 'touch' }}>
           <button
             onClick={() => {
               setActiveTabPersisted('calendar');
