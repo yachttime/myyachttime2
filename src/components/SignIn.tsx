@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Anchor, Eye, EyeOff } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Anchor, Eye, EyeOff, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 
@@ -29,11 +29,16 @@ export const SignIn = () => {
   const [loading, setLoading] = useState(false);
   const [signInVideo, setSignInVideo] = useState<EducationVideo | null>(null);
   const [scannedYachtName, setScannedYachtName] = useState<string | null>(null);
+  const [showWelcomeVideo, setShowWelcomeVideo] = useState(false);
+  const [welcomeVideo, setWelcomeVideo] = useState<EducationVideo | null>(null);
+  const [videoLoading, setVideoLoading] = useState(true);
+  const [videoError, setVideoError] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const { signIn } = useAuth();
 
   useEffect(() => {
-    fetchSignInVideo();
     handleYachtQRCode();
+    fetchSignInVideo();
   }, []);
 
   const handleYachtQRCode = async () => {
@@ -51,6 +56,9 @@ export const SignIn = () => {
         if (!error && yacht) {
           localStorage.setItem('qr_scanned_yacht_id', yacht.id);
           setScannedYachtName(yacht.name);
+
+          // Fetch yacht-specific welcome video
+          await fetchYachtWelcomeVideo(yacht.id);
         }
 
         window.history.replaceState({}, '', window.location.pathname);
@@ -60,12 +68,44 @@ export const SignIn = () => {
     }
   };
 
+  const fetchYachtWelcomeVideo = async (yachtId: string) => {
+    try {
+      setVideoLoading(true);
+      const { data, error } = await supabase
+        .from('education_videos')
+        .select('*')
+        .eq('category', 'SignIn')
+        .eq('yacht_id', yachtId)
+        .order('order_index', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error fetching yacht welcome video:', error);
+        setVideoLoading(false);
+        return;
+      }
+
+      if (data) {
+        setWelcomeVideo(data);
+        setShowWelcomeVideo(true);
+        setVideoLoading(false);
+      } else {
+        setVideoLoading(false);
+      }
+    } catch (err) {
+      console.error('Exception while fetching yacht welcome video:', err);
+      setVideoLoading(false);
+    }
+  };
+
   const fetchSignInVideo = async () => {
     try {
       const { data, error } = await supabase
         .from('education_videos')
         .select('*')
         .eq('category', 'SignIn')
+        .is('yacht_id', null)
         .order('order_index', { ascending: true })
         .limit(1)
         .maybeSingle();
@@ -81,6 +121,24 @@ export const SignIn = () => {
     } catch (err) {
       console.error('Exception while fetching sign-in video:', err);
     }
+  };
+
+  const handleSkipVideo = () => {
+    setShowWelcomeVideo(false);
+    if (videoRef.current) {
+      videoRef.current.pause();
+    }
+  };
+
+  const handleVideoEnded = () => {
+    setShowWelcomeVideo(false);
+  };
+
+  const handleVideoError = () => {
+    setVideoError(true);
+    setTimeout(() => {
+      setShowWelcomeVideo(false);
+    }, 2000);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -119,6 +177,64 @@ export const SignIn = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white">
+      {showWelcomeVideo && welcomeVideo && (
+        <div className="fixed inset-0 z-50 bg-black flex flex-col">
+          <div className="flex items-center justify-between p-6 bg-gradient-to-b from-black/80 to-transparent absolute top-0 left-0 right-0 z-10">
+            <div className="flex items-center gap-3">
+              <Anchor className="w-6 h-6 text-amber-500" />
+              <div>
+                <h2 className="text-xl font-bold">Welcome to {scannedYachtName}</h2>
+                <p className="text-sm text-slate-300">{welcomeVideo.title}</p>
+              </div>
+            </div>
+            <button
+              onClick={handleSkipVideo}
+              className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold px-6 py-3 rounded-lg transition-all duration-300 shadow-lg"
+            >
+              Skip to Login
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {videoLoading && (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-500 mx-auto mb-4"></div>
+                <p className="text-slate-300">Loading welcome video...</p>
+              </div>
+            </div>
+          )}
+
+          {videoError && (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <p className="text-red-500 mb-2">Video could not be loaded</p>
+                <p className="text-slate-400 text-sm">Redirecting to login...</p>
+              </div>
+            </div>
+          )}
+
+          {!videoLoading && !videoError && (
+            <video
+              ref={videoRef}
+              src={welcomeVideo.video_url}
+              className="w-full h-full object-contain"
+              autoPlay
+              playsInline
+              poster={welcomeVideo.thumbnail_url || undefined}
+              onEnded={handleVideoEnded}
+              onError={handleVideoError}
+            >
+              Your browser does not support the video tag.
+            </video>
+          )}
+
+          <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 text-center">
+            <p className="text-sm text-slate-400">Video will auto-advance to login when complete</p>
+          </div>
+        </div>
+      )}
+
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center gap-3 mb-12">
           <Anchor className="w-8 h-8 text-amber-500" />
