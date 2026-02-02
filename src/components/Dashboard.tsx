@@ -47,6 +47,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [maintenanceRequests, setMaintenanceRequests] = useState<MaintenanceRequest[]>([]);
   const [videos, setVideos] = useState<EducationVideo[]>([]);
   const [welcomeVideo, setWelcomeVideo] = useState<EducationVideo | null>(null);
+  const [showWelcomeVideo, setShowWelcomeVideo] = useState(false);
+  const [qrScannedYachtName, setQrScannedYachtName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'calendar' | 'maintenance' | 'education' | 'admin' | 'staffCalendar' | 'timeClock' | 'estimating' | 'customers'>(() => {
     try {
@@ -568,7 +570,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   useEffect(() => {
     const handleQRScannedYacht = async () => {
       const scannedYachtId = localStorage.getItem('qr_scanned_yacht_id');
-      if (!scannedYachtId || !user) return;
+      console.log('[Dashboard QR] Checking for scanned yacht ID:', scannedYachtId);
+
+      if (!scannedYachtId || !user) {
+        console.log('[Dashboard QR] No yacht ID or no user');
+        return;
+      }
 
       try {
         const { data: scannedYacht, error } = await supabase
@@ -577,15 +584,46 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           .eq('id', scannedYachtId)
           .maybeSingle();
 
+        console.log('[Dashboard QR] Yacht lookup result:', { scannedYacht, error });
+
         if (!error && scannedYacht) {
+          // Set yacht name for display
+          setQrScannedYachtName(scannedYacht.name);
+          console.log('[Dashboard QR] Set yacht name:', scannedYacht.name);
+
+          // Fetch yacht-specific welcome video
+          console.log('[Dashboard QR] Fetching welcome video for yacht:', scannedYachtId);
+          const { data: videoData, error: videoError } = await supabase
+            .from('education_videos')
+            .select('*')
+            .eq('category', 'SignIn')
+            .eq('yacht_id', scannedYachtId)
+            .order('order_index', { ascending: true })
+            .limit(1)
+            .maybeSingle();
+
+          console.log('[Dashboard QR] Video query result:', { videoData, videoError });
+
+          if (!videoError && videoData) {
+            console.log('[Dashboard QR] Setting welcome video:', videoData.title);
+            console.log('[Dashboard QR] Video URL:', videoData.video_url);
+            setWelcomeVideo(videoData);
+            setShowWelcomeVideo(true);
+          } else {
+            console.log('[Dashboard QR] No video found or error occurred');
+          }
+
+          // For master users, also set the impersonated yacht
           if (userProfile?.role === 'master') {
             setImpersonatedYacht(scannedYacht);
+            console.log('[Dashboard QR] Set impersonated yacht for master user');
           }
         }
       } catch (err) {
-        console.error('Error handling QR scanned yacht:', err);
+        console.error('[Dashboard QR] Error handling QR scanned yacht:', err);
       } finally {
         localStorage.removeItem('qr_scanned_yacht_id');
+        console.log('[Dashboard QR] Removed yacht ID from localStorage');
       }
     };
 
@@ -4409,6 +4447,59 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white flex">
+      {/* Welcome Video Modal */}
+      {showWelcomeVideo && welcomeVideo && (
+        <div className="fixed inset-0 z-[100] bg-black flex flex-col">
+          <div className="flex items-center justify-between p-6 bg-gradient-to-b from-black/80 to-transparent absolute top-0 left-0 right-0 z-10">
+            <div className="flex items-center gap-3">
+              <Anchor className="w-6 h-6 text-amber-500" />
+              <div>
+                <h2 className="text-xl font-bold">Welcome to {qrScannedYachtName}</h2>
+                <p className="text-sm text-slate-300">{welcomeVideo.title}</p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                setShowWelcomeVideo(false);
+                setWelcomeVideo(null);
+                setQrScannedYachtName(null);
+              }}
+              className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold px-6 py-3 rounded-lg transition-all duration-300 shadow-lg"
+            >
+              Skip to Dashboard
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <video
+            src={welcomeVideo.video_url}
+            className="w-full h-full object-contain"
+            autoPlay
+            playsInline
+            poster={welcomeVideo.thumbnail_url || undefined}
+            onEnded={() => {
+              setShowWelcomeVideo(false);
+              setWelcomeVideo(null);
+              setQrScannedYachtName(null);
+            }}
+            onError={(e) => {
+              console.error('[Dashboard QR] Video failed to load:', e);
+              setTimeout(() => {
+                setShowWelcomeVideo(false);
+                setWelcomeVideo(null);
+                setQrScannedYachtName(null);
+              }, 2000);
+            }}
+          >
+            Your browser does not support the video tag.
+          </video>
+
+          <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 text-center">
+            <p className="text-sm text-slate-400">Video will auto-advance to dashboard when complete</p>
+          </div>
+        </div>
+      )}
+
       {/* Mobile Menu Button */}
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
