@@ -92,7 +92,13 @@ export const Welcome = ({ onGetStarted }: WelcomeProps) => {
                 playsInline
                 poster={signInVideo.thumbnail_url || undefined}
                 onError={(e) => {
-                  console.error('Video failed to load on Welcome page:', e);
+                  console.error('Video failed to load on Welcome page:', {
+                    videoUrl: signInVideo.video_url,
+                    videoTitle: signInVideo.title,
+                    videoId: signInVideo.id,
+                    category: signInVideo.category,
+                    error: e
+                  });
                 }}
               >
                 Your browser does not support the video tag.

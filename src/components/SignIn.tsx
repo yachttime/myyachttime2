@@ -147,6 +147,13 @@ export const SignIn = () => {
   };
 
   const handleVideoError = () => {
+    console.error('[Video] Video failed to load:', {
+      videoUrl: welcomeVideo?.video_url,
+      videoTitle: welcomeVideo?.title,
+      videoId: welcomeVideo?.id,
+      category: welcomeVideo?.category,
+      yachtName: scannedYachtName
+    });
     setVideoError(true);
     setTimeout(() => {
       setShowWelcomeVideo(false);

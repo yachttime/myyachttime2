@@ -259,8 +259,10 @@ export const Education = ({ onBack }: EducationProps) => {
         return;
       }
 
-      const fileExt = 'mp4';
-      const fileName = `${userProfile?.id || 'unknown'}-${Date.now()}.${fileExt}`;
+      const originalName = file.name;
+      const fileExt = originalName.split('.').pop() || 'mp4';
+      const sanitizedName = originalName.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const fileName = sanitizedName;
 
       console.log(`Starting upload: ${fileName} (${fileSizeMB.toFixed(1)}MB)`);
 
