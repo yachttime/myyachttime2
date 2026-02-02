@@ -110,7 +110,7 @@ export function YachtQRCode({ yachtId, yachtName, onClose }: YachtQRCodeProps) {
             }
             .qr-container img {
               display: block;
-              width: 50px;
+              width: 125px;
               height: auto;
             }
             .description {
