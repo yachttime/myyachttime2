@@ -9698,9 +9698,23 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             insertData.yacht_id = repairForm.yacht_id;
                             insertData.is_retail_customer = false;
                           } else {
+                            // Fetch customer details to populate required fields
+                            const { data: customerData, error: customerError } = await supabase
+                              .from('customers')
+                              .select('customer_type, first_name, last_name, business_name, email, phone')
+                              .eq('id', repairForm.customer_id)
+                              .single();
+
+                            if (customerError) throw customerError;
+
                             insertData.customer_id = repairForm.customer_id;
                             insertData.vessel_id = repairForm.vessel_id;
                             insertData.is_retail_customer = true;
+                            insertData.customer_name = customerData.customer_type === 'business'
+                              ? customerData.business_name
+                              : `${customerData.first_name} ${customerData.last_name}`;
+                            insertData.customer_email = customerData.email;
+                            insertData.customer_phone = customerData.phone;
                           }
 
                           const { data: insertedRequest, error: insertError } = await supabase.from('repair_requests').insert(insertData).select().single();
