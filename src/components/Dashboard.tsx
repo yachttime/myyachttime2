@@ -9696,9 +9696,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                           if (customerType === 'yacht') {
                             insertData.yacht_id = repairForm.yacht_id;
+                            insertData.is_retail_customer = false;
                           } else {
                             insertData.customer_id = repairForm.customer_id;
                             insertData.vessel_id = repairForm.vessel_id;
+                            insertData.is_retail_customer = true;
                           }
 
                           const { data: insertedRequest, error: insertError } = await supabase.from('repair_requests').insert(insertData).select().single();
