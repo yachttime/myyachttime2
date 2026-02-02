@@ -18,6 +18,7 @@ import { YachtQRCode } from './YachtQRCode';
 import { StaffCalendar } from './StaffCalendar';
 import { TimeClock } from './TimeClock';
 import { EstimatingDashboard } from './EstimatingDashboard';
+import CustomerManagement from './CustomerManagement';
 import { uploadFileToStorage, deleteFileFromStorage, isStorageUrl, UploadProgress, isTokenExpiredError } from '../utils/fileUpload';
 
 interface DashboardProps {
@@ -33,7 +34,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const effectiveYacht = getEffectiveYacht(yacht, userProfile?.role);
 
   // Helper function to set active tab and persist to localStorage
-  const setActiveTabPersisted = (tab: 'calendar' | 'maintenance' | 'education' | 'admin' | 'staffCalendar' | 'timeClock' | 'estimating') => {
+  const setActiveTabPersisted = (tab: 'calendar' | 'maintenance' | 'education' | 'admin' | 'staffCalendar' | 'timeClock' | 'estimating' | 'customers') => {
     setActiveTab(tab);
     try {
       localStorage.setItem('activeTab', tab);
@@ -47,11 +48,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [videos, setVideos] = useState<EducationVideo[]>([]);
   const [welcomeVideo, setWelcomeVideo] = useState<EducationVideo | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'calendar' | 'maintenance' | 'education' | 'admin' | 'staffCalendar' | 'timeClock' | 'estimating'>(() => {
+  const [activeTab, setActiveTab] = useState<'calendar' | 'maintenance' | 'education' | 'admin' | 'staffCalendar' | 'timeClock' | 'estimating' | 'customers'>(() => {
     try {
       const stored = localStorage.getItem('activeTab');
-      if (stored && ['calendar', 'maintenance', 'education', 'admin', 'staffCalendar', 'timeClock', 'estimating'].includes(stored)) {
-        return stored as 'calendar' | 'maintenance' | 'education' | 'admin' | 'staffCalendar' | 'timeClock' | 'estimating';
+      if (stored && ['calendar', 'maintenance', 'education', 'admin', 'staffCalendar', 'timeClock', 'estimating', 'customers'].includes(stored)) {
+        return stored as 'calendar' | 'maintenance' | 'education' | 'admin' | 'staffCalendar' | 'timeClock' | 'estimating' | 'customers';
       }
     } catch (error) {
       console.error('Error loading active tab from localStorage:', error);
@@ -4469,6 +4470,23 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               <span className="font-medium">Estimating</span>
             </button>
           )}
+
+          {isStaffOrManager(effectiveRole) && (
+            <button
+              onClick={() => {
+                setActiveTabPersisted('customers');
+                setSidebarOpen(false);
+              }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                activeTab === 'customers'
+                  ? 'bg-teal-500/10 text-teal-500 border border-teal-500/20'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+              }`}
+            >
+              <Users className="w-5 h-5" />
+              <span className="font-medium">Customers</span>
+            </button>
+          )}
           {(isStaffOrManager(effectiveRole) || isOwnerRole(effectiveRole)) && (
             <button
               onClick={() => {
@@ -5693,6 +5711,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           {activeTab === 'estimating' && (
             <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 overflow-hidden">
               <EstimatingDashboard userId={user?.id || ''} />
+            </div>
+          )}
+
+          {activeTab === 'customers' && (
+            <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 overflow-hidden">
+              <CustomerManagement />
             </div>
           )}
 
