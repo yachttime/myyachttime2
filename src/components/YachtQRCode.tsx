@@ -82,31 +82,31 @@ export function YachtQRCode({ yachtId, yachtName, onClose }: YachtQRCodeProps) {
             }
             body {
               font-family: Arial, sans-serif;
-              padding: 40px;
+              padding: 20px;
             }
             .container {
               max-width: 100%;
               text-align: center;
             }
             h1 {
-              font-size: 2.5rem;
+              font-size: 1.5rem;
               font-weight: bold;
-              margin-bottom: 1rem;
+              margin-bottom: 0.75rem;
               color: #0f172a;
             }
             h2 {
-              font-size: 1.75rem;
+              font-size: 1.125rem;
               font-weight: 600;
-              margin-bottom: 1.5rem;
+              margin-bottom: 1rem;
               color: #334155;
             }
             .qr-container {
-              margin: 2rem auto;
+              margin: 1rem auto;
               display: inline-block;
-              padding: 20px;
+              padding: 12px;
               background: white;
-              border: 3px solid #0891b2;
-              border-radius: 12px;
+              border: 2px solid #0891b2;
+              border-radius: 8px;
             }
             .qr-container img {
               display: block;
@@ -114,10 +114,10 @@ export function YachtQRCode({ yachtId, yachtName, onClose }: YachtQRCodeProps) {
               height: auto;
             }
             .description {
-              font-size: 1.25rem;
-              line-height: 1.8;
+              font-size: 0.875rem;
+              line-height: 1.6;
               color: #475569;
-              margin-top: 1.5rem;
+              margin-top: 1rem;
               max-width: 600px;
               margin-left: auto;
               margin-right: auto;
@@ -126,10 +126,10 @@ export function YachtQRCode({ yachtId, yachtName, onClose }: YachtQRCodeProps) {
               color: #0f172a;
             }
             .footer {
-              font-size: 1.5rem;
+              font-size: 1rem;
               font-weight: bold;
               color: #0891b2;
-              margin-top: 2rem;
+              margin-top: 1.5rem;
             }
             @media print {
               @page {
