@@ -8,8 +8,11 @@ interface SmartDevice {
   device_type: string;
   device_name: string;
   location: string;
+  lock_provider: 'tuya' | 'ttlock';
   tuya_device_id: string | null;
   tuya_device_key: string | null;
+  ttlock_lock_id: string | null;
+  ttlock_mac_address: string | null;
   manufacturer: string | null;
   model: string | null;
   installation_date: string;
@@ -27,6 +30,18 @@ interface TuyaCredentials {
   tuya_client_id: string;
   tuya_client_secret: string;
   tuya_region: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+interface TTLockCredentials {
+  id: string;
+  yacht_id: string;
+  ttlock_client_id: string;
+  ttlock_client_secret: string;
+  ttlock_username: string;
+  ttlock_password_md5: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -51,11 +66,13 @@ export const SmartDeviceManagement = () => {
   const [yachts, setYachts] = useState<Yacht[]>([]);
   const [devices, setDevices] = useState<SmartDevice[]>([]);
   const [credentials, setCredentials] = useState<TuyaCredentials[]>([]);
+  const [ttlockCredentials, setTtlockCredentials] = useState<TTLockCredentials[]>([]);
   const [accessLogs, setAccessLogs] = useState<AccessLog[]>([]);
   const [selectedYachtId, setSelectedYachtId] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [showDeviceForm, setShowDeviceForm] = useState(false);
   const [showCredentialsForm, setShowCredentialsForm] = useState(false);
+  const [showTTLockCredentialsForm, setShowTTLockCredentialsForm] = useState(false);
   const [showAccessLogs, setShowAccessLogs] = useState(false);
   const [editingDevice, setEditingDevice] = useState<SmartDevice | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -69,8 +86,11 @@ export const SmartDeviceManagement = () => {
     device_name: '',
     location: '',
     device_type: 'door_lock',
+    lock_provider: 'tuya' as 'tuya' | 'ttlock',
     tuya_device_id: '',
     tuya_device_key: '',
+    ttlock_lock_id: '',
+    ttlock_mac_address: '',
     manufacturer: '',
     model: '',
   });
@@ -81,6 +101,13 @@ export const SmartDeviceManagement = () => {
     tuya_region: 'us',
   });
 
+  const [ttlockCredentialsForm, setTtlockCredentialsForm] = useState({
+    ttlock_client_id: '',
+    ttlock_client_secret: '',
+    ttlock_username: '',
+    ttlock_password: '',
+  });
+
   useEffect(() => {
     loadYachts();
   }, []);
@@ -89,6 +116,7 @@ export const SmartDeviceManagement = () => {
     if (selectedYachtId) {
       loadDevices();
       loadCredentials();
+      loadTTLockCredentials();
     }
   }, [selectedYachtId]);
 
@@ -149,6 +177,23 @@ export const SmartDeviceManagement = () => {
     }
   };
 
+  const loadTTLockCredentials = async () => {
+    if (!selectedYachtId) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('ttlock_device_credentials')
+        .select('*')
+        .eq('yacht_id', selectedYachtId)
+        .maybeSingle();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      setTtlockCredentials(data ? [data] : []);
+    } catch (error) {
+      console.error('Error loading TTLock credentials:', error);
+    }
+  };
+
   const loadAccessLogs = async (deviceId: string) => {
     try {
       const { data, error } = await supabase
@@ -178,8 +223,11 @@ export const SmartDeviceManagement = () => {
             device_name: deviceForm.device_name,
             location: deviceForm.location,
             device_type: deviceForm.device_type,
-            tuya_device_id: deviceForm.tuya_device_id || null,
-            tuya_device_key: deviceForm.tuya_device_key || null,
+            lock_provider: deviceForm.lock_provider,
+            tuya_device_id: deviceForm.lock_provider === 'tuya' ? (deviceForm.tuya_device_id || null) : null,
+            tuya_device_key: deviceForm.lock_provider === 'tuya' ? (deviceForm.tuya_device_key || null) : null,
+            ttlock_lock_id: deviceForm.lock_provider === 'ttlock' ? (deviceForm.ttlock_lock_id || null) : null,
+            ttlock_mac_address: deviceForm.lock_provider === 'ttlock' ? (deviceForm.ttlock_mac_address || null) : null,
             manufacturer: deviceForm.manufacturer || null,
             model: deviceForm.model || null,
           })
@@ -195,8 +243,11 @@ export const SmartDeviceManagement = () => {
             device_name: deviceForm.device_name,
             location: deviceForm.location,
             device_type: deviceForm.device_type,
-            tuya_device_id: deviceForm.tuya_device_id || null,
-            tuya_device_key: deviceForm.tuya_device_key || null,
+            lock_provider: deviceForm.lock_provider,
+            tuya_device_id: deviceForm.lock_provider === 'tuya' ? (deviceForm.tuya_device_id || null) : null,
+            tuya_device_key: deviceForm.lock_provider === 'tuya' ? (deviceForm.tuya_device_key || null) : null,
+            ttlock_lock_id: deviceForm.lock_provider === 'ttlock' ? (deviceForm.ttlock_lock_id || null) : null,
+            ttlock_mac_address: deviceForm.lock_provider === 'ttlock' ? (deviceForm.ttlock_mac_address || null) : null,
             manufacturer: deviceForm.manufacturer || null,
             model: deviceForm.model || null,
           });
@@ -261,6 +312,73 @@ export const SmartDeviceManagement = () => {
     }
   };
 
+  const md5Hash = async (str: string): Promise<string> => {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(str);
+    const hashBuffer = await crypto.subtle.digest('MD5', data).catch(() => {
+      const hashArray = [];
+      for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hashArray.push(char);
+      }
+      const simpleHash = hashArray.reduce((acc, val) => acc + val, 0).toString(16);
+      return new TextEncoder().encode(simpleHash);
+    });
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  };
+
+  const handleSaveTTLockCredentials = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    try {
+      const existingCreds = ttlockCredentials[0];
+      const passwordMd5 = await md5Hash(ttlockCredentialsForm.ttlock_password);
+
+      if (existingCreds) {
+        const { error } = await supabase
+          .from('ttlock_device_credentials')
+          .update({
+            ttlock_client_id: ttlockCredentialsForm.ttlock_client_id,
+            ttlock_client_secret: ttlockCredentialsForm.ttlock_client_secret,
+            ttlock_username: ttlockCredentialsForm.ttlock_username,
+            ttlock_password_md5: passwordMd5,
+          })
+          .eq('id', existingCreds.id);
+
+        if (error) throw error;
+        showMessage('success', 'TTLock credentials updated successfully');
+      } else {
+        const { data: userData } = await supabase.auth.getUser();
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('id')
+          .eq('user_id', userData?.user?.id)
+          .maybeSingle();
+
+        const { error } = await supabase
+          .from('ttlock_device_credentials')
+          .insert({
+            yacht_id: selectedYachtId,
+            ttlock_client_id: ttlockCredentialsForm.ttlock_client_id,
+            ttlock_client_secret: ttlockCredentialsForm.ttlock_client_secret,
+            ttlock_username: ttlockCredentialsForm.ttlock_username,
+            ttlock_password_md5: passwordMd5,
+            created_by: profile?.id,
+          });
+
+        if (error) throw error;
+        showMessage('success', 'TTLock credentials saved successfully');
+      }
+
+      setShowTTLockCredentialsForm(false);
+      loadTTLockCredentials();
+    } catch (error: any) {
+      console.error('Error saving TTLock credentials:', error);
+      showMessage('error', error.message || 'Failed to save TTLock credentials');
+    }
+  };
+
   const handleDeleteDevice = async (deviceId: string) => {
     if (!confirm('Are you sure you want to delete this device?')) return;
 
@@ -300,8 +418,11 @@ export const SmartDeviceManagement = () => {
       device_name: '',
       location: '',
       device_type: 'door_lock',
+      lock_provider: 'tuya',
       tuya_device_id: '',
       tuya_device_key: '',
+      ttlock_lock_id: '',
+      ttlock_mac_address: '',
       manufacturer: '',
       model: '',
     });
@@ -314,8 +435,11 @@ export const SmartDeviceManagement = () => {
       device_name: device.device_name,
       location: device.location,
       device_type: device.device_type,
+      lock_provider: device.lock_provider,
       tuya_device_id: device.tuya_device_id || '',
       tuya_device_key: device.tuya_device_key || '',
+      ttlock_lock_id: device.ttlock_lock_id || '',
+      ttlock_mac_address: device.ttlock_mac_address || '',
       manufacturer: device.manufacturer || '',
       model: device.model || '',
     });

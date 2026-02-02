@@ -8,7 +8,9 @@ interface SmartDevice {
   device_type: string;
   device_name: string;
   location: string;
+  lock_provider: 'tuya' | 'ttlock';
   tuya_device_id: string;
+  ttlock_lock_id: string | null;
   battery_level: number;
   online_status: boolean;
   is_active: boolean;
@@ -36,6 +38,10 @@ interface LockStatus {
     timestamp: string;
   };
 }
+
+const getLockControlEndpoint = (provider: 'tuya' | 'ttlock'): string => {
+  return provider === 'ttlock' ? 'ttlock-smart-lock-control' : 'tuya-smart-lock-control';
+};
 
 export const SmartLockControls = ({ yachtId, userId, userName, hasActiveBooking }: SmartLockControlsProps) => {
   const [devices, setDevices] = useState<SmartDevice[]>([]);
@@ -148,6 +154,11 @@ export const SmartLockControls = ({ yachtId, userId, userName, hasActiveBooking 
   const refreshStatus = async (deviceId: string) => {
     setStatusRefreshing(deviceId);
     try {
+      const device = devices.find(d => d.id === deviceId);
+      if (!device) {
+        throw new Error('Device not found');
+      }
+
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 
       const { data: { session } } = await supabase.auth.getSession();
@@ -155,7 +166,9 @@ export const SmartLockControls = ({ yachtId, userId, userName, hasActiveBooking 
         throw new Error('No active session');
       }
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/tuya-smart-lock-control`, {
+      const endpoint = getLockControlEndpoint(device.lock_provider);
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/${endpoint}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -170,16 +183,24 @@ export const SmartLockControls = ({ yachtId, userId, userName, hasActiveBooking 
 
       const result = await response.json();
 
-      if (result.success && result.lockState) {
+      if (result.success) {
+        let isLocked = true;
+
+        if (device.lock_provider === 'tuya' && result.lockState) {
+          isLocked = result.lockState.isLocked;
+        } else if (device.lock_provider === 'ttlock' && result.result) {
+          isLocked = result.result.state === 1;
+        }
+
         setLockStatuses(prev => ({
           ...prev,
           [deviceId]: {
             ...prev[deviceId],
-            isLocked: result.lockState.isLocked,
+            isLocked: isLocked,
             loading: false,
           }
         }));
-        showMessage('success', `Lock is currently ${result.lockState.isLocked ? 'locked' : 'unlocked'}`);
+        showMessage('success', `Lock is currently ${isLocked ? 'locked' : 'unlocked'}`);
         await loadLastActivity(deviceId);
       } else {
         throw new Error(result.error || 'Failed to refresh status');
@@ -202,6 +223,11 @@ export const SmartLockControls = ({ yachtId, userId, userName, hasActiveBooking 
     setActionLoading(deviceId);
 
     try {
+      const device = devices.find(d => d.id === deviceId);
+      if (!device) {
+        throw new Error('Device not found');
+      }
+
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 
       const { data: { session } } = await supabase.auth.getSession();
@@ -209,7 +235,9 @@ export const SmartLockControls = ({ yachtId, userId, userName, hasActiveBooking 
         throw new Error('No active session');
       }
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/tuya-smart-lock-control`, {
+      const endpoint = getLockControlEndpoint(device.lock_provider);
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/${endpoint}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -319,6 +347,16 @@ export const SmartLockControls = ({ yachtId, userId, userName, hasActiveBooking 
     setDiagnosticsResult(null);
 
     try {
+      const device = devices.find(d => d.id === deviceId);
+      if (!device) {
+        throw new Error('Device not found');
+      }
+
+      if (device.lock_provider !== 'tuya') {
+        showMessage('error', 'Diagnostics is only available for Tuya devices');
+        return;
+      }
+
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -365,6 +403,16 @@ export const SmartLockControls = ({ yachtId, userId, userName, hasActiveBooking 
     setActionLoading(deviceId);
 
     try {
+      const device = devices.find(d => d.id === deviceId);
+      if (!device) {
+        throw new Error('Device not found');
+      }
+
+      if (device.lock_provider !== 'tuya') {
+        showMessage('error', 'Encryption key setup is only for Tuya devices');
+        return;
+      }
+
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -554,7 +602,16 @@ export const SmartLockControls = ({ yachtId, userId, userName, hasActiveBooking 
                       )}
                     </div>
                     <div>
-                      <h4 className="font-semibold text-lg">{formatLocation(device.location)}</h4>
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="font-semibold text-lg">{formatLocation(device.location)}</h4>
+                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                          device.lock_provider === 'ttlock'
+                            ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                            : 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+                        }`}>
+                          {device.lock_provider === 'ttlock' ? 'TTLock' : 'Tuya'}
+                        </span>
+                      </div>
                       <p className={`text-sm font-medium ${
                         status.isLocked ? 'text-green-500' : 'text-red-500'
                       }`}>
@@ -581,14 +638,16 @@ export const SmartLockControls = ({ yachtId, userId, userName, hasActiveBooking 
                         >
                           <AlertTriangle className="w-4 h-4 text-amber-500" />
                         </button>
-                        <button
-                          onClick={() => runDiagnostics(device.id)}
-                          disabled={isProcessing || runningDiagnostics === device.id}
-                          className="px-3 py-2 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 transition-colors disabled:opacity-50 text-xs font-medium text-blue-400"
-                          title="Run diagnostics to discover lock commands"
-                        >
-                          {runningDiagnostics === device.id ? 'Running...' : 'Diagnostics'}
-                        </button>
+                        {device.lock_provider === 'tuya' && (
+                          <button
+                            onClick={() => runDiagnostics(device.id)}
+                            disabled={isProcessing || runningDiagnostics === device.id}
+                            className="px-3 py-2 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 transition-colors disabled:opacity-50 text-xs font-medium text-blue-400"
+                            title="Run diagnostics to discover lock commands"
+                          >
+                            {runningDiagnostics === device.id ? 'Running...' : 'Diagnostics'}
+                          </button>
+                        )}
                       </>
                     )}
                   </div>
