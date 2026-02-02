@@ -16,8 +16,20 @@ export function YachtQRCode({ yachtId, yachtName, onClose }: YachtQRCodeProps) {
     const generateQRCode = async () => {
       if (!canvasRef.current) return;
 
-      const baseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+      // Get base URL and ensure it has the protocol
+      let baseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+
+      // Ensure the URL starts with https:// or http://
+      if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
+        baseUrl = `https://${baseUrl}`;
+      }
+
+      // Remove trailing slash if present
+      baseUrl = baseUrl.replace(/\/$/, '');
+
       const qrUrl = `${baseUrl}?yacht=${yachtId}`;
+
+      console.log('QR Code URL:', qrUrl);
 
       try {
         await QRCode.toCanvas(canvasRef.current, qrUrl, {
