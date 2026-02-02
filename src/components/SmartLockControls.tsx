@@ -577,7 +577,7 @@ export const SmartLockControls = ({ yachtId, userId, userName, hasActiveBooking 
           {devices.map((device) => {
             const status = lockStatuses[device.id] || { isLocked: false, loading: false };
             const isProcessing = actionLoading === device.id || statusRefreshing === device.id;
-            const isStaff = ['manager', 'staff', 'mechanic'].includes(userRole);
+            const isStaff = ['manager', 'staff', 'mechanic', 'master'].includes(userRole);
 
             return (
               <div

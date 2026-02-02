@@ -6021,7 +6021,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       </button>
                     )}
 
-                    {isStaffRole(effectiveRole) && (
+                    {isMasterRole(effectiveRole) && (
                       <button
                         onClick={() => setAdminView('smartdevices')}
                         className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"

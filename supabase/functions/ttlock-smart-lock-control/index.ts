@@ -402,6 +402,7 @@ Deno.serve(async (req: Request) => {
       throw new Error('Device is not active');
     }
 
+    const isMaster = userProfile.role === 'master';
     const isStaff = ['manager', 'staff', 'mechanic', 'master'].includes(userProfile.role);
     const isOwner = userProfile.role === 'owner' && userProfile.yacht_id === yachtId;
 
