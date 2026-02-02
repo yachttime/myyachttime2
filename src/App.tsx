@@ -35,6 +35,10 @@ function AppContent() {
           console.log('[App QR] ✅ Found yacht ID in URL, saving to localStorage:', yachtId);
           localStorage.setItem('qr_scanned_yacht_id', yachtId);
 
+          // Force welcome page when QR code is scanned
+          setPage('welcome');
+          console.log('[App QR] 🎬 Forcing welcome page for QR code scan');
+
           // Clean up URL without refreshing the page
           window.history.replaceState({}, '', window.location.pathname);
           console.log('[App QR] Cleaned up URL parameter');
