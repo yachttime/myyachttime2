@@ -5715,7 +5715,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           )}
 
           {activeTab === 'customers' && (
-            <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 overflow-hidden">
+            <div className="bg-white rounded-2xl border border-slate-300 overflow-hidden">
               <CustomerManagement />
             </div>
           )}
