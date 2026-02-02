@@ -48,9 +48,9 @@ interface CustomerHistory {
 }
 
 export default function CustomerManagement() {
-  const { user, profile } = useAuth();
+  const { user, userProfile } = useAuth();
   const { getEffectiveRole } = useRoleImpersonation();
-  const effectiveRole = getEffectiveRole(profile?.role);
+  const effectiveRole = getEffectiveRole(userProfile?.role);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -286,13 +286,13 @@ export default function CustomerManagement() {
   };
 
   // Debug logging
-  console.log('CustomerManagement - Profile:', profile);
-  console.log('CustomerManagement - Profile Role:', profile?.role);
+  console.log('CustomerManagement - Profile:', userProfile);
+  console.log('CustomerManagement - Profile Role:', userProfile?.role);
   console.log('CustomerManagement - Effective Role:', effectiveRole);
   console.log('CustomerManagement - Allowed Roles:', ['staff', 'mechanic', 'master', 'manager']);
-  console.log('CustomerManagement - Has Access:', profile && effectiveRole && ['staff', 'mechanic', 'master', 'manager'].includes(effectiveRole));
+  console.log('CustomerManagement - Has Access:', userProfile && effectiveRole && ['staff', 'mechanic', 'master', 'manager'].includes(effectiveRole));
 
-  if (!profile || !effectiveRole || !['staff', 'mechanic', 'master', 'manager'].includes(effectiveRole)) {
+  if (!userProfile || !effectiveRole || !['staff', 'mechanic', 'master', 'manager'].includes(effectiveRole)) {
     return (
       <div className="p-8 text-center">
         <p className="text-gray-600">Access denied. Staff only.</p>
