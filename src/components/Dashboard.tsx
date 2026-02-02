@@ -13167,9 +13167,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             });
 
                             const staffRoles = ['mechanic', 'staff', 'master'];
-                            const staffUsers = filteredUsers.filter(user => staffRoles.includes(user.role));
+                            const staffUsers = filteredUsers.filter(user =>
+                              staffRoles.includes(user.role) && user.is_active !== false
+                            );
                             const yachtAssignedUsers = filteredUsers.filter(user =>
-                              (user.role === 'owner' || user.role === 'manager') && user.yacht_id
+                              (user.role === 'owner' || user.role === 'manager') && user.yacht_id && user.is_active !== false
                             );
 
                             const yachtGroups: { [key: string]: typeof yachtAssignedUsers } = {};
