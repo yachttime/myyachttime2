@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, Edit2, AlertCircle, Package, TrendingUp, TrendingDown, Search } from 'lucide-react';
+import { Plus, Edit2, AlertCircle, Package, TrendingUp, TrendingDown, Search, Camera, X } from 'lucide-react';
+import { Html5Qrcode } from 'html5-qrcode';
 
 interface Part {
   id: string;
@@ -17,6 +18,7 @@ interface Part {
   location: string | null;
   accounting_code_id: string | null;
   alternative_part_numbers: string | null;
+  barcode: string | null;
   is_active: boolean;
   is_taxable: boolean;
   accounting_codes?: {
@@ -81,11 +83,13 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
     unit_cost: '',
     unit_price: '',
     alternative_part_numbers: '',
+    barcode: '',
     location: '',
     accounting_code_id: '',
     is_active: true,
     is_taxable: true
   });
+  const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
   const [adjustmentData, setAdjustmentData] = useState({
     transaction_type: 'add' as 'add' | 'remove' | 'adjustment',
     quantity: '',
@@ -188,6 +192,7 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
         unit_price: unitPrice,
         msrp: null,
         alternative_part_numbers: formData.alternative_part_numbers || null,
+        barcode: formData.barcode || null,
         reorder_level: 0,
         reorder_quantity: 0,
         location: formData.location || null,
@@ -277,6 +282,7 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
       unit_cost: part.unit_cost.toString(),
       unit_price: part.unit_price.toString(),
       alternative_part_numbers: part.alternative_part_numbers || '',
+      barcode: part.barcode || '',
       location: part.location || '',
       accounting_code_id: part.accounting_code_id || '',
       is_active: part.is_active,
@@ -301,6 +307,7 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
       unit_cost: '',
       unit_price: '',
       alternative_part_numbers: '',
+      barcode: '',
       location: '',
       accounting_code_id: '',
       is_active: true,
@@ -319,6 +326,58 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
     setSelectedPart(null);
     setShowAdjustment(false);
   };
+
+  const scannerRef = useRef<Html5Qrcode | null>(null);
+
+  const startBarcodeScanner = async () => {
+    try {
+      const html5QrCode = new Html5Qrcode('barcode-scanner');
+      scannerRef.current = html5QrCode;
+
+      await html5QrCode.start(
+        { facingMode: 'environment' },
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 250 }
+        },
+        (decodedText) => {
+          setFormData((prev) => ({ ...prev, barcode: decodedText }));
+          stopBarcodeScanner();
+        },
+        () => {}
+      );
+    } catch (err) {
+      console.error('Error starting barcode scanner:', err);
+      setError('Failed to start camera. Please check camera permissions.');
+    }
+  };
+
+  const stopBarcodeScanner = async () => {
+    if (scannerRef.current) {
+      try {
+        await scannerRef.current.stop();
+        scannerRef.current = null;
+      } catch (err) {
+        console.error('Error stopping scanner:', err);
+      }
+    }
+    setShowBarcodeScanner(false);
+  };
+
+  const openBarcodeScanner = () => {
+    setShowBarcodeScanner(true);
+    setTimeout(() => {
+      startBarcodeScanner();
+    }, 100);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (scannerRef.current) {
+        scannerRef.current.stop().catch(console.error);
+      }
+    };
+  }, []);
 
   const handleVendorSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -621,6 +680,27 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
             </div>
 
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Barcode / UPC</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={formData.barcode}
+                  onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
+                  placeholder="Scan or enter barcode"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
+                />
+                <button
+                  type="button"
+                  onClick={openBarcodeScanner}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
+                >
+                  <Camera className="w-4 h-4" />
+                  Scan
+                </button>
+              </div>
+            </div>
+
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
               <textarea
                 value={formData.description}
@@ -750,6 +830,32 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {showBarcodeScanner && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 shadow-xl">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Scan Barcode</h3>
+              <button
+                onClick={stopBarcodeScanner}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="flex flex-col items-center">
+              <div
+                id="barcode-scanner"
+                className="w-full max-w-md border-2 border-gray-300 rounded-lg overflow-hidden"
+                style={{ minHeight: '300px' }}
+              />
+              <p className="mt-4 text-sm text-gray-600 text-center">
+                Position the barcode within the camera view. The scanner will automatically detect and capture it.
+              </p>
+            </div>
+          </div>
         </div>
       )}
 
