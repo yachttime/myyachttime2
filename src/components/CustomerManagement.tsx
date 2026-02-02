@@ -285,10 +285,18 @@ export default function CustomerManagement() {
     return `${customer.first_name} ${customer.last_name}`;
   };
 
-  if (!profile || !['staff', 'mechanic', 'master', 'manager'].includes(effectiveRole)) {
+  // Debug logging
+  console.log('CustomerManagement - Profile:', profile);
+  console.log('CustomerManagement - Profile Role:', profile?.role);
+  console.log('CustomerManagement - Effective Role:', effectiveRole);
+  console.log('CustomerManagement - Allowed Roles:', ['staff', 'mechanic', 'master', 'manager']);
+  console.log('CustomerManagement - Has Access:', profile && effectiveRole && ['staff', 'mechanic', 'master', 'manager'].includes(effectiveRole));
+
+  if (!profile || !effectiveRole || !['staff', 'mechanic', 'master', 'manager'].includes(effectiveRole)) {
     return (
       <div className="p-8 text-center">
         <p className="text-gray-600">Access denied. Staff only.</p>
+        <p className="text-sm text-gray-500 mt-2">Debug: Role = {effectiveRole || 'undefined'}</p>
       </div>
     );
   }
