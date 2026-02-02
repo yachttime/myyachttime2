@@ -45,6 +45,7 @@ export const SignIn = () => {
     try {
       const params = new URLSearchParams(window.location.search);
       const yachtId = params.get('yacht');
+      console.log('[QR Code] URL yacht parameter:', yachtId);
 
       if (yachtId) {
         const { data: yacht, error } = await supabase
@@ -53,15 +54,20 @@ export const SignIn = () => {
           .eq('id', yachtId)
           .maybeSingle();
 
+        console.log('[QR Code] Yacht lookup result:', { yacht, error });
+
         if (!error && yacht) {
           localStorage.setItem('qr_scanned_yacht_id', yacht.id);
           setScannedYachtName(yacht.name);
+          console.log('[QR Code] Set scanned yacht:', yacht.name);
 
           // Fetch yacht-specific welcome video
           await fetchYachtWelcomeVideo(yacht.id);
         }
 
         window.history.replaceState({}, '', window.location.pathname);
+      } else {
+        console.log('[QR Code] No yacht parameter found in URL');
       }
     } catch (err) {
       console.error('Error handling yacht QR code:', err);
@@ -70,6 +76,7 @@ export const SignIn = () => {
 
   const fetchYachtWelcomeVideo = async (yachtId: string) => {
     try {
+      console.log('[Video] Fetching welcome video for yacht:', yachtId);
       setVideoLoading(true);
       const { data, error } = await supabase
         .from('education_videos')
@@ -80,21 +87,26 @@ export const SignIn = () => {
         .limit(1)
         .maybeSingle();
 
+      console.log('[Video] Welcome video query result:', { data, error });
+
       if (error) {
-        console.error('Error fetching yacht welcome video:', error);
+        console.error('[Video] Error fetching yacht welcome video:', error);
         setVideoLoading(false);
         return;
       }
 
       if (data) {
+        console.log('[Video] Setting welcome video:', data.title);
+        console.log('[Video] Video URL:', data.video_url);
         setWelcomeVideo(data);
         setShowWelcomeVideo(true);
         setVideoLoading(false);
       } else {
+        console.log('[Video] No welcome video found for this yacht');
         setVideoLoading(false);
       }
     } catch (err) {
-      console.error('Exception while fetching yacht welcome video:', err);
+      console.error('[Video] Exception while fetching yacht welcome video:', err);
       setVideoLoading(false);
     }
   };
@@ -174,6 +186,8 @@ export const SignIn = () => {
       setLoading(false);
     }
   };
+
+  console.log('[Render] showWelcomeVideo:', showWelcomeVideo, 'welcomeVideo:', welcomeVideo?.title);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white">
