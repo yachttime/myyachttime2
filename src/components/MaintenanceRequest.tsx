@@ -74,6 +74,7 @@ export const MaintenanceRequest = ({ onBack }: MaintenanceRequestProps) => {
         file_url: fileUrl,
         file_name: fileName,
         status: 'pending',
+        is_retail_customer: false,
       }).select();
 
       if (dbError) {
