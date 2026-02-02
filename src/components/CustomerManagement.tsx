@@ -282,7 +282,7 @@ export default function CustomerManagement() {
     return `${customer.first_name} ${customer.last_name}`;
   };
 
-  if (!profile || !['staff', 'mechanic', 'master', 'manager'].includes(profile.role)) {
+  if (!profile || !['staff', 'mechanic', 'master'].includes(profile.role)) {
     return (
       <div className="p-8 text-center">
         <p className="text-gray-600">Access denied. Staff only.</p>
