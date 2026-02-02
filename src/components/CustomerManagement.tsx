@@ -310,7 +310,7 @@ export default function CustomerManagement() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-6">
+    <div className="max-w-7xl mx-auto p-6 bg-white">
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
@@ -333,7 +333,7 @@ export default function CustomerManagement() {
             placeholder="Search customers by name, email, or phone..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900"
           />
         </div>
       </div>
@@ -370,7 +370,7 @@ export default function CustomerManagement() {
             </div>
           ))}
           {filteredCustomers.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-gray-700 font-medium">
               No customers found
             </div>
           )}
@@ -518,7 +518,7 @@ export default function CustomerManagement() {
                     </div>
                   ))}
                   {customerVessels.length === 0 && (
-                    <p className="text-center text-gray-500 py-4">No vessels added</p>
+                    <p className="text-center text-gray-700 py-4 font-medium">No vessels added</p>
                   )}
                 </div>
               </div>
@@ -526,7 +526,7 @@ export default function CustomerManagement() {
           ) : (
             <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-12 text-center">
               <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600 text-lg">Select a customer to view details</p>
+              <p className="text-gray-700 text-lg font-medium">Select a customer to view details</p>
             </div>
           )}
         </div>
