@@ -85,7 +85,8 @@ export function YachtQRCode({ yachtId, yachtName, onClose }: YachtQRCodeProps) {
               padding: 20px;
             }
             .container {
-              max-width: 100%;
+              max-width: 400px;
+              margin: 0 auto;
               text-align: center;
             }
             h1 {
@@ -118,7 +119,7 @@ export function YachtQRCode({ yachtId, yachtName, onClose }: YachtQRCodeProps) {
               line-height: 1.6;
               color: #475569;
               margin-top: 1rem;
-              max-width: 600px;
+              max-width: 350px;
               margin-left: auto;
               margin-right: auto;
             }
