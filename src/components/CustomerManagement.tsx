@@ -49,7 +49,8 @@ interface CustomerHistory {
 
 export default function CustomerManagement() {
   const { user, profile } = useAuth();
-  const { effectiveRole } = useRoleImpersonation();
+  const { getEffectiveRole } = useRoleImpersonation();
+  const effectiveRole = getEffectiveRole(profile?.role);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -284,7 +285,7 @@ export default function CustomerManagement() {
     return `${customer.first_name} ${customer.last_name}`;
   };
 
-  if (!profile || !['staff', 'mechanic', 'master'].includes(effectiveRole)) {
+  if (!profile || !['staff', 'mechanic', 'master', 'manager'].includes(effectiveRole)) {
     return (
       <div className="p-8 text-center">
         <p className="text-gray-600">Access denied. Staff only.</p>
