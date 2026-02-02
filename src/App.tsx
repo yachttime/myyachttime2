@@ -18,6 +18,31 @@ function AppContent() {
   const [page, setPage] = useState<Page>('welcome');
   const [mounted, setMounted] = useState(false);
 
+  // Handle yacht QR code from URL parameter BEFORE routing
+  useEffect(() => {
+    const handleYachtQRParameter = () => {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const yachtId = params.get('yacht');
+
+        console.log('[App QR] Checking URL for yacht parameter:', yachtId);
+
+        if (yachtId) {
+          console.log('[App QR] Found yacht ID in URL, saving to localStorage:', yachtId);
+          localStorage.setItem('qr_scanned_yacht_id', yachtId);
+
+          // Clean up URL without refreshing the page
+          window.history.replaceState({}, '', window.location.pathname);
+          console.log('[App QR] Cleaned up URL parameter');
+        }
+      } catch (error) {
+        console.error('[App QR] Error handling yacht QR parameter:', error);
+      }
+    };
+
+    handleYachtQRParameter();
+  }, []);
+
   useEffect(() => {
     setMounted(true);
   }, []);
