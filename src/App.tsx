@@ -22,18 +22,29 @@ function AppContent() {
   useEffect(() => {
     const handleYachtQRParameter = () => {
       try {
+        console.log('[App QR] Full URL:', window.location.href);
+        console.log('[App QR] Search params:', window.location.search);
+        console.log('[App QR] Hash:', window.location.hash);
+
         const params = new URLSearchParams(window.location.search);
         const yachtId = params.get('yacht');
 
-        console.log('[App QR] Checking URL for yacht parameter:', yachtId);
+        console.log('[App QR] Parsed yacht parameter:', yachtId);
 
         if (yachtId) {
-          console.log('[App QR] Found yacht ID in URL, saving to localStorage:', yachtId);
+          console.log('[App QR] ✅ Found yacht ID in URL, saving to localStorage:', yachtId);
           localStorage.setItem('qr_scanned_yacht_id', yachtId);
 
           // Clean up URL without refreshing the page
           window.history.replaceState({}, '', window.location.pathname);
           console.log('[App QR] Cleaned up URL parameter');
+        } else {
+          console.log('[App QR] ❌ No yacht parameter found in URL');
+          // Check if there's already one in localStorage
+          const existingYachtId = localStorage.getItem('qr_scanned_yacht_id');
+          if (existingYachtId) {
+            console.log('[App QR] 📦 Found existing yacht ID in localStorage:', existingYachtId);
+          }
         }
       } catch (error) {
         console.error('[App QR] Error handling yacht QR parameter:', error);
