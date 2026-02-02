@@ -348,16 +348,34 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [ownerTripError, setOwnerTripError] = useState('');
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [showRepairForm, setShowRepairForm] = useState(false);
-  const [customerType, setCustomerType] = useState<'yacht' | 'retail'>('yacht');
+  const [customerType, setCustomerType] = useState<'yacht' | 'customer'>('yacht');
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [customerVessels, setCustomerVessels] = useState<any[]>([]);
+  const [selectedCustomerId, setSelectedCustomerId] = useState('');
+  const [showQuickAddCustomer, setShowQuickAddCustomer] = useState(false);
+  const [showQuickAddVessel, setShowQuickAddVessel] = useState(false);
+  const [quickCustomerForm, setQuickCustomerForm] = useState({
+    customer_type: 'individual' as 'individual' | 'business',
+    first_name: '',
+    last_name: '',
+    business_name: '',
+    email: '',
+    phone: ''
+  });
+  const [quickVesselForm, setQuickVesselForm] = useState({
+    vessel_name: '',
+    manufacturer: '',
+    model: '',
+    year: ''
+  });
   const [repairForm, setRepairForm] = useState({
     yacht_id: '',
     title: '',
     description: '',
     estimated_repair_cost: '',
     file: null as File | null,
-    customer_name: '',
-    customer_phone: '',
-    customer_email: ''
+    customer_id: '',
+    vessel_id: ''
   });
   const [repairLoading, setRepairLoading] = useState(false);
   const [repairSuccess, setRepairSuccess] = useState(false);
@@ -586,6 +604,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     loadMasterCalendar();
     loadAllYachts();
     loadMechanics();
+    loadCustomers();
     loadStaffMessages();
     checkSmartDevices();
   }, [user, yacht, effectiveRole, effectiveYacht, impersonatedYacht]);
@@ -1531,6 +1550,38 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     }
   };
 
+  const loadCustomers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('customers')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setCustomers(data || []);
+    } catch (error) {
+      console.error('Error loading customers:', error);
+    }
+  };
+
+  const loadCustomerVessels = async (customerId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('customer_vessels')
+        .select('*')
+        .eq('customer_id', customerId)
+        .eq('is_active', true)
+        .order('vessel_name', { ascending: true });
+
+      if (error) throw error;
+      setCustomerVessels(data || []);
+    } catch (error) {
+      console.error('Error loading customer vessels:', error);
+      setCustomerVessels([]);
+    }
+  };
+
   const loadYachtHistory = async (yachtId: string) => {
     try {
       const { data, error } = await supabase
@@ -1969,7 +2020,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         .select(`
           *,
           yachts:yacht_id (name),
-          yacht_invoices!repair_request_id (*)
+          yacht_invoices!repair_request_id (*),
+          customers:customer_id (id, customer_type, first_name, last_name, business_name, email, phone),
+          customer_vessels:vessel_id (id, vessel_name, manufacturer, model, year)
         `)
         .order('created_at', { ascending: false });
 
@@ -2226,11 +2279,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         });
       }
 
-      const recipientEmail = selectedRepairForInvoice.is_retail_customer
+      const recipientEmail = selectedRepairForInvoice.customer_id && selectedRepairForInvoice.customers
+        ? selectedRepairForInvoice.customers.email
+        : selectedRepairForInvoice.is_retail_customer
         ? selectedRepairForInvoice.customer_email
         : null;
 
-      if (selectedRepairForInvoice.is_retail_customer && recipientEmail) {
+      if ((selectedRepairForInvoice.customer_id || selectedRepairForInvoice.is_retail_customer) && recipientEmail) {
         try {
           const { data: { session } } = await supabase.auth.getSession();
           const yacht = allYachts.find(y => y.id === selectedRepairForInvoice.yacht_id);
@@ -2251,7 +2306,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               invoiceFileUrl: invoiceFileUrl,
               completedBy: userName,
               isRetailCustomer: true,
-              customerName: selectedRepairForInvoice.customer_name
+              customerName: selectedRepairForInvoice.customers
+                ? (selectedRepairForInvoice.customers.customer_type === 'business'
+                  ? selectedRepairForInvoice.customers.business_name
+                  : `${selectedRepairForInvoice.customers.first_name} ${selectedRepairForInvoice.customers.last_name}`)
+                : selectedRepairForInvoice.customer_name
             })
           });
         } catch (emailError) {
@@ -2373,8 +2432,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       if (invoiceInsertError) throw invoiceInsertError;
 
-      const notificationMessage = selectedRepairForInvoice.is_retail_customer
-        ? `Repair completed for retail customer: "${selectedRepairForInvoice.title}" - ${invoiceForm.final_invoice_amount}`
+      const notificationMessage = (selectedRepairForInvoice.customer_id || selectedRepairForInvoice.is_retail_customer)
+        ? `Repair completed for walk-in customer: "${selectedRepairForInvoice.title}" - ${invoiceForm.final_invoice_amount}`
         : `Repair completed and invoice sent: "${selectedRepairForInvoice.title}" - ${invoiceForm.final_invoice_amount}`;
 
       await supabase.from('admin_notifications').insert({
@@ -2465,10 +2524,18 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             throw new Error(errorMessage);
           }
 
-          const recipientEmail = selectedRepairForInvoice.customer_email;
+          const recipientEmail = selectedRepairForInvoice.customer_id && selectedRepairForInvoice.customers
+            ? selectedRepairForInvoice.customers.email
+            : selectedRepairForInvoice.customer_email;
           if (recipientEmail) {
             const yacht = allYachts.find(y => y.id === selectedRepairForInvoice.yacht_id);
             const invoiceApiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-invoice-notification`;
+
+            const customerName = selectedRepairForInvoice.customers
+              ? (selectedRepairForInvoice.customers.customer_type === 'business'
+                ? selectedRepairForInvoice.customers.business_name
+                : `${selectedRepairForInvoice.customers.first_name} ${selectedRepairForInvoice.customers.last_name}`)
+              : selectedRepairForInvoice.customer_name;
 
             await fetch(invoiceApiUrl, {
               method: 'POST',
@@ -2478,7 +2545,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               },
               body: JSON.stringify({
                 recipientEmail: recipientEmail,
-                recipientName: selectedRepairForInvoice.customer_name,
+                recipientName: customerName,
                 repairTitle: selectedRepairForInvoice.title,
                 yachtName: yacht?.name || 'Unknown Yacht',
                 invoiceAmount: invoiceForm.final_invoice_amount,
@@ -9494,9 +9561,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             throw new Error('Please select a yacht');
                           }
 
-                          if (customerType === 'retail') {
-                            if (!repairForm.customer_name || !repairForm.customer_phone || !repairForm.customer_email) {
-                              throw new Error('Please provide customer name, phone, and email');
+                          if (customerType === 'customer') {
+                            if (!repairForm.customer_id) {
+                              throw new Error('Please select a customer');
+                            }
+                            if (!repairForm.vessel_id) {
+                              throw new Error('Please select a vessel');
                             }
                           }
 
@@ -9505,8 +9575,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                           if (repairForm.file) {
                             const fileExt = repairForm.file.name.split('.').pop();
-                            const filePath = customerType === 'retail'
-                              ? `retail/${Date.now()}.${fileExt}`
+                            const filePath = customerType === 'customer'
+                              ? `customers/${repairForm.customer_id}/${Date.now()}.${fileExt}`
                               : `${repairForm.yacht_id}/${Date.now()}.${fileExt}`;
                             fileName = repairForm.file.name;
 
@@ -9530,16 +9600,14 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             estimated_repair_cost: repairForm.estimated_repair_cost || null,
                             file_url: fileUrl,
                             file_name: fileName,
-                            status: 'pending',
-                            is_retail_customer: customerType === 'retail'
+                            status: 'pending'
                           };
 
                           if (customerType === 'yacht') {
                             insertData.yacht_id = repairForm.yacht_id;
                           } else {
-                            insertData.customer_name = repairForm.customer_name;
-                            insertData.customer_phone = repairForm.customer_phone;
-                            insertData.customer_email = repairForm.customer_email;
+                            insertData.customer_id = repairForm.customer_id;
+                            insertData.vessel_id = repairForm.vessel_id;
                           }
 
                           const { data: insertedRequest, error: insertError } = await supabase.from('repair_requests').insert(insertData).select().single();
@@ -9601,12 +9669,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             description: '',
                             estimated_repair_cost: '',
                             file: null,
-                            customer_name: '',
-                            customer_phone: '',
-                            customer_email: ''
+                            customer_id: '',
+                            vessel_id: ''
                           });
                           setShowRepairForm(false);
                           setCustomerType('yacht');
+                          setSelectedCustomerId('');
+                          setCustomerVessels([]);
                           await loadRepairRequests();
                           await loadStaffMessages();
                           await loadChatMessages();
@@ -9624,7 +9693,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           <div className="grid grid-cols-2 gap-4">
                             <button
                               type="button"
-                              onClick={() => setCustomerType('yacht')}
+                              onClick={() => {
+                                setCustomerType('yacht');
+                                setRepairForm({...repairForm, customer_id: '', vessel_id: ''});
+                                setSelectedCustomerId('');
+                                setCustomerVessels([]);
+                              }}
                               className={`py-3 px-4 rounded-lg font-medium transition-all ${
                                 customerType === 'yacht'
                                   ? 'bg-orange-500 text-white'
@@ -9635,14 +9709,17 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             </button>
                             <button
                               type="button"
-                              onClick={() => setCustomerType('retail')}
+                              onClick={() => {
+                                setCustomerType('customer');
+                                setRepairForm({...repairForm, yacht_id: ''});
+                              }}
                               className={`py-3 px-4 rounded-lg font-medium transition-all ${
-                                customerType === 'retail'
+                                customerType === 'customer'
                                   ? 'bg-orange-500 text-white'
                                   : 'bg-slate-900 text-slate-400 border border-slate-700 hover:border-orange-500'
                               }`}
                             >
-                              Retail Customer
+                              Walk-In Customer
                             </button>
                           </div>
                         </div>
@@ -9665,43 +9742,266 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             </select>
                           </div>
                         ) : (
-                          <div className="bg-blue-500/10 border border-blue-500 rounded-lg p-4">
-                            <h4 className="font-semibold text-blue-400 mb-3">Walk-In Customer Information</h4>
-                            <div className="space-y-3">
-                              <div>
-                                <label className="block text-sm font-medium mb-2">Customer Name *</label>
-                                <input
-                                  type="text"
-                                  required
-                                  value={repairForm.customer_name}
-                                  onChange={(e) => setRepairForm({...repairForm, customer_name: e.target.value})}
-                                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500"
-                                  placeholder="Full name"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-sm font-medium mb-2">Phone Number *</label>
-                                <input
-                                  type="tel"
-                                  required
-                                  value={repairForm.customer_phone}
-                                  onChange={(e) => setRepairForm({...repairForm, customer_phone: e.target.value})}
-                                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500"
-                                  placeholder="(555) 123-4567"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-sm font-medium mb-2">Email Address *</label>
+                          <div className="bg-blue-500/10 border border-blue-500 rounded-lg p-4 space-y-4">
+                            <div className="flex items-center justify-between">
+                              <h4 className="font-semibold text-blue-400">Walk-In Customer Information</h4>
+                              <button
+                                type="button"
+                                onClick={() => setShowQuickAddCustomer(true)}
+                                className="text-sm bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded"
+                              >
+                                + New Customer
+                              </button>
+                            </div>
+
+                            {showQuickAddCustomer && (
+                              <div className="bg-slate-900/50 border border-blue-500/30 rounded-lg p-4 space-y-3">
+                                <div className="flex items-center justify-between mb-2">
+                                  <h5 className="font-medium text-blue-300">Quick Add Customer</h5>
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowQuickAddCustomer(false)}
+                                    className="text-slate-400 hover:text-white"
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <button
+                                    type="button"
+                                    onClick={() => setQuickCustomerForm({...quickCustomerForm, customer_type: 'individual'})}
+                                    className={`px-3 py-2 rounded text-sm ${quickCustomerForm.customer_type === 'individual' ? 'bg-blue-500 text-white' : 'bg-slate-800 text-slate-400'}`}
+                                  >
+                                    Individual
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setQuickCustomerForm({...quickCustomerForm, customer_type: 'business'})}
+                                    className={`px-3 py-2 rounded text-sm ${quickCustomerForm.customer_type === 'business' ? 'bg-blue-500 text-white' : 'bg-slate-800 text-slate-400'}`}
+                                  >
+                                    Business
+                                  </button>
+                                </div>
+                                {quickCustomerForm.customer_type === 'individual' ? (
+                                  <div className="grid grid-cols-2 gap-3">
+                                    <input
+                                      type="text"
+                                      placeholder="First Name"
+                                      value={quickCustomerForm.first_name}
+                                      onChange={(e) => setQuickCustomerForm({...quickCustomerForm, first_name: e.target.value})}
+                                      className="bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
+                                    />
+                                    <input
+                                      type="text"
+                                      placeholder="Last Name"
+                                      value={quickCustomerForm.last_name}
+                                      onChange={(e) => setQuickCustomerForm({...quickCustomerForm, last_name: e.target.value})}
+                                      className="bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
+                                    />
+                                  </div>
+                                ) : (
+                                  <input
+                                    type="text"
+                                    placeholder="Business Name"
+                                    value={quickCustomerForm.business_name}
+                                    onChange={(e) => setQuickCustomerForm({...quickCustomerForm, business_name: e.target.value})}
+                                    className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
+                                  />
+                                )}
                                 <input
                                   type="email"
-                                  required
-                                  value={repairForm.customer_email}
-                                  onChange={(e) => setRepairForm({...repairForm, customer_email: e.target.value})}
-                                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500"
-                                  placeholder="customer@example.com"
+                                  placeholder="Email"
+                                  value={quickCustomerForm.email}
+                                  onChange={(e) => setQuickCustomerForm({...quickCustomerForm, email: e.target.value})}
+                                  className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
                                 />
+                                <input
+                                  type="tel"
+                                  placeholder="Phone"
+                                  value={quickCustomerForm.phone}
+                                  onChange={(e) => setQuickCustomerForm({...quickCustomerForm, phone: e.target.value})}
+                                  className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    try {
+                                      const { data, error } = await supabase
+                                        .from('customers')
+                                        .insert({
+                                          ...quickCustomerForm,
+                                          is_active: true,
+                                          created_by: user?.id
+                                        })
+                                        .select()
+                                        .single();
+                                      if (error) throw error;
+                                      await loadCustomers();
+                                      setRepairForm({...repairForm, customer_id: data.id});
+                                      setSelectedCustomerId(data.id);
+                                      await loadCustomerVessels(data.id);
+                                      setShowQuickAddCustomer(false);
+                                      setQuickCustomerForm({
+                                        customer_type: 'individual',
+                                        first_name: '',
+                                        last_name: '',
+                                        business_name: '',
+                                        email: '',
+                                        phone: ''
+                                      });
+                                      alert('Customer added successfully!');
+                                    } catch (error: any) {
+                                      alert('Failed to add customer: ' + error.message);
+                                    }
+                                  }}
+                                  className="w-full bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium"
+                                >
+                                  Add Customer
+                                </button>
                               </div>
+                            )}
+
+                            <div>
+                              <label className="block text-sm font-medium mb-2">Select Customer *</label>
+                              <select
+                                required
+                                value={repairForm.customer_id}
+                                onChange={async (e) => {
+                                  const customerId = e.target.value;
+                                  setRepairForm({...repairForm, customer_id: customerId, vessel_id: ''});
+                                  setSelectedCustomerId(customerId);
+                                  if (customerId) {
+                                    await loadCustomerVessels(customerId);
+                                  } else {
+                                    setCustomerVessels([]);
+                                  }
+                                }}
+                                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500"
+                              >
+                                <option value="">Select a customer</option>
+                                {customers.map((customer: any) => (
+                                  <option key={customer.id} value={customer.id}>
+                                    {customer.customer_type === 'business'
+                                      ? customer.business_name
+                                      : `${customer.first_name} ${customer.last_name}`
+                                    }
+                                  </option>
+                                ))}
+                              </select>
                             </div>
+
+                            {repairForm.customer_id && (
+                              <div>
+                                <div className="flex items-center justify-between mb-2">
+                                  <label className="block text-sm font-medium">Select Vessel *</label>
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowQuickAddVessel(true)}
+                                    className="text-sm bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded"
+                                  >
+                                    + New Vessel
+                                  </button>
+                                </div>
+
+                                {showQuickAddVessel && (
+                                  <div className="bg-slate-900/50 border border-blue-500/30 rounded-lg p-4 space-y-3 mb-3">
+                                    <div className="flex items-center justify-between">
+                                      <h5 className="font-medium text-blue-300">Quick Add Vessel</h5>
+                                      <button
+                                        type="button"
+                                        onClick={() => setShowQuickAddVessel(false)}
+                                        className="text-slate-400 hover:text-white"
+                                      >
+                                        ✕
+                                      </button>
+                                    </div>
+                                    <input
+                                      type="text"
+                                      placeholder="Vessel Name *"
+                                      value={quickVesselForm.vessel_name}
+                                      onChange={(e) => setQuickVesselForm({...quickVesselForm, vessel_name: e.target.value})}
+                                      className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
+                                    />
+                                    <div className="grid grid-cols-2 gap-3">
+                                      <input
+                                        type="text"
+                                        placeholder="Manufacturer"
+                                        value={quickVesselForm.manufacturer}
+                                        onChange={(e) => setQuickVesselForm({...quickVesselForm, manufacturer: e.target.value})}
+                                        className="bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
+                                      />
+                                      <input
+                                        type="text"
+                                        placeholder="Model"
+                                        value={quickVesselForm.model}
+                                        onChange={(e) => setQuickVesselForm({...quickVesselForm, model: e.target.value})}
+                                        className="bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
+                                      />
+                                    </div>
+                                    <input
+                                      type="text"
+                                      placeholder="Year"
+                                      value={quickVesselForm.year}
+                                      onChange={(e) => setQuickVesselForm({...quickVesselForm, year: e.target.value})}
+                                      className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        try {
+                                          if (!quickVesselForm.vessel_name) {
+                                            alert('Vessel name is required');
+                                            return;
+                                          }
+                                          const { data, error } = await supabase
+                                            .from('customer_vessels')
+                                            .insert({
+                                              customer_id: repairForm.customer_id,
+                                              vessel_name: quickVesselForm.vessel_name,
+                                              manufacturer: quickVesselForm.manufacturer || null,
+                                              model: quickVesselForm.model || null,
+                                              year: quickVesselForm.year ? parseInt(quickVesselForm.year) : null,
+                                              is_active: true
+                                            })
+                                            .select()
+                                            .single();
+                                          if (error) throw error;
+                                          await loadCustomerVessels(repairForm.customer_id);
+                                          setRepairForm({...repairForm, vessel_id: data.id});
+                                          setShowQuickAddVessel(false);
+                                          setQuickVesselForm({
+                                            vessel_name: '',
+                                            manufacturer: '',
+                                            model: '',
+                                            year: ''
+                                          });
+                                          alert('Vessel added successfully!');
+                                        } catch (error: any) {
+                                          alert('Failed to add vessel: ' + error.message);
+                                        }
+                                      }}
+                                      className="w-full bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium"
+                                    >
+                                      Add Vessel
+                                    </button>
+                                  </div>
+                                )}
+
+                                <select
+                                  required
+                                  value={repairForm.vessel_id}
+                                  onChange={(e) => setRepairForm({...repairForm, vessel_id: e.target.value})}
+                                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500"
+                                >
+                                  <option value="">Select a vessel</option>
+                                  {customerVessels.map((vessel: any) => (
+                                    <option key={vessel.id} value={vessel.id}>
+                                      {vessel.vessel_name} {vessel.manufacturer && vessel.model ? `(${vessel.manufacturer} ${vessel.model})` : ''}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            )}
                           </div>
                         )}
 
@@ -9823,11 +10123,39 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                       </span>
                                     )}
                                   </div>
-                                  {request.is_retail_customer ? (
+                                  {request.customer_id && request.customers ? (
                                     <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 mb-2">
                                       <div className="flex items-center gap-2 mb-1">
                                         <span className="bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded text-xs font-semibold">
-                                          RETAIL CUSTOMER
+                                          WALK-IN CUSTOMER
+                                        </span>
+                                      </div>
+                                      <p className="text-slate-300 text-sm font-medium">
+                                        {request.customers.customer_type === 'business'
+                                          ? request.customers.business_name
+                                          : `${request.customers.first_name} ${request.customers.last_name}`
+                                        }
+                                      </p>
+                                      {request.customer_vessels && (
+                                        <p className="text-slate-300 text-sm">
+                                          <span className="text-slate-400">Vessel:</span> {request.customer_vessels.vessel_name}
+                                          {request.customer_vessels.manufacturer && request.customer_vessels.model &&
+                                            ` (${request.customer_vessels.manufacturer} ${request.customer_vessels.model})`
+                                          }
+                                        </p>
+                                      )}
+                                      {request.customers.phone && (
+                                        <p className="text-slate-400 text-sm">{request.customers.phone}</p>
+                                      )}
+                                      {request.customers.email && (
+                                        <p className="text-slate-400 text-sm">{request.customers.email}</p>
+                                      )}
+                                    </div>
+                                  ) : request.is_retail_customer ? (
+                                    <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 mb-2">
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <span className="bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded text-xs font-semibold">
+                                          WALK-IN CUSTOMER (Legacy)
                                         </span>
                                       </div>
                                       <p className="text-slate-300 text-sm font-medium">{request.customer_name}</p>
@@ -10441,7 +10769,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               <option value="both">Both Card and ACH</option>
                             </select>
                             <p className="text-xs text-slate-400 mt-1">
-                              Select how the {selectedRepairForInvoice.is_retail_customer ? 'customer' : 'yacht owner'} can pay this invoice
+                              Select how the {(selectedRepairForInvoice.customer_id || selectedRepairForInvoice.is_retail_customer) ? 'customer' : 'yacht owner'} can pay this invoice
                             </p>
                           </div>
 
@@ -10450,8 +10778,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               <p className="font-semibold mb-1">What happens next:</p>
                               <ul className="list-disc list-inside space-y-1 text-xs">
                                 {!isAddingInvoiceToCompleted && <li>Repair will be marked as completed</li>}
-                                <li>Invoice will be sent to the {selectedRepairForInvoice.is_retail_customer ? 'retail customer' : 'yacht manager'} via email</li>
-                                {!selectedRepairForInvoice.is_retail_customer && (
+                                <li>Invoice will be sent to the {(selectedRepairForInvoice.customer_id || selectedRepairForInvoice.is_retail_customer) ? 'walk-in customer' : 'yacht manager'} via email</li>
+                                {!(selectedRepairForInvoice.customer_id || selectedRepairForInvoice.is_retail_customer) && (
                                   <li>Owner will receive a message in their yacht chat</li>
                                 )}
                                 <li>Invoice details will be stored with the repair request</li>
@@ -10491,7 +10819,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           >
                             {invoiceLoading
                               ? (isEditingInvoice ? 'Updating Invoice...' : isAddingInvoiceToCompleted ? 'Adding Invoice...' : 'Sending Invoice...')
-                              : (isEditingInvoice ? 'Update Invoice' : isAddingInvoiceToCompleted ? (selectedRepairForInvoice.is_retail_customer ? 'Bill Retail Customer' : 'Bill Yacht Manager') : (selectedRepairForInvoice.is_retail_customer ? 'Bill Retail Customer' : 'Bill Yacht Manager'))}
+                              : (isEditingInvoice ? 'Update Invoice' : isAddingInvoiceToCompleted ? ((selectedRepairForInvoice.customer_id || selectedRepairForInvoice.is_retail_customer) ? 'Bill Walk-In Customer' : 'Bill Yacht Manager') : ((selectedRepairForInvoice.customer_id || selectedRepairForInvoice.is_retail_customer) ? 'Bill Walk-In Customer' : 'Bill Yacht Manager'))}
                           </button>
                         </div>
                       </div>

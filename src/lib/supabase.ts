@@ -113,6 +113,46 @@ export interface MaintenanceRequest {
   yacht_name?: string;
 }
 
+export interface Customer {
+  id: string;
+  customer_type: 'individual' | 'business';
+  first_name?: string;
+  last_name?: string;
+  business_name?: string;
+  email?: string;
+  phone?: string;
+  secondary_phone?: string;
+  address_line1?: string;
+  address_line2?: string;
+  city?: string;
+  state?: string;
+  zip_code?: string;
+  notes?: string;
+  is_active: boolean;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CustomerVessel {
+  id: string;
+  customer_id: string;
+  vessel_name: string;
+  manufacturer?: string;
+  model?: string;
+  year?: number;
+  length_feet?: number;
+  hull_number?: string;
+  registration_number?: string;
+  engine_make?: string;
+  engine_model?: string;
+  fuel_type?: string;
+  notes?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface RepairRequest {
   id: string;
   yacht_id?: string;
@@ -128,6 +168,8 @@ export interface RepairRequest {
   customer_name?: string;
   customer_phone?: string;
   customer_email?: string;
+  customer_id?: string;
+  vessel_id?: string;
   estimated_repair_cost?: string;
   final_invoice_amount?: string;
   invoice_file_url?: string;
@@ -137,6 +179,11 @@ export interface RepairRequest {
   billed_at?: string;
   created_at: string;
   updated_at: string;
+  customers?: Customer;
+  customer_vessels?: CustomerVessel;
+  yachts?: {
+    name: string;
+  };
 }
 
 export interface OwnerChatMessage {
