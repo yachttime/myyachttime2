@@ -28,11 +28,37 @@ export const SignIn = () => {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const [signInVideo, setSignInVideo] = useState<EducationVideo | null>(null);
+  const [scannedYachtName, setScannedYachtName] = useState<string | null>(null);
   const { signIn } = useAuth();
 
   useEffect(() => {
     fetchSignInVideo();
+    handleYachtQRCode();
   }, []);
+
+  const handleYachtQRCode = async () => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const yachtId = params.get('yacht');
+
+      if (yachtId) {
+        const { data: yacht, error } = await supabase
+          .from('yachts')
+          .select('id, name')
+          .eq('id', yachtId)
+          .maybeSingle();
+
+        if (!error && yacht) {
+          localStorage.setItem('qr_scanned_yacht_id', yacht.id);
+          setScannedYachtName(yacht.name);
+        }
+
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    } catch (err) {
+      console.error('Error handling yacht QR code:', err);
+    }
+  };
 
   const fetchSignInVideo = async () => {
     try {
@@ -104,6 +130,13 @@ export const SignIn = () => {
             <h2 className="text-3xl font-bold mb-8 text-center">
               {isForgotPassword ? 'Reset Password' : 'Sign In'}
             </h2>
+
+            {scannedYachtName && (
+              <div className="bg-blue-500/10 border border-blue-500 text-blue-400 px-4 py-3 rounded-lg text-sm mb-6 text-center">
+                <p className="font-semibold">QR Code Scanned</p>
+                <p className="text-xs mt-1">Signing in for: {scannedYachtName}</p>
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>

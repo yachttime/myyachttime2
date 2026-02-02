@@ -547,6 +547,33 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [printYachtName, setPrintYachtName] = useState('');
 
   useEffect(() => {
+    const handleQRScannedYacht = async () => {
+      const scannedYachtId = localStorage.getItem('qr_scanned_yacht_id');
+      if (!scannedYachtId || !user) return;
+
+      try {
+        const { data: scannedYacht, error } = await supabase
+          .from('yachts')
+          .select('*')
+          .eq('id', scannedYachtId)
+          .maybeSingle();
+
+        if (!error && scannedYacht) {
+          if (userProfile?.role === 'master') {
+            setImpersonatedYacht(scannedYacht);
+          }
+        }
+      } catch (err) {
+        console.error('Error handling QR scanned yacht:', err);
+      } finally {
+        localStorage.removeItem('qr_scanned_yacht_id');
+      }
+    };
+
+    handleQRScannedYacht();
+  }, [user, userProfile]);
+
+  useEffect(() => {
     loadBookings();
     loadMaintenanceRequests();
     loadVideos();
