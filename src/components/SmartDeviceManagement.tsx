@@ -573,6 +573,7 @@ export const SmartDeviceManagement = () => {
 
   const selectedYacht = yachts.find(y => y.id === selectedYachtId);
   const yachtCredentials = credentials[0];
+  const yachtTTLockCredentials = ttlockCredentials[0];
 
   return (
     <div className="space-y-6">
@@ -741,6 +742,152 @@ export const SmartDeviceManagement = () => {
                 <button
                   type="submit"
                   className="flex-1 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-900 rounded-lg font-medium transition-colors"
+                >
+                  Save Credentials
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="text-center py-6 text-slate-400">
+              <p>No credentials configured for this yacht</p>
+            </div>
+          )}
+        </div>
+
+        {/* TTLock API Credentials Section */}
+        <div className="mb-8 pb-8 border-b border-slate-700">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <Key className="w-5 h-5 text-blue-500" />
+                TTLock API Credentials
+              </h3>
+              <p className="text-sm text-slate-400 mt-1">
+                Configure TTLock application credentials for {selectedYacht?.name}
+              </p>
+            </div>
+            {!showTTLockCredentialsForm && (
+              <button
+                onClick={() => {
+                  if (yachtTTLockCredentials) {
+                    setTtlockCredentialsForm({
+                      ttlock_client_id: yachtTTLockCredentials.ttlock_client_id,
+                      ttlock_client_secret: yachtTTLockCredentials.ttlock_client_secret,
+                      ttlock_username: yachtTTLockCredentials.ttlock_username,
+                      ttlock_password: '',
+                    });
+                  }
+                  setShowTTLockCredentialsForm(true);
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors"
+              >
+                {yachtTTLockCredentials ? (
+                  <>
+                    <Edit2 className="w-4 h-4" />
+                    Edit Credentials
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4" />
+                    Add Credentials
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+
+          {yachtTTLockCredentials && !showTTLockCredentialsForm ? (
+            <div className="bg-slate-900/50 rounded-lg p-4 space-y-3">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-slate-400">Client ID</p>
+                  <p className="font-mono text-sm mt-1">
+                    {showSecrets ? yachtTTLockCredentials.ttlock_client_id : '••••••••••••'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-slate-400">Username</p>
+                  <p className="text-sm mt-1">{yachtTTLockCredentials.ttlock_username}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowSecrets(!showSecrets)}
+                className="flex items-center gap-2 text-sm text-blue-500 hover:text-blue-400 transition-colors"
+              >
+                {showSecrets ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {showSecrets ? 'Hide' : 'Show'} Secrets
+              </button>
+            </div>
+          ) : showTTLockCredentialsForm ? (
+            <form onSubmit={handleSaveTTLockCredentials} className="bg-slate-900/50 rounded-lg p-6 space-y-4">
+              <div>
+                <label htmlFor="ttlock-client-id" className="block text-sm font-medium mb-2">
+                  TTLock Client ID <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="ttlock-client-id"
+                  name="ttlock_client_id"
+                  type="text"
+                  value={ttlockCredentialsForm.ttlock_client_id}
+                  onChange={(e) => setTtlockCredentialsForm({ ...ttlockCredentialsForm, ttlock_client_id: e.target.value })}
+                  className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg focus:outline-none focus:border-blue-500"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="ttlock-client-secret" className="block text-sm font-medium mb-2">
+                  TTLock Client Secret <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="ttlock-client-secret"
+                  name="ttlock_client_secret"
+                  type="password"
+                  value={ttlockCredentialsForm.ttlock_client_secret}
+                  onChange={(e) => setTtlockCredentialsForm({ ...ttlockCredentialsForm, ttlock_client_secret: e.target.value })}
+                  className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg focus:outline-none focus:border-blue-500"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="ttlock-username" className="block text-sm font-medium mb-2">
+                  TTLock Username <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="ttlock-username"
+                  name="ttlock_username"
+                  type="text"
+                  value={ttlockCredentialsForm.ttlock_username}
+                  onChange={(e) => setTtlockCredentialsForm({ ...ttlockCredentialsForm, ttlock_username: e.target.value })}
+                  className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg focus:outline-none focus:border-blue-500"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="ttlock-password" className="block text-sm font-medium mb-2">
+                  TTLock Password <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="ttlock-password"
+                  name="ttlock_password"
+                  type="password"
+                  value={ttlockCredentialsForm.ttlock_password}
+                  onChange={(e) => setTtlockCredentialsForm({ ...ttlockCredentialsForm, ttlock_password: e.target.value })}
+                  className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg focus:outline-none focus:border-blue-500"
+                  required
+                />
+                <p className="text-xs text-slate-400 mt-1">Password will be stored as MD5 hash</p>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowTTLockCredentialsForm(false)}
+                  className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors"
                 >
                   Save Credentials
                 </button>
