@@ -578,6 +578,12 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
     return `${displayHour}:${minutes} ${ampm}`;
   };
 
+  const formatDateOnly = (dateStr: string) => {
+    const [year, month, day] = dateStr.split('-');
+    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    return date.toLocaleDateString();
+  };
+
   const monthNames = [
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'
@@ -1407,6 +1413,12 @@ function ApprovalPanel({ requests, onClose, onSuccess }: { requests: StaffTimeOf
     return `${displayHour}:${minutes} ${ampm}`;
   };
 
+  const formatDateOnly = (dateStr: string) => {
+    const [year, month, day] = dateStr.split('-');
+    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    return date.toLocaleDateString();
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-slate-800 rounded-lg p-6 max-w-4xl w-full max-h-[80vh] overflow-y-auto">
@@ -1445,7 +1457,7 @@ function ApprovalPanel({ requests, onClose, onSuccess }: { requests: StaffTimeOf
                 <div className="grid grid-cols-2 gap-4 mb-3">
                   <div>
                     <p className="text-xs text-slate-400">Start Date</p>
-                    <p className="font-medium">{new Date(request.start_date).toLocaleDateString()}</p>
+                    <p className="font-medium">{formatDateOnly(request.start_date)}</p>
                     {request.start_time && (
                       <p className="text-sm text-amber-400 flex items-center gap-1 mt-1">
                         <Clock className="w-3 h-3" />
@@ -1455,7 +1467,7 @@ function ApprovalPanel({ requests, onClose, onSuccess }: { requests: StaffTimeOf
                   </div>
                   <div>
                     <p className="text-xs text-slate-400">End Date</p>
-                    <p className="font-medium">{new Date(request.end_date).toLocaleDateString()}</p>
+                    <p className="font-medium">{formatDateOnly(request.end_date)}</p>
                     {request.end_time && (
                       <p className="text-sm text-amber-400 flex items-center gap-1 mt-1">
                         <Clock className="w-3 h-3" />
