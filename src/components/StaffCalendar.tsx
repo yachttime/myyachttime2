@@ -268,7 +268,7 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
         const { data: staffData, error: staffError } = await supabase
           .from('user_profiles')
           .select('*')
-          .in('role', ['staff', 'mechanic'])
+          .in('role', ['staff', 'mechanic', 'master'])
           .eq('is_active', true)
           .order('first_name', { ascending: true });
 
