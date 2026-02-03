@@ -110,12 +110,16 @@ Deno.serve(async (req: Request) => {
       for (const schedule of punchInSchedules as ScheduleCheck[]) {
         try {
           // Check if user has already punched in today
+          // Convert Eastern Time date to UTC date range for the full 24-hour period
+          const etStartOfDay = new Date(`${currentDate}T00:00:00-05:00`);
+          const etEndOfDay = new Date(`${currentDate}T23:59:59-05:00`);
+
           const { data: timeEntry, error: timeEntryError } = await supabase
             .from("staff_time_entries")
             .select("punch_in_time")
             .eq("user_id", schedule.user_id)
-            .gte("punch_in_time", `${currentDate}T00:00:00Z`)
-            .lt("punch_in_time", `${currentDate}T23:59:59Z`)
+            .gte("punch_in_time", etStartOfDay.toISOString())
+            .lte("punch_in_time", etEndOfDay.toISOString())
             .maybeSingle();
 
           if (timeEntryError) {
@@ -220,12 +224,16 @@ Deno.serve(async (req: Request) => {
       for (const schedule of punchOutSchedules as ScheduleCheck[]) {
         try {
           // Check if user has already punched out today
+          // Convert Eastern Time date to UTC date range for the full 24-hour period
+          const etStartOfDay = new Date(`${currentDate}T00:00:00-05:00`);
+          const etEndOfDay = new Date(`${currentDate}T23:59:59-05:00`);
+
           const { data: timeEntry, error: timeEntryError } = await supabase
             .from("staff_time_entries")
             .select("punch_in_time, punch_out_time")
             .eq("user_id", schedule.user_id)
-            .gte("punch_in_time", `${currentDate}T00:00:00Z`)
-            .lt("punch_in_time", `${currentDate}T23:59:59Z`)
+            .gte("punch_in_time", etStartOfDay.toISOString())
+            .lte("punch_in_time", etEndOfDay.toISOString())
             .maybeSingle();
 
           if (timeEntryError) {
