@@ -34,10 +34,10 @@ Deno.serve(async (req: Request) => {
     const { createClient } = await import("npm:@supabase/supabase-js@2");
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get current time in Eastern Time
+    // Get current time in Mountain Standard Time (Phoenix)
     const now = new Date();
     const formatter = new Intl.DateTimeFormat("en-US", {
-      timeZone: "America/New_York",
+      timeZone: "America/Phoenix",
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
@@ -56,7 +56,7 @@ Deno.serve(async (req: Request) => {
     const currentDate = `${year}-${month}-${day}`;
     const currentTime = `${hour}:${minute}:00`;
 
-    console.log(`Checking schedules for ${currentDate} at ${currentTime} ET`);
+    console.log(`Checking schedules for ${currentDate} at ${currentTime} MST`);
 
     // Calculate the time 10 minutes ago
     const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000);
@@ -110,16 +110,16 @@ Deno.serve(async (req: Request) => {
       for (const schedule of punchInSchedules as ScheduleCheck[]) {
         try {
           // Check if user has already punched in today
-          // Convert Eastern Time date to UTC date range for the full 24-hour period
-          const etStartOfDay = new Date(`${currentDate}T00:00:00-05:00`);
-          const etEndOfDay = new Date(`${currentDate}T23:59:59-05:00`);
+          // Convert MST date to UTC date range for the full 24-hour period
+          const mstStartOfDay = new Date(`${currentDate}T00:00:00-07:00`);
+          const mstEndOfDay = new Date(`${currentDate}T23:59:59-07:00`);
 
           const { data: timeEntry, error: timeEntryError } = await supabase
             .from("staff_time_entries")
             .select("punch_in_time")
             .eq("user_id", schedule.user_id)
-            .gte("punch_in_time", etStartOfDay.toISOString())
-            .lte("punch_in_time", etEndOfDay.toISOString())
+            .gte("punch_in_time", mstStartOfDay.toISOString())
+            .lte("punch_in_time", mstEndOfDay.toISOString())
             .maybeSingle();
 
           if (timeEntryError) {
@@ -224,16 +224,16 @@ Deno.serve(async (req: Request) => {
       for (const schedule of punchOutSchedules as ScheduleCheck[]) {
         try {
           // Check if user has already punched out today
-          // Convert Eastern Time date to UTC date range for the full 24-hour period
-          const etStartOfDay = new Date(`${currentDate}T00:00:00-05:00`);
-          const etEndOfDay = new Date(`${currentDate}T23:59:59-05:00`);
+          // Convert MST date to UTC date range for the full 24-hour period
+          const mstStartOfDay = new Date(`${currentDate}T00:00:00-07:00`);
+          const mstEndOfDay = new Date(`${currentDate}T23:59:59-07:00`);
 
           const { data: timeEntry, error: timeEntryError } = await supabase
             .from("staff_time_entries")
             .select("punch_in_time, punch_out_time")
             .eq("user_id", schedule.user_id)
-            .gte("punch_in_time", etStartOfDay.toISOString())
-            .lte("punch_in_time", etEndOfDay.toISOString())
+            .gte("punch_in_time", mstStartOfDay.toISOString())
+            .lte("punch_in_time", mstEndOfDay.toISOString())
             .maybeSingle();
 
           if (timeEntryError) {
