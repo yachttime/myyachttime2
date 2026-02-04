@@ -713,7 +713,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     if (activeTab === 'admin' && adminView === 'repairs') {
       loadRepairRequests();
     }
-    if (activeTab === 'trip') {
+    if (activeTab === 'calendar') {
       checkSmartDevices();
     }
   }, [activeTab, adminView]);
