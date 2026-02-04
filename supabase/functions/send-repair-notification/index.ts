@@ -89,6 +89,7 @@ Deno.serve(async (req: Request) => {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email)) {
         console.error('Invalid email address:', email);
+        emailResults.push({ email, success: false, error: 'Invalid email format' });
         continue;
       }
 
@@ -120,6 +121,7 @@ Deno.serve(async (req: Request) => {
 
       if (tokenError) {
         console.error('Error creating tokens for:', email, tokenError);
+        emailResults.push({ email, success: false, error: `Token creation failed: ${tokenError.message}` });
         continue;
       }
 

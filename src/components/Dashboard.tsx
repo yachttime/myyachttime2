@@ -2459,7 +2459,16 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       console.log('API result:', result);
 
       if (result.success) {
-        alert(`Notification email successfully resent to ${result.successCount} manager(s)`);
+        let message = `Notification email successfully resent to ${result.successCount} manager(s)`;
+
+        if (result.failCount && result.failCount > 0) {
+          message += `\n\n${result.failCount} email(s) failed:`;
+          result.results?.filter((r: any) => !r.success).forEach((r: any) => {
+            message += `\n- ${r.email}: ${r.error}`;
+          });
+        }
+
+        alert(message);
         await loadRepairRequests();
       } else {
         alert(`Failed to resend notification: ${result.error || 'Unknown error'}`);
