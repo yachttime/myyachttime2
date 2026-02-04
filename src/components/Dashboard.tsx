@@ -43,6 +43,16 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     }
   };
 
+  // Helper function to set admin view and persist to localStorage
+  const setAdminViewPersisted = (view: 'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'smartdevices') => {
+    setAdminView(view);
+    try {
+      localStorage.setItem('adminView', view);
+    } catch (error) {
+      console.error('Error saving admin view to localStorage:', error);
+    }
+  };
+
   const [bookings, setBookings] = useState<YachtBooking[]>([]);
   const [maintenanceRequests, setMaintenanceRequests] = useState<MaintenanceRequest[]>([]);
   const [videos, setVideos] = useState<EducationVideo[]>([]);
@@ -304,7 +314,17 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [inspectionLoading, setInspectionLoading] = useState(false);
   const [inspectionSuccess, setInspectionSuccess] = useState(false);
   const [inspectionError, setInspectionError] = useState('');
-  const [adminView, setAdminView] = useState<'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'smartdevices'>('menu');
+  const [adminView, setAdminView] = useState<'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'smartdevices'>(() => {
+    try {
+      const stored = localStorage.getItem('adminView');
+      if (stored && ['menu', 'inspection', 'yachts', 'ownertrips', 'repairs', 'ownerchat', 'messages', 'mastercalendar', 'ownerhandoff', 'users', 'appointments', 'smartdevices'].includes(stored)) {
+        return stored as 'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'smartdevices';
+      }
+      return 'menu';
+    } catch {
+      return 'menu';
+    }
+  });
   const [allYachts, setAllYachts] = useState<Yacht[]>([]);
   const [selectedYachtForHandoff, setSelectedYachtForHandoff] = useState<string>('');
   const [selectedMechanicForHandoff, setSelectedMechanicForHandoff] = useState<string>('');
@@ -3865,7 +3885,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       setTimeout(() => {
         setInspectionSuccess(false);
-        setAdminView('menu');
+        setAdminViewPersisted('menu');
       }, 2000);
     } catch (err: any) {
       setInspectionError(err.message || 'Failed to submit inspection');
@@ -3946,7 +3966,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       setTimeout(() => {
         setHandoffSuccess(false);
-        setAdminView('menu');
+        setAdminViewPersisted('menu');
       }, 2000);
     } catch (err: any) {
       setHandoffError(err.message || 'Failed to submit owner handoff inspection');
@@ -4047,7 +4067,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           setShowQuickAppointmentModal(false);
           setQuickAppointmentDate(null);
         } else {
-          setAdminView('menu');
+          setAdminViewPersisted('menu');
         }
       }, 2000);
     } catch (err: any) {
@@ -5999,7 +6019,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     <button
-                      onClick={() => setAdminView('mastercalendar')}
+                      onClick={() => setAdminViewPersisted('mastercalendar')}
                       className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
                     >
                       <div className="flex items-center gap-4 mb-4">
@@ -6013,7 +6033,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                     {!isOwnerRole(effectiveRole) && (
                       <button
-                        onClick={() => setAdminView('messages')}
+                        onClick={() => setAdminViewPersisted('messages')}
                         className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
                       >
                         <div className="flex items-center gap-4 mb-4">
@@ -6028,7 +6048,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                     {canAccessAllYachts(effectiveRole) && (
                       <button
-                        onClick={() => setAdminView('appointments')}
+                        onClick={() => setAdminViewPersisted('appointments')}
                         className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
                       >
                         <div className="flex items-center gap-4 mb-4">
@@ -6043,7 +6063,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                     {canManageYacht(effectiveRole) && (
                       <button
-                        onClick={() => setAdminView('inspection')}
+                        onClick={() => setAdminViewPersisted('inspection')}
                         className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
                       >
                         <div className="flex items-center gap-4 mb-4">
@@ -6058,7 +6078,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                     {canManageYacht(effectiveRole) && (
                       <button
-                        onClick={() => setAdminView('ownerhandoff')}
+                        onClick={() => setAdminViewPersisted('ownerhandoff')}
                         className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
                       >
                         <div className="flex items-center gap-4 mb-4">
@@ -6073,7 +6093,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                     {isStaffOrManager(effectiveRole) && (
                       <button
-                        onClick={() => setAdminView('repairs')}
+                        onClick={() => setAdminViewPersisted('repairs')}
                         className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
                       >
                         <div className="flex items-center gap-4 mb-4">
@@ -6088,7 +6108,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                     {canManageYacht(effectiveRole) && (
                       <button
-                        onClick={() => setAdminView('ownertrips')}
+                        onClick={() => setAdminViewPersisted('ownertrips')}
                         className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
                       >
                         <div className="flex items-center gap-4 mb-4">
@@ -6103,7 +6123,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                     {(isOwnerRole(effectiveRole) || canManageYacht(effectiveRole)) && (
                       <button
-                        onClick={() => setAdminView('ownerchat')}
+                        onClick={() => setAdminViewPersisted('ownerchat')}
                         className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
                       >
                       <div className="flex items-center gap-4 mb-4">
@@ -6118,7 +6138,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                     {isStaffOrManager(effectiveRole) && (
                       <button
-                        onClick={() => setAdminView('yachts')}
+                        onClick={() => setAdminViewPersisted('yachts')}
                         className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
                       >
                         <div className="flex items-center gap-4 mb-4">
@@ -6133,7 +6153,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                     {isMasterRole(effectiveRole) && (
                       <button
-                        onClick={() => setAdminView('smartdevices')}
+                        onClick={() => setAdminViewPersisted('smartdevices')}
                         className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
                       >
                         <div className="flex items-center gap-4 mb-4">
@@ -6148,7 +6168,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                     {canManageYacht(effectiveRole) && (
                       <button
-                        onClick={() => setAdminView('users')}
+                        onClick={() => setAdminViewPersisted('users')}
                         className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
                       >
                         <div className="flex items-center gap-4 mb-4">
@@ -6165,7 +6185,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               ) : adminView === 'inspection' ? (
                 <>
                   <button
-                    onClick={() => setAdminView('menu')}
+                    onClick={() => setAdminViewPersisted('menu')}
                     className="flex items-center gap-2 text-slate-400 hover:text-amber-500 transition-colors mb-4"
                   >
                     <span>← Back to Admin Menu</span>
@@ -7271,7 +7291,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               ) : adminView === 'ownerhandoff' ? (
                 <>
                   <button
-                    onClick={() => setAdminView('menu')}
+                    onClick={() => setAdminViewPersisted('menu')}
                     className="flex items-center gap-2 text-slate-400 hover:text-emerald-500 transition-colors mb-4"
                   >
                     <span>← Back to Admin Menu</span>
@@ -7646,7 +7666,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               ) : adminView === 'yachts' ? (
                 <>
                   <button
-                    onClick={() => setAdminView('menu')}
+                    onClick={() => setAdminViewPersisted('menu')}
                     className="flex items-center gap-2 text-slate-400 hover:text-blue-500 transition-colors mb-4"
                   >
                     <span>← Back to Admin Menu</span>
@@ -9680,7 +9700,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               ) : adminView === 'ownertrips' ? (
                 <>
                   <button
-                    onClick={() => setAdminView('menu')}
+                    onClick={() => setAdminViewPersisted('menu')}
                     className="flex items-center gap-2 text-slate-400 hover:text-green-500 transition-colors mb-4"
                   >
                     <span>← Back to Admin Menu</span>
@@ -10008,7 +10028,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               ) : adminView === 'repairs' ? (
                 <>
                   <button
-                    onClick={() => setAdminView('menu')}
+                    onClick={() => setAdminViewPersisted('menu')}
                     className="flex items-center gap-2 text-slate-400 hover:text-orange-500 transition-colors mb-4"
                   >
                     <span>← Back to Admin Menu</span>
@@ -11331,7 +11351,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               ) : adminView === 'ownerchat' ? (
                 <>
                   <button
-                    onClick={() => setAdminView('menu')}
+                    onClick={() => setAdminViewPersisted('menu')}
                     className="flex items-center gap-2 text-slate-400 hover:text-purple-500 transition-colors mb-4"
                   >
                     <span>← Back to Admin Menu</span>
@@ -11573,7 +11593,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               ) : adminView === 'messages' ? (
                 <>
                   <button
-                    onClick={() => setAdminView('menu')}
+                    onClick={() => setAdminViewPersisted('menu')}
                     className="flex items-center gap-2 text-slate-400 hover:text-cyan-500 transition-colors mb-4"
                   >
                     <span>← Back to Admin Menu</span>
@@ -12019,7 +12039,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               ) : adminView === 'mastercalendar' ? (
                 <>
                   <button
-                    onClick={() => setAdminView('menu')}
+                    onClick={() => setAdminViewPersisted('menu')}
                     className="flex items-center gap-2 text-slate-400 hover:text-teal-500 transition-colors mb-4"
                   >
                     <span>← Back to Admin Menu</span>
@@ -12756,7 +12776,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               ) : adminView === 'appointments' ? (
                 <>
                   <button
-                    onClick={() => setAdminView('menu')}
+                    onClick={() => setAdminViewPersisted('menu')}
                     className="flex items-center gap-2 text-slate-400 hover:text-amber-500 transition-colors mb-4"
                   >
                     <span>← Back to Admin Menu</span>
@@ -12915,7 +12935,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                         </button>
                         <button
                           type="button"
-                          onClick={() => setAdminView('menu')}
+                          onClick={() => setAdminViewPersisted('menu')}
                           className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-lg transition-colors"
                         >
                           Cancel
@@ -12927,7 +12947,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               ) : adminView === 'smartdevices' ? (
                 <>
                   <button
-                    onClick={() => setAdminView('menu')}
+                    onClick={() => setAdminViewPersisted('menu')}
                     className="flex items-center gap-2 text-slate-400 hover:text-green-500 transition-colors mb-4"
                   >
                     <span>← Back to Admin Menu</span>
@@ -12938,7 +12958,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               ) : adminView === 'users' ? (
                 <>
                   <button
-                    onClick={() => setAdminView('menu')}
+                    onClick={() => setAdminViewPersisted('menu')}
                     className="flex items-center gap-2 text-slate-400 hover:text-blue-500 transition-colors mb-4"
                   >
                     <span>← Back to Admin Menu</span>
