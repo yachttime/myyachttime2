@@ -17,6 +17,8 @@ interface StripeEvent {
       payment_status?: string;
       metadata?: {
         invoice_id?: string;
+        repair_request_id?: string;
+        payment_type?: string;
         yacht_id?: string;
         user_id?: string;
       };
@@ -90,10 +92,168 @@ Deno.serve(async (req: Request) => {
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object;
       const invoiceId = session.metadata?.invoice_id;
+      const repairRequestId = session.metadata?.repair_request_id;
+      const paymentType = session.metadata?.payment_type;
       const yachtId = session.metadata?.yacht_id;
 
+      // Handle deposit payments for repair requests
+      if (paymentType === 'deposit' && repairRequestId) {
+        console.log('Processing deposit payment for repair request:', repairRequestId);
+
+        // Fetch payment intent details if available
+        let paymentMethod = session.payment_method_types?.[0] || 'card';
+        const paymentIntentId = session.payment_intent;
+
+        if (paymentIntentId && stripeSecretKey) {
+          try {
+            const piResponse = await fetch(
+              `https://api.stripe.com/v1/payment_intents/${paymentIntentId}`,
+              {
+                headers: {
+                  'Authorization': `Bearer ${stripeSecretKey}`,
+                },
+              }
+            );
+            if (piResponse.ok) {
+              const piData = await piResponse.json();
+              paymentMethod = piData.charges?.data?.[0]?.payment_method_details?.type || paymentMethod;
+            }
+          } catch (error) {
+            console.error('Error fetching payment intent:', error);
+          }
+        }
+
+        // Update repair request with deposit payment info
+        const { error: updateError } = await supabase
+          .from('repair_requests')
+          .update({
+            deposit_payment_status: 'paid',
+            deposit_paid_at: new Date().toISOString(),
+            deposit_stripe_payment_intent_id: paymentIntentId || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', repairRequestId);
+
+        if (updateError) {
+          console.error('Error updating repair request deposit:', updateError);
+          throw updateError;
+        }
+
+        // Get repair request details
+        const { data: repairRequest } = await supabase
+          .from('repair_requests')
+          .select(`
+            title,
+            deposit_amount,
+            deposit_email_recipient,
+            yachts(name),
+            is_retail_customer,
+            customer_email,
+            customer_name
+          `)
+          .eq('id', repairRequestId)
+          .single();
+
+        // Create notification for staff
+        await supabase.from('admin_notifications').insert({
+          message: `Deposit received for ${repairRequest?.title || 'repair'} - $${parseFloat(repairRequest?.deposit_amount || 0).toFixed(2)}`,
+          yacht_id: yachtId || null,
+          reference_id: repairRequestId,
+          created_at: new Date().toISOString(),
+        });
+
+        // Add message to owner chat if yacht-based
+        if (yachtId) {
+          await supabase.from('owner_chat_messages').insert({
+            yacht_id: yachtId,
+            sender_role: 'staff',
+            message: `Deposit payment confirmed for ${repairRequest?.title || 'repair'} - $${parseFloat(repairRequest?.deposit_amount || 0).toFixed(2)}. Work will begin shortly!`,
+            created_at: new Date().toISOString(),
+          });
+        }
+
+        // Send deposit confirmation email to customer
+        const customerEmail = repairRequest?.customer_email || repairRequest?.deposit_email_recipient;
+        const customerName = repairRequest?.customer_name || 'Valued Customer';
+        const yachtName = repairRequest?.yachts?.name || 'My Yacht Time';
+
+        if (customerEmail) {
+          try {
+            const resendApiKey = Deno.env.get('RESEND_API_KEY');
+            if (!resendApiKey) {
+              console.error('RESEND_API_KEY not configured');
+            } else {
+              const emailResponse = await fetch('https://api.resend.com/emails', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${resendApiKey}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  from: 'My Yacht Time <notifications@myyachttime.com>',
+                  to: [customerEmail],
+                  subject: `Deposit Confirmed - ${repairRequest?.title}`,
+                  html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                      <h2 style="color: #3b82f6;">Deposit Confirmed</h2>
+                      <p>Dear ${customerName},</p>
+                      <p>Thank you! Your deposit payment has been successfully processed.</p>
+
+                      <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                        <h3 style="margin-top: 0;">Deposit Details</h3>
+                        <p><strong>Service:</strong> ${repairRequest?.title || 'Repair Service'}</p>
+                        <p><strong>Deposit Amount:</strong> $${parseFloat(repairRequest?.deposit_amount || 0).toFixed(2)}</p>
+                        <p><strong>Yacht:</strong> ${yachtName}</p>
+                        <p><strong>Payment Method:</strong> ${paymentMethod === 'us_bank_account' ? 'ACH Bank Transfer' : 'Credit/Debit Card'}</p>
+                      </div>
+
+                      <div style="background-color: #dbeafe; padding: 15px; border-radius: 8px; border-left: 4px solid #3b82f6;">
+                        <p style="margin: 0;"><strong>What's Next?</strong></p>
+                        <p style="margin: 10px 0 0 0;">Our team will begin work on your repair immediately. You'll be notified once the work is complete and the final invoice is ready.</p>
+                      </div>
+
+                      <p>A receipt has been sent to your email from Stripe.</p>
+                      <p>If you have any questions, please don't hesitate to contact us.</p>
+
+                      <p>Best regards,<br>My Yacht Time Team</p>
+                    </div>
+                  `,
+                  tags: [
+                    { name: 'category', value: 'deposit_confirmation' },
+                    { name: 'repair_request_id', value: repairRequestId },
+                  ],
+                }),
+              });
+
+              if (emailResponse.ok) {
+                const emailData = await emailResponse.json();
+                console.log(`Deposit confirmation email sent to ${customerEmail}, ID: ${emailData.id}`);
+              } else {
+                const errorText = await emailResponse.text();
+                console.error('Failed to send deposit confirmation email:', errorText);
+              }
+            }
+          } catch (emailError) {
+            console.error('Error sending deposit confirmation email:', emailError);
+          }
+        }
+
+        console.log(`Deposit for repair request ${repairRequestId} marked as paid`);
+
+        return new Response(
+          JSON.stringify({ received: true }),
+          {
+            headers: {
+              ...corsHeaders,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+      }
+
+      // Handle invoice payments
       if (!invoiceId) {
-        console.error('No invoice_id in session metadata');
+        console.error('No invoice_id or repair_request_id in session metadata');
         return new Response(JSON.stringify({ received: true }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
