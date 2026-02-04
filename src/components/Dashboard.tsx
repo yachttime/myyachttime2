@@ -501,7 +501,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     winterizations: '',
     water_filters: '',
     misc_1: '',
-    misc_2: ''
+    misc_1_notes: '',
+    misc_2: '',
+    misc_2_notes: ''
   });
   const [yachtTrips, setYachtTrips] = useState<Record<string, any[]>>({});
   const [tripsYachtId, setTripsYachtId] = useState<string | null>(null);
@@ -1879,7 +1881,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           winterizations: data.winterizations?.toString() || '0',
           water_filters: data.water_filters?.toString() || '0',
           misc_1: data.misc_1?.toString() || '0',
-          misc_2: data.misc_2?.toString() || '0'
+          misc_1_notes: data.misc_1_notes || '',
+          misc_2: data.misc_2?.toString() || '0',
+          misc_2_notes: data.misc_2_notes || ''
         });
       } else {
         setBudgetBreakdownInput({
@@ -1893,7 +1897,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           winterizations: '',
           water_filters: '',
           misc_1: '',
-          misc_2: ''
+          misc_1_notes: '',
+          misc_2: '',
+          misc_2_notes: ''
         });
       }
     } catch (error) {
@@ -1946,7 +1952,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         winterizations: winterizations,
         water_filters: waterFilters,
         misc_1: misc1,
+        misc_1_notes: budgetBreakdownInput.misc_1_notes,
         misc_2: misc2,
+        misc_2_notes: budgetBreakdownInput.misc_2_notes,
         budget_amount: totalBudget,
         updated_at: new Date().toISOString(),
         updated_by: user.id
@@ -8824,7 +8832,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                 winterizations: currentBudget.winterizations?.toString() || '0',
                                                 water_filters: currentBudget.water_filters?.toString() || '0',
                                                 misc_1: currentBudget.misc_1?.toString() || '0',
-                                                misc_2: currentBudget.misc_2?.toString() || '0'
+                                                misc_1_notes: currentBudget.misc_1_notes || '',
+                                                misc_2: currentBudget.misc_2?.toString() || '0',
+                                                misc_2_notes: currentBudget.misc_2_notes || ''
                                               });
                                             } else {
                                               setBudgetBreakdownInput({
@@ -8838,7 +8848,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                 winterizations: '0',
                                                 water_filters: '0',
                                                 misc_1: '0',
-                                                misc_2: '0'
+                                                misc_1_notes: '',
+                                                misc_2: '0',
+                                                misc_2_notes: ''
                                               });
                                             }
                                           }}
@@ -8952,7 +8964,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                             />
                                           </div>
                                           <div>
-                                            <label className="block text-xs text-slate-400 mb-1">Misc</label>
+                                            <label className="block text-xs text-slate-400 mb-1">Misc 1</label>
                                             <input
                                               type="number"
                                               step="0.01"
@@ -8961,15 +8973,31 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                               className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded text-sm focus:outline-none focus:border-emerald-500 text-white"
                                               disabled={isSavingBudget}
                                             />
+                                            <input
+                                              type="text"
+                                              placeholder="Note (optional)"
+                                              value={budgetBreakdownInput.misc_1_notes}
+                                              onChange={(e) => setBudgetBreakdownInput(prev => ({ ...prev, misc_1_notes: e.target.value }))}
+                                              className="w-full px-3 py-1 mt-1 bg-slate-900 border border-slate-600 rounded text-xs focus:outline-none focus:border-emerald-500 text-white placeholder-slate-500"
+                                              disabled={isSavingBudget}
+                                            />
                                           </div>
                                           <div>
-                                            <label className="block text-xs text-slate-400 mb-1">Misc</label>
+                                            <label className="block text-xs text-slate-400 mb-1">Misc 2</label>
                                             <input
                                               type="number"
                                               step="0.01"
                                               value={budgetBreakdownInput.misc_2}
                                               onChange={(e) => setBudgetBreakdownInput(prev => ({ ...prev, misc_2: e.target.value }))}
                                               className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded text-sm focus:outline-none focus:border-emerald-500 text-white"
+                                              disabled={isSavingBudget}
+                                            />
+                                            <input
+                                              type="text"
+                                              placeholder="Note (optional)"
+                                              value={budgetBreakdownInput.misc_2_notes}
+                                              onChange={(e) => setBudgetBreakdownInput(prev => ({ ...prev, misc_2_notes: e.target.value }))}
+                                              className="w-full px-3 py-1 mt-1 bg-slate-900 border border-slate-600 rounded text-xs focus:outline-none focus:border-emerald-500 text-white placeholder-slate-500"
                                               disabled={isSavingBudget}
                                             />
                                           </div>
@@ -9057,13 +9085,27 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                   <span className="text-slate-400">Water Filters:</span>
                                                   <span className="text-white">${currentBudget?.water_filters?.toFixed(2) || '0.00'}</span>
                                                 </div>
-                                                <div className="flex justify-between">
-                                                  <span className="text-slate-400">Misc 1:</span>
-                                                  <span className="text-white">${currentBudget?.misc_1?.toFixed(2) || '0.00'}</span>
+                                                <div>
+                                                  <div className="flex justify-between">
+                                                    <span className="text-slate-400">Misc 1:</span>
+                                                    <span className="text-white">${currentBudget?.misc_1?.toFixed(2) || '0.00'}</span>
+                                                  </div>
+                                                  {currentBudget?.misc_1_notes && (
+                                                    <div className="text-xs text-slate-500 italic mt-0.5">
+                                                      {currentBudget.misc_1_notes}
+                                                    </div>
+                                                  )}
                                                 </div>
-                                                <div className="flex justify-between">
-                                                  <span className="text-slate-400">Misc 2:</span>
-                                                  <span className="text-white">${currentBudget?.misc_2?.toFixed(2) || '0.00'}</span>
+                                                <div>
+                                                  <div className="flex justify-between">
+                                                    <span className="text-slate-400">Misc 2:</span>
+                                                    <span className="text-white">${currentBudget?.misc_2?.toFixed(2) || '0.00'}</span>
+                                                  </div>
+                                                  {currentBudget?.misc_2_notes && (
+                                                    <div className="text-xs text-slate-500 italic mt-0.5">
+                                                      {currentBudget.misc_2_notes}
+                                                    </div>
+                                                  )}
                                                 </div>
                                               </div>
                                             </div>
