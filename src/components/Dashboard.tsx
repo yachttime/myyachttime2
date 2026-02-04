@@ -5605,6 +5605,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           </span>
                           <span>{formatDate(request.created_at)}</span>
                         </div>
+                        {request.estimate_email_recipient && (
+                          <p className="text-xs text-slate-500 mt-2">
+                            Estimate sent to: <span className="text-slate-400">{request.estimate_email_recipient}</span>
+                          </p>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -10710,6 +10715,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   <p className="text-slate-500 text-xs mt-2">
                                     Submitted: {new Date(request.created_at).toLocaleDateString()} at {new Date(request.created_at).toLocaleTimeString()}
                                   </p>
+                                  {request.estimate_email_recipient && (
+                                    <p className="text-slate-500 text-xs mt-1">
+                                      Estimate sent to: <span className="text-slate-400">{request.estimate_email_recipient}</span>
+                                    </p>
+                                  )}
                                   {request.completed_at && request.completed_by_profile && (
                                     <div className="mt-3 bg-blue-500/10 border border-blue-500/20 p-3 rounded-lg">
                                       <p className="text-sm text-blue-300">
