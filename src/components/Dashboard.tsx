@@ -10189,7 +10189,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                         managerNames: managersWithEmail.map(m => `${m.first_name} ${m.last_name}`),
                                         repairTitle: repairForm.title,
                                         yachtName: selectedYacht?.name || 'Unknown Yacht',
-                                        submitterName: userProfile?.first_name ? `${userProfile.first_name} ${userProfile.last_name || ''}`.trim() : 'Unknown'
+                                        submitterName: userProfile?.first_name ? `${userProfile.first_name} ${userProfile.last_name || ''}`.trim() : 'Unknown',
+                                        repairRequestId: insertedRequest.id
                                       })
                                     });
 

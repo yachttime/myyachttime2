@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "npm:@supabase/supabase-js@2.57.4";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,6 +13,13 @@ interface RepairNotificationRequest {
   repairTitle: string;
   yachtName: string;
   submitterName: string;
+  repairRequestId: string;
+}
+
+function generateSecureToken(): string {
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
 }
 
 Deno.serve(async (req: Request) => {
@@ -23,11 +31,20 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { managerEmails, managerNames, repairTitle, yachtName, submitterName }: RepairNotificationRequest = await req.json();
+    const { managerEmails, managerNames, repairTitle, yachtName, submitterName, repairRequestId }: RepairNotificationRequest = await req.json();
 
     if (!managerEmails || managerEmails.length === 0) {
       throw new Error('No manager emails provided');
     }
+
+    if (!repairRequestId) {
+      throw new Error('Repair request ID is required');
+    }
+
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
 
@@ -60,6 +77,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const subject = `New Repair Request: ${repairTitle}`;
+    const siteUrl = Deno.env.get('SITE_URL') || 'https://yourdomain.com';
 
     // Send email to each manager
     const emailResults = [];
@@ -74,6 +92,41 @@ Deno.serve(async (req: Request) => {
         continue;
       }
 
+      // Generate approval and denial tokens for this manager
+      const approveToken = generateSecureToken();
+      const denyToken = generateSecureToken();
+      const expiresAt = new Date();
+      expiresAt.setHours(expiresAt.getHours() + 24); // Token expires in 24 hours
+
+      // Store tokens in database
+      const { error: tokenError } = await supabase
+        .from('repair_request_approval_tokens')
+        .insert([
+          {
+            repair_request_id: repairRequestId,
+            token: approveToken,
+            action_type: 'approve',
+            manager_email: email,
+            expires_at: expiresAt.toISOString()
+          },
+          {
+            repair_request_id: repairRequestId,
+            token: denyToken,
+            action_type: 'deny',
+            manager_email: email,
+            expires_at: expiresAt.toISOString()
+          }
+        ]);
+
+      if (tokenError) {
+        console.error('Error creating tokens for:', email, tokenError);
+        continue;
+      }
+
+      // Create approval/denial URLs
+      const approveUrl = `${supabaseUrl}/functions/v1/handle-repair-approval?token=${approveToken}`;
+      const denyUrl = `${supabaseUrl}/functions/v1/handle-repair-approval?token=${denyToken}`;
+
       const htmlContent = `
         <!DOCTYPE html>
         <html>
@@ -86,21 +139,25 @@ Deno.serve(async (req: Request) => {
             .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
             .alert-box { background: #fef2f2; border-left: 4px solid #dc2626; padding: 20px; border-radius: 8px; margin: 20px 0; }
             .details { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }
-            .action-button { display: inline-block; background: #dc2626; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; margin: 20px 0; }
+            .action-buttons { text-align: center; margin: 30px 0; }
+            .approve-button { display: inline-block; background: #10b981; color: white; padding: 14px 40px; text-decoration: none; border-radius: 6px; font-weight: bold; margin: 10px; font-size: 16px; }
+            .deny-button { display: inline-block; background: #ef4444; color: white; padding: 14px 40px; text-decoration: none; border-radius: 6px; font-weight: bold; margin: 10px; font-size: 16px; }
+            .view-link { display: inline-block; color: #dc2626; text-decoration: underline; margin-top: 10px; }
             .footer { text-align: center; color: #666; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; }
+            .expiry-notice { background: #fef3c7; border: 1px solid #fbbf24; padding: 10px; border-radius: 6px; margin: 15px 0; font-size: 14px; text-align: center; }
           </style>
         </head>
         <body>
           <div class="container">
             <div class="header">
               <h1 style="margin: 0;">⚠️ New Repair Request</h1>
-              <p style="margin: 10px 0 0 0;">Requires Your Attention</p>
+              <p style="margin: 10px 0 0 0;">Requires Your Approval</p>
             </div>
             <div class="content">
               <p>Hello${name ? ` ${name}` : ''},</p>
 
               <div class="alert-box">
-                <p style="margin: 0; font-weight: bold;">A new repair request has been submitted and requires your review.</p>
+                <p style="margin: 0; font-weight: bold;">A new repair request has been submitted and requires your approval.</p>
               </div>
 
               <div class="details">
@@ -111,13 +168,22 @@ Deno.serve(async (req: Request) => {
                 <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
               </div>
 
-              <p>Please log in to the yacht management system to review this repair request, view additional details, and take appropriate action.</p>
+              <p style="text-align: center; margin: 25px 0 10px 0; font-size: 18px; font-weight: bold;">Take Action Now:</p>
 
-              <p style="text-align: center;">
-                <a href="${Deno.env.get('SITE_URL') || 'https://yourdomain.com'}" class="action-button" style="color: white;">Review Repair Request</a>
+              <div class="action-buttons">
+                <a href="${approveUrl}" class="approve-button" style="color: white;">✓ Approve Request</a>
+                <a href="${denyUrl}" class="deny-button" style="color: white;">✗ Deny Request</a>
+              </div>
+
+              <div class="expiry-notice">
+                ⏰ These quick action links expire in 24 hours
+              </div>
+
+              <p style="text-align: center; margin-top: 25px;">
+                Or <a href="${siteUrl}" class="view-link">log in to MyYachtTime</a> to view full details
               </p>
 
-              <p>If you have any questions or need assistance, please contact the service team.</p>
+              <p style="margin-top: 30px;">If you have any questions or need assistance, please contact the service team.</p>
 
               <p>Best regards,<br>
               Yacht Management System</p>

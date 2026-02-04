@@ -110,7 +110,8 @@ export const MaintenanceRequest = ({ onBack }: MaintenanceRequestProps) => {
                 managerNames: managersWithEmail.map(m => `${m.first_name} ${m.last_name}`),
                 repairTitle: subject,
                 yachtName: yacht.name,
-                submitterName: userProfile?.first_name ? `${userProfile.first_name} ${userProfile.last_name || ''}`.trim() : 'Unknown'
+                submitterName: userProfile?.first_name ? `${userProfile.first_name} ${userProfile.last_name || ''}`.trim() : 'Unknown',
+                repairRequestId: insertedData.id
               })
             });
 
