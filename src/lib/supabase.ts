@@ -177,6 +177,15 @@ export interface RepairRequest {
   completed_by?: string;
   completed_at?: string;
   billed_at?: string;
+  estimate_email_sent_at?: string;
+  estimate_email_recipient?: string;
+  resend_email_id?: string;
+  email_opened_at?: string;
+  email_delivered_at?: string;
+  email_clicked_at?: string;
+  email_bounced_at?: string;
+  email_open_count?: number;
+  email_click_count?: number;
   created_at: string;
   updated_at: string;
   customers?: Customer;
