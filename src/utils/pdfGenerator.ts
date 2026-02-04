@@ -671,6 +671,9 @@ export function generateOwnerTripsPDF(trips: YachtBooking[], yachtName: string):
         .filter((c: any) => c)
         .join(', ');
       ownerContacts = contacts || 'N/A';
+    } else if (trip.user_profiles) {
+      ownerNames = `${trip.user_profiles.first_name} ${trip.user_profiles.last_name}`;
+      ownerContacts = trip.user_profiles.phone || trip.user_profiles.email || 'N/A';
     } else {
       ownerNames = trip.owner_name || 'N/A';
       ownerContacts = trip.owner_contact || 'N/A';
