@@ -13537,24 +13537,21 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           <label className="block text-sm font-medium text-slate-300 mb-2">
                             Yacht / Customer Type
                           </label>
-                          <div className="relative">
-                            <select
-                              value={appointmentForm.yacht_id}
-                              onChange={(e) => setAppointmentForm({ ...appointmentForm, yacht_id: e.target.value })}
-                              className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent appearance-none cursor-pointer"
-                              required
-                            >
-                              <option value="">Select option...</option>
-                              <option value="Yacht Owner">Yacht Owner</option>
-                              <option value="Walk-in Customer">Walk-in Customer</option>
-                              {allYachts.map(yacht => (
-                                <option key={yacht.id} value={yacht.name}>
-                                  {yacht.name}
-                                </option>
-                              ))}
-                            </select>
-                            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
-                          </div>
+                          <select
+                            value={appointmentForm.yacht_id}
+                            onChange={(e) => setAppointmentForm({ ...appointmentForm, yacht_id: e.target.value })}
+                            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent cursor-pointer"
+                            required
+                          >
+                            <option value="">Select option...</option>
+                            <option value="Yacht Owner">Yacht Owner</option>
+                            <option value="Walk-in Customer">Walk-in Customer</option>
+                            {allYachts.map(yacht => (
+                              <option key={yacht.id} value={yacht.name}>
+                                {yacht.name}
+                              </option>
+                            ))}
+                          </select>
                         </div>
 
                         <div>
@@ -15570,24 +15567,21 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     <label className="block text-sm font-medium text-slate-300 mb-2">
                       Yacht / Customer Type
                     </label>
-                    <div className="relative">
-                      <select
-                        value={appointmentForm.yacht_id}
-                        onChange={(e) => setAppointmentForm({ ...appointmentForm, yacht_id: e.target.value })}
-                        className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent text-white appearance-none cursor-pointer"
-                        required
-                      >
-                        <option value="">Select option...</option>
-                        <option value="Yacht Owner">Yacht Owner</option>
-                        <option value="Walk-in Customer">Walk-in Customer</option>
-                        {allYachts.map(yacht => (
-                          <option key={yacht.id} value={yacht.name}>
-                            {yacht.name}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
-                    </div>
+                    <select
+                      value={appointmentForm.yacht_id}
+                      onChange={(e) => setAppointmentForm({ ...appointmentForm, yacht_id: e.target.value })}
+                      className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent text-white cursor-pointer"
+                      required
+                    >
+                      <option value="">Select option...</option>
+                      <option value="Yacht Owner">Yacht Owner</option>
+                      <option value="Walk-in Customer">Walk-in Customer</option>
+                      {allYachts.map(yacht => (
+                        <option key={yacht.id} value={yacht.name}>
+                          {yacht.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   <div>
