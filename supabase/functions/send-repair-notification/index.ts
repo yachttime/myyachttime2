@@ -228,6 +228,17 @@ Deno.serve(async (req: Request) => {
           const emailData = await emailResponse.json();
           console.log('Email sent successfully to:', email, 'ID:', emailData.id);
           emailResults.push({ email, success: true, emailId: emailData.id });
+
+          // Store the first successful email ID for tracking
+          if (emailResults.filter(r => r.success).length === 1) {
+            await supabase
+              .from('repair_requests')
+              .update({
+                resend_email_id: emailData.id,
+                estimate_email_sent_at: new Date().toISOString()
+              })
+              .eq('id', repairRequestId);
+          }
         }
       } catch (error) {
         console.error('Error sending email to:', email, error);

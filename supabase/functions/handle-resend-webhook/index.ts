@@ -205,6 +205,12 @@ Deno.serve(async (req: Request) => {
       const repairUpdateData: Record<string, any> = {};
 
       switch (event.type) {
+        case 'email.delivered':
+          if (!repairRequest.email_delivered_at) {
+            repairUpdateData.email_delivered_at = eventTimestamp;
+          }
+          break;
+
         case 'email.opened':
           if (!repairRequest.email_opened_at) {
             repairUpdateData.email_opened_at = eventTimestamp;
@@ -214,6 +220,12 @@ Deno.serve(async (req: Request) => {
         case 'email.clicked':
           if (!repairRequest.email_clicked_at) {
             repairUpdateData.email_clicked_at = eventTimestamp;
+          }
+          break;
+
+        case 'email.bounced':
+          if (!repairRequest.email_bounced_at) {
+            repairUpdateData.email_bounced_at = eventTimestamp;
           }
           break;
       }

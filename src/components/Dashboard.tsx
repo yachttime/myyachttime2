@@ -10889,11 +10889,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                       Estimate sent to: <span className="text-slate-400">{request.estimate_email_recipient}</span>
                                     </p>
                                   )}
-                                  {request.estimate_email_sent_at && (
+                                  {(request.estimate_email_sent_at || (request.notification_recipients && request.resend_email_id)) && (
                                     <div className="mt-3 bg-slate-900/50 rounded-lg p-3 border border-slate-700">
                                       <p className="text-xs font-semibold text-slate-300 mb-2">Email Status</p>
                                       <div className="flex flex-wrap gap-2">
-                                        {request.estimate_email_sent_at && !request.email_delivered_at && !request.email_opened_at && !request.email_clicked_at && (
+                                        {(request.estimate_email_sent_at || request.resend_email_id) && !request.email_delivered_at && !request.email_opened_at && !request.email_clicked_at && (
                                           <span className="bg-blue-500/20 text-blue-400 px-3 py-1 rounded-full text-xs font-semibold">
                                             Email Sent
                                           </span>
@@ -10924,10 +10924,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                         )}
                                       </div>
                                       <div className="space-y-1 mt-3 pt-3 border-t border-slate-700">
-                                        {request.estimate_email_sent_at && (
+                                        {(request.estimate_email_sent_at || (request.resend_email_id && request.created_at)) && (
                                           <div className="flex items-center gap-2 text-xs text-slate-400">
                                             <Mail className="w-3 h-3 text-blue-400" />
-                                            <span>Sent: {new Date(request.estimate_email_sent_at).toLocaleDateString()} at {new Date(request.estimate_email_sent_at).toLocaleTimeString()}</span>
+                                            <span>Sent: {new Date(request.estimate_email_sent_at || request.created_at).toLocaleDateString()} at {new Date(request.estimate_email_sent_at || request.created_at).toLocaleTimeString()}</span>
                                           </div>
                                         )}
                                         {request.email_delivered_at && (
