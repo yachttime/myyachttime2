@@ -2379,9 +2379,18 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           user_profiles:submitted_by (first_name, last_name)
         `)
         .eq('id', requestId)
-        .single();
+        .maybeSingle();
 
-      if (fetchError) throw fetchError;
+      if (fetchError) {
+        console.error('Fetch error:', fetchError);
+        alert(`Database error: ${fetchError.message}`);
+        return;
+      }
+
+      if (!request) {
+        alert('Repair request not found');
+        return;
+      }
 
       // Get managers for the yacht
       const { data: managers, error: managersError } = await supabase
@@ -2390,7 +2399,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         .eq('yacht_id', request.yacht_id)
         .eq('role', 'manager');
 
-      if (managersError) throw managersError;
+      if (managersError) {
+        console.error('Managers error:', managersError);
+        alert(`Error fetching managers: ${managersError.message}`);
+        return;
+      }
 
       if (!managers || managers.length === 0) {
         alert('No managers found for this yacht');
@@ -2406,6 +2419,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       const { data: { session } } = await supabase.auth.getSession();
       const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-repair-notification`;
+
+      console.log('Calling edge function with:', {
+        managerCount: managersWithEmail.length,
+        repairTitle: request.title,
+        yachtName: request.yachts?.name
+      });
 
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -2423,17 +2442,25 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         })
       });
 
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('API error:', errorText);
+        alert(`API error (${response.status}): ${errorText}`);
+        return;
+      }
+
       const result = await response.json();
+      console.log('API result:', result);
 
       if (result.success) {
         alert(`Notification email successfully resent to ${result.successCount} manager(s)`);
         await loadRepairRequests();
       } else {
-        alert('Failed to resend notification email. Please try again.');
+        alert(`Failed to resend notification: ${result.error || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Error resending notification:', error);
-      alert('Failed to resend notification email. Please try again.');
+      alert(`Error: ${error instanceof Error ? error.message : 'Failed to resend notification email'}`);
     }
   };
 
