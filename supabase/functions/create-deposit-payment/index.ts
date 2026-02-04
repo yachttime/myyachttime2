@@ -63,8 +63,9 @@ Deno.serve(async (req: Request) => {
       .eq('user_id', user.id)
       .single();
 
-    const hasAccess = profile?.role === 'staff' ||
-                      profile?.role === 'master' ||
+    const hasAccess = profile?.role === 'master' ||
+                      profile?.role === 'staff' ||
+                      profile?.role === 'mechanic' ||
                       (profile?.role === 'manager' && profile?.yacht_id === repairRequest.yacht_id);
 
     if (!hasAccess) {

@@ -71,10 +71,12 @@ Deno.serve(async (req: Request) => {
       .eq('user_id', user.id)
       .single();
 
-    // For retail customers (no yacht_id), only staff can send
-    // For yacht customers, staff or the assigned manager can send
+    // For retail customers (no yacht_id), only staff/master/mechanic can send
+    // For yacht customers, staff/master/mechanic or the assigned manager can send
     const isRetailCustomer = !invoice.yacht_id;
-    const hasAccess = profile?.role === 'staff' ||
+    const hasAccess = profile?.role === 'master' ||
+                      profile?.role === 'staff' ||
+                      profile?.role === 'mechanic' ||
                       (!isRetailCustomer && profile?.role === 'manager' && profile?.yacht_id === invoice.yacht_id);
 
     if (!hasAccess) {
