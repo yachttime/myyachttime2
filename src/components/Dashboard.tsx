@@ -1210,7 +1210,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       const ownerCounts: Record<string, number> = {};
       (data || []).forEach((user: UserProfile) => {
-        if (user.role === 'owner' && user.yacht_id) {
+        if ((user.role === 'owner' || user.role === 'manager') && user.yacht_id) {
           ownerCounts[user.yacht_id] = (ownerCounts[user.yacht_id] || 0) + 1;
         }
       });
