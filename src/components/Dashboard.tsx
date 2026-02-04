@@ -2366,6 +2366,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const handleResendNotificationEmail = async (requestId: string) => {
     if (!user) return;
 
+    const confirmResend = window.confirm('Are you sure you want to resend the notification email to managers?');
+    if (!confirmResend) return;
+
     try {
       // Fetch repair request details
       const { data: request, error: fetchError } = await supabase
@@ -2390,14 +2393,14 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       if (managersError) throw managersError;
 
       if (!managers || managers.length === 0) {
-        addToast('No managers found for this yacht', 'error');
+        alert('No managers found for this yacht');
         return;
       }
 
       const managersWithEmail = managers.filter(m => m.email);
 
       if (managersWithEmail.length === 0) {
-        addToast('No managers with email addresses found', 'error');
+        alert('No managers with email addresses found');
         return;
       }
 
@@ -2423,14 +2426,14 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       const result = await response.json();
 
       if (result.success) {
-        addToast(`Notification email resent to ${result.successCount} manager(s)`, 'success');
+        alert(`Notification email successfully resent to ${result.successCount} manager(s)`);
         await loadRepairRequests();
       } else {
-        addToast('Failed to resend notification email', 'error');
+        alert('Failed to resend notification email. Please try again.');
       }
     } catch (error) {
       console.error('Error resending notification:', error);
-      addToast('Failed to resend notification email', 'error');
+      alert('Failed to resend notification email. Please try again.');
     }
   };
 
