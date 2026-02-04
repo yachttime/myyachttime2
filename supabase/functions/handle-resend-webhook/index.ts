@@ -121,11 +121,18 @@ Deno.serve(async (req: Request) => {
       .eq('resend_email_id', event.data.email_id)
       .maybeSingle();
 
-    // Try to find the email in repair_requests
+    // Try to find the email in repair_requests (estimate emails)
     const { data: repairRequest } = await supabase
       .from('repair_requests')
       .select('*')
       .eq('resend_email_id', event.data.email_id)
+      .maybeSingle();
+
+    // Try to find the email in repair_requests (notification emails)
+    const { data: repairNotification } = await supabase
+      .from('repair_requests')
+      .select('*')
+      .eq('notification_resend_email_id', event.data.email_id)
       .maybeSingle();
 
     // Try to find the email in staff_messages
@@ -135,7 +142,7 @@ Deno.serve(async (req: Request) => {
       .eq('resend_email_id', event.data.email_id)
       .maybeSingle();
 
-    if (!invoice && !repairRequest && !staffMessage) {
+    if (!invoice && !repairRequest && !repairNotification && !staffMessage) {
       console.log('No record found for email_id:', event.data.email_id);
       return new Response(
         JSON.stringify({ received: true, message: 'No record found for this email' }),
@@ -200,7 +207,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Handle repair_requests tracking
+    // Handle repair_requests tracking (estimate emails)
     if (repairRequest) {
       const repairUpdateData: Record<string, any> = {};
 
@@ -240,6 +247,50 @@ Deno.serve(async (req: Request) => {
           console.error('Error updating repair request:', updateError);
         } else {
           console.log('Updated repair request:', repairRequest.id, 'with data:', repairUpdateData);
+        }
+      }
+    }
+
+    // Handle repair_requests notification tracking (manager notification emails)
+    if (repairNotification) {
+      const notificationUpdateData: Record<string, any> = {};
+
+      switch (event.type) {
+        case 'email.delivered':
+          if (!repairNotification.notification_email_delivered_at) {
+            notificationUpdateData.notification_email_delivered_at = eventTimestamp;
+          }
+          break;
+
+        case 'email.opened':
+          if (!repairNotification.notification_email_opened_at) {
+            notificationUpdateData.notification_email_opened_at = eventTimestamp;
+          }
+          break;
+
+        case 'email.clicked':
+          if (!repairNotification.notification_email_clicked_at) {
+            notificationUpdateData.notification_email_clicked_at = eventTimestamp;
+          }
+          break;
+
+        case 'email.bounced':
+          if (!repairNotification.notification_email_bounced_at) {
+            notificationUpdateData.notification_email_bounced_at = eventTimestamp;
+          }
+          break;
+      }
+
+      if (Object.keys(notificationUpdateData).length > 0) {
+        const { error: updateError } = await supabase
+          .from('repair_requests')
+          .update(notificationUpdateData)
+          .eq('id', repairNotification.id);
+
+        if (updateError) {
+          console.error('Error updating repair notification:', updateError);
+        } else {
+          console.log('Updated repair notification:', repairNotification.id, 'with data:', notificationUpdateData);
         }
       }
     }

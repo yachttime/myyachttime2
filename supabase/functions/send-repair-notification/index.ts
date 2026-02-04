@@ -234,8 +234,8 @@ Deno.serve(async (req: Request) => {
             await supabase
               .from('repair_requests')
               .update({
-                resend_email_id: emailData.id,
-                estimate_email_sent_at: new Date().toISOString()
+                notification_resend_email_id: emailData.id,
+                notification_email_sent_at: new Date().toISOString()
               })
               .eq('id', repairRequestId);
           }

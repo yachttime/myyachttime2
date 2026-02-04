@@ -5757,9 +5757,30 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           <span>{formatDate(request.created_at)}</span>
                         </div>
                         {request.notification_recipients && (
-                          <p className="text-xs text-slate-500 mt-2">
-                            Repair request sent to: <span className="text-slate-400">{request.notification_recipients}</span>
-                          </p>
+                          <div className="mt-2">
+                            <p className="text-xs text-slate-500">
+                              Repair request sent to: <span className="text-slate-400">{request.notification_recipients}</span>
+                            </p>
+                            {request.notification_email_sent_at && (
+                              <div className="flex gap-2 mt-1">
+                                {request.notification_email_delivered_at && (
+                                  <span className="bg-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded text-xs">✓ Delivered</span>
+                                )}
+                                {request.notification_email_opened_at && (
+                                  <span className="bg-green-500/20 text-green-400 px-2 py-0.5 rounded text-xs">✓ Opened</span>
+                                )}
+                                {request.notification_email_clicked_at && (
+                                  <span className="bg-teal-500/20 text-teal-400 px-2 py-0.5 rounded text-xs">✓ Clicked</span>
+                                )}
+                                {request.notification_email_bounced_at && (
+                                  <span className="bg-red-500/20 text-red-400 px-2 py-0.5 rounded text-xs">⚠ Bounced</span>
+                                )}
+                                {!request.notification_email_delivered_at && !request.notification_email_bounced_at && (
+                                  <span className="bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded text-xs">Sent</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         )}
                         {request.estimate_email_recipient && (
                           <p className="text-xs text-slate-500 mt-2">
@@ -10883,6 +10904,74 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                     <p className="text-slate-500 text-xs mt-1">
                                       Repair request sent to: <span className="text-slate-400">{request.notification_recipients}</span>
                                     </p>
+                                  )}
+                                  {request.notification_email_sent_at && (
+                                    <div className="mt-3 bg-slate-900/50 rounded-lg p-3 border border-slate-700">
+                                      <p className="text-xs font-semibold text-slate-300 mb-2">Manager Notification Status</p>
+                                      <div className="flex flex-wrap gap-2">
+                                        {request.notification_email_sent_at && !request.notification_email_delivered_at && !request.notification_email_opened_at && !request.notification_email_clicked_at && (
+                                          <span className="bg-blue-500/20 text-blue-400 px-3 py-1 rounded-full text-xs font-semibold">
+                                            Email Sent
+                                          </span>
+                                        )}
+                                        {request.notification_email_delivered_at && (
+                                          <span className="bg-cyan-500/20 text-cyan-400 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
+                                            <CheckCircle className="w-3 h-3" />
+                                            Email Delivered
+                                          </span>
+                                        )}
+                                        {request.notification_email_opened_at && (
+                                          <span className="bg-green-500/20 text-green-400 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
+                                            <Mail className="w-3 h-3" />
+                                            Email Opened
+                                          </span>
+                                        )}
+                                        {request.notification_email_clicked_at && (
+                                          <span className="bg-teal-500/20 text-teal-400 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
+                                            <MousePointer className="w-3 h-3" />
+                                            Link Clicked
+                                          </span>
+                                        )}
+                                        {request.notification_email_bounced_at && (
+                                          <span className="bg-red-500/20 text-red-400 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
+                                            <AlertCircle className="w-3 h-3" />
+                                            Email Bounced
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="space-y-1 mt-3 pt-3 border-t border-slate-700">
+                                        {request.notification_email_sent_at && (
+                                          <div className="flex items-center gap-2 text-xs text-slate-400">
+                                            <Mail className="w-3 h-3 text-blue-400" />
+                                            <span>Sent: {new Date(request.notification_email_sent_at).toLocaleDateString()} at {new Date(request.notification_email_sent_at).toLocaleTimeString()}</span>
+                                          </div>
+                                        )}
+                                        {request.notification_email_delivered_at && (
+                                          <div className="flex items-center gap-2 text-xs text-emerald-400">
+                                            <CheckCircle className="w-3 h-3" />
+                                            <span>Delivered: {new Date(request.notification_email_delivered_at).toLocaleDateString()} at {new Date(request.notification_email_delivered_at).toLocaleTimeString()}</span>
+                                          </div>
+                                        )}
+                                        {request.notification_email_opened_at && (
+                                          <div className="flex items-center gap-2 text-xs text-cyan-400">
+                                            <Mail className="w-3 h-3" />
+                                            <span>Opened: {new Date(request.notification_email_opened_at).toLocaleDateString()} at {new Date(request.notification_email_opened_at).toLocaleTimeString()}</span>
+                                          </div>
+                                        )}
+                                        {request.notification_email_clicked_at && (
+                                          <div className="flex items-center gap-2 text-xs text-teal-400">
+                                            <MousePointer className="w-3 h-3" />
+                                            <span>Clicked: {new Date(request.notification_email_clicked_at).toLocaleDateString()} at {new Date(request.notification_email_clicked_at).toLocaleTimeString()}</span>
+                                          </div>
+                                        )}
+                                        {request.notification_email_bounced_at && (
+                                          <div className="flex items-center gap-2 text-xs text-red-400">
+                                            <AlertCircle className="w-3 h-3" />
+                                            <span>Bounced: {new Date(request.notification_email_bounced_at).toLocaleDateString()} at {new Date(request.notification_email_bounced_at).toLocaleTimeString()}</span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
                                   )}
                                   {request.estimate_email_recipient && (
                                     <p className="text-slate-500 text-xs mt-1">
