@@ -120,6 +120,24 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [waterLevelLoading, setWaterLevelLoading] = useState(true);
   const [weather, setWeather] = useState<{temperature: number} | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(true);
+  const [currentTime, setCurrentTime] = useState('');
+
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/Phoenix',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+      setCurrentTime(formatter.format(now));
+    };
+
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const fetchWaterLevel = async () => {
@@ -4985,11 +5003,20 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                 {!weatherLoading && weather && (
                   <div className="mb-4 space-y-3">
-                    <div className="flex items-center gap-2 bg-slate-700/50 rounded-lg px-3 py-2 w-fit">
-                      <Thermometer className="w-4 h-4 text-amber-500" />
-                      <div>
-                        <div className="text-xl font-bold text-white">{weather.temperature}°F</div>
-                        <div className="text-xs text-slate-400">Page, AZ</div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 bg-slate-700/50 rounded-lg px-3 py-2 w-fit">
+                        <Thermometer className="w-4 h-4 text-amber-500" />
+                        <div>
+                          <div className="text-xl font-bold text-white">{weather.temperature}°F</div>
+                          <div className="text-xs text-slate-400">Page, AZ</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 bg-slate-700/50 rounded-lg px-3 py-2 w-fit">
+                        <Clock className="w-4 h-4 text-blue-500" />
+                        <div>
+                          <div className="text-xl font-bold text-white">{currentTime}</div>
+                          <div className="text-xs text-slate-400">MST</div>
+                        </div>
                       </div>
                     </div>
                     <div className="flex gap-3">
