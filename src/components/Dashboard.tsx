@@ -2363,6 +2363,76 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     }
   };
 
+  const handleResendNotificationEmail = async (requestId: string) => {
+    if (!user) return;
+
+    try {
+      // Fetch repair request details
+      const { data: request, error: fetchError } = await supabase
+        .from('repair_requests')
+        .select(`
+          *,
+          yachts:yacht_id (name),
+          user_profiles:submitted_by (first_name, last_name)
+        `)
+        .eq('id', requestId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Get managers for the yacht
+      const { data: managers, error: managersError } = await supabase
+        .from('user_profiles')
+        .select('user_id, first_name, last_name, email')
+        .eq('yacht_id', request.yacht_id)
+        .eq('role', 'manager');
+
+      if (managersError) throw managersError;
+
+      if (!managers || managers.length === 0) {
+        addToast('No managers found for this yacht', 'error');
+        return;
+      }
+
+      const managersWithEmail = managers.filter(m => m.email);
+
+      if (managersWithEmail.length === 0) {
+        addToast('No managers with email addresses found', 'error');
+        return;
+      }
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-repair-notification`;
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          managerEmails: managersWithEmail.map(m => m.email),
+          managerNames: managersWithEmail.map(m => `${m.first_name} ${m.last_name}`),
+          repairTitle: request.title,
+          yachtName: request.yachts?.name || 'Unknown Yacht',
+          submitterName: request.user_profiles ? `${request.user_profiles.first_name} ${request.user_profiles.last_name || ''}`.trim() : 'Unknown',
+          repairRequestId: request.id
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        addToast(`Notification email resent to ${result.successCount} manager(s)`, 'success');
+        await loadRepairRequests();
+      } else {
+        addToast('Failed to resend notification email', 'error');
+      }
+    } catch (error) {
+      console.error('Error resending notification:', error);
+      addToast('Failed to resend notification email', 'error');
+    }
+  };
 
   const handleAddInvoiceToCompletedRepairSubmit = async () => {
     if (!selectedRepairForInvoice || !user) return;
@@ -5758,9 +5828,19 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                         </div>
                         {request.notification_recipients && (
                           <div className="mt-2">
-                            <p className="text-xs text-slate-500">
-                              Repair request sent to: <span className="text-slate-400">{request.notification_recipients}</span>
-                            </p>
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="text-xs text-slate-500">
+                                Repair request sent to: <span className="text-slate-400">{request.notification_recipients}</span>
+                              </p>
+                              <button
+                                onClick={() => handleResendNotificationEmail(request.id)}
+                                className="flex items-center gap-1 px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 rounded text-xs transition-colors"
+                                title="Resend notification email"
+                              >
+                                <Mail className="w-3 h-3" />
+                                Resend
+                              </button>
+                            </div>
                             {request.notification_email_sent_at && (
                               <div className="flex gap-2 mt-1">
                                 {request.notification_email_delivered_at && (
@@ -10901,9 +10981,21 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                     Submitted: {new Date(request.created_at).toLocaleDateString()} at {new Date(request.created_at).toLocaleTimeString()}
                                   </p>
                                   {request.notification_recipients && (
-                                    <p className="text-slate-500 text-xs mt-1">
-                                      Repair request sent to: <span className="text-slate-400">{request.notification_recipients}</span>
-                                    </p>
+                                    <div className="mt-1">
+                                      <div className="flex items-start justify-between gap-2">
+                                        <p className="text-slate-500 text-xs">
+                                          Repair request sent to: <span className="text-slate-400">{request.notification_recipients}</span>
+                                        </p>
+                                        <button
+                                          onClick={() => handleResendNotificationEmail(request.id)}
+                                          className="flex items-center gap-1 px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 rounded text-xs transition-colors shrink-0"
+                                          title="Resend notification email"
+                                        >
+                                          <Mail className="w-3 h-3" />
+                                          Resend
+                                        </button>
+                                      </div>
+                                    </div>
                                   )}
                                   {request.notification_email_sent_at && (
                                     <div className="mt-3 bg-slate-900/50 rounded-lg p-3 border border-slate-700">
