@@ -2375,8 +2375,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         .from('repair_requests')
         .select(`
           *,
-          yachts:yacht_id (name),
-          user_profiles:submitted_by (first_name, last_name)
+          yachts:yacht_id (name)
         `)
         .eq('id', requestId)
         .maybeSingle();
@@ -2391,6 +2390,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         alert('Repair request not found');
         return;
       }
+
+      // Get submitter profile
+      const { data: submitterProfile } = await supabase
+        .from('user_profiles')
+        .select('first_name, last_name')
+        .eq('user_id', request.submitted_by)
+        .maybeSingle();
 
       // Get managers for the yacht
       const { data: managers, error: managersError } = await supabase
@@ -2437,7 +2443,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           managerNames: managersWithEmail.map(m => `${m.first_name} ${m.last_name}`),
           repairTitle: request.title,
           yachtName: request.yachts?.name || 'Unknown Yacht',
-          submitterName: request.user_profiles ? `${request.user_profiles.first_name} ${request.user_profiles.last_name || ''}`.trim() : 'Unknown',
+          submitterName: submitterProfile ? `${submitterProfile.first_name} ${submitterProfile.last_name || ''}`.trim() : 'Unknown',
           repairRequestId: request.id
         })
       });
