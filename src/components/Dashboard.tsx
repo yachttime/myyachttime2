@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Anchor, Calendar, CheckCircle, AlertCircle, BookOpen, LogOut, Wrench, Send, Play, Shield, ClipboardCheck, Ship, CalendarPlus, FileUp, MessageCircle, Mail, CreditCard as Edit2, Trash2, ChevronLeft, ChevronRight, History, UserCheck, FileText, Upload, Download, X, Users, Save, RefreshCw, Clock, Thermometer, Camera, Receipt, Pencil, Lock, CreditCard, Eye, EyeOff, MousePointer, Ligature as FileSignature, Folder, Menu, Phone, Printer, Plus, QrCode, CircleUser as UserCircle2, DollarSign } from 'lucide-react';
+import { Anchor, Calendar, CheckCircle, AlertCircle, BookOpen, LogOut, Wrench, Send, Play, Shield, ClipboardCheck, Ship, CalendarPlus, FileUp, MessageCircle, Mail, CreditCard as Edit2, Trash2, ChevronLeft, ChevronRight, History, UserCheck, FileText, Upload, Download, X, Users, Save, RefreshCw, Clock, Thermometer, Camera, Receipt, Pencil, Lock, CreditCard, Eye, EyeOff, MousePointer, Ligature as FileSignature, Folder, Menu, Phone, Printer, Plus, QrCode, CircleUser as UserCircle2, DollarSign, Archive } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useRoleImpersonation } from '../contexts/RoleImpersonationContext';
 import { useYachtImpersonation } from '../contexts/YachtImpersonationContext';
@@ -422,6 +422,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [repairSuccess, setRepairSuccess] = useState(false);
   const [repairError, setRepairError] = useState('');
   const [repairRequests, setRepairRequests] = useState<RepairRequest[]>([]);
+  const [activeRepairTab, setActiveRepairTab] = useState<'active' | 'archived'>('active');
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [approvalAction, setApprovalAction] = useState<{ requestId: string; status: 'approved' | 'rejected' } | null>(null);
   const [approvalNotes, setApprovalNotes] = useState('');
@@ -2360,6 +2361,23 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       setShowInvoiceModal(true);
     } catch (error) {
       console.error('Error loading repair request:', error);
+    }
+  };
+
+  const handleToggleArchiveRepairRequest = async (requestId: string, currentArchived: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('repair_requests')
+        .update({ archived: !currentArchived })
+        .eq('id', requestId);
+
+      if (error) throw error;
+
+      await loadRepairRequests();
+      alert(currentArchived ? 'Repair request unarchived' : 'Repair request archived');
+    } catch (error) {
+      console.error('Error toggling archive status:', error);
+      alert('Failed to update archive status');
     }
   };
 
@@ -10919,15 +10937,41 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                   )}
 
                   <div className="mt-8">
-                    <h3 className="text-xl font-semibold mb-4">All Repair Requests</h3>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-xl font-semibold">Repair Requests</h3>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setActiveRepairTab('active')}
+                          className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+                            activeRepairTab === 'active'
+                              ? 'bg-orange-500 text-white'
+                              : 'bg-slate-800/50 text-slate-400 hover:bg-slate-700'
+                          }`}
+                        >
+                          Active ({repairRequests.filter(r => !r.archived).length})
+                        </button>
+                        <button
+                          onClick={() => setActiveRepairTab('archived')}
+                          className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+                            activeRepairTab === 'archived'
+                              ? 'bg-orange-500 text-white'
+                              : 'bg-slate-800/50 text-slate-400 hover:bg-slate-700'
+                          }`}
+                        >
+                          Archived ({repairRequests.filter(r => r.archived).length})
+                        </button>
+                      </div>
+                    </div>
 
-                    {repairRequests.length === 0 ? (
+                    {repairRequests.filter(r => activeRepairTab === 'active' ? !r.archived : r.archived).length === 0 ? (
                       <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-8 border border-slate-700 text-center">
-                        <p className="text-slate-400">No repair requests yet</p>
+                        <p className="text-slate-400">
+                          {activeRepairTab === 'active' ? 'No active repair requests' : 'No archived repair requests'}
+                        </p>
                       </div>
                     ) : (
                       <div className="space-y-4">
-                        {repairRequests.map((request: any) => {
+                        {repairRequests.filter(r => activeRepairTab === 'active' ? !r.archived : r.archived).map((request: any) => {
                           const invoice = repairInvoices[request.id];
                           return (
                             <div key={request.id} className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700">
@@ -11510,6 +11554,32 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                       </div>
                                     )}
                                   </>
+                                )}
+
+                                {/* Archive/Unarchive button for all users with yacht access */}
+                                {(canManageYacht(effectiveRole) || effectiveRole === 'owner') && (
+                                  <div className="flex gap-2 ml-4 mt-2">
+                                    <button
+                                      onClick={() => handleToggleArchiveRepairRequest(request.id, request.archived)}
+                                      className={`${
+                                        request.archived
+                                          ? 'bg-green-500 hover:bg-green-600'
+                                          : 'bg-slate-600 hover:bg-slate-500'
+                                      } text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2`}
+                                    >
+                                      {request.archived ? (
+                                        <>
+                                          <Archive className="w-4 h-4" />
+                                          Unarchive
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Archive className="w-4 h-4" />
+                                          Archive
+                                        </>
+                                      )}
+                                    </button>
+                                  </div>
                                 )}
                               </div>
                             </div>
