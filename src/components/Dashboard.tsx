@@ -499,6 +499,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     preventive_maintenance: '',
     winter_repairs_upgrades: '',
     winterizations: '',
+    water_filters: '',
     misc_1: '',
     misc_2: ''
   });
@@ -1876,6 +1877,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           preventive_maintenance: data.preventive_maintenance?.toString() || '0',
           winter_repairs_upgrades: data.winter_repairs_upgrades?.toString() || '0',
           winterizations: data.winterizations?.toString() || '0',
+          water_filters: data.water_filters?.toString() || '0',
           misc_1: data.misc_1?.toString() || '0',
           misc_2: data.misc_2?.toString() || '0'
         });
@@ -1889,6 +1891,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           preventive_maintenance: '',
           winter_repairs_upgrades: '',
           winterizations: '',
+          water_filters: '',
           misc_1: '',
           misc_2: ''
         });
@@ -1913,13 +1916,14 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       const preventiveMaintenance = parseFloat(budgetBreakdownInput.preventive_maintenance) || 0;
       const winterRepairsUpgrades = parseFloat(budgetBreakdownInput.winter_repairs_upgrades) || 0;
       const winterizations = parseFloat(budgetBreakdownInput.winterizations) || 0;
+      const waterFilters = parseFloat(budgetBreakdownInput.water_filters) || 0;
       const misc1 = parseFloat(budgetBreakdownInput.misc_1) || 0;
       const misc2 = parseFloat(budgetBreakdownInput.misc_2) || 0;
 
       if (
         managementFees < 0 || tripInspectionFees < 0 || springStartupCost < 0 ||
         oilChange200hr < 0 || oilChange600hr < 0 || preventiveMaintenance < 0 ||
-        winterRepairsUpgrades < 0 || winterizations < 0 || misc1 < 0 || misc2 < 0
+        winterRepairsUpgrades < 0 || winterizations < 0 || waterFilters < 0 || misc1 < 0 || misc2 < 0
       ) {
         alert('Please enter valid budget amounts (no negative values)');
         return;
@@ -1927,7 +1931,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       const totalBudget = managementFees + tripInspectionFees + springStartupCost +
         oilChange200hr + oilChange600hr + preventiveMaintenance +
-        winterRepairsUpgrades + winterizations + misc1 + misc2;
+        winterRepairsUpgrades + winterizations + waterFilters + misc1 + misc2;
 
       const existingBudget = yachtBudgets[budgetKey];
 
@@ -1940,6 +1944,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         preventive_maintenance: preventiveMaintenance,
         winter_repairs_upgrades: winterRepairsUpgrades,
         winterizations: winterizations,
+        water_filters: waterFilters,
         misc_1: misc1,
         misc_2: misc2,
         budget_amount: totalBudget,
@@ -8817,6 +8822,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                 preventive_maintenance: currentBudget.preventive_maintenance?.toString() || '0',
                                                 winter_repairs_upgrades: currentBudget.winter_repairs_upgrades?.toString() || '0',
                                                 winterizations: currentBudget.winterizations?.toString() || '0',
+                                                water_filters: currentBudget.water_filters?.toString() || '0',
                                                 misc_1: currentBudget.misc_1?.toString() || '0',
                                                 misc_2: currentBudget.misc_2?.toString() || '0'
                                               });
@@ -8830,6 +8836,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                 preventive_maintenance: '0',
                                                 winter_repairs_upgrades: '0',
                                                 winterizations: '0',
+                                                water_filters: '0',
                                                 misc_1: '0',
                                                 misc_2: '0'
                                               });
@@ -8934,6 +8941,17 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                             />
                                           </div>
                                           <div>
+                                            <label className="block text-xs text-slate-400 mb-1">Water Filters</label>
+                                            <input
+                                              type="number"
+                                              step="0.01"
+                                              value={budgetBreakdownInput.water_filters}
+                                              onChange={(e) => setBudgetBreakdownInput(prev => ({ ...prev, water_filters: e.target.value }))}
+                                              className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded text-sm focus:outline-none focus:border-emerald-500 text-white"
+                                              disabled={isSavingBudget}
+                                            />
+                                          </div>
+                                          <div>
                                             <label className="block text-xs text-slate-400 mb-1">Misc</label>
                                             <input
                                               type="number"
@@ -8968,6 +8986,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                 (parseFloat(budgetBreakdownInput.preventive_maintenance) || 0) +
                                                 (parseFloat(budgetBreakdownInput.winter_repairs_upgrades) || 0) +
                                                 (parseFloat(budgetBreakdownInput.winterizations) || 0) +
+                                                (parseFloat(budgetBreakdownInput.water_filters) || 0) +
                                                 (parseFloat(budgetBreakdownInput.misc_1) || 0) +
                                                 (parseFloat(budgetBreakdownInput.misc_2) || 0)
                                               ).toFixed(2)}
@@ -9033,6 +9052,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                 <div className="flex justify-between">
                                                   <span className="text-slate-400">Winterizations:</span>
                                                   <span className="text-white">${currentBudget?.winterizations?.toFixed(2) || '0.00'}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                  <span className="text-slate-400">Water Filters:</span>
+                                                  <span className="text-white">${currentBudget?.water_filters?.toFixed(2) || '0.00'}</span>
                                                 </div>
                                                 <div className="flex justify-between">
                                                   <span className="text-slate-400">Misc 1:</span>
