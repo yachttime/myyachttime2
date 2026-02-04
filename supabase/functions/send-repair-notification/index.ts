@@ -96,7 +96,7 @@ Deno.serve(async (req: Request) => {
       const approveToken = generateSecureToken();
       const denyToken = generateSecureToken();
       const expiresAt = new Date();
-      expiresAt.setHours(expiresAt.getHours() + 24); // Token expires in 24 hours
+      expiresAt.setHours(expiresAt.getHours() + 168); // Token expires in 7 days
 
       // Store tokens in database
       const { error: tokenError } = await supabase
@@ -176,7 +176,7 @@ Deno.serve(async (req: Request) => {
               </div>
 
               <div class="expiry-notice">
-                ⏰ These quick action links expire in 24 hours
+                ⏰ These quick action links expire in 7 days
               </div>
 
               <p style="text-align: center; margin-top: 25px;">
