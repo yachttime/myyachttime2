@@ -13535,16 +13535,23 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                         <div>
                           <label className="block text-sm font-medium text-slate-300 mb-2">
-                            Yacht
+                            Yacht / Customer Type
                           </label>
-                          <input
-                            type="text"
+                          <select
                             value={appointmentForm.yacht_id}
                             onChange={(e) => setAppointmentForm({ ...appointmentForm, yacht_id: e.target.value })}
                             className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                            placeholder="Enter yacht name"
                             required
-                          />
+                          >
+                            <option value="">Select option...</option>
+                            <option value="Yacht Owner">Yacht Owner</option>
+                            <option value="Walk-in Customer">Walk-in Customer</option>
+                            {allYachts.map(yacht => (
+                              <option key={yacht.id} value={yacht.name}>
+                                {yacht.name}
+                              </option>
+                            ))}
+                          </select>
                         </div>
 
                         <div>
@@ -15558,16 +15565,23 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Yacht
+                      Yacht / Customer Type
                     </label>
-                    <input
-                      type="text"
+                    <select
                       value={appointmentForm.yacht_id}
                       onChange={(e) => setAppointmentForm({ ...appointmentForm, yacht_id: e.target.value })}
                       className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent text-white"
-                      placeholder="Enter yacht name"
                       required
-                    />
+                    >
+                      <option value="">Select option...</option>
+                      <option value="Yacht Owner">Yacht Owner</option>
+                      <option value="Walk-in Customer">Walk-in Customer</option>
+                      {allYachts.map(yacht => (
+                        <option key={yacht.id} value={yacht.name}>
+                          {yacht.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   <div>
