@@ -349,6 +349,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [ownerTripSuccess, setOwnerTripSuccess] = useState(false);
   const [ownerTripError, setOwnerTripError] = useState('');
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
+  const [ownerCountsByYacht, setOwnerCountsByYacht] = useState<Record<string, number>>({});
   const [showRepairForm, setShowRepairForm] = useState(false);
   const [customerType, setCustomerType] = useState<'yacht' | 'customer'>('yacht');
   const [customers, setCustomers] = useState<any[]>([]);
@@ -1188,6 +1189,14 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       if (error) throw error;
       setAllUsers(data || []);
+
+      const ownerCounts: Record<string, number> = {};
+      (data || []).forEach((user: UserProfile) => {
+        if (user.role === 'owner' && user.yacht_id) {
+          ownerCounts[user.yacht_id] = (ownerCounts[user.yacht_id] || 0) + 1;
+        }
+      });
+      setOwnerCountsByYacht(ownerCounts);
     } catch (error) {
       console.error('Error loading users:', error);
     }
@@ -9003,7 +9012,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                           </div>
                                         </div>
                                         <div className="pt-2 border-t border-slate-700">
-                                          <div className="text-xs text-slate-400 mb-3">
+                                          <div className="text-xs text-slate-400 mb-1">
                                             Total Budget: <span className="text-white font-semibold">
                                               ${(
                                                 (parseFloat(budgetBreakdownInput.management_fees) || 0) +
@@ -9020,6 +9029,30 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                               ).toFixed(2)}
                                             </span>
                                           </div>
+                                          {(() => {
+                                            const ownerCount = ownerCountsByYacht[yacht.id] || 0;
+                                            const totalBudget = (
+                                              (parseFloat(budgetBreakdownInput.management_fees) || 0) +
+                                              (parseFloat(budgetBreakdownInput.trip_inspection_fees) || 0) +
+                                              (parseFloat(budgetBreakdownInput.spring_startup_cost) || 0) +
+                                              (parseFloat(budgetBreakdownInput.oil_change_200hr) || 0) +
+                                              (parseFloat(budgetBreakdownInput.oil_change_600hr) || 0) +
+                                              (parseFloat(budgetBreakdownInput.preventive_maintenance) || 0) +
+                                              (parseFloat(budgetBreakdownInput.winter_repairs_upgrades) || 0) +
+                                              (parseFloat(budgetBreakdownInput.winterizations) || 0) +
+                                              (parseFloat(budgetBreakdownInput.water_filters) || 0) +
+                                              (parseFloat(budgetBreakdownInput.misc_1) || 0) +
+                                              (parseFloat(budgetBreakdownInput.misc_2) || 0)
+                                            );
+                                            const ownerPortion = ownerCount > 0 ? totalBudget / ownerCount : 0;
+                                            return (
+                                              <div className="text-xs text-slate-400 mb-3">
+                                                Owner's Portion {ownerCount > 0 && `(${ownerCount} owner${ownerCount > 1 ? 's' : ''})`}: <span className="text-emerald-400 font-semibold">
+                                                  ${ownerPortion.toFixed(2)}
+                                                </span>
+                                              </div>
+                                            );
+                                          })()}
                                         </div>
                                         <div className="flex gap-2">
                                           <button
@@ -9045,9 +9078,20 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                         {budgetAmount > 0 ? (
                                           <>
                                             <div className="space-y-2 mb-3">
-                                              <div className="text-xl font-bold text-white border-b border-slate-700 pb-2">
+                                              <div className="text-xl font-bold text-white border-b border-slate-700 pb-2 mb-2">
                                                 Total Budget: ${budgetAmount.toFixed(2)}
                                               </div>
+                                              {(() => {
+                                                const ownerCount = ownerCountsByYacht[yacht.id] || 0;
+                                                const ownerPortion = ownerCount > 0 ? budgetAmount / ownerCount : 0;
+                                                return (
+                                                  <div className="text-sm text-slate-300 mb-3 pb-2 border-b border-slate-700">
+                                                    Owner's Portion {ownerCount > 0 && `(${ownerCount} owner${ownerCount > 1 ? 's' : ''})`}: <span className="text-emerald-400 font-bold">
+                                                      ${ownerPortion.toFixed(2)}
+                                                    </span>
+                                                  </div>
+                                                );
+                                              })()}
                                               <div className="grid grid-cols-2 gap-2 text-xs">
                                                 <div className="flex justify-between">
                                                   <span className="text-slate-400">Management Fees:</span>
