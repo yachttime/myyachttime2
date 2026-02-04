@@ -75,11 +75,55 @@ export const MaintenanceRequest = ({ onBack }: MaintenanceRequestProps) => {
         file_name: fileName,
         status: 'pending',
         is_retail_customer: false,
-      }).select();
+      }).select().single();
 
       if (dbError) {
         console.error('Error inserting repair request:', dbError);
         throw dbError;
+      }
+
+      // Send notification emails to managers
+      try {
+        const { data: managers, error: managersError } = await supabase
+          .from('user_profiles')
+          .select('user_id, first_name, last_name, email')
+          .eq('yacht_id', yacht.id)
+          .eq('role', 'manager');
+
+        if (!managersError && managers && managers.length > 0) {
+          const managersWithEmail = managers.filter(m => m.email);
+
+          if (managersWithEmail.length > 0) {
+            const emailAddresses = managersWithEmail.map(m => m.email).join(', ');
+            const { data: { session } } = await supabase.auth.getSession();
+
+            const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-repair-notification`;
+
+            await fetch(apiUrl, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${session?.access_token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                managerEmails: managersWithEmail.map(m => m.email),
+                managerNames: managersWithEmail.map(m => `${m.first_name} ${m.last_name}`),
+                repairTitle: subject,
+                yachtName: yacht.name,
+                submitterName: userProfile?.first_name ? `${userProfile.first_name} ${userProfile.last_name || ''}`.trim() : 'Unknown'
+              })
+            });
+
+            // Update the repair request with notification recipients
+            await supabase
+              .from('repair_requests')
+              .update({ notification_recipients: emailAddresses })
+              .eq('id', insertedData.id);
+          }
+        }
+      } catch (emailError) {
+        console.error('Failed to send email notifications:', emailError);
+        // Don't fail the whole request if email fails
       }
 
       setSuccess(true);

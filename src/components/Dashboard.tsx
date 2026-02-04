@@ -5605,6 +5605,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           </span>
                           <span>{formatDate(request.created_at)}</span>
                         </div>
+                        {request.notification_recipients && (
+                          <p className="text-xs text-slate-500 mt-2">
+                            Repair request sent to: <span className="text-slate-400">{request.notification_recipients}</span>
+                          </p>
+                        )}
                         {request.estimate_email_recipient && (
                           <p className="text-xs text-slate-500 mt-2">
                             Estimate sent to: <span className="text-slate-400">{request.estimate_email_recipient}</span>
@@ -10167,6 +10172,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 const managersWithEmail = managers.filter(m => m.email);
 
                                 if (managersWithEmail.length > 0) {
+                                  const emailAddresses = managersWithEmail.map(m => m.email).join(', ');
                                   try {
                                     const { data: { session } } = await supabase.auth.getSession();
 
@@ -10186,6 +10192,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                         submitterName: userProfile?.first_name ? `${userProfile.first_name} ${userProfile.last_name || ''}`.trim() : 'Unknown'
                                       })
                                     });
+
+                                    // Update the repair request with notification recipients
+                                    await supabase
+                                      .from('repair_requests')
+                                      .update({ notification_recipients: emailAddresses })
+                                      .eq('id', insertedRequest.id);
                                   } catch (emailError) {
                                     console.error('Failed to send email notifications:', emailError);
                                   }
@@ -10715,6 +10727,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   <p className="text-slate-500 text-xs mt-2">
                                     Submitted: {new Date(request.created_at).toLocaleDateString()} at {new Date(request.created_at).toLocaleTimeString()}
                                   </p>
+                                  {request.notification_recipients && (
+                                    <p className="text-slate-500 text-xs mt-1">
+                                      Repair request sent to: <span className="text-slate-400">{request.notification_recipients}</span>
+                                    </p>
+                                  )}
                                   {request.estimate_email_recipient && (
                                     <p className="text-slate-500 text-xs mt-1">
                                       Estimate sent to: <span className="text-slate-400">{request.estimate_email_recipient}</span>
