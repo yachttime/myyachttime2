@@ -10152,33 +10152,38 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                               const { data: managers, error: managersError } = await supabase
                                 .from('user_profiles')
-                                .select('user_id, first_name, last_name')
+                                .select('user_id, first_name, last_name, email')
                                 .eq('yacht_id', repairForm.yacht_id)
                                 .eq('role', 'manager');
 
                               if (managersError) throw managersError;
 
                               if (managers && managers.length > 0) {
-                                try {
-                                  const { data: { session } } = await supabase.auth.getSession();
+                                const managersWithEmail = managers.filter(m => m.email);
 
-                                  const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-repair-notification`;
+                                if (managersWithEmail.length > 0) {
+                                  try {
+                                    const { data: { session } } = await supabase.auth.getSession();
 
-                                  await fetch(apiUrl, {
-                                    method: 'POST',
-                                    headers: {
-                                      'Authorization': `Bearer ${session?.access_token}`,
-                                      'Content-Type': 'application/json',
-                                    },
-                                    body: JSON.stringify({
-                                      managerEmails: managers.map(m => `${m.first_name} ${m.last_name}`),
-                                      repairTitle: repairForm.title,
-                                      yachtName: selectedYacht?.name || 'Unknown Yacht',
-                                      submitterName: userProfile?.first_name ? `${userProfile.first_name} ${userProfile.last_name || ''}`.trim() : 'Unknown'
-                                    })
-                                  });
-                                } catch (emailError) {
-                                  console.error('Failed to send email notifications:', emailError);
+                                    const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-repair-notification`;
+
+                                    await fetch(apiUrl, {
+                                      method: 'POST',
+                                      headers: {
+                                        'Authorization': `Bearer ${session?.access_token}`,
+                                        'Content-Type': 'application/json',
+                                      },
+                                      body: JSON.stringify({
+                                        managerEmails: managersWithEmail.map(m => m.email),
+                                        managerNames: managersWithEmail.map(m => `${m.first_name} ${m.last_name}`),
+                                        repairTitle: repairForm.title,
+                                        yachtName: selectedYacht?.name || 'Unknown Yacht',
+                                        submitterName: userProfile?.first_name ? `${userProfile.first_name} ${userProfile.last_name || ''}`.trim() : 'Unknown'
+                                      })
+                                    });
+                                  } catch (emailError) {
+                                    console.error('Failed to send email notifications:', emailError);
+                                  }
                                 }
                               }
                             }
