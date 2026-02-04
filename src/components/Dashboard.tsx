@@ -490,7 +490,18 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [invoiceYachtId, setInvoiceYachtId] = useState<string | null>(null);
   const [selectedInvoiceYear, setSelectedInvoiceYear] = useState<number>(new Date().getFullYear());
   const [yachtBudgets, setYachtBudgets] = useState<Record<string, YachtBudget | null>>({});
-  const [budgetInput, setBudgetInput] = useState<string>('');
+  const [budgetBreakdownInput, setBudgetBreakdownInput] = useState({
+    management_fees: '',
+    trip_inspection_fees: '',
+    spring_startup_cost: '',
+    oil_change_200hr: '',
+    oil_change_600hr: '',
+    preventive_maintenance: '',
+    winter_repairs_upgrades: '',
+    winterizations: '',
+    misc_1: '',
+    misc_2: ''
+  });
   const [yachtTrips, setYachtTrips] = useState<Record<string, any[]>>({});
   const [tripsYachtId, setTripsYachtId] = useState<string | null>(null);
   const [budgetEditMode, setBudgetEditMode] = useState<Record<string, boolean>>({});
@@ -1856,9 +1867,31 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       }));
 
       if (data) {
-        setBudgetInput(data.budget_amount.toString());
+        setBudgetBreakdownInput({
+          management_fees: data.management_fees?.toString() || '0',
+          trip_inspection_fees: data.trip_inspection_fees?.toString() || '0',
+          spring_startup_cost: data.spring_startup_cost?.toString() || '0',
+          oil_change_200hr: data.oil_change_200hr?.toString() || '0',
+          oil_change_600hr: data.oil_change_600hr?.toString() || '0',
+          preventive_maintenance: data.preventive_maintenance?.toString() || '0',
+          winter_repairs_upgrades: data.winter_repairs_upgrades?.toString() || '0',
+          winterizations: data.winterizations?.toString() || '0',
+          misc_1: data.misc_1?.toString() || '0',
+          misc_2: data.misc_2?.toString() || '0'
+        });
       } else {
-        setBudgetInput('');
+        setBudgetBreakdownInput({
+          management_fees: '',
+          trip_inspection_fees: '',
+          spring_startup_cost: '',
+          oil_change_200hr: '',
+          oil_change_600hr: '',
+          preventive_maintenance: '',
+          winter_repairs_upgrades: '',
+          winterizations: '',
+          misc_1: '',
+          misc_2: ''
+        });
       }
     } catch (error) {
       console.error('Error loading yacht budget:', error);
@@ -1872,23 +1905,52 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     setBudgetSaving(prev => ({ ...prev, [budgetKey]: true }));
 
     try {
-      const budgetAmount = parseFloat(budgetInput);
+      const managementFees = parseFloat(budgetBreakdownInput.management_fees) || 0;
+      const tripInspectionFees = parseFloat(budgetBreakdownInput.trip_inspection_fees) || 0;
+      const springStartupCost = parseFloat(budgetBreakdownInput.spring_startup_cost) || 0;
+      const oilChange200hr = parseFloat(budgetBreakdownInput.oil_change_200hr) || 0;
+      const oilChange600hr = parseFloat(budgetBreakdownInput.oil_change_600hr) || 0;
+      const preventiveMaintenance = parseFloat(budgetBreakdownInput.preventive_maintenance) || 0;
+      const winterRepairsUpgrades = parseFloat(budgetBreakdownInput.winter_repairs_upgrades) || 0;
+      const winterizations = parseFloat(budgetBreakdownInput.winterizations) || 0;
+      const misc1 = parseFloat(budgetBreakdownInput.misc_1) || 0;
+      const misc2 = parseFloat(budgetBreakdownInput.misc_2) || 0;
 
-      if (isNaN(budgetAmount) || budgetAmount < 0) {
-        alert('Please enter a valid budget amount');
+      if (
+        managementFees < 0 || tripInspectionFees < 0 || springStartupCost < 0 ||
+        oilChange200hr < 0 || oilChange600hr < 0 || preventiveMaintenance < 0 ||
+        winterRepairsUpgrades < 0 || winterizations < 0 || misc1 < 0 || misc2 < 0
+      ) {
+        alert('Please enter valid budget amounts (no negative values)');
         return;
       }
 
+      const totalBudget = managementFees + tripInspectionFees + springStartupCost +
+        oilChange200hr + oilChange600hr + preventiveMaintenance +
+        winterRepairsUpgrades + winterizations + misc1 + misc2;
+
       const existingBudget = yachtBudgets[budgetKey];
+
+      const budgetData = {
+        management_fees: managementFees,
+        trip_inspection_fees: tripInspectionFees,
+        spring_startup_cost: springStartupCost,
+        oil_change_200hr: oilChange200hr,
+        oil_change_600hr: oilChange600hr,
+        preventive_maintenance: preventiveMaintenance,
+        winter_repairs_upgrades: winterRepairsUpgrades,
+        winterizations: winterizations,
+        misc_1: misc1,
+        misc_2: misc2,
+        budget_amount: totalBudget,
+        updated_at: new Date().toISOString(),
+        updated_by: user.id
+      };
 
       if (existingBudget) {
         const { error } = await supabase
           .from('yacht_budgets')
-          .update({
-            budget_amount: budgetAmount,
-            updated_at: new Date().toISOString(),
-            updated_by: user.id
-          })
+          .update(budgetData)
           .eq('id', existingBudget.id);
 
         if (error) throw error;
@@ -1898,9 +1960,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           .insert({
             yacht_id: yachtId,
             budget_year: year,
-            budget_amount: budgetAmount,
-            created_by: user.id,
-            updated_by: user.id
+            ...budgetData,
+            created_by: user.id
           });
 
         if (error) throw error;
@@ -8746,7 +8807,33 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                         <button
                                           onClick={() => {
                                             setBudgetEditMode(prev => ({ ...prev, [budgetKey]: true }));
-                                            setBudgetInput(budgetAmount > 0 ? budgetAmount.toString() : '');
+                                            if (currentBudget) {
+                                              setBudgetBreakdownInput({
+                                                management_fees: currentBudget.management_fees?.toString() || '0',
+                                                trip_inspection_fees: currentBudget.trip_inspection_fees?.toString() || '0',
+                                                spring_startup_cost: currentBudget.spring_startup_cost?.toString() || '0',
+                                                oil_change_200hr: currentBudget.oil_change_200hr?.toString() || '0',
+                                                oil_change_600hr: currentBudget.oil_change_600hr?.toString() || '0',
+                                                preventive_maintenance: currentBudget.preventive_maintenance?.toString() || '0',
+                                                winter_repairs_upgrades: currentBudget.winter_repairs_upgrades?.toString() || '0',
+                                                winterizations: currentBudget.winterizations?.toString() || '0',
+                                                misc_1: currentBudget.misc_1?.toString() || '0',
+                                                misc_2: currentBudget.misc_2?.toString() || '0'
+                                              });
+                                            } else {
+                                              setBudgetBreakdownInput({
+                                                management_fees: '0',
+                                                trip_inspection_fees: '0',
+                                                spring_startup_cost: '0',
+                                                oil_change_200hr: '0',
+                                                oil_change_600hr: '0',
+                                                preventive_maintenance: '0',
+                                                winter_repairs_upgrades: '0',
+                                                winterizations: '0',
+                                                misc_1: '0',
+                                                misc_2: '0'
+                                              });
+                                            }
                                           }}
                                           className="text-xs px-2 py-1 bg-slate-700 hover:bg-slate-600 text-white rounded transition-colors"
                                         >
@@ -8756,16 +8843,136 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                     </div>
 
                                     {isEditingBudget ? (
-                                      <div className="space-y-2">
-                                        <div className="flex gap-2">
-                                          <input
-                                            type="number"
-                                            value={budgetInput}
-                                            onChange={(e) => setBudgetInput(e.target.value)}
-                                            placeholder="Enter budget amount"
-                                            className="flex-1 px-3 py-2 bg-slate-900 border border-slate-600 rounded text-sm focus:outline-none focus:border-emerald-500 text-white"
-                                            disabled={isSavingBudget}
-                                          />
+                                      <div className="space-y-3">
+                                        <div className="grid grid-cols-1 gap-3">
+                                          <div>
+                                            <label className="block text-xs text-slate-400 mb-1">Management Fees</label>
+                                            <input
+                                              type="number"
+                                              step="0.01"
+                                              value={budgetBreakdownInput.management_fees}
+                                              onChange={(e) => setBudgetBreakdownInput(prev => ({ ...prev, management_fees: e.target.value }))}
+                                              className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded text-sm focus:outline-none focus:border-emerald-500 text-white"
+                                              disabled={isSavingBudget}
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="block text-xs text-slate-400 mb-1">Trip Inspection Fees</label>
+                                            <input
+                                              type="number"
+                                              step="0.01"
+                                              value={budgetBreakdownInput.trip_inspection_fees}
+                                              onChange={(e) => setBudgetBreakdownInput(prev => ({ ...prev, trip_inspection_fees: e.target.value }))}
+                                              className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded text-sm focus:outline-none focus:border-emerald-500 text-white"
+                                              disabled={isSavingBudget}
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="block text-xs text-slate-400 mb-1">Spring Start Up Cost</label>
+                                            <input
+                                              type="number"
+                                              step="0.01"
+                                              value={budgetBreakdownInput.spring_startup_cost}
+                                              onChange={(e) => setBudgetBreakdownInput(prev => ({ ...prev, spring_startup_cost: e.target.value }))}
+                                              className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded text-sm focus:outline-none focus:border-emerald-500 text-white"
+                                              disabled={isSavingBudget}
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="block text-xs text-slate-400 mb-1">200 Hour Oil Changes</label>
+                                            <input
+                                              type="number"
+                                              step="0.01"
+                                              value={budgetBreakdownInput.oil_change_200hr}
+                                              onChange={(e) => setBudgetBreakdownInput(prev => ({ ...prev, oil_change_200hr: e.target.value }))}
+                                              className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded text-sm focus:outline-none focus:border-emerald-500 text-white"
+                                              disabled={isSavingBudget}
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="block text-xs text-slate-400 mb-1">600 Hour Oil Changes</label>
+                                            <input
+                                              type="number"
+                                              step="0.01"
+                                              value={budgetBreakdownInput.oil_change_600hr}
+                                              onChange={(e) => setBudgetBreakdownInput(prev => ({ ...prev, oil_change_600hr: e.target.value }))}
+                                              className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded text-sm focus:outline-none focus:border-emerald-500 text-white"
+                                              disabled={isSavingBudget}
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="block text-xs text-slate-400 mb-1">Preventive Maintenance</label>
+                                            <input
+                                              type="number"
+                                              step="0.01"
+                                              value={budgetBreakdownInput.preventive_maintenance}
+                                              onChange={(e) => setBudgetBreakdownInput(prev => ({ ...prev, preventive_maintenance: e.target.value }))}
+                                              className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded text-sm focus:outline-none focus:border-emerald-500 text-white"
+                                              disabled={isSavingBudget}
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="block text-xs text-slate-400 mb-1">Winter Repairs and Upgrades</label>
+                                            <input
+                                              type="number"
+                                              step="0.01"
+                                              value={budgetBreakdownInput.winter_repairs_upgrades}
+                                              onChange={(e) => setBudgetBreakdownInput(prev => ({ ...prev, winter_repairs_upgrades: e.target.value }))}
+                                              className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded text-sm focus:outline-none focus:border-emerald-500 text-white"
+                                              disabled={isSavingBudget}
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="block text-xs text-slate-400 mb-1">Winterizations</label>
+                                            <input
+                                              type="number"
+                                              step="0.01"
+                                              value={budgetBreakdownInput.winterizations}
+                                              onChange={(e) => setBudgetBreakdownInput(prev => ({ ...prev, winterizations: e.target.value }))}
+                                              className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded text-sm focus:outline-none focus:border-emerald-500 text-white"
+                                              disabled={isSavingBudget}
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="block text-xs text-slate-400 mb-1">Misc</label>
+                                            <input
+                                              type="number"
+                                              step="0.01"
+                                              value={budgetBreakdownInput.misc_1}
+                                              onChange={(e) => setBudgetBreakdownInput(prev => ({ ...prev, misc_1: e.target.value }))}
+                                              className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded text-sm focus:outline-none focus:border-emerald-500 text-white"
+                                              disabled={isSavingBudget}
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="block text-xs text-slate-400 mb-1">Misc</label>
+                                            <input
+                                              type="number"
+                                              step="0.01"
+                                              value={budgetBreakdownInput.misc_2}
+                                              onChange={(e) => setBudgetBreakdownInput(prev => ({ ...prev, misc_2: e.target.value }))}
+                                              className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded text-sm focus:outline-none focus:border-emerald-500 text-white"
+                                              disabled={isSavingBudget}
+                                            />
+                                          </div>
+                                        </div>
+                                        <div className="pt-2 border-t border-slate-700">
+                                          <div className="text-xs text-slate-400 mb-3">
+                                            Total Budget: <span className="text-white font-semibold">
+                                              ${(
+                                                (parseFloat(budgetBreakdownInput.management_fees) || 0) +
+                                                (parseFloat(budgetBreakdownInput.trip_inspection_fees) || 0) +
+                                                (parseFloat(budgetBreakdownInput.spring_startup_cost) || 0) +
+                                                (parseFloat(budgetBreakdownInput.oil_change_200hr) || 0) +
+                                                (parseFloat(budgetBreakdownInput.oil_change_600hr) || 0) +
+                                                (parseFloat(budgetBreakdownInput.preventive_maintenance) || 0) +
+                                                (parseFloat(budgetBreakdownInput.winter_repairs_upgrades) || 0) +
+                                                (parseFloat(budgetBreakdownInput.winterizations) || 0) +
+                                                (parseFloat(budgetBreakdownInput.misc_1) || 0) +
+                                                (parseFloat(budgetBreakdownInput.misc_2) || 0)
+                                              ).toFixed(2)}
+                                            </span>
+                                          </div>
                                         </div>
                                         <div className="flex gap-2">
                                           <button
@@ -8778,7 +8985,6 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                           <button
                                             onClick={() => {
                                               setBudgetEditMode(prev => ({ ...prev, [budgetKey]: false }));
-                                              setBudgetInput('');
                                             }}
                                             disabled={isSavingBudget}
                                             className="flex-1 bg-slate-700 hover:bg-slate-600 text-white px-3 py-2 rounded text-xs transition-colors"
@@ -8791,10 +8997,54 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                       <>
                                         {budgetAmount > 0 ? (
                                           <>
-                                            <div className="text-2xl font-bold text-white mb-2">
-                                              ${budgetAmount.toFixed(2)}
+                                            <div className="space-y-2 mb-3">
+                                              <div className="text-xl font-bold text-white border-b border-slate-700 pb-2">
+                                                Total Budget: ${budgetAmount.toFixed(2)}
+                                              </div>
+                                              <div className="grid grid-cols-2 gap-2 text-xs">
+                                                <div className="flex justify-between">
+                                                  <span className="text-slate-400">Management Fees:</span>
+                                                  <span className="text-white">${currentBudget?.management_fees?.toFixed(2) || '0.00'}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                  <span className="text-slate-400">Trip Inspections:</span>
+                                                  <span className="text-white">${currentBudget?.trip_inspection_fees?.toFixed(2) || '0.00'}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                  <span className="text-slate-400">Spring Startup:</span>
+                                                  <span className="text-white">${currentBudget?.spring_startup_cost?.toFixed(2) || '0.00'}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                  <span className="text-slate-400">200hr Oil Changes:</span>
+                                                  <span className="text-white">${currentBudget?.oil_change_200hr?.toFixed(2) || '0.00'}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                  <span className="text-slate-400">600hr Oil Changes:</span>
+                                                  <span className="text-white">${currentBudget?.oil_change_600hr?.toFixed(2) || '0.00'}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                  <span className="text-slate-400">Preventive Maint.:</span>
+                                                  <span className="text-white">${currentBudget?.preventive_maintenance?.toFixed(2) || '0.00'}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                  <span className="text-slate-400">Winter Repairs:</span>
+                                                  <span className="text-white">${currentBudget?.winter_repairs_upgrades?.toFixed(2) || '0.00'}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                  <span className="text-slate-400">Winterizations:</span>
+                                                  <span className="text-white">${currentBudget?.winterizations?.toFixed(2) || '0.00'}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                  <span className="text-slate-400">Misc 1:</span>
+                                                  <span className="text-white">${currentBudget?.misc_1?.toFixed(2) || '0.00'}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                  <span className="text-slate-400">Misc 2:</span>
+                                                  <span className="text-white">${currentBudget?.misc_2?.toFixed(2) || '0.00'}</span>
+                                                </div>
+                                              </div>
                                             </div>
-                                            <div className="text-xs text-slate-400 mb-3">
+                                            <div className="text-xs text-slate-400 mb-3 pt-3 border-t border-slate-700">
                                               Budget Remaining: <span className={`font-semibold ${budgetRemaining >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                                                 ${budgetRemaining.toFixed(2)}
                                               </span>

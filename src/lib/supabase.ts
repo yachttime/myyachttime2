@@ -341,6 +341,16 @@ export interface YachtBudget {
   yacht_id: string;
   budget_year: number;
   budget_amount: number;
+  management_fees: number;
+  trip_inspection_fees: number;
+  spring_startup_cost: number;
+  oil_change_200hr: number;
+  oil_change_600hr: number;
+  preventive_maintenance: number;
+  winter_repairs_upgrades: number;
+  winterizations: number;
+  misc_1: number;
+  misc_2: number;
   created_at: string;
   updated_at: string;
   created_by?: string;
