@@ -1652,7 +1652,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         .from('yacht_bookings')
         .select(`
           *,
-          user_profiles(trip_number),
+          user_profiles(trip_number, first_name, last_name, phone, email),
           yacht_booking_owners (
             id,
             owner_name,
@@ -8191,8 +8191,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                               </div>
                                             ))}
                                           </div>
+                                        ) : trip.user_profiles ? (
+                                          <div className="text-slate-300 font-medium mb-1">
+                                            {trip.user_profiles.first_name} {trip.user_profiles.last_name}
+                                          </div>
                                         ) : (
-                                          <div className="text-slate-300 font-medium mb-1">{trip.owner_name}</div>
+                                          <div className="text-slate-300 font-medium mb-1">{trip.owner_name || 'Unknown Owner'}</div>
                                         )}
                                         <div className="text-slate-400 space-y-1">
                                           <div className="flex items-center gap-2">
@@ -8219,6 +8223,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                   <span>{owner.owner_name}: {owner.owner_contact}</span>
                                                 </div>
                                               ))}
+                                            </div>
+                                          ) : trip.user_profiles?.phone ? (
+                                            <div className="flex items-center gap-2">
+                                              <Phone className="w-3 h-3" />
+                                              <span>{trip.user_profiles.phone}</span>
                                             </div>
                                           ) : trip.owner_contact && (
                                             <div className="flex items-center gap-2">
