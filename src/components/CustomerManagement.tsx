@@ -63,6 +63,8 @@ export default function CustomerManagement() {
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [showMeetingAppointment, setShowMeetingAppointment] = useState(false);
   const [meetingAppointmentLoading, setMeetingAppointmentLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
 
   const [meetingForm, setMeetingForm] = useState({
     person_name: '',
@@ -210,9 +212,12 @@ export default function CustomerManagement() {
         zip_code: '',
         notes: '',
       });
+      setSuccessMessage('Customer added successfully!');
+      setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error) {
       console.error('Error adding customer:', error);
-      alert('Failed to add customer');
+      setErrorMessage('Failed to add customer');
+      setTimeout(() => setErrorMessage(''), 3000);
     }
   };
 
@@ -232,9 +237,12 @@ export default function CustomerManagement() {
         setSelectedCustomer(editingCustomer);
       }
       setEditingCustomer(null);
+      setSuccessMessage('Customer updated successfully!');
+      setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error) {
       console.error('Error updating customer:', error);
-      alert('Failed to update customer');
+      setErrorMessage('Failed to update customer');
+      setTimeout(() => setErrorMessage(''), 3000);
     }
   };
 
@@ -278,9 +286,12 @@ export default function CustomerManagement() {
         fuel_type: '',
         notes: '',
       });
+      setSuccessMessage('Vessel added successfully!');
+      setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error) {
       console.error('Error adding vessel:', error);
-      alert('Failed to add vessel');
+      setErrorMessage('Failed to add vessel');
+      setTimeout(() => setErrorMessage(''), 3000);
     }
   };
 
@@ -321,7 +332,8 @@ export default function CustomerManagement() {
 
       if (error) throw error;
 
-      alert('Meeting appointment created successfully!');
+      setSuccessMessage('Meeting appointment created successfully!');
+      setTimeout(() => setSuccessMessage(''), 3000);
       setShowMeetingAppointment(false);
       setMeetingForm({
         person_name: '',
@@ -334,7 +346,8 @@ export default function CustomerManagement() {
       });
     } catch (error) {
       console.error('Error creating meeting appointment:', error);
-      alert('Failed to create meeting appointment');
+      setErrorMessage('Failed to create meeting appointment');
+      setTimeout(() => setErrorMessage(''), 3000);
     } finally {
       setMeetingAppointmentLoading(false);
     }
@@ -358,6 +371,18 @@ export default function CustomerManagement() {
 
   return (
     <div className="max-w-7xl mx-auto p-6 bg-white">
+      {successMessage && (
+        <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 font-medium">
+          {successMessage}
+        </div>
+      )}
+
+      {errorMessage && (
+        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 font-medium">
+          {errorMessage}
+        </div>
+      )}
+
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
