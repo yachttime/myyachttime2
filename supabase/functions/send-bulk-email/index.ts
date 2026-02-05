@@ -6,12 +6,20 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
 };
 
+interface Attachment {
+  filename: string;
+  content: string;
+  contentType: string;
+  size: number;
+}
+
 interface BulkEmailRequest {
   recipients: string[];
   cc_recipients?: string[];
   subject: string;
   message: string;
   yacht_name?: string;
+  attachments?: Attachment[];
 }
 
 Deno.serve(async (req: Request) => {
@@ -53,7 +61,7 @@ Deno.serve(async (req: Request) => {
       throw new Error('Unauthorized: Only staff, mechanics, managers, and master users can send bulk emails');
     }
 
-    const { recipients, cc_recipients, subject, message, yacht_name }: BulkEmailRequest = await req.json();
+    const { recipients, cc_recipients, subject, message, yacht_name, attachments }: BulkEmailRequest = await req.json();
 
     if (!recipients || recipients.length === 0) {
       throw new Error('At least one recipient is required');
@@ -61,6 +69,18 @@ Deno.serve(async (req: Request) => {
 
     if (!subject || !message) {
       throw new Error('Subject and message are required');
+    }
+
+    if (attachments && attachments.length > 0) {
+      const maxAttachmentSize = 40 * 1024 * 1024;
+      let totalSize = 0;
+
+      for (const attachment of attachments) {
+        totalSize += attachment.size;
+        if (totalSize > maxAttachmentSize) {
+          throw new Error('Total attachment size cannot exceed 40MB');
+        }
+      }
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -142,6 +162,14 @@ Deno.serve(async (req: Request) => {
       emailPayload.cc = cc_recipients;
     }
 
+    if (attachments && attachments.length > 0) {
+      emailPayload.attachments = attachments.map(att => ({
+        filename: att.filename,
+        content: att.content,
+        content_type: att.contentType,
+      }));
+    }
+
     console.log('Sending bulk email to:', recipients.length, 'recipients');
 
     const emailResponse = await fetch('https://api.resend.com/emails', {
@@ -183,10 +211,15 @@ Deno.serve(async (req: Request) => {
     });
 
     console.log('Creating staff message for tracking...');
+
+    const attachmentInfo = attachments && attachments.length > 0
+      ? ` with ${attachments.length} attachment${attachments.length > 1 ? 's' : ''}`
+      : '';
+
     const { data: staffMessageData, error: staffMessageError } = await supabase
       .from('staff_messages')
       .insert({
-        message: `Bulk email sent: "${subject}" to ${recipients.length} recipient${recipients.length > 1 ? 's' : ''}${yacht_name ? ` (${yacht_name})` : ''}`,
+        message: `Bulk email sent: "${subject}" to ${recipients.length} recipient${recipients.length > 1 ? 's' : ''}${yacht_name ? ` (${yacht_name})` : ''}${attachmentInfo}`,
         notification_type: 'bulk_email',
         created_by: user.id,
         email_subject: subject,

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { X, Mail, Loader2, Send } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Mail, Loader2, Send, Paperclip, FileIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface EmailComposeModalProps {
@@ -11,11 +11,20 @@ interface EmailComposeModalProps {
   allowRecipientSelection?: boolean;
 }
 
+interface Attachment {
+  filename: string;
+  content: string;
+  contentType: string;
+  size: number;
+}
+
 export function EmailComposeModal({ isOpen, onClose, recipients, ccRecipients = [], yachtName, allowRecipientSelection = false }: EmailComposeModalProps) {
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [selectedRecipients, setSelectedRecipients] = useState<Set<string>>(new Set());
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen && recipients.length > 0) {
@@ -43,6 +52,61 @@ export function EmailComposeModal({ isOpen, onClose, recipients, ccRecipients = 
     } else {
       setSelectedRecipients(new Set(recipients.map(r => r.email)));
     }
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const maxSize = 10 * 1024 * 1024;
+    const newAttachments: Attachment[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+
+      if (file.size > maxSize) {
+        alert(`File "${file.name}" is too large. Maximum size is 10MB.`);
+        continue;
+      }
+
+      try {
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result as string;
+            const base64Content = result.split(',')[1];
+            resolve(base64Content);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+
+        newAttachments.push({
+          filename: file.name,
+          content: base64,
+          contentType: file.type || 'application/octet-stream',
+          size: file.size,
+        });
+      } catch (error) {
+        console.error('Error reading file:', error);
+        alert(`Failed to read file "${file.name}"`);
+      }
+    }
+
+    setAttachments([...attachments, ...newAttachments]);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments(attachments.filter((_, i) => i !== index));
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
   const handleSend = async () => {
@@ -83,6 +147,7 @@ export function EmailComposeModal({ isOpen, onClose, recipients, ccRecipients = 
             subject,
             message,
             yacht_name: yachtName,
+            attachments: attachments.length > 0 ? attachments : undefined,
           }),
         }
       );
@@ -97,6 +162,7 @@ export function EmailComposeModal({ isOpen, onClose, recipients, ccRecipients = 
       setSubject('');
       setMessage('');
       setSelectedRecipients(new Set());
+      setAttachments([]);
     } catch (error) {
       console.error('Error sending email:', error);
       alert(error instanceof Error ? error.message : 'Failed to send email');
@@ -108,7 +174,7 @@ export function EmailComposeModal({ isOpen, onClose, recipients, ccRecipients = 
   const handleClose = () => {
     if (sending) return;
 
-    if (subject || message) {
+    if (subject || message || attachments.length > 0) {
       if (!confirm('Discard unsent email?')) {
         return;
       }
@@ -117,6 +183,7 @@ export function EmailComposeModal({ isOpen, onClose, recipients, ccRecipients = 
     setSubject('');
     setMessage('');
     setSelectedRecipients(new Set());
+    setAttachments([]);
     onClose();
   };
 
@@ -235,6 +302,58 @@ export function EmailComposeModal({ isOpen, onClose, recipients, ccRecipients = 
               disabled={sending}
               className="w-full px-4 py-3 bg-slate-900/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none resize-none disabled:opacity-50 disabled:cursor-not-allowed"
             />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-slate-300">
+                Attachments
+              </label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                onChange={handleFileSelect}
+                disabled={sending}
+                className="hidden"
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={sending}
+                className="flex items-center gap-2 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-sm rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Paperclip className="w-4 h-4" />
+                Add Files
+              </button>
+            </div>
+
+            {attachments.length > 0 && (
+              <div className="space-y-2">
+                {attachments.map((attachment, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center gap-3 p-3 bg-slate-900/50 border border-slate-700 rounded-lg"
+                  >
+                    <FileIcon className="w-5 h-5 text-blue-400 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-white truncate">
+                        {attachment.filename}
+                      </div>
+                      <div className="text-xs text-slate-400">
+                        {formatFileSize(attachment.size)}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => removeAttachment(index)}
+                      disabled={sending}
+                      className="text-slate-400 hover:text-red-400 transition-colors disabled:opacity-50"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="flex gap-3 pt-4">
