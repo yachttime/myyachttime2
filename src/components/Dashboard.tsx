@@ -11131,8 +11131,44 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                         </p>
                       </div>
                     ) : (
-                      <div className="space-y-4">
-                        {repairRequests.filter(r => activeRepairTab === 'active' ? !r.archived : r.archived).map((request: any) => {
+                      <div className="space-y-6">
+                        {(() => {
+                          const filteredRequests = repairRequests.filter(r => activeRepairTab === 'active' ? !r.archived : r.archived);
+
+                          const groupedByYacht = filteredRequests.reduce((acc: any, request: any) => {
+                            let groupKey: string;
+                            let groupLabel: string;
+
+                            if (request.customer_id && request.customers) {
+                              groupKey = 'walk-in-customers';
+                              groupLabel = 'Walk-In Customers';
+                            } else if (request.is_retail_customer) {
+                              groupKey = 'walk-in-customers-legacy';
+                              groupLabel = 'Walk-In Customers (Legacy)';
+                            } else {
+                              groupKey = request.yacht_id || 'unknown';
+                              groupLabel = request.yachts?.name || 'Unknown Yacht';
+                            }
+
+                            if (!acc[groupKey]) {
+                              acc[groupKey] = {
+                                label: groupLabel,
+                                requests: []
+                              };
+                            }
+                            acc[groupKey].requests.push(request);
+                            return acc;
+                          }, {});
+
+                          return Object.entries(groupedByYacht).map(([groupKey, group]: [string, any]) => (
+                            <div key={groupKey} className="space-y-4">
+                              <div className="bg-slate-700/30 backdrop-blur-sm rounded-xl px-4 py-3 border border-slate-600">
+                                <h4 className="text-lg font-bold text-orange-400">{group.label}</h4>
+                                <p className="text-slate-400 text-sm">{group.requests.length} request{group.requests.length !== 1 ? 's' : ''}</p>
+                              </div>
+
+                              <div className="space-y-4">
+                                {group.requests.map((request: any) => {
                           const invoice = repairInvoices[request.id];
                           return (
                             <div key={request.id} className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700">
@@ -11753,7 +11789,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               </div>
                             </div>
                           );
-                        })}
+                                })}
+                              </div>
+                            </div>
+                          ));
+                        })()}
                       </div>
                     )}
                   </div>
