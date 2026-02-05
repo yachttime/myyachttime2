@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useRoleImpersonation } from '../contexts/RoleImpersonationContext';
-import { Users, Plus, X, Ship, FileText, Wrench, DollarSign, Search, Edit2, Trash2 } from 'lucide-react';
+import { Users, Plus, X, Ship, FileText, Wrench, DollarSign, Search, Edit2, Trash2, Calendar } from 'lucide-react';
 
 interface Customer {
   id: string;
@@ -61,6 +61,18 @@ export default function CustomerManagement() {
   const [customerVessels, setCustomerVessels] = useState<Vessel[]>([]);
   const [customerHistory, setCustomerHistory] = useState<CustomerHistory | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [showMeetingAppointment, setShowMeetingAppointment] = useState(false);
+  const [meetingAppointmentLoading, setMeetingAppointmentLoading] = useState(false);
+
+  const [meetingForm, setMeetingForm] = useState({
+    person_name: '',
+    email: '',
+    phone: '',
+    secondary_phone: '',
+    date: '',
+    time: '',
+    notes: '',
+  });
 
   const [newCustomer, setNewCustomer] = useState({
     customer_type: 'individual' as 'individual' | 'business',
@@ -285,6 +297,49 @@ export default function CustomerManagement() {
     return `${customer.first_name} ${customer.last_name}`;
   };
 
+  const handleMeetingAppointmentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+
+    setMeetingAppointmentLoading(true);
+
+    try {
+      const appointmentData = {
+        date: meetingForm.date,
+        time: meetingForm.time,
+        customer_name: meetingForm.person_name,
+        customer_email: meetingForm.email || null,
+        customer_phone: meetingForm.phone || null,
+        notes: meetingForm.notes || null,
+        yacht_name: null,
+        created_by: user.id
+      };
+
+      const { error } = await supabase
+        .from('appointments')
+        .insert(appointmentData);
+
+      if (error) throw error;
+
+      alert('Meeting appointment created successfully!');
+      setShowMeetingAppointment(false);
+      setMeetingForm({
+        person_name: '',
+        email: '',
+        phone: '',
+        secondary_phone: '',
+        date: '',
+        time: '',
+        notes: '',
+      });
+    } catch (error) {
+      console.error('Error creating meeting appointment:', error);
+      alert('Failed to create meeting appointment');
+    } finally {
+      setMeetingAppointmentLoading(false);
+    }
+  };
+
   if (!userProfile || !effectiveRole || !['staff', 'mechanic', 'master', 'manager'].includes(effectiveRole)) {
     return (
       <div className="p-8 text-center">
@@ -309,13 +364,22 @@ export default function CustomerManagement() {
             <Users className="w-8 h-8 text-blue-600" />
             <h1 className="text-3xl font-bold text-gray-900">Customer Management</h1>
           </div>
-          <button
-            onClick={() => setShowAddCustomer(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            <Plus className="w-5 h-5" />
-            Add Customer
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowMeetingAppointment(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
+            >
+              <Calendar className="w-5 h-5" />
+              Meeting Appointment
+            </button>
+            <button
+              onClick={() => setShowAddCustomer(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              <Plus className="w-5 h-5" />
+              Add Customer
+            </button>
+          </div>
         </div>
 
         <div className="relative">
@@ -1023,6 +1087,129 @@ export default function CustomerManagement() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showMeetingAppointment && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Calendar className="w-7 h-7 text-teal-600" />
+                <h2 className="text-2xl font-bold text-gray-900">Schedule Meeting with Potential Client</h2>
+              </div>
+              <button onClick={() => setShowMeetingAppointment(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <form onSubmit={handleMeetingAppointmentSubmit} className="p-6 space-y-4">
+              <div className="bg-teal-50 border border-teal-200 rounded-lg p-4 mb-4">
+                <p className="text-sm text-gray-700">
+                  Schedule a meeting with a potential client who doesn't have a yacht yet. This creates an appointment without requiring yacht information.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Person Name *</label>
+                <input
+                  type="text"
+                  value={meetingForm.person_name}
+                  onChange={(e) => setMeetingForm({ ...meetingForm, person_name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                  required
+                  placeholder="John Doe or Company Name"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                  <input
+                    type="email"
+                    value={meetingForm.email}
+                    onChange={(e) => setMeetingForm({ ...meetingForm, email: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                    placeholder="email@example.com"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone *</label>
+                  <input
+                    type="tel"
+                    value={meetingForm.phone}
+                    onChange={(e) => setMeetingForm({ ...meetingForm, phone: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                    required
+                    placeholder="(555) 123-4567"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Secondary Phone</label>
+                <input
+                  type="tel"
+                  value={meetingForm.secondary_phone}
+                  onChange={(e) => setMeetingForm({ ...meetingForm, secondary_phone: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                  placeholder="(555) 987-6543"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Meeting Date *</label>
+                  <input
+                    type="date"
+                    value={meetingForm.date}
+                    onChange={(e) => setMeetingForm({ ...meetingForm, date: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 [color-scheme:light]"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Meeting Time *</label>
+                  <input
+                    type="time"
+                    value={meetingForm.time}
+                    onChange={(e) => setMeetingForm({ ...meetingForm, time: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 [color-scheme:light]"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Meeting Notes</label>
+                <textarea
+                  value={meetingForm.notes}
+                  onChange={(e) => setMeetingForm({ ...meetingForm, notes: e.target.value })}
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                  placeholder="Purpose of meeting, topics to discuss, etc."
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setShowMeetingAppointment(false)}
+                  className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium"
+                  disabled={meetingAppointmentLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={meetingAppointmentLoading}
+                >
+                  {meetingAppointmentLoading ? 'Scheduling...' : 'Schedule Meeting'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
