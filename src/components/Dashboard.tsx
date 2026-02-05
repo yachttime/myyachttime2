@@ -1696,11 +1696,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         type: 'yacht_owner' | 'walk_in';
       }> = [];
 
-      // Load yacht owners
+      // Load yacht owners and managers
       const { data: yachtOwners, error: ownersError } = await supabase
         .from('user_profiles')
         .select('user_id, first_name, last_name, phone, email')
-        .eq('role', 'owner')
+        .in('role', ['owner', 'manager'])
         .eq('is_active', true);
 
       if (ownersError) throw ownersError;
