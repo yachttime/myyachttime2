@@ -147,8 +147,16 @@ Deno.serve(async (req: Request) => {
     const buttonColorHover = tokenData.action_type === 'approve' ? '#059669' : '#b91c1c';
     const siteUrl = Deno.env.get('SITE_URL') || 'https://myyachttime.vercel.app';
 
+    // Use meta refresh to force redirect out of Gmail iframe
+    const yachtName = repairRequest?.yachts?.name || repairRequest?.retail_customer_name || 'Unknown';
+    const title = repairRequest?.title || 'Repair Request';
+    const description = repairRequest?.description || 'No description provided';
+    const estimatedCost = repairRequest?.estimated_cost
+      ? `$${parseFloat(repairRequest.estimated_cost).toFixed(2)}`
+      : 'Not specified';
+
     return new Response(
-      generateSuccessPage(action, actionColor, buttonColor, buttonColorHover, repairRequest, siteUrl),
+      generateSuccessPageWithRedirect(action, actionColor, buttonColor, buttonColorHover, yachtName, title, description, estimatedCost, siteUrl),
       {
         status: 200,
         headers: {
@@ -175,6 +183,154 @@ Deno.serve(async (req: Request) => {
     );
   }
 });
+
+function generateSuccessPageWithRedirect(action: string, color: string, buttonColor: string, buttonColorHover: string, yachtName: string, title: string, description: string, estimatedCost: string, siteUrl: string): string {
+  const approvalMessage = action === 'Approved'
+    ? 'Your approval has been recorded. The team will proceed with the repair work.'
+    : 'Your denial has been recorded. The team has been notified and will not proceed with this work.';
+
+  const icon = action === 'Approved' ? '&#10003;' : '&#10007;';
+  const messageBackground = action === 'Approved' ? '#d1fae5' : '#fee2e2';
+  const messageColor = action === 'Approved' ? '#065f46' : '#991b1b';
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${action} - MyYachtTime</title>
+  <script>
+    // Break out of iframe if we're in one
+    if (window.top !== window.self) {
+      window.top.location.href = window.location.href;
+    }
+  </script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+      margin: 0;
+      padding: 20px;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .container {
+      max-width: 600px;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      padding: 40px;
+      text-align: center;
+    }
+    .icon {
+      font-size: 64px;
+      margin-bottom: 20px;
+    }
+    h1 {
+      color: ${color};
+      margin: 0 0 10px 0;
+      font-size: 32px;
+    }
+    .subtitle {
+      color: #666;
+      font-size: 16px;
+      margin-bottom: 30px;
+    }
+    .details {
+      background: #f9fafb;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 20px 0;
+      text-align: left;
+    }
+    .detail-row {
+      margin-bottom: 15px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .detail-row:last-child {
+      margin-bottom: 0;
+      padding-bottom: 0;
+      border-bottom: none;
+    }
+    .detail-label {
+      font-weight: bold;
+      color: #374151;
+      font-size: 14px;
+      display: block;
+      margin-bottom: 5px;
+    }
+    .detail-value {
+      color: #6b7280;
+      font-size: 16px;
+      word-wrap: break-word;
+    }
+    .detail-value.cost {
+      font-size: 24px;
+      color: #059669;
+      font-weight: bold;
+    }
+    p {
+      color: #666;
+      line-height: 1.6;
+      margin: 15px 0;
+    }
+    .success-message {
+      background: ${messageBackground};
+      color: ${messageColor};
+      padding: 15px;
+      border-radius: 8px;
+      margin: 20px 0;
+      font-weight: 500;
+    }
+    .button {
+      display: inline-block;
+      background: ${buttonColor};
+      color: white;
+      padding: 12px 30px;
+      text-decoration: none;
+      border-radius: 6px;
+      font-weight: bold;
+      margin-top: 20px;
+      transition: background 0.3s;
+    }
+    .button:hover {
+      background: ${buttonColorHover};
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="icon">${icon}</div>
+    <h1>Request ${action}</h1>
+    <p class="subtitle">The repair request has been ${action.toLowerCase()}</p>
+    <div class="details">
+      <div class="detail-row">
+        <span class="detail-label">Yacht/Customer</span>
+        <span class="detail-value">${yachtName}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Request Title</span>
+        <span class="detail-value">${title}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Description</span>
+        <span class="detail-value">${description}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Estimated Cost</span>
+        <span class="detail-value cost">${estimatedCost}</span>
+      </div>
+    </div>
+    <div class="success-message">${approvalMessage}</div>
+    <p>You can now close this window or visit MyYachtTime to view more details.</p>
+    <a href="${siteUrl}" class="button">Go to MyYachtTime</a>
+  </div>
+</body>
+</html>`;
+}
 
 function generateSuccessPage(action: string, color: string, buttonColor: string, buttonColorHover: string, repairRequest: any, siteUrl: string): string {
   const yachtName = repairRequest?.yachts?.name || repairRequest?.retail_customer_name || 'Unknown';
