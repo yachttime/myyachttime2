@@ -435,7 +435,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [repairSuccess, setRepairSuccess] = useState(false);
   const [repairError, setRepairError] = useState('');
   const [repairRequests, setRepairRequests] = useState<RepairRequest[]>([]);
-  const [activeRepairTab, setActiveRepairTab] = useState<'active' | 'archived'>('active');
+  const [activeRepairTab, setActiveRepairTab] = useState<'active' | 'paid' | 'archived'>('active');
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [approvalAction, setApprovalAction] = useState<{ requestId: string; status: 'approved' | 'rejected' } | null>(null);
   const [approvalNotes, setApprovalNotes] = useState('');
@@ -11192,7 +11192,17 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               : 'bg-slate-800/50 text-slate-400 hover:bg-slate-700'
                           }`}
                         >
-                          Active ({repairRequests.filter(r => !r.archived).length})
+                          Active ({repairRequests.filter(r => !r.archived && (!repairInvoices[r.id] || repairInvoices[r.id]?.payment_status !== 'paid')).length})
+                        </button>
+                        <button
+                          onClick={() => setActiveRepairTab('paid')}
+                          className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+                            activeRepairTab === 'paid'
+                              ? 'bg-orange-500 text-white'
+                              : 'bg-slate-800/50 text-slate-400 hover:bg-slate-700'
+                          }`}
+                        >
+                          Paid ({repairRequests.filter(r => !r.archived && repairInvoices[r.id]?.payment_status === 'paid').length})
                         </button>
                         <button
                           onClick={() => setActiveRepairTab('archived')}
@@ -11207,16 +11217,32 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       </div>
                     </div>
 
-                    {repairRequests.filter(r => activeRepairTab === 'active' ? !r.archived : r.archived).length === 0 ? (
+                    {repairRequests.filter(r => {
+                      if (activeRepairTab === 'active') {
+                        return !r.archived && (!repairInvoices[r.id] || repairInvoices[r.id]?.payment_status !== 'paid');
+                      } else if (activeRepairTab === 'paid') {
+                        return !r.archived && repairInvoices[r.id]?.payment_status === 'paid';
+                      } else {
+                        return r.archived;
+                      }
+                    }).length === 0 ? (
                       <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-8 border border-slate-700 text-center">
                         <p className="text-slate-400">
-                          {activeRepairTab === 'active' ? 'No active repair requests' : 'No archived repair requests'}
+                          {activeRepairTab === 'active' ? 'No active repair requests' : activeRepairTab === 'paid' ? 'No paid repair requests' : 'No archived repair requests'}
                         </p>
                       </div>
                     ) : (
                       <div className="space-y-6">
                         {(() => {
-                          const filteredRequests = repairRequests.filter(r => activeRepairTab === 'active' ? !r.archived : r.archived);
+                          const filteredRequests = repairRequests.filter(r => {
+                            if (activeRepairTab === 'active') {
+                              return !r.archived && (!repairInvoices[r.id] || repairInvoices[r.id]?.payment_status !== 'paid');
+                            } else if (activeRepairTab === 'paid') {
+                              return !r.archived && repairInvoices[r.id]?.payment_status === 'paid';
+                            } else {
+                              return r.archived;
+                            }
+                          });
 
                           const groupedByYacht = filteredRequests.reduce((acc: any, request: any) => {
                             let groupKey: string;
