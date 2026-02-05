@@ -15878,40 +15878,99 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     <label className="block text-sm font-medium text-slate-300 mb-2">
                       Customer
                     </label>
-                    <select
-                      value={appointmentForm.customerId}
-                      onChange={(e) => {
-                        const selectedId = e.target.value;
-                        const customer = allCustomers.find(c => c.id === selectedId);
-                        if (customer) {
-                          setAppointmentForm({
-                            ...appointmentForm,
-                            customerId: selectedId,
-                            name: customer.name,
-                            phone: customer.phone || '',
-                            email: customer.email || ''
-                          });
-                        } else {
-                          setAppointmentForm({
-                            ...appointmentForm,
-                            customerId: '',
-                            name: '',
-                            phone: '',
-                            email: ''
-                          });
-                        }
-                      }}
-                      className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent text-white cursor-pointer"
-                      required
-                    >
-                      <option value="">Select a customer...</option>
-                      {allCustomers.map(customer => (
-                        <option key={customer.id} value={customer.id}>
-                          {customer.name} {customer.phone ? `- ${customer.phone}` : ''}
-                        </option>
-                      ))}
-                    </select>
+                    {appointmentForm.useExistingCustomer ? (
+                      <div className="space-y-2">
+                        <select
+                          value={appointmentForm.customerId}
+                          onChange={(e) => {
+                            const selectedId = e.target.value;
+                            const customer = allCustomers.find(c => c.id === selectedId);
+                            if (customer) {
+                              setAppointmentForm({
+                                ...appointmentForm,
+                                customerId: selectedId,
+                                name: customer.name,
+                                phone: customer.phone || '',
+                                email: customer.email || ''
+                              });
+                            } else {
+                              setAppointmentForm({
+                                ...appointmentForm,
+                                customerId: '',
+                                name: '',
+                                phone: '',
+                                email: ''
+                              });
+                            }
+                          }}
+                          className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent text-white cursor-pointer"
+                          required
+                        >
+                          <option value="">Select a customer...</option>
+                          {allCustomers.map(customer => (
+                            <option key={customer.id} value={customer.id}>
+                              {customer.name} {customer.phone ? `- ${customer.phone}` : ''}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => setAppointmentForm({ ...appointmentForm, useExistingCustomer: false, customerId: '', name: '', phone: '', email: '' })}
+                          className="text-sm text-pink-400 hover:text-pink-300"
+                        >
+                          + Create new customer
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <input
+                          type="text"
+                          value={appointmentForm.name}
+                          onChange={(e) => setAppointmentForm({ ...appointmentForm, name: e.target.value })}
+                          className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent text-white"
+                          placeholder="Enter customer name"
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setAppointmentForm({ ...appointmentForm, useExistingCustomer: true })}
+                          className="text-sm text-pink-400 hover:text-pink-300"
+                        >
+                          ← Use existing customer
+                        </button>
+                      </div>
+                    )}
                   </div>
+
+                  {!appointmentForm.useExistingCustomer && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">
+                          Phone
+                        </label>
+                        <input
+                          type="tel"
+                          value={appointmentForm.phone}
+                          onChange={(e) => setAppointmentForm({ ...appointmentForm, phone: e.target.value })}
+                          className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent text-white"
+                          placeholder="Enter phone number"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">
+                          Email
+                        </label>
+                        <input
+                          type="email"
+                          value={appointmentForm.email}
+                          onChange={(e) => setAppointmentForm({ ...appointmentForm, email: e.target.value })}
+                          className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent text-white"
+                          placeholder="Enter email address"
+                        />
+                      </div>
+                    </>
+                  )}
 
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">
