@@ -3845,13 +3845,20 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     try {
       if (!user) return;
 
-      const { data, error } = await supabase
+      let messagesQuery = supabase
         .from('staff_messages')
         .select(`
           *,
           user_profiles:created_by (first_name, last_name, email)
         `)
         .order('created_at', { ascending: false });
+
+      // Filter by yacht for managers (but not master, staff, or mechanic)
+      if (isManagerRole(effectiveRole) && effectiveYacht && !isMasterRole(effectiveRole) && !isStaffRole(effectiveRole)) {
+        messagesQuery = messagesQuery.eq('yacht_id', effectiveYacht.id);
+      }
+
+      const { data, error } = await messagesQuery;
 
       if (error) throw error;
 
