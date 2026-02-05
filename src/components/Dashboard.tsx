@@ -4352,7 +4352,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         name: appointmentForm.name,
         phone: appointmentForm.phone,
         email: appointmentForm.email,
-        yacht_name: appointmentForm.yacht_id,
+        yacht_id: appointmentForm.yacht_id,
         problem_description: appointmentForm.problem_description,
         created_by: user.id
       };
@@ -4366,7 +4366,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           ? `${userProfile.first_name} ${userProfile.last_name}`
           : 'Staff';
 
-        const selectedYacht = allYachts.find(y => y.name.toLowerCase() === appointmentForm.yacht_id.toLowerCase());
+        const selectedYacht = allYachts.find(y => y.id === appointmentForm.yacht_id);
 
         if (selectedYacht) {
           await logYachtActivity(
@@ -4384,7 +4384,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             yacht_id: selectedYacht.id,
             notification_type: 'appointment',
             reference_id: appointment.id,
-            message: `New appointment scheduled: ${appointmentForm.name} for ${appointmentForm.yacht_id} on ${appointmentForm.date} at ${appointmentForm.time}. Issue: ${appointmentForm.problem_description}`,
+            message: `New appointment scheduled: ${appointmentForm.name} for ${selectedYacht.name} on ${appointmentForm.date} at ${appointmentForm.time}. Issue: ${appointmentForm.problem_description}`,
           });
         }
 
@@ -13436,7 +13436,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 value={editAppointmentForm.customerId}
                                 onChange={(e) => {
                                   const selectedId = e.target.value;
-                                  const customer = appointmentCustomers.find(c => c.id === selectedId);
+                                  const customer = allCustomers.find(c => c.id === selectedId);
                                   if (customer) {
                                     setEditAppointmentForm({
                                       ...editAppointmentForm,
@@ -13459,7 +13459,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 required
                               >
                                 <option value="">Select a customer...</option>
-                                {appointmentCustomers.map(customer => (
+                                {allCustomers.map(customer => (
                                   <option key={customer.id} value={customer.id}>
                                     {customer.name} {customer.phone ? `- ${customer.phone}` : ''}
                                   </option>
@@ -13678,7 +13678,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                         <div>
                           <label className="block text-sm font-medium text-slate-300 mb-2">
-                            Yacht / Customer Type
+                            Yacht
                           </label>
                           <select
                             value={appointmentForm.yacht_id}
@@ -13686,11 +13686,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent cursor-pointer"
                             required
                           >
-                            <option value="">Select option...</option>
-                            <option value="Yacht Owner">Yacht Owner</option>
-                            <option value="Walk-in Customer">Walk-in Customer</option>
+                            <option value="">Select a yacht...</option>
                             {allYachts.map(yacht => (
-                              <option key={yacht.id} value={yacht.name}>
+                              <option key={yacht.id} value={yacht.id}>
                                 {yacht.name}
                               </option>
                             ))}
@@ -15669,46 +15667,46 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Customer Name
+                      Customer
                     </label>
-                    <input
-                      type="text"
-                      value={appointmentForm.name}
-                      onChange={(e) => setAppointmentForm({ ...appointmentForm, name: e.target.value })}
-                      className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent text-white"
+                    <select
+                      value={appointmentForm.customerId}
+                      onChange={(e) => {
+                        const selectedId = e.target.value;
+                        const customer = allCustomers.find(c => c.id === selectedId);
+                        if (customer) {
+                          setAppointmentForm({
+                            ...appointmentForm,
+                            customerId: selectedId,
+                            name: customer.name,
+                            phone: customer.phone || '',
+                            email: customer.email || ''
+                          });
+                        } else {
+                          setAppointmentForm({
+                            ...appointmentForm,
+                            customerId: '',
+                            name: '',
+                            phone: '',
+                            email: ''
+                          });
+                        }
+                      }}
+                      className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent text-white cursor-pointer"
                       required
-                    />
+                    >
+                      <option value="">Select a customer...</option>
+                      {allCustomers.map(customer => (
+                        <option key={customer.id} value={customer.id}>
+                          {customer.name} {customer.phone ? `- ${customer.phone}` : ''}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Phone Number
-                    </label>
-                    <input
-                      type="tel"
-                      value={appointmentForm.phone}
-                      onChange={(e) => setAppointmentForm({ ...appointmentForm, phone: e.target.value })}
-                      className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent text-white"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Email Address
-                    </label>
-                    <input
-                      type="email"
-                      value={appointmentForm.email}
-                      onChange={(e) => setAppointmentForm({ ...appointmentForm, email: e.target.value })}
-                      className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent text-white"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Yacht / Customer Type
+                      Yacht
                     </label>
                     <select
                       value={appointmentForm.yacht_id}
@@ -15716,11 +15714,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent text-white cursor-pointer"
                       required
                     >
-                      <option value="">Select option...</option>
-                      <option value="Yacht Owner">Yacht Owner</option>
-                      <option value="Walk-in Customer">Walk-in Customer</option>
+                      <option value="">Select a yacht...</option>
                       {allYachts.map(yacht => (
-                        <option key={yacht.id} value={yacht.name}>
+                        <option key={yacht.id} value={yacht.id}>
                           {yacht.name}
                         </option>
                       ))}
