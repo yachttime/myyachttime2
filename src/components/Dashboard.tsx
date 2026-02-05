@@ -12760,7 +12760,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                       )}
                                       {isCompleted && (
                                         <div className="mt-3 text-center text-xs bg-green-500/10 border border-green-500/20 rounded-lg py-2 px-3">
-                                          <span className="text-green-400 font-semibold">✓ Dealt with</span>
+                                          <span className="text-green-400 font-semibold">✓ Task Complete</span>
                                           <span className="text-slate-400"> on {new Date(msg.completed_at).toLocaleDateString()} at {new Date(msg.completed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                           {msg.completed_by_profile && (
                                             <span className="text-slate-400"> by {msg.completed_by_profile.first_name} {msg.completed_by_profile.last_name}</span>
@@ -12952,7 +12952,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                             {isCompleted && (
                               <div className="mt-4 text-center text-xs bg-green-500/10 border border-green-500/20 rounded-lg py-2 px-3">
-                                <span className="text-green-400 font-semibold">✓ Dealt with</span>
+                                <span className="text-green-400 font-semibold">✓ Task Complete</span>
                                 <span className="text-slate-400"> on {new Date(msg.completed_at).toLocaleDateString()} at {new Date(msg.completed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                 {msg.completed_by_profile && (
                                   <span className="text-slate-400"> by {msg.completed_by_profile.first_name} {msg.completed_by_profile.last_name}</span>
