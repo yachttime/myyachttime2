@@ -65,14 +65,14 @@ Deno.serve(async (req: Request) => {
       throw new Error('This feature is only for retail customer repair requests');
     }
 
-    // Check if user has access (staff/manager/mechanic only)
+    // Check if user has access (staff/manager/mechanic/master only)
     const { data: profile } = await supabase
       .from('user_profiles')
       .select('role, first_name, last_name')
       .eq('user_id', user.id)
       .single();
 
-    const hasAccess = profile?.role === 'staff' || profile?.role === 'manager' || profile?.role === 'mechanic';
+    const hasAccess = profile?.role === 'staff' || profile?.role === 'manager' || profile?.role === 'mechanic' || profile?.role === 'master';
 
     if (!hasAccess) {
       throw new Error('Unauthorized to send estimate emails');
