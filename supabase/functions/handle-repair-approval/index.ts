@@ -128,20 +128,23 @@ Deno.serve(async (req: Request) => {
     }
 
     // Fetch repair request details for display
+    // Note: For retail customers, yacht_id may be null, so we use a left join
     const { data: repairRequest, error: fetchError } = await supabaseAdmin
       .from('repair_requests')
       .select(`
         title,
         description,
         estimated_cost,
+        estimated_repair_cost,
         retail_customer_name,
+        is_retail_customer,
         yacht_id,
-        yachts!repair_requests_yacht_id_fkey (
+        yachts (
           name
         )
       `)
       .eq('id', tokenData.repair_request_id)
-      .single();
+      .maybeSingle();
 
     if (fetchError) {
       console.error('Error fetching repair request:', fetchError);
@@ -155,24 +158,27 @@ Deno.serve(async (req: Request) => {
     const buttonColorHover = tokenData.action_type === 'approve' ? '#059669' : '#b91c1c';
     const siteUrl = Deno.env.get('SITE_URL') || 'https://myyachttime.vercel.app';
 
-    // Extract yacht name - handle both array and object responses
-    let yachtName = 'Unknown';
-    if (repairRequest?.retail_customer_name) {
-      yachtName = repairRequest.retail_customer_name;
+    // Extract customer/yacht name - handle both retail customers and yacht owners
+    let displayName = 'Unknown';
+    if (repairRequest?.is_retail_customer && repairRequest?.retail_customer_name) {
+      displayName = repairRequest.retail_customer_name;
     } else if (repairRequest?.yachts) {
       // Handle if yachts is an array or object
       const yachtsData = Array.isArray(repairRequest.yachts) ? repairRequest.yachts[0] : repairRequest.yachts;
-      yachtName = yachtsData?.name || 'Unknown';
+      displayName = yachtsData?.name || 'Unknown';
     }
 
     const title = repairRequest?.title || 'Repair Request';
     const description = repairRequest?.description || 'No description provided';
-    const estimatedCost = repairRequest?.estimated_cost
-      ? `$${parseFloat(repairRequest.estimated_cost).toFixed(2)}`
+
+    // Use estimated_repair_cost for retail customers, estimated_cost for yacht owners
+    const costValue = repairRequest?.estimated_repair_cost || repairRequest?.estimated_cost;
+    const estimatedCost = costValue
+      ? `$${parseFloat(costValue).toFixed(2)}`
       : 'Not specified';
 
     return new Response(
-      generateSuccessPageWithRedirect(action, actionColor, buttonColor, buttonColorHover, yachtName, title, description, estimatedCost, siteUrl),
+      generateSuccessPageWithRedirect(action, actionColor, buttonColor, buttonColorHover, displayName, title, description, estimatedCost, siteUrl),
       {
         status: 200,
         headers: {
