@@ -3275,10 +3275,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       }
 
       await loadRepairRequests();
-      alert('Payment link generated successfully!');
+      showSuccess('Payment link generated successfully!');
     } catch (error: any) {
       console.error('Error generating payment link:', error);
-      alert(`Error: ${error.message || 'Failed to generate payment link'}`);
+      showError(`Error: ${error.message || 'Failed to generate payment link'}`);
     } finally {
       setPaymentLinkLoading({ ...paymentLinkLoading, [invoice.id]: false });
     }
@@ -3314,10 +3314,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       }
 
       await loadRepairRequests();
-      alert('Payment link deleted successfully! You can now edit the invoice and generate a new payment link.');
+      showSuccess('Payment link deleted successfully! You can now edit the invoice and generate a new payment link');
     } catch (error: any) {
       console.error('Error deleting payment link:', error);
-      alert(`Error: ${error.message || 'Failed to delete payment link'}`);
+      showError(`Error: ${error.message || 'Failed to delete payment link'}`);
     } finally {
       setDeletePaymentLinkLoading({ ...deletePaymentLinkLoading, [invoice.id]: false });
     }
@@ -3347,13 +3347,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       if (result.success) {
         await loadRepairRequests();
-        alert(result.message || 'Payment status synced successfully!');
+        showSuccess(result.message || 'Payment status synced successfully!');
       } else {
-        alert(result.message || 'Payment not yet completed in Stripe');
+        showError(result.message || 'Payment not yet completed in Stripe');
       }
     } catch (error: any) {
       console.error('Error syncing payment status:', error);
-      alert(`Error: ${error.message || 'Failed to sync payment status'}`);
+      showError(`Error: ${error.message || 'Failed to sync payment status'}`);
     } finally {
       setSyncPaymentLoading({ ...syncPaymentLoading, [invoice.id]: false });
     }
@@ -3405,10 +3405,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       }
 
       await loadRepairRequests();
-      alert('Payment link regenerated successfully! The new link is ready to use.');
+      showSuccess('Payment link regenerated successfully! The new link is ready to use');
     } catch (error: any) {
       console.error('Error regenerating payment link:', error);
-      alert(`Error: ${error.message || 'Failed to regenerate payment link'}`);
+      showError(`Error: ${error.message || 'Failed to regenerate payment link'}`);
     } finally {
       setPaymentLinkLoading({ ...paymentLinkLoading, [invoice.id]: false });
     }
@@ -3477,7 +3477,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           setSelectedInvoiceForEmail(null);
           setEmailRecipient('');
           setEmailRecipientName('');
-          alert('⚠️ Email Service Not Configured\n\nThe email was not sent because Resend API is not set up.\n\nTo enable email sending:\n1. Sign up at resend.com\n2. Get your API key from the dashboard\n3. In Supabase dashboard, go to Edge Functions\n4. Add RESEND_API_KEY as a secret\n\nFor now, please copy the payment link and send it manually.');
+          showError('Email service not configured. Please copy the payment link and send it manually');
           return;
         }
         throw new Error(result.error || 'Failed to send email');
@@ -3491,10 +3491,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       await loadChatMessages();
       await loadRepairRequests();
 
-      alert('✓ Payment link email sent successfully!');
+      showSuccess('Payment link email sent successfully!');
     } catch (error: any) {
       console.error('Error sending payment email:', error);
-      alert(`Error sending email: ${error.message || 'Unknown error occurred'}`);
+      showError(`Error sending email: ${error.message || 'Unknown error occurred'}`);
     } finally {
       setSendingEmail(false);
     }
@@ -3553,13 +3553,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       }
 
       await loadRepairRequests();
-      alert('Deposit payment link generated successfully!');
+      showSuccess('Deposit payment link generated successfully!');
       setShowDepositModal(false);
       setSelectedRepairForDeposit(null);
       setDepositForm({ deposit_amount: '', recipient_email: '', recipient_name: '' });
     } catch (error: any) {
       console.error('Error generating deposit link:', error);
-      alert(`Error: ${error.message || 'Failed to generate deposit link'}`);
+      showError(`Error: ${error.message || 'Failed to generate deposit link'}`);
     } finally {
       setDepositLoading(false);
     }
@@ -3622,12 +3622,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       const sendResult = await sendResponse.json();
       if (!sendResult.success) {
         if (sendResult.error?.includes('Email service not configured')) {
-          alert('⚠️ Email Service Not Configured\n\nDeposit link created but email was not sent.\n\nTo enable email sending:\n1. Sign up at resend.com\n2. Get your API key\n3. Add RESEND_API_KEY as a secret in Supabase\n\nFor now, please copy the deposit link and send it manually.');
+          showError('Email service not configured. Deposit link created but email was not sent');
         } else {
           throw new Error(sendResult.error || 'Failed to send email');
         }
       } else {
-        alert('✓ Deposit request email sent successfully!');
+        showSuccess('Deposit request email sent successfully!');
       }
 
       await loadRepairRequests();
@@ -3636,7 +3636,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       setDepositForm({ deposit_amount: '', recipient_email: '', recipient_name: '' });
     } catch (error: any) {
       console.error('Error sending deposit request:', error);
-      alert(`Error: ${error.message || 'Failed to send deposit request'}`);
+      showError(`Error: ${error.message || 'Failed to send deposit request'}`);
     } finally {
       setDepositLoading(false);
     }
@@ -3689,7 +3689,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           setSelectedRepairForEstimateEmail(null);
           setEstimateEmailRecipient('');
           setEstimateEmailRecipientName('');
-          alert('⚠️ Email Service Not Configured\n\nThe email was not sent because Resend API is not set up.\n\nTo enable email sending:\n1. Sign up at resend.com\n2. Get your API key from the dashboard\n3. In Supabase dashboard, go to Edge Functions\n4. Add RESEND_API_KEY as a secret\n\nFor now, please contact the customer directly.');
+          showError('Email service not configured. Please contact the customer directly');
           return;
         }
         throw new Error(result.error || 'Failed to send email');
@@ -3702,10 +3702,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       await loadRepairRequests();
 
-      alert('✓ Estimate email sent successfully to customer!');
+      showSuccess('Estimate email sent successfully to customer!');
     } catch (error: any) {
       console.error('Error sending estimate email:', error);
-      alert(`Error sending email: ${error.message || 'Unknown error occurred'}`);
+      showError(`Error sending email: ${error.message || 'Unknown error occurred'}`);
     } finally {
       setSendingEstimateEmail(false);
     }
