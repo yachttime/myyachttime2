@@ -3,6 +3,7 @@ import { Anchor, Calendar, CheckCircle, AlertCircle, BookOpen, LogOut, Wrench, S
 import { useAuth } from '../contexts/AuthContext';
 import { useRoleImpersonation } from '../contexts/RoleImpersonationContext';
 import { useYachtImpersonation } from '../contexts/YachtImpersonationContext';
+import { useNotification } from '../contexts/NotificationContext';
 import { supabase, YachtBooking, MaintenanceRequest, EducationVideo, TripInspection, ConditionRating, InspectionType, RepairRequest, OwnerChatMessage, YachtHistoryLog, OwnerHandoffInspection, YachtDocument, YachtInvoice, YachtBudget, AdminNotification, StaffMessage, Appointment, Yacht, UserProfile, VesselManagementAgreement, logYachtActivity, isStaffRole, isManagerRole, isStaffOrManager, isMasterRole, isOwnerRole, canManageUsers, canManageYacht, canAccessAllYachts } from '../lib/supabase';
 import { InspectionPDFView } from './InspectionPDFView';
 import { OwnerHandoffPDFView } from './OwnerHandoffPDFView';
@@ -29,6 +30,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const { user, userProfile, yacht, signOut, refreshProfile } = useAuth();
   const { impersonatedRole, setImpersonatedRole, getEffectiveRole, isImpersonating } = useRoleImpersonation();
   const { impersonatedYacht, setImpersonatedYacht, getEffectiveYacht, isImpersonatingYacht } = useYachtImpersonation();
+  const { showSuccess, showError } = useNotification();
 
   const effectiveRole = getEffectiveRole(userProfile?.role);
   const effectiveYacht = getEffectiveYacht(yacht, userProfile?.role);
@@ -1216,7 +1218,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       setEditingThumbnails({});
     } catch (error) {
       console.error('Error saving videos:', error);
-      alert('Failed to save changes');
+      showError('Failed to save changes');
     }
   };
 
@@ -1239,7 +1241,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       }
     } catch (error) {
       console.error('Error deleting video:', error);
-      alert('Failed to delete video');
+      showError('Failed to delete video');
     }
   };
 
@@ -1341,10 +1343,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       }
 
       await loadUsers();
-      alert('User deactivated successfully.');
+      showSuccess('User deactivated successfully');
     } catch (error: any) {
       console.error('Error deactivating user:', error);
-      alert('Failed to deactivate user: ' + (error.message || 'Unknown error'));
+      showError('Failed to deactivate user: ' + (error.message || 'Unknown error'));
     }
   };
 
@@ -2479,10 +2481,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       if (error) throw error;
 
       await loadRepairRequests();
-      alert(currentArchived ? 'Repair request unarchived' : 'Repair request archived');
+      showSuccess(currentArchived ? 'Repair request unarchived' : 'Repair request archived');
     } catch (error) {
       console.error('Error toggling archive status:', error);
-      alert('Failed to update archive status');
+      showError('Failed to update archive status');
     }
   };
 
@@ -3414,9 +3416,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text).then(() => {
-      alert('Copied to clipboard!');
+      showSuccess('Copied to clipboard!');
     }).catch((err) => {
       console.error('Failed to copy:', err);
+      showError('Failed to copy to clipboard');
     });
   };
 
@@ -4059,7 +4062,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     if (!activeBooking || !user || !yacht) return;
 
     if (!isWithinBookingPeriod(activeBooking)) {
-      alert('You can only check in during your scheduled booking period.');
+      showError('You can only check in during your scheduled booking period');
       return;
     }
 
@@ -4089,7 +4092,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       if (msgError) {
         console.error('Error inserting check-in notification:', msgError);
-        alert('Warning: Check-in recorded but notification failed to send. Please refresh the page.');
+        showError('Warning: Check-in recorded but notification failed to send. Please refresh the page');
       }
 
       await logYachtActivity(
@@ -4111,7 +4114,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     if (!activeBooking || !user || !yacht) return;
 
     if (!isWithinBookingPeriod(activeBooking)) {
-      alert('You can only check out during your scheduled booking period.');
+      showError('You can only check out during your scheduled booking period');
       return;
     }
 
@@ -4141,7 +4144,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       if (msgError) {
         console.error('Error inserting check-out notification:', msgError);
-        alert('Warning: Check-out recorded but notification failed to send. Please refresh the page.');
+        showError('Warning: Check-out recorded but notification failed to send. Please refresh the page');
       }
 
       await logYachtActivity(
