@@ -1202,19 +1202,24 @@ function TimeOffRequestModal({ onClose, onSuccess }: { onClose: () => void; onSu
         hoursTaken = (endMinutes - startMinutes) / 60;
       }
 
+      const payload = {
+        user_id: user?.id,
+        start_date: formData.start_date,
+        end_date: formData.end_date,
+        start_time: hasStartTime ? formData.start_time : null,
+        end_time: hasEndTime ? formData.end_time : null,
+        is_partial_day: isPartialDay === true,
+        hours_taken: hoursTaken,
+        time_off_type: formData.time_off_type,
+        reason: formData.reason && formData.reason.trim() ? formData.reason : null
+      };
+
+      console.log('Submitting time off request:', payload);
+      console.log('isPartialDay type:', typeof isPartialDay, 'value:', isPartialDay);
+
       const { error: insertError } = await supabase
         .from('staff_time_off_requests')
-        .insert({
-          user_id: user?.id,
-          start_date: formData.start_date,
-          end_date: formData.end_date,
-          start_time: hasStartTime ? formData.start_time : null,
-          end_time: hasEndTime ? formData.end_time : null,
-          is_partial_day: isPartialDay,
-          hours_taken: hoursTaken,
-          time_off_type: formData.time_off_type,
-          reason: formData.reason && formData.reason.trim() ? formData.reason : null
-        });
+        .insert(payload);
 
       if (insertError) {
         console.error('Database error:', insertError);
