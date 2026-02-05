@@ -1191,7 +1191,7 @@ function TimeOffRequestModal({ onClose, onSuccess }: { onClose: () => void; onSu
       setSubmitting(true);
 
       const isSameDay = formData.start_date === formData.end_date;
-      const isPartialDay = isSameDay && hasStartTime && hasEndTime;
+      const isPartialDay = Boolean(isSameDay && hasStartTime && hasEndTime);
       let hoursTaken: number | null = null;
 
       if (isPartialDay) {
