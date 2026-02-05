@@ -2424,7 +2424,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       const { data: request, error: fetchError } = await supabase
         .from('repair_requests')
-        .select('yacht_id, title, submitted_by')
+        .select('yacht_id, title, submitted_by, is_retail_customer')
         .eq('id', requestId)
         .single();
 
@@ -2462,20 +2462,22 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           ? `${userProfile.first_name} ${userProfile.last_name}`
           : userProfile?.email || user.email || 'Staff';
 
-        const ownerMessage = `Repair Request ${statusText === 'approved' ? 'Approved' : 'Denied'}: ${request.title}\n\n${statusEmoji} This repair request has been ${statusText} by ${userName}.${notes ? `\n\nNotes: ${notes}` : ''}`;
+        if (!request.is_retail_customer && request.yacht_id) {
+          const ownerMessage = `Repair Request ${statusText === 'approved' ? 'Approved' : 'Denied'}: ${request.title}\n\n${statusEmoji} This repair request has been ${statusText} by ${userName}.${notes ? `\n\nNotes: ${notes}` : ''}`;
 
-        try {
-          const { error: chatError } = await supabase.from('owner_chat_messages').insert({
-            yacht_id: request.yacht_id,
-            user_id: user.id,
-            message: ownerMessage
-          });
+          try {
+            const { error: chatError } = await supabase.from('owner_chat_messages').insert({
+              yacht_id: request.yacht_id,
+              user_id: user.id,
+              message: ownerMessage
+            });
 
-          if (chatError) {
+            if (chatError) {
+              console.error('Error creating owner chat message:', chatError);
+            }
+          } catch (chatError) {
             console.error('Error creating owner chat message:', chatError);
           }
-        } catch (chatError) {
-          console.error('Error creating owner chat message:', chatError);
         }
       }
 
