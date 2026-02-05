@@ -97,7 +97,7 @@ Deno.serve(async (req: Request) => {
       .eq('token', token);
 
     // Update the repair request status
-    const newStatus = tokenData.action_type === 'approve' ? 'approved' : 'denied';
+    const newStatus = tokenData.action_type === 'approve' ? 'approved' : 'rejected';
     const { error: updateError } = await supabaseAdmin
       .from('repair_requests')
       .update({ status: newStatus })
