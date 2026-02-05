@@ -407,14 +407,26 @@ export interface StaffMessage {
 
 export interface Appointment {
   id: string;
-  yacht_id?: string;
-  yacht_name?: string;
-  title: string;
-  description?: string;
-  start_date: string;
-  end_date: string;
+  date: string;
+  time: string;
+  name: string;
+  phone: string;
+  email: string;
+  yacht_id: string;
+  problem_description: string;
+  created_by: string;
   created_at: string;
   updated_at: string;
+  yachts?: {
+    name: string;
+  };
+  start_date?: string;
+  end_date?: string;
+  owner_name?: string;
+  owner_contact?: string;
+  departure_time?: string;
+  arrival_time?: string;
+  is_appointment?: boolean;
 }
 
 export type AgreementStatus = 'draft' | 'pending_approval' | 'approved' | 'rejected' | 'expired';

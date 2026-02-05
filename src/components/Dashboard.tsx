@@ -522,7 +522,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     phone: '',
     email: '',
     yacht_name: '',
-    problem_description: ''
+    problem_description: '',
+    customerId: '',
+    yachtId: ''
   });
   const [editAppointmentLoading, setEditAppointmentLoading] = useState(false);
   const [editAppointmentError, setEditAppointmentError] = useState('');
@@ -3908,11 +3910,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       let appointmentsQuery = supabase
         .from('appointments')
-        .select('*')
+        .select('*, yachts:yacht_id (name)')
         .order('date', { ascending: false });
 
       if ((effectiveRole === 'manager' || effectiveRole === 'owner') && effectiveYacht) {
-        appointmentsQuery = appointmentsQuery.eq('yacht_name', effectiveYacht.name);
+        appointmentsQuery = appointmentsQuery.eq('yacht_id', effectiveYacht.id);
       }
 
       const { data: appointmentsData, error: appointmentsError } = await appointmentsQuery;
@@ -3934,7 +3936,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         departure_time: apt.time,
         arrival_time: apt.time,
         is_appointment: true,
-        yachts: { name: apt.yacht_name }
+        yachts: apt.yachts
       }));
 
       const combinedData = [...(bookingsData || []), ...formattedAppointments];
@@ -4446,7 +4448,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       phone: appointment.owner_contact || '',
       email: appointment.email || '',
       yacht_name: appointment.yachts?.name || '',
-      problem_description: appointment.problem_description || ''
+      problem_description: appointment.problem_description || '',
+      customerId: '',
+      yachtId: appointment.yacht_id || ''
     });
   };
 
@@ -4488,7 +4492,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           name: editAppointmentForm.name,
           phone: editAppointmentForm.phone,
           email: editAppointmentForm.email,
-          yacht_name: editAppointmentForm.yacht_name,
+          yacht_id: editAppointmentForm.yachtId,
           problem_description: editAppointmentForm.problem_description
         })
         .eq('id', editingAppointment.id);
@@ -4499,7 +4503,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         ? `${userProfile.first_name} ${userProfile.last_name}`
         : userProfile?.email || 'Unknown';
 
-      const selectedYacht = allYachts.find(y => y.name.toLowerCase() === editAppointmentForm.yacht_name.toLowerCase());
+      const selectedYacht = allYachts.find(y => y.id === editAppointmentForm.yachtId);
       if (selectedYacht) {
         await logYachtActivity(
           selectedYacht.id,
@@ -13427,46 +13431,64 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           <h3 className="text-xl font-bold mb-4">Edit Appointment</h3>
                           <form onSubmit={handleUpdateAppointment} className="space-y-4">
                             <div>
-                              <label className="block text-sm font-medium mb-2">Customer Name</label>
-                              <input
-                                type="text"
-                                value={editAppointmentForm.name}
-                                onChange={(e) => setEditAppointmentForm({ ...editAppointmentForm, name: e.target.value })}
+                              <label className="block text-sm font-medium mb-2">Customer</label>
+                              <select
+                                value={editAppointmentForm.customerId}
+                                onChange={(e) => {
+                                  const selectedId = e.target.value;
+                                  const customer = appointmentCustomers.find(c => c.id === selectedId);
+                                  if (customer) {
+                                    setEditAppointmentForm({
+                                      ...editAppointmentForm,
+                                      customerId: selectedId,
+                                      name: customer.name,
+                                      phone: customer.phone || '',
+                                      email: customer.email || ''
+                                    });
+                                  } else {
+                                    setEditAppointmentForm({
+                                      ...editAppointmentForm,
+                                      customerId: '',
+                                      name: '',
+                                      phone: '',
+                                      email: ''
+                                    });
+                                  }
+                                }}
                                 className="w-full px-4 py-2 bg-slate-900/50 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 text-white"
                                 required
-                              />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <label className="block text-sm font-medium mb-2">Phone</label>
-                                <input
-                                  type="tel"
-                                  value={editAppointmentForm.phone}
-                                  onChange={(e) => setEditAppointmentForm({ ...editAppointmentForm, phone: formatPhoneNumber(e.target.value) })}
-                                  className="w-full px-4 py-2 bg-slate-900/50 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 text-white"
-                                  required
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-sm font-medium mb-2">Email</label>
-                                <input
-                                  type="email"
-                                  value={editAppointmentForm.email}
-                                  onChange={(e) => setEditAppointmentForm({ ...editAppointmentForm, email: e.target.value })}
-                                  className="w-full px-4 py-2 bg-slate-900/50 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 text-white"
-                                  required
-                                />
-                              </div>
+                              >
+                                <option value="">Select a customer...</option>
+                                {appointmentCustomers.map(customer => (
+                                  <option key={customer.id} value={customer.id}>
+                                    {customer.name} {customer.phone ? `- ${customer.phone}` : ''}
+                                  </option>
+                                ))}
+                              </select>
                             </div>
                             <div>
                               <label className="block text-sm font-medium mb-2">Yacht</label>
-                              <input
-                                type="text"
-                                value={editAppointmentForm.yacht_name}
-                                onChange={(e) => setEditAppointmentForm({ ...editAppointmentForm, yacht_name: e.target.value })}
+                              <select
+                                value={editAppointmentForm.yachtId}
+                                onChange={(e) => {
+                                  const selectedYachtId = e.target.value;
+                                  const yacht = yachts.find(y => y.id === selectedYachtId);
+                                  setEditAppointmentForm({
+                                    ...editAppointmentForm,
+                                    yachtId: selectedYachtId,
+                                    yacht_name: yacht?.name || ''
+                                  });
+                                }}
                                 className="w-full px-4 py-2 bg-slate-900/50 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 text-white"
                                 required
-                              />
+                              >
+                                <option value="">Select a yacht...</option>
+                                {yachts.map(yacht => (
+                                  <option key={yacht.id} value={yacht.id}>
+                                    {yacht.name}
+                                  </option>
+                                ))}
+                              </select>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                               <div>
