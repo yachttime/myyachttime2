@@ -239,6 +239,38 @@ Deno.serve(async (req: Request) => {
       console.log('Staff message created successfully:', staffMessageData);
     }
 
+    // If yacht_name is provided, also save to owner_chat_messages so it appears in owner chat
+    if (yacht_name) {
+      console.log('Saving message to owner chat for yacht:', yacht_name);
+
+      // Get yacht_id from yacht name
+      const { data: yachtData, error: yachtError } = await supabase
+        .from('yachts')
+        .select('id')
+        .eq('name', yacht_name)
+        .single();
+
+      if (yachtError) {
+        console.error('Error finding yacht:', yachtError);
+      } else if (yachtData) {
+        const chatMessage = `Email Sent: ${subject}\n\n${message}`;
+
+        const { error: chatError } = await supabase
+          .from('owner_chat_messages')
+          .insert({
+            yacht_id: yachtData.id,
+            user_id: user.id,
+            message: chatMessage,
+          });
+
+        if (chatError) {
+          console.error('Error saving to owner chat:', chatError);
+        } else {
+          console.log('Message saved to owner chat successfully');
+        }
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
