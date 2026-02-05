@@ -2507,12 +2507,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       if (fetchError) {
         console.error('Fetch error:', fetchError);
-        alert(`Database error: ${fetchError.message}`);
+        showError(`Database error: ${fetchError.message}`);
         return;
       }
 
       if (!request) {
-        alert('Repair request not found');
+        showError('Repair request not found');
         return;
       }
 
@@ -2532,19 +2532,19 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       if (managersError) {
         console.error('Managers error:', managersError);
-        alert(`Error fetching managers: ${managersError.message}`);
+        showError(`Error fetching managers: ${managersError.message}`);
         return;
       }
 
       if (!managers || managers.length === 0) {
-        alert('No managers found for this yacht');
+        showError('No managers found for this yacht');
         return;
       }
 
       const managersWithEmail = managers.filter(m => m.email);
 
       if (managersWithEmail.length === 0) {
-        alert('No managers with email addresses found');
+        showError('No managers with email addresses found');
         return;
       }
 
@@ -2576,7 +2576,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       if (!response.ok) {
         const errorText = await response.text();
         console.error('API error:', errorText);
-        alert(`API error (${response.status}): ${errorText}`);
+        showError(`API error (${response.status}): ${errorText}`);
         return;
       }
 
@@ -2584,6 +2584,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       console.log('API result:', result);
 
       if (result.success) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+
         let message = `Notification email successfully resent to ${result.successCount} manager(s)`;
 
         if (result.failCount && result.failCount > 0) {
@@ -2593,14 +2595,14 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           });
         }
 
-        alert(message);
+        showSuccess(message);
         await loadRepairRequests();
       } else {
-        alert(`Failed to resend notification: ${result.error || 'Unknown error'}`);
+        showError(`Failed to resend notification: ${result.error || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Error resending notification:', error);
-      alert(`Error: ${error instanceof Error ? error.message : 'Failed to resend notification email'}`);
+      showError(`Error: ${error instanceof Error ? error.message : 'Failed to resend notification email'}`);
     }
   };
 
