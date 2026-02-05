@@ -16061,6 +16061,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         recipients={yachtOwnersEmailData?.owners || []}
         ccRecipients={[]}
         yachtName={yachtOwnersEmailData?.yacht?.name || ''}
+        allowRecipientSelection={true}
       />
       </main>
     </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Mail, Loader2, Send } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
@@ -8,18 +8,55 @@ interface EmailComposeModalProps {
   recipients: Array<{ email: string; name: string }>;
   ccRecipients?: string[];
   yachtName?: string;
+  allowRecipientSelection?: boolean;
 }
 
-export function EmailComposeModal({ isOpen, onClose, recipients, ccRecipients = [], yachtName }: EmailComposeModalProps) {
+export function EmailComposeModal({ isOpen, onClose, recipients, ccRecipients = [], yachtName, allowRecipientSelection = false }: EmailComposeModalProps) {
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
+  const [selectedRecipients, setSelectedRecipients] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (isOpen && recipients.length > 0) {
+      if (allowRecipientSelection) {
+        setSelectedRecipients(new Set(recipients.map(r => r.email)));
+      }
+    }
+  }, [isOpen, recipients, allowRecipientSelection]);
 
   if (!isOpen) return null;
+
+  const toggleRecipient = (email: string) => {
+    const newSelected = new Set(selectedRecipients);
+    if (newSelected.has(email)) {
+      newSelected.delete(email);
+    } else {
+      newSelected.add(email);
+    }
+    setSelectedRecipients(newSelected);
+  };
+
+  const toggleAll = () => {
+    if (selectedRecipients.size === recipients.length) {
+      setSelectedRecipients(new Set());
+    } else {
+      setSelectedRecipients(new Set(recipients.map(r => r.email)));
+    }
+  };
 
   const handleSend = async () => {
     if (!subject.trim() || !message.trim()) {
       alert('Please enter both subject and message');
+      return;
+    }
+
+    const finalRecipients = allowRecipientSelection
+      ? recipients.filter(r => selectedRecipients.has(r.email))
+      : recipients;
+
+    if (finalRecipients.length === 0) {
+      alert('Please select at least one recipient');
       return;
     }
 
@@ -41,7 +78,7 @@ export function EmailComposeModal({ isOpen, onClose, recipients, ccRecipients = 
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            recipients: recipients.map(r => r.email),
+            recipients: finalRecipients.map(r => r.email),
             cc_recipients: ccRecipients,
             subject,
             message,
@@ -55,10 +92,11 @@ export function EmailComposeModal({ isOpen, onClose, recipients, ccRecipients = 
         throw new Error(error.error || 'Failed to send emails');
       }
 
-      alert(`Email sent successfully to ${recipients.length} recipient${recipients.length > 1 ? 's' : ''}!`);
+      alert(`Email sent successfully to ${finalRecipients.length} recipient${finalRecipients.length > 1 ? 's' : ''}!`);
       onClose();
       setSubject('');
       setMessage('');
+      setSelectedRecipients(new Set());
     } catch (error) {
       console.error('Error sending email:', error);
       alert(error instanceof Error ? error.message : 'Failed to send email');
@@ -78,6 +116,7 @@ export function EmailComposeModal({ isOpen, onClose, recipients, ccRecipients = 
 
     setSubject('');
     setMessage('');
+    setSelectedRecipients(new Set());
     onClose();
   };
 
@@ -100,17 +139,59 @@ export function EmailComposeModal({ isOpen, onClose, recipients, ccRecipients = 
 
         <div className="p-6 space-y-4">
           <div className="bg-slate-900/50 rounded-lg p-4 border border-slate-700">
-            <p className="text-sm text-slate-400 mb-2">Recipients:</p>
-            <div className="flex flex-wrap gap-2">
-              {recipients.map((recipient, index) => (
-                <div
-                  key={index}
-                  className="bg-blue-500/20 text-blue-300 px-3 py-1 rounded-full text-sm border border-blue-500/30"
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm text-slate-400">
+                Recipients: {allowRecipientSelection && `(${selectedRecipients.size} of ${recipients.length} selected)`}
+              </p>
+              {allowRecipientSelection && recipients.length > 1 && (
+                <button
+                  onClick={toggleAll}
+                  disabled={sending}
+                  className="text-xs text-cyan-400 hover:text-cyan-300 font-medium transition-colors disabled:opacity-50"
                 >
-                  {recipient.name} ({recipient.email})
-                </div>
-              ))}
+                  {selectedRecipients.size === recipients.length ? 'Deselect All' : 'Select All'}
+                </button>
+              )}
             </div>
+
+            {allowRecipientSelection ? (
+              <div className="space-y-2">
+                {recipients.map((recipient, index) => (
+                  <label
+                    key={index}
+                    className={`flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer ${
+                      selectedRecipients.has(recipient.email)
+                        ? 'bg-blue-500/20 border-blue-500/50 text-blue-300'
+                        : 'bg-slate-800/50 border-slate-700 text-slate-300 hover:border-slate-600'
+                    } ${sending ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedRecipients.has(recipient.email)}
+                      onChange={() => toggleRecipient(recipient.email)}
+                      disabled={sending}
+                      className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-blue-500 focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+                    />
+                    <div className="flex-1">
+                      <div className="font-medium">{recipient.name}</div>
+                      <div className="text-xs text-slate-400">{recipient.email}</div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {recipients.map((recipient, index) => (
+                  <div
+                    key={index}
+                    className="bg-blue-500/20 text-blue-300 px-3 py-1 rounded-full text-sm border border-blue-500/30"
+                  >
+                    {recipient.name} ({recipient.email})
+                  </div>
+                ))}
+              </div>
+            )}
+
             {ccRecipients.length > 0 && (
               <>
                 <p className="text-sm text-slate-400 mt-3 mb-2">CC:</p>
@@ -166,7 +247,12 @@ export function EmailComposeModal({ isOpen, onClose, recipients, ccRecipients = 
             </button>
             <button
               onClick={handleSend}
-              disabled={sending || !subject.trim() || !message.trim()}
+              disabled={
+                sending ||
+                !subject.trim() ||
+                !message.trim() ||
+                (allowRecipientSelection && selectedRecipients.size === 0)
+              }
               className="flex-1 px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {sending ? (
@@ -177,7 +263,9 @@ export function EmailComposeModal({ isOpen, onClose, recipients, ccRecipients = 
               ) : (
                 <>
                   <Send className="w-5 h-5" />
-                  Send Email
+                  {allowRecipientSelection && selectedRecipients.size > 0
+                    ? `Send to ${selectedRecipients.size} Recipient${selectedRecipients.size > 1 ? 's' : ''}`
+                    : 'Send Email'}
                 </>
               )}
             </button>
