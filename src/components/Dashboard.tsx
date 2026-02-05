@@ -121,9 +121,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const isWithinBookingPeriod = (booking: YachtBooking | null): boolean => {
     if (!booking) return false;
     const now = new Date();
-    const start = new Date(booking.start_date);
-    const end = new Date(booking.end_date);
-    return now >= start && now <= end;
+    const nowMST = new Date(now.toLocaleString('en-US', { timeZone: 'America/Denver' }));
+    const start = new Date(new Date(booking.start_date).toLocaleString('en-US', { timeZone: 'America/Denver' }));
+    const end = new Date(new Date(booking.end_date).toLocaleString('en-US', { timeZone: 'America/Denver' }));
+    return nowMST >= start && nowMST <= end;
   };
 
   const [waterLevelData, setWaterLevelData] = useState<{elevation: string; date: string} | null>(null);
@@ -175,7 +176,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                 day: 'numeric',
                 year: 'numeric',
                 hour: 'numeric',
-                minute: '2-digit'
+                minute: '2-digit',
+                timeZone: 'America/Denver',
               })
             });
           }
@@ -4074,7 +4076,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         : user.email;
 
       const now = new Date();
-      const checkInMessage = `Check-In Alert: ${userName} checked in to ${yacht.name} on ${now.toLocaleDateString()} at ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+      const checkInMessage = `Check-In Alert: ${userName} checked in to ${yacht.name} on ${now.toLocaleDateString('en-US', { timeZone: 'America/Denver' })} at ${now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Denver' })} MST`;
 
       const { error: msgError } = await supabase
         .from('admin_notifications')
@@ -4093,7 +4095,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       await logYachtActivity(
         yacht.id,
         yacht.name,
-        `${userName} checked in at ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+        `${userName} checked in at ${now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Denver' })} MST`,
         user.id,
         userName
       );
@@ -4126,7 +4128,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         : user.email;
 
       const now = new Date();
-      const checkOutMessage = `Check-Out Alert: ${userName} checked out from ${yacht.name} on ${now.toLocaleDateString()} at ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+      const checkOutMessage = `Check-Out Alert: ${userName} checked out from ${yacht.name} on ${now.toLocaleDateString('en-US', { timeZone: 'America/Denver' })} at ${now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Denver' })} MST`;
 
       const { error: msgError } = await supabase
         .from('admin_notifications')
@@ -4145,7 +4147,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       await logYachtActivity(
         yacht.id,
         yacht.name,
-        `${userName} checked out at ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+        `${userName} checked out at ${now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Denver' })} MST`,
         user.id,
         userName
       );
@@ -4677,6 +4679,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       weekday: 'short',
       month: 'short',
       day: 'numeric',
+      timeZone: 'America/Denver',
     });
   };
 
@@ -4686,6 +4689,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       hour: 'numeric',
       minute: '2-digit',
       hour12: true,
+      timeZone: 'America/Denver',
     });
   };
 
