@@ -765,6 +765,30 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     };
   }, [user]);
 
+  // Set up realtime subscription for repair_requests to track status changes
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('repair_requests_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'repair_requests',
+        },
+        () => {
+          loadRepairRequests();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [user]);
+
   // Set up realtime subscription for staff_messages to track new bulk emails and updates
   useEffect(() => {
     if (!user) return;
