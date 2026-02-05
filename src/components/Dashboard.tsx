@@ -5175,7 +5175,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             </button>
           )}
 
-          {isStaffOrManager(effectiveRole) && (
+          {isStaffRole(effectiveRole) && (
             <button
               onClick={() => {
                 setActiveTabPersisted('customers');
