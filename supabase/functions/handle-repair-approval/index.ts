@@ -126,10 +126,12 @@ Deno.serve(async (req: Request) => {
 
     const action = tokenData.action_type === 'approve' ? 'Approved' : 'Denied';
     const actionColor = tokenData.action_type === 'approve' ? '#10b981' : '#ef4444';
-    const siteUrl = Deno.env.get('SITE_URL') || 'https://yourdomain.com';
+    const buttonColor = tokenData.action_type === 'approve' ? '#10b981' : '#dc2626';
+    const buttonColorHover = tokenData.action_type === 'approve' ? '#059669' : '#b91c1c';
+    const siteUrl = Deno.env.get('SITE_URL') || 'https://myyachttime.vercel.app';
 
     return new Response(
-      generateSuccessPage(action, actionColor, repairRequest?.title || 'Repair Request', siteUrl),
+      generateSuccessPage(action, actionColor, buttonColor, buttonColorHover, repairRequest?.title || 'Repair Request', siteUrl),
       {
         status: 200,
         headers: {
@@ -153,7 +155,7 @@ Deno.serve(async (req: Request) => {
   }
 });
 
-function generateSuccessPage(action: string, color: string, title: string, siteUrl: string): string {
+function generateSuccessPage(action: string, color: string, buttonColor: string, buttonColorHover: string, title: string, siteUrl: string): string {
   return `
     <!DOCTYPE html>
     <html>
@@ -204,7 +206,7 @@ function generateSuccessPage(action: string, color: string, title: string, siteU
         }
         .button {
           display: inline-block;
-          background: #dc2626;
+          background: ${buttonColor};
           color: white;
           padding: 12px 30px;
           text-decoration: none;
@@ -214,7 +216,7 @@ function generateSuccessPage(action: string, color: string, title: string, siteU
           transition: background 0.3s;
         }
         .button:hover {
-          background: #b91c1c;
+          background: ${buttonColorHover};
         }
       </style>
     </head>
@@ -294,7 +296,7 @@ function generateErrorPage(title: string, message: string): string {
         <div class="icon">⚠️</div>
         <h1>${title}</h1>
         <p>${message}</p>
-        <a href="${Deno.env.get('SITE_URL') || 'https://yourdomain.com'}" class="button">Go to MyYachtTime</a>
+        <a href="${Deno.env.get('SITE_URL') || 'https://myyachttime.vercel.app'}" class="button">Go to MyYachtTime</a>
       </div>
     </body>
     </html>
