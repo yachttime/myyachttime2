@@ -326,6 +326,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     }
   });
   const [allYachts, setAllYachts] = useState<Yacht[]>([]);
+  const [allCustomers, setAllCustomers] = useState<Array<{
+    id: string;
+    name: string;
+    phone: string | null;
+    email: string | null;
+    type: 'yacht_owner' | 'walk_in';
+  }>>([]);
   const [selectedYachtForHandoff, setSelectedYachtForHandoff] = useState<string>('');
   const [selectedMechanicForHandoff, setSelectedMechanicForHandoff] = useState<string>('');
   const [handoffForm, setHandoffForm] = useState({
@@ -499,7 +506,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     email: '',
     yacht_id: '',
     problem_description: '',
-    createRepairRequest: false
+    createRepairRequest: false,
+    customerId: '',
+    useExistingCustomer: true
   });
   const [appointmentLoading, setAppointmentLoading] = useState(false);
   const [appointmentSuccess, setAppointmentSuccess] = useState(false);
@@ -1669,8 +1678,75 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       if (error) throw error;
       setCustomers(data || []);
+
+      // Also load combined customer list for appointments
+      await loadAllCustomersForAppointments();
     } catch (error) {
       console.error('Error loading customers:', error);
+    }
+  };
+
+  const loadAllCustomersForAppointments = async () => {
+    try {
+      const combinedCustomers: Array<{
+        id: string;
+        name: string;
+        phone: string | null;
+        email: string | null;
+        type: 'yacht_owner' | 'walk_in';
+      }> = [];
+
+      // Load yacht owners
+      const { data: yachtOwners, error: ownersError } = await supabase
+        .from('user_profiles')
+        .select('user_id, first_name, last_name, phone, email')
+        .eq('role', 'owner')
+        .eq('is_active', true);
+
+      if (ownersError) throw ownersError;
+
+      if (yachtOwners) {
+        yachtOwners.forEach(owner => {
+          combinedCustomers.push({
+            id: owner.user_id,
+            name: `${owner.first_name} ${owner.last_name}`.trim(),
+            phone: owner.phone || null,
+            email: owner.email || null,
+            type: 'yacht_owner'
+          });
+        });
+      }
+
+      // Load walk-in customers
+      const { data: walkInCustomers, error: customersError } = await supabase
+        .from('customers')
+        .select('id, customer_type, first_name, last_name, business_name, phone, email')
+        .eq('is_active', true);
+
+      if (customersError) throw customersError;
+
+      if (walkInCustomers) {
+        walkInCustomers.forEach(customer => {
+          const name = customer.customer_type === 'business'
+            ? customer.business_name
+            : `${customer.first_name} ${customer.last_name}`.trim();
+
+          combinedCustomers.push({
+            id: customer.id,
+            name: name || 'Unnamed Customer',
+            phone: customer.phone || null,
+            email: customer.email || null,
+            type: 'walk_in'
+          });
+        });
+      }
+
+      // Sort by name
+      combinedCustomers.sort((a, b) => a.name.localeCompare(b.name));
+
+      setAllCustomers(combinedCustomers);
+    } catch (error) {
+      console.error('Error loading all customers for appointments:', error);
     }
   };
 
@@ -13498,13 +13574,58 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           <label className="block text-sm font-medium text-slate-300 mb-2">
                             Customer Name
                           </label>
-                          <input
-                            type="text"
-                            value={appointmentForm.name}
-                            onChange={(e) => setAppointmentForm({ ...appointmentForm, name: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                            required
-                          />
+                          {appointmentForm.useExistingCustomer ? (
+                            <div className="space-y-2">
+                              <select
+                                value={appointmentForm.customerId}
+                                onChange={(e) => {
+                                  const customerId = e.target.value;
+                                  const customer = allCustomers.find(c => c.id === customerId);
+                                  setAppointmentForm({
+                                    ...appointmentForm,
+                                    customerId,
+                                    name: customer?.name || '',
+                                    phone: customer?.phone || '',
+                                    email: customer?.email || ''
+                                  });
+                                }}
+                                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent cursor-pointer"
+                                required
+                              >
+                                <option value="">Select existing customer...</option>
+                                {allCustomers.map(customer => (
+                                  <option key={customer.id} value={customer.id}>
+                                    {customer.name} {customer.type === 'yacht_owner' ? '(Yacht Owner)' : '(Walk-in)'}
+                                  </option>
+                                ))}
+                              </select>
+                              <button
+                                type="button"
+                                onClick={() => setAppointmentForm({ ...appointmentForm, useExistingCustomer: false, customerId: '', name: '', phone: '', email: '' })}
+                                className="text-sm text-orange-400 hover:text-orange-300"
+                              >
+                                + Add new customer
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              <input
+                                type="text"
+                                value={appointmentForm.name}
+                                onChange={(e) => setAppointmentForm({ ...appointmentForm, name: e.target.value })}
+                                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                placeholder="Enter customer name"
+                                required
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setAppointmentForm({ ...appointmentForm, useExistingCustomer: true })}
+                                className="text-sm text-orange-400 hover:text-orange-300"
+                              >
+                                ← Select from existing customers
+                              </button>
+                            </div>
+                          )}
                         </div>
 
                         <div>
