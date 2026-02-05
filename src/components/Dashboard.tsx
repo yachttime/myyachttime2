@@ -5176,7 +5176,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               </div>
             </div>
           </div>
-          <div className="text-xs font-semibold text-amber-500 bg-amber-500/10 px-2 py-1 rounded inline-block">v2026.02.01.A</div>
+          <div className="text-xs font-semibold text-amber-500 bg-amber-500/10 px-2 py-1 rounded inline-block">v2026.02.05.A</div>
         </div>
 
         {/* Navigation */}
@@ -16138,7 +16138,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       {/* Version Number - Fixed Bottom Right */}
       <div className="fixed bottom-4 right-4 text-slate-500 text-sm font-mono bg-slate-900/80 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-slate-700">
-        Version: 2026.02.01.A
+        Version: 2026.02.05.A
       </div>
 
       {/* QR Code Modal */}
