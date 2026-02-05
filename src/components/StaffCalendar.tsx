@@ -551,7 +551,7 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
     }
 
     if (hasPendingRequest) {
-      return 'bg-yellow-500 hover:bg-yellow-600';
+      return 'bg-amber-600 hover:bg-amber-700';
     }
 
     if (hasRejectedRequest) {
