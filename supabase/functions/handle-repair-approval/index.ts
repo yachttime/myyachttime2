@@ -77,6 +77,29 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // Check if ANY token for this repair request has already been used
+    const { data: existingTokens } = await supabase
+      .from('repair_request_approval_tokens')
+      .select('action_type, used_at')
+      .eq('repair_request_id', tokenData.repair_request_id)
+      .not('used_at', 'is', null);
+
+    if (existingTokens && existingTokens.length > 0) {
+      const usedAction = existingTokens[0].action_type === 'approve' ? 'approved' : 'denied';
+      return new Response(
+        generateErrorPage('Request Already Processed', `This repair request has already been ${usedAction}. Please check your email or log in to MyYachtTime for the current status.`),
+        {
+          status: 400,
+          headers: {
+            'Content-Type': 'text/html; charset=utf-8',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'X-Content-Type-Options': 'nosniff',
+            'Content-Disposition': 'inline',
+          },
+        }
+      );
+    }
+
     // Check if token has expired
     const expiresAt = new Date(tokenData.expires_at);
     if (expiresAt < new Date()) {
