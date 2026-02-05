@@ -220,12 +220,6 @@ function generateSuccessPageWithRedirect(action: string, color: string, buttonCo
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${action} - MyYachtTime</title>
-  <script>
-    // Break out of iframe if we're in one
-    if (window.top !== window.self) {
-      window.top.location.href = window.location.href;
-    }
-  </script>
   <style>
     body {
       font-family: Arial, sans-serif;
