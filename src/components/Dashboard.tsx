@@ -97,6 +97,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [bulkEmailRecipients, setBulkEmailRecipients] = useState<Array<{ email: string; name: string }>>([]);
   const [bulkEmailCcRecipients, setBulkEmailCcRecipients] = useState<string[]>([]);
   const [bulkEmailYachtName, setBulkEmailYachtName] = useState<string>('');
+  const [showYachtOwnersEmailModal, setShowYachtOwnersEmailModal] = useState(false);
+  const [yachtOwnersEmailData, setYachtOwnersEmailData] = useState<{ yacht: any; owners: Array<{ email: string; name: string }> } | null>(null);
 
   const convertTo12Hour = (time24: string): string => {
     if (!time24) return '';
@@ -1286,6 +1288,48 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       setOwnerCountsByYacht(ownerCounts);
     } catch (error) {
       console.error('Error loading users:', error);
+    }
+  };
+
+  const fetchYachtOwnersForEmail = async (yachtId: string, yachtData: any) => {
+    try {
+      const { data: owners, error } = await supabase
+        .from('user_profiles')
+        .select('first_name, last_name, email, notification_email, email_notifications_enabled')
+        .eq('yacht_id', yachtId)
+        .eq('role', 'owner')
+        .eq('is_active', true);
+
+      if (error) throw error;
+
+      if (!owners || owners.length === 0) {
+        showError('No active owners found for this yacht');
+        return;
+      }
+
+      const ownersWithEmails = owners
+        .filter(owner => {
+          const emailToUse = owner.notification_email || owner.email;
+          return emailToUse && emailToUse.trim() !== '';
+        })
+        .map(owner => ({
+          email: owner.notification_email || owner.email,
+          name: `${owner.first_name} ${owner.last_name}`
+        }));
+
+      if (ownersWithEmails.length === 0) {
+        showError('No owners with valid email addresses found');
+        return;
+      }
+
+      setYachtOwnersEmailData({
+        yacht: yachtData,
+        owners: ownersWithEmails
+      });
+      setShowYachtOwnersEmailModal(true);
+    } catch (error) {
+      console.error('Error fetching yacht owners:', error);
+      showError('Failed to load yacht owners');
     }
   };
 
@@ -12594,12 +12638,23 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                             <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 overflow-hidden">
                               <div className="bg-slate-900/50 border-b border-slate-700 px-6 py-4">
-                                <div className="flex items-center gap-3">
-                                  <Ship className="w-6 h-6 text-cyan-500" />
-                                  <h3 className="text-xl font-bold">{selectedData?.yacht?.name || 'Customer Pay Boats'}</h3>
-                                  <span className="ml-auto text-sm text-slate-400">
-                                    {selectedData?.messages.length} {selectedData?.messages.length === 1 ? 'message' : 'messages'}
-                                  </span>
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="flex items-center gap-3">
+                                    <Ship className="w-6 h-6 text-cyan-500" />
+                                    <h3 className="text-xl font-bold">{selectedData?.yacht?.name || 'Customer Pay Boats'}</h3>
+                                    <span className="text-sm text-slate-400">
+                                      {selectedData?.messages.length} {selectedData?.messages.length === 1 ? 'message' : 'messages'}
+                                    </span>
+                                  </div>
+                                  {selectedMessagesYachtId !== 'unknown' && (
+                                    <button
+                                      onClick={() => fetchYachtOwnersForEmail(selectedMessagesYachtId, selectedData?.yacht)}
+                                      className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-300"
+                                    >
+                                      <Mail className="w-4 h-4" />
+                                      Email Owners
+                                    </button>
+                                  )}
                                 </div>
                               </div>
 
@@ -15994,6 +16049,18 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         recipients={bulkEmailRecipients}
         ccRecipients={bulkEmailCcRecipients}
         yachtName={bulkEmailYachtName}
+      />
+
+      {/* Yacht Owners Email Modal */}
+      <EmailComposeModal
+        isOpen={showYachtOwnersEmailModal}
+        onClose={() => {
+          setShowYachtOwnersEmailModal(false);
+          setYachtOwnersEmailData(null);
+        }}
+        recipients={yachtOwnersEmailData?.owners || []}
+        ccRecipients={[]}
+        yachtName={yachtOwnersEmailData?.yacht?.name || ''}
       />
       </main>
     </div>

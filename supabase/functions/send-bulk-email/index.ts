@@ -49,8 +49,8 @@ Deno.serve(async (req: Request) => {
       .eq('user_id', user.id)
       .single();
 
-    if (!profile || !['staff', 'manager'].includes(profile.role)) {
-      throw new Error('Unauthorized: Only staff and managers can send bulk emails');
+    if (!profile || !['staff', 'manager', 'master', 'mechanic'].includes(profile.role)) {
+      throw new Error('Unauthorized: Only staff, mechanics, managers, and master users can send bulk emails');
     }
 
     const { recipients, cc_recipients, subject, message, yacht_name }: BulkEmailRequest = await req.json();
