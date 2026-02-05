@@ -3920,21 +3920,35 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
   const markStaffMessageComplete = async (messageId: string) => {
     try {
-      if (!user) return;
+      if (!user) {
+        console.error('No user found');
+        showError('You must be logged in to complete tasks');
+        return;
+      }
 
-      const { error } = await supabase
+      console.log('Marking message as complete:', messageId, 'User:', user.id, 'Role:', effectiveRole, 'Actual Role:', userProfile?.role);
+
+      const { data, error } = await supabase
         .from('staff_messages')
         .update({
           completed_by: user.id,
           completed_at: new Date().toISOString()
         })
-        .eq('id', messageId);
+        .eq('id', messageId)
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
 
+      console.log('Update successful:', data);
+
+      showSuccess('Task marked as complete');
       await loadStaffMessages();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error marking staff message as complete:', error);
+      showError(`Failed to mark task as complete: ${error.message || 'Unknown error'}`);
     }
   };
 
@@ -12516,7 +12530,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     >
                       Yacht Messages
                     </button>
-                    {isStaffRole(effectiveRole) && (
+                    {isStaffRole(userProfile?.role) && (
                       <button
                         onClick={() => setMessagesTab('staff')}
                         className={`flex-1 py-3 px-6 rounded-xl font-semibold transition-all duration-300 ${
