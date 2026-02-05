@@ -120,7 +120,14 @@ Deno.serve(async (req: Request) => {
     // Fetch repair request details for display
     const { data: repairRequest } = await supabaseAdmin
       .from('repair_requests')
-      .select('title, description')
+      .select(`
+        title,
+        description,
+        estimated_cost,
+        retail_customer_name,
+        yacht_id,
+        yachts(name)
+      `)
       .eq('id', tokenData.repair_request_id)
       .single();
 
@@ -131,7 +138,7 @@ Deno.serve(async (req: Request) => {
     const siteUrl = Deno.env.get('SITE_URL') || 'https://myyachttime.vercel.app';
 
     return new Response(
-      generateSuccessPage(action, actionColor, buttonColor, buttonColorHover, repairRequest?.title || 'Repair Request', siteUrl),
+      generateSuccessPage(action, actionColor, buttonColor, buttonColorHover, repairRequest, siteUrl),
       {
         status: 200,
         headers: {
@@ -155,7 +162,14 @@ Deno.serve(async (req: Request) => {
   }
 });
 
-function generateSuccessPage(action: string, color: string, buttonColor: string, buttonColorHover: string, title: string, siteUrl: string): string {
+function generateSuccessPage(action: string, color: string, buttonColor: string, buttonColorHover: string, repairRequest: any, siteUrl: string): string {
+  const yachtName = repairRequest?.yachts?.name || repairRequest?.retail_customer_name || 'Unknown';
+  const title = repairRequest?.title || 'Repair Request';
+  const description = repairRequest?.description || 'No description provided';
+  const estimatedCost = repairRequest?.estimated_cost
+    ? `$${parseFloat(repairRequest.estimated_cost).toFixed(2)}`
+    : 'Not specified';
+
   return `
     <!DOCTYPE html>
     <html>
@@ -166,7 +180,7 @@ function generateSuccessPage(action: string, color: string, buttonColor: string,
       <style>
         body {
           font-family: Arial, sans-serif;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
           margin: 0;
           padding: 20px;
           min-height: 100vh;
@@ -175,7 +189,7 @@ function generateSuccessPage(action: string, color: string, buttonColor: string,
           justify-content: center;
         }
         .container {
-          max-width: 500px;
+          max-width: 600px;
           background: white;
           border-radius: 12px;
           box-shadow: 0 10px 40px rgba(0,0,0,0.2);
@@ -191,18 +205,57 @@ function generateSuccessPage(action: string, color: string, buttonColor: string,
           margin: 0 0 10px 0;
           font-size: 32px;
         }
-        .title {
+        .subtitle {
           color: #666;
-          font-size: 18px;
-          margin: 20px 0;
-          padding: 15px;
+          font-size: 16px;
+          margin-bottom: 30px;
+        }
+        .details {
           background: #f9fafb;
           border-radius: 8px;
+          padding: 20px;
+          margin: 20px 0;
+          text-align: left;
+        }
+        .detail-row {
+          margin-bottom: 15px;
+          padding-bottom: 15px;
+          border-bottom: 1px solid #e5e7eb;
+        }
+        .detail-row:last-child {
+          margin-bottom: 0;
+          padding-bottom: 0;
+          border-bottom: none;
+        }
+        .detail-label {
+          font-weight: bold;
+          color: #374151;
+          font-size: 14px;
+          display: block;
+          margin-bottom: 5px;
+        }
+        .detail-value {
+          color: #6b7280;
+          font-size: 16px;
+          word-wrap: break-word;
+        }
+        .detail-value.cost {
+          font-size: 24px;
+          color: #059669;
+          font-weight: bold;
         }
         p {
           color: #666;
           line-height: 1.6;
           margin: 15px 0;
+        }
+        .success-message {
+          background: ${action === 'Approved' ? '#d1fae5' : '#fee2e2'};
+          color: ${action === 'Approved' ? '#065f46' : '#991b1b'};
+          padding: 15px;
+          border-radius: 8px;
+          margin: 20px 0;
+          font-weight: 500;
         }
         .button {
           display: inline-block;
@@ -224,8 +277,36 @@ function generateSuccessPage(action: string, color: string, buttonColor: string,
       <div class="container">
         <div class="icon">${action === 'Approved' ? '&#10003;' : '&#10007;'}</div>
         <h1>Request ${action}</h1>
-        <div class="title">${title}</div>
-        <p>The repair request has been successfully ${action.toLowerCase()}. The team has been notified of your decision.</p>
+        <p class="subtitle">The repair request has been ${action.toLowerCase()}</p>
+
+        <div class="details">
+          <div class="detail-row">
+            <span class="detail-label">${repairRequest?.retail_customer_name ? 'Customer' : 'Yacht'}</span>
+            <span class="detail-value">${yachtName}</span>
+          </div>
+
+          <div class="detail-row">
+            <span class="detail-label">Request Title</span>
+            <span class="detail-value">${title}</span>
+          </div>
+
+          <div class="detail-row">
+            <span class="detail-label">Description</span>
+            <span class="detail-value">${description}</span>
+          </div>
+
+          <div class="detail-row">
+            <span class="detail-label">Estimated Cost</span>
+            <span class="detail-value cost">${estimatedCost}</span>
+          </div>
+        </div>
+
+        <div class="success-message">
+          ${action === 'Approved'
+            ? 'Your approval has been recorded. The team will proceed with the repair work.'
+            : 'Your denial has been recorded. The team has been notified and will not proceed with this work.'}
+        </div>
+
         <p>You can now close this window or visit MyYachtTime to view more details.</p>
         <a href="${siteUrl}" class="button">Go to MyYachtTime</a>
       </div>
