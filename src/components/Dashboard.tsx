@@ -2725,7 +2725,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         ? `${userProfile.first_name} ${userProfile.last_name}`
         : userProfile?.email || user.email || 'Staff';
 
-      if (!selectedRepairForInvoice.is_retail_customer) {
+      if (!selectedRepairForInvoice.is_retail_customer && selectedRepairForInvoice.yacht_id) {
         const ownerMessage = `Invoice Added to Repair: ${selectedRepairForInvoice.title}\n\n✓ An invoice has been added to this completed repair by ${userName}.\n\nFinal Invoice Amount: ${invoiceForm.final_invoice_amount}${invoiceFileName ? `\nInvoice File: ${invoiceFileName}` : ''}`;
 
         await supabase.from('owner_chat_messages').insert({
@@ -2904,7 +2904,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         ? `${userProfile.first_name} ${userProfile.last_name}`
         : userProfile?.email || user.email || 'Staff';
 
-      if (!selectedRepairForInvoice.is_retail_customer) {
+      if (!selectedRepairForInvoice.is_retail_customer && selectedRepairForInvoice.yacht_id) {
         const ownerMessage = `Repair Request Completed & Invoice Sent: ${selectedRepairForInvoice.title}\n\n✓ This repair has been completed by ${userName}.\n\nFinal Invoice Amount: ${invoiceForm.final_invoice_amount}${invoiceFileName ? `\nInvoice File: ${invoiceFileName}` : ''}`;
 
         await supabase.from('owner_chat_messages').insert({
