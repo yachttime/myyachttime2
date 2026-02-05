@@ -530,7 +530,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     email: '',
     yacht_name: '',
     problem_description: '',
-    customerId: ''
+    customerId: '',
+    useExistingCustomer: true
   });
   const [editAppointmentLoading, setEditAppointmentLoading] = useState(false);
   const [editAppointmentError, setEditAppointmentError] = useState('');
@@ -4589,6 +4590,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
   const handleEditAppointment = (appointment: Appointment) => {
     setEditingAppointment(appointment);
+
+    // Try to find matching customer by name and phone
+    const matchingCustomer = allCustomers.find(c =>
+      c.name === appointment.owner_name &&
+      (c.phone === appointment.owner_contact || (!c.phone && !appointment.owner_contact))
+    );
+
     setEditAppointmentForm({
       date: appointment.start_date.slice(0, 10),
       time: appointment.departure_time,
@@ -4597,7 +4605,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       email: appointment.email || '',
       yacht_name: appointment.yachts?.name || '',
       problem_description: appointment.problem_description || '',
-      customerId: ''
+      customerId: matchingCustomer?.id || '',
+      useExistingCustomer: !!matchingCustomer
     });
   };
 
@@ -13646,40 +13655,85 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           <form onSubmit={handleUpdateAppointment} className="space-y-4">
                             <div>
                               <label className="block text-sm font-medium mb-2">Customer</label>
-                              <select
-                                value={editAppointmentForm.customerId}
-                                onChange={(e) => {
-                                  const selectedId = e.target.value;
-                                  const customer = allCustomers.find(c => c.id === selectedId);
-                                  if (customer) {
-                                    setEditAppointmentForm({
-                                      ...editAppointmentForm,
-                                      customerId: selectedId,
-                                      name: customer.name,
-                                      phone: customer.phone || '',
-                                      email: customer.email || ''
-                                    });
-                                  } else {
-                                    setEditAppointmentForm({
-                                      ...editAppointmentForm,
-                                      customerId: '',
-                                      name: '',
-                                      phone: '',
-                                      email: ''
-                                    });
-                                  }
-                                }}
-                                className="w-full px-4 py-2 bg-slate-900/50 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 text-white"
-                                required
-                              >
-                                <option value="">Select a customer...</option>
-                                {allCustomers.map(customer => (
-                                  <option key={customer.id} value={customer.id}>
-                                    {customer.name} {customer.phone ? `- ${customer.phone}` : ''}
-                                  </option>
-                                ))}
-                              </select>
+                              {editAppointmentForm.useExistingCustomer ? (
+                                <div className="space-y-2">
+                                  <select
+                                    value={editAppointmentForm.customerId}
+                                    onChange={(e) => {
+                                      const selectedId = e.target.value;
+                                      const customer = allCustomers.find(c => c.id === selectedId);
+                                      if (customer) {
+                                        setEditAppointmentForm({
+                                          ...editAppointmentForm,
+                                          customerId: selectedId,
+                                          name: customer.name,
+                                          phone: customer.phone || '',
+                                          email: customer.email || ''
+                                        });
+                                      }
+                                    }}
+                                    className="w-full px-4 py-2 bg-slate-900/50 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 text-white"
+                                    required
+                                  >
+                                    <option value="">Select a customer...</option>
+                                    {allCustomers.map(customer => (
+                                      <option key={customer.id} value={customer.id}>
+                                        {customer.name} {customer.phone ? `- ${customer.phone}` : ''}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditAppointmentForm({ ...editAppointmentForm, useExistingCustomer: false, customerId: '' })}
+                                    className="text-sm text-amber-400 hover:text-amber-300"
+                                  >
+                                    + Create new customer
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="space-y-2">
+                                  <input
+                                    type="text"
+                                    value={editAppointmentForm.name}
+                                    onChange={(e) => setEditAppointmentForm({ ...editAppointmentForm, name: e.target.value })}
+                                    className="w-full px-4 py-2 bg-slate-900/50 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 text-white"
+                                    placeholder="Enter customer name"
+                                    required
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditAppointmentForm({ ...editAppointmentForm, useExistingCustomer: true })}
+                                    className="text-sm text-amber-400 hover:text-amber-300"
+                                  >
+                                    ← Use existing customer
+                                  </button>
+                                </div>
+                              )}
                             </div>
+                            {!editAppointmentForm.useExistingCustomer && (
+                              <>
+                                <div>
+                                  <label className="block text-sm font-medium mb-2">Phone</label>
+                                  <input
+                                    type="tel"
+                                    value={editAppointmentForm.phone}
+                                    onChange={(e) => setEditAppointmentForm({ ...editAppointmentForm, phone: e.target.value })}
+                                    className="w-full px-4 py-2 bg-slate-900/50 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 text-white"
+                                    placeholder="Enter phone number"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium mb-2">Email</label>
+                                  <input
+                                    type="email"
+                                    value={editAppointmentForm.email}
+                                    onChange={(e) => setEditAppointmentForm({ ...editAppointmentForm, email: e.target.value })}
+                                    className="w-full px-4 py-2 bg-slate-900/50 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 text-white"
+                                    placeholder="Enter email address"
+                                  />
+                                </div>
+                              </>
+                            )}
                             <div>
                               <label className="block text-sm font-medium mb-2">Yacht <span className="text-slate-500">(Optional)</span></label>
                               <select
