@@ -1297,13 +1297,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         .from('user_profiles')
         .select('first_name, last_name, email, notification_email, email_notifications_enabled')
         .eq('yacht_id', yachtId)
-        .eq('role', 'owner')
+        .in('role', ['owner', 'manager'])
         .eq('is_active', true);
 
       if (error) throw error;
 
       if (!owners || owners.length === 0) {
-        showError('No active owners found for this yacht');
+        showError('No active owners or managers found for this yacht');
         return;
       }
 
@@ -1318,7 +1318,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         }));
 
       if (ownersWithEmails.length === 0) {
-        showError('No owners with valid email addresses found');
+        showError('No owners or managers with valid email addresses found');
         return;
       }
 
@@ -12652,7 +12652,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                       className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-300"
                                     >
                                       <Mail className="w-4 h-4" />
-                                      Email Owners
+                                      Email Owners & Managers
                                     </button>
                                   )}
                                 </div>
