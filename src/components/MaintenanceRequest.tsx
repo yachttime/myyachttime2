@@ -99,7 +99,7 @@ export const MaintenanceRequest = ({ onBack }: MaintenanceRequestProps) => {
 
             const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-repair-notification`;
 
-            await fetch(apiUrl, {
+            const response = await fetch(apiUrl, {
               method: 'POST',
               headers: {
                 'Authorization': `Bearer ${session?.access_token}`,
@@ -114,6 +114,10 @@ export const MaintenanceRequest = ({ onBack }: MaintenanceRequestProps) => {
                 repairRequestId: insertedData.id
               })
             });
+
+            if (response.ok) {
+              await new Promise(resolve => setTimeout(resolve, 500));
+            }
 
             // Update the repair request with notification recipients
             await supabase

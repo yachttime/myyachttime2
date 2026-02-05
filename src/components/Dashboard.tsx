@@ -10648,7 +10648,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                                     const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-repair-notification`;
 
-                                    await fetch(apiUrl, {
+                                    const response = await fetch(apiUrl, {
                                       method: 'POST',
                                       headers: {
                                         'Authorization': `Bearer ${session?.access_token}`,
@@ -10663,6 +10663,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                         repairRequestId: insertedRequest.id
                                       })
                                     });
+
+                                    if (response.ok) {
+                                      await new Promise(resolve => setTimeout(resolve, 500));
+                                    }
 
                                     // Update the repair request with notification recipients
                                     await supabase
