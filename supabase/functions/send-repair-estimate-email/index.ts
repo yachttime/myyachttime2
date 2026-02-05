@@ -138,22 +138,29 @@ Deno.serve(async (req: Request) => {
     expiresAt.setDate(expiresAt.getDate() + 30); // 30 days expiration
 
     // Store approval tokens
-    await supabase
+    const { error: tokenError } = await supabase
       .from('repair_request_approval_tokens')
       .insert([
         {
           repair_request_id: repairRequestId,
           token: approveToken,
           action_type: 'approve',
+          manager_email: recipientEmail,
           expires_at: expiresAt.toISOString(),
         },
         {
           repair_request_id: repairRequestId,
           token: denyToken,
           action_type: 'deny',
+          manager_email: recipientEmail,
           expires_at: expiresAt.toISOString(),
         },
       ]);
+
+    if (tokenError) {
+      console.error('Error creating approval tokens:', tokenError);
+      throw new Error('Failed to create approval tokens');
+    }
 
     // Build approval URLs
     const functionUrl = `${supabaseUrl}/functions/v1/handle-repair-approval`;
