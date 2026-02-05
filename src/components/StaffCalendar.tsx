@@ -372,6 +372,15 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
     return holidays.find(h => h.date === dateStr);
   };
 
+  const isToday = (day: number) => {
+    const today = new Date();
+    return (
+      day === today.getDate() &&
+      currentDate.getMonth() === today.getMonth() &&
+      currentDate.getFullYear() === today.getFullYear()
+    );
+  };
+
   const getDaysInMonth = () => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -935,10 +944,14 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
                 }));
               }
 
+              const isTodayCell = day ? isToday(day) : false;
+
               return (
                 <div
                   key={index}
-                  className={`min-h-24 p-2 rounded-lg border border-slate-700 ${
+                  className={`min-h-24 p-2 rounded-lg border ${
+                    isTodayCell ? 'border-4 border-cyan-400 ring-2 ring-cyan-400' : 'border-slate-700'
+                  } ${
                     day ? getDateColor(day) : 'bg-slate-900'
                   } ${day && canEditDate ? 'cursor-pointer hover:border-amber-500' : day ? 'cursor-pointer' : ''} relative`}
                   onClick={() => {
@@ -959,7 +972,10 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
                   {day && (
                     <>
                       <div className="flex justify-between items-start mb-1">
-                        <div className="font-bold text-white">{day}</div>
+                        <div className={`font-bold ${isTodayCell ? 'text-cyan-300 text-lg' : 'text-white'}`}>
+                          {day}
+                          {isTodayCell && <span className="ml-1 text-xs align-super">●</span>}
+                        </div>
                         {canEditDate && (
                           <Edit3 className="w-3 h-3 text-white hover:text-amber-300" />
                         )}
