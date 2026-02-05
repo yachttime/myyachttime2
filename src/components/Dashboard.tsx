@@ -863,10 +863,20 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       // Find active or upcoming booking (current trip or next scheduled trip)
       const now = new Date();
-      const userBookings = data?.filter(booking => booking.user_id === user.id) || [];
+
+      // For owners and managers, show bookings for their yacht
+      // For staff, show their own bookings (if any)
+      let relevantBookings = data || [];
+      if (userIsManager || isOwnerRole(effectiveRole)) {
+        // Managers and owners see all bookings for their yacht
+        relevantBookings = data?.filter(booking => booking.yacht_id === effectiveYacht?.id) || [];
+      } else {
+        // Staff see their own bookings
+        relevantBookings = data?.filter(booking => booking.user_id === user.id) || [];
+      }
 
       // First try to find an active booking (currently ongoing)
-      let current = userBookings.find(booking => {
+      let current = relevantBookings.find(booking => {
         const start = new Date(booking.start_date);
         const end = new Date(booking.end_date);
         return now >= start && now <= end;
@@ -874,7 +884,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       // If no active booking, find the next upcoming booking
       if (!current) {
-        const upcomingBookings = userBookings
+        const upcomingBookings = relevantBookings
           .filter(booking => new Date(booking.start_date) > now)
           .sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime());
         current = upcomingBookings[0] || null;
@@ -5535,7 +5545,14 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       </p>
                     </div>
 
-                    {!isWithinBookingPeriod(activeBooking) && (
+                    {/* Show message about check-in/out availability */}
+                    {effectiveRole === 'manager' ? (
+                      <div className="bg-slate-700/30 border border-slate-600/50 rounded-lg p-4 mb-4">
+                        <p className="text-slate-300 text-sm text-center font-medium">
+                          Viewing as Manager - Check-in/out functions are for booking owner only.
+                        </p>
+                      </div>
+                    ) : !isWithinBookingPeriod(activeBooking) && (
                       <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mb-4">
                         <p className="text-blue-200 text-sm text-center font-medium">
                           Check-in and check-out are only available during your scheduled booking period.
@@ -5546,7 +5563,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     <div className="space-y-3 pt-4">
                       <button
                         onClick={handleCheckIn}
-                        disabled={activeBooking.checked_in || !isWithinBookingPeriod(activeBooking)}
+                        disabled={activeBooking.checked_in || !isWithinBookingPeriod(activeBooking) || activeBooking.user_id !== user.id}
                         className="w-full bg-slate-700 hover:bg-slate-600 text-white font-semibold py-3 rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                       >
                         {activeBooking.checked_in ? (
@@ -5561,7 +5578,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                       <button
                         onClick={handleCheckOut}
-                        disabled={activeBooking.checked_out || !activeBooking.checked_in || !isWithinBookingPeriod(activeBooking)}
+                        disabled={activeBooking.checked_out || !activeBooking.checked_in || !isWithinBookingPeriod(activeBooking) || activeBooking.user_id !== user.id}
                         className="w-full bg-slate-700 hover:bg-slate-600 text-white font-semibold py-3 rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                       >
                         {activeBooking.checked_out ? (
