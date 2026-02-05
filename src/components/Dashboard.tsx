@@ -3900,21 +3900,35 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
   const markYachtMessageComplete = async (messageId: string) => {
     try {
-      if (!user) return;
+      if (!user) {
+        console.error('No user found');
+        showError('You must be logged in to complete tasks');
+        return;
+      }
 
-      const { error } = await supabase
+      console.log('Marking yacht message as complete:', messageId, 'User:', user.id, 'Role:', effectiveRole, 'Actual Role:', userProfile?.role);
+
+      const { data, error } = await supabase
         .from('admin_notifications')
         .update({
           completed_by: user.id,
           completed_at: new Date().toISOString()
         })
-        .eq('id', messageId);
+        .eq('id', messageId)
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
 
+      console.log('Update successful:', data);
+
+      showSuccess('Task marked as complete');
       await loadAdminNotifications();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error marking yacht message as complete:', error);
+      showError(`Failed to mark task as complete: ${error.message || 'Unknown error'}`);
     }
   };
 
