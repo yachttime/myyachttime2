@@ -222,7 +222,7 @@ Deno.serve(async (req: Request) => {
                 <a href="${denyUrl}" class="button deny-button">✗ Deny Estimate</a>
               </div>
               <p style="font-size: 14px; color: #666; margin-top: 15px;">Once you approve, we will schedule your repair and keep you updated throughout the process.</p>
-              <p style="font-size: 14px; color: #666;">If you have questions before deciding, please contact us at service@azmarine.net or 928-637-6500.</p>
+              <p style="font-size: 14px; color: #666;">If you have questions before deciding, please contact us at sales@azmarine.net or 928-637-6500.</p>
             </div>
 
             ${attachmentData ? '<p><strong>Attached:</strong> Additional documentation or photos related to your repair request.</p>' : ''}
@@ -230,7 +230,7 @@ Deno.serve(async (req: Request) => {
             <div class="contact-info">
               <h4 style="margin-top: 0; color: #f97316;">Questions?</h4>
               <p>If you have any questions about this estimate or would like to discuss the repair in more detail, please don't hesitate to reach out.</p>
-              <p style="margin: 5px 0;"><strong>Email:</strong> service@azmarine.net</p>
+              <p style="margin: 5px 0;"><strong>Email:</strong> sales@azmarine.net</p>
               <p style="margin: 5px 0;"><strong>Phone:</strong> 928-637-6500</p>
             </div>
 
