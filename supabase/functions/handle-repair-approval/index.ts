@@ -151,10 +151,7 @@ Deno.serve(async (req: Request) => {
 
     console.log('Repair request data:', JSON.stringify(repairRequest, null, 2));
 
-    const action = tokenData.action_type === 'approve' ? 'Approved' : 'Denied';
-    const actionColor = tokenData.action_type === 'approve' ? '#10b981' : '#ef4444';
-    const buttonColor = tokenData.action_type === 'approve' ? '#10b981' : '#dc2626';
-    const buttonColorHover = tokenData.action_type === 'approve' ? '#059669' : '#b91c1c';
+    const action = tokenData.action_type === 'approve' ? 'approved' : 'denied';
     const siteUrl = Deno.env.get('SITE_URL') || 'https://myyachttime.vercel.app';
 
     // Extract customer/yacht name - handle both retail customers and yacht owners
@@ -172,23 +169,25 @@ Deno.serve(async (req: Request) => {
 
     // Use estimated_repair_cost field
     const costValue = repairRequest?.estimated_repair_cost;
-    const estimatedCost = costValue
-      ? `$${parseFloat(costValue).toFixed(2)}`
-      : 'Not specified';
 
-    return new Response(
-      generateSuccessPageWithRedirect(action, actionColor, buttonColor, buttonColorHover, displayName, title, description, estimatedCost, siteUrl),
-      {
-        status: 200,
-        headers: {
-          'Content-Type': 'text/html; charset=utf-8',
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'X-Content-Type-Options': 'nosniff',
-          'X-Frame-Options': 'DENY',
-          'Content-Security-Policy': "frame-ancestors 'none'",
-        },
-      }
-    );
+    // Build redirect URL with query parameters
+    const redirectUrl = new URL(`${siteUrl}/repair-approval-success.html`);
+    redirectUrl.searchParams.set('action', action);
+    redirectUrl.searchParams.set('customer', encodeURIComponent(displayName));
+    redirectUrl.searchParams.set('title', encodeURIComponent(title));
+    redirectUrl.searchParams.set('description', encodeURIComponent(description));
+    if (costValue) {
+      redirectUrl.searchParams.set('cost', costValue.toString());
+    }
+
+    // Return 302 redirect
+    return new Response(null, {
+      status: 302,
+      headers: {
+        'Location': redirectUrl.toString(),
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+      },
+    });
   } catch (error: any) {
     console.error('Error in handle-repair-approval:', error);
     return new Response(

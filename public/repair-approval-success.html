@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Repair Request - MyYachtTime</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+      margin: 0;
+      padding: 20px;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .container {
+      max-width: 600px;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      padding: 40px;
+      text-align: center;
+    }
+    .icon {
+      font-size: 64px;
+      margin-bottom: 20px;
+    }
+    .icon.approved {
+      color: #10b981;
+    }
+    .icon.denied {
+      color: #ef4444;
+    }
+    h1 {
+      margin: 0 0 10px 0;
+      font-size: 32px;
+    }
+    h1.approved {
+      color: #10b981;
+    }
+    h1.denied {
+      color: #ef4444;
+    }
+    .subtitle {
+      color: #666;
+      font-size: 16px;
+      margin-bottom: 30px;
+    }
+    .details {
+      background: #f9fafb;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 20px 0;
+      text-align: left;
+    }
+    .detail-row {
+      margin-bottom: 15px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .detail-row:last-child {
+      margin-bottom: 0;
+      padding-bottom: 0;
+      border-bottom: none;
+    }
+    .detail-label {
+      font-weight: bold;
+      color: #374151;
+      font-size: 14px;
+      display: block;
+      margin-bottom: 5px;
+    }
+    .detail-value {
+      color: #6b7280;
+      font-size: 16px;
+      word-wrap: break-word;
+    }
+    .detail-value.cost {
+      font-size: 24px;
+      color: #059669;
+      font-weight: bold;
+    }
+    p {
+      color: #666;
+      line-height: 1.6;
+      margin: 15px 0;
+    }
+    .success-message {
+      padding: 15px;
+      border-radius: 8px;
+      margin: 20px 0;
+      font-weight: 500;
+    }
+    .success-message.approved {
+      background: #d1fae5;
+      color: #065f46;
+    }
+    .success-message.denied {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+    .button {
+      display: inline-block;
+      color: white;
+      padding: 12px 30px;
+      text-decoration: none;
+      border-radius: 6px;
+      font-weight: bold;
+      margin-top: 20px;
+      transition: background 0.3s;
+    }
+    .button.approved {
+      background: #10b981;
+    }
+    .button.approved:hover {
+      background: #059669;
+    }
+    .button.denied {
+      background: #dc2626;
+    }
+    .button.denied:hover {
+      background: #b91c1c;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="icon" id="icon">&#10003;</div>
+    <h1 id="title">Processing...</h1>
+    <p class="subtitle" id="subtitle">Please wait...</p>
+    <div class="details" id="details" style="display: none;">
+      <div class="detail-row">
+        <span class="detail-label">Yacht/Customer</span>
+        <span class="detail-value" id="customer-name">-</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Request Title</span>
+        <span class="detail-value" id="request-title">-</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Description</span>
+        <span class="detail-value" id="request-description">-</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Estimated Cost</span>
+        <span class="detail-value cost" id="estimated-cost">-</span>
+      </div>
+    </div>
+    <div class="success-message" id="message" style="display: none;"></div>
+    <p id="footer-text">You can now close this window or visit MyYachtTime to view more details.</p>
+    <a href="https://myyachttime.vercel.app" class="button" id="main-button">Go to MyYachtTime</a>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const action = params.get('action');
+    const customerName = params.get('customer');
+    const title = params.get('title');
+    const description = params.get('description');
+    const cost = params.get('cost');
+
+    const isApproved = action === 'approved';
+    const actionText = isApproved ? 'Approved' : 'Denied';
+    const actionClass = isApproved ? 'approved' : 'denied';
+
+    document.getElementById('icon').textContent = isApproved ? '✓' : '✗';
+    document.getElementById('icon').className = 'icon ' + actionClass;
+
+    document.getElementById('title').textContent = 'Request ' + actionText;
+    document.getElementById('title').className = actionClass;
+
+    document.getElementById('subtitle').textContent = 'The repair request has been ' + action;
+
+    if (customerName && title) {
+      document.getElementById('details').style.display = 'block';
+      document.getElementById('customer-name').textContent = decodeURIComponent(customerName);
+      document.getElementById('request-title').textContent = decodeURIComponent(title);
+      document.getElementById('request-description').textContent = decodeURIComponent(description || 'No description provided');
+      document.getElementById('estimated-cost').textContent = cost ? '$' + parseFloat(cost).toFixed(2) : 'Not specified';
+    }
+
+    const message = document.getElementById('message');
+    message.style.display = 'block';
+    message.className = 'success-message ' + actionClass;
+    message.textContent = isApproved
+      ? 'Your approval has been recorded. The team will proceed with the repair work.'
+      : 'Your denial has been recorded. The team has been notified and will not proceed with this work.';
+
+    const button = document.getElementById('main-button');
+    button.className = 'button ' + actionClass;
+  </script>
+</body>
+</html>
