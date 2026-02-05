@@ -170,8 +170,7 @@ function generateSuccessPage(action: string, color: string, buttonColor: string,
     ? `$${parseFloat(repairRequest.estimated_cost).toFixed(2)}`
     : 'Not specified';
 
-  return `
-    <!DOCTYPE html>
+  return `<!DOCTYPE html>
     <html>
     <head>
       <meta charset="utf-8">
@@ -316,8 +315,7 @@ function generateSuccessPage(action: string, color: string, buttonColor: string,
 }
 
 function generateErrorPage(title: string, message: string): string {
-  return `
-    <!DOCTYPE html>
+  return `<!DOCTYPE html>
     <html>
     <head>
       <meta charset="utf-8">
