@@ -134,9 +134,8 @@ Deno.serve(async (req: Request) => {
       .select(`
         title,
         description,
-        estimated_cost,
         estimated_repair_cost,
-        retail_customer_name,
+        customer_name,
         is_retail_customer,
         yacht_id,
         yachts (
@@ -160,8 +159,8 @@ Deno.serve(async (req: Request) => {
 
     // Extract customer/yacht name - handle both retail customers and yacht owners
     let displayName = 'Unknown';
-    if (repairRequest?.is_retail_customer && repairRequest?.retail_customer_name) {
-      displayName = repairRequest.retail_customer_name;
+    if (repairRequest?.is_retail_customer && repairRequest?.customer_name) {
+      displayName = repairRequest.customer_name;
     } else if (repairRequest?.yachts) {
       // Handle if yachts is an array or object
       const yachtsData = Array.isArray(repairRequest.yachts) ? repairRequest.yachts[0] : repairRequest.yachts;
@@ -171,8 +170,8 @@ Deno.serve(async (req: Request) => {
     const title = repairRequest?.title || 'Repair Request';
     const description = repairRequest?.description || 'No description provided';
 
-    // Use estimated_repair_cost for retail customers, estimated_cost for yacht owners
-    const costValue = repairRequest?.estimated_repair_cost || repairRequest?.estimated_cost;
+    // Use estimated_repair_cost field
+    const costValue = repairRequest?.estimated_repair_cost;
     const estimatedCost = costValue
       ? `$${parseFloat(costValue).toFixed(2)}`
       : 'Not specified';
