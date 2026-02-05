@@ -218,8 +218,8 @@ Deno.serve(async (req: Request) => {
               <h3 style="margin-top: 0; color: #92400e;">Approve or Deny This Estimate</h3>
               <p>Please review the estimate above. Click the button below to approve or deny this work:</p>
               <div class="button-container">
-                <a href="${approveUrl}" class="button approve-button">✓ Approve Estimate</a>
-                <a href="${denyUrl}" class="button deny-button">✗ Deny Estimate</a>
+                <a href="${approveUrl}" target="_blank" rel="noopener noreferrer" class="button approve-button">✓ Approve Estimate</a>
+                <a href="${denyUrl}" target="_blank" rel="noopener noreferrer" class="button deny-button">✗ Deny Estimate</a>
               </div>
               <p style="font-size: 14px; color: #666; margin-top: 15px;">Once you approve, we will schedule your repair and keep you updated throughout the process.</p>
               <p style="font-size: 14px; color: #666;">If you have questions before deciding, please contact us at sales@azmarine.net or 928-637-6500.</p>
