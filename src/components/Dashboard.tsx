@@ -509,7 +509,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     name: '',
     phone: '',
     email: '',
-    yacht_id: '',
+    yacht_name: '',
     problem_description: '',
     createRepairRequest: false,
     customerId: '',
@@ -528,8 +528,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     email: '',
     yacht_name: '',
     problem_description: '',
-    customerId: '',
-    yachtId: ''
+    customerId: ''
   });
   const [editAppointmentLoading, setEditAppointmentLoading] = useState(false);
   const [editAppointmentError, setEditAppointmentError] = useState('');
@@ -4013,11 +4012,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       let appointmentsQuery = supabase
         .from('appointments')
-        .select('*, yachts:yacht_id (name)')
+        .select('*')
         .order('date', { ascending: false });
 
       if ((effectiveRole === 'manager' || effectiveRole === 'owner') && effectiveYacht) {
-        appointmentsQuery = appointmentsQuery.eq('yacht_id', effectiveYacht.id);
+        appointmentsQuery = appointmentsQuery.eq('yacht_name', effectiveYacht.name);
       }
 
       const { data: appointmentsData, error: appointmentsError } = await appointmentsQuery;
@@ -4039,7 +4038,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         departure_time: apt.time,
         arrival_time: apt.time,
         is_appointment: true,
-        yachts: apt.yachts
+        yachts: apt.yacht_name ? { name: apt.yacht_name } : null
       }));
 
       const combinedData = [...(bookingsData || []), ...formattedAppointments];
@@ -4455,7 +4454,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         name: appointmentForm.name,
         phone: appointmentForm.phone,
         email: appointmentForm.email,
-        yacht_id: appointmentForm.yacht_id,
+        yacht_name: appointmentForm.yacht_name,
         problem_description: appointmentForm.problem_description,
         created_by: user.id
       };
@@ -4469,7 +4468,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           ? `${userProfile.first_name} ${userProfile.last_name}`
           : 'Staff';
 
-        const selectedYacht = allYachts.find(y => y.id === appointmentForm.yacht_id);
+        const selectedYacht = allYachts.find(y => y.name === appointmentForm.yacht_name);
 
         if (selectedYacht) {
           await logYachtActivity(
@@ -4494,7 +4493,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         if (appointmentForm.createRepairRequest) {
           const repairData = {
             title: `Appointment: ${appointmentForm.problem_description.substring(0, 50)}${appointmentForm.problem_description.length > 50 ? '...' : ''}`,
-            description: `Yacht: ${appointmentForm.yacht_id}\nCustomer: ${appointmentForm.name}\nPhone: ${appointmentForm.phone}\nEmail: ${appointmentForm.email}\nScheduled: ${appointmentForm.date} at ${appointmentForm.time}\n\nProblem: ${appointmentForm.problem_description}`,
+            description: `Yacht: ${appointmentForm.yacht_name}\nCustomer: ${appointmentForm.name}\nPhone: ${appointmentForm.phone}\nEmail: ${appointmentForm.email}\nScheduled: ${appointmentForm.date} at ${appointmentForm.time}\n\nProblem: ${appointmentForm.problem_description}`,
             status: 'pending',
             is_retail_customer: true,
             customer_name: appointmentForm.name,
@@ -4521,9 +4520,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         name: '',
         phone: '',
         email: '',
-        yacht_id: '',
+        yacht_name: '',
         problem_description: '',
-        createRepairRequest: false
+        createRepairRequest: false,
+        customerId: '',
+        useExistingCustomer: true
       });
 
       setTimeout(() => {
@@ -4552,8 +4553,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       email: appointment.email || '',
       yacht_name: appointment.yachts?.name || '',
       problem_description: appointment.problem_description || '',
-      customerId: '',
-      yachtId: appointment.yacht_id || ''
+      customerId: ''
     });
   };
 
@@ -4568,11 +4568,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       name: '',
       phone: '',
       email: '',
-      yacht_id: '',
+      yacht_name: '',
       date: dateString,
       time: '09:00',
       problem_description: '',
-      createRepairRequest: false
+      createRepairRequest: false,
+      customerId: '',
+      useExistingCustomer: true
     });
     setShowQuickAppointmentModal(true);
     setAppointmentSuccess(false);
@@ -4595,7 +4597,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           name: editAppointmentForm.name,
           phone: editAppointmentForm.phone,
           email: editAppointmentForm.email,
-          yacht_id: editAppointmentForm.yachtId,
+          yacht_name: editAppointmentForm.yacht_name,
           problem_description: editAppointmentForm.problem_description
         })
         .eq('id', editingAppointment.id);
@@ -4606,7 +4608,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         ? `${userProfile.first_name} ${userProfile.last_name}`
         : userProfile?.email || 'Unknown';
 
-      const selectedYacht = allYachts.find(y => y.id === editAppointmentForm.yachtId);
+      const selectedYacht = allYachts.find(y => y.name === editAppointmentForm.yacht_name);
       if (selectedYacht) {
         await logYachtActivity(
           selectedYacht.id,
@@ -13626,14 +13628,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             <div>
                               <label className="block text-sm font-medium mb-2">Yacht</label>
                               <select
-                                value={editAppointmentForm.yachtId}
+                                value={editAppointmentForm.yacht_name}
                                 onChange={(e) => {
-                                  const selectedYachtId = e.target.value;
-                                  const yacht = yachts.find(y => y.id === selectedYachtId);
                                   setEditAppointmentForm({
                                     ...editAppointmentForm,
-                                    yachtId: selectedYachtId,
-                                    yacht_name: yacht?.name || ''
+                                    yacht_name: e.target.value
                                   });
                                 }}
                                 className="w-full px-4 py-2 bg-slate-900/50 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 text-white"
@@ -13641,7 +13640,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               >
                                 <option value="">Select a yacht...</option>
                                 {yachts.map(yacht => (
-                                  <option key={yacht.id} value={yacht.id}>
+                                  <option key={yacht.id} value={yacht.name}>
                                     {yacht.name}
                                   </option>
                                 ))}
@@ -13838,14 +13837,14 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             Yacht
                           </label>
                           <select
-                            value={appointmentForm.yacht_id}
-                            onChange={(e) => setAppointmentForm({ ...appointmentForm, yacht_id: e.target.value })}
+                            value={appointmentForm.yacht_name}
+                            onChange={(e) => setAppointmentForm({ ...appointmentForm, yacht_name: e.target.value })}
                             className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent cursor-pointer"
                             required
                           >
                             <option value="">Select a yacht...</option>
                             {allYachts.map(yacht => (
-                              <option key={yacht.id} value={yacht.id}>
+                              <option key={yacht.id} value={yacht.name}>
                                 {yacht.name}
                               </option>
                             ))}
@@ -15866,14 +15865,14 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       Yacht
                     </label>
                     <select
-                      value={appointmentForm.yacht_id}
-                      onChange={(e) => setAppointmentForm({ ...appointmentForm, yacht_id: e.target.value })}
+                      value={appointmentForm.yacht_name}
+                      onChange={(e) => setAppointmentForm({ ...appointmentForm, yacht_name: e.target.value })}
                       className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent text-white cursor-pointer"
                       required
                     >
                       <option value="">Select a yacht...</option>
                       {allYachts.map(yacht => (
-                        <option key={yacht.id} value={yacht.id}>
+                        <option key={yacht.id} value={yacht.name}>
                           {yacht.name}
                         </option>
                       ))}
