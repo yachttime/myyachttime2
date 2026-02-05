@@ -131,11 +131,40 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    // Generate approval tokens
+    const approveToken = crypto.randomUUID();
+    const denyToken = crypto.randomUUID();
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 30); // 30 days expiration
+
+    // Store approval tokens
+    await supabase
+      .from('repair_request_approval_tokens')
+      .insert([
+        {
+          repair_request_id: repairRequestId,
+          token: approveToken,
+          action_type: 'approve',
+          expires_at: expiresAt.toISOString(),
+        },
+        {
+          repair_request_id: repairRequestId,
+          token: denyToken,
+          action_type: 'deny',
+          expires_at: expiresAt.toISOString(),
+        },
+      ]);
+
+    // Build approval URLs
+    const functionUrl = `${supabaseUrl}/functions/v1/handle-repair-approval`;
+    const approveUrl = `${functionUrl}?token=${approveToken}`;
+    const denyUrl = `${functionUrl}?token=${denyToken}`;
+
     // Build email HTML content
-    const estimateAmount = repairRequest.estimated_repair_cost 
-      ? `$${parseFloat(repairRequest.estimated_repair_cost).toFixed(2)}` 
+    const estimateAmount = repairRequest.estimated_repair_cost
+      ? `$${parseFloat(repairRequest.estimated_repair_cost).toFixed(2)}`
       : 'TBD';
-    
+
     const subject = `Repair Estimate: ${repairRequest.title}`;
     const htmlContent = `
       <!DOCTYPE html>
@@ -148,7 +177,13 @@ Deno.serve(async (req: Request) => {
           .header { background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
           .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
           .estimate-details { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f97316; }
-          .approval-section { background: #fef3c7; border: 2px solid #f59e0b; padding: 20px; border-radius: 8px; margin: 20px 0; }
+          .approval-section { background: #fef3c7; border: 2px solid #f59e0b; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center; }
+          .button-container { display: flex; gap: 15px; justify-content: center; margin: 20px 0; }
+          .button { display: inline-block; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; transition: all 0.3s; }
+          .approve-button { background: #10b981; color: white; }
+          .approve-button:hover { background: #059669; }
+          .deny-button { background: #ef4444; color: white; }
+          .deny-button:hover { background: #dc2626; }
           .contact-info { background: white; padding: 15px; border-radius: 8px; margin: 15px 0; }
           .footer { text-align: center; color: #666; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; }
         </style>
@@ -173,9 +208,14 @@ Deno.serve(async (req: Request) => {
             </div>
 
             <div class="approval-section">
-              <h3 style="margin-top: 0; color: #92400e;">Next Steps</h3>
-              <p>Please review this estimate. To approve and proceed with the repair work, please contact us at service@azmarine.net or call us at 928-637-6500.</p>
-              <p>Once approved, we will schedule your repair and keep you updated throughout the process.</p>
+              <h3 style="margin-top: 0; color: #92400e;">Approve or Deny This Estimate</h3>
+              <p>Please review the estimate above. Click the button below to approve or deny this work:</p>
+              <div class="button-container">
+                <a href="${approveUrl}" class="button approve-button">✓ Approve Estimate</a>
+                <a href="${denyUrl}" class="button deny-button">✗ Deny Estimate</a>
+              </div>
+              <p style="font-size: 14px; color: #666; margin-top: 15px;">Once you approve, we will schedule your repair and keep you updated throughout the process.</p>
+              <p style="font-size: 14px; color: #666;">If you have questions before deciding, please contact us at service@azmarine.net or 928-637-6500.</p>
             </div>
 
             ${attachmentData ? '<p><strong>Attached:</strong> Additional documentation or photos related to your repair request.</p>' : ''}
