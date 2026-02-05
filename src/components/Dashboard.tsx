@@ -12732,21 +12732,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                           </button>
                                         </div>
                                       )}
-                                      {!isCompleted ? (
-                                        <div className="mt-3">
-                                          <button
-                                            onClick={() => markYachtMessageComplete(msg.id)}
-                                            className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 text-sm"
-                                          >
-                                            <ClipboardCheck className="w-4 h-4" />
-                                            Task Complete
-                                          </button>
-                                        </div>
-                                      ) : (
-                                        <div className="mt-3 text-center text-xs text-slate-400">
-                                          Completed on {new Date(msg.completed_at).toLocaleDateString()} at {new Date(msg.completed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                      {isCompleted && (
+                                        <div className="mt-3 text-center text-xs bg-green-500/10 border border-green-500/20 rounded-lg py-2 px-3">
+                                          <span className="text-green-400 font-semibold">✓ Dealt with</span>
+                                          <span className="text-slate-400"> on {new Date(msg.completed_at).toLocaleDateString()} at {new Date(msg.completed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                           {msg.completed_by_profile && (
-                                            <span> by {msg.completed_by_profile.first_name} {msg.completed_by_profile.last_name}</span>
+                                            <span className="text-slate-400"> by {msg.completed_by_profile.first_name} {msg.completed_by_profile.last_name}</span>
                                           )}
                                         </div>
                                       )}
@@ -12775,7 +12766,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                         return (
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {Object.entries(messagesByYacht).map(([yachtId, data]: [string, any]) => {
-                              const incompleteTasks = data.messages.filter((msg: any) => !msg.completed_at || !msg.completed_by).length;
+                              const incompleteMessages = data.messages.filter((msg: any) => !msg.completed_at || !msg.completed_by).length;
 
                               return (
                                 <button
@@ -12790,7 +12781,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   </div>
                                   <h3 className="text-xl font-bold mb-2">{data.yacht?.name || 'Customer Pay Boats'}</h3>
                                   <p className="text-slate-400 text-sm">
-                                    {incompleteTasks} {incompleteTasks === 1 ? 'task' : 'tasks'} pending
+                                    {incompleteMessages} {incompleteMessages === 1 ? 'message' : 'messages'} pending
                                   </p>
                                 </button>
                               );
@@ -12933,21 +12924,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               </div>
                             )}
 
-                            {!isCompleted ? (
-                              <div className="mt-4">
-                                <button
-                                  onClick={() => markStaffMessageComplete(msg.id)}
-                                  className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 text-sm"
-                                >
-                                  <ClipboardCheck className="w-4 h-4" />
-                                  Task Complete
-                                </button>
-                              </div>
-                            ) : (
-                              <div className="mt-4 text-center text-xs text-slate-400">
-                                Completed on {new Date(msg.completed_at).toLocaleDateString()} at {new Date(msg.completed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {isCompleted && (
+                              <div className="mt-4 text-center text-xs bg-green-500/10 border border-green-500/20 rounded-lg py-2 px-3">
+                                <span className="text-green-400 font-semibold">✓ Dealt with</span>
+                                <span className="text-slate-400"> on {new Date(msg.completed_at).toLocaleDateString()} at {new Date(msg.completed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                 {msg.completed_by_profile && (
-                                  <span> by {msg.completed_by_profile.first_name} {msg.completed_by_profile.last_name}</span>
+                                  <span className="text-slate-400"> by {msg.completed_by_profile.first_name} {msg.completed_by_profile.last_name}</span>
                                 )}
                               </div>
                             )}
