@@ -4480,20 +4480,20 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             appointment.id,
             'appointment'
           );
-
-          await supabase.from('admin_notifications').insert({
-            user_id: user.id,
-            yacht_id: selectedYacht.id,
-            notification_type: 'appointment',
-            reference_id: appointment.id,
-            message: `New appointment scheduled: ${appointmentForm.name} for ${selectedYacht.name} on ${appointmentForm.date} at ${appointmentForm.time}. Issue: ${appointmentForm.problem_description}`,
-          });
         }
+
+        await supabase.from('admin_notifications').insert({
+          user_id: user.id,
+          yacht_id: selectedYacht?.id || null,
+          notification_type: 'appointment',
+          reference_id: appointment.id,
+          message: `New appointment scheduled: ${appointmentForm.name}${selectedYacht ? ` for ${selectedYacht.name}` : ''} on ${appointmentForm.date} at ${appointmentForm.time}. Issue: ${appointmentForm.problem_description}`,
+        });
 
         if (appointmentForm.createRepairRequest) {
           const repairData = {
             title: `Appointment: ${appointmentForm.problem_description.substring(0, 50)}${appointmentForm.problem_description.length > 50 ? '...' : ''}`,
-            description: `Yacht: ${appointmentForm.yacht_name}\nCustomer: ${appointmentForm.name}\nPhone: ${appointmentForm.phone}\nEmail: ${appointmentForm.email}\nScheduled: ${appointmentForm.date} at ${appointmentForm.time}\n\nProblem: ${appointmentForm.problem_description}`,
+            description: `${appointmentForm.yacht_name ? `Yacht: ${appointmentForm.yacht_name}\n` : ''}Customer: ${appointmentForm.name}\nPhone: ${appointmentForm.phone}\nEmail: ${appointmentForm.email}\nScheduled: ${appointmentForm.date} at ${appointmentForm.time}\n\nProblem: ${appointmentForm.problem_description}`,
             status: 'pending',
             is_retail_customer: true,
             customer_name: appointmentForm.name,
@@ -13191,7 +13191,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                               }`}
                                             >
                                               <div className={`font-medium truncate ${booking.is_appointment ? 'text-pink-300' : isDeparture ? 'text-green-300' : !isDeparture && booking.oil_change_needed ? 'text-yellow-300' : 'text-red-300'}`}>
-                                                {booking.yachts?.name || 'Yacht'}
+                                                {booking.yachts?.name || (booking.is_appointment ? 'Walk-in Customer' : 'Yacht')}
                                               </div>
                                               <div className="text-slate-400 truncate">
                                                 {getBookingDisplayName(booking)}
@@ -13626,7 +13626,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               </select>
                             </div>
                             <div>
-                              <label className="block text-sm font-medium mb-2">Yacht</label>
+                              <label className="block text-sm font-medium mb-2">Yacht <span className="text-slate-500">(Optional)</span></label>
                               <select
                                 value={editAppointmentForm.yacht_name}
                                 onChange={(e) => {
@@ -13636,7 +13636,6 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   });
                                 }}
                                 className="w-full px-4 py-2 bg-slate-900/50 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 text-white"
-                                required
                               >
                                 <option value="">Select a yacht...</option>
                                 {yachts.map(yacht => (
@@ -13834,13 +13833,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                         <div>
                           <label className="block text-sm font-medium text-slate-300 mb-2">
-                            Yacht
+                            Yacht <span className="text-slate-500">(Optional)</span>
                           </label>
                           <select
                             value={appointmentForm.yacht_name}
                             onChange={(e) => setAppointmentForm({ ...appointmentForm, yacht_name: e.target.value })}
                             className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent cursor-pointer"
-                            required
                           >
                             <option value="">Select a yacht...</option>
                             {allYachts.map(yacht => (
@@ -15862,13 +15860,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Yacht
+                      Yacht <span className="text-slate-500">(Optional)</span>
                     </label>
                     <select
                       value={appointmentForm.yacht_name}
                       onChange={(e) => setAppointmentForm({ ...appointmentForm, yacht_name: e.target.value })}
                       className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent text-white cursor-pointer"
-                      required
                     >
                       <option value="">Select a yacht...</option>
                       {allYachts.map(yacht => (
