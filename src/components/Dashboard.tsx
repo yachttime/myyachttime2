@@ -13693,7 +13693,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 className="w-full px-4 py-2 bg-slate-900/50 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 text-white"
                               >
                                 <option value="">Select a yacht...</option>
-                                {yachts.map(yacht => (
+                                {allYachts.map(yacht => (
                                   <option key={yacht.id} value={yacht.name}>
                                     {yacht.name}
                                   </option>
