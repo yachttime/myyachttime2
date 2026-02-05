@@ -220,7 +220,7 @@ function generateSuccessPage(action: string, color: string, title: string, siteU
     </head>
     <body>
       <div class="container">
-        <div class="icon">${action === 'Approved' ? '✓' : '✗'}</div>
+        <div class="icon">${action === 'Approved' ? '&#10003;' : '&#10007;'}</div>
         <h1>Request ${action}</h1>
         <div class="title">${title}</div>
         <p>The repair request has been successfully ${action.toLowerCase()}. The team has been notified of your decision.</p>
