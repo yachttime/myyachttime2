@@ -404,9 +404,10 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
     const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
     const dateStr = date.toISOString().split('T')[0];
 
-    // Get all staff with approved time off
+    // Get all staff with approved time off (excluding partial day requests)
     const staffWithTimeOff = allTimeOffRequests.filter(request =>
       request.status === 'approved' &&
+      !request.is_partial_day &&
       dateStr >= request.start_date &&
       dateStr <= request.end_date &&
       request.user_profiles
@@ -420,6 +421,33 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
     );
 
     return [...staffWithTimeOff, ...dateOverrides];
+  };
+
+  const getPartialDayInfoForUser = (userId: string, day: number): string | null => {
+    const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+    const dateStr = date.toISOString().split('T')[0];
+
+    const partialDayRequest = allTimeOffRequests.find(request =>
+      request.user_id === userId &&
+      request.status === 'approved' &&
+      request.is_partial_day &&
+      dateStr >= request.start_date &&
+      dateStr <= request.end_date
+    );
+
+    if (!partialDayRequest || !partialDayRequest.start_time || !partialDayRequest.end_time) {
+      return null;
+    }
+
+    const formatTime = (timeStr: string) => {
+      const [hours, minutes] = timeStr.split(':');
+      const hour = parseInt(hours);
+      const ampm = hour >= 12 ? 'PM' : 'AM';
+      const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+      return `${displayHour}:${minutes} ${ampm}`;
+    };
+
+    return `Off ${formatTime(partialDayRequest.start_time)}-${formatTime(partialDayRequest.end_time)}`;
   };
 
   const getSchedulesForDate = (day: number) => {
@@ -436,14 +464,16 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
 
     return staffSchedules.filter(schedule => {
       // Check if there's an approved time-off request for this user on this date from ALL requests
-      const hasApprovedTimeOff = allTimeOffRequests.some(request =>
+      // Exclude partial day time off - they should still show as working
+      const hasApprovedFullDayTimeOff = allTimeOffRequests.some(request =>
         request.user_id === schedule.user_id &&
         request.status === 'approved' &&
+        !request.is_partial_day &&
         dateStr >= request.start_date &&
         dateStr <= request.end_date
       );
 
-      if (hasApprovedTimeOff) {
+      if (hasApprovedFullDayTimeOff) {
         return false;
       }
 
@@ -878,13 +908,14 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
                 arr.findIndex(item => item.user_id === s.user_id) === idx
               );
 
-              let displayItems: Array<{ name: string; type: 'working' | 'off' }> = [];
+              let displayItems: Array<{ name: string; type: 'working' | 'off'; partialDayInfo?: string | null }> = [];
 
               if (viewFilter === 'all') {
                 displayItems = [
                   ...uniqueSchedulesWorking.map(s => ({
                     name: `${s.user_profiles?.first_name} ${s.user_profiles?.last_name}`,
-                    type: 'working' as const
+                    type: 'working' as const,
+                    partialDayInfo: day ? getPartialDayInfoForUser(s.user_id, day) : null
                   })),
                   ...uniqueStaffOff.map(s => ({
                     name: `${s.user_profiles?.first_name} ${s.user_profiles?.last_name}`,
@@ -894,7 +925,8 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
               } else if (viewFilter === 'working') {
                 displayItems = uniqueSchedulesWorking.map(s => ({
                   name: `${s.user_profiles?.first_name} ${s.user_profiles?.last_name}`,
-                  type: 'working' as const
+                  type: 'working' as const,
+                  partialDayInfo: day ? getPartialDayInfoForUser(s.user_id, day) : null
                 }));
               } else if (viewFilter === 'off') {
                 displayItems = uniqueStaffOff.map(s => ({
@@ -938,13 +970,19 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
                         </div>
                       )}
                       {displayItems.map((item, idx) => (
-                        <div
-                          key={`staff-${idx}`}
-                          className={`text-xs font-semibold truncate ${
-                            item.type === 'working' ? 'text-white' : 'text-slate-300 line-through'
-                          }`}
-                        >
-                          {item.name}
+                        <div key={`staff-${idx}`}>
+                          <div
+                            className={`text-xs font-semibold truncate ${
+                              item.type === 'working' ? 'text-white' : 'text-slate-300 line-through'
+                            }`}
+                          >
+                            {item.name}
+                          </div>
+                          {item.partialDayInfo && (
+                            <div className="text-xs text-amber-400 truncate">
+                              {item.partialDayInfo}
+                            </div>
+                          )}
                         </div>
                       ))}
                     </>
