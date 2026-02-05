@@ -128,7 +128,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // Fetch repair request details for display
-    const { data: repairRequest } = await supabaseAdmin
+    const { data: repairRequest, error: fetchError } = await supabaseAdmin
       .from('repair_requests')
       .select(`
         title,
@@ -136,10 +136,18 @@ Deno.serve(async (req: Request) => {
         estimated_cost,
         retail_customer_name,
         yacht_id,
-        yachts(name)
+        yachts!repair_requests_yacht_id_fkey (
+          name
+        )
       `)
       .eq('id', tokenData.repair_request_id)
       .single();
+
+    if (fetchError) {
+      console.error('Error fetching repair request:', fetchError);
+    }
+
+    console.log('Repair request data:', JSON.stringify(repairRequest, null, 2));
 
     const action = tokenData.action_type === 'approve' ? 'Approved' : 'Denied';
     const actionColor = tokenData.action_type === 'approve' ? '#10b981' : '#ef4444';
@@ -147,8 +155,16 @@ Deno.serve(async (req: Request) => {
     const buttonColorHover = tokenData.action_type === 'approve' ? '#059669' : '#b91c1c';
     const siteUrl = Deno.env.get('SITE_URL') || 'https://myyachttime.vercel.app';
 
-    // Use meta refresh to force redirect out of Gmail iframe
-    const yachtName = repairRequest?.yachts?.name || repairRequest?.retail_customer_name || 'Unknown';
+    // Extract yacht name - handle both array and object responses
+    let yachtName = 'Unknown';
+    if (repairRequest?.retail_customer_name) {
+      yachtName = repairRequest.retail_customer_name;
+    } else if (repairRequest?.yachts) {
+      // Handle if yachts is an array or object
+      const yachtsData = Array.isArray(repairRequest.yachts) ? repairRequest.yachts[0] : repairRequest.yachts;
+      yachtName = yachtsData?.name || 'Unknown';
+    }
+
     const title = repairRequest?.title || 'Repair Request';
     const description = repairRequest?.description || 'No description provided';
     const estimatedCost = repairRequest?.estimated_cost
