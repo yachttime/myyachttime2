@@ -26,8 +26,9 @@ Deno.serve(async (req: Request) => {
           status: 400,
           headers: {
             'Content-Type': 'text/html; charset=utf-8',
-            'Cache-Control': 'no-cache',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
             'X-Content-Type-Options': 'nosniff',
+            'Content-Disposition': 'inline',
           },
         }
       );
@@ -52,8 +53,9 @@ Deno.serve(async (req: Request) => {
           status: 404,
           headers: {
             'Content-Type': 'text/html; charset=utf-8',
-            'Cache-Control': 'no-cache',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
             'X-Content-Type-Options': 'nosniff',
+            'Content-Disposition': 'inline',
           },
         }
       );
@@ -67,8 +69,9 @@ Deno.serve(async (req: Request) => {
           status: 400,
           headers: {
             'Content-Type': 'text/html; charset=utf-8',
-            'Cache-Control': 'no-cache',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
             'X-Content-Type-Options': 'nosniff',
+            'Content-Disposition': 'inline',
           },
         }
       );
@@ -83,8 +86,9 @@ Deno.serve(async (req: Request) => {
           status: 400,
           headers: {
             'Content-Type': 'text/html; charset=utf-8',
-            'Cache-Control': 'no-cache',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
             'X-Content-Type-Options': 'nosniff',
+            'Content-Disposition': 'inline',
           },
         }
       );
@@ -115,8 +119,9 @@ Deno.serve(async (req: Request) => {
           status: 500,
           headers: {
             'Content-Type': 'text/html; charset=utf-8',
-            'Cache-Control': 'no-cache',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
             'X-Content-Type-Options': 'nosniff',
+            'Content-Disposition': 'inline',
           },
         }
       );
@@ -148,8 +153,9 @@ Deno.serve(async (req: Request) => {
         status: 200,
         headers: {
           'Content-Type': 'text/html; charset=utf-8',
-          'Cache-Control': 'no-cache',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
           'X-Content-Type-Options': 'nosniff',
+          'Content-Disposition': 'inline',
         },
       }
     );
@@ -161,8 +167,9 @@ Deno.serve(async (req: Request) => {
         status: 500,
         headers: {
           'Content-Type': 'text/html; charset=utf-8',
-          'Cache-Control': 'no-cache',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
           'X-Content-Type-Options': 'nosniff',
+          'Content-Disposition': 'inline',
         },
       }
     );
