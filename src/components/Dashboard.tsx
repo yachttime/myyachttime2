@@ -459,6 +459,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [isAddingInvoiceToCompleted, setIsAddingInvoiceToCompleted] = useState(false);
   const [paymentLinkLoading, setPaymentLinkLoading] = useState<{ [invoiceId: string]: boolean }>({});
   const [deletePaymentLinkLoading, setDeletePaymentLinkLoading] = useState<{ [invoiceId: string]: boolean }>({});
+  const [syncPaymentLoading, setSyncPaymentLoading] = useState<{ [invoiceId: string]: boolean }>({});
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [selectedInvoiceForEmail, setSelectedInvoiceForEmail] = useState<YachtInvoice | null>(null);
   const [emailRecipient, setEmailRecipient] = useState('');
@@ -3315,6 +3316,42 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       alert(`Error: ${error.message || 'Failed to delete payment link'}`);
     } finally {
       setDeletePaymentLinkLoading({ ...deletePaymentLinkLoading, [invoice.id]: false });
+    }
+  };
+
+  const handleSyncPaymentStatus = async (invoice: YachtInvoice) => {
+    if (!invoice.id) return;
+
+    setSyncPaymentLoading({ ...syncPaymentLoading, [invoice.id]: true });
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-stripe-payment`;
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          invoice_id: invoice.id
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        await loadRepairRequests();
+        alert(result.message || 'Payment status synced successfully!');
+      } else {
+        alert(result.message || 'Payment not yet completed in Stripe');
+      }
+    } catch (error: any) {
+      console.error('Error syncing payment status:', error);
+      alert(`Error: ${error.message || 'Failed to sync payment status'}`);
+    } finally {
+      setSyncPaymentLoading({ ...syncPaymentLoading, [invoice.id]: false });
     }
   };
 
@@ -11541,6 +11578,14 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                           )}
                                           {invoice.payment_link_url && invoice.payment_status === 'pending' && (
                                             <>
+                                              <button
+                                                onClick={() => handleSyncPaymentStatus(invoice)}
+                                                disabled={syncPaymentLoading[invoice.id]}
+                                                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 disabled:opacity-50"
+                                              >
+                                                <RefreshCw className="w-3 h-3" />
+                                                {syncPaymentLoading[invoice.id] ? 'Syncing...' : 'Sync Payment'}
+                                              </button>
                                               <button
                                                 onClick={() => handleRegeneratePaymentLink(invoice)}
                                                 disabled={paymentLinkLoading[invoice.id]}
