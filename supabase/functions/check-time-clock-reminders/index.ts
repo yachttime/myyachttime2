@@ -155,6 +155,9 @@ Deno.serve(async (req: Request) => {
           if (resendApiKey && schedule.email_address) {
             console.log(`Sending punch-in reminder email to ${schedule.full_name} (${schedule.email_address})`);
 
+            let fromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'onboarding@resend.dev';
+            fromEmail = fromEmail.trim();
+
             const emailResponse = await fetch("https://api.resend.com/emails", {
               method: "POST",
               headers: {
@@ -162,7 +165,7 @@ Deno.serve(async (req: Request) => {
                 Authorization: `Bearer ${resendApiKey}`,
               },
               body: JSON.stringify({
-                from: "Marina App <notifications@yourmarina.com>",
+                from: fromEmail,
                 to: [schedule.email_address],
                 subject: "Time Clock Reminder - Please Punch In",
                 html: `
@@ -276,6 +279,9 @@ Deno.serve(async (req: Request) => {
           if (resendApiKey && schedule.email_address) {
             console.log(`Sending punch-out reminder email to ${schedule.full_name} (${schedule.email_address})`);
 
+            let fromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'onboarding@resend.dev';
+            fromEmail = fromEmail.trim();
+
             const emailResponse = await fetch("https://api.resend.com/emails", {
               method: "POST",
               headers: {
@@ -283,7 +289,7 @@ Deno.serve(async (req: Request) => {
                 Authorization: `Bearer ${resendApiKey}`,
               },
               body: JSON.stringify({
-                from: "Marina App <notifications@yourmarina.com>",
+                from: fromEmail,
                 to: [schedule.email_address],
                 subject: "Time Clock Reminder - Please Punch Out",
                 html: `
