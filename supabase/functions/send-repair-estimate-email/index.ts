@@ -131,35 +131,91 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Generate approval tokens
-    const approveToken = crypto.randomUUID();
-    const denyToken = crypto.randomUUID();
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 30); // 30 days expiration
-
-    // Store approval tokens
-    const { error: tokenError } = await supabase
+    // Check for existing unused, unexpired tokens
+    const { data: existingTokens, error: existingTokensError } = await supabase
       .from('repair_request_approval_tokens')
-      .insert([
-        {
-          repair_request_id: repairRequestId,
-          token: approveToken,
-          action_type: 'approve',
-          manager_email: recipientEmail,
-          expires_at: expiresAt.toISOString(),
-        },
-        {
-          repair_request_id: repairRequestId,
-          token: denyToken,
-          action_type: 'deny',
-          manager_email: recipientEmail,
-          expires_at: expiresAt.toISOString(),
-        },
-      ]);
+      .select('*')
+      .eq('repair_request_id', repairRequestId)
+      .is('used_at', null)
+      .gt('expires_at', new Date().toISOString());
 
-    if (tokenError) {
-      console.error('Error creating approval tokens:', tokenError);
-      throw new Error('Failed to create approval tokens');
+    let approveToken: string;
+    let denyToken: string;
+
+    if (existingTokensError) {
+      console.error('Error checking existing tokens:', existingTokensError);
+    }
+
+    // Reuse existing tokens if available, otherwise create new ones
+    if (existingTokens && existingTokens.length >= 2) {
+      const approveTokenObj = existingTokens.find(t => t.action_type === 'approve');
+      const denyTokenObj = existingTokens.find(t => t.action_type === 'deny');
+
+      if (approveTokenObj && denyTokenObj) {
+        approveToken = approveTokenObj.token;
+        denyToken = denyTokenObj.token;
+        console.log('Reusing existing approval tokens');
+      } else {
+        // Create missing tokens
+        approveToken = crypto.randomUUID();
+        denyToken = crypto.randomUUID();
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + 30);
+
+        const { error: tokenError } = await supabase
+          .from('repair_request_approval_tokens')
+          .insert([
+            {
+              repair_request_id: repairRequestId,
+              token: approveToken,
+              action_type: 'approve',
+              manager_email: recipientEmail,
+              expires_at: expiresAt.toISOString(),
+            },
+            {
+              repair_request_id: repairRequestId,
+              token: denyToken,
+              action_type: 'deny',
+              manager_email: recipientEmail,
+              expires_at: expiresAt.toISOString(),
+            },
+          ]);
+
+        if (tokenError) {
+          console.error('Error creating approval tokens:', tokenError);
+          throw new Error('Failed to create approval tokens');
+        }
+      }
+    } else {
+      // No existing tokens, create new ones
+      approveToken = crypto.randomUUID();
+      denyToken = crypto.randomUUID();
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 30);
+
+      const { error: tokenError } = await supabase
+        .from('repair_request_approval_tokens')
+        .insert([
+          {
+            repair_request_id: repairRequestId,
+            token: approveToken,
+            action_type: 'approve',
+            manager_email: recipientEmail,
+            expires_at: expiresAt.toISOString(),
+          },
+          {
+            repair_request_id: repairRequestId,
+            token: denyToken,
+            action_type: 'deny',
+            manager_email: recipientEmail,
+            expires_at: expiresAt.toISOString(),
+          },
+        ]);
+
+      if (tokenError) {
+        console.error('Error creating approval tokens:', tokenError);
+        throw new Error('Failed to create approval tokens');
+      }
     }
 
     // Build approval URLs

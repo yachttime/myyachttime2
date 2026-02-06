@@ -121,11 +121,13 @@ Deno.serve(async (req: Request) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Mark token as used
+    // Mark ALL tokens for this repair request as used (not just this one)
+    // This prevents someone from clicking multiple buttons
+    const now = new Date().toISOString();
     await supabaseAdmin
       .from('repair_request_approval_tokens')
-      .update({ used_at: new Date().toISOString() })
-      .eq('token', token);
+      .update({ used_at: now })
+      .eq('repair_request_id', tokenData.repair_request_id);
 
     // Update the repair request status
     const newStatus = tokenData.action_type === 'approve' ? 'approved' : 'rejected';
