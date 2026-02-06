@@ -79,6 +79,64 @@ Deno.serve(async (req: Request) => {
     const subject = `New Repair Request: ${repairTitle}`;
     const siteUrl = Deno.env.get('SITE_URL') || 'https://yourdomain.com';
 
+    // Fetch repair request to check for attachments
+    const { data: repairRequest, error: repairError } = await supabase
+      .from('repair_requests')
+      .select('file_url, file_name')
+      .eq('id', repairRequestId)
+      .single();
+
+    if (repairError) {
+      console.error('Error fetching repair request:', repairError);
+    }
+
+    // Download attachment if it exists
+    let attachmentData = null;
+    if (repairRequest?.file_url && repairRequest?.file_name) {
+      try {
+        console.log('Attempting to download repair attachment:', {
+          url: repairRequest.file_url,
+          filename: repairRequest.file_name
+        });
+
+        // Extract the file path from the full URL
+        let filePath = repairRequest.file_url;
+
+        // Remove the base URL and bucket name to get just the file path
+        if (filePath.includes('/repair-files/')) {
+          filePath = filePath.split('/repair-files/')[1];
+        } else if (filePath.includes('/object/public/repair-files/')) {
+          filePath = filePath.split('/object/public/repair-files/')[1];
+        }
+
+        console.log('Extracted file path:', filePath);
+
+        const { data: fileData, error: fileError } = await supabase.storage
+          .from('repair-files')
+          .download(filePath);
+
+        if (fileError) {
+          console.error('Error downloading repair file from storage:', fileError);
+        } else if (fileData) {
+          console.log('Successfully downloaded file, size:', fileData.size);
+
+          const arrayBuffer = await fileData.arrayBuffer();
+          const base64Content = btoa(
+            new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+          );
+
+          attachmentData = {
+            filename: repairRequest.file_name,
+            content: base64Content,
+          };
+
+          console.log('Successfully prepared attachment:', repairRequest.file_name);
+        }
+      } catch (error) {
+        console.error('Error processing repair attachment:', error);
+      }
+    }
+
     // Send email to each manager
     const emailResults = [];
     for (let i = 0; i < managerEmails.length; i++) {
@@ -200,7 +258,7 @@ Deno.serve(async (req: Request) => {
       `;
 
       try {
-        const emailPayload = {
+        const emailPayload: any = {
           from: fromEmail,
           to: [email],
           subject: subject,
@@ -212,6 +270,11 @@ Deno.serve(async (req: Request) => {
             },
           ],
         };
+
+        // Add attachment if available
+        if (attachmentData) {
+          emailPayload.attachments = [attachmentData];
+        }
 
         const emailResponse = await fetch('https://api.resend.com/emails', {
           method: 'POST',
