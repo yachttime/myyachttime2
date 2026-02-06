@@ -2697,6 +2697,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       const { error: invoiceInsertError } = await supabase.from('yacht_invoices').insert({
         yacht_id: selectedRepairForInvoice.yacht_id,
+        customer_id: selectedRepairForInvoice.customer_id || null,
         repair_request_id: selectedRepairForInvoice.id,
         invoice_amount: invoiceForm.final_invoice_amount,
         invoice_amount_numeric: isNaN(invoiceAmountNumeric) ? null : invoiceAmountNumeric,
@@ -2872,6 +2873,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       const { data: newInvoice, error: invoiceInsertError } = await supabase.from('yacht_invoices').insert({
         yacht_id: selectedRepairForInvoice.yacht_id,
+        customer_id: selectedRepairForInvoice.customer_id || null,
         repair_request_id: selectedRepairForInvoice.id,
         invoice_amount: invoiceForm.final_invoice_amount,
         invoice_amount_numeric: isNaN(invoiceAmountNumeric) ? null : invoiceAmountNumeric,

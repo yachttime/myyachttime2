@@ -187,6 +187,17 @@ Deno.serve(async (req: Request) => {
       const approveUrl = `${supabaseUrl}/functions/v1/handle-repair-approval?token=${approveToken}`;
       const denyUrl = `${supabaseUrl}/functions/v1/handle-repair-approval?token=${denyToken}`;
 
+      // Fetch full repair request details for email
+      const { data: fullRepairRequest } = await supabase
+        .from('repair_requests')
+        .select('*, yachts(name)')
+        .eq('id', repairRequestId)
+        .single();
+
+      const estimateAmount = fullRepairRequest?.estimated_repair_cost
+        ? `$${parseFloat(fullRepairRequest.estimated_repair_cost).toFixed(2)}`
+        : 'TBD';
+
       const htmlContent = `
         <!DOCTYPE html>
         <html>
@@ -195,62 +206,69 @@ Deno.serve(async (req: Request) => {
           <style>
             body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
             .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+            .header { background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
             .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
-            .alert-box { background: #fef2f2; border-left: 4px solid #dc2626; padding: 20px; border-radius: 8px; margin: 20px 0; }
-            .details { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }
-            .action-buttons { text-align: center; margin: 30px 0; }
-            .approve-button { display: inline-block; background: #10b981; color: white; padding: 14px 40px; text-decoration: none; border-radius: 6px; font-weight: bold; margin: 10px; font-size: 16px; }
-            .deny-button { display: inline-block; background: #ef4444; color: white; padding: 14px 40px; text-decoration: none; border-radius: 6px; font-weight: bold; margin: 10px; font-size: 16px; }
-            .view-link { display: inline-block; color: #dc2626; text-decoration: underline; margin-top: 10px; }
+            .estimate-details { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f97316; }
+            .approval-section { background: #fef3c7; border: 2px solid #f59e0b; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center; }
+            .button-container { display: flex; gap: 15px; justify-content: center; margin: 20px 0; }
+            .button { display: inline-block; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; transition: all 0.3s; }
+            .approve-button { background: #10b981; color: white; }
+            .approve-button:hover { background: #059669; }
+            .deny-button { background: #ef4444; color: white; }
+            .deny-button:hover { background: #dc2626; }
+            .contact-info { background: white; padding: 15px; border-radius: 8px; margin: 15px 0; }
             .footer { text-align: center; color: #666; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; }
-            .expiry-notice { background: #fef3c7; border: 1px solid #fbbf24; padding: 10px; border-radius: 6px; margin: 15px 0; font-size: 14px; text-align: center; }
           </style>
         </head>
         <body>
           <div class="container">
             <div class="header">
-              <h1 style="margin: 0;">⚠️ New Repair Request</h1>
-              <p style="margin: 10px 0 0 0;">Requires Your Approval</p>
+              <h1 style="margin: 0;">Repair Estimate</h1>
+              <p style="margin: 10px 0 0 0;">AZ Marine Services</p>
             </div>
             <div class="content">
               <p>Hello${name ? ` ${name}` : ''},</p>
 
-              <div class="alert-box">
-                <p style="margin: 0; font-weight: bold;">A new repair request has been submitted and requires your approval.</p>
-              </div>
+              <p>A repair request has been submitted for your yacht and requires your approval to proceed.</p>
 
-              <div class="details">
-                <h3 style="margin-top: 0; color: #dc2626;">Repair Request Details</h3>
+              <div class="estimate-details">
+                <h3 style="margin-top: 0; color: #f97316;">Repair Details</h3>
                 <p><strong>Yacht:</strong> ${yachtName}</p>
-                <p><strong>Title:</strong> ${repairTitle}</p>
+                <p><strong>Service:</strong> ${repairTitle}</p>
+                ${fullRepairRequest?.description ? `<p><strong>Description:</strong> ${fullRepairRequest.description}</p>` : ''}
+                <p><strong>Estimated Cost:</strong> <span style="font-size: 1.25em; color: #f97316; font-weight: bold;">${estimateAmount}</span></p>
                 <p><strong>Submitted By:</strong> ${submitterName}</p>
-                <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+                <p><strong>Request Date:</strong> ${new Date().toLocaleDateString()}</p>
               </div>
 
-              <p style="text-align: center; margin: 25px 0 10px 0; font-size: 18px; font-weight: bold;">Take Action Now:</p>
-
-              <div class="action-buttons">
-                <a href="${approveUrl}" class="approve-button" style="color: white;">✓ Approve Request</a>
-                <a href="${denyUrl}" class="deny-button" style="color: white;">✗ Deny Request</a>
+              <div class="approval-section">
+                <h3 style="margin-top: 0; color: #92400e;">Approve or Deny This Estimate</h3>
+                <p>Please review the estimate above. Click the button below to approve or deny this work:</p>
+                <div class="button-container">
+                  <a href="${approveUrl}" target="_blank" rel="noopener noreferrer" class="button approve-button">✓ Approve Estimate</a>
+                  <a href="${denyUrl}" target="_blank" rel="noopener noreferrer" class="button deny-button">✗ Deny Estimate</a>
+                </div>
+                <p style="font-size: 14px; color: #666; margin-top: 15px;">Once you approve, we will schedule your repair and keep you updated throughout the process.</p>
+                <p style="font-size: 14px; color: #666;">If you have questions before deciding, please contact us at sales@azmarine.net or 928-637-6500.</p>
               </div>
 
-              <div class="expiry-notice">
-                ⏰ These quick action links expire in 7 days
+              ${attachmentData ? '<p><strong>Attached:</strong> Additional documentation or photos related to your repair request.</p>' : ''}
+
+              <div class="contact-info">
+                <h4 style="margin-top: 0; color: #f97316;">Questions?</h4>
+                <p>If you have any questions about this estimate or would like to discuss the repair in more detail, please don't hesitate to reach out.</p>
+                <p style="margin: 5px 0;"><strong>Email:</strong> sales@azmarine.net</p>
+                <p style="margin: 5px 0;"><strong>Phone:</strong> 928-637-6500</p>
               </div>
 
-              <p style="text-align: center; margin-top: 25px;">
-                Or <a href="${siteUrl}" class="view-link">log in to MyYachtTime</a> to view full details
-              </p>
-
-              <p style="margin-top: 30px;">If you have any questions or need assistance, please contact the service team.</p>
+              <p>We appreciate your business and look forward to serving you.</p>
 
               <p>Best regards,<br>
-              Yacht Management System</p>
+              AZ Marine Service Team</p>
             </div>
             <div class="footer">
-              <p>This is an automated notification. Please do not reply to this email.</p>
-              <p>&copy; ${new Date().getFullYear()} Yacht Management System</p>
+              <p>This estimate is valid for 30 days from the date above.</p>
+              <p>&copy; ${new Date().getFullYear()} AZ Marine</p>
             </div>
           </div>
         </body>
@@ -294,13 +312,14 @@ Deno.serve(async (req: Request) => {
           console.log('Email sent successfully to:', email, 'ID:', emailData.id);
           emailResults.push({ email, success: true, emailId: emailData.id });
 
-          // Store the first successful email ID for tracking
+          // Store the first successful email ID for tracking (using same fields as retail customers)
           if (emailResults.filter(r => r.success).length === 1) {
             await supabase
               .from('repair_requests')
               .update({
-                notification_resend_email_id: emailData.id,
-                notification_email_sent_at: new Date().toISOString()
+                estimate_email_sent_at: new Date().toISOString(),
+                resend_email_id: emailData.id,
+                estimate_email_recipient: email
               })
               .eq('id', repairRequestId);
           }
