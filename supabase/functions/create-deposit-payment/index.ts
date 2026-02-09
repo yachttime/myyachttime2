@@ -85,16 +85,22 @@ Deno.serve(async (req: Request) => {
     // If there's an existing checkout session, expire it first
     if (repairRequest.deposit_stripe_checkout_session_id) {
       try {
-        await fetch(`https://api.stripe.com/v1/checkout/sessions/${repairRequest.deposit_stripe_checkout_session_id}/expire`, {
+        const expireResponse = await fetch(`https://api.stripe.com/v1/checkout/sessions/${repairRequest.deposit_stripe_checkout_session_id}/expire`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${stripeSecretKey}`,
           },
         });
-        console.log('Expired old checkout session:', repairRequest.deposit_stripe_checkout_session_id);
+
+        if (expireResponse.ok) {
+          console.log('Successfully expired old checkout session:', repairRequest.deposit_stripe_checkout_session_id);
+        } else {
+          const errorText = await expireResponse.text();
+          console.log('Failed to expire old session (might already be expired):', errorText);
+        }
       } catch (expireError) {
-        console.error('Failed to expire old checkout session:', expireError);
-        // Continue anyway - the old session might already be expired
+        console.error('Error expiring old checkout session:', expireError);
+        // Continue anyway - the old session might already be expired or deleted
       }
     }
 
