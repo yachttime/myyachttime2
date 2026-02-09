@@ -3638,7 +3638,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       }
 
       await loadRepairRequests();
-      showSuccess(isRegeneration ? 'Deposit payment link regenerated successfully! Valid for 30 days.' : 'Deposit payment link generated successfully! Valid for 30 days.');
+      showSuccess(isRegeneration ? 'Deposit payment link regenerated successfully! Valid for 24 hours.' : 'Deposit payment link generated successfully! Valid for 24 hours.');
       setShowDepositModal(false);
       setSelectedRepairForDeposit(null);
       setDepositForm({ deposit_amount: '', recipient_email: '', recipient_name: '' });
