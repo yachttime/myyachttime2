@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMS Consent Form - Proof of Consent UI</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #0f172a;
+            padding: 40px 20px;
+            min-height: 100vh;
+        }
+
+        .page-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            color: #94a3b8;
+            font-size: 16px;
+        }
+
+        .badge {
+            display: inline-block;
+            background: #dcfce7;
+            color: #166534;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-top: 12px;
+        }
+
+        .app-mockup {
+            background: #1e293b;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        .form-section {
+            background: #334155;
+            border-radius: 12px;
+            padding: 32px;
+            margin-bottom: 24px;
+        }
+
+        .section-title {
+            color: #e2e8f0;
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 24px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #475569;
+        }
+
+        .form-group {
+            margin-bottom: 24px;
+        }
+
+        .form-label {
+            display: block;
+            color: #cbd5e1;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            background: rgba(15, 23, 42, 0.5);
+            border: 1px solid #475569;
+            border-radius: 8px;
+            color: #e2e8f0;
+            font-size: 15px;
+        }
+
+        .help-text {
+            color: #64748b;
+            font-size: 12px;
+            margin-top: 6px;
+        }
+
+        .checkbox-container {
+            display: flex;
+            align-items: start;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .checkbox {
+            width: 20px;
+            height: 20px;
+            margin-top: 2px;
+            flex-shrink: 0;
+            cursor: pointer;
+            accent-color: #3b82f6;
+        }
+
+        .checkbox-label {
+            color: #cbd5e1;
+            font-weight: 500;
+            line-height: 1.5;
+        }
+
+        .consent-box {
+            background: rgba(245, 158, 11, 0.1);
+            border: 2px solid rgba(245, 158, 11, 0.5);
+            border-radius: 12px;
+            padding: 24px;
+        }
+
+        .consent-box h3 {
+            color: #fbbf24;
+            font-size: 16px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .consent-text {
+            color: #e2e8f0;
+            font-size: 14px;
+            line-height: 1.7;
+        }
+
+        .warning-box {
+            background: rgba(245, 158, 11, 0.15);
+            border-left: 4px solid #f59e0b;
+            padding: 12px 16px;
+            margin-top: 16px;
+            border-radius: 4px;
+        }
+
+        .warning-text {
+            color: #fbbf24;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .info-banner {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 32px;
+        }
+
+        .info-banner h4 {
+            color: #60a5fa;
+            font-size: 15px;
+            margin-bottom: 12px;
+        }
+
+        .info-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .info-list li {
+            color: #cbd5e1;
+            font-size: 14px;
+            margin: 8px 0;
+            padding-left: 24px;
+            position: relative;
+        }
+
+        .info-list li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #60a5fa;
+            font-weight: bold;
+        }
+
+        .footer-note {
+            margin-top: 40px;
+            padding-top: 24px;
+            border-top: 2px solid #334155;
+            text-align: center;
+            color: #64748b;
+            font-size: 13px;
+        }
+
+        .icon {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+        }
+
+        @media print {
+            body {
+                background: white;
+            }
+            .app-mockup {
+                box-shadow: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="page-container">
+        <div class="header">
+            <h1>SMS Consent Form Interface</h1>
+            <p>Proof of Consent Collection Method for Twilio A2P Compliance</p>
+            <span class="badge">TCPA Compliant Express Written Consent</span>
+        </div>
+
+        <div class="app-mockup">
+            <div class="form-section">
+                <h2 class="section-title">User Profile - Notification Preferences</h2>
+
+                <div class="form-group">
+                    <div class="checkbox-container">
+                        <input type="checkbox" id="email-notif" class="checkbox" checked disabled>
+                        <label for="email-notif" class="checkbox-label">
+                            Enable Email Notifications
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="checkbox-container">
+                        <input type="checkbox" id="sms-notif" class="checkbox" disabled>
+                        <label for="sms-notif" class="checkbox-label">
+                            Enable SMS Notifications
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">
+                        SMS Phone Number (optional)
+                    </label>
+                    <input
+                        type="tel"
+                        class="form-input"
+                        placeholder="123-456-7890"
+                        value=""
+                        disabled
+                    >
+                    <p class="help-text">If left blank, SMS will be sent to the primary phone number.</p>
+                </div>
+
+                <div class="consent-box">
+                    <h3>
+                        <svg class="icon" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                        </svg>
+                        SMS Consent Required
+                    </h3>
+
+                    <div class="checkbox-container">
+                        <input
+                            type="checkbox"
+                            id="sms-consent"
+                            class="checkbox"
+                            disabled
+                        >
+                        <label for="sms-consent" class="consent-text">
+                            <strong>I consent to receive SMS text message reminders for my scheduled work shifts.</strong>
+                            Message frequency varies (up to 2 per workday). Message and data rates may apply.
+                            Reply STOP to opt out at any time. Consent is not required as a condition of employment.
+                        </label>
+                    </div>
+
+                    <div class="warning-box">
+                        <p class="warning-text">
+                            ⚠ SMS consent must be given before text messages can be sent (TCPA compliance).
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-banner">
+                <h4>This Consent Form Includes All Required TCPA Elements:</h4>
+                <ul class="info-list">
+                    <li><strong>Express Written Consent:</strong> Checkbox must be actively checked by user</li>
+                    <li><strong>Clear Purpose:</strong> "receive SMS text message reminders for my scheduled work shifts"</li>
+                    <li><strong>Frequency Disclosure:</strong> "Message frequency varies (up to 2 per workday)"</li>
+                    <li><strong>Cost Notice:</strong> "Message and data rates may apply"</li>
+                    <li><strong>Opt-Out Instructions:</strong> "Reply STOP to opt out at any time"</li>
+                    <li><strong>Voluntary Statement:</strong> "Consent is not required as a condition of employment"</li>
+                    <li><strong>Default State:</strong> Checkbox is unchecked by default (not pre-checked)</li>
+                    <li><strong>Enforcement:</strong> Warning shown if consent not given before SMS can be enabled</li>
+                </ul>
+            </div>
+
+            <div class="info-banner" style="margin-top: 24px;">
+                <h4>Database Fields Tracking Consent:</h4>
+                <ul class="info-list">
+                    <li><strong>sms_consent_given:</strong> true/false - Tracks if consent checkbox was checked</li>
+                    <li><strong>sms_consent_date:</strong> Timestamp when consent was granted</li>
+                    <li><strong>sms_consent_method:</strong> "web_form" - Method used to collect consent</li>
+                    <li><strong>sms_consent_ip_address:</strong> IP address at time of consent (optional)</li>
+                    <li><strong>notification_phone:</strong> Phone number where SMS will be sent</li>
+                </ul>
+            </div>
+
+            <div class="footer-note">
+                <p><strong>Document Purpose:</strong> This page demonstrates the SMS consent collection interface used in the Utopia Yacht Management system.</p>
+                <p style="margin-top: 8px;">This serves as proof of consent for Twilio A2P registration and demonstrates TCPA compliance.</p>
+                <p style="margin-top: 12px; opacity: 0.7;">Generated: February 9, 2026</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

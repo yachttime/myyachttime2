@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMS Notification Consent Policy - Utopia Yacht Management</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #1e293b;
+            background: #f8fafc;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 30px;
+            border-bottom: 3px solid #3b82f6;
+        }
+
+        h1 {
+            color: #0f172a;
+            font-size: 32px;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            color: #64748b;
+            font-size: 16px;
+        }
+
+        .last-updated {
+            background: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            padding: 12px 16px;
+            margin: 30px 0;
+            border-radius: 4px;
+            font-size: 14px;
+            color: #1e40af;
+        }
+
+        h2 {
+            color: #0f172a;
+            font-size: 24px;
+            margin: 30px 0 16px;
+            font-weight: 600;
+        }
+
+        h3 {
+            color: #334155;
+            font-size: 18px;
+            margin: 24px 0 12px;
+            font-weight: 600;
+        }
+
+        p {
+            margin: 12px 0;
+            color: #475569;
+            font-size: 15px;
+        }
+
+        ul, ol {
+            margin: 16px 0;
+            padding-left: 28px;
+        }
+
+        li {
+            margin: 8px 0;
+            color: #475569;
+            font-size: 15px;
+        }
+
+        .consent-box {
+            background: #fef3c7;
+            border: 2px solid #f59e0b;
+            border-radius: 8px;
+            padding: 24px;
+            margin: 24px 0;
+        }
+
+        .consent-box h3 {
+            color: #92400e;
+            margin-top: 0;
+            font-size: 18px;
+        }
+
+        .consent-text {
+            background: white;
+            border: 2px solid #d97706;
+            border-radius: 6px;
+            padding: 20px;
+            margin: 16px 0;
+            font-size: 15px;
+            line-height: 1.7;
+            color: #1e293b;
+        }
+
+        .checkbox-demo {
+            display: flex;
+            align-items: start;
+            gap: 12px;
+            margin: 16px 0;
+        }
+
+        .checkbox-demo input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            margin-top: 2px;
+            flex-shrink: 0;
+        }
+
+        .highlight {
+            background: #dbeafe;
+            border-left: 4px solid #3b82f6;
+            padding: 16px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 24px 0;
+        }
+
+        .info-card {
+            background: #f1f5f9;
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .info-card h4 {
+            color: #0f172a;
+            margin-bottom: 8px;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .info-card p {
+            margin: 4px 0;
+            font-size: 14px;
+        }
+
+        .compliance-badge {
+            display: inline-block;
+            background: #dcfce7;
+            color: #166534;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            margin: 4px;
+        }
+
+        .screenshot-section {
+            background: #f8fafc;
+            border: 2px dashed #cbd5e1;
+            border-radius: 8px;
+            padding: 30px;
+            margin: 30px 0;
+            text-align: center;
+        }
+
+        footer {
+            margin-top: 50px;
+            padding-top: 30px;
+            border-top: 2px solid #e2e8f0;
+            text-align: center;
+            color: #64748b;
+            font-size: 14px;
+        }
+
+        @media print {
+            body {
+                background: white;
+            }
+            .container {
+                box-shadow: none;
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>SMS Notification Consent Policy</h1>
+            <p class="subtitle">Proof of Consent Documentation for Twilio A2P Registration</p>
+        </header>
+
+        <div class="last-updated">
+            <strong>Last Updated:</strong> February 9, 2026 | <strong>Document Version:</strong> 1.0
+        </div>
+
+        <section>
+            <h2>Overview</h2>
+            <p>
+                This document serves as proof of consent for SMS messaging under Twilio A2P (Application-to-Person)
+                requirements and TCPA (Telephone Consumer Protection Act) compliance. It describes how Utopia Yacht
+                Management collects, stores, and honors SMS consent from users.
+            </p>
+
+            <div class="highlight">
+                <p><strong>Compliance Standards:</strong></p>
+                <span class="compliance-badge">TCPA Compliant</span>
+                <span class="compliance-badge">Twilio A2P</span>
+                <span class="compliance-badge">Express Written Consent</span>
+                <span class="compliance-badge">Opt-Out Support</span>
+            </div>
+        </section>
+
+        <section>
+            <h2>SMS Use Case</h2>
+            <div class="info-grid">
+                <div class="info-card">
+                    <h4>Purpose</h4>
+                    <p>Work shift reminders for employees</p>
+                </div>
+                <div class="info-card">
+                    <h4>Message Type</h4>
+                    <p>Transactional notifications</p>
+                </div>
+                <div class="info-card">
+                    <h4>Frequency</h4>
+                    <p>Up to 2 messages per workday</p>
+                </div>
+                <div class="info-card">
+                    <h4>Recipient Type</h4>
+                    <p>Employees and staff members</p>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <h2>Consent Collection Method</h2>
+            <p>
+                Consent is collected through our web application during user profile creation and management.
+                Users must actively opt-in by checking a consent checkbox before SMS notifications are enabled.
+            </p>
+
+            <h3>Consent Collection Location</h3>
+            <ul>
+                <li><strong>Platform:</strong> Web application (user management dashboard)</li>
+                <li><strong>Accessible by:</strong> System administrators, managers, and the users themselves</li>
+                <li><strong>Consent Type:</strong> Express written consent via checkbox</li>
+                <li><strong>Pre-checked:</strong> No (unchecked by default)</li>
+            </ul>
+        </section>
+
+        <section class="consent-box">
+            <h3>Exact Consent Language Presented to Users</h3>
+            <p>The following is the exact text shown to users when collecting SMS consent:</p>
+
+            <div class="consent-text">
+                <div class="checkbox-demo">
+                    <input type="checkbox" id="consent-demo" disabled>
+                    <label for="consent-demo">
+                        <strong>I consent to receive SMS text message reminders for my scheduled work shifts.</strong>
+                        Message frequency varies (up to 2 per workday). Message and data rates may apply.
+                        Reply STOP to opt out at any time. Consent is not required as a condition of employment.
+                    </label>
+                </div>
+            </div>
+
+            <p style="margin-top: 16px; font-size: 14px; color: #92400e;">
+                <strong>Note:</strong> If consent is not given, a warning message appears stating:
+                "SMS consent must be given before text messages can be sent (TCPA compliance)."
+            </p>
+        </section>
+
+        <section>
+            <h2>Consent Tracking & Data Storage</h2>
+            <p>All consent information is stored in our Supabase database with the following fields:</p>
+
+            <ul>
+                <li><strong>sms_consent_given:</strong> Boolean flag indicating consent status</li>
+                <li><strong>sms_consent_date:</strong> Timestamp of when consent was granted</li>
+                <li><strong>sms_consent_method:</strong> Method of consent collection (e.g., "web_form")</li>
+                <li><strong>sms_consent_ip_address:</strong> IP address at time of consent (optional)</li>
+                <li><strong>notification_phone:</strong> Phone number for SMS delivery</li>
+            </ul>
+
+            <div class="highlight">
+                <p><strong>Data Retention:</strong> Consent records are maintained for the duration of the user's
+                employment plus 3 years for compliance audit purposes.</p>
+            </div>
+        </section>
+
+        <section>
+            <h2>Required Disclosures</h2>
+            <p>Our consent form includes all required TCPA disclosures:</p>
+
+            <ol>
+                <li><strong>Purpose:</strong> "receive SMS text message reminders for my scheduled work shifts"</li>
+                <li><strong>Frequency:</strong> "Message frequency varies (up to 2 per workday)"</li>
+                <li><strong>Cost Disclosure:</strong> "Message and data rates may apply"</li>
+                <li><strong>Opt-Out Instructions:</strong> "Reply STOP to opt out at any time"</li>
+                <li><strong>Voluntary Consent:</strong> "Consent is not required as a condition of employment"</li>
+            </ol>
+        </section>
+
+        <section>
+            <h2>Opt-Out & Revocation</h2>
+            <p>Users can revoke SMS consent at any time through multiple methods:</p>
+
+            <ul>
+                <li><strong>Text "STOP":</strong> Reply with STOP to any SMS message</li>
+                <li><strong>Dashboard:</strong> Uncheck the SMS consent checkbox in their user profile</li>
+                <li><strong>Contact Support:</strong> Request SMS opt-out via email or phone</li>
+            </ul>
+
+            <p>
+                When opt-out is received, the system immediately updates <code>sms_consent_given</code> to false
+                and stops all SMS messaging to that user.
+            </p>
+        </section>
+
+        <section>
+            <h2>Message Content Examples</h2>
+            <p>Examples of SMS messages sent through this system:</p>
+
+            <div class="info-card" style="margin: 16px 0;">
+                <h4>Punch-In Reminder</h4>
+                <p style="font-style: italic; color: #1e293b;">
+                    "Hi [Name], this is a reminder to clock in for your shift starting at [Time].
+                    Reply STOP to opt out."
+                </p>
+            </div>
+
+            <div class="info-card" style="margin: 16px 0;">
+                <h4>Punch-Out Reminder</h4>
+                <p style="font-style: italic; color: #1e293b;">
+                    "Hi [Name], don't forget to clock out at the end of your shift at [Time].
+                    Reply STOP to opt out."
+                </p>
+            </div>
+        </section>
+
+        <section>
+            <h2>Compliance Verification</h2>
+            <div class="screenshot-section">
+                <h3 style="margin-bottom: 16px;">User Interface Screenshot</h3>
+                <p style="color: #64748b; margin-bottom: 12px;">
+                    A screenshot of the actual consent form within our application interface is available
+                    upon request and demonstrates the consent collection mechanism described in this document.
+                </p>
+                <p style="font-size: 14px; color: #64748b;">
+                    The screenshot shows: SMS phone number field, consent checkbox (unchecked by default),
+                    full consent language, and TCPA compliance warning message.
+                </p>
+            </div>
+        </section>
+
+        <section>
+            <h2>Contact Information</h2>
+            <p>For questions regarding SMS consent or to request opt-out:</p>
+            <ul>
+                <li><strong>Company:</strong> Utopia Yacht Management</li>
+                <li><strong>Support:</strong> Available through application or contact your manager</li>
+                <li><strong>Compliance Officer:</strong> System Administrator</li>
+            </ul>
+        </section>
+
+        <footer>
+            <p><strong>Utopia Yacht Management SMS Consent Policy</strong></p>
+            <p>This document serves as proof of consent for Twilio A2P registration and TCPA compliance.</p>
+            <p style="margin-top: 12px; font-size: 13px;">
+                Document generated: February 9, 2026 | Version 1.0
+            </p>
+        </footer>
+    </div>
+</body>
+</html>
