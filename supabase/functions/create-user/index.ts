@@ -27,6 +27,10 @@ interface CreateUserRequest {
   secondary_email?: string;
   can_approve_repairs?: boolean;
   can_approve_billing?: boolean;
+  sms_consent_given?: boolean;
+  sms_consent_method?: string;
+  sms_consent_date?: string;
+  sms_consent_ip_address?: string;
 }
 
 Deno.serve(async (req: Request) => {
@@ -121,6 +125,10 @@ Deno.serve(async (req: Request) => {
         secondary_email: requestData.secondary_email || null,
         can_approve_repairs: requestData.can_approve_repairs ?? false,
         can_approve_billing: requestData.can_approve_billing ?? false,
+        sms_consent_given: requestData.sms_consent_given ?? false,
+        sms_consent_method: requestData.sms_consent_method || null,
+        sms_consent_date: requestData.sms_consent_date || null,
+        sms_consent_ip_address: requestData.sms_consent_ip_address || null,
         must_change_password: true
       });
 

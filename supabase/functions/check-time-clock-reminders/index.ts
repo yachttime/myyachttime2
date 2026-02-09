@@ -17,6 +17,50 @@ interface ScheduleCheck {
   scheduled_end_datetime?: string;
 }
 
+async function sendSMS(to: string, message: string): Promise<boolean> {
+  const twilioAccountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
+  const twilioAuthToken = Deno.env.get("TWILIO_AUTH_TOKEN");
+  const twilioPhoneNumber = Deno.env.get("TWILIO_PHONE_NUMBER");
+
+  if (!twilioAccountSid || !twilioAuthToken || !twilioPhoneNumber) {
+    console.log("Twilio credentials not configured, skipping SMS");
+    return false;
+  }
+
+  const formattedTo = to.replace(/\D/g, '');
+  const finalTo = formattedTo.length === 10 ? `+1${formattedTo}` : `+${formattedTo}`;
+
+  try {
+    const response = await fetch(
+      `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Authorization: `Basic ${btoa(`${twilioAccountSid}:${twilioAuthToken}`)}`,
+        },
+        body: new URLSearchParams({
+          To: finalTo,
+          From: twilioPhoneNumber,
+          Body: message,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Failed to send SMS to ${finalTo}:`, errorText);
+      return false;
+    }
+
+    console.log(`Successfully sent SMS to ${finalTo}`);
+    return true;
+  } catch (error) {
+    console.error(`Error sending SMS to ${finalTo}:`, error);
+    return false;
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, {
@@ -148,8 +192,20 @@ Deno.serve(async (req: Request) => {
             continue;
           }
 
+          // Fetch user notification preferences
+          const { data: userProfile, error: userError } = await supabase
+            .from("user_profiles")
+            .select("email_notifications_enabled, sms_notifications_enabled, phone, notification_phone, sms_consent_given, sms_consent_withdrawn_date")
+            .eq("user_id", schedule.user_id)
+            .maybeSingle();
+
+          if (userError) {
+            console.error(`Error fetching user profile for ${schedule.full_name}:`, userError);
+            continue;
+          }
+
           // Send email reminder
-          if (resendApiKey && schedule.email_address) {
+          if (resendApiKey && schedule.email_address && userProfile?.email_notifications_enabled) {
             console.log(`Sending punch-in reminder email to ${schedule.full_name} (${schedule.email_address})`);
 
             let fromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'onboarding@resend.dev';
@@ -191,6 +247,22 @@ Deno.serve(async (req: Request) => {
             } else {
               console.log(`Successfully sent punch-in reminder email to ${schedule.email_address}`);
             }
+          }
+
+          // Send SMS reminder (TCPA Compliance: only if user has given consent)
+          if (userProfile?.sms_notifications_enabled &&
+              userProfile?.sms_consent_given &&
+              !userProfile?.sms_consent_withdrawn_date) {
+            const phoneNumber = userProfile.notification_phone || userProfile.phone;
+            if (phoneNumber) {
+              console.log(`Sending punch-in reminder SMS to ${schedule.full_name} (${phoneNumber})`);
+              const smsMessage = `Time Clock Reminder: You were scheduled to start work at ${schedule.start_time} today. Please remember to punch in using the Time Clock in the app. Reply STOP to opt out.`;
+              await sendSMS(phoneNumber, smsMessage);
+            } else {
+              console.log(`SMS enabled but no phone number for ${schedule.full_name}`);
+            }
+          } else if (userProfile?.sms_notifications_enabled && !userProfile?.sms_consent_given) {
+            console.log(`SMS enabled but no consent given for ${schedule.full_name} - skipping SMS`);
           }
 
           // Record the reminder in the database
@@ -272,8 +344,20 @@ Deno.serve(async (req: Request) => {
             continue;
           }
 
+          // Fetch user notification preferences
+          const { data: userProfile, error: userError } = await supabase
+            .from("user_profiles")
+            .select("email_notifications_enabled, sms_notifications_enabled, phone, notification_phone, sms_consent_given, sms_consent_withdrawn_date")
+            .eq("user_id", schedule.user_id)
+            .maybeSingle();
+
+          if (userError) {
+            console.error(`Error fetching user profile for ${schedule.full_name}:`, userError);
+            continue;
+          }
+
           // Send email reminder
-          if (resendApiKey && schedule.email_address) {
+          if (resendApiKey && schedule.email_address && userProfile?.email_notifications_enabled) {
             console.log(`Sending punch-out reminder email to ${schedule.full_name} (${schedule.email_address})`);
 
             let fromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'onboarding@resend.dev';
@@ -315,6 +399,22 @@ Deno.serve(async (req: Request) => {
             } else {
               console.log(`Successfully sent punch-out reminder email to ${schedule.email_address}`);
             }
+          }
+
+          // Send SMS reminder (TCPA Compliance: only if user has given consent)
+          if (userProfile?.sms_notifications_enabled &&
+              userProfile?.sms_consent_given &&
+              !userProfile?.sms_consent_withdrawn_date) {
+            const phoneNumber = userProfile.notification_phone || userProfile.phone;
+            if (phoneNumber) {
+              console.log(`Sending punch-out reminder SMS to ${schedule.full_name} (${phoneNumber})`);
+              const smsMessage = `Time Clock Reminder: Your shift was scheduled to end at ${schedule.end_time} today. Please remember to punch out using the Time Clock in the app. Reply STOP to opt out.`;
+              await sendSMS(phoneNumber, smsMessage);
+            } else {
+              console.log(`SMS enabled but no phone number for ${schedule.full_name}`);
+            }
+          } else if (userProfile?.sms_notifications_enabled && !userProfile?.sms_consent_given) {
+            console.log(`SMS enabled but no consent given for ${schedule.full_name} - skipping SMS`);
           }
 
           // Record the reminder in the database

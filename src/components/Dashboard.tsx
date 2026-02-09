@@ -608,7 +608,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     notification_phone: '',
     secondary_email: '',
     can_approve_repairs: false,
-    can_approve_billing: false
+    can_approve_billing: false,
+    sms_consent_given: false,
+    sms_consent_method: 'web_form'
   });
   const [userLoading, setUserLoading] = useState(false);
   const [userError, setUserError] = useState('');
@@ -1273,6 +1275,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           last_sign_in_at,
           last_sign_out_at,
           is_active,
+          sms_consent_given,
+          sms_consent_method,
           yachts (name)
         `)
         .order('first_name', { ascending: true });
@@ -1358,7 +1362,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       notification_phone: user.notification_phone || '',
       secondary_email: user.secondary_email || '',
       can_approve_repairs: user.can_approve_repairs || false,
-      can_approve_billing: user.can_approve_billing || false
+      can_approve_billing: user.can_approve_billing || false,
+      sms_consent_given: user.sms_consent_given || false,
+      sms_consent_method: user.sms_consent_method || 'web_form'
     });
     setUserError('');
     setUserSuccess('');
@@ -1439,6 +1445,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               secondary_email: userEditForm.secondary_email || null,
               can_approve_repairs: userEditForm.can_approve_repairs || false,
               can_approve_billing: userEditForm.can_approve_billing || false,
+              sms_consent_given: userEditForm.sms_consent_given || false,
+              sms_consent_method: userEditForm.sms_consent_method || 'web_form',
+              sms_consent_date: userEditForm.sms_consent_given ? new Date().toISOString() : null,
+              sms_consent_ip_address: null,
               must_change_password: true
             })
             .eq('user_id', existingProfile.user_id);
@@ -1477,7 +1487,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               notification_phone: userEditForm.notification_phone || null,
               secondary_email: userEditForm.secondary_email || null,
               can_approve_repairs: userEditForm.can_approve_repairs || false,
-              can_approve_billing: userEditForm.can_approve_billing || false
+              can_approve_billing: userEditForm.can_approve_billing || false,
+              sms_consent_given: userEditForm.sms_consent_given || false,
+              sms_consent_method: userEditForm.sms_consent_method || 'web_form',
+              sms_consent_date: userEditForm.sms_consent_given ? new Date().toISOString() : null,
+              sms_consent_ip_address: null
             })
           });
 
@@ -1581,7 +1595,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             notification_phone: userEditForm.notification_phone || null,
             secondary_email: userEditForm.secondary_email || null,
             can_approve_repairs: userEditForm.can_approve_repairs || false,
-            can_approve_billing: userEditForm.can_approve_billing || false
+            can_approve_billing: userEditForm.can_approve_billing || false,
+            sms_consent_given: userEditForm.sms_consent_given || false,
+            sms_consent_method: userEditForm.sms_consent_method || 'web_form',
+            sms_consent_date: userEditForm.sms_consent_given ? new Date().toISOString() : null,
+            sms_consent_ip_address: null
           })
           .eq('user_id', selectedUser.user_id);
 
@@ -14173,7 +14191,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 notification_phone: '',
                                 secondary_email: '',
                                 can_approve_repairs: false,
-                                can_approve_billing: false
+                                can_approve_billing: false,
+                                sms_consent_given: false,
+                                sms_consent_method: 'web_form'
                               });
                               setIsCreatingNewUser(true);
                               setSelectedUserGroup(null);
@@ -14618,19 +14638,48 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   </div>
 
                                   {userEditForm.sms_notifications_enabled && (
-                                    <div className="md:col-span-2">
-                                      <label className="block text-sm font-medium text-slate-300 mb-2">
-                                        SMS Phone Number (optional)
-                                      </label>
-                                      <input
-                                        type="tel"
-                                        value={userEditForm.notification_phone}
-                                        onChange={(e) => setUserEditForm({ ...userEditForm, notification_phone: formatPhoneNumber(e.target.value) })}
-                                        placeholder="123-456-7890"
-                                        className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                      />
-                                      <p className="text-xs text-slate-500 mt-1">If left blank, SMS will be sent to the primary phone number.</p>
-                                    </div>
+                                    <>
+                                      <div className="md:col-span-2">
+                                        <label className="block text-sm font-medium text-slate-300 mb-2">
+                                          SMS Phone Number (optional)
+                                        </label>
+                                        <input
+                                          type="tel"
+                                          value={userEditForm.notification_phone}
+                                          onChange={(e) => setUserEditForm({ ...userEditForm, notification_phone: formatPhoneNumber(e.target.value) })}
+                                          placeholder="123-456-7890"
+                                          className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        />
+                                        <p className="text-xs text-slate-500 mt-1">If left blank, SMS will be sent to the primary phone number.</p>
+                                      </div>
+
+                                      <div className="md:col-span-2 bg-amber-900/20 border border-amber-700/50 rounded-lg p-4">
+                                        <h4 className="text-sm font-semibold text-amber-300 mb-3">SMS Consent Required</h4>
+                                        <label className="flex items-start gap-3 cursor-pointer">
+                                          <input
+                                            type="checkbox"
+                                            checked={userEditForm.sms_consent_given}
+                                            onChange={(e) => setUserEditForm({
+                                              ...userEditForm,
+                                              sms_consent_given: e.target.checked,
+                                              sms_consent_method: 'web_form'
+                                            })}
+                                            className="w-5 h-5 mt-0.5 rounded border-amber-600 text-amber-500 focus:ring-2 focus:ring-amber-500"
+                                          />
+                                          <div className="flex-1">
+                                            <p className="text-slate-200 text-sm leading-relaxed">
+                                              I consent to receive SMS text message reminders for my scheduled work shifts. Message frequency varies (up to 2 per workday).
+                                              Message and data rates may apply. Reply STOP to opt out at any time. Consent is not required as a condition of employment.
+                                            </p>
+                                          </div>
+                                        </label>
+                                        {!userEditForm.sms_consent_given && (
+                                          <p className="text-xs text-amber-400 mt-3 font-medium">
+                                            SMS consent must be given before text messages can be sent (TCPA compliance).
+                                          </p>
+                                        )}
+                                      </div>
+                                    </>
                                   )}
                                 </div>
                               </div>
