@@ -12432,16 +12432,19 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           </div>
 
                           {selectedRepairForDeposit.deposit_payment_link_url && (() => {
-                            const isExpired = selectedRepairForDeposit.deposit_link_expires_at &&
-                              new Date(selectedRepairForDeposit.deposit_link_expires_at) < new Date();
+                            const hasExpirationDate = selectedRepairForDeposit.deposit_link_expires_at;
+                            const isExpired = hasExpirationDate
+                              ? new Date(selectedRepairForDeposit.deposit_link_expires_at) < new Date()
+                              : true;
+                            const isLegacyLink = !hasExpirationDate;
 
                             return (
                               <div className={`${isExpired ? 'bg-amber-500/10 border-amber-500/30' : 'bg-cyan-500/10 border-cyan-500/30'} border rounded-lg p-4`}>
                                 <div className="flex items-center justify-between mb-2">
                                   <p className={`text-sm font-medium ${isExpired ? 'text-amber-500' : 'text-cyan-500'}`}>
-                                    {isExpired ? '⚠️ Deposit Link Expired' : 'Deposit Link Created'}
+                                    {isExpired ? (isLegacyLink ? '⚠️ Deposit Link (Unknown Expiration)' : '⚠️ Deposit Link Expired') : 'Deposit Link Created'}
                                   </p>
-                                  {selectedRepairForDeposit.deposit_link_expires_at && (
+                                  {hasExpirationDate && (
                                     <p className="text-xs text-slate-400">
                                       {isExpired ? 'Expired' : 'Expires'} {new Date(selectedRepairForDeposit.deposit_link_expires_at).toLocaleDateString()}
                                     </p>
@@ -12449,7 +12452,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 </div>
                                 {isExpired && (
                                   <p className="text-xs text-amber-400 mb-2">
-                                    This payment link has expired. Generate a new link to continue.
+                                    {isLegacyLink
+                                      ? 'This link may have expired. Generate a new link to ensure it works.'
+                                      : 'This payment link has expired. Generate a new link to continue.'}
                                   </p>
                                 )}
                                 <div className="flex gap-2">
@@ -12495,9 +12500,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             Cancel
                           </button>
                           {(() => {
-                            const isExpired = selectedRepairForDeposit.deposit_link_expires_at &&
-                              new Date(selectedRepairForDeposit.deposit_link_expires_at) < new Date();
                             const hasLink = selectedRepairForDeposit.deposit_payment_link_url;
+                            const hasExpirationDate = selectedRepairForDeposit.deposit_link_expires_at;
+                            const isExpired = hasExpirationDate
+                              ? new Date(selectedRepairForDeposit.deposit_link_expires_at) < new Date()
+                              : true;
+                            const isLegacyLink = hasLink && !hasExpirationDate;
 
                             if (!hasLink || isExpired) {
                               return (
@@ -12506,7 +12514,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   disabled={depositLoading || !depositForm.deposit_amount}
                                   className="flex-1 bg-cyan-500 hover:bg-cyan-600 text-white font-semibold py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                  {depositLoading ? 'Creating Link...' : isExpired ? 'Regenerate Deposit Link' : 'Create Deposit Link'}
+                                  {depositLoading ? 'Creating Link...' : (isExpired || isLegacyLink) ? 'Regenerate Deposit Link' : 'Create Deposit Link'}
                                 </button>
                               );
                             }
