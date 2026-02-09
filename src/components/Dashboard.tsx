@@ -46,7 +46,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   };
 
   // Helper function to set admin view and persist to localStorage
-  const setAdminViewPersisted = (view: 'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'smartdevices') => {
+  const setAdminViewPersisted = (view: 'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices') => {
     setAdminView(view);
     try {
       localStorage.setItem('adminView', view);
@@ -320,11 +320,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [inspectionLoading, setInspectionLoading] = useState(false);
   const [inspectionSuccess, setInspectionSuccess] = useState(false);
   const [inspectionError, setInspectionError] = useState('');
-  const [adminView, setAdminView] = useState<'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'smartdevices'>(() => {
+  const [adminView, setAdminView] = useState<'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices'>(() => {
     try {
       const stored = localStorage.getItem('adminView');
-      if (stored && ['menu', 'inspection', 'yachts', 'ownertrips', 'repairs', 'ownerchat', 'messages', 'mastercalendar', 'ownerhandoff', 'users', 'appointments', 'smartdevices'].includes(stored)) {
-        return stored as 'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'smartdevices';
+      if (stored && ['menu', 'inspection', 'yachts', 'ownertrips', 'repairs', 'ownerchat', 'messages', 'mastercalendar', 'ownerhandoff', 'users', 'appointments', 'staffappointment', 'smartdevices'].includes(stored)) {
+        return stored as 'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices';
       }
       return 'menu';
     } catch {
@@ -491,6 +491,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [chatLoading, setChatLoading] = useState(false);
   const [masterCalendarBookings, setMasterCalendarBookings] = useState<(YachtBooking | Appointment)[]>([]);
   const [calendarView, setCalendarView] = useState<'day' | 'week' | 'month'>('month');
+  const [appointmentTypeFilter, setAppointmentTypeFilter] = useState<'all' | 'customer' | 'staff'>('all');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [editingBooking, setEditingBooking] = useState<(YachtBooking | Appointment) | null>(null);
   const [editingBookingClickedDate, setEditingBookingClickedDate] = useState<Date | null>(null);
@@ -520,6 +521,17 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [appointmentLoading, setAppointmentLoading] = useState(false);
   const [appointmentSuccess, setAppointmentSuccess] = useState(false);
   const [appointmentError, setAppointmentError] = useState('');
+  const [staffAppointmentForm, setStaffAppointmentForm] = useState({
+    date: '',
+    time: '',
+    name: '',
+    phone: '',
+    email: '',
+    notes: ''
+  });
+  const [staffAppointmentLoading, setStaffAppointmentLoading] = useState(false);
+  const [staffAppointmentSuccess, setStaffAppointmentSuccess] = useState(false);
+  const [staffAppointmentError, setStaffAppointmentError] = useState('');
   const [editBookingError, setEditBookingError] = useState('');
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
   const [editAppointmentForm, setEditAppointmentForm] = useState({
@@ -540,6 +552,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [selectedDayAppointments, setSelectedDayAppointments] = useState<{date: Date, bookings: (YachtBooking | Appointment)[]} | null>(null);
   const [showQuickAppointmentModal, setShowQuickAppointmentModal] = useState(false);
   const [quickAppointmentDate, setQuickAppointmentDate] = useState<Date | null>(null);
+  const [quickAppointmentType, setQuickAppointmentType] = useState<'customer' | 'staff'>('customer');
   const [selectedInspectionForPDF, setSelectedInspectionForPDF] = useState<TripInspection | null>(null);
   const [selectedHandoffForPDF, setSelectedHandoffForPDF] = useState<OwnerHandoffInspection | null>(null);
   const [loadingPdfId, setLoadingPdfId] = useState<string | null>(null);
@@ -4521,8 +4534,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         name: appointmentForm.name,
         phone: appointmentForm.phone,
         email: appointmentForm.email,
-        yacht_name: appointmentForm.yacht_name,
+        yacht_name: showQuickAppointmentModal && quickAppointmentType === 'staff' ? null : appointmentForm.yacht_name,
         problem_description: appointmentForm.problem_description,
+        appointment_type: showQuickAppointmentModal ? quickAppointmentType : 'customer',
         created_by: user.id
       };
 
@@ -4607,6 +4621,75 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       setAppointmentError(err.message || 'Failed to create appointment');
     } finally {
       setAppointmentLoading(false);
+    }
+  };
+
+  const handleStaffAppointmentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+
+    setStaffAppointmentLoading(true);
+    setStaffAppointmentError('');
+    setStaffAppointmentSuccess(false);
+
+    try {
+      const dateToUse = showQuickAppointmentModal && quickAppointmentDate
+        ? quickAppointmentDate.toISOString().split('T')[0]
+        : staffAppointmentForm.date;
+
+      const appointmentData = {
+        date: dateToUse,
+        time: staffAppointmentForm.time,
+        name: staffAppointmentForm.name,
+        phone: staffAppointmentForm.phone,
+        email: staffAppointmentForm.email,
+        problem_description: staffAppointmentForm.notes,
+        appointment_type: 'staff',
+        created_by: user.id
+      };
+
+      const { data: appointment, error: dbError } = await supabase.from('appointments').insert(appointmentData).select().single();
+
+      if (dbError) throw dbError;
+
+      if (appointment) {
+        await supabase.from('admin_notifications').insert({
+          user_id: user.id,
+          yacht_id: null,
+          notification_type: 'appointment',
+          reference_id: appointment.id,
+          message: `New staff appointment scheduled: ${staffAppointmentForm.name} on ${staffAppointmentForm.date} at ${staffAppointmentForm.time}${staffAppointmentForm.notes ? `. Notes: ${staffAppointmentForm.notes}` : ''}`,
+        });
+
+        await loadAdminNotifications();
+        await loadMasterCalendar();
+        await loadStaffMessages();
+      }
+
+      setStaffAppointmentSuccess(true);
+      setStaffAppointmentForm({
+        date: '',
+        time: '',
+        name: '',
+        phone: '',
+        email: '',
+        notes: ''
+      });
+
+      setTimeout(() => {
+        setStaffAppointmentSuccess(false);
+        if (showQuickAppointmentModal) {
+          setShowQuickAppointmentModal(false);
+          setQuickAppointmentDate(null);
+          setQuickAppointmentType('customer');
+        } else {
+          setAdminViewPersisted('menu');
+        }
+      }, 2000);
+    } catch (err: any) {
+      setStaffAppointmentError(err.message || 'Failed to create staff appointment');
+    } finally {
+      setStaffAppointmentLoading(false);
     }
   };
 
@@ -5037,6 +5120,21 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       // Filter by yacht if user is owner or manager (but not staff, mechanic, or master)
       if ((effectiveRole === 'owner' || effectiveRole === 'manager') && effectiveYacht && booking.yacht_id !== effectiveYacht.id) {
         return false;
+      }
+
+      // Filter by appointment type
+      if (appointmentTypeFilter !== 'all' && booking.is_appointment) {
+        const appointmentType = (booking as any).appointment_type || 'customer';
+        if (appointmentTypeFilter === 'customer' && appointmentType !== 'customer') {
+          return false;
+        }
+        if (appointmentTypeFilter === 'staff' && appointmentType !== 'staff') {
+          return false;
+        }
+      } else if (appointmentTypeFilter === 'staff' && !booking.is_appointment) {
+        return false;
+      } else if (appointmentTypeFilter === 'customer' && !booking.is_appointment) {
+        // Yacht bookings count as customer activities
       }
 
       // Parse dates in local timezone to avoid timezone offset issues
@@ -6645,6 +6743,21 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                         </div>
                         <h3 className="text-xl font-bold mb-2">Create Appointment</h3>
                         <p className="text-slate-400 text-sm">Schedule customer appointments and repairs</p>
+                      </button>
+                    )}
+
+                    {canAccessAllYachts(effectiveRole) && (
+                      <button
+                        onClick={() => setAdminViewPersisted('staffappointment')}
+                        className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
+                      >
+                        <div className="flex items-center gap-4 mb-4">
+                          <div className="bg-blue-500/20 p-4 rounded-xl group-hover:bg-blue-500/30 transition-colors">
+                            <Users className="w-8 h-8 text-blue-500" />
+                          </div>
+                        </div>
+                        <h3 className="text-xl font-bold mb-2">Staff Appointment</h3>
+                        <p className="text-slate-400 text-sm">Schedule meetings with staff or contacts</p>
                       </button>
                     )}
 
@@ -13152,24 +13265,63 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                         </div>
                       </div>
 
-                      <div className="mt-4 p-4 bg-slate-900/50 rounded-lg border border-slate-600">
-                        <div className="flex items-center gap-6 flex-wrap">
-                          <span className="text-sm font-semibold text-slate-300">Legend:</span>
-                          <div className="flex items-center gap-2">
-                            <div className="w-4 h-4 rounded bg-green-500/30 border border-green-500/50"></div>
-                            <span className="text-sm text-slate-300">Departure</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-4 h-4 rounded bg-red-500/30 border border-red-500/50"></div>
-                            <span className="text-sm text-slate-300">Arrival</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-4 h-4 rounded bg-yellow-500/30 border border-yellow-500/50"></div>
-                            <span className="text-sm text-slate-300">Arrival (Oil Change Needed)</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-4 h-4 rounded bg-pink-500/30 border border-pink-500/50"></div>
-                            <span className="text-sm text-slate-300">Appointment</span>
+                      <div className="mt-4 space-y-3">
+                        <div className="flex gap-2 bg-slate-800/50 rounded-lg p-1 border border-slate-700">
+                          <button
+                            onClick={() => setAppointmentTypeFilter('all')}
+                            className={`flex-1 px-4 py-2 rounded-md font-medium transition-all ${
+                              appointmentTypeFilter === 'all'
+                                ? 'bg-teal-500 text-white'
+                                : 'text-slate-400 hover:text-teal-400'
+                            }`}
+                          >
+                            All Appointments
+                          </button>
+                          <button
+                            onClick={() => setAppointmentTypeFilter('customer')}
+                            className={`flex-1 px-4 py-2 rounded-md font-medium transition-all ${
+                              appointmentTypeFilter === 'customer'
+                                ? 'bg-pink-500 text-white'
+                                : 'text-slate-400 hover:text-pink-400'
+                            }`}
+                          >
+                            Customer Appointments
+                          </button>
+                          <button
+                            onClick={() => setAppointmentTypeFilter('staff')}
+                            className={`flex-1 px-4 py-2 rounded-md font-medium transition-all ${
+                              appointmentTypeFilter === 'staff'
+                                ? 'bg-blue-500 text-white'
+                                : 'text-slate-400 hover:text-blue-400'
+                            }`}
+                          >
+                            Staff Meetings
+                          </button>
+                        </div>
+
+                        <div className="p-4 bg-slate-900/50 rounded-lg border border-slate-600">
+                          <div className="flex items-center gap-6 flex-wrap">
+                            <span className="text-sm font-semibold text-slate-300">Legend:</span>
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 rounded bg-green-500/30 border border-green-500/50"></div>
+                              <span className="text-sm text-slate-300">Departure</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 rounded bg-red-500/30 border border-red-500/50"></div>
+                              <span className="text-sm text-slate-300">Arrival</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 rounded bg-yellow-500/30 border border-yellow-500/50"></div>
+                              <span className="text-sm text-slate-300">Arrival (Oil Change Needed)</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 rounded bg-pink-500/30 border border-pink-500/50"></div>
+                              <span className="text-sm text-slate-300">Customer Appointment</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 rounded bg-blue-500/30 border border-blue-500/50"></div>
+                              <span className="text-sm text-slate-300">Staff Meeting</span>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -13266,6 +13418,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                                           const isDeparture = checkDate.getTime() === startDate.getTime();
                                           const isArrival = checkDate.getTime() === endDate.getTime();
+                                          const appointmentType = (booking as any).appointment_type || 'customer';
+                                          const isStaffAppointment = booking.is_appointment && appointmentType === 'staff';
 
                                           return (
                                             <div
@@ -13275,7 +13429,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                 booking.is_appointment ? handleEditAppointment(booking) : handleEditBooking(booking, date!);
                                               }}
                                               className={`text-xs rounded px-2 py-1 cursor-pointer transition-colors truncate ${
-                                                booking.is_appointment
+                                                isStaffAppointment
+                                                  ? 'bg-blue-500/20 border border-blue-500/30 hover:bg-blue-500/30'
+                                                  : booking.is_appointment
                                                   ? 'bg-pink-500/20 border border-pink-500/30 hover:bg-pink-500/30'
                                                   : isDeparture
                                                   ? 'bg-green-500/20 border border-green-500/30 hover:bg-green-500/30'
@@ -13284,15 +13440,15 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                   : 'bg-red-500/20 border border-red-500/30 hover:bg-red-500/30'
                                               }`}
                                             >
-                                              <div className={`font-medium truncate ${booking.is_appointment ? 'text-pink-300' : isDeparture ? 'text-green-300' : !isDeparture && booking.oil_change_needed ? 'text-yellow-300' : 'text-red-300'}`}>
-                                                {booking.yachts?.name || (booking.is_appointment ? 'Walk-in Customer' : 'Yacht')}
+                                              <div className={`font-medium truncate ${isStaffAppointment ? 'text-blue-300' : booking.is_appointment ? 'text-pink-300' : isDeparture ? 'text-green-300' : !isDeparture && booking.oil_change_needed ? 'text-yellow-300' : 'text-red-300'}`}>
+                                                {isStaffAppointment ? 'Staff Meeting' : booking.yachts?.name || (booking.is_appointment ? 'Walk-in Customer' : 'Yacht')}
                                               </div>
                                               <div className="text-slate-400 truncate">
                                                 {getBookingDisplayName(booking)}
                                               </div>
-                                              <div className={`text-xs ${booking.is_appointment ? 'text-pink-400' : isDeparture ? 'text-green-400' : !isDeparture && booking.oil_change_needed ? 'text-yellow-400' : 'text-red-400'}`}>
+                                              <div className={`text-xs ${isStaffAppointment ? 'text-blue-400' : booking.is_appointment ? 'text-pink-400' : isDeparture ? 'text-green-400' : !isDeparture && booking.oil_change_needed ? 'text-yellow-400' : 'text-red-400'}`}>
                                                 {booking.is_appointment
-                                                  ? `Appt ${formatTimeOnly(booking.departure_time)}`
+                                                  ? `${isStaffAppointment ? 'Meeting' : 'Appt'} ${formatTimeOnly(booking.departure_time)}`
                                                   : isDeparture
                                                     ? `Departure${booking.departure_time ? ' ' + formatTimeOnly(booking.departure_time) : ''}`
                                                     : `Arrival${booking.arrival_time ? ' ' + formatTimeOnly(booking.arrival_time) : ''}`
@@ -13357,13 +13513,17 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                                       const isDeparture = checkDate.getTime() === startDate.getTime();
                                       const isArrival = checkDate.getTime() === endDate.getTime();
+                                      const appointmentType = (booking as any).appointment_type || 'customer';
+                                      const isStaffAppointment = booking.is_appointment && appointmentType === 'staff';
 
                                       return (
                                         <div
                                           key={booking.id}
                                           onClick={() => booking.is_appointment ? handleEditAppointment(booking) : handleEditBooking(booking, date)}
                                           className={`rounded-lg p-3 cursor-pointer transition-colors ${
-                                            booking.is_appointment
+                                            isStaffAppointment
+                                              ? 'bg-blue-500/20 border border-blue-500/30 hover:bg-blue-500/30'
+                                              : booking.is_appointment
                                               ? 'bg-pink-500/20 border border-pink-500/30 hover:bg-pink-500/30'
                                               : isDeparture
                                               ? 'bg-green-500/20 border border-green-500/30 hover:bg-green-500/30'
@@ -13373,22 +13533,26 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                           }`}
                                         >
                                           <div className={`font-semibold text-sm mb-1 ${
-                                            booking.is_appointment
+                                            isStaffAppointment
+                                              ? 'text-blue-300'
+                                              : booking.is_appointment
                                               ? 'text-pink-300'
                                               : isDeparture ? 'text-green-300' : !isDeparture && booking.oil_change_needed ? 'text-yellow-300' : 'text-red-300'
                                           }`}>
-                                            {booking.yachts?.name || 'Yacht'}
+                                            {isStaffAppointment ? 'Staff Meeting' : booking.yachts?.name || 'Yacht'}
                                           </div>
                                           <div className="text-xs text-slate-400 mb-2">
                                             {getBookingDisplayName(booking)}
                                           </div>
                                           <div className={`text-xs font-medium ${
-                                            booking.is_appointment
+                                            isStaffAppointment
+                                              ? 'text-blue-400'
+                                              : booking.is_appointment
                                               ? 'text-pink-400'
                                               : isDeparture ? 'text-green-400' : !isDeparture && booking.oil_change_needed ? 'text-yellow-400' : 'text-red-400'
                                           }`}>
                                             {booking.is_appointment
-                                              ? `Appointment ${convertTo12Hour(booking.departure_time)}`
+                                              ? `${isStaffAppointment ? 'Meeting' : 'Appointment'} ${convertTo12Hour(booking.departure_time)}`
                                               : isDeparture
                                               ? `Departure ${convertTo12Hour(booking.departure_time)}`
                                               : `Arrival ${convertTo12Hour(booking.arrival_time)}`}
@@ -13681,11 +13845,51 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     {editingAppointment && (
                       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
                         <div className="bg-slate-800 rounded-2xl border border-slate-700 p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                          <h3 className="text-xl font-bold mb-4">Edit Appointment</h3>
+                          <h3 className="text-xl font-bold mb-4">
+                            {(editingAppointment as any).appointment_type === 'staff' ? 'Edit Staff Meeting' : 'Edit Appointment'}
+                          </h3>
                           <form onSubmit={handleUpdateAppointment} className="space-y-4">
-                            <div>
-                              <label className="block text-sm font-medium mb-2">Customer</label>
-                              {editAppointmentForm.useExistingCustomer ? (
+                            {(editingAppointment as any).appointment_type === 'staff' ? (
+                              <>
+                                <div>
+                                  <label className="block text-sm font-medium mb-2">Name</label>
+                                  <input
+                                    type="text"
+                                    value={editAppointmentForm.name}
+                                    onChange={(e) => setEditAppointmentForm({ ...editAppointmentForm, name: e.target.value })}
+                                    className="w-full px-4 py-2 bg-slate-900/50 border border-slate-600 rounded-lg focus:outline-none focus:border-blue-500 text-white"
+                                    placeholder="Enter name"
+                                    required
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium mb-2">Phone</label>
+                                  <input
+                                    type="tel"
+                                    value={editAppointmentForm.phone}
+                                    onChange={(e) => setEditAppointmentForm({ ...editAppointmentForm, phone: e.target.value })}
+                                    className="w-full px-4 py-2 bg-slate-900/50 border border-slate-600 rounded-lg focus:outline-none focus:border-blue-500 text-white"
+                                    placeholder="Enter phone number"
+                                    required
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium mb-2">Email</label>
+                                  <input
+                                    type="email"
+                                    value={editAppointmentForm.email}
+                                    onChange={(e) => setEditAppointmentForm({ ...editAppointmentForm, email: e.target.value })}
+                                    className="w-full px-4 py-2 bg-slate-900/50 border border-slate-600 rounded-lg focus:outline-none focus:border-blue-500 text-white"
+                                    placeholder="Enter email address"
+                                    required
+                                  />
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <div>
+                                  <label className="block text-sm font-medium mb-2">Customer</label>
+                                  {editAppointmentForm.useExistingCustomer ? (
                                 <div className="space-y-2">
                                   <select
                                     value={editAppointmentForm.customerId}
@@ -13764,26 +13968,30 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 </div>
                               </>
                             )}
-                            <div>
-                              <label className="block text-sm font-medium mb-2">Yacht <span className="text-slate-500">(Optional)</span></label>
-                              <select
-                                value={editAppointmentForm.yacht_name}
-                                onChange={(e) => {
-                                  setEditAppointmentForm({
-                                    ...editAppointmentForm,
-                                    yacht_name: e.target.value
-                                  });
-                                }}
-                                className="w-full px-4 py-2 bg-slate-900/50 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 text-white"
-                              >
-                                <option value="">Select a yacht...</option>
-                                {allYachts.map(yacht => (
-                                  <option key={yacht.id} value={yacht.name}>
-                                    {yacht.name}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
+                              </>
+                            )}
+                            {(editingAppointment as any).appointment_type !== 'staff' && (
+                              <div>
+                                <label className="block text-sm font-medium mb-2">Yacht <span className="text-slate-500">(Optional)</span></label>
+                                <select
+                                  value={editAppointmentForm.yacht_name}
+                                  onChange={(e) => {
+                                    setEditAppointmentForm({
+                                      ...editAppointmentForm,
+                                      yacht_name: e.target.value
+                                    });
+                                  }}
+                                  className="w-full px-4 py-2 bg-slate-900/50 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 text-white"
+                                >
+                                  <option value="">Select a yacht...</option>
+                                  {allYachts.map(yacht => (
+                                    <option key={yacht.id} value={yacht.name}>
+                                      {yacht.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            )}
                             <div className="grid grid-cols-2 gap-4">
                               <div>
                                 <label className="block text-sm font-medium mb-2">Date</label>
@@ -13807,12 +14015,15 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               </div>
                             </div>
                             <div>
-                              <label className="block text-sm font-medium mb-2">Problem Description</label>
+                              <label className="block text-sm font-medium mb-2">
+                                {(editingAppointment as any).appointment_type === 'staff' ? 'Notes / Purpose' : 'Problem Description'}
+                                {(editingAppointment as any).appointment_type === 'staff' && <span className="text-slate-500"> (Optional)</span>}
+                              </label>
                               <textarea
                                 value={editAppointmentForm.problem_description}
                                 onChange={(e) => setEditAppointmentForm({ ...editAppointmentForm, problem_description: e.target.value })}
                                 className="w-full px-4 py-2 bg-slate-900/50 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 text-white min-h-[100px]"
-                                required
+                                required={(editingAppointment as any).appointment_type !== 'staff'}
                               />
                             </div>
                             {editAppointmentError && (
@@ -14060,6 +14271,149 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             <>
                               <CalendarPlus className="w-4 h-4" />
                               Create Appointment
+                            </>
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAdminViewPersisted('menu')}
+                          className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-lg transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </>
+              ) : adminView === 'staffappointment' ? (
+                <>
+                  <button
+                    onClick={() => setAdminViewPersisted('menu')}
+                    className="flex items-center gap-2 text-slate-400 hover:text-amber-500 transition-colors mb-4"
+                  >
+                    <span>← Back to Admin Menu</span>
+                  </button>
+
+                  <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 p-6">
+                    <div className="flex items-center gap-3 mb-6">
+                      <Users className="w-8 h-8 text-blue-500" />
+                      <div>
+                        <h2 className="text-2xl font-bold">Staff Appointment</h2>
+                        <p className="text-slate-400">Schedule a meeting with staff or contacts</p>
+                      </div>
+                    </div>
+
+                    {staffAppointmentSuccess && (
+                      <div className="mb-4 p-4 bg-green-500/20 border border-green-500 rounded-lg text-green-400">
+                        Staff appointment scheduled successfully!
+                      </div>
+                    )}
+
+                    {staffAppointmentError && (
+                      <div className="mb-4 p-4 bg-red-500/20 border border-red-500 rounded-lg text-red-400">
+                        {staffAppointmentError}
+                      </div>
+                    )}
+
+                    <form onSubmit={handleStaffAppointmentSubmit} className="space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <label className="block text-sm font-medium text-slate-300 mb-2">
+                            Name
+                          </label>
+                          <input
+                            type="text"
+                            value={staffAppointmentForm.name}
+                            onChange={(e) => setStaffAppointmentForm({ ...staffAppointmentForm, name: e.target.value })}
+                            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="Enter name"
+                            required
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-slate-300 mb-2">
+                            Phone Number
+                          </label>
+                          <input
+                            type="tel"
+                            value={staffAppointmentForm.phone}
+                            onChange={(e) => setStaffAppointmentForm({ ...staffAppointmentForm, phone: e.target.value })}
+                            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="Enter phone number"
+                            required
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-slate-300 mb-2">
+                            Email Address
+                          </label>
+                          <input
+                            type="email"
+                            value={staffAppointmentForm.email}
+                            onChange={(e) => setStaffAppointmentForm({ ...staffAppointmentForm, email: e.target.value })}
+                            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="Enter email address"
+                            required
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-slate-300 mb-2">
+                            Date
+                          </label>
+                          <input
+                            type="date"
+                            value={staffAppointmentForm.date}
+                            onChange={(e) => setStaffAppointmentForm({ ...staffAppointmentForm, date: e.target.value })}
+                            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            required
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-slate-300 mb-2">
+                            Time
+                          </label>
+                          <input
+                            type="time"
+                            value={staffAppointmentForm.time}
+                            onChange={(e) => setStaffAppointmentForm({ ...staffAppointmentForm, time: e.target.value })}
+                            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">
+                          Notes / Purpose <span className="text-slate-500">(Optional)</span>
+                        </label>
+                        <textarea
+                          value={staffAppointmentForm.notes}
+                          onChange={(e) => setStaffAppointmentForm({ ...staffAppointmentForm, notes: e.target.value })}
+                          rows={4}
+                          className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                          placeholder="Meeting purpose or additional notes"
+                        />
+                      </div>
+
+                      <div className="flex gap-4">
+                        <button
+                          type="submit"
+                          disabled={staffAppointmentLoading}
+                          className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        >
+                          {staffAppointmentLoading ? (
+                            <>
+                              <RefreshCw className="w-4 h-4 animate-spin" />
+                              Creating...
+                            </>
+                          ) : (
+                            <>
+                              <CalendarPlus className="w-4 h-4" />
+                              Schedule Appointment
                             </>
                           )}
                         </button>
@@ -15943,13 +16297,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       {/* Quick Appointment Creation Modal */}
       {showQuickAppointmentModal && quickAppointmentDate && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-900 rounded-2xl border-2 border-pink-500/30 max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="bg-gradient-to-r from-pink-500/20 to-orange-500/20 border-b border-slate-700 p-6">
+          <div className={`bg-slate-900 rounded-2xl border-2 ${quickAppointmentType === 'staff' ? 'border-blue-500/30' : 'border-pink-500/30'} max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col`}>
+            <div className={`bg-gradient-to-r ${quickAppointmentType === 'staff' ? 'from-blue-500/20 to-cyan-500/20' : 'from-pink-500/20 to-orange-500/20'} border-b border-slate-700 p-6`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <CalendarPlus className="w-8 h-8 text-pink-400" />
+                  {quickAppointmentType === 'staff' ? <Users className="w-8 h-8 text-blue-400" /> : <CalendarPlus className="w-8 h-8 text-pink-400" />}
                   <div>
-                    <h2 className="text-2xl font-bold">Create Appointment</h2>
+                    <h2 className="text-2xl font-bold">{quickAppointmentType === 'staff' ? 'Staff Meeting' : 'Customer Appointment'}</h2>
                     <p className="text-slate-400">
                       {quickAppointmentDate.toLocaleDateString('en-US', {
                         weekday: 'long',
@@ -15964,6 +16318,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                   onClick={() => {
                     setShowQuickAppointmentModal(false);
                     setQuickAppointmentDate(null);
+                    setQuickAppointmentType('customer');
                   }}
                   className="text-slate-400 hover:text-white transition-colors"
                 >
@@ -15973,25 +16328,51 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             </div>
 
             <div className="flex-1 overflow-y-auto p-6">
-              {appointmentSuccess && (
+              <div className="mb-6 flex gap-2 bg-slate-800/50 rounded-lg p-1 border border-slate-700">
+                <button
+                  type="button"
+                  onClick={() => setQuickAppointmentType('customer')}
+                  className={`flex-1 px-4 py-2 rounded-md font-medium transition-all ${
+                    quickAppointmentType === 'customer'
+                      ? 'bg-pink-500 text-white'
+                      : 'text-slate-400 hover:text-pink-400'
+                  }`}
+                >
+                  Customer Appointment
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQuickAppointmentType('staff')}
+                  className={`flex-1 px-4 py-2 rounded-md font-medium transition-all ${
+                    quickAppointmentType === 'staff'
+                      ? 'bg-blue-500 text-white'
+                      : 'text-slate-400 hover:text-blue-400'
+                  }`}
+                >
+                  Staff Meeting
+                </button>
+              </div>
+              {(appointmentSuccess || staffAppointmentSuccess) && (
                 <div className="mb-4 p-4 bg-green-500/20 border border-green-500 rounded-lg text-green-400">
-                  Appointment created successfully!
+                  {quickAppointmentType === 'staff' ? 'Staff appointment scheduled successfully!' : 'Appointment created successfully!'}
                 </div>
               )}
 
-              {appointmentError && (
+              {(appointmentError || staffAppointmentError) && (
                 <div className="mb-4 p-4 bg-red-500/20 border border-red-500 rounded-lg text-red-400">
-                  {appointmentError}
+                  {quickAppointmentType === 'staff' ? staffAppointmentError : appointmentError}
                 </div>
               )}
 
-              <form onSubmit={handleAppointmentSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Customer
-                    </label>
-                    {appointmentForm.useExistingCustomer ? (
+              <form onSubmit={quickAppointmentType === 'staff' ? handleStaffAppointmentSubmit : handleAppointmentSubmit} className="space-y-4">
+                {quickAppointmentType === 'customer' ? (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">
+                          Customer
+                        </label>
+                        {appointmentForm.useExistingCustomer ? (
                       <div className="space-y-2">
                         <select
                           value={appointmentForm.customerId}
@@ -16143,30 +16524,104 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                   />
                 </div>
 
-                <div className="bg-slate-700/30 rounded-lg p-4 border border-slate-600">
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={appointmentForm.createRepairRequest}
-                      onChange={(e) => setAppointmentForm({ ...appointmentForm, createRepairRequest: e.target.checked })}
-                      className="w-5 h-5 rounded bg-slate-700 border-slate-600 text-pink-500 focus:ring-2 focus:ring-pink-500"
-                    />
-                    <div className="flex-1">
-                      <span className="text-slate-300 font-medium">Also create repair request</span>
-                      <p className="text-sm text-slate-400 mt-1">
-                        Automatically create a retail repair request with the appointment details
-                      </p>
+                    <div className="bg-slate-700/30 rounded-lg p-4 border border-slate-600">
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={appointmentForm.createRepairRequest}
+                          onChange={(e) => setAppointmentForm({ ...appointmentForm, createRepairRequest: e.target.checked })}
+                          className="w-5 h-5 rounded bg-slate-700 border-slate-600 text-pink-500 focus:ring-2 focus:ring-pink-500"
+                        />
+                        <div className="flex-1">
+                          <span className="text-slate-300 font-medium">Also create repair request</span>
+                          <p className="text-sm text-slate-400 mt-1">
+                            Automatically create a retail repair request with the appointment details
+                          </p>
+                        </div>
+                      </label>
                     </div>
-                  </label>
-                </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">
+                          Name
+                        </label>
+                        <input
+                          type="text"
+                          value={staffAppointmentForm.name}
+                          onChange={(e) => setStaffAppointmentForm({ ...staffAppointmentForm, name: e.target.value })}
+                          className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white"
+                          placeholder="Enter name"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">
+                          Phone
+                        </label>
+                        <input
+                          type="tel"
+                          value={staffAppointmentForm.phone}
+                          onChange={(e) => setStaffAppointmentForm({ ...staffAppointmentForm, phone: e.target.value })}
+                          className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white"
+                          placeholder="Enter phone number"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">
+                          Email
+                        </label>
+                        <input
+                          type="email"
+                          value={staffAppointmentForm.email}
+                          onChange={(e) => setStaffAppointmentForm({ ...staffAppointmentForm, email: e.target.value })}
+                          className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white"
+                          placeholder="Enter email address"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">
+                          Time
+                        </label>
+                        <input
+                          type="time"
+                          value={staffAppointmentForm.time}
+                          onChange={(e) => setStaffAppointmentForm({ ...staffAppointmentForm, time: e.target.value })}
+                          className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                        Notes / Purpose <span className="text-slate-500">(Optional)</span>
+                      </label>
+                      <textarea
+                        value={staffAppointmentForm.notes}
+                        onChange={(e) => setStaffAppointmentForm({ ...staffAppointmentForm, notes: e.target.value })}
+                        rows={3}
+                        className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-white"
+                        placeholder="Meeting purpose or additional notes"
+                      />
+                    </div>
+                  </>
+                )}
 
                 <div className="flex gap-3 pt-4">
                   <button
                     type="submit"
-                    disabled={appointmentLoading}
-                    className="flex-1 px-6 py-3 bg-pink-500 hover:bg-pink-600 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    disabled={quickAppointmentType === 'staff' ? staffAppointmentLoading : appointmentLoading}
+                    className={`flex-1 px-6 py-3 ${quickAppointmentType === 'staff' ? 'bg-blue-500 hover:bg-blue-600' : 'bg-pink-500 hover:bg-pink-600'} text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2`}
                   >
-                    {appointmentLoading ? (
+                    {(quickAppointmentType === 'staff' ? staffAppointmentLoading : appointmentLoading) ? (
                       <>
                         <RefreshCw className="w-4 h-4 animate-spin" />
                         Creating...
@@ -16174,7 +16629,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     ) : (
                       <>
                         <CalendarPlus className="w-4 h-4" />
-                        Create Appointment
+                        {quickAppointmentType === 'staff' ? 'Schedule Meeting' : 'Create Appointment'}
                       </>
                     )}
                   </button>
@@ -16183,6 +16638,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     onClick={() => {
                       setShowQuickAppointmentModal(false);
                       setQuickAppointmentDate(null);
+                      setQuickAppointmentType('customer');
                     }}
                     className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-lg transition-colors"
                   >
