@@ -186,7 +186,7 @@ Deno.serve(async (req: Request) => {
             <a href="${invoice.payment_link_url}" style="color: #059669; word-break: break-all;">${invoice.payment_link_url}</a></p>
 
             <p style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px; border-radius: 4px; font-size: 14px;">
-              <strong>Important:</strong> For security reasons, this payment link expires in 24 hours. Please complete your payment at your earliest convenience.
+              <strong>Important:</strong> For security reasons, this payment link expires in 30 days. Please complete your payment at your earliest convenience.
             </p>
 
             ${invoiceAttachment ? '<p>The invoice PDF is attached to this email for your records.</p>' : ''}
