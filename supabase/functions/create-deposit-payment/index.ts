@@ -94,8 +94,8 @@ Deno.serve(async (req: Request) => {
     }
 
     // Build Stripe checkout session parameters
-    // Set expiration to 7 days from now
-    const expirationTimestamp = Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60);
+    // Set expiration to 30 days from now
+    const expirationTimestamp = Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60);
 
     const params: Record<string, string> = {
       'line_items[0][price_data][currency]': 'usd',
@@ -154,11 +154,13 @@ Deno.serve(async (req: Request) => {
     const sessionData = await session.json();
 
     // Update repair request with checkout session ID and payment link
+    const expiresAt = new Date(expirationTimestamp * 1000).toISOString();
     await supabase
       .from('repair_requests')
       .update({
         deposit_stripe_checkout_session_id: sessionData.id,
         deposit_payment_link_url: sessionData.url,
+        deposit_link_expires_at: expiresAt,
         deposit_requested_at: new Date().toISOString(),
         deposit_requested_by: user.id,
         updated_at: new Date().toISOString(),

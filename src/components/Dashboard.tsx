@@ -3598,6 +3598,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
     setDepositLoading(true);
     try {
+      const isRegeneration = selectedRepairForDeposit.deposit_payment_link_url &&
+        selectedRepairForDeposit.deposit_link_expires_at &&
+        new Date(selectedRepairForDeposit.deposit_link_expires_at) < new Date();
+
       // Save deposit amount to repair request
       const { error: updateError } = await supabase
         .from('repair_requests')
@@ -3634,7 +3638,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       }
 
       await loadRepairRequests();
-      showSuccess('Deposit payment link generated successfully!');
+      showSuccess(isRegeneration ? 'Deposit payment link regenerated successfully! Valid for 30 days.' : 'Deposit payment link generated successfully! Valid for 30 days.');
       setShowDepositModal(false);
       setSelectedRepairForDeposit(null);
       setDepositForm({ deposit_amount: '', recipient_email: '', recipient_name: '' });
@@ -12427,25 +12431,46 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             />
                           </div>
 
-                          {selectedRepairForDeposit.deposit_payment_link_url && (
-                            <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-lg p-4">
-                              <p className="text-sm font-medium text-cyan-500 mb-2">Deposit Link Created</p>
-                              <div className="flex gap-2">
-                                <input
-                                  type="text"
-                                  value={selectedRepairForDeposit.deposit_payment_link_url}
-                                  readOnly
-                                  className="flex-1 bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm"
-                                />
-                                <button
-                                  onClick={() => copyToClipboard(selectedRepairForDeposit.deposit_payment_link_url!)}
-                                  className="px-3 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded text-sm font-semibold transition-all"
-                                >
-                                  Copy
-                                </button>
+                          {selectedRepairForDeposit.deposit_payment_link_url && (() => {
+                            const isExpired = selectedRepairForDeposit.deposit_link_expires_at &&
+                              new Date(selectedRepairForDeposit.deposit_link_expires_at) < new Date();
+
+                            return (
+                              <div className={`${isExpired ? 'bg-amber-500/10 border-amber-500/30' : 'bg-cyan-500/10 border-cyan-500/30'} border rounded-lg p-4`}>
+                                <div className="flex items-center justify-between mb-2">
+                                  <p className={`text-sm font-medium ${isExpired ? 'text-amber-500' : 'text-cyan-500'}`}>
+                                    {isExpired ? '⚠️ Deposit Link Expired' : 'Deposit Link Created'}
+                                  </p>
+                                  {selectedRepairForDeposit.deposit_link_expires_at && (
+                                    <p className="text-xs text-slate-400">
+                                      {isExpired ? 'Expired' : 'Expires'} {new Date(selectedRepairForDeposit.deposit_link_expires_at).toLocaleDateString()}
+                                    </p>
+                                  )}
+                                </div>
+                                {isExpired && (
+                                  <p className="text-xs text-amber-400 mb-2">
+                                    This payment link has expired. Generate a new link to continue.
+                                  </p>
+                                )}
+                                <div className="flex gap-2">
+                                  <input
+                                    type="text"
+                                    value={selectedRepairForDeposit.deposit_payment_link_url}
+                                    readOnly
+                                    className="flex-1 bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm"
+                                  />
+                                  {!isExpired && (
+                                    <button
+                                      onClick={() => copyToClipboard(selectedRepairForDeposit.deposit_payment_link_url!)}
+                                      className="px-3 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded text-sm font-semibold transition-all"
+                                    >
+                                      Copy
+                                    </button>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          )}
+                            );
+                          })()}
 
                           {selectedRepairForDeposit.deposit_payment_status === 'paid' && (
                             <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 text-center">
@@ -12469,15 +12494,24 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           >
                             Cancel
                           </button>
-                          {!selectedRepairForDeposit.deposit_payment_link_url && (
-                            <button
-                              onClick={handleGenerateDepositLink}
-                              disabled={depositLoading || !depositForm.deposit_amount}
-                              className="flex-1 bg-cyan-500 hover:bg-cyan-600 text-white font-semibold py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              {depositLoading ? 'Creating Link...' : 'Create Deposit Link'}
-                            </button>
-                          )}
+                          {(() => {
+                            const isExpired = selectedRepairForDeposit.deposit_link_expires_at &&
+                              new Date(selectedRepairForDeposit.deposit_link_expires_at) < new Date();
+                            const hasLink = selectedRepairForDeposit.deposit_payment_link_url;
+
+                            if (!hasLink || isExpired) {
+                              return (
+                                <button
+                                  onClick={handleGenerateDepositLink}
+                                  disabled={depositLoading || !depositForm.deposit_amount}
+                                  className="flex-1 bg-cyan-500 hover:bg-cyan-600 text-white font-semibold py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  {depositLoading ? 'Creating Link...' : isExpired ? 'Regenerate Deposit Link' : 'Create Deposit Link'}
+                                </button>
+                              );
+                            }
+                            return null;
+                          })()}
                           <button
                             onClick={handleSendDepositEmail}
                             disabled={depositLoading || !depositForm.deposit_amount || !depositForm.recipient_email || selectedRepairForDeposit.deposit_payment_status === 'paid'}
