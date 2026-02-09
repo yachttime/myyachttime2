@@ -2,7 +2,7 @@
   # Add Deposit Link Expiration Tracking
 
   1. Changes
-    - Add `deposit_link_expires_at` column to track when the Stripe checkout session expires
+    - Add `deposit_link_expires_at` column to track when the Stripe payment link expires
     - This allows the UI to detect expired links and show regeneration options
 
   2. Purpose
@@ -11,7 +11,9 @@
     - Allow users to regenerate expired links
 
   3. Notes
-    - Stripe checkout sessions have a maximum expiration time
+    - Deposit links use Stripe Payment Links with 30-day expiration
+    - Invoice links also use Stripe Payment Links with 30-day expiration
+    - Payment Links provide longer expiration than Checkout Sessions (24 hours max)
     - When a link expires, a new one must be generated
 */
 

@@ -82,25 +82,27 @@ Deno.serve(async (req: Request) => {
       throw new Error('Deposit is already paid');
     }
 
-    // If there's an existing checkout session, expire it first
+    // If there's an existing payment link, deactivate it first
     if (repairRequest.deposit_stripe_checkout_session_id) {
       try {
-        const expireResponse = await fetch(`https://api.stripe.com/v1/checkout/sessions/${repairRequest.deposit_stripe_checkout_session_id}/expire`, {
+        const deactivateResponse = await fetch(`https://api.stripe.com/v1/payment_links/${repairRequest.deposit_stripe_checkout_session_id}`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${stripeSecretKey}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
           },
+          body: new URLSearchParams({ 'active': 'false' }).toString(),
         });
 
-        if (expireResponse.ok) {
-          console.log('Successfully expired old checkout session:', repairRequest.deposit_stripe_checkout_session_id);
+        if (deactivateResponse.ok) {
+          console.log('Successfully deactivated old payment link:', repairRequest.deposit_stripe_checkout_session_id);
         } else {
-          const errorText = await expireResponse.text();
-          console.log('Failed to expire old session (might already be expired):', errorText);
+          const errorText = await deactivateResponse.text();
+          console.log('Failed to deactivate old payment link (might already be inactive):', errorText);
         }
-      } catch (expireError) {
-        console.error('Error expiring old checkout session:', expireError);
-        // Continue anyway - the old session might already be expired or deleted
+      } catch (deactivateError) {
+        console.error('Error deactivating old payment link:', deactivateError);
+        // Continue anyway - the old link might already be inactive or deleted
       }
     }
 
@@ -115,20 +117,64 @@ Deno.serve(async (req: Request) => {
       throw new Error(`Invalid deposit amount in cents: ${amountInCents}`);
     }
 
-    // Build Stripe checkout session parameters
-    // Set expiration to 23 hours from now (Stripe max is 24 hours)
-    const expirationTimestamp = Math.floor(Date.now() / 1000) + (23 * 60 * 60);
+    // Calculate expiration date (30 days from now)
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 30);
+    const expirationTimestamp = Math.floor(expiresAt.getTime() / 1000);
 
+    // First, create a Stripe Product
+    const productParams = new URLSearchParams({
+      'name': `Deposit: ${repairRequest.title}`,
+      'description': `${repairRequest.yachts?.name || 'Yacht'} - Deposit for Repair #${repairRequestId.substring(0, 8)}`,
+    });
+
+    const productResponse = await fetch('https://api.stripe.com/v1/products', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${stripeSecretKey}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: productParams.toString(),
+    });
+
+    if (!productResponse.ok) {
+      const errorText = await productResponse.text();
+      console.error('Stripe Product creation error:', errorText);
+      throw new Error('Failed to create Stripe product');
+    }
+
+    const productData = await productResponse.json();
+
+    // Then, create a Price for the product
+    const priceParams = new URLSearchParams({
+      'product': productData.id,
+      'currency': 'usd',
+      'unit_amount': amountInCents.toString(),
+    });
+
+    const priceResponse = await fetch('https://api.stripe.com/v1/prices', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${stripeSecretKey}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: priceParams.toString(),
+    });
+
+    if (!priceResponse.ok) {
+      const errorText = await priceResponse.text();
+      console.error('Stripe Price creation error:', errorText);
+      throw new Error('Failed to create Stripe price');
+    }
+
+    const priceData = await priceResponse.json();
+
+    // Build Stripe Payment Link parameters
     const params: Record<string, string> = {
-      'line_items[0][price_data][currency]': 'usd',
-      'line_items[0][price_data][product_data][name]': `Deposit: ${repairRequest.title}`,
-      'line_items[0][price_data][product_data][description]': `${repairRequest.yachts?.name || 'Yacht'} - Deposit for Repair #${repairRequestId.substring(0, 8)}`,
-      'line_items[0][price_data][unit_amount]': amountInCents.toString(),
+      'line_items[0][price]': priceData.id,
       'line_items[0][quantity]': '1',
-      'mode': 'payment',
-      'expires_at': expirationTimestamp.toString(),
-      'success_url': `${req.headers.get('origin') || supabaseUrl}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-      'cancel_url': `${req.headers.get('origin') || supabaseUrl}/payment-cancelled`,
+      'after_completion[type]': 'redirect',
+      'after_completion[redirect][url]': `${req.headers.get('origin') || supabaseUrl}/payment-success`,
       'metadata[repair_request_id]': repairRequestId,
       'metadata[payment_type]': 'deposit',
       'metadata[yacht_id]': repairRequest.yacht_id || '',
@@ -137,8 +183,8 @@ Deno.serve(async (req: Request) => {
       'payment_method_types[1]': 'us_bank_account',
     };
 
-    // Create Stripe Checkout Session
-    const session = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+    // Create Stripe Payment Link
+    const paymentLink = await fetch('https://api.stripe.com/v1/payment_links', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${stripeSecretKey}`,
@@ -147,18 +193,18 @@ Deno.serve(async (req: Request) => {
       body: new URLSearchParams(params).toString(),
     });
 
-    if (!session.ok) {
-      const errorText = await session.text();
+    if (!paymentLink.ok) {
+      const errorText = await paymentLink.text();
       console.error('Stripe API error:', {
-        status: session.status,
-        statusText: session.statusText,
+        status: paymentLink.status,
+        statusText: paymentLink.statusText,
         error: errorText,
         repairRequestId: repairRequestId,
         amount: amount,
         amountInCents: amountInCents
       });
 
-      let errorMessage = 'Failed to create payment session';
+      let errorMessage = 'Failed to create payment link';
       try {
         const errorJson = JSON.parse(errorText);
         if (errorJson.error && errorJson.error.message) {
@@ -173,16 +219,15 @@ Deno.serve(async (req: Request) => {
       throw new Error(errorMessage);
     }
 
-    const sessionData = await session.json();
+    const paymentLinkData = await paymentLink.json();
 
-    // Update repair request with checkout session ID and payment link
-    const expiresAt = new Date(expirationTimestamp * 1000).toISOString();
+    // Update repair request with payment link ID and URL
     await supabase
       .from('repair_requests')
       .update({
-        deposit_stripe_checkout_session_id: sessionData.id,
-        deposit_payment_link_url: sessionData.url,
-        deposit_link_expires_at: expiresAt,
+        deposit_stripe_checkout_session_id: paymentLinkData.id,
+        deposit_payment_link_url: paymentLinkData.url,
+        deposit_link_expires_at: expiresAt.toISOString(),
         deposit_requested_at: new Date().toISOString(),
         deposit_requested_by: user.id,
         updated_at: new Date().toISOString(),
@@ -192,8 +237,9 @@ Deno.serve(async (req: Request) => {
     return new Response(
       JSON.stringify({
         success: true,
-        checkoutUrl: sessionData.url,
-        sessionId: sessionData.id,
+        checkoutUrl: paymentLinkData.url,
+        sessionId: paymentLinkData.id,
+        expiresAt: expiresAt.toISOString(),
       }),
       {
         headers: {
