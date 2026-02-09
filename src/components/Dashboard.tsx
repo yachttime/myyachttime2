@@ -14333,7 +14333,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                         <div>
                           <label className="block text-sm font-medium text-slate-300 mb-2">
-                            Phone Number
+                            Phone Number <span className="text-slate-500">(Optional)</span>
                           </label>
                           <input
                             type="tel"
@@ -14341,13 +14341,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             onChange={(e) => setStaffAppointmentForm({ ...staffAppointmentForm, phone: e.target.value })}
                             className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             placeholder="Enter phone number"
-                            required
                           />
                         </div>
 
                         <div>
                           <label className="block text-sm font-medium text-slate-300 mb-2">
-                            Email Address
+                            Email Address <span className="text-slate-500">(Optional)</span>
                           </label>
                           <input
                             type="email"
@@ -14355,7 +14354,6 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             onChange={(e) => setStaffAppointmentForm({ ...staffAppointmentForm, email: e.target.value })}
                             className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             placeholder="Enter email address"
-                            required
                           />
                         </div>
 
@@ -16560,7 +16558,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                       <div>
                         <label className="block text-sm font-medium text-slate-300 mb-2">
-                          Phone
+                          Phone <span className="text-slate-500">(Optional)</span>
                         </label>
                         <input
                           type="tel"
@@ -16568,13 +16566,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           onChange={(e) => setStaffAppointmentForm({ ...staffAppointmentForm, phone: e.target.value })}
                           className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white"
                           placeholder="Enter phone number"
-                          required
                         />
                       </div>
 
                       <div>
                         <label className="block text-sm font-medium text-slate-300 mb-2">
-                          Email
+                          Email <span className="text-slate-500">(Optional)</span>
                         </label>
                         <input
                           type="email"
@@ -16582,7 +16579,6 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           onChange={(e) => setStaffAppointmentForm({ ...staffAppointmentForm, email: e.target.value })}
                           className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white"
                           placeholder="Enter email address"
-                          required
                         />
                       </div>
 
