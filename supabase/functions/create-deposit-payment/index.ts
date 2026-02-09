@@ -82,6 +82,22 @@ Deno.serve(async (req: Request) => {
       throw new Error('Deposit is already paid');
     }
 
+    // If there's an existing checkout session, expire it first
+    if (repairRequest.deposit_stripe_checkout_session_id) {
+      try {
+        await fetch(`https://api.stripe.com/v1/checkout/sessions/${repairRequest.deposit_stripe_checkout_session_id}/expire`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${stripeSecretKey}`,
+          },
+        });
+        console.log('Expired old checkout session:', repairRequest.deposit_stripe_checkout_session_id);
+      } catch (expireError) {
+        console.error('Failed to expire old checkout session:', expireError);
+        // Continue anyway - the old session might already be expired
+      }
+    }
+
     const amount = parseFloat(repairRequest.deposit_amount);
     if (isNaN(amount) || amount <= 0) {
       throw new Error(`Invalid deposit amount: ${repairRequest.deposit_amount}`);
