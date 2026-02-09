@@ -58,17 +58,13 @@ Deno.serve(async (req: Request) => {
 
     console.log(`Checking schedules for ${currentDate} at ${currentTime} MST`);
 
-    // Calculate the time 10 minutes ago
-    const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000);
-    const tenMinutesAgoParts = formatter.formatToParts(tenMinutesAgo);
-    const tenMinutesAgoTime = `${tenMinutesAgoParts.find(p => p.type === "hour")!.value}:${tenMinutesAgoParts.find(p => p.type === "minute")!.value}:00`;
-
     // Query 1: Get staff schedules that should have PUNCHED IN 10+ minutes ago
+    // The database function handles the "10 minutes past start time" logic internally
     const { data: punchInSchedules, error: punchInError } = await supabase.rpc(
       "get_schedules_needing_reminders",
       {
         check_date: currentDate,
-        check_time: tenMinutesAgoTime,
+        check_time: currentTime,
       }
     );
 
@@ -78,11 +74,12 @@ Deno.serve(async (req: Request) => {
     }
 
     // Query 2: Get staff schedules that should have PUNCHED OUT 10+ minutes ago
+    // The database function handles the "10 minutes past end time" logic internally
     const { data: punchOutSchedules, error: punchOutError } = await supabase.rpc(
       "get_schedules_needing_punchout_reminders",
       {
         check_date: currentDate,
-        check_time: tenMinutesAgoTime,
+        check_time: currentTime,
       }
     );
 
