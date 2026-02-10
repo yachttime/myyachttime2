@@ -12119,9 +12119,14 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                               ✓ Paid
                                             </span>
                                           )}
-                                          {request.deposit_amount && request.deposit_payment_status === 'pending' && (
+                                          {request.deposit_amount && request.deposit_payment_status === 'pending' && !request.deposit_email_sent_at && (
                                             <span className="bg-yellow-500/30 px-2 py-0.5 rounded text-xs">
-                                              Pending
+                                              Not Requested
+                                            </span>
+                                          )}
+                                          {request.deposit_amount && request.deposit_payment_status === 'pending' && request.deposit_email_sent_at && (
+                                            <span className="bg-blue-500/30 px-2 py-0.5 rounded text-xs">
+                                              Awaiting
                                             </span>
                                           )}
                                         </button>
