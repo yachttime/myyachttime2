@@ -12026,7 +12026,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                         )}
                                       </div>
 
-                                      {canManageYacht(effectiveRole) && request.deposit_payment_status === 'pending' && request.deposit_payment_link_url && (
+                                      {canManageYacht(effectiveRole) && request.deposit_payment_status === 'pending' && request.deposit_payment_link_url && request.deposit_email_sent_at && (
                                         <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t border-cyan-500/20">
                                           <button
                                             onClick={() => handleSyncDepositPaymentStatus(request)}
