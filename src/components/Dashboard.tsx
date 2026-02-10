@@ -3440,6 +3440,43 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     }
   };
 
+  const handleSyncDepositPaymentStatus = async (request: RepairRequest) => {
+    if (!request.id) return;
+
+    setDepositLinkLoading({ ...depositLinkLoading, [request.id]: true });
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-stripe-payment`;
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          repair_request_id: request.id,
+          is_deposit: true
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        await loadRepairRequests();
+        showSuccess(result.message || 'Deposit payment status synced successfully!');
+      } else {
+        showError(result.message || 'Deposit payment not yet completed in Stripe');
+      }
+    } catch (error: any) {
+      console.error('Error syncing deposit payment status:', error);
+      showError(`Error: ${error.message || 'Failed to sync deposit payment status'}`);
+    } finally {
+      setDepositLinkLoading({ ...depositLinkLoading, [request.id]: false });
+    }
+  };
+
   const handleRegeneratePaymentLink = async (invoice: YachtInvoice) => {
     if (!invoice.id) return;
 
@@ -11908,6 +11945,97 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                               </button>
                                             </>
                                           )}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {request.deposit_amount && (
+                                    <div className="mt-4 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/30 rounded-lg p-4">
+                                      <div className="flex items-center gap-2 mb-3">
+                                        <DollarSign className="w-5 h-5 text-cyan-400" />
+                                        <h5 className="font-semibold text-cyan-400">Deposit Details</h5>
+                                        {request.deposit_payment_status && (
+                                          <>
+                                            {request.deposit_payment_status === 'pending' && !request.deposit_email_sent_at && (
+                                              <span className="ml-auto bg-yellow-500/20 text-yellow-400 px-3 py-1 rounded-full text-xs font-semibold">
+                                                Need to Request Deposit
+                                              </span>
+                                            )}
+                                            {request.deposit_payment_status === 'pending' && request.deposit_email_sent_at && (
+                                              <span className="ml-auto bg-blue-500/20 text-blue-400 px-3 py-1 rounded-full text-xs font-semibold">
+                                                Awaiting Payment
+                                              </span>
+                                            )}
+                                            {request.deposit_payment_status === 'paid' && (
+                                              <span className="ml-auto bg-green-500/20 text-green-400 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
+                                                <CheckCircle className="w-3 h-3" />
+                                                Paid
+                                              </span>
+                                            )}
+                                          </>
+                                        )}
+                                      </div>
+                                      <div className="space-y-2">
+                                        <p className="text-sm text-slate-300">
+                                          <span className="font-semibold">Amount:</span> ${parseFloat(request.deposit_amount).toFixed(2)}
+                                        </p>
+                                        {request.deposit_paid_at && (
+                                          <p className="text-xs text-green-400">
+                                            Paid on: {new Date(request.deposit_paid_at).toLocaleDateString()} at {new Date(request.deposit_paid_at).toLocaleTimeString()}
+                                          </p>
+                                        )}
+                                        {request.deposit_email_sent_at && (
+                                          <div className="mt-3 pt-3 border-t border-cyan-500/20">
+                                            <p className="text-xs font-semibold text-slate-300 mb-2">Email Tracking</p>
+                                            <div className="space-y-1">
+                                              {request.deposit_email_recipient && (
+                                                <div className="flex items-center gap-2 text-xs text-blue-300 mb-2">
+                                                  <Mail className="w-3 h-3" />
+                                                  <span className="font-medium">To: {request.deposit_email_recipient}</span>
+                                                </div>
+                                              )}
+                                              {request.deposit_email_sent_at && (
+                                                <div className="flex items-center gap-2 text-xs text-slate-400">
+                                                  <Mail className="w-3 h-3 text-blue-400" />
+                                                  <span>Sent: {new Date(request.deposit_email_sent_at).toLocaleDateString()} at {new Date(request.deposit_email_sent_at).toLocaleTimeString()}</span>
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        )}
+                                        {request.deposit_payment_link_url && (
+                                          <div className="mt-3 pt-3 border-t border-cyan-500/20">
+                                            <p className="text-xs text-slate-400 mb-2">Payment Link:</p>
+                                            <div className="flex items-center gap-2">
+                                              <input
+                                                type="text"
+                                                readOnly
+                                                value={request.deposit_payment_link_url}
+                                                className="flex-1 bg-slate-900/50 border border-slate-700 rounded px-3 py-2 text-xs text-slate-300"
+                                              />
+                                              <button
+                                                onClick={() => copyToClipboard(request.deposit_payment_link_url)}
+                                                className="bg-cyan-500 hover:bg-cyan-600 text-white px-3 py-2 rounded text-xs font-semibold transition-all flex items-center gap-1"
+                                              >
+                                                <Download className="w-3 h-3" />
+                                                Copy
+                                              </button>
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+
+                                      {canManageYacht(effectiveRole) && request.deposit_payment_status === 'pending' && request.deposit_payment_link_url && (
+                                        <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t border-cyan-500/20">
+                                          <button
+                                            onClick={() => handleSyncDepositPaymentStatus(request)}
+                                            disabled={depositLinkLoading[request.id]}
+                                            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 disabled:opacity-50"
+                                          >
+                                            <RefreshCw className="w-3 h-3" />
+                                            {depositLinkLoading[request.id] ? 'Syncing...' : 'Sync Payment'}
+                                          </button>
                                         </div>
                                       )}
                                     </div>

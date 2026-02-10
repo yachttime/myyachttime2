@@ -7,7 +7,9 @@ const corsHeaders = {
 };
 
 interface SyncRequest {
-  invoice_id: string;
+  invoice_id?: string;
+  repair_request_id?: string;
+  is_deposit?: boolean;
 }
 
 Deno.serve(async (req: Request) => {
@@ -28,10 +30,143 @@ Deno.serve(async (req: Request) => {
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const { invoice_id }: SyncRequest = await req.json();
+    const { invoice_id, repair_request_id, is_deposit }: SyncRequest = await req.json();
 
+    // Handle deposit sync
+    if (is_deposit && repair_request_id) {
+      // Get the repair request
+      const { data: repairRequest, error: fetchError } = await supabase
+        .from('repair_requests')
+        .select('*, yachts(name)')
+        .eq('id', repair_request_id)
+        .single();
+
+      if (fetchError || !repairRequest) {
+        throw new Error('Repair request not found');
+      }
+
+      // Check if already paid
+      if (repairRequest.deposit_payment_status === 'paid') {
+        return new Response(
+          JSON.stringify({ success: true, message: 'Deposit already marked as paid' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // If we have a checkout session ID, check its status
+      if (repairRequest.deposit_stripe_payment_link_id) {
+        const paymentLinkResponse = await fetch(
+          `https://api.stripe.com/v1/payment_links/${repairRequest.deposit_stripe_payment_link_id}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${stripeSecretKey}`,
+            },
+          }
+        );
+
+        if (paymentLinkResponse.ok) {
+          const paymentLink = await paymentLinkResponse.json();
+
+          // Check for successful payments via this link
+          // We need to check checkout sessions created from this payment link
+          const sessionsResponse = await fetch(
+            `https://api.stripe.com/v1/checkout/sessions?payment_link=${repairRequest.deposit_stripe_payment_link_id}&limit=10`,
+            {
+              headers: {
+                'Authorization': `Bearer ${stripeSecretKey}`,
+              },
+            }
+          );
+
+          if (sessionsResponse.ok) {
+            const sessions = await sessionsResponse.json();
+            const paidSession = sessions.data.find((s: any) => s.payment_status === 'paid');
+
+            if (paidSession) {
+              const paymentIntentId = paidSession.payment_intent;
+              let paymentMethod = paidSession.payment_method_types?.[0] || 'card';
+
+              // Fetch payment intent details for more info
+              if (paymentIntentId) {
+                try {
+                  const piResponse = await fetch(
+                    `https://api.stripe.com/v1/payment_intents/${paymentIntentId}`,
+                    {
+                      headers: {
+                        'Authorization': `Bearer ${stripeSecretKey}`,
+                      },
+                    }
+                  );
+                  if (piResponse.ok) {
+                    const piData = await piResponse.json();
+                    paymentMethod = piData.charges?.data?.[0]?.payment_method_details?.type || paymentMethod;
+                  }
+                } catch (error) {
+                  console.error('Error fetching payment intent:', error);
+                }
+              }
+
+              // Update repair request as paid
+              const { error: updateError } = await supabase
+                .from('repair_requests')
+                .update({
+                  deposit_payment_status: 'paid',
+                  deposit_paid_at: new Date().toISOString(),
+                  deposit_stripe_payment_intent_id: paymentIntentId || null,
+                  deposit_payment_method: paymentMethod,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('id', repair_request_id);
+
+              if (updateError) {
+                throw updateError;
+              }
+
+              // Create notification for staff
+              await supabase.from('admin_notifications').insert({
+                message: `Deposit payment received for ${repairRequest.title} - $${parseFloat(repairRequest.deposit_amount).toFixed(2)}`,
+                yacht_id: repairRequest.yacht_id || null,
+                reference_id: repair_request_id,
+                created_at: new Date().toISOString(),
+              });
+
+              // Add message to owner chat if yacht-related
+              if (repairRequest.yacht_id) {
+                await supabase.from('owner_chat_messages').insert({
+                  yacht_id: repairRequest.yacht_id,
+                  sender_role: 'staff',
+                  message: `Deposit payment confirmed for ${repairRequest.title} - $${parseFloat(repairRequest.deposit_amount).toFixed(2)}. Work will begin shortly!`,
+                  created_at: new Date().toISOString(),
+                });
+              }
+
+              return new Response(
+                JSON.stringify({
+                  success: true,
+                  message: 'Deposit synced and marked as paid',
+                  payment_intent_id: paymentIntentId
+                }),
+                { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              );
+            }
+          }
+        }
+
+        return new Response(
+          JSON.stringify({ success: false, message: 'No paid checkout session found for this deposit link' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: false, message: 'No Stripe payment link ID found' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Handle invoice sync
     if (!invoice_id) {
-      throw new Error('invoice_id is required');
+      throw new Error('invoice_id or repair_request_id is required');
     }
 
     // Get the invoice
