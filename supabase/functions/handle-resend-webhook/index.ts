@@ -135,6 +135,13 @@ Deno.serve(async (req: Request) => {
       .eq('notification_resend_email_id', event.data.email_id)
       .maybeSingle();
 
+    // Try to find the email in repair_requests (deposit emails)
+    const { data: depositRequest } = await supabase
+      .from('repair_requests')
+      .select('*')
+      .eq('deposit_resend_email_id', event.data.email_id)
+      .maybeSingle();
+
     // Try to find the email in staff_messages
     const { data: staffMessage } = await supabase
       .from('staff_messages')
@@ -142,7 +149,7 @@ Deno.serve(async (req: Request) => {
       .eq('resend_email_id', event.data.email_id)
       .maybeSingle();
 
-    if (!invoice && !repairRequest && !repairNotification && !staffMessage) {
+    if (!invoice && !repairRequest && !repairNotification && !depositRequest && !staffMessage) {
       console.log('No record found for email_id:', event.data.email_id);
       return new Response(
         JSON.stringify({ received: true, message: 'No record found for this email' }),
@@ -291,6 +298,50 @@ Deno.serve(async (req: Request) => {
           console.error('Error updating repair notification:', updateError);
         } else {
           console.log('Updated repair notification:', repairNotification.id, 'with data:', notificationUpdateData);
+        }
+      }
+    }
+
+    // Handle repair_requests deposit tracking
+    if (depositRequest) {
+      const depositUpdateData: Record<string, any> = {};
+
+      switch (event.type) {
+        case 'email.delivered':
+          if (!depositRequest.deposit_email_delivered_at) {
+            depositUpdateData.deposit_email_delivered_at = eventTimestamp;
+          }
+          break;
+
+        case 'email.opened':
+          if (!depositRequest.deposit_email_opened_at) {
+            depositUpdateData.deposit_email_opened_at = eventTimestamp;
+          }
+          break;
+
+        case 'email.clicked':
+          if (!depositRequest.deposit_email_clicked_at) {
+            depositUpdateData.deposit_email_clicked_at = eventTimestamp;
+          }
+          break;
+
+        case 'email.bounced':
+          if (!depositRequest.deposit_email_bounced_at) {
+            depositUpdateData.deposit_email_bounced_at = eventTimestamp;
+          }
+          break;
+      }
+
+      if (Object.keys(depositUpdateData).length > 0) {
+        const { error: updateError } = await supabase
+          .from('repair_requests')
+          .update(depositUpdateData)
+          .eq('id', depositRequest.id);
+
+        if (updateError) {
+          console.error('Error updating deposit request:', updateError);
+        } else {
+          console.log('Updated deposit request:', depositRequest.id, 'with data:', depositUpdateData);
         }
       }
     }
