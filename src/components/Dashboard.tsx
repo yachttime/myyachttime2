@@ -14,6 +14,7 @@ import { VesselManagementAgreementForm } from './VesselManagementAgreementForm';
 import { VesselAgreementViewer } from './VesselAgreementViewer';
 import { PrintableUserList } from './PrintableUserList';
 import { PrintableOwnerTrips } from './PrintableOwnerTrips';
+import { PrintableYachtsList } from './PrintableYachtsList';
 import { EmailComposeModal } from './EmailComposeModal';
 import { YachtQRCode } from './YachtQRCode';
 import { StaffCalendar } from './StaffCalendar';
@@ -662,6 +663,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [showTripsPrintView, setShowTripsPrintView] = useState(false);
   const [tripsToPrint, setTripsToPrint] = useState<YachtBooking[]>([]);
   const [printYachtName, setPrintYachtName] = useState('');
+  const [showYachtsPrintView, setShowYachtsPrintView] = useState(false);
 
   useEffect(() => {
     const handleQRScannedYacht = async () => {
@@ -8421,12 +8423,23 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                         <p className="text-slate-400">View and manage yacht fleet</p>
                       </div>
                     </div>
-                    <button
-                      onClick={() => setShowYachtForm(!showYachtForm)}
-                      className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 shadow-lg"
-                    >
-                      {showYachtForm ? 'Cancel' : '+ Add Yacht'}
-                    </button>
+                    <div className="flex items-center gap-3">
+                      {allYachts.filter(y => y.is_active).length > 0 && (
+                        <button
+                          onClick={() => setShowYachtsPrintView(true)}
+                          className="bg-cyan-600 hover:bg-cyan-700 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 shadow-lg flex items-center gap-2"
+                        >
+                          <Printer className="w-5 h-5" />
+                          Print Active Yachts
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setShowYachtForm(!showYachtForm)}
+                        className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 shadow-lg"
+                      >
+                        {showYachtForm ? 'Cancel' : '+ Add Yacht'}
+                      </button>
+                    </div>
                   </div>
 
                   {showYachtForm && (
@@ -16167,6 +16180,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           trips={tripsToPrint}
           yachtName={printYachtName}
           onClose={() => setShowTripsPrintView(false)}
+        />
+      )}
+
+      {showYachtsPrintView && (
+        <PrintableYachtsList
+          yachts={allYachts}
+          onClose={() => setShowYachtsPrintView(false)}
         />
       )}
 

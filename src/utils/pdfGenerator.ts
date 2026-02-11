@@ -2022,3 +2022,90 @@ export async function generatePayrollReportPDF(
   const fileName = `Payroll_Report_${new Date(startDate).toLocaleDateString().replace(/\//g, '-')}_to_${new Date(endDate).toLocaleDateString().replace(/\//g, '-')}.pdf`;
   doc.save(fileName);
 }
+
+export function generateActiveYachtsPDF(yachts: Yacht[]): jsPDF {
+  const doc = new jsPDF({
+    orientation: 'landscape',
+    unit: 'in',
+    format: 'letter',
+  });
+
+  const pageWidth = 11;
+  const margin = 0.75;
+  let yPos = margin;
+
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  const title = 'Active Yachts List';
+  const titleWidth = doc.getTextWidth(title);
+  doc.text(title, (pageWidth - titleWidth) / 2, yPos);
+  yPos += 0.3;
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  const dateText = `Generated: ${new Date().toLocaleString()}`;
+  const dateWidth = doc.getTextWidth(dateText);
+  doc.text(dateText, (pageWidth - dateWidth) / 2, yPos);
+  yPos += 0.4;
+
+  const sortedYachts = [...yachts]
+    .filter(yacht => yacht.is_active)
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const tableData = sortedYachts.map((yacht: Yacht) => {
+    return [
+      yacht.name || 'N/A',
+      yacht.hull_number || 'N/A',
+      yacht.manufacturer || 'N/A',
+      yacht.year?.toString() || 'N/A',
+      yacht.size || 'N/A',
+      yacht.marina_name || 'N/A',
+      yacht.slip_location || 'N/A',
+    ];
+  });
+
+  autoTable(doc, {
+    startY: yPos,
+    head: [['Yacht Name', 'Hull Number', 'Manufacturer', 'Year', 'Size', 'Marina', 'Slip Location']],
+    body: tableData,
+    theme: 'striped',
+    styles: {
+      fontSize: 9,
+      cellPadding: 0.08,
+      font: 'helvetica',
+      lineColor: [203, 213, 225],
+      lineWidth: 0.01
+    },
+    headStyles: {
+      fillColor: [241, 245, 249],
+      textColor: [0, 0, 0],
+      fontStyle: 'bold',
+      halign: 'left'
+    },
+    alternateRowStyles: {
+      fillColor: [249, 250, 251]
+    },
+    columnStyles: {
+      0: { cellWidth: 1.5 },
+      1: { cellWidth: 1.3 },
+      2: { cellWidth: 1.3 },
+      3: { cellWidth: 0.7 },
+      4: { cellWidth: 0.8 },
+      5: { cellWidth: 1.8 },
+      6: { cellWidth: 1.2 }
+    },
+    margin: { left: margin, right: margin },
+  });
+
+  const pageCount = doc.getNumberOfPages();
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(100);
+
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.text(`Page ${i} of ${pageCount}`, pageWidth - margin - 0.5, 8, { align: 'right' });
+  }
+
+  return doc;
+}
