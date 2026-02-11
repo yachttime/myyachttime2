@@ -478,6 +478,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     recipient_email: '',
     recipient_name: ''
   });
+  const [showDepositEmailModal, setShowDepositEmailModal] = useState(false);
+  const [selectedRepairForDepositEmail, setSelectedRepairForDepositEmail] = useState<RepairRequest | null>(null);
+  const [depositEmailRecipient, setDepositEmailRecipient] = useState('');
+  const [depositEmailRecipientName, setDepositEmailRecipientName] = useState('');
   const [depositLoading, setDepositLoading] = useState(false);
   const [depositLinkLoading, setDepositLinkLoading] = useState<{ [repairRequestId: string]: boolean }>({});
   const [sendingEmail, setSendingEmail] = useState(false);
@@ -3689,46 +3693,27 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     }
   };
 
+  const handleOpenDepositEmailModal = (repairRequest: RepairRequest) => {
+    setSelectedRepairForDepositEmail(repairRequest);
+    setDepositEmailRecipient('');
+    setDepositEmailRecipientName('');
+    setShowDepositEmailModal(true);
+  };
+
   const handleSendDepositEmail = async () => {
-    if (!selectedRepairForDeposit || !depositForm.deposit_amount || !depositForm.recipient_email) return;
+    if (!selectedRepairForDepositEmail || !depositEmailRecipient) return;
 
-    setDepositLoading(true);
+    setSendingEmail(true);
     try {
-      // First, save deposit amount and generate payment link
-      const { error: updateError } = await supabase
-        .from('repair_requests')
-        .update({
-          deposit_amount: parseFloat(depositForm.deposit_amount),
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', selectedRepairForDeposit.id);
-
-      if (updateError) throw updateError;
+      if (!selectedRepairForDepositEmail.deposit_payment_link_url) {
+        throw new Error('Deposit payment link not generated yet');
+      }
 
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
         throw new Error('Not authenticated');
       }
 
-      // Generate deposit payment link
-      const createApiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-deposit-payment`;
-      const createResponse = await fetch(createApiUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          repairRequestId: selectedRepairForDeposit.id
-        })
-      });
-
-      const createResult = await createResponse.json();
-      if (!createResult.success) {
-        throw new Error(createResult.error || 'Failed to generate deposit payment link');
-      }
-
-      // Send deposit request email
       const sendApiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-deposit-request-email`;
       const sendResponse = await fetch(sendApiUrl, {
         method: 'POST',
@@ -3737,32 +3722,37 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          repairRequestId: selectedRepairForDeposit.id,
-          recipientEmail: depositForm.recipient_email,
-          recipientName: depositForm.recipient_name || undefined
+          repairRequestId: selectedRepairForDepositEmail.id,
+          recipientEmail: depositEmailRecipient,
+          recipientName: depositEmailRecipientName || undefined
         })
       });
 
       const sendResult = await sendResponse.json();
       if (!sendResult.success) {
         if (sendResult.error?.includes('Email service not configured')) {
-          showError('Email service not configured. Deposit link created but email was not sent');
-        } else {
-          throw new Error(sendResult.error || 'Failed to send email');
+          setShowDepositEmailModal(false);
+          setSelectedRepairForDepositEmail(null);
+          setDepositEmailRecipient('');
+          setDepositEmailRecipientName('');
+          showError('Email service not configured. Please copy the deposit link and send it manually');
+          return;
         }
-      } else {
-        showSuccess('Deposit request email sent successfully!');
+        throw new Error(sendResult.error || 'Failed to send email');
       }
 
+      setShowDepositEmailModal(false);
+      setSelectedRepairForDepositEmail(null);
+      setDepositEmailRecipient('');
+      setDepositEmailRecipientName('');
+
       await loadRepairRequests();
-      setShowDepositModal(false);
-      setSelectedRepairForDeposit(null);
-      setDepositForm({ deposit_amount: '', recipient_email: '', recipient_name: '' });
+      showSuccess('Deposit request email sent successfully!');
     } catch (error: any) {
       console.error('Error sending deposit request:', error);
       showError(`Error: ${error.message || 'Failed to send deposit request'}`);
     } finally {
-      setDepositLoading(false);
+      setSendingEmail(false);
     }
   };
 
@@ -12578,33 +12568,6 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             <p className="text-sm text-slate-400 mt-1">Enter the deposit amount required to start work</p>
                           </div>
 
-                          <div>
-                            <label className="block text-sm font-medium mb-2">
-                              Recipient Email <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                              type="email"
-                              required
-                              value={depositForm.recipient_email}
-                              onChange={(e) => setDepositForm({...depositForm, recipient_email: e.target.value})}
-                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-cyan-500"
-                              placeholder="customer@example.com"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-sm font-medium mb-2">
-                              Recipient Name (Optional)
-                            </label>
-                            <input
-                              type="text"
-                              value={depositForm.recipient_name}
-                              onChange={(e) => setDepositForm({...depositForm, recipient_name: e.target.value})}
-                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-cyan-500"
-                              placeholder="Customer Name"
-                            />
-                          </div>
-
                           {selectedRepairForDeposit.deposit_payment_link_url && (() => {
                             const hasExpirationDate = selectedRepairForDeposit.deposit_link_expires_at;
                             const isExpired = hasExpirationDate
@@ -12639,12 +12602,21 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                     className="flex-1 bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm"
                                   />
                                   {!isExpired && (
-                                    <button
-                                      onClick={() => copyToClipboard(selectedRepairForDeposit.deposit_payment_link_url!)}
-                                      className="px-3 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded text-sm font-semibold transition-all"
-                                    >
-                                      Copy
-                                    </button>
+                                    <>
+                                      <button
+                                        onClick={() => copyToClipboard(selectedRepairForDeposit.deposit_payment_link_url!)}
+                                        className="px-3 py-2 bg-slate-600 hover:bg-slate-500 text-white rounded text-sm font-semibold transition-all"
+                                      >
+                                        Copy
+                                      </button>
+                                      <button
+                                        onClick={() => handleOpenDepositEmailModal(selectedRepairForDeposit)}
+                                        className="px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded text-sm font-semibold transition-all flex items-center gap-1"
+                                      >
+                                        <Mail className="w-3 h-3" />
+                                        Email
+                                      </button>
+                                    </>
                                   )}
                                 </div>
                               </div>
@@ -12671,7 +12643,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             className="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-semibold py-3 rounded-lg transition-all"
                             disabled={depositLoading}
                           >
-                            Cancel
+                            {selectedRepairForDeposit.deposit_payment_link_url && !(() => {
+                              const hasExpirationDate = selectedRepairForDeposit.deposit_link_expires_at;
+                              return hasExpirationDate ? new Date(selectedRepairForDeposit.deposit_link_expires_at) < new Date() : true;
+                            })() ? 'Close' : 'Cancel'}
                           </button>
                           {(() => {
                             const hasLink = selectedRepairForDeposit.deposit_payment_link_url;
@@ -12694,13 +12669,6 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             }
                             return null;
                           })()}
-                          <button
-                            onClick={handleSendDepositEmail}
-                            disabled={depositLoading || !depositForm.deposit_amount || !depositForm.recipient_email || selectedRepairForDeposit.deposit_payment_status === 'paid'}
-                            className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {depositLoading ? 'Sending...' : 'Send Deposit Request'}
-                          </button>
                         </div>
                       </div>
                     </div>
@@ -16053,6 +16021,99 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                 onClick={handleSendPaymentEmail}
                 disabled={sendingEmail || !emailRecipient}
                 className="flex-1 px-6 bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {sendingEmail ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="w-4 h-4" />
+                    Send Email
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDepositEmailModal && selectedRepairForDepositEmail && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 rounded-xl shadow-2xl w-full max-w-md border border-slate-700">
+            <div className="p-6 border-b border-slate-700">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                  <Mail className="w-5 h-5 text-cyan-400" />
+                  Send Deposit Request via Email
+                </h3>
+                <button
+                  onClick={() => setShowDepositEmailModal(false)}
+                  className="text-slate-400 hover:text-white transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700">
+                <p className="text-sm text-slate-400 mb-1">Repair Request</p>
+                <p className="text-white font-semibold">{selectedRepairForDepositEmail.title}</p>
+                {selectedRepairForDepositEmail.deposit_amount && (
+                  <p className="text-cyan-400 text-lg font-bold mt-1">
+                    ${parseFloat(selectedRepairForDepositEmail.deposit_amount).toFixed(2)}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Recipient Email <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="email"
+                  value={depositEmailRecipient}
+                  onChange={(e) => setDepositEmailRecipient(e.target.value)}
+                  placeholder="customer@example.com"
+                  className="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Recipient Name (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={depositEmailRecipientName}
+                  onChange={(e) => setDepositEmailRecipientName(e.target.value)}
+                  placeholder="John Doe"
+                  className="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
+                />
+              </div>
+
+              <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-lg p-3">
+                <p className="text-xs text-cyan-300">
+                  A professional email will be sent with the deposit payment link, repair details, and instructions for completing the payment via Stripe.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-slate-700 flex gap-3">
+              <button
+                onClick={() => setShowDepositEmailModal(false)}
+                disabled={sendingEmail}
+                className="flex-1 px-6 bg-slate-700 hover:bg-slate-600 text-white font-semibold py-3 rounded-lg transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSendDepositEmail}
+                disabled={sendingEmail || !depositEmailRecipient}
+                className="flex-1 px-6 bg-cyan-500 hover:bg-cyan-600 text-white font-semibold py-3 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {sendingEmail ? (
                   <>
