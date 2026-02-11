@@ -476,7 +476,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [depositForm, setDepositForm] = useState({
     deposit_amount: '',
     recipient_email: '',
-    recipient_name: ''
+    recipient_name: '',
+    payment_method_type: 'card' as 'card' | 'ach' | 'both'
   });
   const [showDepositEmailModal, setShowDepositEmailModal] = useState(false);
   const [selectedRepairForDepositEmail, setSelectedRepairForDepositEmail] = useState<RepairRequest | null>(null);
@@ -3645,11 +3646,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         selectedRepairForDeposit.deposit_link_expires_at &&
         new Date(selectedRepairForDeposit.deposit_link_expires_at) < new Date();
 
-      // Save deposit amount to repair request
+      // Save deposit amount and payment method type to repair request
       const { error: updateError } = await supabase
         .from('repair_requests')
         .update({
           deposit_amount: parseFloat(depositForm.deposit_amount),
+          deposit_payment_method_type: depositForm.payment_method_type,
           updated_at: new Date().toISOString()
         })
         .eq('id', selectedRepairForDeposit.id);
@@ -3684,7 +3686,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       showSuccess(isRegeneration ? 'Deposit payment link regenerated successfully! Valid for 30 days.' : 'Deposit payment link generated successfully! Valid for 30 days.');
       setShowDepositModal(false);
       setSelectedRepairForDeposit(null);
-      setDepositForm({ deposit_amount: '', recipient_email: '', recipient_name: '' });
+      setDepositForm({ deposit_amount: '', recipient_email: '', recipient_name: '', payment_method_type: 'card' });
     } catch (error: any) {
       console.error('Error generating deposit link:', error);
       showError(`Error: ${error.message || 'Failed to generate deposit link'}`);
@@ -12566,6 +12568,22 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               placeholder="e.g., 500.00"
                             />
                             <p className="text-sm text-slate-400 mt-1">Enter the deposit amount required to start work</p>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium mb-2">
+                              Payment Method <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                              value={depositForm.payment_method_type}
+                              onChange={(e) => setDepositForm({...depositForm, payment_method_type: e.target.value as 'card' | 'ach' | 'both'})}
+                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-cyan-500"
+                            >
+                              <option value="card">Credit Card Only</option>
+                              <option value="ach">ACH / US Bank Account Only</option>
+                              <option value="both">Both Credit Card and ACH</option>
+                            </select>
+                            <p className="text-sm text-slate-400 mt-1">Choose which payment methods the customer can use</p>
                           </div>
 
                           {selectedRepairForDeposit.deposit_payment_link_url && (() => {

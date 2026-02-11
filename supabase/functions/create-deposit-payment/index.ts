@@ -56,6 +56,9 @@ Deno.serve(async (req: Request) => {
       throw new Error('Repair request not found');
     }
 
+    // Get payment method type (default to 'card' for backward compatibility)
+    const paymentMethodType = repairRequest.deposit_payment_method_type || 'card';
+
     // Check if user has access to this repair request
     const { data: profile } = await supabase
       .from('user_profiles')
@@ -179,9 +182,17 @@ Deno.serve(async (req: Request) => {
       'metadata[payment_type]': 'deposit',
       'metadata[yacht_id]': repairRequest.yacht_id || '',
       'metadata[user_id]': user.id,
-      'payment_method_types[0]': 'card',
-      'payment_method_types[1]': 'us_bank_account',
     };
+
+    // Add payment methods based on payment_method_type
+    if (paymentMethodType === 'card') {
+      params['payment_method_types[0]'] = 'card';
+    } else if (paymentMethodType === 'ach') {
+      params['payment_method_types[0]'] = 'us_bank_account';
+    } else if (paymentMethodType === 'both') {
+      params['payment_method_types[0]'] = 'card';
+      params['payment_method_types[1]'] = 'us_bank_account';
+    }
 
     // Create Stripe Payment Link
     const paymentLink = await fetch('https://api.stripe.com/v1/payment_links', {
