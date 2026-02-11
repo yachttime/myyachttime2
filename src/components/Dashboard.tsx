@@ -12059,16 +12059,25 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                         )}
                                       </div>
 
-                                      {canManageYacht(effectiveRole) && request.deposit_payment_status === 'pending' && request.deposit_payment_link_url && request.deposit_email_sent_at && (
+                                      {canManageYacht(effectiveRole) && request.deposit_payment_status === 'pending' && request.deposit_payment_link_url && (
                                         <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t border-cyan-500/20">
                                           <button
-                                            onClick={() => handleSyncDepositPaymentStatus(request)}
-                                            disabled={depositLinkLoading[request.id]}
-                                            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 disabled:opacity-50"
+                                            onClick={() => handleOpenDepositEmailModal(request)}
+                                            className="bg-cyan-600 hover:bg-cyan-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1"
                                           >
-                                            <RefreshCw className="w-3 h-3" />
-                                            {depositLinkLoading[request.id] ? 'Syncing...' : 'Sync Payment'}
+                                            <Mail className="w-3 h-3" />
+                                            {request.deposit_email_sent_at ? 'Resend Email' : 'Send Email'}
                                           </button>
+                                          {request.deposit_email_sent_at && (
+                                            <button
+                                              onClick={() => handleSyncDepositPaymentStatus(request)}
+                                              disabled={depositLinkLoading[request.id]}
+                                              className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 disabled:opacity-50"
+                                            >
+                                              <RefreshCw className="w-3 h-3" />
+                                              {depositLinkLoading[request.id] ? 'Syncing...' : 'Sync Payment'}
+                                            </button>
+                                          )}
                                         </div>
                                       )}
                                     </div>
