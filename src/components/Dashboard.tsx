@@ -12009,16 +12009,24 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                 </div>
                                               )}
                                               <div className="space-y-1">
-                                                {request.deposit_email_sent_at && (
-                                                  <div className="flex items-center gap-2 text-xs text-slate-400">
-                                                    <Mail className="w-3 h-3 text-blue-400" />
-                                                    <span>Sent: {new Date(request.deposit_email_sent_at).toLocaleDateString()} at {new Date(request.deposit_email_sent_at).toLocaleTimeString()}</span>
-                                                  </div>
-                                                )}
-                                                {request.deposit_email_delivered_at && (
+                                                <div className="flex items-center gap-2 text-xs text-slate-400">
+                                                  <Mail className="w-3 h-3 text-blue-400" />
+                                                  <span>Sent: {new Date(request.deposit_email_sent_at).toLocaleDateString()} at {new Date(request.deposit_email_sent_at).toLocaleTimeString()}</span>
+                                                </div>
+                                                {request.deposit_email_delivered_at ? (
                                                   <div className="flex items-center gap-2 text-xs text-emerald-400">
                                                     <CheckCircle className="w-3 h-3" />
                                                     <span>Delivered: {new Date(request.deposit_email_delivered_at).toLocaleDateString()} at {new Date(request.deposit_email_delivered_at).toLocaleTimeString()}</span>
+                                                  </div>
+                                                ) : request.deposit_email_bounced_at ? (
+                                                  <div className="flex items-center gap-2 text-xs text-red-400">
+                                                    <AlertCircle className="w-3 h-3" />
+                                                    <span>Bounced: {new Date(request.deposit_email_bounced_at).toLocaleDateString()} at {new Date(request.deposit_email_bounced_at).toLocaleTimeString()}</span>
+                                                  </div>
+                                                ) : (
+                                                  <div className="flex items-center gap-2 text-xs text-yellow-400">
+                                                    <Clock className="w-3 h-3" />
+                                                    <span>Awaiting Delivery Confirmation</span>
                                                   </div>
                                                 )}
                                                 {request.deposit_email_opened_at && (
@@ -12031,12 +12039,6 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                   <div className="flex items-center gap-2 text-xs text-cyan-400">
                                                     <MousePointer className="w-3 h-3" />
                                                     <span>Clicked: {new Date(request.deposit_email_clicked_at).toLocaleDateString()} at {new Date(request.deposit_email_clicked_at).toLocaleTimeString()}</span>
-                                                  </div>
-                                                )}
-                                                {request.deposit_email_bounced_at && (
-                                                  <div className="flex items-center gap-2 text-xs text-red-400">
-                                                    <AlertCircle className="w-3 h-3" />
-                                                    <span>Bounced: {new Date(request.deposit_email_bounced_at).toLocaleDateString()} at {new Date(request.deposit_email_bounced_at).toLocaleTimeString()}</span>
                                                   </div>
                                                 )}
                                               </div>
