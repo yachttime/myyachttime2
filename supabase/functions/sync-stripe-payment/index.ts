@@ -30,7 +30,133 @@ Deno.serve(async (req: Request) => {
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const { invoice_id, repair_request_id, is_deposit }: SyncRequest = await req.json();
+    const body = await req.json();
+    const { invoice_id, repair_request_id, is_deposit, payment_intent_id } = body as SyncRequest & { payment_intent_id?: string };
+
+    // Handle manual payment intent sync (when we have the payment intent ID directly)
+    if (payment_intent_id && (is_deposit || invoice_id)) {
+      console.log('Manual sync with payment intent:', payment_intent_id);
+
+      // Fetch payment intent from Stripe
+      const piResponse = await fetch(
+        `https://api.stripe.com/v1/payment_intents/${payment_intent_id}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${stripeSecretKey}`,
+          },
+        }
+      );
+
+      if (!piResponse.ok) {
+        throw new Error('Failed to fetch payment intent from Stripe');
+      }
+
+      const paymentIntent = await piResponse.json();
+
+      if (paymentIntent.status !== 'succeeded') {
+        throw new Error(`Payment intent status is ${paymentIntent.status}, not succeeded`);
+      }
+
+      const paymentMethod = paymentIntent.charges?.data?.[0]?.payment_method_details?.type || 'card';
+
+      // Update deposit
+      if (is_deposit && repair_request_id) {
+        const { data: repairRequest } = await supabase
+          .from('repair_requests')
+          .select('*, yachts(name)')
+          .eq('id', repair_request_id)
+          .single();
+
+        if (!repairRequest) {
+          throw new Error('Repair request not found');
+        }
+
+        await supabase
+          .from('repair_requests')
+          .update({
+            deposit_payment_status: 'paid',
+            deposit_paid_at: new Date().toISOString(),
+            deposit_stripe_payment_intent_id: payment_intent_id,
+            deposit_payment_method_type: paymentMethod,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', repair_request_id);
+
+        await supabase.from('admin_notifications').insert({
+          message: `Deposit payment received for ${repairRequest.title} - $${parseFloat(repairRequest.deposit_amount).toFixed(2)}`,
+          yacht_id: repairRequest.yacht_id || null,
+          reference_id: repair_request_id,
+          created_at: new Date().toISOString(),
+        });
+
+        if (repairRequest.yacht_id) {
+          await supabase.from('owner_chat_messages').insert({
+            yacht_id: repairRequest.yacht_id,
+            sender_role: 'staff',
+            message: `Deposit payment confirmed for ${repairRequest.title} - $${parseFloat(repairRequest.deposit_amount).toFixed(2)}. Work will begin shortly!`,
+            created_at: new Date().toISOString(),
+          });
+        }
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: 'Deposit manually synced and marked as paid',
+            payment_intent_id
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Update invoice
+      if (invoice_id) {
+        const { data: invoice } = await supabase
+          .from('yacht_invoices')
+          .select('*, repair_requests(is_retail_customer, customer_email, customer_name), yachts(name)')
+          .eq('id', invoice_id)
+          .single();
+
+        if (!invoice) {
+          throw new Error('Invoice not found');
+        }
+
+        await supabase
+          .from('yacht_invoices')
+          .update({
+            payment_status: 'paid',
+            paid_at: new Date().toISOString(),
+            stripe_payment_intent_id: payment_intent_id,
+            payment_method: paymentMethod,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', invoice_id);
+
+        await supabase.from('admin_notifications').insert({
+          message: `Payment received for ${invoice.repair_title || 'invoice'} - ${invoice.invoice_amount || '$0.00'}`,
+          yacht_id: invoice.yacht_id || null,
+          reference_id: invoice_id,
+          created_at: new Date().toISOString(),
+        });
+
+        if (invoice.yacht_id) {
+          await supabase.from('owner_chat_messages').insert({
+            yacht_id: invoice.yacht_id,
+            sender_role: 'staff',
+            message: `Payment confirmed for ${invoice.repair_title || 'invoice'} - ${invoice.invoice_amount || '$0.00'}. Thank you!`,
+            created_at: new Date().toISOString(),
+          });
+        }
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: 'Invoice manually synced and marked as paid',
+            payment_intent_id
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
 
     // Handle deposit sync
     if (is_deposit && repair_request_id) {
@@ -117,7 +243,7 @@ Deno.serve(async (req: Request) => {
                 deposit_payment_status: 'paid',
                 deposit_paid_at: new Date().toISOString(),
                 deposit_stripe_payment_intent_id: paymentIntentId || null,
-                deposit_payment_method: paymentMethod,
+                deposit_payment_method_type: paymentMethod,
                 updated_at: new Date().toISOString(),
               })
               .eq('id', repair_request_id);
