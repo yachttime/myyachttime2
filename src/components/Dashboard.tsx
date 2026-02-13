@@ -485,6 +485,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [depositEmailRecipientName, setDepositEmailRecipientName] = useState('');
   const [depositLoading, setDepositLoading] = useState(false);
   const [depositLinkLoading, setDepositLinkLoading] = useState<{ [repairRequestId: string]: boolean }>({});
+  const [emailStatusLoading, setEmailStatusLoading] = useState<{ [repairRequestId: string]: boolean }>({});
   const [sendingEmail, setSendingEmail] = useState(false);
   const [showEstimateEmailModal, setShowEstimateEmailModal] = useState(false);
   const [selectedRepairForEstimateEmail, setSelectedRepairForEstimateEmail] = useState<RepairRequest | null>(null);
@@ -3481,6 +3482,43 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       showError(`Error: ${error.message || 'Failed to sync deposit payment status'}`);
     } finally {
       setDepositLinkLoading({ ...depositLinkLoading, [request.id]: false });
+    }
+  };
+
+  const handleCheckEmailStatus = async (request: RepairRequest) => {
+    if (!request.id) return;
+
+    setEmailStatusLoading({ ...emailStatusLoading, [request.id]: true });
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/check-email-status`;
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          repairRequestId: request.id
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        await loadRepairRequests();
+        const statusText = result.emailStatus || 'unknown';
+        showSuccess(`Email status: ${statusText}${result.updated ? ' (Updated)' : ''}`);
+      } else {
+        showError(result.error || 'Failed to check email status');
+      }
+    } catch (error: any) {
+      console.error('Error checking email status:', error);
+      showError(`Error: ${error.message || 'Failed to check email status'}`);
+    } finally {
+      setEmailStatusLoading({ ...emailStatusLoading, [request.id]: false });
     }
   };
 
@@ -12069,14 +12107,24 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                             {request.deposit_email_sent_at ? 'Resend Email' : 'Send Email'}
                                           </button>
                                           {request.deposit_email_sent_at && (
-                                            <button
-                                              onClick={() => handleSyncDepositPaymentStatus(request)}
-                                              disabled={depositLinkLoading[request.id]}
-                                              className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 disabled:opacity-50"
-                                            >
-                                              <RefreshCw className="w-3 h-3" />
-                                              {depositLinkLoading[request.id] ? 'Syncing...' : 'Sync Payment'}
-                                            </button>
+                                            <>
+                                              <button
+                                                onClick={() => handleSyncDepositPaymentStatus(request)}
+                                                disabled={depositLinkLoading[request.id]}
+                                                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 disabled:opacity-50"
+                                              >
+                                                <RefreshCw className="w-3 h-3" />
+                                                {depositLinkLoading[request.id] ? 'Syncing...' : 'Sync Payment'}
+                                              </button>
+                                              <button
+                                                onClick={() => handleCheckEmailStatus(request)}
+                                                disabled={emailStatusLoading[request.id]}
+                                                className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 disabled:opacity-50"
+                                              >
+                                                <Mail className="w-3 h-3" />
+                                                {emailStatusLoading[request.id] ? 'Checking...' : 'Check Email Status'}
+                                              </button>
+                                            </>
                                           )}
                                         </div>
                                       )}
