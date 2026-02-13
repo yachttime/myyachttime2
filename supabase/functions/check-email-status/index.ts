@@ -44,7 +44,7 @@ Deno.serve(async (req: Request) => {
     // Fetch repair request
     const { data: repairRequest, error: repairError } = await supabase
       .from('repair_requests')
-      .select('deposit_resend_email_id, deposit_email_sent_at, resend_email_id, estimate_email_sent_at, email_delivered_at, deposit_email_delivered_at')
+      .select('deposit_resend_email_id, deposit_email_sent_at, resend_email_id, estimate_email_sent_at, email_delivered_at, deposit_email_delivered_at, notification_resend_email_id, notification_email_sent_at, notification_email_delivered_at')
       .eq('id', repairRequestId)
       .single();
 
@@ -52,8 +52,10 @@ Deno.serve(async (req: Request) => {
       throw new Error('Repair request not found');
     }
 
-    // Determine which email to check (deposit or estimate)
-    const emailId = repairRequest.deposit_resend_email_id || repairRequest.resend_email_id;
+    // Determine which email to check (notification, deposit, or estimate)
+    // Priority: notification > deposit > estimate
+    const emailId = repairRequest.notification_resend_email_id || repairRequest.deposit_resend_email_id || repairRequest.resend_email_id;
+    const isNotificationEmail = !!repairRequest.notification_resend_email_id && !repairRequest.deposit_resend_email_id;
     const isDepositEmail = !!repairRequest.deposit_resend_email_id;
 
     if (!emailId) {
@@ -83,7 +85,24 @@ Deno.serve(async (req: Request) => {
     const updateData: any = {};
 
     // Map Resend events to our database fields
-    if (isDepositEmail) {
+    if (isNotificationEmail) {
+      // Notification email tracking (manager notifications)
+      if (emailData.last_event === 'delivered') {
+        updateData.notification_email_delivered_at = new Date().toISOString();
+      } else if (emailData.last_event === 'bounced') {
+        updateData.notification_email_bounced_at = new Date().toISOString();
+      } else if (emailData.last_event === 'opened') {
+        updateData.notification_email_opened_at = new Date().toISOString();
+        if (!repairRequest.notification_email_delivered_at) {
+          updateData.notification_email_delivered_at = new Date().toISOString();
+        }
+      } else if (emailData.last_event === 'clicked') {
+        updateData.notification_email_clicked_at = new Date().toISOString();
+        if (!repairRequest.notification_email_delivered_at) {
+          updateData.notification_email_delivered_at = new Date().toISOString();
+        }
+      }
+    } else if (isDepositEmail) {
       // Deposit email tracking
       if (emailData.last_event === 'delivered') {
         updateData.deposit_email_delivered_at = new Date().toISOString();
