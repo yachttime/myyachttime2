@@ -11760,6 +11760,18 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                           </div>
                                         )}
                                       </div>
+                                      {canManageYacht(effectiveRole) && (
+                                        <div className="mt-3 pt-3 border-t border-slate-700">
+                                          <button
+                                            onClick={() => handleCheckEmailStatus(request)}
+                                            disabled={emailStatusLoading[request.id]}
+                                            className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 disabled:opacity-50"
+                                          >
+                                            <Mail className="w-3 h-3" />
+                                            {emailStatusLoading[request.id] ? 'Checking...' : 'Check Email Status'}
+                                          </button>
+                                        </div>
+                                      )}
                                     </div>
                                   )}
                                   {request.completed_at && request.completed_by_profile && (

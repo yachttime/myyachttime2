@@ -44,7 +44,7 @@ Deno.serve(async (req: Request) => {
     // Fetch repair request
     const { data: repairRequest, error: repairError } = await supabase
       .from('repair_requests')
-      .select('deposit_resend_email_id, deposit_email_sent_at')
+      .select('deposit_resend_email_id, deposit_email_sent_at, resend_email_id, estimate_email_sent_at, email_delivered_at, deposit_email_delivered_at')
       .eq('id', repairRequestId)
       .single();
 
@@ -52,13 +52,17 @@ Deno.serve(async (req: Request) => {
       throw new Error('Repair request not found');
     }
 
-    if (!repairRequest.deposit_resend_email_id) {
-      throw new Error('No email has been sent for this deposit request');
+    // Determine which email to check (deposit or estimate)
+    const emailId = repairRequest.deposit_resend_email_id || repairRequest.resend_email_id;
+    const isDepositEmail = !!repairRequest.deposit_resend_email_id;
+
+    if (!emailId) {
+      throw new Error('No email has been sent for this request');
     }
 
     // Fetch email status from Resend
     const response = await fetch(
-      `https://api.resend.com/emails/${repairRequest.deposit_resend_email_id}`,
+      `https://api.resend.com/emails/${emailId}`,
       {
         headers: {
           'Authorization': `Bearer ${resendApiKey}`,
@@ -79,19 +83,39 @@ Deno.serve(async (req: Request) => {
     const updateData: any = {};
 
     // Map Resend events to our database fields
-    if (emailData.last_event === 'delivered') {
-      updateData.deposit_email_delivered_at = new Date().toISOString();
-    } else if (emailData.last_event === 'bounced') {
-      updateData.deposit_email_bounced_at = new Date().toISOString();
-    } else if (emailData.last_event === 'opened') {
-      updateData.deposit_email_opened_at = new Date().toISOString();
-      if (!repairRequest.deposit_email_delivered_at) {
+    if (isDepositEmail) {
+      // Deposit email tracking
+      if (emailData.last_event === 'delivered') {
         updateData.deposit_email_delivered_at = new Date().toISOString();
+      } else if (emailData.last_event === 'bounced') {
+        updateData.deposit_email_bounced_at = new Date().toISOString();
+      } else if (emailData.last_event === 'opened') {
+        updateData.deposit_email_opened_at = new Date().toISOString();
+        if (!repairRequest.deposit_email_delivered_at) {
+          updateData.deposit_email_delivered_at = new Date().toISOString();
+        }
+      } else if (emailData.last_event === 'clicked') {
+        updateData.deposit_email_clicked_at = new Date().toISOString();
+        if (!repairRequest.deposit_email_delivered_at) {
+          updateData.deposit_email_delivered_at = new Date().toISOString();
+        }
       }
-    } else if (emailData.last_event === 'clicked') {
-      updateData.deposit_email_clicked_at = new Date().toISOString();
-      if (!repairRequest.deposit_email_delivered_at) {
-        updateData.deposit_email_delivered_at = new Date().toISOString();
+    } else {
+      // Estimate email tracking
+      if (emailData.last_event === 'delivered') {
+        updateData.email_delivered_at = new Date().toISOString();
+      } else if (emailData.last_event === 'bounced') {
+        updateData.email_bounced_at = new Date().toISOString();
+      } else if (emailData.last_event === 'opened') {
+        updateData.email_opened_at = new Date().toISOString();
+        if (!repairRequest.email_delivered_at) {
+          updateData.email_delivered_at = new Date().toISOString();
+        }
+      } else if (emailData.last_event === 'clicked') {
+        updateData.email_clicked_at = new Date().toISOString();
+        if (!repairRequest.email_delivered_at) {
+          updateData.email_delivered_at = new Date().toISOString();
+        }
       }
     }
 
