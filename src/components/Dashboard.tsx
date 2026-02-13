@@ -13560,26 +13560,30 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           >
                             All Appointments
                           </button>
-                          <button
-                            onClick={() => setAppointmentTypeFilter('customer')}
-                            className={`flex-1 px-4 py-2 rounded-md font-medium transition-all ${
-                              appointmentTypeFilter === 'customer'
-                                ? 'bg-pink-500 text-white'
-                                : 'text-slate-400 hover:text-pink-400'
-                            }`}
-                          >
-                            Customer Appointments
-                          </button>
-                          <button
-                            onClick={() => setAppointmentTypeFilter('staff')}
-                            className={`flex-1 px-4 py-2 rounded-md font-medium transition-all ${
-                              appointmentTypeFilter === 'staff'
-                                ? 'bg-blue-500 text-white'
-                                : 'text-slate-400 hover:text-blue-400'
-                            }`}
-                          >
-                            Staff Meetings
-                          </button>
+                          {!isOwnerRole(effectiveRole) && !isManagerRole(effectiveRole) && (
+                            <>
+                              <button
+                                onClick={() => setAppointmentTypeFilter('customer')}
+                                className={`flex-1 px-4 py-2 rounded-md font-medium transition-all ${
+                                  appointmentTypeFilter === 'customer'
+                                    ? 'bg-pink-500 text-white'
+                                    : 'text-slate-400 hover:text-pink-400'
+                                }`}
+                              >
+                                Customer Appointments
+                              </button>
+                              <button
+                                onClick={() => setAppointmentTypeFilter('staff')}
+                                className={`flex-1 px-4 py-2 rounded-md font-medium transition-all ${
+                                  appointmentTypeFilter === 'staff'
+                                    ? 'bg-blue-500 text-white'
+                                    : 'text-slate-400 hover:text-blue-400'
+                                }`}
+                              >
+                                Staff Meetings
+                              </button>
+                            </>
+                          )}
                         </div>
 
                         <div className="p-4 bg-slate-900/50 rounded-lg border border-slate-600">
@@ -13597,14 +13601,18 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               <div className="w-4 h-4 rounded bg-yellow-500/30 border border-yellow-500/50"></div>
                               <span className="text-sm text-slate-300">Arrival (Oil Change Needed)</span>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <div className="w-4 h-4 rounded bg-pink-500/30 border border-pink-500/50"></div>
-                              <span className="text-sm text-slate-300">Customer Appointment</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <div className="w-4 h-4 rounded bg-blue-500/30 border border-blue-500/50"></div>
-                              <span className="text-sm text-slate-300">Staff Meeting</span>
-                            </div>
+                            {!isOwnerRole(effectiveRole) && !isManagerRole(effectiveRole) && (
+                              <>
+                                <div className="flex items-center gap-2">
+                                  <div className="w-4 h-4 rounded bg-pink-500/30 border border-pink-500/50"></div>
+                                  <span className="text-sm text-slate-300">Customer Appointment</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <div className="w-4 h-4 rounded bg-blue-500/30 border border-blue-500/50"></div>
+                                  <span className="text-sm text-slate-300">Staff Meeting</span>
+                                </div>
+                              </>
+                            )}
                           </div>
                         </div>
                       </div>
