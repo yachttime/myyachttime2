@@ -55,8 +55,13 @@ Deno.serve(async (req: Request) => {
 
       // If we have a payment link ID, check its status
       if (repairRequest.deposit_stripe_checkout_session_id) {
-        const paymentLinkResponse = await fetch(
-          `https://api.stripe.com/v1/payment_links/${repairRequest.deposit_stripe_checkout_session_id}`,
+        const paymentLinkId = repairRequest.deposit_stripe_checkout_session_id;
+        console.log('Checking payment link:', paymentLinkId);
+
+        // Check for successful payments via this link
+        // We need to check checkout sessions created from this payment link
+        const sessionsResponse = await fetch(
+          `https://api.stripe.com/v1/checkout/sessions?payment_link=${paymentLinkId}&limit=100`,
           {
             headers: {
               'Authorization': `Bearer ${stripeSecretKey}`,
@@ -64,92 +69,92 @@ Deno.serve(async (req: Request) => {
           }
         );
 
-        if (paymentLinkResponse.ok) {
-          const paymentLink = await paymentLinkResponse.json();
+        if (sessionsResponse.ok) {
+          const sessions = await sessionsResponse.json();
+          console.log(`Found ${sessions.data.length} checkout sessions for payment link`);
 
-          // Check for successful payments via this link
-          // We need to check checkout sessions created from this payment link
-          const sessionsResponse = await fetch(
-            `https://api.stripe.com/v1/checkout/sessions?payment_link=${repairRequest.deposit_stripe_checkout_session_id}&limit=10`,
-            {
-              headers: {
-                'Authorization': `Bearer ${stripeSecretKey}`,
-              },
+          // Find ALL paid sessions (in case of double payment)
+          const paidSessions = sessions.data.filter((s: any) => s.payment_status === 'paid');
+          console.log(`Found ${paidSessions.length} paid sessions`);
+
+          if (paidSessions.length > 0) {
+            // Use the first paid session for updating the database
+            const paidSession = paidSessions[0];
+            const paymentIntentId = paidSession.payment_intent;
+            let paymentMethod = paidSession.payment_method_types?.[0] || 'card';
+
+            // Log all payment intents if there are multiple
+            if (paidSessions.length > 1) {
+              console.warn(`⚠️ DUPLICATE PAYMENTS DETECTED: ${paidSessions.length} payments found`);
+              const allPaymentIntents = paidSessions.map((s: any) => s.payment_intent);
+              console.warn('Payment Intent IDs:', allPaymentIntents);
             }
-          );
 
-          if (sessionsResponse.ok) {
-            const sessions = await sessionsResponse.json();
-            const paidSession = sessions.data.find((s: any) => s.payment_status === 'paid');
-
-            if (paidSession) {
-              const paymentIntentId = paidSession.payment_intent;
-              let paymentMethod = paidSession.payment_method_types?.[0] || 'card';
-
-              // Fetch payment intent details for more info
-              if (paymentIntentId) {
-                try {
-                  const piResponse = await fetch(
-                    `https://api.stripe.com/v1/payment_intents/${paymentIntentId}`,
-                    {
-                      headers: {
-                        'Authorization': `Bearer ${stripeSecretKey}`,
-                      },
-                    }
-                  );
-                  if (piResponse.ok) {
-                    const piData = await piResponse.json();
-                    paymentMethod = piData.charges?.data?.[0]?.payment_method_details?.type || paymentMethod;
+            // Fetch payment intent details for more info
+            if (paymentIntentId) {
+              try {
+                const piResponse = await fetch(
+                  `https://api.stripe.com/v1/payment_intents/${paymentIntentId}`,
+                  {
+                    headers: {
+                      'Authorization': `Bearer ${stripeSecretKey}`,
+                    },
                   }
-                } catch (error) {
-                  console.error('Error fetching payment intent:', error);
+                );
+                if (piResponse.ok) {
+                  const piData = await piResponse.json();
+                  paymentMethod = piData.charges?.data?.[0]?.payment_method_details?.type || paymentMethod;
                 }
+              } catch (error) {
+                console.error('Error fetching payment intent:', error);
               }
+            }
 
-              // Update repair request as paid
-              const { error: updateError } = await supabase
-                .from('repair_requests')
-                .update({
-                  deposit_payment_status: 'paid',
-                  deposit_paid_at: new Date().toISOString(),
-                  deposit_stripe_payment_intent_id: paymentIntentId || null,
-                  deposit_payment_method: paymentMethod,
-                  updated_at: new Date().toISOString(),
-                })
-                .eq('id', repair_request_id);
+            // Update repair request as paid
+            const { error: updateError } = await supabase
+              .from('repair_requests')
+              .update({
+                deposit_payment_status: 'paid',
+                deposit_paid_at: new Date().toISOString(),
+                deposit_stripe_payment_intent_id: paymentIntentId || null,
+                deposit_payment_method: paymentMethod,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', repair_request_id);
 
-              if (updateError) {
-                throw updateError;
-              }
+            if (updateError) {
+              throw updateError;
+            }
 
-              // Create notification for staff
-              await supabase.from('admin_notifications').insert({
-                message: `Deposit payment received for ${repairRequest.title} - $${parseFloat(repairRequest.deposit_amount).toFixed(2)}`,
-                yacht_id: repairRequest.yacht_id || null,
-                reference_id: repair_request_id,
+            // Create notification for staff
+            await supabase.from('admin_notifications').insert({
+              message: `Deposit payment received for ${repairRequest.title} - $${parseFloat(repairRequest.deposit_amount).toFixed(2)}`,
+              yacht_id: repairRequest.yacht_id || null,
+              reference_id: repair_request_id,
+              created_at: new Date().toISOString(),
+            });
+
+            // Add message to owner chat if yacht-related
+            if (repairRequest.yacht_id) {
+              await supabase.from('owner_chat_messages').insert({
+                yacht_id: repairRequest.yacht_id,
+                sender_role: 'staff',
+                message: `Deposit payment confirmed for ${repairRequest.title} - $${parseFloat(repairRequest.deposit_amount).toFixed(2)}. Work will begin shortly!`,
                 created_at: new Date().toISOString(),
               });
-
-              // Add message to owner chat if yacht-related
-              if (repairRequest.yacht_id) {
-                await supabase.from('owner_chat_messages').insert({
-                  yacht_id: repairRequest.yacht_id,
-                  sender_role: 'staff',
-                  message: `Deposit payment confirmed for ${repairRequest.title} - $${parseFloat(repairRequest.deposit_amount).toFixed(2)}. Work will begin shortly!`,
-                  created_at: new Date().toISOString(),
-                });
-              }
-
-              return new Response(
-                JSON.stringify({
-                  success: true,
-                  message: 'Deposit synced and marked as paid',
-                  payment_intent_id: paymentIntentId
-                }),
-                { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-              );
             }
+
+            return new Response(
+              JSON.stringify({
+                success: true,
+                message: 'Deposit synced and marked as paid',
+                payment_intent_id: paymentIntentId
+              }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
           }
+        } else {
+          console.error('Failed to fetch checkout sessions:', sessionsResponse.status, await sessionsResponse.text());
         }
 
         return new Response(
