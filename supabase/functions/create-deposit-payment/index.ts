@@ -85,8 +85,74 @@ Deno.serve(async (req: Request) => {
       throw new Error('Deposit is already paid');
     }
 
-    // If there's an existing payment link, deactivate it first
+    // If there's an existing payment link, check if any payment has been completed
     if (repairRequest.deposit_stripe_checkout_session_id) {
+      try {
+        // Check for any completed checkout sessions for this payment link
+        const sessionsResponse = await fetch(
+          `https://api.stripe.com/v1/checkout/sessions?payment_link=${repairRequest.deposit_stripe_checkout_session_id}&limit=10`,
+          {
+            headers: {
+              'Authorization': `Bearer ${stripeSecretKey}`,
+            },
+          }
+        );
+
+        if (sessionsResponse.ok) {
+          const sessions = await sessionsResponse.json();
+          const paidSession = sessions.data.find((s: any) => s.payment_status === 'paid');
+
+          if (paidSession) {
+            // Payment already exists! Update the database and reject new payment attempt
+            const paymentIntentId = paidSession.payment_intent;
+            let paymentMethod = paidSession.payment_method_types?.[0] || 'card';
+
+            // Fetch payment intent details for more info
+            if (paymentIntentId) {
+              try {
+                const piResponse = await fetch(
+                  `https://api.stripe.com/v1/payment_intents/${paymentIntentId}`,
+                  {
+                    headers: {
+                      'Authorization': `Bearer ${stripeSecretKey}`,
+                    },
+                  }
+                );
+                if (piResponse.ok) {
+                  const piData = await piResponse.json();
+                  paymentMethod = piData.charges?.data?.[0]?.payment_method_details?.type || paymentMethod;
+                }
+              } catch (error) {
+                console.error('Error fetching payment intent:', error);
+              }
+            }
+
+            // Update repair request as paid
+            await supabase
+              .from('repair_requests')
+              .update({
+                deposit_payment_status: 'paid',
+                deposit_paid_at: new Date().toISOString(),
+                deposit_stripe_payment_intent_id: paymentIntentId || null,
+                deposit_payment_method: paymentMethod,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', repairRequestId);
+
+            throw new Error('Deposit has already been paid. Please refresh the page.');
+          }
+        }
+      } catch (error) {
+        // If the error is our "already paid" message, re-throw it
+        if (error instanceof Error && error.message.includes('already been paid')) {
+          throw error;
+        }
+        console.error('Error checking existing payment sessions:', error);
+        // Continue - if we can't check, we'll deactivate and create new link
+      }
+
+      // Deactivate the old payment link
+
       try {
         const deactivateResponse = await fetch(`https://api.stripe.com/v1/payment_links/${repairRequest.deposit_stripe_checkout_session_id}`, {
           method: 'POST',

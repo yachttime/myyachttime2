@@ -77,6 +77,71 @@ Deno.serve(async (req: Request) => {
       throw new Error('Invoice is already paid');
     }
 
+    // If there's an existing checkout session, check if any payment has been completed
+    if (invoice.stripe_checkout_session_id) {
+      try {
+        const sessionResponse = await fetch(
+          `https://api.stripe.com/v1/checkout/sessions/${invoice.stripe_checkout_session_id}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${stripeSecretKey}`,
+            },
+          }
+        );
+
+        if (sessionResponse.ok) {
+          const session = await sessionResponse.json();
+
+          if (session.payment_status === 'paid') {
+            // Payment already completed! Update the database and reject new payment attempt
+            const paymentIntentId = session.payment_intent;
+            let paymentMethod = session.payment_method_types?.[0] || 'card';
+
+            // Fetch payment intent details for more info
+            if (paymentIntentId) {
+              try {
+                const piResponse = await fetch(
+                  `https://api.stripe.com/v1/payment_intents/${paymentIntentId}`,
+                  {
+                    headers: {
+                      'Authorization': `Bearer ${stripeSecretKey}`,
+                    },
+                  }
+                );
+                if (piResponse.ok) {
+                  const piData = await piResponse.json();
+                  paymentMethod = piData.charges?.data?.[0]?.payment_method_details?.type || paymentMethod;
+                }
+              } catch (error) {
+                console.error('Error fetching payment intent:', error);
+              }
+            }
+
+            // Update invoice as paid
+            await supabase
+              .from('yacht_invoices')
+              .update({
+                payment_status: 'paid',
+                paid_at: new Date().toISOString(),
+                stripe_payment_intent_id: paymentIntentId || null,
+                payment_method: paymentMethod,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', invoiceId);
+
+            throw new Error('Invoice has already been paid. Please refresh the page.');
+          }
+        }
+      } catch (error) {
+        // If the error is our "already paid" message, re-throw it
+        if (error instanceof Error && error.message.includes('already been paid')) {
+          throw error;
+        }
+        console.error('Error checking existing checkout session:', error);
+        // Continue - if we can't check, we'll create new session
+      }
+    }
+
     let amount = invoice.invoice_amount_numeric;
 
     // If numeric amount is not set, try to parse from invoice_amount string
