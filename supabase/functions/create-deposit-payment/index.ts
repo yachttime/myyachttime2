@@ -134,7 +134,7 @@ Deno.serve(async (req: Request) => {
                 deposit_payment_status: 'paid',
                 deposit_paid_at: new Date().toISOString(),
                 deposit_stripe_payment_intent_id: paymentIntentId || null,
-                deposit_payment_method: paymentMethod,
+                deposit_payment_method_type: paymentMethod,
                 updated_at: new Date().toISOString(),
               })
               .eq('id', repairRequestId);
