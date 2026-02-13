@@ -53,10 +53,10 @@ Deno.serve(async (req: Request) => {
         );
       }
 
-      // If we have a checkout session ID, check its status
-      if (repairRequest.deposit_stripe_payment_link_id) {
+      // If we have a payment link ID, check its status
+      if (repairRequest.deposit_stripe_checkout_session_id) {
         const paymentLinkResponse = await fetch(
-          `https://api.stripe.com/v1/payment_links/${repairRequest.deposit_stripe_payment_link_id}`,
+          `https://api.stripe.com/v1/payment_links/${repairRequest.deposit_stripe_checkout_session_id}`,
           {
             headers: {
               'Authorization': `Bearer ${stripeSecretKey}`,
@@ -70,7 +70,7 @@ Deno.serve(async (req: Request) => {
           // Check for successful payments via this link
           // We need to check checkout sessions created from this payment link
           const sessionsResponse = await fetch(
-            `https://api.stripe.com/v1/checkout/sessions?payment_link=${repairRequest.deposit_stripe_payment_link_id}&limit=10`,
+            `https://api.stripe.com/v1/checkout/sessions?payment_link=${repairRequest.deposit_stripe_checkout_session_id}&limit=10`,
             {
               headers: {
                 'Authorization': `Bearer ${stripeSecretKey}`,
