@@ -79,6 +79,13 @@ export function CompanyManagement() {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  // Helper function to update form data and mark as unsaved
+  const updateFormData = (updates: Partial<typeof formData>) => {
+    setFormData(prev => ({ ...prev, ...updates }));
+    setHasUnsavedChanges(true);
+  };
 
   // Fetch all companies
   const fetchCompanies = async () => {
@@ -124,6 +131,20 @@ export function CompanyManagement() {
     }
   }, []); // Only run once on mount to prevent form reset during editing
 
+  // Warn user about unsaved changes before leaving page
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges && showAddModal) {
+        e.preventDefault();
+        e.returnValue = '';
+        return '';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges, showAddModal]);
+
   // Filter companies based on search and active status
   const filteredCompanies = companies.filter(company => {
     const matchesSearch =
@@ -162,6 +183,7 @@ export function CompanyManagement() {
         return;
       }
       setLogoFile(file);
+      setHasUnsavedChanges(true);
       const reader = new FileReader();
       reader.onloadend = () => {
         setLogoPreview(reader.result as string);
@@ -208,6 +230,7 @@ export function CompanyManagement() {
     setSelectedCompany(null);
     setLogoFile(null);
     setLogoPreview(null);
+    setHasUnsavedChanges(false);
     setFormData({
       company_name: '',
       legal_name: '',
@@ -241,6 +264,7 @@ export function CompanyManagement() {
     setSelectedCompany(company);
     setLogoFile(null);
     setLogoPreview(company.logo_url);
+    setHasUnsavedChanges(false);
     setFormData({
       company_name: company.company_name,
       legal_name: company.legal_name || '',
@@ -383,6 +407,7 @@ export function CompanyManagement() {
       setSelectedCompany(null);
       setLogoFile(null);
       setLogoPreview(null);
+      setHasUnsavedChanges(false);
       await fetchCompanies();
     } catch (error) {
       console.error('Error saving company:', error);
@@ -630,9 +655,17 @@ export function CompanyManagement() {
         {showAddModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
             <div className="bg-slate-800 rounded-lg p-6 max-w-3xl w-full my-8">
-              <h2 className="text-2xl font-bold mb-6">
-                {selectedCompany ? 'Edit Company' : 'Add New Company'}
-              </h2>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold">
+                  {selectedCompany ? 'Edit Company' : 'Add New Company'}
+                </h2>
+                {hasUnsavedChanges && (
+                  <div className="flex items-center gap-2 text-amber-500 text-sm">
+                    <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
+                    <span>Unsaved changes</span>
+                  </div>
+                )}
+              </div>
 
               <form onSubmit={handleSave} className="space-y-6 max-h-[calc(100vh-12rem)] overflow-y-auto pr-2">
                 {/* Company Information */}
@@ -647,7 +680,7 @@ export function CompanyManagement() {
                         type="text"
                         required
                         value={formData.company_name}
-                        onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
+                        onChange={(e) => updateFormData({ company_name: e.target.value })}
                         className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
                       />
                     </div>
@@ -657,7 +690,7 @@ export function CompanyManagement() {
                       <input
                         type="text"
                         value={formData.legal_name}
-                        onChange={(e) => setFormData({ ...formData, legal_name: e.target.value })}
+                        onChange={(e) => updateFormData({ legal_name: e.target.value })}
                         className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
                       />
                     </div>
@@ -667,7 +700,7 @@ export function CompanyManagement() {
                       <input
                         type="text"
                         value={formData.tax_id}
-                        onChange={(e) => setFormData({ ...formData, tax_id: e.target.value })}
+                        onChange={(e) => updateFormData({ tax_id: e.target.value })}
                         placeholder="XX-XXXXXXX"
                         className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
                       />
@@ -678,7 +711,7 @@ export function CompanyManagement() {
                       <input
                         type="url"
                         value={formData.website}
-                        onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                        onChange={(e) => updateFormData({ website: e.target.value })}
                         className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
                       />
                     </div>
@@ -704,6 +737,7 @@ export function CompanyManagement() {
                           onClick={() => {
                             setLogoFile(null);
                             setLogoPreview(null);
+                            setHasUnsavedChanges(true);
                           }}
                           className="text-red-500 hover:text-red-400 text-sm"
                         >
@@ -736,7 +770,7 @@ export function CompanyManagement() {
                       <input
                         type="text"
                         value={formData.contact_name}
-                        onChange={(e) => setFormData({ ...formData, contact_name: e.target.value })}
+                        onChange={(e) => updateFormData({ contact_name: e.target.value })}
                         className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
                       />
                     </div>
@@ -746,7 +780,7 @@ export function CompanyManagement() {
                       <input
                         type="email"
                         value={formData.contact_email}
-                        onChange={(e) => setFormData({ ...formData, contact_email: e.target.value })}
+                        onChange={(e) => updateFormData({ contact_email: e.target.value })}
                         className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
                       />
                     </div>
@@ -756,7 +790,7 @@ export function CompanyManagement() {
                       <input
                         type="tel"
                         value={formData.contact_phone}
-                        onChange={(e) => setFormData({ ...formData, contact_phone: e.target.value })}
+                        onChange={(e) => updateFormData({ contact_phone: e.target.value })}
                         className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
                       />
                     </div>
@@ -772,7 +806,7 @@ export function CompanyManagement() {
                       <input
                         type="email"
                         value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        onChange={(e) => updateFormData({ email: e.target.value })}
                         className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
                       />
                     </div>
@@ -782,7 +816,7 @@ export function CompanyManagement() {
                       <input
                         type="tel"
                         value={formData.phone}
-                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                        onChange={(e) => updateFormData({ phone: e.target.value })}
                         className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
                       />
                     </div>
@@ -801,7 +835,7 @@ export function CompanyManagement() {
                       <input
                         type="text"
                         value={formData.physical_address}
-                        onChange={(e) => setFormData({ ...formData, physical_address: e.target.value })}
+                        onChange={(e) => updateFormData({ physical_address: e.target.value })}
                         className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
                       />
                     </div>
@@ -812,7 +846,7 @@ export function CompanyManagement() {
                         <input
                           type="text"
                           value={formData.physical_city}
-                          onChange={(e) => setFormData({ ...formData, physical_city: e.target.value })}
+                          onChange={(e) => updateFormData({ physical_city: e.target.value })}
                           className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
                         />
                       </div>
@@ -822,7 +856,7 @@ export function CompanyManagement() {
                         <input
                           type="text"
                           value={formData.physical_state}
-                          onChange={(e) => setFormData({ ...formData, physical_state: e.target.value })}
+                          onChange={(e) => updateFormData({ physical_state: e.target.value })}
                           className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
                         />
                       </div>
@@ -832,7 +866,7 @@ export function CompanyManagement() {
                         <input
                           type="text"
                           value={formData.physical_zip_code}
-                          onChange={(e) => setFormData({ ...formData, physical_zip_code: e.target.value })}
+                          onChange={(e) => updateFormData({ physical_zip_code: e.target.value })}
                           className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
                         />
                       </div>
@@ -852,7 +886,7 @@ export function CompanyManagement() {
                       <input
                         type="text"
                         value={formData.mailing_address}
-                        onChange={(e) => setFormData({ ...formData, mailing_address: e.target.value })}
+                        onChange={(e) => updateFormData({ mailing_address: e.target.value })}
                         placeholder="Leave blank if same as physical address"
                         className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
                       />
@@ -864,7 +898,7 @@ export function CompanyManagement() {
                         <input
                           type="text"
                           value={formData.mailing_city}
-                          onChange={(e) => setFormData({ ...formData, mailing_city: e.target.value })}
+                          onChange={(e) => updateFormData({ mailing_city: e.target.value })}
                           className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
                         />
                       </div>
@@ -874,7 +908,7 @@ export function CompanyManagement() {
                         <input
                           type="text"
                           value={formData.mailing_state}
-                          onChange={(e) => setFormData({ ...formData, mailing_state: e.target.value })}
+                          onChange={(e) => updateFormData({ mailing_state: e.target.value })}
                           className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
                         />
                       </div>
@@ -884,7 +918,7 @@ export function CompanyManagement() {
                         <input
                           type="text"
                           value={formData.mailing_zip_code}
-                          onChange={(e) => setFormData({ ...formData, mailing_zip_code: e.target.value })}
+                          onChange={(e) => updateFormData({ mailing_zip_code: e.target.value })}
                           className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
                         />
                       </div>
@@ -900,7 +934,7 @@ export function CompanyManagement() {
                       <label className="block text-sm font-medium mb-2">Timezone</label>
                       <select
                         value={formData.timezone}
-                        onChange={(e) => setFormData({ ...formData, timezone: e.target.value })}
+                        onChange={(e) => updateFormData({ timezone: e.target.value })}
                         className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
                       >
                         <option value="America/New_York">Eastern Time</option>
@@ -918,7 +952,7 @@ export function CompanyManagement() {
                         min="0"
                         max="100"
                         value={formData.default_tax_rate}
-                        onChange={(e) => setFormData({ ...formData, default_tax_rate: parseFloat(e.target.value) || 0 })}
+                        onChange={(e) => updateFormData({ default_tax_rate: parseFloat(e.target.value) || 0 })}
                         className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
                       />
                     </div>
@@ -937,10 +971,15 @@ export function CompanyManagement() {
                   <button
                     type="button"
                     onClick={() => {
+                      if (hasUnsavedChanges) {
+                        const confirm = window.confirm('You have unsaved changes. Are you sure you want to close without saving?');
+                        if (!confirm) return;
+                      }
                       setShowAddModal(false);
                       setSelectedCompany(null);
                       setLogoFile(null);
                       setLogoPreview(null);
+                      setHasUnsavedChanges(false);
                     }}
                     disabled={saving || uploadingLogo}
                     className="flex-1 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:cursor-not-allowed px-6 py-3 rounded-lg font-semibold transition-colors"
