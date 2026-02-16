@@ -129,24 +129,50 @@
         // Try multiple localStorage keys for Supabase session
         let accessToken = null;
 
-        // Try new Supabase auth format (v2)
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key && key.startsWith('sb-') && key.includes('-auth-token')) {
-            const sessionData = localStorage.getItem(key);
-            if (sessionData) {
-              try {
-                const parsed = JSON.parse(sessionData);
-                accessToken = parsed.access_token || parsed.currentSession?.access_token;
-                if (accessToken) break;
-              } catch (e) {
-                console.error('Error parsing session data:', e);
+        // Function to search for access token in a storage
+        const findAccessToken = (storage) => {
+          for (let i = 0; i < storage.length; i++) {
+            const key = storage.key(i);
+            console.log('Checking localStorage key:', key);
+            if (key && key.startsWith('sb-') && key.includes('-auth-token')) {
+              const sessionData = storage.getItem(key);
+              console.log('Found auth-token key:', key);
+              if (sessionData) {
+                try {
+                  const parsed = JSON.parse(sessionData);
+                  console.log('Parsed session data:', parsed);
+                  const token = parsed.access_token || parsed.currentSession?.access_token;
+                  if (token) {
+                    console.log('Found access token!');
+                    return token;
+                  }
+                } catch (e) {
+                  console.error('Error parsing session data:', e);
+                }
               }
             }
           }
+          return null;
+        };
+
+        // First try the opener window's localStorage (if accessible)
+        try {
+          if (window.opener && window.opener.localStorage) {
+            console.log('Trying opener localStorage...');
+            accessToken = findAccessToken(window.opener.localStorage);
+          }
+        } catch (e) {
+          console.log('Cannot access opener localStorage (cross-origin):', e.message);
+        }
+
+        // If not found, try current window's localStorage
+        if (!accessToken) {
+          console.log('Trying current window localStorage...');
+          accessToken = findAccessToken(localStorage);
         }
 
         if (!accessToken) {
+          console.error('All localStorage keys:', Object.keys(localStorage));
           throw new Error('No authentication session found. Please make sure you are logged in.');
         }
 

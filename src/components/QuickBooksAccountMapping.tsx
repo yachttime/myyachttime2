@@ -173,6 +173,10 @@ export default function QuickBooksAccountMapping() {
       const { authUrl } = result;
       console.log('[QuickBooks] Auth URL obtained:', authUrl);
 
+      // Store Supabase URL in localStorage for the callback page to use
+      localStorage.setItem('VITE_SUPABASE_URL', import.meta.env.VITE_SUPABASE_URL);
+      console.log('[QuickBooks] Stored Supabase URL in localStorage');
+
       // Check if we're in a development environment (WebContainer/StackBlitz)
       const isDevelopment = window.location.hostname.includes('webcontainer') ||
                            window.location.hostname.includes('stackblitz') ||
