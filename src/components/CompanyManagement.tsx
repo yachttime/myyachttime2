@@ -29,7 +29,7 @@ interface CompanyStats {
 }
 
 export function CompanyManagement() {
-  const { isMaster, refreshCompanies } = useCompany();
+  const { isMaster } = useCompany();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -95,7 +95,7 @@ export function CompanyManagement() {
     if (isMaster) {
       fetchCompanies();
     }
-  }, [isMaster]);
+  }, []); // Only run once on mount to prevent form reset during editing
 
   // Filter companies based on search and active status
   const filteredCompanies = companies.filter(company => {
@@ -120,7 +120,6 @@ export function CompanyManagement() {
       if (error) throw error;
 
       await fetchCompanies();
-      await refreshCompanies();
     } catch (error) {
       console.error('Error updating company status:', error);
       alert('Failed to update company status');
@@ -230,7 +229,6 @@ export function CompanyManagement() {
       setShowAddModal(false);
       setSelectedCompany(null);
       await fetchCompanies();
-      await refreshCompanies();
     } catch (error) {
       console.error('Error saving company:', error);
       alert('Failed to save company');
