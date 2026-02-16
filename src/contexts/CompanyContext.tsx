@@ -45,43 +45,19 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
     try {
       setIsLoadingCompanies(true);
 
-      if (isMaster) {
-        // Masters can see all companies
+      // All users (including masters) only see their own company
+      if (userProfile?.company_id) {
         const { data, error } = await supabase
           .from('companies')
           .select('*')
-          .order('company_name');
+          .eq('id', userProfile.company_id)
+          .single();
 
         if (error) throw error;
-        setCompanies(data || []);
-
-        // Load selected company from localStorage or default to first
-        const savedCompanyId = localStorage.getItem('selectedCompanyId');
-        if (savedCompanyId) {
-          const saved = data?.find(c => c.id === savedCompanyId);
-          if (saved) {
-            setSelectedCompany(saved);
-          } else if (data && data.length > 0) {
-            setSelectedCompany(data[0]);
-          }
-        } else if (data && data.length > 0) {
-          setSelectedCompany(data[0]);
-        }
-      } else {
-        // Regular users only see their company
-        if (userProfile?.company_id) {
-          const { data, error } = await supabase
-            .from('companies')
-            .select('*')
-            .eq('id', userProfile.company_id)
-            .single();
-
-          if (error) throw error;
-          if (data) {
-            setUserCompany(data);
-            setSelectedCompany(data);
-            setCompanies([data]);
-          }
+        if (data) {
+          setUserCompany(data);
+          setSelectedCompany(data);
+          setCompanies([data]);
         }
       }
     } catch (error) {
