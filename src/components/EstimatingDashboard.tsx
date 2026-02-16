@@ -17,7 +17,8 @@ type TabType = 'dashboard' | 'estimates' | 'workorders' | 'parts' | 'settings';
 interface DashboardStats {
   totalEstimates: number;
   pendingApproval: number;
-  activeWorkOrders: number;
+  totalWorkOrders: number;
+  pendingWorkOrders: number;
   unpaidInvoices: number;
   unpaidAmount: number;
   lowStockItems: number;
@@ -30,7 +31,8 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
   const [stats, setStats] = useState<DashboardStats>({
     totalEstimates: 0,
     pendingApproval: 0,
-    activeWorkOrders: 0,
+    totalWorkOrders: 0,
+    pendingWorkOrders: 0,
     unpaidInvoices: 0,
     unpaidAmount: 0,
     lowStockItems: 0,
@@ -72,7 +74,8 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
       const parts = partsRes.data || [];
 
       const pendingApproval = estimates.filter(e => e.status === 'sent').length;
-      const activeWorkOrders = workOrders.filter(w =>
+      const totalWorkOrders = workOrders.length;
+      const pendingWorkOrders = workOrders.filter(w =>
         w.status === 'in_progress' || w.status === 'pending'
       ).length;
       const unpaidInvoices = invoices.filter(i => i.payment_status !== 'paid');
@@ -90,7 +93,8 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
       setStats({
         totalEstimates: estimates.length,
         pendingApproval,
-        activeWorkOrders,
+        totalWorkOrders,
+        pendingWorkOrders,
         unpaidInvoices: unpaidInvoices.length,
         unpaidAmount,
         lowStockItems,
@@ -165,10 +169,12 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
                   </div>
                 </div>
                 <div className="text-3xl font-bold text-gray-900 mb-1">
-                  {loading ? '...' : stats.activeWorkOrders}
+                  {loading ? '...' : stats.totalWorkOrders}
                 </div>
-                <div className="text-sm font-medium text-gray-900 mb-1">Active Work Orders</div>
-                <div className="text-xs text-gray-500">Pending or in progress</div>
+                <div className="text-sm font-medium text-gray-900 mb-1">Total Work Orders</div>
+                <div className="text-xs text-gray-500">
+                  {loading ? '...' : `${stats.pendingWorkOrders} pending or in progress`}
+                </div>
               </div>
 
               <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
