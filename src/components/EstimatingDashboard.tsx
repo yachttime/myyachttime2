@@ -71,7 +71,7 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
       const invoices = invoicesRes.data || [];
       const parts = partsRes.data || [];
 
-      const pendingApproval = estimates.filter(e => e.status === 'pending_approval').length;
+      const pendingApproval = estimates.filter(e => e.status === 'sent').length;
       const activeWorkOrders = workOrders.filter(w => w.status === 'in_progress').length;
       const unpaidInvoices = invoices.filter(i => i.payment_status !== 'paid');
       const unpaidAmount = unpaidInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
