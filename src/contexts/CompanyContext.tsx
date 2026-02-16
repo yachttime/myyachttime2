@@ -27,13 +27,13 @@ interface CompanyContextType {
 const CompanyContext = createContext<CompanyContextType | undefined>(undefined);
 
 export function CompanyProvider({ children }: { children: ReactNode }) {
-  const { user, profile } = useAuth();
+  const { user, userProfile } = useAuth();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [userCompany, setUserCompany] = useState<Company | null>(null);
   const [isLoadingCompanies, setIsLoadingCompanies] = useState(true);
 
-  const isMaster = profile?.role === 'master';
+  const isMaster = userProfile?.role === 'master';
 
   // Fetch all companies (for masters) or user's company
   const fetchCompanies = async () => {
@@ -69,11 +69,11 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
         }
       } else {
         // Regular users only see their company
-        if (profile?.company_id) {
+        if (userProfile?.company_id) {
           const { data, error } = await supabase
             .from('companies')
             .select('*')
-            .eq('id', profile.company_id)
+            .eq('id', userProfile.company_id)
             .single();
 
           if (error) throw error;
@@ -110,7 +110,7 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
   // Load companies on mount and when user/profile changes
   useEffect(() => {
     fetchCompanies();
-  }, [user, profile, isMaster]);
+  }, [user, userProfile, isMaster]);
 
   const value: CompanyContextType = {
     companies,
