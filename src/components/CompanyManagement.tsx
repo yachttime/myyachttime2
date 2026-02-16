@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Building2, Plus, Edit2, Eye, Users, DollarSign, Search, CheckCircle, XCircle } from 'lucide-react';
+import { Building2, Plus, Edit2, Eye, Users, DollarSign, Search, CheckCircle, XCircle, Upload, MapPin, User } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useCompany } from '../contexts/CompanyContext';
 
@@ -11,6 +11,18 @@ interface Company {
   city: string | null;
   state: string | null;
   zip_code: string | null;
+  physical_address: string | null;
+  physical_city: string | null;
+  physical_state: string | null;
+  physical_zip_code: string | null;
+  mailing_address: string | null;
+  mailing_city: string | null;
+  mailing_state: string | null;
+  mailing_zip_code: string | null;
+  contact_name: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  tax_id: string | null;
   phone: string | null;
   email: string | null;
   website: string | null;
@@ -45,6 +57,18 @@ export function CompanyManagement() {
     city: '',
     state: '',
     zip_code: '',
+    physical_address: '',
+    physical_city: '',
+    physical_state: '',
+    physical_zip_code: '',
+    mailing_address: '',
+    mailing_city: '',
+    mailing_state: '',
+    mailing_zip_code: '',
+    contact_name: '',
+    contact_email: '',
+    contact_phone: '',
+    tax_id: '',
     phone: '',
     email: '',
     website: '',
@@ -52,6 +76,9 @@ export function CompanyManagement() {
     default_tax_rate: 0,
   });
   const [saving, setSaving] = useState(false);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
 
   // Fetch all companies
   const fetchCompanies = async () => {
@@ -126,9 +153,61 @@ export function CompanyManagement() {
     }
   };
 
+  // Handle logo file selection
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5242880) {
+        alert('Logo file size must be less than 5MB');
+        return;
+      }
+      setLogoFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setLogoPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Upload logo to storage
+  const uploadLogo = async (companyId: string): Promise<string | null> => {
+    if (!logoFile) return null;
+
+    try {
+      setUploadingLogo(true);
+      const fileExt = logoFile.name.split('.').pop();
+      const fileName = `${companyId}_${Date.now()}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('company-logos')
+        .upload(filePath, logoFile, {
+          cacheControl: '3600',
+          upsert: true,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('company-logos')
+        .getPublicUrl(filePath);
+
+      return publicUrl;
+    } catch (error) {
+      console.error('Error uploading logo:', error);
+      alert('Failed to upload logo');
+      return null;
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
   // Open add modal
   const handleAddNew = () => {
     setSelectedCompany(null);
+    setLogoFile(null);
+    setLogoPreview(null);
     setFormData({
       company_name: '',
       legal_name: '',
@@ -136,6 +215,18 @@ export function CompanyManagement() {
       city: '',
       state: '',
       zip_code: '',
+      physical_address: '',
+      physical_city: '',
+      physical_state: '',
+      physical_zip_code: '',
+      mailing_address: '',
+      mailing_city: '',
+      mailing_state: '',
+      mailing_zip_code: '',
+      contact_name: '',
+      contact_email: '',
+      contact_phone: '',
+      tax_id: '',
       phone: '',
       email: '',
       website: '',
@@ -148,6 +239,8 @@ export function CompanyManagement() {
   // Open edit modal
   const handleEdit = (company: Company) => {
     setSelectedCompany(company);
+    setLogoFile(null);
+    setLogoPreview(company.logo_url);
     setFormData({
       company_name: company.company_name,
       legal_name: company.legal_name || '',
@@ -155,6 +248,18 @@ export function CompanyManagement() {
       city: company.city || '',
       state: company.state || '',
       zip_code: company.zip_code || '',
+      physical_address: company.physical_address || '',
+      physical_city: company.physical_city || '',
+      physical_state: company.physical_state || '',
+      physical_zip_code: company.physical_zip_code || '',
+      mailing_address: company.mailing_address || '',
+      mailing_city: company.mailing_city || '',
+      mailing_state: company.mailing_state || '',
+      mailing_zip_code: company.mailing_zip_code || '',
+      contact_name: company.contact_name || '',
+      contact_email: company.contact_email || '',
+      contact_phone: company.contact_phone || '',
+      tax_id: company.tax_id || '',
       phone: company.phone || '',
       email: company.email || '',
       website: company.website || '',
@@ -183,6 +288,15 @@ export function CompanyManagement() {
       setSaving(true);
 
       if (selectedCompany) {
+        // Upload logo if a new file was selected
+        let logoUrl = selectedCompany.logo_url;
+        if (logoFile) {
+          const uploadedUrl = await uploadLogo(selectedCompany.id);
+          if (uploadedUrl) {
+            logoUrl = uploadedUrl;
+          }
+        }
+
         // Update existing company
         const { error } = await supabase
           .from('companies')
@@ -193,9 +307,22 @@ export function CompanyManagement() {
             city: formData.city || null,
             state: formData.state || null,
             zip_code: formData.zip_code || null,
+            physical_address: formData.physical_address || null,
+            physical_city: formData.physical_city || null,
+            physical_state: formData.physical_state || null,
+            physical_zip_code: formData.physical_zip_code || null,
+            mailing_address: formData.mailing_address || null,
+            mailing_city: formData.mailing_city || null,
+            mailing_state: formData.mailing_state || null,
+            mailing_zip_code: formData.mailing_zip_code || null,
+            contact_name: formData.contact_name || null,
+            contact_email: formData.contact_email || null,
+            contact_phone: formData.contact_phone || null,
+            tax_id: formData.tax_id || null,
             phone: formData.phone || null,
             email: formData.email || null,
             website: formData.website || null,
+            logo_url: logoUrl,
             timezone: formData.timezone,
             default_tax_rate: formData.default_tax_rate,
           })
@@ -205,7 +332,7 @@ export function CompanyManagement() {
         alert('Company updated successfully');
       } else {
         // Create new company
-        const { error } = await supabase
+        const { data: newCompany, error: insertError } = await supabase
           .from('companies')
           .insert({
             company_name: formData.company_name,
@@ -214,20 +341,48 @@ export function CompanyManagement() {
             city: formData.city || null,
             state: formData.state || null,
             zip_code: formData.zip_code || null,
+            physical_address: formData.physical_address || null,
+            physical_city: formData.physical_city || null,
+            physical_state: formData.physical_state || null,
+            physical_zip_code: formData.physical_zip_code || null,
+            mailing_address: formData.mailing_address || null,
+            mailing_city: formData.mailing_city || null,
+            mailing_state: formData.mailing_state || null,
+            mailing_zip_code: formData.mailing_zip_code || null,
+            contact_name: formData.contact_name || null,
+            contact_email: formData.contact_email || null,
+            contact_phone: formData.contact_phone || null,
+            tax_id: formData.tax_id || null,
             phone: formData.phone || null,
             email: formData.email || null,
             website: formData.website || null,
             timezone: formData.timezone,
             default_tax_rate: formData.default_tax_rate,
             is_active: true,
-          });
+          })
+          .select()
+          .single();
 
-        if (error) throw error;
+        if (insertError) throw insertError;
+
+        // Upload logo if a file was selected
+        if (logoFile && newCompany) {
+          const uploadedUrl = await uploadLogo(newCompany.id);
+          if (uploadedUrl) {
+            await supabase
+              .from('companies')
+              .update({ logo_url: uploadedUrl })
+              .eq('id', newCompany.id);
+          }
+        }
+
         alert('Company created successfully');
       }
 
       setShowAddModal(false);
       setSelectedCompany(null);
+      setLogoFile(null);
+      setLogoPreview(null);
       await fetchCompanies();
     } catch (error) {
       console.error('Error saving company:', error);
@@ -479,7 +634,7 @@ export function CompanyManagement() {
                 {selectedCompany ? 'Edit Company' : 'Add New Company'}
               </h2>
 
-              <form onSubmit={handleSave} className="space-y-6">
+              <form onSubmit={handleSave} className="space-y-6 max-h-[calc(100vh-12rem)] overflow-y-auto pr-2">
                 {/* Company Information */}
                 <div>
                   <h3 className="text-lg font-semibold mb-4 text-amber-500">Company Information</h3>
@@ -506,34 +661,19 @@ export function CompanyManagement() {
                         className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
                       />
                     </div>
-                  </div>
-                </div>
 
-                {/* Contact Information */}
-                <div>
-                  <h3 className="text-lg font-semibold mb-4 text-amber-500">Contact Information</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium mb-2">Email</label>
+                      <label className="block text-sm font-medium mb-2">Tax ID / EIN</label>
                       <input
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        type="text"
+                        value={formData.tax_id}
+                        onChange={(e) => setFormData({ ...formData, tax_id: e.target.value })}
+                        placeholder="XX-XXXXXXX"
                         className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium mb-2">Phone</label>
-                      <input
-                        type="tel"
-                        value={formData.phone}
-                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
-                      />
-                    </div>
-
-                    <div className="md:col-span-2">
                       <label className="block text-sm font-medium mb-2">Website</label>
                       <input
                         type="url"
@@ -545,16 +685,123 @@ export function CompanyManagement() {
                   </div>
                 </div>
 
-                {/* Address */}
+                {/* Company Logo */}
                 <div>
-                  <h3 className="text-lg font-semibold mb-4 text-amber-500">Address</h3>
+                  <h3 className="text-lg font-semibold mb-4 text-amber-500 flex items-center gap-2">
+                    <Upload className="h-5 w-5" />
+                    Company Logo
+                  </h3>
+                  <div className="space-y-4">
+                    {logoPreview && (
+                      <div className="flex items-center gap-4">
+                        <img
+                          src={logoPreview}
+                          alt="Company Logo Preview"
+                          className="h-24 w-24 object-contain bg-white rounded-lg p-2"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setLogoFile(null);
+                            setLogoPreview(null);
+                          }}
+                          className="text-red-500 hover:text-red-400 text-sm"
+                        >
+                          Remove Logo
+                        </button>
+                      </div>
+                    )}
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Upload Logo</label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleLogoChange}
+                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-amber-600 file:text-white hover:file:bg-amber-700"
+                      />
+                      <p className="text-xs text-slate-400 mt-1">Max file size: 5MB. Supported formats: JPG, PNG, GIF, WEBP</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Account Contact */}
+                <div>
+                  <h3 className="text-lg font-semibold mb-4 text-amber-500 flex items-center gap-2">
+                    <User className="h-5 w-5" />
+                    Account Contact
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Contact Name</label>
+                      <input
+                        type="text"
+                        value={formData.contact_name}
+                        onChange={(e) => setFormData({ ...formData, contact_name: e.target.value })}
+                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Contact Email</label>
+                      <input
+                        type="email"
+                        value={formData.contact_email}
+                        onChange={(e) => setFormData({ ...formData, contact_email: e.target.value })}
+                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Contact Phone</label>
+                      <input
+                        type="tel"
+                        value={formData.contact_phone}
+                        onChange={(e) => setFormData({ ...formData, contact_phone: e.target.value })}
+                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* General Contact Information */}
+                <div>
+                  <h3 className="text-lg font-semibold mb-4 text-amber-500">General Contact Information</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-2">General Email</label>
+                      <input
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-2">General Phone</label>
+                      <input
+                        type="tel"
+                        value={formData.phone}
+                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Physical Address */}
+                <div>
+                  <h3 className="text-lg font-semibold mb-4 text-amber-500 flex items-center gap-2">
+                    <MapPin className="h-5 w-5" />
+                    Physical Address
+                  </h3>
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium mb-2">Street Address</label>
                       <input
                         type="text"
-                        value={formData.address}
-                        onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                        value={formData.physical_address}
+                        onChange={(e) => setFormData({ ...formData, physical_address: e.target.value })}
                         className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
                       />
                     </div>
@@ -564,8 +811,8 @@ export function CompanyManagement() {
                         <label className="block text-sm font-medium mb-2">City</label>
                         <input
                           type="text"
-                          value={formData.city}
-                          onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                          value={formData.physical_city}
+                          onChange={(e) => setFormData({ ...formData, physical_city: e.target.value })}
                           className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
                         />
                       </div>
@@ -574,8 +821,8 @@ export function CompanyManagement() {
                         <label className="block text-sm font-medium mb-2">State</label>
                         <input
                           type="text"
-                          value={formData.state}
-                          onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                          value={formData.physical_state}
+                          onChange={(e) => setFormData({ ...formData, physical_state: e.target.value })}
                           className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
                         />
                       </div>
@@ -584,8 +831,60 @@ export function CompanyManagement() {
                         <label className="block text-sm font-medium mb-2">ZIP Code</label>
                         <input
                           type="text"
-                          value={formData.zip_code}
-                          onChange={(e) => setFormData({ ...formData, zip_code: e.target.value })}
+                          value={formData.physical_zip_code}
+                          onChange={(e) => setFormData({ ...formData, physical_zip_code: e.target.value })}
+                          className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Mailing Address */}
+                <div>
+                  <h3 className="text-lg font-semibold mb-4 text-amber-500 flex items-center gap-2">
+                    <MapPin className="h-5 w-5" />
+                    Mailing Address
+                  </h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Street Address</label>
+                      <input
+                        type="text"
+                        value={formData.mailing_address}
+                        onChange={(e) => setFormData({ ...formData, mailing_address: e.target.value })}
+                        placeholder="Leave blank if same as physical address"
+                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium mb-2">City</label>
+                        <input
+                          type="text"
+                          value={formData.mailing_city}
+                          onChange={(e) => setFormData({ ...formData, mailing_city: e.target.value })}
+                          className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium mb-2">State</label>
+                        <input
+                          type="text"
+                          value={formData.mailing_state}
+                          onChange={(e) => setFormData({ ...formData, mailing_state: e.target.value })}
+                          className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium mb-2">ZIP Code</label>
+                        <input
+                          type="text"
+                          value={formData.mailing_zip_code}
+                          onChange={(e) => setFormData({ ...formData, mailing_zip_code: e.target.value })}
                           className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
                         />
                       </div>
@@ -627,21 +926,24 @@ export function CompanyManagement() {
                 </div>
 
                 {/* Buttons */}
-                <div className="flex gap-3 pt-4">
+                <div className="flex gap-3 pt-4 border-t border-slate-700 mt-6">
                   <button
                     type="submit"
-                    disabled={saving}
+                    disabled={saving || uploadingLogo}
                     className="flex-1 bg-amber-600 hover:bg-amber-700 disabled:bg-amber-800 disabled:cursor-not-allowed px-6 py-3 rounded-lg font-semibold transition-colors"
                   >
-                    {saving ? 'Saving...' : selectedCompany ? 'Update Company' : 'Create Company'}
+                    {uploadingLogo ? 'Uploading Logo...' : saving ? 'Saving...' : selectedCompany ? 'Update Company' : 'Create Company'}
                   </button>
                   <button
                     type="button"
                     onClick={() => {
                       setShowAddModal(false);
                       setSelectedCompany(null);
+                      setLogoFile(null);
+                      setLogoPreview(null);
                     }}
-                    className="flex-1 bg-slate-700 hover:bg-slate-600 px-6 py-3 rounded-lg font-semibold transition-colors"
+                    disabled={saving || uploadingLogo}
+                    className="flex-1 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:cursor-not-allowed px-6 py-3 rounded-lg font-semibold transition-colors"
                   >
                     Cancel
                   </button>
