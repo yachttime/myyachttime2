@@ -130,6 +130,11 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === 'exchange_token') {
+      // Validate state parameter for CSRF protection
+      if (!state || !state.startsWith(`user_${user.id}_company_${profile.company_id}`)) {
+        throw new Error('Invalid state parameter. Possible CSRF attack detected.');
+      }
+
       // Get OAuth endpoints from discovery document
       const endpoints = await getOAuthEndpoints();
 
@@ -152,6 +157,12 @@ Deno.serve(async (req: Request) => {
 
       if (!tokenResponse.ok) {
         const errorText = await tokenResponse.text();
+
+        // Handle invalid grant errors
+        if (errorText.includes('invalid_grant') || errorText.includes('Invalid grant')) {
+          throw new Error('Invalid authorization code. The code may have expired or already been used. Please try connecting again.');
+        }
+
         throw new Error(`Failed to exchange token: ${errorText}`);
       }
 
