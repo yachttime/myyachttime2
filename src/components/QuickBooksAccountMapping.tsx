@@ -138,14 +138,102 @@ export default function QuickBooksAccountMapping() {
     }
   };
 
+  const connectToQuickBooks = async () => {
+    setError(null);
+    setSuccess(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/quickbooks-oauth`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ action: 'get_auth_url' }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to get QuickBooks authorization URL');
+      }
+
+      const { authUrl } = await response.json();
+
+      // Open QuickBooks OAuth in new window
+      window.open(authUrl, '_blank', 'width=800,height=600');
+
+      setSuccess('Opening QuickBooks authorization window. After connecting, click "Sync Accounts" to load your Chart of Accounts.');
+    } catch (err: any) {
+      console.error('Error connecting to QuickBooks:', err);
+      setError(err.message || 'Failed to connect to QuickBooks');
+    }
+  };
+
   const syncAccounts = async () => {
     setError(null);
     setSuccess(null);
     try {
-      setError('QuickBooks sync not yet implemented. Use the QuickBooks integration setup to sync accounts.');
-    } catch (err) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('Not authenticated');
+      }
+
+      setSuccess('Syncing accounts from QuickBooks...');
+
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/quickbooks-sync-accounts`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to sync QuickBooks accounts');
+      }
+
+      setSuccess(`Successfully synced ${result.syncedCount} accounts from QuickBooks!`);
+      await loadData();
+    } catch (err: any) {
       console.error('Error syncing accounts:', err);
-      setError('Failed to sync QuickBooks accounts');
+      setError(err.message || 'Failed to sync QuickBooks accounts');
+    }
+  };
+
+  const disconnectQuickBooks = async () => {
+    if (!confirm('Are you sure you want to disconnect from QuickBooks?')) return;
+
+    setError(null);
+    setSuccess(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/quickbooks-oauth`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ action: 'disconnect' }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to disconnect from QuickBooks');
+      }
+
+      setSuccess('Disconnected from QuickBooks successfully');
+      await loadData();
+    } catch (err: any) {
+      console.error('Error disconnecting from QuickBooks:', err);
+      setError(err.message || 'Failed to disconnect from QuickBooks');
     }
   };
 
@@ -278,17 +366,37 @@ export default function QuickBooksAccountMapping() {
               <div>
                 <h2 className="text-xl font-bold text-gray-900">QuickBooks Online Integration</h2>
                 <p className="text-sm text-gray-600 mt-1">
-                  Map your accounting and labor codes to QuickBooks Chart of Accounts
+                  Connect to QuickBooks Online to sync your Chart of Accounts and push invoices
                 </p>
               </div>
             </div>
-            <button
-              onClick={syncAccounts}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-            >
-              <RefreshCw size={18} />
-              Sync Accounts
-            </button>
+            <div className="flex items-center gap-2">
+              {connectionStatus ? (
+                <>
+                  <button
+                    onClick={syncAccounts}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                  >
+                    <RefreshCw size={18} />
+                    Sync Accounts
+                  </button>
+                  <button
+                    onClick={disconnectQuickBooks}
+                    className="flex items-center gap-2 px-4 py-2 border border-red-600 text-red-600 rounded hover:bg-red-50"
+                  >
+                    Disconnect
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={connectToQuickBooks}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                >
+                  <Link2 size={18} />
+                  Connect to QuickBooks
+                </button>
+              )}
+            </div>
           </div>
 
           {connectionStatus ? (
