@@ -344,17 +344,21 @@ export function MercuryPartsManager({ userId, userRole }: MercuryPartsManagerPro
             </p>
 
             <div className="bg-white bg-opacity-50 rounded p-3 mb-3">
-              <h4 className="font-medium text-blue-900 text-sm mb-1">Where to get the file:</h4>
-              <ul className="text-sm text-blue-800 space-y-1">
-                <li>• Download from Mercury Marine Dealer Portal</li>
-                <li>• Usually named: PRICE.TXT, MERCURY.PRC, or similar</li>
-                <li>• Should be ASCII or TXT format (not Excel/CSV)</li>
-              </ul>
+              <h4 className="font-medium text-blue-900 text-sm mb-1">How to export from Mercury Marine:</h4>
+              <ol className="text-sm text-blue-800 space-y-1">
+                <li>1. Go to Mercury Electronic Parts Catalog</li>
+                <li>2. Navigate to the pricebook export section</li>
+                <li>3. Select: <strong>MSRP - USD</strong> and <strong>DEALER - USD</strong></li>
+                <li>4. Choose: <strong>Fixed width (default)</strong></li>
+                <li>5. Select: <strong>Full</strong> price data</li>
+                <li>6. Click Export/Download - creates a <strong>.lku</strong> file</li>
+              </ol>
             </div>
 
             <div className="bg-white bg-opacity-50 rounded p-3">
               <h4 className="font-medium text-blue-900 text-sm mb-1">Expected format:</h4>
               <ul className="text-sm text-blue-800 space-y-1">
+                <li>• File extension: .lku, .txt, or .ascii</li>
                 <li>• Part numbers like: 8M0173572, 91-8M0083982, 892-47089A06</li>
                 <li>• Full descriptions (30+ characters)</li>
                 <li>• MSRP and dealer pricing included</li>
@@ -368,11 +372,11 @@ export function MercuryPartsManager({ userId, userRole }: MercuryPartsManagerPro
 
           <div className="bg-white border border-gray-300 rounded-lg p-6">
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Select ASCII File (.txt, .ascii)
+              Select Mercury Price List File (.lku, .txt)
             </label>
             <input
               type="file"
-              accept=".txt,.ascii"
+              accept=".lku,.txt,.ascii"
               onChange={handleFileSelect}
               disabled={uploading}
               className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none"
