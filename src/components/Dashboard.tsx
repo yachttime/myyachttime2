@@ -755,7 +755,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     loadCustomers();
     loadStaffMessages();
     checkSmartDevices();
-  }, [user, yacht, effectiveRole, effectiveYacht, impersonatedYacht]);
+  }, [user, yacht, effectiveRole, effectiveYacht, impersonatedYacht, selectedCompany]);
 
   useEffect(() => {
     if (activeTab === 'admin' && adminView === 'repairs') {
@@ -1278,6 +1278,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
   const loadUsers = async () => {
     try {
+      if (!selectedCompany?.id) {
+        setAllUsers([]);
+        setOwnerCountsByYacht({});
+        return;
+      }
+
       const { data, error } = await supabase
         .from('user_profiles')
         .select(`
@@ -1294,6 +1300,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           zip_code,
           yacht_id,
           role,
+          company_id,
           email_notifications_enabled,
           sms_notifications_enabled,
           notification_email,
@@ -1306,6 +1313,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           sms_consent_method,
           yachts (name)
         `)
+        .eq('company_id', selectedCompany.id)
         .order('first_name', { ascending: true });
 
       if (error) throw error;
@@ -1739,13 +1747,19 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
   const loadAllYachts = async () => {
     try {
+      if (!selectedCompany?.id) {
+        setAllYachts([]);
+        return;
+      }
+
       let query = supabase
         .from('yachts')
-        .select('*');
+        .select('*')
+        .eq('company_id', selectedCompany.id);
 
-      // Master role: see ALL yachts (active and inactive)
+      // Master role: see ALL yachts (active and inactive) for selected company
       if (isMasterRole(effectiveRole)) {
-        // No filter - master sees everything
+        // No additional filter - master sees all yachts in selected company
       }
       // Manager role: see only their assigned yacht (or impersonated yacht)
       else if (effectiveRole === 'manager') {
@@ -1756,7 +1770,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           return;
         }
       }
-      // Staff/Mechanic: see all active yachts
+      // Staff/Mechanic: see all active yachts in their company
       else {
         query = query.eq('is_active', true);
       }
@@ -1775,9 +1789,15 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
   const loadMechanics = async () => {
     try {
+      if (!selectedCompany?.id) {
+        setMechanics([]);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('user_profiles')
-        .select('id, user_id, first_name, last_name, email, role')
+        .select('id, user_id, first_name, last_name, email, role, company_id')
+        .eq('company_id', selectedCompany.id)
         .in('role', ['mechanic', 'staff', 'manager', 'master'])
         .order('first_name', { ascending: true});
 
