@@ -859,6 +859,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       return;
     }
 
+    if (!selectedCompany?.id) {
+      setBookings([]);
+      setLoading(false);
+      return;
+    }
+
     try {
       // For owners, only show their bookings. For managers, show yacht bookings. For staff, show all bookings
       let query = supabase
@@ -876,7 +882,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             owner_contact,
             created_at
           )
-        `);
+        `)
+        .eq('company_id', selectedCompany.id);
 
       // Managers see all bookings for their assigned yacht
       if (userIsManager && effectiveYacht) {
@@ -924,7 +931,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   };
 
   const loadMaintenanceRequests = async () => {
-    if (!user) return;
+    if (!user || !selectedCompany?.id) {
+      setMaintenanceRequests([]);
+      return;
+    }
 
     try {
       let query = supabase
@@ -932,15 +942,16 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         .select(`
           *,
           yachts:yacht_id (name)
-        `);
+        `)
+        .eq('company_id', selectedCompany.id);
 
       // When impersonating a yacht, filter by that yacht (for all roles)
       if (isImpersonatingYacht && effectiveYacht) {
         // User is impersonating - show only this yacht's requests
         query = query.eq('yacht_id', effectiveYacht.id);
       } else if (['staff', 'mechanic', 'master'].includes(effectiveRole)) {
-        // Staff, mechanic, and master (not impersonating) see all requests
-        // No filter - show all requests
+        // Staff, mechanic, and master (not impersonating) see all requests for selected company
+        // Already filtered by company_id above
       } else if (effectiveRole === 'manager' && effectiveYacht) {
         // Managers see requests for their assigned yacht
         query = query.eq('yacht_id', effectiveYacht.id);
@@ -1810,9 +1821,15 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
   const loadCustomers = async () => {
     try {
+      if (!selectedCompany?.id) {
+        setCustomers([]);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('customers')
         .select('*')
+        .eq('company_id', selectedCompany.id)
         .eq('is_active', true)
         .order('created_at', { ascending: false });
 
@@ -2398,7 +2415,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
   const loadRepairRequests = async () => {
     try {
-      if (!user) return;
+      if (!user || !selectedCompany?.id) {
+        setRepairRequests([]);
+        return;
+      }
 
       let query = supabase
         .from('repair_requests')
@@ -2409,6 +2429,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           customers:customer_id (id, customer_type, first_name, last_name, business_name, email, phone),
           customer_vessels:vessel_id (id, vessel_name, manufacturer, model, year)
         `)
+        .eq('company_id', selectedCompany.id)
         .order('created_at', { ascending: false });
 
       // When impersonating a yacht, filter by that yacht (for all roles)
@@ -2416,8 +2437,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         // User is impersonating - show only this yacht's requests
         query = query.eq('yacht_id', effectiveYacht.id);
       } else if (['staff', 'mechanic', 'master'].includes(effectiveRole)) {
-        // Staff, mechanic, and master (not impersonating) see all requests
-        // No filter - show all requests
+        // Staff, mechanic, and master (not impersonating) see all requests for selected company
+        // Already filtered by company_id above
       } else if (isManagerRole(effectiveRole) && effectiveYacht) {
         // Managers see requests for their assigned yacht
         query = query.eq('yacht_id', effectiveYacht.id);
@@ -3893,15 +3914,19 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
   const loadChatMessages = async () => {
     try {
-      if (!user) return;
+      if (!user || !selectedCompany?.id) {
+        setChatMessages([]);
+        return;
+      }
 
       // Load owner chat messages (only for owner chat feature)
       let messagesQuery = supabase
         .from('owner_chat_messages')
         .select('*')
+        .eq('company_id', selectedCompany.id)
         .order('created_at', { ascending: false });
 
-      // Don't filter for master, staff, or mechanic - they should see all messages
+      // Don't filter for master, staff, or mechanic - they should see all messages in selected company
       // Only filter by yacht_id for managers who are yacht-specific
       if (isManagerRole(effectiveRole) && effectiveYacht && !isMasterRole(effectiveRole) && !isStaffRole(effectiveRole)) {
         messagesQuery = messagesQuery.eq('yacht_id', effectiveYacht.id);
@@ -3951,15 +3976,19 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
   const loadAdminNotifications = async () => {
     try {
-      if (!user) return;
+      if (!user || !selectedCompany?.id) {
+        setAdminNotifications([]);
+        return;
+      }
 
       // Load admin notifications (check-in/check-out alerts) from new table
       let notificationsQuery = supabase
         .from('admin_notifications')
         .select('*')
+        .eq('company_id', selectedCompany.id)
         .order('created_at', { ascending: false });
 
-      // Don't filter for master, staff, or mechanic - they should see all notifications
+      // Don't filter for master, staff, or mechanic - they should see all notifications in selected company
       // Only filter by yacht_id for managers who are yacht-specific
       if (isManagerRole(effectiveRole) && effectiveYacht && !isMasterRole(effectiveRole) && !isStaffRole(effectiveRole)) {
         notificationsQuery = notificationsQuery.eq('yacht_id', effectiveYacht.id);
@@ -4028,7 +4057,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
   const loadStaffMessages = async () => {
     try {
-      if (!user) return;
+      if (!user || !selectedCompany?.id) {
+        setStaffMessages([]);
+        return;
+      }
 
       let messagesQuery = supabase
         .from('staff_messages')
@@ -4036,6 +4068,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           *,
           user_profiles:created_by (first_name, last_name, email)
         `)
+        .eq('company_id', selectedCompany.id)
         .order('created_at', { ascending: false });
 
       // Filter by yacht for managers (but not master, staff, or mechanic)
@@ -4151,7 +4184,14 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         return;
       }
 
-      console.log('Master Calendar: Loading data for user:', user.id, 'Role:', effectiveRole, 'Profile:', userProfile?.role);
+      if (!selectedCompany?.id) {
+        console.log('Master Calendar: No company selected');
+        setMasterCalendarBookings([]);
+        setMasterCalendarAppointments([]);
+        return;
+      }
+
+      console.log('Master Calendar: Loading data for user:', user.id, 'Role:', effectiveRole, 'Profile:', userProfile?.role, 'Company:', selectedCompany.id);
 
       let bookingsQuery = supabase
         .from('yacht_bookings')
@@ -4171,6 +4211,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             phone
           )
         `)
+        .eq('company_id', selectedCompany.id)
         .order('start_date', { ascending: false });
 
       // Filter by yacht_id for managers and owners (but not master role)
@@ -4192,6 +4233,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       let appointmentsQuery = supabase
         .from('appointments')
         .select('*')
+        .eq('company_id', selectedCompany.id)
         .order('date', { ascending: false });
 
       if ((effectiveRole === 'manager' || effectiveRole === 'owner') && effectiveYacht) {
