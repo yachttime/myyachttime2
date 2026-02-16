@@ -439,10 +439,22 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
         </div>
 
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="p-4 border-b border-gray-200">
+          <div className="p-4 border-b border-gray-200 flex items-center justify-between">
             <h3 className="font-semibold text-gray-900">
               {selectedPackage ? 'Package Details' : 'Select a Package'}
             </h3>
+            {selectedPackage && (
+              <button
+                onClick={() => {
+                  setSelectedPackage(null);
+                  setPackageLabor([]);
+                  setPackageParts([]);
+                }}
+                className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium"
+              >
+                Done
+              </button>
+            )}
           </div>
           {selectedPackage ? (
             <div className="p-4 space-y-6">
