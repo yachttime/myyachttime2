@@ -61,17 +61,22 @@ export default function QuickBooksAccountMapping() {
   const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
+    console.log('[QuickBooks] useEffect triggered, userRole:', userRole);
     if (userRole === 'master') {
+      console.log('[QuickBooks] User is master, loading data...');
       loadData();
     } else if (userRole && userRole !== 'master') {
+      console.log('[QuickBooks] User is not master:', userRole);
       setLoading(false);
     }
   }, [userRole]);
 
   const loadData = async () => {
+    console.log('[QuickBooks] loadData called');
     setLoading(true);
     setError(null);
     try {
+      console.log('[QuickBooks] Starting queries...');
       const [connResult, accountsResult, mappingsResult, codesResult, laborResult] = await Promise.all([
         supabase.from('quickbooks_connection').select('*').eq('is_active', true).maybeSingle(),
         supabase.from('quickbooks_accounts').select('*').eq('active', true).order('account_name'),
@@ -79,6 +84,11 @@ export default function QuickBooksAccountMapping() {
         supabase.from('accounting_codes').select('*').eq('is_active', true).order('code'),
         supabase.from('labor_codes').select('*').eq('is_active', true).order('code')
       ]);
+
+      console.log('[QuickBooks] Queries completed');
+      console.log('[QuickBooks] Connection:', connResult.data);
+      console.log('[QuickBooks] Accounts:', accountsResult.data?.length || 0);
+      console.log('[QuickBooks] Mappings:', mappingsResult.data?.length || 0);
 
       if (connResult.error) {
         console.error('Connection error:', connResult.error);
@@ -113,10 +123,12 @@ export default function QuickBooksAccountMapping() {
       setMappings(mappingsResult.data || []);
       setAccountingCodes(codesResult.data || []);
       setLaborCodes(laborResult.data || []);
+      console.log('[QuickBooks] Data loaded successfully, setting loading to false');
     } catch (err) {
-      console.error('Error loading QuickBooks data:', err);
+      console.error('[QuickBooks] Error loading QuickBooks data:', err);
       setError('Failed to load QuickBooks data. Please check the console for details.');
     } finally {
+      console.log('[QuickBooks] Finally block - setting loading to false');
       setLoading(false);
     }
   };
