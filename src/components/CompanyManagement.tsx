@@ -560,9 +560,10 @@ export function CompanyManagement() {
                       <span className="font-semibold">Phone:</span> {company.phone}
                     </p>
                   )}
-                  {company.city && company.state && (
+                  {((company.physical_city && company.physical_state) || (company.city && company.state)) && (
                     <p className="text-slate-400">
-                      <span className="font-semibold">Location:</span> {company.city}, {company.state}
+                      <span className="font-semibold">Location:</span>{' '}
+                      {company.physical_city || company.city}, {company.physical_state || company.state}
                     </p>
                   )}
                 </div>
