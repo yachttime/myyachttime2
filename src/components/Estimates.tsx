@@ -236,6 +236,8 @@ export function Estimates({ userId }: EstimatesProps) {
       setMercuryParts(mercuryResult.data || []);
       setPackages(packagesResult.data || []);
 
+      console.log('Loaded Mercury Parts:', mercuryResult.data?.length || 0, 'parts');
+
       if (settingsResult.data) {
         setFormData(prev => ({
           ...prev,
@@ -541,23 +543,39 @@ export function Estimates({ userId }: EstimatesProps) {
     });
 
     if (searchValue.trim()) {
+      const searchLower = searchValue.toLowerCase().replace(/[-\s]/g, '');
+
       const inventoryParts = parts
-        .filter(p =>
-          p.part_number.toLowerCase().includes(searchValue.toLowerCase()) ||
-          p.name.toLowerCase().includes(searchValue.toLowerCase())
-        )
+        .filter(p => {
+          const partNum = p.part_number.toLowerCase().replace(/[-\s]/g, '');
+          const name = p.name.toLowerCase();
+          return partNum.includes(searchLower) ||
+                 name.includes(searchValue.toLowerCase()) ||
+                 p.part_number.toLowerCase().includes(searchValue.toLowerCase());
+        })
         .map(p => ({ ...p, source: 'inventory' }));
 
       const mercuryFiltered = mercuryParts
-        .filter(p =>
-          p.part_number.toLowerCase().includes(searchValue.toLowerCase()) ||
-          p.description.toLowerCase().includes(searchValue.toLowerCase())
-        )
-        .map(p => ({ ...p, source: 'mercury' }));
+        .filter(p => {
+          const partNum = p.part_number.toLowerCase().replace(/[-\s]/g, '');
+          const desc = (p.description || '').toLowerCase();
+          return partNum.includes(searchLower) ||
+                 desc.includes(searchValue.toLowerCase()) ||
+                 p.part_number.toLowerCase().includes(searchValue.toLowerCase());
+        })
+        .map(p => ({ ...p, source: 'mercury', name: p.description }));
 
       const combined = [...inventoryParts, ...mercuryFiltered];
+      console.log('Search results:', {
+        searchValue,
+        searchLower,
+        inventoryCount: inventoryParts.length,
+        mercuryCount: mercuryFiltered.length,
+        totalMercuryParts: mercuryParts.length,
+        sampleMercury: mercuryParts.slice(0, 3).map(p => p.part_number)
+      });
       setFilteredParts(combined);
-      setShowPartDropdown(true);
+      setShowPartDropdown(combined.length > 0);
     } else {
       setFilteredParts([]);
       setShowPartDropdown(false);
@@ -1627,7 +1645,12 @@ export function Estimates({ userId }: EstimatesProps) {
                                 {lineItemFormData.line_type === 'part' && (
                                   <>
                                     <div className="relative part-search-container">
-                                      <label className="block text-sm font-medium text-gray-700 mb-1">Part Number / Name</label>
+                                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Part Number / Name
+                                        <span className="ml-2 text-xs text-gray-500">
+                                          ({parts.length} inventory + {mercuryParts.length} Mercury parts)
+                                        </span>
+                                      </label>
                                       <input
                                         type="text"
                                         value={lineItemFormData.part_number_search}
@@ -1664,10 +1687,10 @@ export function Estimates({ userId }: EstimatesProps) {
                                                 )}
                                               </div>
                                               <div className="text-sm text-gray-600">
-                                                {part.source === 'mercury' ? part.description : part.name}
+                                                {part.source === 'mercury' ? (part.description || part.name) : part.name}
                                               </div>
                                               <div className="text-sm text-green-600 font-medium">
-                                                ${part.source === 'mercury' ? part.msrp.toFixed(2) : part.unit_price.toFixed(2)}
+                                                ${part.source === 'mercury' ? (part.msrp ? part.msrp.toFixed(2) : '0.00') : (part.unit_price ? part.unit_price.toFixed(2) : '0.00')}
                                               </div>
                                               {part.source === 'mercury' && (part.core_charge > 0 || part.container_charge > 0) && (
                                                 <div className="text-xs text-blue-600 mt-1">
