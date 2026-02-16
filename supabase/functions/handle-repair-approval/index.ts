@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
+import { validateUUID } from '../_shared/validation.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -22,6 +23,23 @@ Deno.serve(async (req: Request) => {
     if (!token) {
       return new Response(
         generateErrorPage('Invalid Link', 'This approval link is invalid or incomplete.'),
+        {
+          status: 400,
+          headers: {
+            'Content-Type': 'text/html; charset=utf-8',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'X-Content-Type-Options': 'nosniff',
+            'Content-Disposition': 'inline',
+          },
+        }
+      );
+    }
+
+    try {
+      validateUUID(token, 'token');
+    } catch (error) {
+      return new Response(
+        generateErrorPage('Invalid Token Format', 'This approval link has an invalid format.'),
         {
           status: 400,
           headers: {

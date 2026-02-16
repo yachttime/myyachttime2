@@ -1,24 +1,13 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.57.4';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
-};
+import { parseRequestBody, validateRequired, validateUUID } from '../_shared/validation.ts';
+import { withErrorHandling, successResponse } from '../_shared/response.ts';
 
 interface InvoicePaymentRequest {
   invoiceId: string;
   recaptchaToken?: string;
 }
 
-Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders,
-    });
-  }
-
+Deno.serve(withErrorHandling(async (req: Request) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -40,11 +29,11 @@ Deno.serve(async (req: Request) => {
       throw new Error('Unauthorized');
     }
 
-    const { invoiceId, recaptchaToken }: InvoicePaymentRequest = await req.json();
+    const body = await parseRequestBody<InvoicePaymentRequest>(req);
+    validateRequired(body, ['invoiceId']);
+    validateUUID(body.invoiceId, 'invoiceId');
 
-    if (!invoiceId) {
-      throw new Error('Invoice ID is required');
-    }
+    const { invoiceId, recaptchaToken } = body;
 
     // Verify reCAPTCHA token (anti-fraud compliance requirement)
     if (recaptchaToken) {
@@ -273,33 +262,13 @@ Deno.serve(async (req: Request) => {
       })
       .eq('id', invoiceId);
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        checkoutUrl: sessionData.url,
-        sessionId: sessionData.id,
-      }),
-      {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
+    return successResponse({
+      success: true,
+      checkoutUrl: sessionData.url,
+      sessionId: sessionData.id,
+    });
   } catch (error) {
     console.error('Error creating payment:', error);
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      }),
-      {
-        status: 400,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
+    throw error;
   }
-});
+}));

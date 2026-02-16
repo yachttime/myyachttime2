@@ -1,10 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.57.4';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
-};
+import { parseRequestBody, validateRequired, validateEmailArray, validateStringLength } from '../_shared/validation.ts';
+import { withErrorHandling, successResponse } from '../_shared/response.ts';
 
 interface Attachment {
   filename: string;
@@ -22,14 +18,7 @@ interface BulkEmailRequest {
   attachments?: Attachment[];
 }
 
-Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders,
-    });
-  }
-
+Deno.serve(withErrorHandling(async (req: Request) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -61,15 +50,19 @@ Deno.serve(async (req: Request) => {
       throw new Error('Unauthorized: Only staff, mechanics, managers, and master users can send bulk emails');
     }
 
-    const { recipients, cc_recipients, subject, message, yacht_name, attachments }: BulkEmailRequest = await req.json();
+    const body = await parseRequestBody<BulkEmailRequest>(req);
+    validateRequired(body, ['recipients', 'subject', 'message']);
 
-    if (!recipients || recipients.length === 0) {
-      throw new Error('At least one recipient is required');
+    const recipients = validateEmailArray(body.recipients, 'recipients');
+    validateStringLength(body.subject, 'subject', { min: 1, max: 500 });
+    validateStringLength(body.message, 'message', { min: 1, max: 50000 });
+
+    let cc_recipients: string[] | undefined;
+    if (body.cc_recipients && body.cc_recipients.length > 0) {
+      cc_recipients = validateEmailArray(body.cc_recipients, 'cc_recipients');
     }
 
-    if (!subject || !message) {
-      throw new Error('Subject and message are required');
-    }
+    const { subject, message, yacht_name, attachments } = body;
 
     if (attachments && attachments.length > 0) {
       const maxAttachmentSize = 40 * 1024 * 1024;
@@ -272,33 +265,13 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message: `Email sent successfully to ${recipients.length} recipient${recipients.length > 1 ? 's' : ''}`,
-        emailId: emailData.id,
-      }),
-      {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
+    return successResponse({
+      success: true,
+      message: `Email sent successfully to ${recipients.length} recipient${recipients.length > 1 ? 's' : ''}`,
+      emailId: emailData.id,
+    });
   } catch (error) {
     console.error('Error sending bulk email:', error);
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      }),
-      {
-        status: 400,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
+    throw error;
   }
-});
+}));
