@@ -128,28 +128,57 @@ Deno.serve(async (req: Request) => {
       // Calculate token expiration
       const expiresAt = new Date(Date.now() + (tokenData.expires_in * 1000));
 
-      // Deactivate any existing connections for this company
-      await supabase
+      // Check if connection with this realm_id already exists
+      const { data: existingConnection } = await supabase
         .from('quickbooks_connection')
-        .update({ is_active: false })
-        .eq('company_id', profile.company_id);
+        .select('id')
+        .eq('realm_id', realmId)
+        .maybeSingle();
 
-      // Store connection in database
-      const { error: insertError } = await supabase
-        .from('quickbooks_connection')
-        .insert({
-          company_id: profile.company_id,
-          company_name: companyName,
-          realm_id: realmId,
-          access_token_encrypted: tokenData.access_token,
-          refresh_token_encrypted: tokenData.refresh_token,
-          token_expires_at: expiresAt.toISOString(),
-          is_active: true,
-          created_by: user.id,
-        });
+      if (existingConnection) {
+        // Update existing connection
+        const { error: updateError } = await supabase
+          .from('quickbooks_connection')
+          .update({
+            company_id: profile.company_id,
+            company_name: companyName,
+            access_token_encrypted: tokenData.access_token,
+            refresh_token_encrypted: tokenData.refresh_token,
+            token_expires_at: expiresAt.toISOString(),
+            is_active: true,
+            created_by: user.id,
+            connected_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existingConnection.id);
 
-      if (insertError) {
-        throw insertError;
+        if (updateError) {
+          throw updateError;
+        }
+      } else {
+        // Deactivate any other connections for this company
+        await supabase
+          .from('quickbooks_connection')
+          .update({ is_active: false })
+          .eq('company_id', profile.company_id);
+
+        // Insert new connection
+        const { error: insertError } = await supabase
+          .from('quickbooks_connection')
+          .insert({
+            company_id: profile.company_id,
+            company_name: companyName,
+            realm_id: realmId,
+            access_token_encrypted: tokenData.access_token,
+            refresh_token_encrypted: tokenData.refresh_token,
+            token_expires_at: expiresAt.toISOString(),
+            is_active: true,
+            created_by: user.id,
+          });
+
+        if (insertError) {
+          throw insertError;
+        }
       }
 
       return new Response(
