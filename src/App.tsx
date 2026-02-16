@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { CompanyProvider } from './contexts/CompanyContext';
 import { RoleImpersonationProvider } from './contexts/RoleImpersonationContext';
 import { YachtImpersonationProvider } from './contexts/YachtImpersonationContext';
 import { NotificationProvider } from './contexts/NotificationContext';
@@ -113,13 +114,15 @@ function AppContent() {
 function App() {
   return (
     <AuthProvider>
-      <NotificationProvider>
-        <RoleImpersonationProvider>
-          <YachtImpersonationProvider>
-            <AppContent />
-          </YachtImpersonationProvider>
-        </RoleImpersonationProvider>
-      </NotificationProvider>
+      <CompanyProvider>
+        <NotificationProvider>
+          <RoleImpersonationProvider>
+            <YachtImpersonationProvider>
+              <AppContent />
+            </YachtImpersonationProvider>
+          </RoleImpersonationProvider>
+        </NotificationProvider>
+      </CompanyProvider>
     </AuthProvider>
   );
 }
