@@ -284,6 +284,15 @@ Deno.serve(async (req: Request) => {
               if (emailResponse.ok) {
                 const emailData = await emailResponse.json();
                 console.log(`Deposit confirmation email sent to ${customerEmail}, ID: ${emailData.id}`);
+
+                // Update email tracking
+                await supabase
+                  .from('repair_requests')
+                  .update({
+                    deposit_confirmation_email_sent_at: new Date().toISOString(),
+                    deposit_confirmation_resend_id: emailData.id,
+                  })
+                  .eq('id', repairRequestId);
               } else {
                 const errorText = await emailResponse.text();
                 console.error('Failed to send deposit confirmation email:', errorText);
@@ -292,6 +301,8 @@ Deno.serve(async (req: Request) => {
           } catch (emailError) {
             console.error('Error sending deposit confirmation email:', emailError);
           }
+        } else {
+          console.error('No customer email found for deposit confirmation');
         }
 
         console.log(`Deposit for repair request ${repairRequestId} marked as paid`);
