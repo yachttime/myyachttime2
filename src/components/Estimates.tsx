@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, FileText, AlertCircle, Edit2, Trash2, Check, X, ChevronDown, ChevronUp, Printer, CheckCircle, XCircle } from 'lucide-react';
+import { Plus, FileText, AlertCircle, Edit2, Trash2, Check, X, ChevronDown, ChevronUp, Printer, CheckCircle, XCircle, Package } from 'lucide-react';
 import { generateEstimatePDF } from '../utils/pdfGenerator';
 import { useNotification } from '../contexts/NotificationContext';
 
@@ -129,6 +129,9 @@ export function Estimates({ userId }: EstimatesProps) {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [estimateToDelete, setEstimateToDelete] = useState<string | null>(null);
+  const [packages, setPackages] = useState<any[]>([]);
+  const [showPackageModal, setShowPackageModal] = useState(false);
+  const [selectedPackageId, setSelectedPackageId] = useState<string>('');
 
   useEffect(() => {
     loadData();
@@ -170,7 +173,7 @@ export function Estimates({ userId }: EstimatesProps) {
       setLoading(true);
       setError(null);
 
-      const [estimatesResult, yachtsResult, managersResult, laborResult, partsResult, settingsResult] = await Promise.all([
+      const [estimatesResult, yachtsResult, managersResult, laborResult, partsResult, settingsResult, packagesResult] = await Promise.all([
         supabase
           .from('estimates')
           .select('*, yachts(name)')
@@ -199,7 +202,12 @@ export function Estimates({ userId }: EstimatesProps) {
         supabase
           .from('estimate_settings')
           .select('*')
-          .maybeSingle()
+          .maybeSingle(),
+        supabase
+          .from('estimate_packages')
+          .select('id, name, description')
+          .eq('is_active', true)
+          .order('name')
       ]);
 
       if (estimatesResult.error) throw estimatesResult.error;
@@ -207,12 +215,14 @@ export function Estimates({ userId }: EstimatesProps) {
       if (managersResult.error) throw managersResult.error;
       if (laborResult.error) throw laborResult.error;
       if (partsResult.error) throw partsResult.error;
+      if (packagesResult.error) throw packagesResult.error;
 
       setEstimates(estimatesResult.data || []);
       setYachts(yachtsResult.data || []);
       setManagers(managersResult.data || []);
       setLaborCodes(laborResult.data || []);
       setParts(partsResult.data || []);
+      setPackages(packagesResult.data || []);
 
       if (settingsResult.data) {
         setFormData(prev => ({
@@ -406,6 +416,81 @@ export function Estimates({ userId }: EstimatesProps) {
     const updatedTasks = [...tasks];
     updatedTasks[taskIndex].lineItems = updatedTasks[taskIndex].lineItems.filter((_, i) => i !== lineIndex);
     setTasks(updatedTasks);
+  };
+
+  const handleAddPackage = async () => {
+    if (activeTaskIndex === null || !selectedPackageId) return;
+
+    try {
+      const [packageLaborRes, packagePartsRes] = await Promise.all([
+        supabase
+          .from('estimate_package_labor')
+          .select(`
+            *,
+            labor_code:labor_codes(id, code, name, hourly_rate, is_taxable)
+          `)
+          .eq('package_id', selectedPackageId),
+        supabase
+          .from('estimate_package_parts')
+          .select(`
+            *,
+            part:parts_inventory(id, part_number, name, unit_price, is_taxable)
+          `)
+          .eq('package_id', selectedPackageId)
+      ]);
+
+      if (packageLaborRes.error) throw packageLaborRes.error;
+      if (packagePartsRes.error) throw packagePartsRes.error;
+
+      const updatedTasks = [...tasks];
+      if (!updatedTasks[activeTaskIndex].lineItems) {
+        updatedTasks[activeTaskIndex].lineItems = [];
+      }
+
+      const currentLineOrder = updatedTasks[activeTaskIndex].lineItems.length;
+
+      packageLaborRes.data?.forEach((labor: any, index: number) => {
+        const newLineItem: EstimateLineItem = {
+          line_type: 'labor',
+          description: labor.description || labor.labor_code?.name || '',
+          quantity: labor.hours,
+          unit_price: labor.rate,
+          total_price: labor.hours * labor.rate,
+          is_taxable: labor.labor_code?.is_taxable || false,
+          labor_code_id: labor.labor_code_id,
+          part_id: null,
+          line_order: currentLineOrder + index,
+          work_details: null
+        };
+        updatedTasks[activeTaskIndex].lineItems.push(newLineItem);
+      });
+
+      const laborItemCount = packageLaborRes.data?.length || 0;
+      packagePartsRes.data?.forEach((part: any, index: number) => {
+        const newLineItem: EstimateLineItem = {
+          line_type: 'part',
+          description: part.description || `${part.part?.part_number} - ${part.part?.name}` || '',
+          quantity: part.quantity,
+          unit_price: part.unit_price,
+          total_price: part.quantity * part.unit_price,
+          is_taxable: part.part?.is_taxable || false,
+          labor_code_id: null,
+          part_id: part.part_id,
+          line_order: currentLineOrder + laborItemCount + index,
+          work_details: null
+        };
+        updatedTasks[activeTaskIndex].lineItems.push(newLineItem);
+      });
+
+      setTasks(updatedTasks);
+      setShowPackageModal(false);
+      setSelectedPackageId('');
+      setActiveTaskIndex(null);
+      showSuccess('Package added successfully');
+    } catch (error) {
+      console.error('Error adding package:', error);
+      showError('Failed to add package');
+    }
   };
 
   const handleLaborCodeChange = (laborCodeId: string) => {
@@ -1369,17 +1454,32 @@ export function Estimates({ userId }: EstimatesProps) {
                         <div className="p-4 bg-white">
                           <div className="flex justify-between items-center mb-3">
                             <span className="text-sm font-medium text-gray-700">Line Items</span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setActiveTaskIndex(taskIndex);
-                                setShowLineItemForm(true);
-                              }}
-                              className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                            >
-                              <Plus className="w-4 h-4" />
-                              Add Line
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveTaskIndex(taskIndex);
+                                  setShowLineItemForm(true);
+                                }}
+                                className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                              >
+                                <Plus className="w-4 h-4" />
+                                Add Line
+                              </button>
+                              {packages.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveTaskIndex(taskIndex);
+                                    setShowPackageModal(true);
+                                  }}
+                                  className="text-sm text-green-600 hover:text-green-700 flex items-center gap-1"
+                                >
+                                  <Package className="w-4 h-4" />
+                                  Add Package
+                                </button>
+                              )}
+                            </div>
                           </div>
 
                           {task.lineItems.length > 0 && (
@@ -2042,6 +2142,75 @@ export function Estimates({ userId }: EstimatesProps) {
                 className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
               >
                 Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPackageModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div className="flex items-center gap-2">
+                <Package className="w-6 h-6 text-green-600" />
+                <h3 className="text-xl font-bold text-gray-900">Add Package</h3>
+              </div>
+              <button
+                onClick={() => {
+                  setShowPackageModal(false);
+                  setSelectedPackageId('');
+                  setActiveTaskIndex(null);
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Select Package
+                </label>
+                <select
+                  value={selectedPackageId}
+                  onChange={(e) => setSelectedPackageId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  required
+                >
+                  <option value="">Choose a package...</option>
+                  {packages.map((pkg) => (
+                    <option key={pkg.id} value={pkg.id}>
+                      {pkg.name}
+                    </option>
+                  ))}
+                </select>
+                {selectedPackageId && packages.find(p => p.id === selectedPackageId)?.description && (
+                  <p className="mt-2 text-sm text-gray-600">
+                    {packages.find(p => p.id === selectedPackageId)?.description}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="flex gap-3 p-6 border-t border-gray-200">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPackageModal(false);
+                  setSelectedPackageId('');
+                  setActiveTaskIndex(null);
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleAddPackage}
+                disabled={!selectedPackageId}
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Add Package
               </button>
             </div>
           </div>

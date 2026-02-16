@@ -1,0 +1,676 @@
+import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
+import { Plus, Edit2, Trash2, X, Package, Wrench, Box } from 'lucide-react';
+
+interface EstimatePackage {
+  id: string;
+  name: string;
+  description: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+interface PackageLabor {
+  id: string;
+  package_id: string;
+  labor_code_id: string;
+  hours: number;
+  rate: number;
+  description: string;
+  labor_code?: {
+    code: string;
+    name: string;
+    default_rate: number;
+  };
+}
+
+interface PackagePart {
+  id: string;
+  package_id: string;
+  part_id: string;
+  quantity: number;
+  unit_price: number;
+  description: string;
+  part?: {
+    part_number: string;
+    description: string;
+    unit_price: number;
+  };
+}
+
+interface LaborCode {
+  id: string;
+  code: string;
+  name: string;
+  default_rate: number;
+}
+
+interface Part {
+  id: string;
+  part_number: string;
+  description: string;
+  unit_price: number;
+}
+
+interface EstimatePackagesProps {
+  userId: string;
+}
+
+export function EstimatePackages({ userId }: EstimatePackagesProps) {
+  const [packages, setPackages] = useState<EstimatePackage[]>([]);
+  const [laborCodes, setLaborCodes] = useState<LaborCode[]>([]);
+  const [parts, setParts] = useState<Part[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [editingPackage, setEditingPackage] = useState<EstimatePackage | null>(null);
+  const [selectedPackage, setSelectedPackage] = useState<string | null>(null);
+  const [packageLabor, setPackageLabor] = useState<PackageLabor[]>([]);
+  const [packageParts, setPackageParts] = useState<PackagePart[]>([]);
+
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    is_active: true
+  });
+
+  const [laborFormData, setLaborFormData] = useState({
+    labor_code_id: '',
+    hours: 1,
+    rate: 0,
+    description: ''
+  });
+
+  const [partFormData, setPartFormData] = useState({
+    part_id: '',
+    quantity: 1,
+    unit_price: 0,
+    description: ''
+  });
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  useEffect(() => {
+    if (selectedPackage) {
+      fetchPackageItems(selectedPackage);
+    }
+  }, [selectedPackage]);
+
+  async function fetchData() {
+    try {
+      const [packagesRes, laborCodesRes, partsRes] = await Promise.all([
+        supabase.from('estimate_packages').select('*').order('name'),
+        supabase.from('labor_codes').select('id, code, name, default_rate').eq('is_active', true).order('code'),
+        supabase.from('parts_inventory').select('id, part_number, description, unit_price').order('part_number')
+      ]);
+
+      if (packagesRes.data) setPackages(packagesRes.data);
+      if (laborCodesRes.data) setLaborCodes(laborCodesRes.data);
+      if (partsRes.data) setParts(partsRes.data);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function fetchPackageItems(packageId: string) {
+    try {
+      const [laborRes, partsRes] = await Promise.all([
+        supabase
+          .from('estimate_package_labor')
+          .select(`
+            *,
+            labor_code:labor_codes(code, name, default_rate)
+          `)
+          .eq('package_id', packageId),
+        supabase
+          .from('estimate_package_parts')
+          .select(`
+            *,
+            part:parts_inventory(part_number, description, unit_price)
+          `)
+          .eq('package_id', packageId)
+      ]);
+
+      if (laborRes.data) setPackageLabor(laborRes.data as PackageLabor[]);
+      if (partsRes.data) setPackageParts(partsRes.data as PackagePart[]);
+    } catch (error) {
+      console.error('Error fetching package items:', error);
+    }
+  }
+
+  function openModal(pkg?: EstimatePackage) {
+    if (pkg) {
+      setEditingPackage(pkg);
+      setFormData({
+        name: pkg.name,
+        description: pkg.description,
+        is_active: pkg.is_active
+      });
+    } else {
+      setEditingPackage(null);
+      setFormData({
+        name: '',
+        description: '',
+        is_active: true
+      });
+    }
+    setShowModal(true);
+  }
+
+  function closeModal() {
+    setShowModal(false);
+    setEditingPackage(null);
+    setFormData({
+      name: '',
+      description: '',
+      is_active: true
+    });
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+
+    try {
+      if (editingPackage) {
+        const { error } = await supabase
+          .from('estimate_packages')
+          .update({
+            ...formData,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', editingPackage.id);
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('estimate_packages')
+          .insert({
+            ...formData,
+            created_by: userId
+          });
+
+        if (error) throw error;
+      }
+
+      closeModal();
+      fetchData();
+    } catch (error) {
+      console.error('Error saving package:', error);
+      alert('Error saving package');
+    }
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm('Are you sure you want to delete this package?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('estimate_packages')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      if (selectedPackage === id) {
+        setSelectedPackage(null);
+        setPackageLabor([]);
+        setPackageParts([]);
+      }
+      fetchData();
+    } catch (error) {
+      console.error('Error deleting package:', error);
+      alert('Error deleting package');
+    }
+  }
+
+  async function addLaborToPackage(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selectedPackage || !laborFormData.labor_code_id) return;
+
+    try {
+      const selectedLabor = laborCodes.find(lc => lc.id === laborFormData.labor_code_id);
+
+      const { error } = await supabase
+        .from('estimate_package_labor')
+        .insert({
+          package_id: selectedPackage,
+          labor_code_id: laborFormData.labor_code_id,
+          hours: laborFormData.hours,
+          rate: laborFormData.rate || selectedLabor?.default_rate || 0,
+          description: laborFormData.description
+        });
+
+      if (error) throw error;
+
+      setLaborFormData({
+        labor_code_id: '',
+        hours: 1,
+        rate: 0,
+        description: ''
+      });
+      fetchPackageItems(selectedPackage);
+    } catch (error) {
+      console.error('Error adding labor:', error);
+      alert('Error adding labor to package');
+    }
+  }
+
+  async function addPartToPackage(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selectedPackage || !partFormData.part_id) return;
+
+    try {
+      const selectedPart = parts.find(p => p.id === partFormData.part_id);
+
+      const { error } = await supabase
+        .from('estimate_package_parts')
+        .insert({
+          package_id: selectedPackage,
+          part_id: partFormData.part_id,
+          quantity: partFormData.quantity,
+          unit_price: partFormData.unit_price || selectedPart?.unit_price || 0,
+          description: partFormData.description
+        });
+
+      if (error) throw error;
+
+      setPartFormData({
+        part_id: '',
+        quantity: 1,
+        unit_price: 0,
+        description: ''
+      });
+      fetchPackageItems(selectedPackage);
+    } catch (error) {
+      console.error('Error adding part:', error);
+      alert('Error adding part to package');
+    }
+  }
+
+  async function removeLabor(id: string) {
+    if (!confirm('Remove this labor from the package?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('estimate_package_labor')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      if (selectedPackage) fetchPackageItems(selectedPackage);
+    } catch (error) {
+      console.error('Error removing labor:', error);
+    }
+  }
+
+  async function removePart(id: string) {
+    if (!confirm('Remove this part from the package?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('estimate_package_parts')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      if (selectedPackage) fetchPackageItems(selectedPackage);
+    } catch (error) {
+      console.error('Error removing part:', error);
+    }
+  }
+
+  function handleLaborCodeChange(laborCodeId: string) {
+    const selectedLabor = laborCodes.find(lc => lc.id === laborCodeId);
+    setLaborFormData({
+      ...laborFormData,
+      labor_code_id: laborCodeId,
+      rate: selectedLabor?.default_rate || 0
+    });
+  }
+
+  function handlePartChange(partId: string) {
+    const selectedPart = parts.find(p => p.id === partId);
+    setPartFormData({
+      ...partFormData,
+      part_id: partId,
+      unit_price: selectedPart?.unit_price || 0
+    });
+  }
+
+  const calculatePackageTotal = () => {
+    const laborTotal = packageLabor.reduce((sum, labor) => sum + (labor.hours * labor.rate), 0);
+    const partsTotal = packageParts.reduce((sum, part) => sum + (part.quantity * part.unit_price), 0);
+    return laborTotal + partsTotal;
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-gray-500">Loading packages...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Estimate Packages</h2>
+          <p className="text-gray-600 mt-1">Create package templates with labor and parts</p>
+        </div>
+        <button
+          onClick={() => openModal()}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+        >
+          <Plus className="w-4 h-4" />
+          New Package
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          <div className="p-4 border-b border-gray-200">
+            <h3 className="font-semibold text-gray-900">Available Packages</h3>
+          </div>
+          <div className="divide-y divide-gray-200">
+            {packages.length === 0 ? (
+              <div className="p-8 text-center text-gray-500">
+                No packages created yet
+              </div>
+            ) : (
+              packages.map((pkg) => (
+                <div
+                  key={pkg.id}
+                  className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
+                    selectedPackage === pkg.id ? 'bg-blue-50' : ''
+                  }`}
+                  onClick={() => setSelectedPackage(pkg.id)}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <Package className="w-4 h-4 text-gray-400" />
+                        <span className="font-semibold text-gray-900">{pkg.name}</span>
+                        {!pkg.is_active && (
+                          <span className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded">
+                            Inactive
+                          </span>
+                        )}
+                      </div>
+                      {pkg.description && (
+                        <p className="text-sm text-gray-600 mt-1">{pkg.description}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openModal(pkg);
+                        }}
+                        className="p-1 text-gray-400 hover:text-blue-600"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(pkg.id);
+                        }}
+                        className="p-1 text-gray-400 hover:text-red-600"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          <div className="p-4 border-b border-gray-200">
+            <h3 className="font-semibold text-gray-900">
+              {selectedPackage ? 'Package Details' : 'Select a Package'}
+            </h3>
+          </div>
+          {selectedPackage ? (
+            <div className="p-4 space-y-6">
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-medium text-gray-900 flex items-center gap-2">
+                    <Wrench className="w-4 h-4" />
+                    Labor Items
+                  </h4>
+                </div>
+                <form onSubmit={addLaborToPackage} className="space-y-3 mb-4 p-3 bg-gray-50 rounded-lg">
+                  <div className="grid grid-cols-2 gap-3">
+                    <select
+                      value={laborFormData.labor_code_id}
+                      onChange={(e) => handleLaborCodeChange(e.target.value)}
+                      className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      required
+                    >
+                      <option value="">Select Labor Code</option>
+                      {laborCodes.map(lc => (
+                        <option key={lc.id} value={lc.id}>
+                          {lc.code} - {lc.name}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      placeholder="Hours"
+                      value={laborFormData.hours}
+                      onChange={(e) => setLaborFormData({...laborFormData, hours: parseFloat(e.target.value) || 0})}
+                      className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      step="0.25"
+                      min="0"
+                      required
+                    />
+                  </div>
+                  <input
+                    type="number"
+                    placeholder="Rate (optional)"
+                    value={laborFormData.rate}
+                    onChange={(e) => setLaborFormData({...laborFormData, rate: parseFloat(e.target.value) || 0})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    step="0.01"
+                    min="0"
+                  />
+                  <button
+                    type="submit"
+                    className="w-full px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+                  >
+                    <Plus className="w-4 h-4 inline mr-1" />
+                    Add Labor
+                  </button>
+                </form>
+                <div className="space-y-2">
+                  {packageLabor.map(labor => (
+                    <div key={labor.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                      <div className="flex-1">
+                        <div className="text-sm font-medium text-gray-900">
+                          {labor.labor_code?.code} - {labor.labor_code?.name}
+                        </div>
+                        <div className="text-xs text-gray-600">
+                          {labor.hours}h @ ${labor.rate}/hr = ${(labor.hours * labor.rate).toFixed(2)}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => removeLabor(labor.id)}
+                        className="p-1 text-red-600 hover:bg-red-50 rounded"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                  {packageLabor.length === 0 && (
+                    <div className="text-sm text-gray-500 text-center py-2">No labor items</div>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-medium text-gray-900 flex items-center gap-2">
+                    <Box className="w-4 h-4" />
+                    Parts
+                  </h4>
+                </div>
+                <form onSubmit={addPartToPackage} className="space-y-3 mb-4 p-3 bg-gray-50 rounded-lg">
+                  <div className="grid grid-cols-2 gap-3">
+                    <select
+                      value={partFormData.part_id}
+                      onChange={(e) => handlePartChange(e.target.value)}
+                      className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      required
+                    >
+                      <option value="">Select Part</option>
+                      {parts.map(part => (
+                        <option key={part.id} value={part.id}>
+                          {part.part_number} - {part.description}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      placeholder="Quantity"
+                      value={partFormData.quantity}
+                      onChange={(e) => setPartFormData({...partFormData, quantity: parseFloat(e.target.value) || 0})}
+                      className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      step="0.1"
+                      min="0"
+                      required
+                    />
+                  </div>
+                  <input
+                    type="number"
+                    placeholder="Unit Price (optional)"
+                    value={partFormData.unit_price}
+                    onChange={(e) => setPartFormData({...partFormData, unit_price: parseFloat(e.target.value) || 0})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    step="0.01"
+                    min="0"
+                  />
+                  <button
+                    type="submit"
+                    className="w-full px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+                  >
+                    <Plus className="w-4 h-4 inline mr-1" />
+                    Add Part
+                  </button>
+                </form>
+                <div className="space-y-2">
+                  {packageParts.map(part => (
+                    <div key={part.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                      <div className="flex-1">
+                        <div className="text-sm font-medium text-gray-900">
+                          {part.part?.part_number} - {part.part?.description}
+                        </div>
+                        <div className="text-xs text-gray-600">
+                          Qty: {part.quantity} @ ${part.unit_price} = ${(part.quantity * part.unit_price).toFixed(2)}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => removePart(part.id)}
+                        className="p-1 text-red-600 hover:bg-red-50 rounded"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                  {packageParts.length === 0 && (
+                    <div className="text-sm text-gray-500 text-center py-2">No parts</div>
+                  )}
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-gray-200">
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold text-gray-900">Package Total</span>
+                  <span className="text-xl font-bold text-gray-900">
+                    ${calculatePackageTotal().toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="p-8 text-center text-gray-500">
+              Select a package to view and edit its items
+            </div>
+          )}
+        </div>
+      </div>
+
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h3 className="text-xl font-bold text-gray-900">
+                {editingPackage ? 'Edit Package' : 'New Package'}
+              </h3>
+              <button onClick={closeModal} className="text-gray-400 hover:text-gray-600">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Package Name *
+                </label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Description
+                </label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  rows={3}
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="is_active"
+                  checked={formData.is_active}
+                  onChange={(e) => setFormData({...formData, is_active: e.target.checked})}
+                  className="rounded border-gray-300"
+                />
+                <label htmlFor="is_active" className="text-sm text-gray-700">
+                  Active
+                </label>
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  {editingPackage ? 'Update' : 'Create'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
