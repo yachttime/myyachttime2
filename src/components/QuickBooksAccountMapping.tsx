@@ -156,11 +156,13 @@ export default function QuickBooksAccountMapping() {
         body: JSON.stringify({ action: 'get_auth_url' }),
       });
 
+      const result = await response.json();
+
       if (!response.ok) {
-        throw new Error('Failed to get QuickBooks authorization URL');
+        throw new Error(result.error || 'Failed to get QuickBooks authorization URL');
       }
 
-      const { authUrl } = await response.json();
+      const { authUrl } = result;
 
       // Open QuickBooks OAuth in new window
       window.open(authUrl, '_blank', 'width=800,height=600');
@@ -225,8 +227,10 @@ export default function QuickBooksAccountMapping() {
         body: JSON.stringify({ action: 'disconnect' }),
       });
 
+      const result = await response.json();
+
       if (!response.ok) {
-        throw new Error('Failed to disconnect from QuickBooks');
+        throw new Error(result.error || 'Failed to disconnect from QuickBooks');
       }
 
       setSuccess('Disconnected from QuickBooks successfully');
