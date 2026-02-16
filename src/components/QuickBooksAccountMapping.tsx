@@ -139,25 +139,20 @@ export default function QuickBooksAccountMapping() {
   };
 
   const connectToQuickBooks = async () => {
+    console.log('[QuickBooks] connectToQuickBooks called');
     setError(null);
     setSuccess(null);
 
-    // Open popup window IMMEDIATELY (before async calls) to avoid popup blockers
-    const authWindow = window.open('about:blank', 'QuickBooksAuth', 'width=800,height=600');
-
-    if (!authWindow) {
-      setError('Failed to open authorization window. Please check your popup blocker settings.');
-      return;
-    }
+    let authWindow: Window | null = null;
 
     try {
+      console.log('[QuickBooks] Getting session...');
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        authWindow.close();
         throw new Error('Not authenticated');
       }
 
-      console.log('[QuickBooks] Requesting auth URL...');
+      console.log('[QuickBooks] Session obtained, requesting auth URL...');
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/quickbooks-oauth`, {
         method: 'POST',
         headers: {
@@ -167,20 +162,25 @@ export default function QuickBooksAccountMapping() {
         body: JSON.stringify({ action: 'get_auth_url' }),
       });
 
+      console.log('[QuickBooks] Response status:', response.status);
       const result = await response.json();
-      console.log('[QuickBooks] Response:', result);
+      console.log('[QuickBooks] Response data:', result);
 
       if (!response.ok) {
-        authWindow.close();
         throw new Error(result.error || 'Failed to get QuickBooks authorization URL');
       }
 
       const { authUrl } = result;
-      console.log('[QuickBooks] Navigating auth window to:', authUrl);
+      console.log('[QuickBooks] Auth URL obtained:', authUrl);
 
-      // Navigate the already-open popup to the auth URL
-      authWindow.location.href = authUrl;
+      // Now open the popup with the auth URL
+      authWindow = window.open(authUrl, 'QuickBooksAuth', 'width=800,height=600');
 
+      if (!authWindow) {
+        throw new Error('Failed to open authorization window. Please check your popup blocker settings.');
+      }
+
+      console.log('[QuickBooks] Popup opened successfully');
       setSuccess('Opening QuickBooks authorization window. After connecting, click "Sync Accounts" to load your Chart of Accounts.');
 
       // Listen for messages from the callback window
