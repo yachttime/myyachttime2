@@ -141,9 +141,19 @@ export default function QuickBooksAccountMapping() {
   const connectToQuickBooks = async () => {
     setError(null);
     setSuccess(null);
+
+    // Open popup window IMMEDIATELY (before async calls) to avoid popup blockers
+    const authWindow = window.open('about:blank', 'QuickBooksAuth', 'width=800,height=600');
+
+    if (!authWindow) {
+      setError('Failed to open authorization window. Please check your popup blocker settings.');
+      return;
+    }
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
+        authWindow.close();
         throw new Error('Not authenticated');
       }
 
@@ -161,18 +171,15 @@ export default function QuickBooksAccountMapping() {
       console.log('[QuickBooks] Response:', result);
 
       if (!response.ok) {
+        authWindow.close();
         throw new Error(result.error || 'Failed to get QuickBooks authorization URL');
       }
 
       const { authUrl } = result;
-      console.log('[QuickBooks] Opening auth window with URL:', authUrl);
+      console.log('[QuickBooks] Navigating auth window to:', authUrl);
 
-      // Open QuickBooks OAuth in new window
-      const authWindow = window.open(authUrl, 'QuickBooksAuth', 'width=800,height=600');
-
-      if (!authWindow) {
-        throw new Error('Failed to open authorization window. Please check your popup blocker settings.');
-      }
+      // Navigate the already-open popup to the auth URL
+      authWindow.location.href = authUrl;
 
       setSuccess('Opening QuickBooks authorization window. After connecting, click "Sync Accounts" to load your Chart of Accounts.');
 
