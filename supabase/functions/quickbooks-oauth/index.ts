@@ -6,6 +6,51 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
+const DISCOVERY_DOCUMENT_URL = 'https://developer.api.intuit.com/.well-known/openid_configuration/';
+
+let cachedEndpoints: {
+  authorization_endpoint: string;
+  token_endpoint: string;
+  revocation_endpoint: string;
+  issuer: string;
+  userinfo_endpoint: string;
+} | null = null;
+
+async function getOAuthEndpoints() {
+  if (cachedEndpoints) {
+    return cachedEndpoints;
+  }
+
+  try {
+    const response = await fetch(DISCOVERY_DOCUMENT_URL);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch discovery document: ${response.statusText}`);
+    }
+
+    const discoveryDoc = await response.json();
+    cachedEndpoints = {
+      authorization_endpoint: discoveryDoc.authorization_endpoint,
+      token_endpoint: discoveryDoc.token_endpoint,
+      revocation_endpoint: discoveryDoc.revocation_endpoint,
+      issuer: discoveryDoc.issuer,
+      userinfo_endpoint: discoveryDoc.userinfo_endpoint,
+    };
+
+    console.log('OAuth endpoints loaded from discovery document:', cachedEndpoints);
+    return cachedEndpoints;
+  } catch (error) {
+    console.error('Failed to fetch discovery document, using fallback endpoints:', error);
+    cachedEndpoints = {
+      authorization_endpoint: 'https://appcenter.intuit.com/connect/oauth2',
+      token_endpoint: 'https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer',
+      revocation_endpoint: 'https://developer.api.intuit.com/v2/oauth2/tokens/revoke',
+      issuer: 'https://oauth.platform.intuit.com/op/v1',
+      userinfo_endpoint: 'https://accounts.platform.intuit.com/v1/openid_connect/userinfo',
+    };
+    return cachedEndpoints;
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, {
@@ -62,8 +107,11 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === 'get_auth_url') {
+      // Get OAuth endpoints from discovery document
+      const endpoints = await getOAuthEndpoints();
+
       // Generate authorization URL
-      const authUrl = new URL('https://appcenter.intuit.com/connect/oauth2');
+      const authUrl = new URL(endpoints.authorization_endpoint);
       authUrl.searchParams.set('client_id', clientId);
       authUrl.searchParams.set('scope', 'com.intuit.quickbooks.accounting');
       authUrl.searchParams.set('redirect_uri', redirectUri);
@@ -82,12 +130,13 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === 'exchange_token') {
-      // Exchange authorization code for access token
-      const tokenUrl = 'https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer';
+      // Get OAuth endpoints from discovery document
+      const endpoints = await getOAuthEndpoints();
 
+      // Exchange authorization code for access token
       const basicAuth = btoa(`${clientId}:${clientSecret}`);
 
-      const tokenResponse = await fetch(tokenUrl, {
+      const tokenResponse = await fetch(endpoints.token_endpoint, {
         method: 'POST',
         headers: {
           'Authorization': `Basic ${basicAuth}`,
@@ -209,11 +258,13 @@ Deno.serve(async (req: Request) => {
         throw new Error('No active QuickBooks connection found');
       }
 
+      // Get OAuth endpoints from discovery document
+      const endpoints = await getOAuthEndpoints();
+
       // Refresh the access token
-      const tokenUrl = 'https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer';
       const basicAuth = btoa(`${clientId}:${clientSecret}`);
 
-      const refreshResponse = await fetch(tokenUrl, {
+      const refreshResponse = await fetch(endpoints.token_endpoint, {
         method: 'POST',
         headers: {
           'Authorization': `Basic ${basicAuth}`,
