@@ -149,6 +149,7 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
         description: pkg.description,
         is_active: pkg.is_active
       });
+      setSelectedPackage(pkg.id);
     } else {
       setEditingPackage(null);
       setFormData({
