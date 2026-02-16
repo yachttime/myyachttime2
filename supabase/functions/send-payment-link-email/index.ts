@@ -10,6 +10,7 @@ interface EmailRequest {
   invoiceId: string;
   recipientEmail: string;
   recipientName?: string;
+  recaptchaToken?: string;
 }
 
 Deno.serve(async (req: Request) => {
@@ -37,10 +38,28 @@ Deno.serve(async (req: Request) => {
       throw new Error('Unauthorized');
     }
 
-    const { invoiceId, recipientEmail, recipientName }: EmailRequest = await req.json();
+    const { invoiceId, recipientEmail, recipientName, recaptchaToken }: EmailRequest = await req.json();
 
     if (!invoiceId || !recipientEmail) {
       throw new Error('Invoice ID and recipient email are required');
+    }
+
+    // Verify reCAPTCHA token (anti-fraud compliance requirement)
+    if (recaptchaToken) {
+      const verifyUrl = `${supabaseUrl}/functions/v1/verify-recaptcha`;
+      const verifyResponse = await fetch(verifyUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: recaptchaToken })
+      });
+
+      const verifyResult = await verifyResponse.json();
+
+      if (!verifyResult.success) {
+        throw new Error('reCAPTCHA verification failed. Please try again.');
+      }
+
+      console.log('reCAPTCHA verified successfully for payment link email');
     }
 
     // Validate email format

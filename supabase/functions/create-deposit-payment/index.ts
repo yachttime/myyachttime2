@@ -8,6 +8,7 @@ const corsHeaders = {
 
 interface DepositPaymentRequest {
   repairRequestId: string;
+  recaptchaToken?: string;
 }
 
 Deno.serve(async (req: Request) => {
@@ -39,10 +40,28 @@ Deno.serve(async (req: Request) => {
       throw new Error('Unauthorized');
     }
 
-    const { repairRequestId }: DepositPaymentRequest = await req.json();
+    const { repairRequestId, recaptchaToken }: DepositPaymentRequest = await req.json();
 
     if (!repairRequestId) {
       throw new Error('Repair request ID is required');
+    }
+
+    // Verify reCAPTCHA token (anti-fraud compliance requirement)
+    if (recaptchaToken) {
+      const verifyUrl = `${supabaseUrl}/functions/v1/verify-recaptcha`;
+      const verifyResponse = await fetch(verifyUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: recaptchaToken })
+      });
+
+      const verifyResult = await verifyResponse.json();
+
+      if (!verifyResult.success) {
+        throw new Error('reCAPTCHA verification failed. Please try again.');
+      }
+
+      console.log('reCAPTCHA verified successfully for deposit payment');
     }
 
     // Fetch repair request details
