@@ -133,6 +133,7 @@ Deno.serve(async (req: Request) => {
           classification: account.Classification || null,
           account_number: account.AcctNum || null,
           description: account.Description || null,
+          company_id: profile.company_id,
           last_synced_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         };
