@@ -7,6 +7,7 @@ import { AccountingCodes } from './AccountingCodes';
 import { LaborCodes } from './LaborCodes';
 import { EstimateTaxSettings } from './EstimateTaxSettings';
 import { EstimatePackages } from './EstimatePackages';
+import { MercuryPartsManager } from './MercuryPartsManager';
 import { supabase } from '../lib/supabase';
 
 interface EstimatingDashboardProps {
@@ -50,13 +51,32 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
     { id: 'settings' as TabType, label: 'Settings', icon: Settings }
   ];
 
-  const [settingsSubTab, setSettingsSubTab] = useState<'labor' | 'accounting' | 'taxes' | 'packages'>('labor');
+  const [settingsSubTab, setSettingsSubTab] = useState<'labor' | 'accounting' | 'taxes' | 'packages' | 'mercury'>('labor');
+  const [userRole, setUserRole] = useState<string>('');
 
   useEffect(() => {
     if (activeTab === 'dashboard') {
       fetchDashboardStats();
     }
-  }, [activeTab]);
+    fetchUserRole();
+  }, [activeTab, userId]);
+
+  async function fetchUserRole() {
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('role')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (data) {
+        setUserRole(data.role);
+      }
+    } catch (error) {
+      console.error('Error fetching user role:', error);
+    }
+  }
 
   async function fetchDashboardStats() {
     try {
@@ -325,6 +345,16 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
                   >
                     Packages
                   </button>
+                  <button
+                    onClick={() => setSettingsSubTab('mercury')}
+                    className={`px-4 py-2 text-sm font-medium border-b-2 ${
+                      settingsSubTab === 'mercury'
+                        ? 'border-blue-600 text-blue-600'
+                        : 'border-transparent text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Mercury Parts
+                  </button>
                 </nav>
               </div>
             </div>
@@ -333,6 +363,7 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
             {settingsSubTab === 'accounting' && <AccountingCodes userId={userId} />}
             {settingsSubTab === 'taxes' && <EstimateTaxSettings userId={userId} />}
             {settingsSubTab === 'packages' && <EstimatePackages userId={userId} />}
+            {settingsSubTab === 'mercury' && <MercuryPartsManager userId={userId} userRole={userRole} />}
           </div>
         )}
       </div>

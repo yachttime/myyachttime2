@@ -114,12 +114,17 @@ export function Estimates({ userId }: EstimatesProps) {
     labor_code_id: '',
     part_id: '',
     part_number_search: '',
-    work_details: ''
+    work_details: '',
+    mercury_part_id: '',
+    part_source: 'custom' as 'inventory' | 'mercury' | 'custom',
+    core_charge_amount: '0',
+    container_charge_amount: '0'
   });
   const [showAutoSaveIndicator, setShowAutoSaveIndicator] = useState(false);
-  const [filteredParts, setFilteredParts] = useState<typeof parts>([]);
+  const [filteredParts, setFilteredParts] = useState<any[]>([]);
   const [showPartDropdown, setShowPartDropdown] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [mercuryParts, setMercuryParts] = useState<any[]>([]);
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [estimateToApprove, setEstimateToApprove] = useState<string | null>(null);
   const [showDenyModal, setShowDenyModal] = useState(false);
@@ -173,7 +178,7 @@ export function Estimates({ userId }: EstimatesProps) {
       setLoading(true);
       setError(null);
 
-      const [estimatesResult, yachtsResult, managersResult, laborResult, partsResult, settingsResult, packagesResult] = await Promise.all([
+      const [estimatesResult, yachtsResult, managersResult, laborResult, partsResult, mercuryResult, settingsResult, packagesResult] = await Promise.all([
         supabase
           .from('estimates')
           .select('*, yachts(name)')
@@ -200,6 +205,11 @@ export function Estimates({ userId }: EstimatesProps) {
           .eq('is_active', true)
           .order('part_number'),
         supabase
+          .from('mercury_marine_parts')
+          .select('id, part_number, description, msrp, item_status, core_charge, container_charge, superseded_part_number, is_active')
+          .eq('is_active', true)
+          .order('part_number'),
+        supabase
           .from('estimate_settings')
           .select('*')
           .maybeSingle(),
@@ -215,6 +225,7 @@ export function Estimates({ userId }: EstimatesProps) {
       if (managersResult.error) throw managersResult.error;
       if (laborResult.error) throw laborResult.error;
       if (partsResult.error) throw partsResult.error;
+      if (mercuryResult.error) throw mercuryResult.error;
       if (packagesResult.error) throw packagesResult.error;
 
       setEstimates(estimatesResult.data || []);
@@ -222,6 +233,7 @@ export function Estimates({ userId }: EstimatesProps) {
       setManagers(managersResult.data || []);
       setLaborCodes(laborResult.data || []);
       setParts(partsResult.data || []);
+      setMercuryParts(mercuryResult.data || []);
       setPackages(packagesResult.data || []);
 
       if (settingsResult.data) {
@@ -524,15 +536,27 @@ export function Estimates({ userId }: EstimatesProps) {
     setLineItemFormData({
       ...lineItemFormData,
       part_number_search: searchValue,
-      part_id: ''
+      part_id: '',
+      mercury_part_id: ''
     });
 
     if (searchValue.trim()) {
-      const filtered = parts.filter(p =>
-        p.part_number.toLowerCase().includes(searchValue.toLowerCase()) ||
-        p.name.toLowerCase().includes(searchValue.toLowerCase())
-      );
-      setFilteredParts(filtered);
+      const inventoryParts = parts
+        .filter(p =>
+          p.part_number.toLowerCase().includes(searchValue.toLowerCase()) ||
+          p.name.toLowerCase().includes(searchValue.toLowerCase())
+        )
+        .map(p => ({ ...p, source: 'inventory' }));
+
+      const mercuryFiltered = mercuryParts
+        .filter(p =>
+          p.part_number.toLowerCase().includes(searchValue.toLowerCase()) ||
+          p.description.toLowerCase().includes(searchValue.toLowerCase())
+        )
+        .map(p => ({ ...p, source: 'mercury' }));
+
+      const combined = [...inventoryParts, ...mercuryFiltered];
+      setFilteredParts(combined);
       setShowPartDropdown(true);
     } else {
       setFilteredParts([]);
@@ -540,15 +564,34 @@ export function Estimates({ userId }: EstimatesProps) {
     }
   };
 
-  const handleSelectPartFromDropdown = (part: typeof parts[0]) => {
-    setLineItemFormData({
-      ...lineItemFormData,
-      part_id: part.id,
-      part_number_search: part.part_number,
-      description: `${part.part_number} - ${part.name}`,
-      unit_price: part.unit_price.toString(),
-      is_taxable: part.is_taxable
-    });
+  const handleSelectPartFromDropdown = (part: any) => {
+    if (part.source === 'mercury') {
+      setLineItemFormData({
+        ...lineItemFormData,
+        mercury_part_id: part.id,
+        part_id: '',
+        part_number_search: part.part_number,
+        description: `${part.part_number} - ${part.description}`,
+        unit_price: part.msrp.toString(),
+        is_taxable: true,
+        part_source: 'mercury',
+        core_charge_amount: part.core_charge?.toString() || '0',
+        container_charge_amount: part.container_charge?.toString() || '0'
+      });
+    } else {
+      setLineItemFormData({
+        ...lineItemFormData,
+        part_id: part.id,
+        mercury_part_id: '',
+        part_number_search: part.part_number,
+        description: `${part.part_number} - ${part.name}`,
+        unit_price: part.unit_price.toString(),
+        is_taxable: part.is_taxable,
+        part_source: 'inventory',
+        core_charge_amount: '0',
+        container_charge_amount: '0'
+      });
+    }
     setShowPartDropdown(false);
     setFilteredParts([]);
   };
@@ -1600,26 +1643,64 @@ export function Estimates({ userId }: EstimatesProps) {
 
                                       {showPartDropdown && filteredParts.length > 0 && (
                                         <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                                          {filteredParts.map((part) => (
+                                          {filteredParts.map((part, idx) => (
                                             <button
-                                              key={part.id}
+                                              key={`${part.source}-${part.id}-${idx}`}
                                               type="button"
                                               onClick={() => handleSelectPartFromDropdown(part)}
                                               className="w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-gray-100 last:border-b-0 transition-colors"
                                             >
-                                              <div className="font-medium text-gray-900">{part.part_number}</div>
-                                              <div className="text-sm text-gray-600">{part.name}</div>
-                                              <div className="text-sm text-green-600 font-medium">${part.unit_price.toFixed(2)}</div>
+                                              <div className="flex items-center gap-2 mb-1">
+                                                <span className="font-medium text-gray-900">{part.part_number}</span>
+                                                <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                                  part.source === 'mercury'
+                                                    ? 'bg-orange-100 text-orange-800'
+                                                    : 'bg-blue-100 text-blue-800'
+                                                }`}>
+                                                  {part.source === 'mercury' ? 'Mercury Marine' : 'Inventory'}
+                                                </span>
+                                                {part.source === 'mercury' && part.item_status && (
+                                                  <span className="text-xs text-gray-500">({part.item_status})</span>
+                                                )}
+                                              </div>
+                                              <div className="text-sm text-gray-600">
+                                                {part.source === 'mercury' ? part.description : part.name}
+                                              </div>
+                                              <div className="text-sm text-green-600 font-medium">
+                                                ${part.source === 'mercury' ? part.msrp.toFixed(2) : part.unit_price.toFixed(2)}
+                                              </div>
+                                              {part.source === 'mercury' && (part.core_charge > 0 || part.container_charge > 0) && (
+                                                <div className="text-xs text-blue-600 mt-1">
+                                                  {part.core_charge > 0 && `Core: $${part.core_charge.toFixed(2)} `}
+                                                  {part.container_charge > 0 && `Container: $${part.container_charge.toFixed(2)}`}
+                                                </div>
+                                              )}
+                                              {part.source === 'mercury' && part.superseded_part_number && (
+                                                <div className="text-xs text-gray-500 mt-1">
+                                                  Superseded by: {part.superseded_part_number}
+                                                </div>
+                                              )}
                                             </button>
                                           ))}
                                         </div>
                                       )}
 
-                                      {lineItemFormData.part_number_search && !lineItemFormData.part_id && !showPartDropdown && filteredParts.length === 0 && (
+                                      {lineItemFormData.part_number_search && !lineItemFormData.part_id && !lineItemFormData.mercury_part_id && !showPartDropdown && filteredParts.length === 0 && (
                                         <p className="text-xs text-orange-600 mt-1">No matching parts found</p>
                                       )}
-                                      {lineItemFormData.part_id && (
-                                        <p className="text-xs text-green-600 mt-1">Part selected</p>
+                                      {(lineItemFormData.part_id || lineItemFormData.mercury_part_id) && (
+                                        <div className="text-xs text-green-600 mt-1">
+                                          <span>Part selected</span>
+                                          {lineItemFormData.mercury_part_id && (
+                                            <span className="ml-2 px-2 py-0.5 bg-orange-100 text-orange-800 rounded font-medium">Mercury Marine</span>
+                                          )}
+                                          {parseFloat(lineItemFormData.core_charge_amount) > 0 && (
+                                            <div className="text-blue-600 mt-1">Core charge: ${parseFloat(lineItemFormData.core_charge_amount).toFixed(2)}</div>
+                                          )}
+                                          {parseFloat(lineItemFormData.container_charge_amount) > 0 && (
+                                            <div className="text-blue-600">Container charge: ${parseFloat(lineItemFormData.container_charge_amount).toFixed(2)}</div>
+                                          )}
+                                        </div>
                                       )}
                                     </div>
                                     <div>
