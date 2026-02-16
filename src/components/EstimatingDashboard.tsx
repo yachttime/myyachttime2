@@ -60,7 +60,7 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
       setLoading(true);
 
       const [estimatesRes, workOrdersRes, invoicesRes, partsRes] = await Promise.all([
-        supabase.from('estimates').select('id, status, total_amount', { count: 'exact' }),
+        supabase.from('estimates').select('id, status, total_amount', { count: 'exact' }).neq('status', 'converted'),
         supabase.from('work_orders').select('id, status', { count: 'exact' }),
         supabase.from('estimating_invoices').select('id, total_amount, payment_status', { count: 'exact' }),
         supabase.from('parts_inventory').select('id, quantity, reorder_point', { count: 'exact' })
