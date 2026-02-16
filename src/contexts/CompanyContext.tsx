@@ -45,19 +45,49 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
     try {
       setIsLoadingCompanies(true);
 
-      // All users (including masters) only see their own company
-      if (userProfile?.company_id) {
+      if (isMaster) {
+        // Masters can see all companies
         const { data, error } = await supabase
           .from('companies')
           .select('*')
-          .eq('id', userProfile.company_id)
-          .single();
+          .order('company_name');
 
         if (error) throw error;
-        if (data) {
-          setUserCompany(data);
-          setSelectedCompany(data);
-          setCompanies([data]);
+        setCompanies(data || []);
+
+        // Load selected company from localStorage or default to user's company
+        const savedCompanyId = localStorage.getItem('selectedCompanyId');
+        if (savedCompanyId) {
+          const saved = data?.find(c => c.id === savedCompanyId);
+          if (saved) {
+            setSelectedCompany(saved);
+          } else if (userProfile?.company_id) {
+            const userComp = data?.find(c => c.id === userProfile.company_id);
+            if (userComp) {
+              setSelectedCompany(userComp);
+            }
+          }
+        } else if (userProfile?.company_id) {
+          const userComp = data?.find(c => c.id === userProfile.company_id);
+          if (userComp) {
+            setSelectedCompany(userComp);
+          }
+        }
+      } else {
+        // Regular users only see their company
+        if (userProfile?.company_id) {
+          const { data, error } = await supabase
+            .from('companies')
+            .select('*')
+            .eq('id', userProfile.company_id)
+            .single();
+
+          if (error) throw error;
+          if (data) {
+            setUserCompany(data);
+            setSelectedCompany(data);
+            setCompanies([data]);
+          }
         }
       }
     } catch (error) {
