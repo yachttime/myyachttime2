@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { makeQuickBooksAPICall } from '../_shared/quickbooks.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -131,25 +132,28 @@ Deno.serve(async (req: Request) => {
       token_length: accessToken?.length
     });
 
-    const accountsResponse = await fetch(accountsUrl, {
+    const accountsResult = await makeQuickBooksAPICall({
+      url: accountsUrl,
       method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-      },
+      accessToken,
+      requestType: 'sync_accounts',
+      companyId: profile.company_id,
+      connectionId: connection.id,
+      supabaseUrl,
+      serviceRoleKey,
     });
 
     console.log('QuickBooks API Response:', {
-      status: accountsResponse.status,
-      statusText: accountsResponse.statusText
+      status: accountsResult.response.status,
+      success: accountsResult.success,
+      intuit_tid: accountsResult.intuitTid
     });
 
-    if (!accountsResponse.ok) {
-      const errorText = await accountsResponse.text();
+    if (!accountsResult.success) {
+      const errorText = accountsResult.data;
       console.error('QuickBooks API Error:', errorText);
 
-      if (accountsResponse.status === 401 || accountsResponse.status === 403) {
+      if (accountsResult.response.status === 401 || accountsResult.response.status === 403) {
         await supabase
           .from('quickbooks_connection')
           .update({
@@ -176,7 +180,7 @@ Deno.serve(async (req: Request) => {
       throw new Error(`Failed to fetch accounts from QuickBooks: ${errorText}`);
     }
 
-    const accountsData = await accountsResponse.json();
+    const accountsData = accountsResult.data;
     const accounts = accountsData.QueryResponse?.Account || [];
 
     console.log(`Fetched ${accounts.length} accounts from QuickBooks`);

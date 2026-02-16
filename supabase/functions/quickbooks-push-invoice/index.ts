@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { makeQuickBooksAPICall } from '../_shared/quickbooks.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -218,23 +219,24 @@ Deno.serve(async (req: Request) => {
         };
       }
 
-      const createCustomerResponse = await fetch(
-        `https://quickbooks.api.intuit.com/v3/company/${connection.realm_id}/customer`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(customerData),
-        }
-      );
+      const createCustomerResult = await makeQuickBooksAPICall({
+        url: `https://quickbooks.api.intuit.com/v3/company/${connection.realm_id}/customer`,
+        method: 'POST',
+        accessToken,
+        body: customerData,
+        requestType: 'create_customer',
+        companyId: profile.company_id,
+        connectionId: connection.id,
+        referenceType: 'customer',
+        referenceId: invoice.customer_id,
+        supabaseUrl,
+        serviceRoleKey,
+      });
 
-      if (!createCustomerResponse.ok) {
-        const errorText = await createCustomerResponse.text();
+      if (!createCustomerResult.success) {
+        const errorText = createCustomerResult.data;
 
-        if (createCustomerResponse.status === 401 || createCustomerResponse.status === 403) {
+        if (createCustomerResult.response.status === 401 || createCustomerResult.response.status === 403) {
           await supabase
             .from('quickbooks_connection')
             .update({
@@ -261,8 +263,7 @@ Deno.serve(async (req: Request) => {
         throw new Error(`Failed to create customer in QuickBooks: ${errorText}`);
       }
 
-      const customerResult = await createCustomerResponse.json();
-      qboCustomerId = customerResult.Customer.Id;
+      qboCustomerId = createCustomerResult.data.Customer?.Id;
 
       // Save QBO customer ID back to our database
       await supabase
@@ -298,23 +299,24 @@ Deno.serve(async (req: Request) => {
       PrivateNote: `Yacht Time Invoice ID: ${invoice.id}`,
     };
 
-    const createInvoiceResponse = await fetch(
-      `https://quickbooks.api.intuit.com/v3/company/${connection.realm_id}/invoice`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(invoiceData),
-      }
-    );
+    const createInvoiceResult = await makeQuickBooksAPICall({
+      url: `https://quickbooks.api.intuit.com/v3/company/${connection.realm_id}/invoice`,
+      method: 'POST',
+      accessToken,
+      body: invoiceData,
+      requestType: 'create_invoice',
+      companyId: profile.company_id,
+      connectionId: connection.id,
+      referenceType: 'invoice',
+      referenceId: invoiceId,
+      supabaseUrl,
+      serviceRoleKey,
+    });
 
-    if (!createInvoiceResponse.ok) {
-      const errorText = await createInvoiceResponse.text();
+    if (!createInvoiceResult.success) {
+      const errorText = createInvoiceResult.data;
 
-      if (createInvoiceResponse.status === 401 || createInvoiceResponse.status === 403) {
+      if (createInvoiceResult.response.status === 401 || createInvoiceResult.response.status === 403) {
         await supabase
           .from('quickbooks_connection')
           .update({
@@ -341,8 +343,7 @@ Deno.serve(async (req: Request) => {
       throw new Error(`Failed to create invoice in QuickBooks: ${errorText}`);
     }
 
-    const invoiceResult = await createInvoiceResponse.json();
-    const qboInvoiceId = invoiceResult.Invoice.Id;
+    const qboInvoiceId = createInvoiceResult.data.Invoice?.Id;
 
     // Mark invoice as paid in QuickBooks (create payment)
     const paymentData = {
@@ -365,20 +366,21 @@ Deno.serve(async (req: Request) => {
       PaymentMethodRef: invoice.payment_method_type === 'card' ? { value: "1" } : undefined,
     };
 
-    const createPaymentResponse = await fetch(
-      `https://quickbooks.api.intuit.com/v3/company/${connection.realm_id}/payment`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(paymentData),
-      }
-    );
+    const createPaymentResult = await makeQuickBooksAPICall({
+      url: `https://quickbooks.api.intuit.com/v3/company/${connection.realm_id}/payment`,
+      method: 'POST',
+      accessToken,
+      body: paymentData,
+      requestType: 'create_payment',
+      companyId: profile.company_id,
+      connectionId: connection.id,
+      referenceType: 'invoice',
+      referenceId: invoiceId,
+      supabaseUrl,
+      serviceRoleKey,
+    });
 
-    if (!createPaymentResponse.ok) {
+    if (!createPaymentResult.success) {
       console.error('Failed to create payment in QuickBooks, but invoice was created');
     }
 
