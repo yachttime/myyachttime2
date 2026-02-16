@@ -100,6 +100,33 @@ Deno.serve(async (req: Request) => {
       if (paymentType === 'deposit' && repairRequestId) {
         console.log('Processing deposit payment for repair request:', repairRequestId);
 
+        // Check if deposit is already paid
+        const { data: existingRequest } = await supabase
+          .from('repair_requests')
+          .select('deposit_payment_status, deposit_paid_at, deposit_stripe_payment_intent_id')
+          .eq('id', repairRequestId)
+          .single();
+
+        if (existingRequest?.deposit_payment_status === 'paid' && existingRequest.deposit_paid_at) {
+          console.log('Deposit already paid for repair request:', repairRequestId, 'Ignoring duplicate payment.');
+
+          // Log this as a potential duplicate payment that may need refunding
+          await supabase.from('admin_notifications').insert({
+            message: `⚠️ DUPLICATE DEPOSIT PAYMENT detected for repair ${repairRequestId.substring(0, 8)}. Original payment: ${existingRequest.deposit_stripe_payment_intent_id}. New payment intent: ${session.payment_intent}. Please review and refund if necessary.`,
+            yacht_id: yachtId || null,
+            reference_id: repairRequestId,
+            created_at: new Date().toISOString(),
+          });
+
+          return new Response(
+            JSON.stringify({ received: true, warning: 'Duplicate payment detected' }),
+            {
+              status: 200,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            }
+          );
+        }
+
         // Fetch payment intent details if available
         let paymentMethod = session.payment_method_types?.[0] || 'card';
         const paymentIntentId = session.payment_intent;
@@ -124,7 +151,7 @@ Deno.serve(async (req: Request) => {
         }
 
         // Update repair request with deposit payment info
-        const { error: updateError } = await supabase
+        const { data: updatedRequest, error: updateError } = await supabase
           .from('repair_requests')
           .update({
             deposit_payment_status: 'paid',
@@ -132,11 +159,40 @@ Deno.serve(async (req: Request) => {
             deposit_stripe_payment_intent_id: paymentIntentId || null,
             updated_at: new Date().toISOString(),
           })
-          .eq('id', repairRequestId);
+          .eq('id', repairRequestId)
+          .eq('deposit_payment_status', 'pending') // Only update if still pending
+          .select('deposit_stripe_checkout_session_id')
+          .single();
 
         if (updateError) {
           console.error('Error updating repair request deposit:', updateError);
           throw updateError;
+        }
+
+        // Deactivate the payment link to prevent further payments
+        if (updatedRequest?.deposit_stripe_checkout_session_id) {
+          try {
+            const deactivateResponse = await fetch(
+              `https://api.stripe.com/v1/payment_links/${updatedRequest.deposit_stripe_checkout_session_id}`,
+              {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${stripeSecretKey}`,
+                  'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({ 'active': 'false' }).toString(),
+              }
+            );
+
+            if (deactivateResponse.ok) {
+              console.log('Successfully deactivated deposit payment link:', updatedRequest.deposit_stripe_checkout_session_id);
+            } else {
+              console.error('Failed to deactivate payment link:', await deactivateResponse.text());
+            }
+          } catch (deactivateError) {
+            console.error('Error deactivating payment link:', deactivateError);
+            // Don't throw - payment was successful, just log the error
+          }
         }
 
         // Get repair request details
@@ -259,6 +315,33 @@ Deno.serve(async (req: Request) => {
         });
       }
 
+      // Check if invoice is already paid
+      const { data: existingInvoice } = await supabase
+        .from('yacht_invoices')
+        .select('payment_status, paid_at, stripe_payment_intent_id')
+        .eq('id', invoiceId)
+        .single();
+
+      if (existingInvoice?.payment_status === 'paid' && existingInvoice.paid_at) {
+        console.log('Invoice already paid:', invoiceId, 'Ignoring duplicate payment.');
+
+        // Log this as a potential duplicate payment that may need refunding
+        await supabase.from('admin_notifications').insert({
+          message: `⚠️ DUPLICATE INVOICE PAYMENT detected for invoice ${invoiceId.substring(0, 8)}. Original payment: ${existingInvoice.stripe_payment_intent_id}. New payment intent: ${session.payment_intent}. Please review and refund if necessary.`,
+          yacht_id: yachtId || null,
+          reference_id: invoiceId,
+          created_at: new Date().toISOString(),
+        });
+
+        return new Response(
+          JSON.stringify({ received: true, warning: 'Duplicate payment detected' }),
+          {
+            status: 200,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
+
       // Fetch payment intent details if available
       let paymentMethod = session.payment_method_types?.[0] || 'card';
       const paymentIntentId = session.payment_intent;
@@ -292,7 +375,8 @@ Deno.serve(async (req: Request) => {
           payment_method: paymentMethod,
           updated_at: new Date().toISOString(),
         })
-        .eq('id', invoiceId);
+        .eq('id', invoiceId)
+        .eq('payment_status', 'pending'); // Only update if still pending
 
       if (updateError) {
         console.error('Error updating invoice:', updateError);
