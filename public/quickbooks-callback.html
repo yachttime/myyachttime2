@@ -87,7 +87,7 @@
     </div>
   </div>
 
-  <script type="module">
+  <script>
     async function handleCallback() {
       const urlParams = new URLSearchParams(window.location.search);
       const code = urlParams.get('code');
@@ -106,25 +106,41 @@
       }
 
       try {
-        // Get Supabase URL from environment
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        // Get Supabase URL from window origin or localStorage
+        let supabaseUrl = localStorage.getItem('VITE_SUPABASE_URL');
+
+        if (!supabaseUrl) {
+          // Fallback to hardcoded value
+          supabaseUrl = 'https://eqiecntollhgfxmmbize.supabase.co';
+        }
 
         // Get session from opener window
         if (!window.opener) {
           throw new Error('This page must be opened from the main application');
         }
 
-        // Try to get the session from localStorage (set by the main app)
-        const sessionData = localStorage.getItem('supabase.auth.token');
-        if (!sessionData) {
-          throw new Error('No authentication session found');
+        // Try multiple localStorage keys for Supabase session
+        let accessToken = null;
+
+        // Try new Supabase auth format (v2)
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('sb-') && key.includes('-auth-token')) {
+            const sessionData = localStorage.getItem(key);
+            if (sessionData) {
+              try {
+                const parsed = JSON.parse(sessionData);
+                accessToken = parsed.access_token || parsed.currentSession?.access_token;
+                if (accessToken) break;
+              } catch (e) {
+                console.error('Error parsing session data:', e);
+              }
+            }
+          }
         }
 
-        const session = JSON.parse(sessionData);
-        const accessToken = session.currentSession?.access_token;
-
         if (!accessToken) {
-          throw new Error('No access token found in session');
+          throw new Error('No authentication session found. Please make sure you are logged in.');
         }
 
         const response = await fetch(`${supabaseUrl}/functions/v1/quickbooks-oauth`, {

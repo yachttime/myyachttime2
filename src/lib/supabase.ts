@@ -3,6 +3,11 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://eqiecntollhgfxmmbize.supabase.co';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxaWVjbnRvbGxoZ2Z4bW1iaXplIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA5ODc5ODEsImV4cCI6MjA3NjU2Mzk4MX0.5Y-xXVwjPuD8kVe50BFfg1QwihscdlYk20XCSgG4fOY';
 
+// Store Supabase URL in localStorage for callback pages
+if (typeof window !== 'undefined') {
+  localStorage.setItem('VITE_SUPABASE_URL', supabaseUrl);
+}
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
