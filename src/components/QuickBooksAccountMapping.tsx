@@ -196,6 +196,10 @@ export default function QuickBooksAccountMapping() {
 
     } catch (err: any) {
       console.error('[QuickBooks] Error connecting:', err);
+      // Close the popup if there's an error
+      if (authWindow && !authWindow.closed) {
+        authWindow.close();
+      }
       setError(err.message || 'Failed to connect to QuickBooks');
     }
   };
