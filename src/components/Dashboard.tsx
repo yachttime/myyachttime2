@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useRoleImpersonation } from '../contexts/RoleImpersonationContext';
 import { useYachtImpersonation } from '../contexts/YachtImpersonationContext';
 import { useNotification } from '../contexts/NotificationContext';
+import { useConfirm } from '../hooks/useConfirm';
 import { supabase, YachtBooking, MaintenanceRequest, EducationVideo, TripInspection, ConditionRating, InspectionType, RepairRequest, OwnerChatMessage, YachtHistoryLog, OwnerHandoffInspection, YachtDocument, YachtInvoice, YachtBudget, AdminNotification, StaffMessage, Appointment, Yacht, UserProfile, VesselManagementAgreement, logYachtActivity, isStaffRole, isManagerRole, isStaffOrManager, isMasterRole, isOwnerRole, canManageUsers, canManageYacht, canAccessAllYachts } from '../lib/supabase';
 import { InspectionPDFView } from './InspectionPDFView';
 import { OwnerHandoffPDFView } from './OwnerHandoffPDFView';
@@ -32,6 +33,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const { impersonatedRole, setImpersonatedRole, getEffectiveRole, isImpersonating } = useRoleImpersonation();
   const { impersonatedYacht, setImpersonatedYacht, getEffectiveYacht, isImpersonatingYacht } = useYachtImpersonation();
   const { showSuccess, showError } = useNotification();
+  const { confirm, ConfirmDialog } = useConfirm();
 
   const effectiveRole = getEffectiveRole(userProfile?.role);
   const effectiveYacht = getEffectiveYacht(yacht, userProfile?.role);
@@ -1248,7 +1250,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   };
 
   const handleDeleteVideo = async (videoId: string) => {
-    if (!confirm('Are you sure you want to delete this video?')) return;
+    if (!await confirm({ message: 'Are you sure you want to delete this video?', variant: 'danger' })) return;
 
     try {
       const { error } = await supabase
@@ -1392,7 +1394,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   };
 
   const handleUserDelete = async (userToDelete: any) => {
-    if (!confirm(`Are you sure you want to deactivate ${userToDelete.first_name} ${userToDelete.last_name}? This will remove them from the active user list.`)) {
+    if (!await confirm({ message: `Are you sure you want to deactivate ${userToDelete.first_name} ${userToDelete.last_name}? This will remove them from the active user list.`, variant: 'danger' })) {
       return;
     }
 
@@ -2335,7 +2337,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   };
 
   const handleDeleteDocument = async (documentId: string, yachtId: string, documentName: string, fileUrl: string) => {
-    if (!confirm('Are you sure you want to delete this document?')) return;
+    if (!await confirm({ message: 'Are you sure you want to delete this document?', variant: 'danger' })) return;
 
     try {
       if (isStorageUrl(fileUrl)) {
@@ -4862,7 +4864,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   };
 
   const handleDeleteAppointment = async (appointmentId: string) => {
-    if (!confirm('Are you sure you want to delete this appointment?')) {
+    if (!await confirm({ message: 'Are you sure you want to delete this appointment?', variant: 'danger' })) {
       return;
     }
 
@@ -5106,7 +5108,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   };
 
   const handleDeleteBooking = async (bookingId: string) => {
-    if (!confirm('Are you sure you want to delete this trip? This action cannot be undone.')) {
+    if (!await confirm({ message: 'Are you sure you want to delete this trip? This action cannot be undone.', variant: 'danger' })) {
       return;
     }
 
@@ -8785,7 +8787,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                         <div className="space-y-2">
                           <button
                             onClick={async () => {
-                              if (!confirm(`Are you sure you want to mark this yacht as ${yacht.is_active ? 'inactive' : 'active'}?`)) {
+                              if (!await confirm({ message: `Are you sure you want to mark this yacht as ${yacht.is_active ? 'inactive' : 'active'}?`, variant: 'warning' })) {
                                 return;
                               }
 
@@ -9466,7 +9468,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                   alert('You must sign the agreement before approving it. Please click "View" and sign the agreement with your AZ Marine signature.');
                                                   return;
                                                 }
-                                                if (!confirm('Approve this vessel management agreement? This will finalize the contract.')) return;
+                                                if (!await confirm({ message: 'Approve this vessel management agreement? This will finalize the contract.', variant: 'info' })) return;
                                                 try {
                                                   const now = new Date().toISOString();
                                                   const { error } = await supabase
@@ -17078,6 +17080,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         yachtName={yachtOwnersEmailData?.yacht?.name || ''}
         allowRecipientSelection={true}
       />
+      <ConfirmDialog />
       </main>
     </div>
   );

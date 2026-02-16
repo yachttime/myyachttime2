@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { X, FileSignature, CheckCircle, AlertCircle, Printer } from 'lucide-react';
 import { VesselManagementAgreement, UserProfile, supabase, canManageYacht, isOwnerRole } from '../lib/supabase';
 import { PrintableVesselAgreement } from './PrintableVesselAgreement';
+import { useConfirm } from '../hooks/useConfirm';
 
 interface VesselAgreementViewerProps {
   agreement: VesselManagementAgreement;
@@ -12,6 +13,7 @@ interface VesselAgreementViewerProps {
 }
 
 export function VesselAgreementViewer({ agreement, userProfile, userId, onClose, onUpdate }: VesselAgreementViewerProps) {
+  const { confirm, ConfirmDialog } = useConfirm();
   const [signatureName, setSignatureName] = useState('');
   const [signing, setSigning] = useState(false);
   const [error, setError] = useState('');
@@ -27,7 +29,7 @@ export function VesselAgreementViewer({ agreement, userProfile, userId, onClose,
       return;
     }
 
-    if (!confirm('By signing this agreement, you acknowledge that you have read and agree to all terms. Continue?')) {
+    if (!await confirm({ message: 'By signing this agreement, you acknowledge that you have read and agree to all terms. Continue?', variant: 'warning' })) {
       return;
     }
 
@@ -291,6 +293,7 @@ export function VesselAgreementViewer({ agreement, userProfile, userId, onClose,
           </button>
         </div>
       </div>
+      <ConfirmDialog />
     </div>
   );
 }

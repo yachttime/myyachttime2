@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Mail, Loader2, Send, Paperclip, FileIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { useConfirm } from '../hooks/useConfirm';
 
 interface EmailComposeModalProps {
   isOpen: boolean;
@@ -19,6 +20,7 @@ interface Attachment {
 }
 
 export function EmailComposeModal({ isOpen, onClose, recipients, ccRecipients = [], yachtName, allowRecipientSelection = false }: EmailComposeModalProps) {
+  const { confirm, ConfirmDialog } = useConfirm();
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
@@ -171,11 +173,11 @@ export function EmailComposeModal({ isOpen, onClose, recipients, ccRecipients = 
     }
   };
 
-  const handleClose = () => {
+  const handleClose = async () => {
     if (sending) return;
 
     if (subject || message || attachments.length > 0) {
-      if (!confirm('Discard unsent email?')) {
+      if (!await confirm({ message: 'Discard unsent email?', variant: 'warning' })) {
         return;
       }
     }
@@ -391,6 +393,7 @@ export function EmailComposeModal({ isOpen, onClose, recipients, ccRecipients = 
           </div>
         </div>
       </div>
+      <ConfirmDialog />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { X, Save, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { TimeEntry } from '../utils/timeClockHelpers';
+import { useConfirm } from '../hooks/useConfirm';
 
 interface TimeEntryEditorProps {
   entry: TimeEntry;
@@ -12,6 +13,7 @@ interface TimeEntryEditorProps {
 
 export function TimeEntryEditor({ entry, onClose, onSave }: TimeEntryEditorProps) {
   const { user } = useAuth();
+  const { confirm, ConfirmDialog } = useConfirm();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -95,7 +97,7 @@ export function TimeEntryEditor({ entry, onClose, onSave }: TimeEntryEditorProps
   };
 
   const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this time entry?')) {
+    if (!await confirm({ message: 'Are you sure you want to delete this time entry?', variant: 'danger' })) {
       return;
     }
 
@@ -284,6 +286,7 @@ export function TimeEntryEditor({ entry, onClose, onSave }: TimeEntryEditorProps
           </div>
         </div>
       </div>
+      <ConfirmDialog />
     </div>
   );
 }

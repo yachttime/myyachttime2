@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Anchor, ArrowLeft, Play, Upload, Edit2, X, Save, Trash2, Folder } from 'lucide-react';
 import { supabase, EducationVideo, canManageYacht } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useConfirm } from '../hooks/useConfirm';
 
 interface EducationProps {
   onBack: () => void;
@@ -9,6 +10,7 @@ interface EducationProps {
 
 export const Education = ({ onBack }: EducationProps) => {
   const { userProfile } = useAuth();
+  const { confirm, ConfirmDialog } = useConfirm();
   const [videos, setVideos] = useState<EducationVideo[]>([]);
   const [selectedVideo, setSelectedVideo] = useState<EducationVideo | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -415,7 +417,7 @@ export const Education = ({ onBack }: EducationProps) => {
   const handleDeleteVideo = async () => {
     if (!editingVideo) return;
 
-    if (!confirm('Are you sure you want to delete this video? This action cannot be undone.')) {
+    if (!await confirm({ message: 'Are you sure you want to delete this video? This action cannot be undone.', variant: 'danger' })) {
       return;
     }
 
@@ -522,7 +524,7 @@ export const Education = ({ onBack }: EducationProps) => {
   };
 
   const handleDeleteVideoFromBulk = async (videoId: string) => {
-    if (!confirm('Are you sure you want to delete this video? This action cannot be undone.')) {
+    if (!await confirm({ message: 'Are you sure you want to delete this video? This action cannot be undone.', variant: 'danger' })) {
       return;
     }
 
@@ -1584,6 +1586,7 @@ export const Education = ({ onBack }: EducationProps) => {
           )}
         </div>
       </div>
+      <ConfirmDialog />
     </div>
   );
 };

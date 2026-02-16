@@ -3,6 +3,7 @@ import { Calendar, ChevronLeft, ChevronRight, User, X, Check, Clock, AlertCircle
 import { supabase, StaffTimeOffRequest, StaffSchedule, UserProfile, canAccessAllYachts, isStaffRole } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useRoleImpersonation } from '../contexts/RoleImpersonationContext';
+import { useConfirm } from '../hooks/useConfirm';
 
 interface StaffScheduleOverride {
   id: string;
@@ -56,6 +57,7 @@ interface StaffCalendarProps {
 export function StaffCalendar({ onBack }: StaffCalendarProps) {
   const { user, userProfile } = useAuth();
   const { getEffectiveRole } = useRoleImpersonation();
+  const { confirm, ConfirmDialog } = useConfirm();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [timeOffRequests, setTimeOffRequests] = useState<StaffTimeOffRequest[]>([]);
   const [allTimeOffRequests, setAllTimeOffRequests] = useState<StaffTimeOffRequest[]>([]);
@@ -1197,6 +1199,7 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
           />
         )}
       </div>
+      <ConfirmDialog />
     </div>
   );
 }
@@ -1596,7 +1599,7 @@ function RequestDetailsModal({
   const [deleting, setDeleting] = useState(false);
 
   const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this time-off request?')) return;
+    if (!await confirm({ message: 'Are you sure you want to delete this time-off request?', variant: 'danger' })) return;
 
     try {
       setDeleting(true);

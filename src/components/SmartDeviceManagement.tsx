@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Lock, Plus, Edit2, Trash2, RefreshCw, AlertCircle, CheckCircle, X, Save, Key, Globe, Battery, WifiOff, Clock, Eye, EyeOff, Activity, Wifi } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { useConfirm } from '../hooks/useConfirm';
 
 interface SmartDevice {
   id: string;
@@ -63,6 +64,7 @@ interface AccessLog {
 }
 
 export const SmartDeviceManagement = () => {
+  const { confirm, ConfirmDialog } = useConfirm();
   const [yachts, setYachts] = useState<Yacht[]>([]);
   const [devices, setDevices] = useState<SmartDevice[]>([]);
   const [credentials, setCredentials] = useState<TuyaCredentials[]>([]);
@@ -380,7 +382,7 @@ export const SmartDeviceManagement = () => {
   };
 
   const handleDeleteDevice = async (deviceId: string) => {
-    if (!confirm('Are you sure you want to delete this device?')) return;
+    if (!await confirm({ message: 'Are you sure you want to delete this device?', variant: 'danger' })) return;
 
     try {
       const { error } = await supabase
@@ -1390,6 +1392,7 @@ export const SmartDeviceManagement = () => {
           </div>
         </div>
       )}
+      <ConfirmDialog />
     </div>
   );
 };

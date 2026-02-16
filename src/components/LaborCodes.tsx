@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Plus, Edit2, Trash2, Check, AlertCircle } from 'lucide-react';
+import { useConfirm } from '../hooks/useConfirm';
 
 interface LaborCode {
   id: string;
@@ -29,6 +30,7 @@ interface LaborCodesProps {
 }
 
 export function LaborCodes({ userId }: LaborCodesProps) {
+  const { confirm, ConfirmDialog } = useConfirm();
   const [laborCodes, setLaborCodes] = useState<LaborCode[]>([]);
   const [accountingCodes, setAccountingCodes] = useState<AccountingCode[]>([]);
   const [loading, setLoading] = useState(true);
@@ -139,7 +141,7 @@ export function LaborCodes({ userId }: LaborCodesProps) {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this labor code?')) return;
+    if (!await confirm({ message: 'Are you sure you want to delete this labor code?', variant: 'danger' })) return;
 
     try {
       const { error: deleteError } = await supabase
@@ -399,6 +401,7 @@ export function LaborCodes({ userId }: LaborCodesProps) {
           </tbody>
         </table>
       </div>
+      <ConfirmDialog />
     </div>
   );
 }

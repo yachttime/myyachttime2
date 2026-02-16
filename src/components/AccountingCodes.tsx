@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Plus, Edit2, Trash2, X, Check, AlertCircle } from 'lucide-react';
+import { useConfirm } from '../hooks/useConfirm';
 
 interface AccountingCode {
   id: string;
@@ -18,6 +19,7 @@ interface AccountingCodesProps {
 }
 
 export function AccountingCodes({ userId }: AccountingCodesProps) {
+  const { confirm, ConfirmDialog } = useConfirm();
   const [codes, setCodes] = useState<AccountingCode[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -114,7 +116,7 @@ export function AccountingCodes({ userId }: AccountingCodesProps) {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this accounting code?')) return;
+    if (!await confirm({ message: 'Are you sure you want to delete this accounting code?', variant: 'danger' })) return;
 
     try {
       const { error: deleteError } = await supabase
@@ -363,6 +365,7 @@ export function AccountingCodes({ userId }: AccountingCodesProps) {
           </tbody>
         </table>
       </div>
+      <ConfirmDialog />
     </div>
   );
 }

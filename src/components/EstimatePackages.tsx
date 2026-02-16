@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Plus, Edit2, Trash2, X, Package, Wrench, Box } from 'lucide-react';
+import { useConfirm } from '../hooks/useConfirm';
 
 interface EstimatePackage {
   id: string;
@@ -57,6 +58,7 @@ interface EstimatePackagesProps {
 }
 
 export function EstimatePackages({ userId }: EstimatePackagesProps) {
+  const { confirm, ConfirmDialog } = useConfirm();
   const [packages, setPackages] = useState<EstimatePackage[]>([]);
   const [laborCodes, setLaborCodes] = useState<LaborCode[]>([]);
   const [parts, setParts] = useState<Part[]>([]);
@@ -213,7 +215,7 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Are you sure you want to delete this package?')) return;
+    if (!await confirm({ message: 'Are you sure you want to delete this package?', variant: 'danger' })) return;
 
     try {
       const { error } = await supabase
@@ -299,7 +301,7 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
   }
 
   async function removeLabor(id: string) {
-    if (!confirm('Remove this labor from the package?')) return;
+    if (!await confirm({ message: 'Remove this labor from the package?', variant: 'warning' })) return;
 
     try {
       const { error } = await supabase
@@ -315,7 +317,7 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
   }
 
   async function removePart(id: string) {
-    if (!confirm('Remove this part from the package?')) return;
+    if (!await confirm({ message: 'Remove this part from the package?', variant: 'warning' })) return;
 
     try {
       const { error } = await supabase
@@ -692,6 +694,7 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
           </div>
         </div>
       )}
+      <ConfirmDialog />
     </div>
   );
 }

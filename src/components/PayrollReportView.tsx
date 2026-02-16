@@ -3,6 +3,7 @@ import { Download, Calendar, Users, Clock, Plus, Edit2, Trash2, X, Check } from 
 import { supabase } from '../lib/supabase';
 import { TimeEntry, getPayrollPeriodsForDateRange } from '../utils/timeClockHelpers';
 import { generatePayrollReportPDF } from '../utils/pdfGenerator';
+import { useConfirm } from '../hooks/useConfirm';
 
 interface PayPeriod {
   id: string;
@@ -45,6 +46,7 @@ interface EmployeeReport {
 }
 
 export function PayrollReportView() {
+  const { confirm, ConfirmDialog } = useConfirm();
   const [loading, setLoading] = useState(false);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -181,7 +183,7 @@ export function PayrollReportView() {
   };
 
   const handleDeletePayPeriod = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this pay period?')) {
+    if (!await confirm({ message: 'Are you sure you want to delete this pay period?', variant: 'danger' })) {
       return;
     }
 
@@ -765,6 +767,7 @@ export function PayrollReportView() {
           <p className="text-gray-600">Click "Generate Report" to view time entries</p>
         </div>
       )}
+      <ConfirmDialog />
     </div>
   );
 }
