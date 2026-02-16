@@ -72,7 +72,9 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
       const parts = partsRes.data || [];
 
       const pendingApproval = estimates.filter(e => e.status === 'sent').length;
-      const activeWorkOrders = workOrders.filter(w => w.status === 'in_progress').length;
+      const activeWorkOrders = workOrders.filter(w =>
+        w.status === 'in_progress' || w.status === 'pending'
+      ).length;
       const unpaidInvoices = invoices.filter(i => i.payment_status !== 'paid');
       const unpaidAmount = unpaidInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
       const lowStockItems = parts.filter(p => p.quantity <= p.reorder_point).length;
@@ -166,7 +168,7 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
                   {loading ? '...' : stats.activeWorkOrders}
                 </div>
                 <div className="text-sm font-medium text-gray-900 mb-1">Active Work Orders</div>
-                <div className="text-xs text-gray-500">In progress</div>
+                <div className="text-xs text-gray-500">Pending or in progress</div>
               </div>
 
               <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
