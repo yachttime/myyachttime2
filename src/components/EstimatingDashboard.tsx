@@ -87,7 +87,7 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
         supabase.from('estimates').select('id, status, total_amount', { count: 'exact' }).neq('status', 'converted'),
         supabase.from('work_orders').select('id, status', { count: 'exact' }),
         supabase.from('estimating_invoices').select('id, total_amount, payment_status', { count: 'exact' }),
-        supabase.from('parts_inventory').select('id, quantity, reorder_point', { count: 'exact' })
+        supabase.from('parts_inventory').select('id, quantity_on_hand, reorder_level', { count: 'exact' })
       ]);
 
       const estimates = estimatesRes.data || [];
@@ -102,7 +102,7 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
       ).length;
       const unpaidInvoices = invoices.filter(i => i.payment_status !== 'paid');
       const unpaidAmount = unpaidInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
-      const lowStockItems = parts.filter(p => p.quantity <= p.reorder_point).length;
+      const lowStockItems = parts.filter(p => p.quantity_on_hand <= p.reorder_level).length;
 
       const totalRevenue = invoices
         .filter(i => i.payment_status !== 'paid')
