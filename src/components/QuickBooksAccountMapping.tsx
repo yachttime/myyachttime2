@@ -147,6 +147,7 @@ export default function QuickBooksAccountMapping() {
         throw new Error('Not authenticated');
       }
 
+      console.log('[QuickBooks] Requesting auth URL...');
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/quickbooks-oauth`, {
         method: 'POST',
         headers: {
@@ -157,19 +158,37 @@ export default function QuickBooksAccountMapping() {
       });
 
       const result = await response.json();
+      console.log('[QuickBooks] Response:', result);
 
       if (!response.ok) {
         throw new Error(result.error || 'Failed to get QuickBooks authorization URL');
       }
 
       const { authUrl } = result;
+      console.log('[QuickBooks] Opening auth window with URL:', authUrl);
 
       // Open QuickBooks OAuth in new window
-      window.open(authUrl, '_blank', 'width=800,height=600');
+      const authWindow = window.open(authUrl, 'QuickBooksAuth', 'width=800,height=600');
+
+      if (!authWindow) {
+        throw new Error('Failed to open authorization window. Please check your popup blocker settings.');
+      }
 
       setSuccess('Opening QuickBooks authorization window. After connecting, click "Sync Accounts" to load your Chart of Accounts.');
+
+      // Listen for messages from the callback window
+      const messageHandler = (event: MessageEvent) => {
+        if (event.data?.type === 'quickbooks_connected') {
+          console.log('[QuickBooks] Connection successful!');
+          setSuccess('QuickBooks connected successfully! Click "Sync Accounts" to load your Chart of Accounts.');
+          loadData();
+          window.removeEventListener('message', messageHandler);
+        }
+      };
+      window.addEventListener('message', messageHandler);
+
     } catch (err: any) {
-      console.error('Error connecting to QuickBooks:', err);
+      console.error('[QuickBooks] Error connecting:', err);
       setError(err.message || 'Failed to connect to QuickBooks');
     }
   };
@@ -348,10 +367,48 @@ export default function QuickBooksAccountMapping() {
 
   return (
     <div className="space-y-6">
+      {/* Configuration Info Banner */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h3 className="text-sm font-semibold text-blue-900 mb-2">QuickBooks Configuration Required</h3>
+        <div className="text-sm text-blue-800 space-y-2">
+          <p>Make sure you've added this <strong>exact</strong> Redirect URI in your QuickBooks Developer Dashboard:</p>
+          <div className="bg-white border border-blue-300 rounded px-3 py-2 font-mono text-xs">
+            https://myyachttime.vercel.app/quickbooks-callback.html
+          </div>
+          <details className="mt-2">
+            <summary className="cursor-pointer font-medium text-blue-900 hover:text-blue-700">
+              Click for detailed setup instructions
+            </summary>
+            <div className="mt-2 space-y-2 pl-4 border-l-2 border-blue-300">
+              <p><strong>1. QuickBooks Developer Dashboard:</strong></p>
+              <ul className="list-disc list-inside pl-4 space-y-1">
+                <li>Host domain: <code className="bg-white px-1">myyachttime.com</code></li>
+                <li>Launch URL: <code className="bg-white px-1">https://myyachttime.vercel.app</code></li>
+                <li>Redirect URI: <code className="bg-white px-1">https://myyachttime.vercel.app/quickbooks-callback.html</code></li>
+              </ul>
+              <p><strong>2. Supabase Edge Function Secrets:</strong></p>
+              <ul className="list-disc list-inside pl-4 space-y-1">
+                <li><code className="bg-white px-1">QUICKBOOKS_CLIENT_ID</code></li>
+                <li><code className="bg-white px-1">QUICKBOOKS_CLIENT_SECRET</code></li>
+                <li><code className="bg-white px-1">QUICKBOOKS_REDIRECT_URI</code> = https://myyachttime.vercel.app/quickbooks-callback.html</li>
+              </ul>
+              <p className="text-xs text-blue-700 mt-2">
+                See <strong>QUICKBOOKS_TROUBLESHOOTING.md</strong> in the project root for complete troubleshooting guide.
+              </p>
+            </div>
+          </details>
+        </div>
+      </div>
+
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
           <XCircle className="text-red-600 flex-shrink-0 mt-0.5" size={20} />
-          <p className="text-red-800">{error}</p>
+          <div>
+            <p className="text-red-800">{error}</p>
+            <p className="text-xs text-red-600 mt-2">
+              If you see "sorry can't connect" error in QuickBooks, verify your Redirect URI matches exactly (see configuration above).
+            </p>
+          </div>
         </div>
       )}
 

@@ -106,6 +106,11 @@
       }
 
       try {
+        console.log('QuickBooks callback received');
+        console.log('Code:', code ? 'present' : 'missing');
+        console.log('RealmId:', realmId);
+        console.log('State:', state);
+
         // Get Supabase URL from window origin or localStorage
         let supabaseUrl = localStorage.getItem('VITE_SUPABASE_URL');
 
@@ -113,6 +118,8 @@
           // Fallback to hardcoded value
           supabaseUrl = 'https://eqiecntollhgfxmmbize.supabase.co';
         }
+
+        console.log('Supabase URL:', supabaseUrl);
 
         // Get session from opener window
         if (!window.opener) {
