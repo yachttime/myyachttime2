@@ -97,18 +97,32 @@ Deno.serve(async (req: Request) => {
     }
 
     // Fetch Chart of Accounts from QuickBooks
-    const accountsUrl = `https://quickbooks.api.intuit.com/v3/company/${connection.realm_id}/query?query=SELECT * FROM Account MAXRESULTS 1000`;
+    const query = encodeURIComponent('SELECT * FROM Account MAXRESULTS 1000');
+    const accountsUrl = `https://quickbooks.api.intuit.com/v3/company/${connection.realm_id}/query?query=${query}`;
+
+    console.log('QuickBooks API Request:', {
+      url: accountsUrl,
+      realm_id: connection.realm_id,
+      token_length: connection.access_token_encrypted?.length
+    });
 
     const accountsResponse = await fetch(accountsUrl, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${connection.access_token_encrypted}`,
         'Accept': 'application/json',
+        'Content-Type': 'application/json',
       },
+    });
+
+    console.log('QuickBooks API Response:', {
+      status: accountsResponse.status,
+      statusText: accountsResponse.statusText
     });
 
     if (!accountsResponse.ok) {
       const errorText = await accountsResponse.text();
+      console.error('QuickBooks API Error:', errorText);
       throw new Error(`Failed to fetch accounts from QuickBooks: ${errorText}`);
     }
 
