@@ -20,7 +20,7 @@ interface PackageLabor {
   labor_code?: {
     code: string;
     name: string;
-    default_rate: number;
+    hourly_rate: number;
   };
 }
 
@@ -42,7 +42,7 @@ interface LaborCode {
   id: string;
   code: string;
   name: string;
-  default_rate: number;
+  hourly_rate: number;
 }
 
 interface Part {
@@ -101,7 +101,7 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
     try {
       const [packagesRes, laborCodesRes, partsRes] = await Promise.all([
         supabase.from('estimate_packages').select('*').order('name'),
-        supabase.from('labor_codes').select('id, code, name, default_rate').eq('is_active', true).order('code'),
+        supabase.from('labor_codes').select('id, code, name, hourly_rate').eq('is_active', true).order('code'),
         supabase.from('parts_inventory').select('id, part_number, description, unit_price').order('part_number')
       ]);
 
@@ -122,7 +122,7 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
           .from('estimate_package_labor')
           .select(`
             *,
-            labor_code:labor_codes(code, name, default_rate)
+            labor_code:labor_codes(code, name, hourly_rate)
           `)
           .eq('package_id', packageId),
         supabase
@@ -246,7 +246,7 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
           package_id: selectedPackage,
           labor_code_id: laborFormData.labor_code_id,
           hours: laborFormData.hours,
-          rate: laborFormData.rate || selectedLabor?.default_rate || 0,
+          rate: laborFormData.rate || selectedLabor?.hourly_rate || 0,
           description: laborFormData.description
         });
 
@@ -334,7 +334,7 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
     setLaborFormData({
       ...laborFormData,
       labor_code_id: laborCodeId,
-      rate: selectedLabor?.default_rate || 0
+      rate: selectedLabor?.hourly_rate || 0
     });
   }
 
