@@ -174,6 +174,7 @@ export function MercuryPartsManager({ userId, userRole }: MercuryPartsManagerPro
     const startTime = Date.now();
 
     try {
+      // Create import record
       const { data: importRecord, error: importError } = await supabase
         .from('mercury_price_list_imports')
         .insert({
@@ -187,6 +188,22 @@ export function MercuryPartsManager({ userId, userRole }: MercuryPartsManagerPro
 
       if (importError) throw importError;
 
+      setUploadProgress(5);
+
+      // Delete all existing Mercury parts to replace with new data
+      const { error: deleteError } = await supabase
+        .from('mercury_marine_parts')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all rows
+
+      if (deleteError) {
+        console.error('Error clearing old parts:', deleteError);
+        throw new Error('Failed to clear existing parts');
+      }
+
+      setUploadProgress(10);
+
+      // Insert new parts in batches
       const partsToInsert = parseResult.parts.map(part => ({
         ...part,
         import_batch_id: importRecord.id
@@ -207,10 +224,12 @@ export function MercuryPartsManager({ userId, userRole }: MercuryPartsManagerPro
           imported += batch.length;
         }
 
-        setUploadProgress(Math.round((i / partsToInsert.length) * 100));
+        setUploadProgress(10 + Math.round((i / partsToInsert.length) * 85));
       }
 
       const processingTime = Math.round((Date.now() - startTime) / 1000);
+
+      setUploadProgress(95);
 
       await supabase
         .from('mercury_price_list_imports')
@@ -221,7 +240,9 @@ export function MercuryPartsManager({ userId, userRole }: MercuryPartsManagerPro
         })
         .eq('id', importRecord.id);
 
-      alert(`Successfully imported ${imported} Mercury Marine parts!`);
+      setUploadProgress(100);
+
+      alert(`Successfully imported ${imported} Mercury Marine parts!\n\nAll previous parts have been replaced with the new data.`);
       setSelectedFile(null);
       setParseResult(null);
       setShowPreview(false);
@@ -317,12 +338,31 @@ export function MercuryPartsManager({ userId, userRole }: MercuryPartsManagerPro
         <div className="space-y-6">
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <h3 className="font-semibold text-blue-900 mb-2">Mercury Marine ASCII File Format</h3>
-            <p className="text-sm text-blue-800 mb-2">
+            <p className="text-sm text-blue-800 mb-3">
               Upload the Mercury Marine parts price list in ASCII fixed-width format.
               The file should contain fields for part number, description, MSRP, dealer price, and other part details.
             </p>
-            <p className="text-sm text-blue-800">
-              New uploads will not affect existing estimates. Only new estimates will use the updated pricing.
+
+            <div className="bg-white bg-opacity-50 rounded p-3 mb-3">
+              <h4 className="font-medium text-blue-900 text-sm mb-1">Where to get the file:</h4>
+              <ul className="text-sm text-blue-800 space-y-1">
+                <li>• Download from Mercury Marine Dealer Portal</li>
+                <li>• Usually named: PRICE.TXT, MERCURY.PRC, or similar</li>
+                <li>• Should be ASCII or TXT format (not Excel/CSV)</li>
+              </ul>
+            </div>
+
+            <div className="bg-white bg-opacity-50 rounded p-3">
+              <h4 className="font-medium text-blue-900 text-sm mb-1">Expected format:</h4>
+              <ul className="text-sm text-blue-800 space-y-1">
+                <li>• Part numbers like: 8M0173572, 91-8M0083982, 892-47089A06</li>
+                <li>• Full descriptions (30+ characters)</li>
+                <li>• MSRP and dealer pricing included</li>
+              </ul>
+            </div>
+
+            <p className="text-sm text-blue-800 mt-3 font-medium">
+              Important: Uploading will replace all existing parts. Preview your data before confirming!
             </p>
           </div>
 
@@ -387,51 +427,113 @@ export function MercuryPartsManager({ userId, userRole }: MercuryPartsManagerPro
                 </pre>
               </div>
 
-              {parseResult.parts.length > 0 && (
-                <>
-                  <h4 className="font-medium text-gray-900 mb-2">Preview (First 10 parts)</h4>
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Part Number</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Description</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">MSRP</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {parseResult.parts.slice(0, 10).map((part, idx) => (
-                          <tr key={idx}>
-                            <td className="px-3 py-2 text-sm text-gray-900">{part.part_number}</td>
-                            <td className="px-3 py-2 text-sm text-gray-900">{part.description}</td>
-                            <td className="px-3 py-2 text-sm text-gray-900">${part.msrp.toFixed(2)}</td>
-                            <td className="px-3 py-2 text-sm text-gray-900">{part.item_status}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+              {parseResult.parts.length > 0 && (() => {
+                const sampleParts = parseResult.parts.slice(0, 20);
+                const hasValidFormat = sampleParts.some(part =>
+                  /^\d+[A-Z]?\d+[A-Z]?/.test(part.part_number) &&
+                  part.description.length > 20 &&
+                  part.msrp > 0
+                );
+                const hasDescriptions = sampleParts.every(part => part.description.length > 15);
+                const avgDescLength = sampleParts.reduce((acc, p) => acc + p.description.length, 0) / sampleParts.length;
+                const hasPricing = sampleParts.filter(p => p.msrp > 0).length > sampleParts.length * 0.5;
 
-                  <div className="mt-6 flex gap-3">
-                    <button
-                      onClick={handleConfirmImport}
-                      disabled={uploading}
-                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400"
-                    >
-                      <CheckCircle className="w-4 h-4 inline mr-2" />
-                      Confirm Import
-                    </button>
-                    <button
-                      onClick={handleCancelImport}
-                      disabled={uploading}
-                      className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </>
-              )}
+                return (
+                  <>
+                    {!hasValidFormat && (
+                      <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-4 mb-4">
+                        <div className="flex items-start">
+                          <AlertCircle className="w-5 h-5 text-yellow-600 mr-3 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <h4 className="font-semibold text-yellow-900 mb-2">Data Format Warning</h4>
+                            <p className="text-sm text-yellow-800 mb-2">
+                              The parsed data may not be in the correct format. Mercury Marine part numbers typically:
+                            </p>
+                            <ul className="text-sm text-yellow-800 list-disc list-inside space-y-1">
+                              <li>Start with numbers (e.g., 8M0173572, 91-8M0083982)</li>
+                              <li>Have descriptions longer than 20 characters (avg: {Math.round(avgDescLength)} chars detected)</li>
+                              <li>Include pricing information ({Math.round((sampleParts.filter(p => p.msrp > 0).length / sampleParts.length) * 100)}% have prices)</li>
+                            </ul>
+                            <p className="text-sm text-yellow-800 mt-2 font-medium">
+                              Please verify this is the correct Mercury Marine ASCII price list file before importing.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {hasValidFormat && (
+                      <div className="bg-green-50 border border-green-300 rounded-lg p-4 mb-4">
+                        <div className="flex items-start">
+                          <CheckCircle className="w-5 h-5 text-green-600 mr-3 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <h4 className="font-semibold text-green-900 mb-1">Data Format Looks Good</h4>
+                            <p className="text-sm text-green-800">
+                              Part numbers and descriptions appear to be in the correct Mercury Marine format.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <h4 className="font-medium text-gray-900 mb-2">Preview (First 20 parts)</h4>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Part Number</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Description</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">MSRP</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Dealer</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Status</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Superseded</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {sampleParts.map((part, idx) => (
+                            <tr key={idx} className={!hasValidFormat ? 'bg-yellow-50' : ''}>
+                              <td className="px-3 py-2 text-sm font-mono text-gray-900">{part.part_number}</td>
+                              <td className="px-3 py-2 text-sm text-gray-900">{part.description}</td>
+                              <td className="px-3 py-2 text-sm text-gray-900">${part.msrp.toFixed(2)}</td>
+                              <td className="px-3 py-2 text-sm text-gray-900">${part.dealer_price.toFixed(2)}</td>
+                              <td className="px-3 py-2 text-sm text-gray-600">{part.item_status}</td>
+                              <td className="px-3 py-2 text-sm text-gray-600">{part.superseded_part_number || '-'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <h5 className="font-medium text-blue-900 mb-2">Before Importing:</h5>
+                      <ul className="text-sm text-blue-800 space-y-1">
+                        <li>• This will replace all existing Mercury Marine parts in the database</li>
+                        <li>• Existing estimates will not be affected and will retain their original pricing</li>
+                        <li>• New estimates will use the updated parts and pricing</li>
+                        <li>• Import cannot be undone - ensure the data looks correct above</li>
+                      </ul>
+                    </div>
+
+                    <div className="mt-6 flex gap-3">
+                      <button
+                        onClick={handleConfirmImport}
+                        disabled={uploading}
+                        className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 font-medium"
+                      >
+                        <CheckCircle className="w-4 h-4 inline mr-2" />
+                        Confirm Import ({parseResult.parts.length.toLocaleString()} parts)
+                      </button>
+                      <button
+                        onClick={handleCancelImport}
+                        disabled={uploading}
+                        className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           )}
         </div>
