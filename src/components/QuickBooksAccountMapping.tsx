@@ -173,7 +173,24 @@ export default function QuickBooksAccountMapping() {
       const { authUrl } = result;
       console.log('[QuickBooks] Auth URL obtained:', authUrl);
 
-      // Now open the popup with the auth URL
+      // Check if we're in a development environment (WebContainer/StackBlitz)
+      const isDevelopment = window.location.hostname.includes('webcontainer') ||
+                           window.location.hostname.includes('stackblitz') ||
+                           window.location.hostname.includes('local-credentialless');
+
+      if (isDevelopment) {
+        // In development, open in a new tab and provide instructions
+        window.open(authUrl, '_blank');
+        setError(
+          'QuickBooks OAuth requires testing in production environment. ' +
+          'The development environment has security restrictions that prevent OAuth callbacks from working. ' +
+          'Please deploy to myyachttime.vercel.app to complete the QuickBooks connection. ' +
+          'A new tab with the QuickBooks authorization URL has been opened.'
+        );
+        return;
+      }
+
+      // Production flow: open popup
       authWindow = window.open(authUrl, 'QuickBooksAuth', 'width=800,height=600');
 
       if (!authWindow) {
