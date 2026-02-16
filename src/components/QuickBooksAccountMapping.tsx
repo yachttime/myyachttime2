@@ -48,7 +48,7 @@ interface ConnectionStatus {
 }
 
 export default function QuickBooksAccountMapping() {
-  const { user, userRole } = useAuth();
+  const { user, userProfile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus | null>(null);
@@ -61,15 +61,20 @@ export default function QuickBooksAccountMapping() {
   const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
-    console.log('[QuickBooks] useEffect triggered, userRole:', userRole);
-    if (userRole === 'master') {
+    console.log('[QuickBooks] useEffect triggered, userProfile:', userProfile);
+    if (!userProfile) {
+      console.log('[QuickBooks] User profile not loaded yet, keeping in loading state');
+      return;
+    }
+
+    if (userProfile.role === 'master') {
       console.log('[QuickBooks] User is master, loading data...');
       loadData();
-    } else if (userRole && userRole !== 'master') {
-      console.log('[QuickBooks] User is not master:', userRole);
+    } else {
+      console.log('[QuickBooks] User is not master:', userProfile.role);
       setLoading(false);
     }
-  }, [userRole]);
+  }, [userProfile]);
 
   const loadData = async () => {
     console.log('[QuickBooks] loadData called');
@@ -225,7 +230,7 @@ export default function QuickBooksAccountMapping() {
     return mappings.find(m => m.mapping_type === mappingType && m.internal_code_id === internalCodeId);
   };
 
-  if (!userRole) {
+  if (!userProfile) {
     return (
       <div className="bg-white rounded-lg shadow-sm p-6">
         <div className="text-center text-gray-600">Loading...</div>
@@ -233,7 +238,7 @@ export default function QuickBooksAccountMapping() {
     );
   }
 
-  if (userRole !== 'master') {
+  if (userProfile.role !== 'master') {
     return (
       <div className="bg-red-50 border border-red-200 rounded-lg p-6">
         <p className="text-red-800">Only Master users can manage QuickBooks account mappings.</p>
