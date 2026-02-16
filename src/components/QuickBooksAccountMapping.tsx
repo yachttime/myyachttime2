@@ -590,7 +590,7 @@ function LaborCodesTab({ laborCodes, qboAccounts, mappings, onSave, saving }: La
                 <tr key={code.id}>
                   <td className="px-4 py-3 text-sm font-medium text-gray-900">{code.code}</td>
                   <td className="px-4 py-3 text-sm text-gray-700">{code.name}</td>
-                  <td className="px-4 py-3 text-sm text-gray-700">${code.rate.toFixed(2)}/hr</td>
+                  <td className="px-4 py-3 text-sm text-gray-700">${code.rate ? code.rate.toFixed(2) : '0.00'}/hr</td>
                   <td className="px-4 py-3 text-sm">
                     {isEditing ? (
                       <select
