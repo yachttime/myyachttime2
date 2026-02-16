@@ -13560,7 +13560,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           >
                             All Appointments
                           </button>
-                          {!isOwnerRole(effectiveRole) && !isManagerRole(effectiveRole) && (
+                          {!isOwnerRole(effectiveRole) && effectiveRole !== 'manager' && (
                             <>
                               <button
                                 onClick={() => setAppointmentTypeFilter('customer')}
@@ -13601,7 +13601,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               <div className="w-4 h-4 rounded bg-yellow-500/30 border border-yellow-500/50"></div>
                               <span className="text-sm text-slate-300">Arrival (Oil Change Needed)</span>
                             </div>
-                            {!isOwnerRole(effectiveRole) && !isManagerRole(effectiveRole) && (
+                            {!isOwnerRole(effectiveRole) && effectiveRole !== 'manager' && (
                               <>
                                 <div className="flex items-center gap-2">
                                   <div className="w-4 h-4 rounded bg-pink-500/30 border border-pink-500/50"></div>
