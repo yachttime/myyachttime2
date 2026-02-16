@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Building2, Plus, Edit2, Eye, Users, DollarSign, Search, CheckCircle, XCircle, Upload, MapPin, User } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useCompany } from '../contexts/CompanyContext';
+import { useNotification } from '../contexts/NotificationContext';
 
 interface Company {
   id: string;
@@ -42,6 +43,7 @@ interface CompanyStats {
 
 export function CompanyManagement() {
   const { isMaster } = useCompany();
+  const { showSuccess, showError } = useNotification();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -170,7 +172,7 @@ export function CompanyManagement() {
       await fetchCompanies();
     } catch (error) {
       console.error('Error updating company status:', error);
-      alert('Failed to update company status');
+      showError('Failed to update company status');
     }
   };
 
@@ -179,7 +181,7 @@ export function CompanyManagement() {
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 5242880) {
-        alert('Logo file size must be less than 5MB');
+        showError('Logo file size must be less than 5MB');
         return;
       }
       setLogoFile(file);
@@ -218,7 +220,7 @@ export function CompanyManagement() {
       return publicUrl;
     } catch (error) {
       console.error('Error uploading logo:', error);
-      alert('Failed to upload logo');
+      showError('Failed to upload logo');
       return null;
     } finally {
       setUploadingLogo(false);
@@ -304,7 +306,7 @@ export function CompanyManagement() {
     e.preventDefault();
 
     if (!formData.company_name.trim()) {
-      alert('Company name is required');
+      showError('Company name is required');
       return;
     }
 
@@ -353,7 +355,7 @@ export function CompanyManagement() {
           .eq('id', selectedCompany.id);
 
         if (error) throw error;
-        alert('Company updated successfully');
+        showSuccess('Company updated successfully');
       } else {
         // Create new company
         const { data: newCompany, error: insertError } = await supabase
@@ -400,7 +402,7 @@ export function CompanyManagement() {
           }
         }
 
-        alert('Company created successfully');
+        showSuccess('Company created successfully');
       }
 
       setShowAddModal(false);
@@ -411,7 +413,7 @@ export function CompanyManagement() {
       await fetchCompanies();
     } catch (error) {
       console.error('Error saving company:', error);
-      alert('Failed to save company');
+      showError('Failed to save company');
     } finally {
       setSaving(false);
     }
