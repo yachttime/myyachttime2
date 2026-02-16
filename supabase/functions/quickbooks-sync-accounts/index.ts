@@ -30,6 +30,12 @@ Deno.serve(async (req: Request) => {
 
     const token = authHeader.replace('Bearer ', '');
 
+    // Get encrypted session from request body
+    const { encrypted_session } = await req.json();
+    if (!encrypted_session) {
+      throw new Error('Encrypted session required for QuickBooks operations');
+    }
+
     // Import Supabase client
     const { createClient } = await import('jsr:@supabase/supabase-js@2');
     const supabase = createClient(supabaseUrl, serviceRoleKey);
@@ -51,10 +57,10 @@ Deno.serve(async (req: Request) => {
       throw new Error('Only master users can sync QuickBooks data');
     }
 
-    // Get active QuickBooks connection for this company
+    // Get active QuickBooks connection for this company (metadata only)
     const { data: connection, error: connError } = await supabase
       .from('quickbooks_connection')
-      .select('*')
+      .select('id, realm_id, token_expires_at')
       .eq('company_id', profile.company_id)
       .eq('is_active', true)
       .single();
@@ -62,6 +68,10 @@ Deno.serve(async (req: Request) => {
     if (connError || !connection) {
       throw new Error('No active QuickBooks connection found. Please connect to QuickBooks first.');
     }
+
+    // Decrypt tokens from volatile memory
+    let accessToken = '';
+    let currentEncryptedSession = encrypted_session;
 
     // Check if token needs refresh (refresh if expires in less than 5 minutes)
     const tokenExpiresAt = new Date(connection.token_expires_at);
@@ -76,25 +86,40 @@ Deno.serve(async (req: Request) => {
           'Authorization': authHeader,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ action: 'refresh_token' }),
+        body: JSON.stringify({
+          action: 'refresh_token',
+          encrypted_session: currentEncryptedSession
+        }),
       });
 
       if (!refreshResult.ok) {
         throw new Error('Failed to refresh QuickBooks token');
       }
 
-      // Re-fetch connection with new token
-      const { data: refreshedConnection } = await supabase
-        .from('quickbooks_connection')
-        .select('*')
-        .eq('company_id', profile.company_id)
-        .eq('is_active', true)
-        .single();
-
-      if (refreshedConnection) {
-        connection.access_token_encrypted = refreshedConnection.access_token_encrypted;
-      }
+      const refreshData = await refreshResult.json();
+      currentEncryptedSession = refreshData.encrypted_session;
     }
+
+    // Decrypt current session to get access token
+    const tokenManagerUrl = `${supabaseUrl}/functions/v1/quickbooks-token-manager`;
+    const decryptResponse = await fetch(tokenManagerUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': authHeader,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        action: 'decrypt',
+        data: { encrypted_session: currentEncryptedSession }
+      })
+    });
+
+    if (!decryptResponse.ok) {
+      throw new Error('Failed to decrypt QuickBooks tokens');
+    }
+
+    const { access_token } = await decryptResponse.json();
+    accessToken = access_token;
 
     // Fetch Chart of Accounts from QuickBooks
     const query = encodeURIComponent('SELECT * FROM Account MAXRESULTS 1000');
@@ -103,13 +128,13 @@ Deno.serve(async (req: Request) => {
     console.log('QuickBooks API Request:', {
       url: accountsUrl,
       realm_id: connection.realm_id,
-      token_length: connection.access_token_encrypted?.length
+      token_length: accessToken?.length
     });
 
     const accountsResponse = await fetch(accountsUrl, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${connection.access_token_encrypted}`,
+        'Authorization': `Bearer ${accessToken}`,
         'Accept': 'application/json',
         'Content-Type': 'application/json',
       },

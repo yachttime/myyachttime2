@@ -59,9 +59,18 @@ export default function QuickBooksAccountMapping() {
   const [activeTab, setActiveTab] = useState<'default' | 'labor' | 'accounting'>('default');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [encryptedSession, setEncryptedSession] = useState<string | null>(null);
 
   useEffect(() => {
     console.log('[QuickBooks] useEffect triggered, userProfile:', userProfile);
+
+    // Load encrypted session from localStorage (QuickBooks compliance requirement)
+    const storedSession = localStorage.getItem('quickbooks_encrypted_session');
+    if (storedSession) {
+      setEncryptedSession(storedSession);
+      console.log('[QuickBooks] Loaded encrypted session from localStorage');
+    }
+
     if (!userProfile) {
       console.log('[QuickBooks] User profile not loaded yet, keeping in loading state');
       return;
@@ -208,6 +217,14 @@ export default function QuickBooksAccountMapping() {
       const messageHandler = (event: MessageEvent) => {
         if (event.data?.type === 'quickbooks_connected') {
           console.log('[QuickBooks] Connection successful!');
+
+          // Store encrypted session (QuickBooks compliance requirement)
+          if (event.data.encrypted_session) {
+            setEncryptedSession(event.data.encrypted_session);
+            localStorage.setItem('quickbooks_encrypted_session', event.data.encrypted_session);
+            console.log('[QuickBooks] Encrypted session stored');
+          }
+
           setSuccess('QuickBooks connected successfully! Click "Sync Accounts" to load your Chart of Accounts.');
           loadData();
           window.removeEventListener('message', messageHandler);
@@ -234,6 +251,10 @@ export default function QuickBooksAccountMapping() {
         throw new Error('Not authenticated');
       }
 
+      if (!encryptedSession) {
+        throw new Error('QuickBooks session not found. Please reconnect to QuickBooks.');
+      }
+
       setSuccess('Syncing accounts from QuickBooks...');
 
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/quickbooks-sync-accounts`, {
@@ -242,12 +263,16 @@ export default function QuickBooksAccountMapping() {
           'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({ encrypted_session: encryptedSession }),
       });
 
       const result = await response.json();
 
       if (!response.ok) {
         if (result.error?.includes('authorization has expired') || result.error?.includes('Please reconnect')) {
+          // Clear encrypted session and reload
+          setEncryptedSession(null);
+          localStorage.removeItem('quickbooks_encrypted_session');
           await loadData();
         }
         throw new Error(result.error || 'Failed to sync QuickBooks accounts');
@@ -286,6 +311,11 @@ export default function QuickBooksAccountMapping() {
       if (!response.ok) {
         throw new Error(result.error || 'Failed to disconnect from QuickBooks');
       }
+
+      // Clear encrypted session (QuickBooks compliance requirement)
+      setEncryptedSession(null);
+      localStorage.removeItem('quickbooks_encrypted_session');
+      console.log('[QuickBooks] Encrypted session cleared');
 
       setSuccess('Disconnected from QuickBooks successfully');
       await loadData();

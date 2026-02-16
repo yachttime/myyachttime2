@@ -196,11 +196,21 @@
           throw new Error(result.error || 'Failed to complete QuickBooks connection');
         }
 
+        // Store encrypted session in localStorage for QuickBooks API calls
+        if (result.encrypted_session) {
+          localStorage.setItem('quickbooks_encrypted_session', result.encrypted_session);
+          console.log('Encrypted session stored for QuickBooks compliance');
+        }
+
         showSuccess();
 
-        // Notify opener window
+        // Notify opener window with encrypted session
         if (window.opener) {
-          window.opener.postMessage({ type: 'quickbooks_connected', success: true }, '*');
+          window.opener.postMessage({
+            type: 'quickbooks_connected',
+            success: true,
+            encrypted_session: result.encrypted_session
+          }, '*');
         }
 
         // Auto-close after 3 seconds

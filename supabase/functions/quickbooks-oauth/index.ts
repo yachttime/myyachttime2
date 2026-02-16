@@ -188,6 +188,29 @@ Deno.serve(async (req: Request) => {
       // Calculate token expiration
       const expiresAt = new Date(Date.now() + (tokenData.expires_in * 1000));
 
+      // Encrypt tokens for storage in volatile memory only (compliance requirement)
+      const tokenManagerUrl = `${supabaseUrl}/functions/v1/quickbooks-token-manager`;
+      const encryptResponse = await fetch(tokenManagerUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'encrypt',
+          data: {
+            access_token: tokenData.access_token,
+            refresh_token: tokenData.refresh_token,
+          }
+        })
+      });
+
+      if (!encryptResponse.ok) {
+        throw new Error('Failed to encrypt tokens');
+      }
+
+      const { encrypted_session } = await encryptResponse.json();
+
       // Check if connection with this realm_id already exists
       const { data: existingConnection } = await supabase
         .from('quickbooks_connection')
@@ -196,14 +219,12 @@ Deno.serve(async (req: Request) => {
         .maybeSingle();
 
       if (existingConnection) {
-        // Update existing connection
+        // Update existing connection (metadata only - no tokens)
         const { error: updateError } = await supabase
           .from('quickbooks_connection')
           .update({
             company_id: profile.company_id,
             company_name: companyName,
-            access_token_encrypted: tokenData.access_token,
-            refresh_token_encrypted: tokenData.refresh_token,
             token_expires_at: expiresAt.toISOString(),
             is_active: true,
             created_by: user.id,
@@ -222,15 +243,13 @@ Deno.serve(async (req: Request) => {
           .update({ is_active: false })
           .eq('company_id', profile.company_id);
 
-        // Insert new connection
+        // Insert new connection (metadata only - no tokens)
         const { error: insertError } = await supabase
           .from('quickbooks_connection')
           .insert({
             company_id: profile.company_id,
             company_name: companyName,
             realm_id: realmId,
-            access_token_encrypted: tokenData.access_token,
-            refresh_token_encrypted: tokenData.refresh_token,
             token_expires_at: expiresAt.toISOString(),
             is_active: true,
             created_by: user.id,
@@ -245,6 +264,7 @@ Deno.serve(async (req: Request) => {
         JSON.stringify({
           success: true,
           companyName,
+          encrypted_session,
           message: 'QuickBooks connected successfully'
         }),
         {
@@ -257,10 +277,36 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === 'refresh_token') {
-      // Get existing connection
+      // Refresh token requires the encrypted session from client
+      const { encrypted_session } = await req.json();
+      if (!encrypted_session) {
+        throw new Error('Encrypted session required for token refresh');
+      }
+
+      // Decrypt tokens from volatile memory
+      const tokenManagerUrl = `${supabaseUrl}/functions/v1/quickbooks-token-manager`;
+      const decryptResponse = await fetch(tokenManagerUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'decrypt',
+          data: { encrypted_session }
+        })
+      });
+
+      if (!decryptResponse.ok) {
+        throw new Error('Failed to decrypt tokens');
+      }
+
+      const { refresh_token } = await decryptResponse.json();
+
+      // Get existing connection for metadata
       const { data: connection, error: connError } = await supabase
         .from('quickbooks_connection')
-        .select('*')
+        .select('id, realm_id')
         .eq('company_id', profile.company_id)
         .eq('is_active', true)
         .single();
@@ -284,7 +330,7 @@ Deno.serve(async (req: Request) => {
         },
         body: new URLSearchParams({
           grant_type: 'refresh_token',
-          refresh_token: connection.refresh_token_encrypted,
+          refresh_token: refresh_token,
         }).toString(),
       });
 
@@ -317,12 +363,32 @@ Deno.serve(async (req: Request) => {
       const tokenData = await refreshResponse.json();
       const expiresAt = new Date(Date.now() + (tokenData.expires_in * 1000));
 
-      // Update connection with new tokens
+      // Encrypt new tokens for volatile storage
+      const encryptResponse = await fetch(tokenManagerUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'encrypt',
+          data: {
+            access_token: tokenData.access_token,
+            refresh_token: tokenData.refresh_token,
+          }
+        })
+      });
+
+      if (!encryptResponse.ok) {
+        throw new Error('Failed to encrypt refreshed tokens');
+      }
+
+      const { encrypted_session: new_encrypted_session } = await encryptResponse.json();
+
+      // Update connection metadata only (no tokens)
       const { error: updateError } = await supabase
         .from('quickbooks_connection')
         .update({
-          access_token_encrypted: tokenData.access_token,
-          refresh_token_encrypted: tokenData.refresh_token,
           token_expires_at: expiresAt.toISOString(),
           updated_at: new Date().toISOString(),
         })
@@ -335,6 +401,7 @@ Deno.serve(async (req: Request) => {
       return new Response(
         JSON.stringify({
           success: true,
+          encrypted_session: new_encrypted_session,
           message: 'Token refreshed successfully'
         }),
         {
