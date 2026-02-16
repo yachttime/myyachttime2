@@ -247,6 +247,9 @@ export default function QuickBooksAccountMapping() {
       const result = await response.json();
 
       if (!response.ok) {
+        if (result.error?.includes('authorization has expired') || result.error?.includes('Please reconnect')) {
+          await loadData();
+        }
         throw new Error(result.error || 'Failed to sync QuickBooks accounts');
       }
 
@@ -448,6 +451,29 @@ export default function QuickBooksAccountMapping() {
         <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-3">
           <CheckCircle className="text-green-600 flex-shrink-0 mt-0.5" size={20} />
           <p className="text-green-800">{success}</p>
+        </div>
+      )}
+
+      {connectionStatus && !connectionStatus.connected && (
+        <div className="bg-amber-50 border-2 border-amber-400 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="text-amber-600 flex-shrink-0 mt-0.5" size={24} />
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-amber-900 mb-2">
+                QuickBooks Connection Expired
+              </h3>
+              <p className="text-amber-800 mb-3">
+                Your QuickBooks connection has expired and needs to be reconnected. This typically happens after 100 days of inactivity or if the authorization was revoked.
+              </p>
+              <button
+                onClick={connectToQuickBooks}
+                className="flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded hover:bg-amber-700 font-medium"
+              >
+                <Link2 size={18} />
+                Reconnect to QuickBooks
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

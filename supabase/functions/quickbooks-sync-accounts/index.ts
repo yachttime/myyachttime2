@@ -123,6 +123,31 @@ Deno.serve(async (req: Request) => {
     if (!accountsResponse.ok) {
       const errorText = await accountsResponse.text();
       console.error('QuickBooks API Error:', errorText);
+
+      if (accountsResponse.status === 401 || accountsResponse.status === 403) {
+        await supabase
+          .from('quickbooks_connection')
+          .update({
+            is_active: false,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', connection.id);
+
+        await supabase
+          .from('admin_notifications')
+          .insert({
+            company_id: profile.company_id,
+            notification_type: 'system_alert',
+            title: 'QuickBooks Connection Expired',
+            message: 'Your QuickBooks connection has expired and needs to be reconnected. Please go to QuickBooks settings and reconnect your account.',
+            is_read: false,
+            reference_type: 'quickbooks_connection',
+            reference_id: connection.id
+          });
+
+        throw new Error('QuickBooks authorization has expired. Please reconnect your QuickBooks account.');
+      }
+
       throw new Error(`Failed to fetch accounts from QuickBooks: ${errorText}`);
     }
 
