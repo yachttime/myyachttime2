@@ -201,6 +201,14 @@ export default function QuickBooksAccountMapping() {
     return mappings.find(m => m.mapping_type === mappingType && m.internal_code_id === internalCodeId);
   };
 
+  if (!userRole) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm p-6">
+        <div className="text-center text-gray-600">Loading...</div>
+      </div>
+    );
+  }
+
   if (userRole !== 'master') {
     return (
       <div className="bg-red-50 border border-red-200 rounded-lg p-6">
