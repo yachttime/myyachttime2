@@ -63,6 +63,8 @@ export default function QuickBooksAccountMapping() {
   useEffect(() => {
     if (userRole === 'master') {
       loadData();
+    } else if (userRole && userRole !== 'master') {
+      setLoading(false);
     }
   }, [userRole]);
 
@@ -78,6 +80,27 @@ export default function QuickBooksAccountMapping() {
         supabase.from('labor_codes').select('*').eq('is_active', true).order('code')
       ]);
 
+      if (connResult.error) {
+        console.error('Connection error:', connResult.error);
+        throw connResult.error;
+      }
+      if (accountsResult.error) {
+        console.error('Accounts error:', accountsResult.error);
+        throw accountsResult.error;
+      }
+      if (mappingsResult.error) {
+        console.error('Mappings error:', mappingsResult.error);
+        throw mappingsResult.error;
+      }
+      if (codesResult.error) {
+        console.error('Codes error:', codesResult.error);
+        throw codesResult.error;
+      }
+      if (laborResult.error) {
+        console.error('Labor error:', laborResult.error);
+        throw laborResult.error;
+      }
+
       if (connResult.data) {
         setConnectionStatus({
           connected: true,
@@ -86,24 +109,13 @@ export default function QuickBooksAccountMapping() {
         });
       }
 
-      if (accountsResult.data) {
-        setQboAccounts(accountsResult.data);
-      }
-
-      if (mappingsResult.data) {
-        setMappings(mappingsResult.data);
-      }
-
-      if (codesResult.data) {
-        setAccountingCodes(codesResult.data);
-      }
-
-      if (laborResult.data) {
-        setLaborCodes(laborResult.data);
-      }
+      setQboAccounts(accountsResult.data || []);
+      setMappings(mappingsResult.data || []);
+      setAccountingCodes(codesResult.data || []);
+      setLaborCodes(laborResult.data || []);
     } catch (err) {
       console.error('Error loading QuickBooks data:', err);
-      setError('Failed to load QuickBooks data');
+      setError('Failed to load QuickBooks data. Please check the console for details.');
     } finally {
       setLoading(false);
     }
