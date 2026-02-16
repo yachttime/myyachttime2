@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Anchor, Calendar, CheckCircle, AlertCircle, BookOpen, LogOut, Wrench, Send, Play, Shield, ClipboardCheck, Ship, CalendarPlus, FileUp, MessageCircle, Mail, CreditCard as Edit2, Trash2, ChevronLeft, ChevronRight, ChevronDown, History, UserCheck, FileText, Upload, Download, X, Users, Save, RefreshCw, Clock, Thermometer, Camera, Receipt, Pencil, Lock, CreditCard, Eye, EyeOff, MousePointer, Ligature as FileSignature, Folder, Menu, Phone, Printer, Plus, QrCode, CircleUser as UserCircle2, DollarSign, Archive } from 'lucide-react';
+import { Anchor, Calendar, CheckCircle, AlertCircle, BookOpen, LogOut, Wrench, Send, Play, Shield, ClipboardCheck, Ship, CalendarPlus, FileUp, MessageCircle, Mail, CreditCard as Edit2, Trash2, ChevronLeft, ChevronRight, ChevronDown, History, UserCheck, FileText, Upload, Download, X, Users, Save, RefreshCw, Clock, Thermometer, Camera, Receipt, Pencil, Lock, CreditCard, Eye, EyeOff, MousePointer, Ligature as FileSignature, Folder, Menu, Phone, Printer, Plus, QrCode, CircleUser as UserCircle2, DollarSign, Archive, Building2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useCompany } from '../contexts/CompanyContext';
 import { useRoleImpersonation } from '../contexts/RoleImpersonationContext';
 import { useYachtImpersonation } from '../contexts/YachtImpersonationContext';
 import { useNotification } from '../contexts/NotificationContext';
@@ -22,6 +23,7 @@ import { StaffCalendar } from './StaffCalendar';
 import { TimeClock } from './TimeClock';
 import { EstimatingDashboard } from './EstimatingDashboard';
 import CustomerManagement from './CustomerManagement';
+import { CompanyManagement } from './CompanyManagement';
 import { uploadFileToStorage, deleteFileFromStorage, isStorageUrl, UploadProgress, isTokenExpiredError } from '../utils/fileUpload';
 
 interface DashboardProps {
@@ -30,6 +32,7 @@ interface DashboardProps {
 
 export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const { user, userProfile, yacht, signOut, refreshProfile } = useAuth();
+  const { companies, selectedCompany, isMaster, selectCompany } = useCompany();
   const { impersonatedRole, setImpersonatedRole, getEffectiveRole, isImpersonating } = useRoleImpersonation();
   const { impersonatedYacht, setImpersonatedYacht, getEffectiveYacht, isImpersonatingYacht } = useYachtImpersonation();
   const { showSuccess, showError } = useNotification();
@@ -49,7 +52,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   };
 
   // Helper function to set admin view and persist to localStorage
-  const setAdminViewPersisted = (view: 'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices') => {
+  const setAdminViewPersisted = (view: 'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies') => {
     setAdminView(view);
     try {
       localStorage.setItem('adminView', view);
@@ -97,6 +100,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [showBulkEmailModal, setShowBulkEmailModal] = useState(false);
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
   const [showYachtDropdown, setShowYachtDropdown] = useState(false);
+  const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
   const [bulkEmailRecipients, setBulkEmailRecipients] = useState<Array<{ email: string; name: string }>>([]);
   const [bulkEmailCcRecipients, setBulkEmailCcRecipients] = useState<string[]>([]);
   const [bulkEmailYachtName, setBulkEmailYachtName] = useState<string>('');
@@ -323,11 +327,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [inspectionLoading, setInspectionLoading] = useState(false);
   const [inspectionSuccess, setInspectionSuccess] = useState(false);
   const [inspectionError, setInspectionError] = useState('');
-  const [adminView, setAdminView] = useState<'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices'>(() => {
+  const [adminView, setAdminView] = useState<'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies'>(() => {
     try {
       const stored = localStorage.getItem('adminView');
-      if (stored && ['menu', 'inspection', 'yachts', 'ownertrips', 'repairs', 'ownerchat', 'messages', 'mastercalendar', 'ownerhandoff', 'users', 'appointments', 'staffappointment', 'smartdevices'].includes(stored)) {
-        return stored as 'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices';
+      if (stored && ['menu', 'inspection', 'yachts', 'ownertrips', 'repairs', 'ownerchat', 'messages', 'mastercalendar', 'ownerhandoff', 'users', 'appointments', 'staffappointment', 'smartdevices', 'companies'].includes(stored)) {
+        return stored as 'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies';
       }
       return 'menu';
     } catch {
@@ -5527,43 +5531,83 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           </button>
 
           {userProfile?.role === 'master' && (
-            <div className="relative">
-              <button
-                onClick={() => setShowRoleDropdown(!showRoleDropdown)}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm text-slate-400 hover:text-purple-400 hover:bg-slate-800/50 rounded-lg transition-colors"
-                title="View as different role"
-              >
-                <UserCircle2 className="w-4 h-4" />
-                <span>View As: {impersonatedRole ? impersonatedRole.charAt(0).toUpperCase() + impersonatedRole.slice(1) : 'Master'}</span>
-              </button>
+            <>
+              <div className="relative">
+                <button
+                  onClick={() => setShowCompanyDropdown(!showCompanyDropdown)}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm text-slate-400 hover:text-amber-400 hover:bg-slate-800/50 rounded-lg transition-colors"
+                  title="Switch company"
+                >
+                  <Building2 className="w-4 h-4" />
+                  <span className="truncate">{selectedCompany?.company_name || 'Select Company'}</span>
+                </button>
 
-              {showRoleDropdown && (
-                <div className="absolute bottom-full left-0 right-0 mb-2 bg-slate-800 border border-slate-700 rounded-lg shadow-xl py-2 z-50">
-                  <div className="px-3 py-2 text-xs text-slate-500 border-b border-slate-700 mb-1">
-                    Switch Role View
+                {showCompanyDropdown && (
+                  <div className="absolute bottom-full left-0 right-0 mb-2 bg-slate-800 border border-slate-700 rounded-lg shadow-xl py-2 z-50 max-h-64 overflow-y-auto">
+                    <div className="px-3 py-2 text-xs text-slate-500 border-b border-slate-700 mb-1">
+                      Switch Company
+                    </div>
+                    {companies.map((company) => (
+                      <button
+                        key={company.id}
+                        onClick={() => {
+                          selectCompany(company.id);
+                          setShowCompanyDropdown(false);
+                        }}
+                        className={`w-full text-left px-4 py-2 text-sm transition-colors ${
+                          selectedCompany?.id === company.id
+                            ? 'bg-amber-600/20 text-amber-400'
+                            : 'text-slate-300 hover:bg-slate-700/50'
+                        }`}
+                      >
+                        <span>{company.company_name}</span>
+                        {selectedCompany?.id === company.id && (
+                          <span className="ml-2 text-xs">✓</span>
+                        )}
+                      </button>
+                    ))}
                   </div>
-                  {(['owner', 'manager', 'staff', 'mechanic', 'master'] as const).map((role) => (
-                    <button
-                      key={role}
-                      onClick={() => {
-                        setImpersonatedRole(role === 'master' ? null : role);
-                        setShowRoleDropdown(false);
-                      }}
-                      className={`w-full text-left px-4 py-2 text-sm transition-colors ${
-                        (impersonatedRole === role || (role === 'master' && !impersonatedRole))
-                          ? 'bg-purple-600/20 text-purple-400'
-                          : 'text-slate-300 hover:bg-slate-700/50'
-                      }`}
-                    >
-                      <span className="capitalize">{role}</span>
-                      {(impersonatedRole === role || (role === 'master' && !impersonatedRole)) && (
-                        <span className="ml-2 text-xs">✓</span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+
+              <div className="relative">
+                <button
+                  onClick={() => setShowRoleDropdown(!showRoleDropdown)}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm text-slate-400 hover:text-purple-400 hover:bg-slate-800/50 rounded-lg transition-colors"
+                  title="View as different role"
+                >
+                  <UserCircle2 className="w-4 h-4" />
+                  <span>View As: {impersonatedRole ? impersonatedRole.charAt(0).toUpperCase() + impersonatedRole.slice(1) : 'Master'}</span>
+                </button>
+
+                {showRoleDropdown && (
+                  <div className="absolute bottom-full left-0 right-0 mb-2 bg-slate-800 border border-slate-700 rounded-lg shadow-xl py-2 z-50">
+                    <div className="px-3 py-2 text-xs text-slate-500 border-b border-slate-700 mb-1">
+                      Switch Role View
+                    </div>
+                    {(['owner', 'manager', 'staff', 'mechanic', 'master'] as const).map((role) => (
+                      <button
+                        key={role}
+                        onClick={() => {
+                          setImpersonatedRole(role === 'master' ? null : role);
+                          setShowRoleDropdown(false);
+                        }}
+                        className={`w-full text-left px-4 py-2 text-sm transition-colors ${
+                          (impersonatedRole === role || (role === 'master' && !impersonatedRole))
+                            ? 'bg-purple-600/20 text-purple-400'
+                            : 'text-slate-300 hover:bg-slate-700/50'
+                        }`}
+                      >
+                        <span className="capitalize">{role}</span>
+                        {(impersonatedRole === role || (role === 'master' && !impersonatedRole)) && (
+                          <span className="ml-2 text-xs">✓</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
           )}
 
           <button
@@ -6938,6 +6982,21 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                         </div>
                         <h3 className="text-xl font-bold mb-2">Smart Devices</h3>
                         <p className="text-slate-400 text-sm">Manage smart locks and device credentials</p>
+                      </button>
+                    )}
+
+                    {isMasterRole(effectiveRole) && (
+                      <button
+                        onClick={() => setAdminViewPersisted('companies')}
+                        className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
+                      >
+                        <div className="flex items-center gap-4 mb-4">
+                          <div className="bg-amber-500/20 p-4 rounded-xl group-hover:bg-amber-500/30 transition-colors">
+                            <Building2 className="w-8 h-8 text-amber-500" />
+                          </div>
+                        </div>
+                        <h3 className="text-xl font-bold mb-2">Company Management</h3>
+                        <p className="text-slate-400 text-sm">Manage companies and multi-tenant settings</p>
                       </button>
                     )}
 
@@ -14729,6 +14788,17 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                   </button>
 
                   <SmartDeviceManagement />
+                </>
+              ) : adminView === 'companies' ? (
+                <>
+                  <button
+                    onClick={() => setAdminViewPersisted('menu')}
+                    className="flex items-center gap-2 text-slate-400 hover:text-amber-500 transition-colors mb-4"
+                  >
+                    <span>← Back to Admin Menu</span>
+                  </button>
+
+                  <CompanyManagement />
                 </>
               ) : adminView === 'users' ? (
                 <>
