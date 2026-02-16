@@ -184,19 +184,27 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
           .eq('id', editingPackage.id);
 
         if (error) throw error;
+        closeModal();
+        fetchData();
       } else {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('estimate_packages')
           .insert({
             ...formData,
             created_by: userId
-          });
+          })
+          .select()
+          .single();
 
         if (error) throw error;
-      }
 
-      closeModal();
-      fetchData();
+        closeModal();
+        await fetchData();
+
+        if (data) {
+          setSelectedPackage(data.id);
+        }
+      }
     } catch (error) {
       console.error('Error saving package:', error);
       alert('Error saving package');
@@ -450,7 +458,7 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
                     <select
                       value={laborFormData.labor_code_id}
                       onChange={(e) => handleLaborCodeChange(e.target.value)}
-                      className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white"
                       required
                     >
                       <option value="">Select Labor Code</option>
@@ -465,7 +473,7 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
                       placeholder="Hours"
                       value={laborFormData.hours}
                       onChange={(e) => setLaborFormData({...laborFormData, hours: parseFloat(e.target.value) || 0})}
-                      className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white"
                       step="0.25"
                       min="0"
                       required
@@ -476,7 +484,7 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
                     placeholder="Rate (optional)"
                     value={laborFormData.rate}
                     onChange={(e) => setLaborFormData({...laborFormData, rate: parseFloat(e.target.value) || 0})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white"
                     step="0.01"
                     min="0"
                   />
@@ -525,7 +533,7 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
                     <select
                       value={partFormData.part_id}
                       onChange={(e) => handlePartChange(e.target.value)}
-                      className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white"
                       required
                     >
                       <option value="">Select Part</option>
@@ -540,7 +548,7 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
                       placeholder="Quantity"
                       value={partFormData.quantity}
                       onChange={(e) => setPartFormData({...partFormData, quantity: parseFloat(e.target.value) || 0})}
-                      className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white"
                       step="0.1"
                       min="0"
                       required
@@ -551,7 +559,7 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
                     placeholder="Unit Price (optional)"
                     value={partFormData.unit_price}
                     onChange={(e) => setPartFormData({...partFormData, unit_price: parseFloat(e.target.value) || 0})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white"
                     step="0.01"
                     min="0"
                   />
@@ -625,7 +633,7 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white"
                   required
                 />
               </div>
@@ -636,7 +644,7 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
                 <textarea
                   value={formData.description}
                   onChange={(e) => setFormData({...formData, description: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white"
                   rows={3}
                 />
               </div>
