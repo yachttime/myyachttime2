@@ -24,8 +24,12 @@ Deno.serve(async (req: Request) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-    if (!clientId || !clientSecret || !redirectUri || !supabaseUrl || !serviceRoleKey) {
-      throw new Error('QuickBooks OAuth credentials not configured');
+    if (!supabaseUrl || !serviceRoleKey) {
+      throw new Error('Supabase configuration missing');
+    }
+
+    if (!clientId || !clientSecret || !redirectUri) {
+      throw new Error('QuickBooks credentials not configured. Please set QUICKBOOKS_CLIENT_ID, QUICKBOOKS_CLIENT_SECRET, and QUICKBOOKS_REDIRECT_URI environment variables in your Supabase project settings.');
     }
 
     // Get user from authorization header
