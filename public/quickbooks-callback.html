@@ -121,13 +121,23 @@
 
         console.log('Supabase URL:', supabaseUrl);
 
-        // Get session from opener window
-        if (!window.opener) {
-          throw new Error('This page must be opened from the main application');
-        }
-
         // Try multiple localStorage keys for Supabase session
         let accessToken = null;
+
+        // Check for the temporary auth token first (set by QuickBooksAccountMapping)
+        const tempToken = localStorage.getItem('quickbooks_auth_token');
+        const tempTimestamp = localStorage.getItem('quickbooks_auth_timestamp');
+
+        if (tempToken && tempTimestamp) {
+          const age = Date.now() - parseInt(tempTimestamp);
+          // Token is valid for 5 minutes
+          if (age < 5 * 60 * 1000) {
+            console.log('Using temporary auth token from localStorage');
+            accessToken = tempToken;
+          } else {
+            console.log('Temporary auth token expired');
+          }
+        }
 
         // Function to search for access token in a storage
         const findAccessToken = (storage) => {
@@ -155,17 +165,19 @@
           return null;
         };
 
-        // First try the opener window's localStorage (if accessible)
-        try {
-          if (window.opener && window.opener.localStorage) {
-            console.log('Trying opener localStorage...');
-            accessToken = findAccessToken(window.opener.localStorage);
+        // If temporary token not found, try the opener window's localStorage (if accessible)
+        if (!accessToken) {
+          try {
+            if (window.opener && window.opener.localStorage) {
+              console.log('Trying opener localStorage...');
+              accessToken = findAccessToken(window.opener.localStorage);
+            }
+          } catch (e) {
+            console.log('Cannot access opener localStorage (cross-origin):', e.message);
           }
-        } catch (e) {
-          console.log('Cannot access opener localStorage (cross-origin):', e.message);
         }
 
-        // If not found, try current window's localStorage
+        // If still not found, try current window's localStorage
         if (!accessToken) {
           console.log('Trying current window localStorage...');
           accessToken = findAccessToken(localStorage);
