@@ -51,6 +51,7 @@ export default function QuickBooksAccountMapping() {
   const { user, userProfile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus | null>(null);
   const [qboAccounts, setQboAccounts] = useState<QuickBooksAccount[]>([]);
   const [mappings, setMappings] = useState<AccountMapping[]>([]);
