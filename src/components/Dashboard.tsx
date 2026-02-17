@@ -10691,7 +10691,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             arrival_time: ownerTripForm.arrival_time,
                             notes: 'Owner trip',
                             checked_in: false,
-                            checked_out: false
+                            checked_out: false,
+                            company_id: selectedYacht.company_id
                           }).select().single();
 
                           if (error) throw error;
