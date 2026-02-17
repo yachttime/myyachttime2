@@ -282,6 +282,13 @@ export default function QuickBooksAccountMapping() {
         throw new Error(result.error || 'Failed to sync QuickBooks accounts');
       }
 
+      // Update encrypted session if token was refreshed
+      if (result.encrypted_session && result.encrypted_session !== encryptedSession) {
+        console.log('[QuickBooks] Token was refreshed, updating encrypted session');
+        setEncryptedSession(result.encrypted_session);
+        localStorage.setItem('quickbooks_encrypted_session', result.encrypted_session);
+      }
+
       setSuccess(`Successfully synced ${result.syncedCount} accounts from QuickBooks!`);
       await loadData();
     } catch (err: any) {

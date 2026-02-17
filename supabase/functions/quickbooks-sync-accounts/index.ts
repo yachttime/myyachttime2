@@ -239,6 +239,7 @@ Deno.serve(async (req: Request) => {
         syncedCount,
         errorCount,
         totalAccounts: accounts.length,
+        encrypted_session: currentEncryptedSession, // Return updated session if token was refreshed
       }),
       {
         headers: {

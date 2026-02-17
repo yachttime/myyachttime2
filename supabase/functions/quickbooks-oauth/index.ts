@@ -60,7 +60,8 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { action, code, realmId, state } = await req.json();
+    const body = await req.json();
+    const { action, code, realmId, state, encrypted_session } = body;
 
     // Get QuickBooks OAuth credentials from environment
     const clientId = Deno.env.get('QUICKBOOKS_CLIENT_ID');
@@ -278,7 +279,6 @@ Deno.serve(async (req: Request) => {
 
     if (action === 'refresh_token') {
       // Refresh token requires the encrypted session from client
-      const { encrypted_session } = await req.json();
       if (!encrypted_session) {
         throw new Error('Encrypted session required for token refresh');
       }
