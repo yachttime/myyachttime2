@@ -251,12 +251,22 @@ export default function QuickBooksAccountMapping() {
         throw new Error('Not authenticated');
       }
 
-      if (!encryptedSession) {
+      // Check localStorage again in case it was set after component mount
+      const currentSession = encryptedSession || localStorage.getItem('quickbooks_encrypted_session');
+      console.log('[QuickBooks] Syncing with session:', currentSession ? 'present' : 'missing');
+      console.log('[QuickBooks] All localStorage keys:', Object.keys(localStorage));
+
+      if (!currentSession) {
         setError(
           'QuickBooks session not found. Please reconnect to QuickBooks.\n\n' +
           'If you see "sorry can\'t connect" error in QuickBooks, verify your Redirect URI matches exactly (see configuration above).'
         );
         throw new Error('QuickBooks session not found. Please reconnect to QuickBooks.');
+      }
+
+      // Update state if we loaded from localStorage
+      if (!encryptedSession && currentSession) {
+        setEncryptedSession(currentSession);
       }
 
       setSuccess('Syncing accounts from QuickBooks...');
@@ -267,7 +277,7 @@ export default function QuickBooksAccountMapping() {
           'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ encrypted_session: encryptedSession }),
+        body: JSON.stringify({ encrypted_session: currentSession }),
       });
 
       const result = await response.json();
