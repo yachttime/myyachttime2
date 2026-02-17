@@ -214,9 +214,7 @@
           console.log('Encrypted session stored for QuickBooks compliance');
         }
 
-        showSuccess();
-
-        // Notify opener window with encrypted session
+        // Notify opener window with encrypted session FIRST
         console.log('Checking window.opener...', window.opener ? 'exists' : 'null');
         if (window.opener) {
           console.log('Posting message to opener window...');
@@ -230,11 +228,13 @@
           console.error('window.opener is null - cannot notify parent window!');
         }
 
-        // Auto-close after 2 seconds (faster now that we know it works)
+        showSuccess();
+
+        // Close after a brief delay to ensure message is processed
         setTimeout(() => {
-          console.log('Auto-closing window in 2 seconds...');
+          console.log('Auto-closing window...');
           window.close();
-        }, 2000);
+        }, 500);
 
       } catch (err) {
         console.error('Error:', err);

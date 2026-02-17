@@ -251,19 +251,24 @@ export default function QuickBooksAccountMapping() {
       console.log('[QuickBooks] Message listener registered');
 
       // Check if popup was closed without completing
+      // Use longer delay to allow message handler to process first
       const checkPopupClosed = setInterval(() => {
         if (authWindow && authWindow.closed) {
           console.log('[QuickBooks] Popup was closed');
           clearInterval(checkPopupClosed);
-          window.removeEventListener('message', messageHandler);
 
-          // Check if we actually received the session
-          const savedSession = localStorage.getItem('quickbooks_encrypted_session');
-          if (!savedSession) {
-            console.error('[QuickBooks] Popup closed but no session was saved');
-            setError('Connection window was closed. If you completed the connection, please try clicking "Reconnect to QuickBooks" again.');
-            setSuccess(null);
-          }
+          // Wait a bit longer for message to be processed
+          setTimeout(() => {
+            window.removeEventListener('message', messageHandler);
+
+            // Check if we actually received the session
+            const savedSession = localStorage.getItem('quickbooks_encrypted_session');
+            if (!savedSession) {
+              console.error('[QuickBooks] Popup closed but no session was saved');
+              setError('Connection window was closed. If you completed the connection, please try clicking "Reconnect to QuickBooks" again.');
+              setSuccess(null);
+            }
+          }, 1000);
         }
       }, 500);
 
