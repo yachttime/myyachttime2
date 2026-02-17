@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Anchor, Calendar, CheckCircle, AlertCircle, BookOpen, LogOut, Wrench, Send, Play, Shield, ClipboardCheck, Ship, CalendarPlus, FileUp, MessageCircle, Mail, CreditCard as Edit2, Trash2, ChevronLeft, ChevronRight, ChevronDown, History, UserCheck, FileText, Upload, Download, X, Users, Save, RefreshCw, Clock, Thermometer, Camera, Receipt, Pencil, Lock, CreditCard, Eye, EyeOff, MousePointer, Ligature as FileSignature, Folder, Menu, Phone, Printer, Plus, QrCode, CircleUser as UserCircle2, DollarSign, Archive, Building2 } from 'lucide-react';
+import { Anchor, Calendar, CheckCircle, AlertCircle, BookOpen, LogOut, Wrench, Send, Play, Shield, ClipboardCheck, Ship, CalendarPlus, FileUp, MessageCircle, Mail, CreditCard as Edit2, Trash2, ChevronLeft, ChevronRight, ChevronDown, History, UserCheck, FileText, Upload, Download, X, Users, Save, RefreshCw, Clock, Thermometer, Camera, Receipt, Pencil, Lock, CreditCard, Eye, EyeOff, MousePointer, Ligature as FileSignature, Folder, Menu, Phone, Printer, Plus, QrCode, CircleUser as UserCircle2, DollarSign, Archive, Building2, MessageSquare } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCompany } from '../contexts/CompanyContext';
 import { useRoleImpersonation } from '../contexts/RoleImpersonationContext';
@@ -24,6 +24,7 @@ import { TimeClock } from './TimeClock';
 import { EstimatingDashboard } from './EstimatingDashboard';
 import CustomerManagement from './CustomerManagement';
 import { CompanyManagement } from './CompanyManagement';
+import SupportTickets from './SupportTickets';
 import { uploadFileToStorage, deleteFileFromStorage, isStorageUrl, UploadProgress, isTokenExpiredError } from '../utils/fileUpload';
 
 interface DashboardProps {
@@ -42,7 +43,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const effectiveYacht = getEffectiveYacht(yacht, userProfile?.role);
 
   // Helper function to set active tab and persist to localStorage
-  const setActiveTabPersisted = (tab: 'calendar' | 'maintenance' | 'education' | 'admin' | 'staffCalendar' | 'timeClock' | 'estimating' | 'customers') => {
+  const setActiveTabPersisted = (tab: 'calendar' | 'maintenance' | 'education' | 'admin' | 'staffCalendar' | 'timeClock' | 'estimating' | 'customers' | 'support') => {
     setActiveTab(tab);
     try {
       localStorage.setItem('activeTab', tab);
@@ -68,11 +69,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [showWelcomeVideo, setShowWelcomeVideo] = useState(false);
   const [qrScannedYachtName, setQrScannedYachtName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'calendar' | 'maintenance' | 'education' | 'admin' | 'staffCalendar' | 'timeClock' | 'estimating' | 'customers'>(() => {
+  const [activeTab, setActiveTab] = useState<'calendar' | 'maintenance' | 'education' | 'admin' | 'staffCalendar' | 'timeClock' | 'estimating' | 'customers' | 'support'>(() => {
     try {
       const stored = localStorage.getItem('activeTab');
-      if (stored && ['calendar', 'maintenance', 'education', 'admin', 'staffCalendar', 'timeClock', 'estimating', 'customers'].includes(stored)) {
-        return stored as 'calendar' | 'maintenance' | 'education' | 'admin' | 'staffCalendar' | 'timeClock' | 'estimating' | 'customers';
+      if (stored && ['calendar', 'maintenance', 'education', 'admin', 'staffCalendar', 'timeClock', 'estimating', 'customers', 'support'].includes(stored)) {
+        return stored as 'calendar' | 'maintenance' | 'education' | 'admin' | 'staffCalendar' | 'timeClock' | 'estimating' | 'customers' | 'support';
       }
     } catch (error) {
       console.error('Error loading active tab from localStorage:', error);
@@ -5486,6 +5487,20 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               <span className="font-medium">Education</span>
             </button>
           )}
+          <button
+            onClick={() => {
+              setActiveTabPersisted('support');
+              setSidebarOpen(false);
+            }}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+              activeTab === 'support'
+                ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+            }`}
+          >
+            <MessageSquare className="w-5 h-5" />
+            <span className="font-medium">Support</span>
+          </button>
           {isStaffRole(effectiveRole) && (
             <button
               onClick={() => {
@@ -6847,6 +6862,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                   )}
                 </>
               )}
+            </div>
+          )}
+
+          {activeTab === 'support' && (
+            <div className="bg-white rounded-2xl border border-slate-300 overflow-hidden">
+              <SupportTickets />
             </div>
           )}
 
