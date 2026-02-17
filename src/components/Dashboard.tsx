@@ -5487,7 +5487,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               <span className="font-medium">Education</span>
             </button>
           )}
-          {(isOwnerRole(effectiveRole) || isMasterRole(effectiveRole)) && (
+          {(isOwnerRole(effectiveRole) || isManagerRole(effectiveRole) || isMasterRole(effectiveRole)) && (
             <button
               onClick={() => {
                 setActiveTabPersisted('support');
