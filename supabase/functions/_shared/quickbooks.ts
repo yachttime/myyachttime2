@@ -51,6 +51,7 @@ export async function makeQuickBooksAPICall(
   let responseData: any = null;
   let errorMessage: string | null = null;
   let statusCode = 0;
+  let responseHeaders: Record<string, string> = {};
 
   try {
     // Make the API call
@@ -70,6 +71,11 @@ export async function makeQuickBooksAPICall(
     });
 
     statusCode = response.status;
+
+    // Capture all response headers for comprehensive logging
+    response.headers.forEach((value, key) => {
+      responseHeaders[key] = value;
+    });
 
     // Capture intuit_tid from response headers
     intuitTid = response.headers.get('intuit_tid');
@@ -110,6 +116,9 @@ export async function makeQuickBooksAPICall(
       else if (responseData.Item?.Id) qboId = responseData.Item.Id;
     }
 
+    // Calculate duration
+    const durationMs = Date.now() - startTime;
+
     // Log to database asynchronously (don't block on this)
     logQuickBooksAPICall({
       companyId,
@@ -124,6 +133,10 @@ export async function makeQuickBooksAPICall(
       referenceType,
       referenceId,
       qboId,
+      requestBody: body,
+      responseBody: responseData,
+      responseHeaders,
+      durationMs,
       supabaseUrl,
       serviceRoleKey,
     }).catch((err) => {
@@ -153,6 +166,9 @@ export async function makeQuickBooksAPICall(
     errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error(`[QuickBooks API Exception] ${requestType}:`, error);
 
+    // Calculate duration
+    const durationMs = Date.now() - startTime;
+
     // Log the error (don't block on this)
     logQuickBooksAPICall({
       companyId,
@@ -167,6 +183,10 @@ export async function makeQuickBooksAPICall(
       referenceType,
       referenceId,
       qboId: null,
+      requestBody: body,
+      responseBody: null,
+      responseHeaders,
+      durationMs,
       supabaseUrl,
       serviceRoleKey,
     }).catch((err) => {
@@ -190,12 +210,20 @@ interface LogAPICallOptions {
   referenceType?: string;
   referenceId?: string;
   qboId: string | null;
+  requestBody: any;
+  responseBody: any;
+  responseHeaders: Record<string, string>;
+  durationMs: number;
   supabaseUrl: string;
   serviceRoleKey: string;
 }
 
 async function logQuickBooksAPICall(options: LogAPICallOptions): Promise<void> {
   const { supabaseUrl, serviceRoleKey, ...logData } = options;
+
+  // Redact sensitive data from request/response bodies
+  const sanitizedRequestBody = sanitizeForLogging(logData.requestBody);
+  const sanitizedResponseBody = sanitizeForLogging(logData.responseBody);
 
   // Use direct fetch to avoid circular dependencies
   const response = await fetch(`${supabaseUrl}/rest/v1/quickbooks_api_logs`, {
@@ -219,11 +247,52 @@ async function logQuickBooksAPICall(options: LogAPICallOptions): Promise<void> {
       reference_type: logData.referenceType,
       reference_id: logData.referenceId,
       qbo_id: logData.qboId,
+      request_body: sanitizedRequestBody,
+      response_body: sanitizedResponseBody,
+      response_headers: logData.responseHeaders,
+      duration_ms: logData.durationMs,
     }),
   });
 
   if (!response.ok) {
     throw new Error(`Failed to log API call: ${response.statusText}`);
+  }
+}
+
+function sanitizeForLogging(data: any): any {
+  if (!data) return null;
+
+  // Convert to JSON string and back to ensure it's serializable
+  try {
+    const jsonString = JSON.stringify(data);
+    const parsed = JSON.parse(jsonString);
+
+    // Redact sensitive fields if present
+    if (parsed && typeof parsed === 'object') {
+      // List of sensitive field patterns to redact
+      const sensitiveFields = ['password', 'token', 'secret', 'apikey', 'authorization', 'ssn', 'tax_id'];
+
+      const redact = (obj: any): any => {
+        if (!obj || typeof obj !== 'object') return obj;
+
+        for (const key in obj) {
+          const lowerKey = key.toLowerCase();
+          if (sensitiveFields.some(field => lowerKey.includes(field))) {
+            obj[key] = '[REDACTED]';
+          } else if (typeof obj[key] === 'object') {
+            obj[key] = redact(obj[key]);
+          }
+        }
+        return obj;
+      };
+
+      return redact(parsed);
+    }
+
+    return parsed;
+  } catch (e) {
+    // If serialization fails, return string representation
+    return String(data).substring(0, 1000);
   }
 }
 
