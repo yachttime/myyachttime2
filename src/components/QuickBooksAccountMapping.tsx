@@ -543,13 +543,23 @@ export default function QuickBooksAccountMapping() {
             <div className="flex items-center gap-2">
               {connectionStatus ? (
                 <>
-                  <button
-                    onClick={syncAccounts}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                  >
-                    <RefreshCw size={18} />
-                    Sync Accounts
-                  </button>
+                  {encryptedSession ? (
+                    <button
+                      onClick={syncAccounts}
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                    >
+                      <RefreshCw size={18} />
+                      Sync Accounts
+                    </button>
+                  ) : (
+                    <button
+                      onClick={connectToQuickBooks}
+                      className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                    >
+                      <Link2 size={18} />
+                      Reconnect to QuickBooks
+                    </button>
+                  )}
                   <button
                     onClick={disconnectQuickBooks}
                     className="flex items-center gap-2 px-4 py-2 border border-red-600 text-red-600 rounded hover:bg-red-50"
