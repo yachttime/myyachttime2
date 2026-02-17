@@ -108,9 +108,8 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === 'get_auth_url') {
-      // Get the origin from the request body if provided (dynamic redirect)
-      const { origin } = body;
-      const dynamicRedirectUri = origin ? `${origin}/quickbooks-callback.html` : redirectUri;
+      // Always use the configured redirect URI - must match QuickBooks app settings exactly
+      const finalRedirectUri = redirectUri;
 
       // Get OAuth endpoints from discovery document
       const endpoints = await getOAuthEndpoints();
@@ -119,13 +118,13 @@ Deno.serve(async (req: Request) => {
       const authUrl = new URL(endpoints.authorization_endpoint);
       authUrl.searchParams.set('client_id', clientId);
       authUrl.searchParams.set('scope', 'com.intuit.quickbooks.accounting');
-      authUrl.searchParams.set('redirect_uri', dynamicRedirectUri);
+      authUrl.searchParams.set('redirect_uri', finalRedirectUri);
       authUrl.searchParams.set('response_type', 'code');
       authUrl.searchParams.set('state', `user_${user.id}_company_${profile.company_id}`);
       // Force QuickBooks to show company selection screen even if previously authorized
       authUrl.searchParams.set('prompt', 'consent');
 
-      console.log('Using redirect URI:', dynamicRedirectUri);
+      console.log('Using redirect URI:', finalRedirectUri);
 
       return new Response(
         JSON.stringify({ authUrl: authUrl.toString() }),
@@ -144,11 +143,10 @@ Deno.serve(async (req: Request) => {
         throw new Error('Invalid state parameter. Possible CSRF attack detected.');
       }
 
-      // Get the origin from the request body if provided (dynamic redirect)
-      const { origin } = body;
-      const dynamicRedirectUri = origin ? `${origin}/quickbooks-callback.html` : redirectUri;
+      // Always use the configured redirect URI - must match QuickBooks app settings exactly
+      const finalRedirectUri = redirectUri;
 
-      console.log('Exchanging token with redirect URI:', dynamicRedirectUri);
+      console.log('Exchanging token with redirect URI:', finalRedirectUri);
 
       // Get OAuth endpoints from discovery document
       const endpoints = await getOAuthEndpoints();
@@ -166,7 +164,7 @@ Deno.serve(async (req: Request) => {
         body: new URLSearchParams({
           grant_type: 'authorization_code',
           code: code,
-          redirect_uri: dynamicRedirectUri,
+          redirect_uri: finalRedirectUri,
         }).toString(),
       });
 
