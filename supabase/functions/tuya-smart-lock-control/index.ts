@@ -770,9 +770,23 @@ Deno.serve(async (req: Request) => {
       throw new Error('Tuya credentials not configured for this yacht');
     }
 
+    const encryptionKey = Deno.env.get('SMART_DEVICE_ENCRYPTION_KEY');
+    if (!encryptionKey) {
+      throw new Error('Encryption key not configured');
+    }
+
+    const { data: decryptedSecret } = await supabase.rpc('decrypt_credential', {
+      ciphertext: credentials.tuya_client_secret,
+      key: encryptionKey
+    });
+
+    if (!decryptedSecret) {
+      throw new Error('Failed to decrypt Tuya credentials');
+    }
+
     const tuyaClient = new TuyaAPIClient(
       credentials.tuya_client_id,
-      credentials.tuya_client_secret,
+      decryptedSecret,
       credentials.tuya_region,
       supabase,
       deviceId,

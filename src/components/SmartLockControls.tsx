@@ -266,7 +266,6 @@ export const SmartLockControls = ({ yachtId, userId, userName, hasActiveBooking 
       }
 
       const result = await response.json();
-      console.log('Lock control response:', result);
 
       if (result.success) {
         setLockStatuses(prev => ({
@@ -377,7 +376,6 @@ export const SmartLockControls = ({ yachtId, userId, userName, hasActiveBooking 
       });
 
       const data = await response.json();
-      console.log('Diagnostics result:', data);
 
       if (data.success) {
         setDiagnosticsResult(data.result);
@@ -433,7 +431,6 @@ export const SmartLockControls = ({ yachtId, userId, userName, hasActiveBooking 
       });
 
       const data = await response.json();
-      console.log('Setup key result:', data);
 
       if (data.success) {
         showMessage('success', 'Encryption key configured successfully! You can now use remote unlock.');

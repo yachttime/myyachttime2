@@ -432,11 +432,30 @@ Deno.serve(async (req: Request) => {
       throw new Error('TTLock credentials not configured for this yacht');
     }
 
+    const encryptionKey = Deno.env.get('SMART_DEVICE_ENCRYPTION_KEY');
+    if (!encryptionKey) {
+      throw new Error('Encryption key not configured');
+    }
+
+    const { data: decryptedSecret } = await supabase.rpc('decrypt_credential', {
+      ciphertext: credentials.ttlock_client_secret,
+      key: encryptionKey
+    });
+
+    const { data: decryptedPassword } = await supabase.rpc('decrypt_credential', {
+      ciphertext: credentials.ttlock_password_md5,
+      key: encryptionKey
+    });
+
+    if (!decryptedSecret || !decryptedPassword) {
+      throw new Error('Failed to decrypt TTLock credentials');
+    }
+
     const ttlockClient = new TTLockAPIClient(
       credentials.ttlock_client_id,
-      credentials.ttlock_client_secret,
+      decryptedSecret,
       credentials.ttlock_username,
-      credentials.ttlock_password_md5,
+      decryptedPassword,
       supabase,
       deviceId,
       yachtId

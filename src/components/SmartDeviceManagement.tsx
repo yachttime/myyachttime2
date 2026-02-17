@@ -272,12 +272,21 @@ export const SmartDeviceManagement = () => {
     try {
       const existingCreds = credentials[0];
 
+      const encryptionKey = import.meta.env.VITE_SMART_DEVICE_ENCRYPTION_KEY || 'temporary_migration_key_replace_in_production';
+
+      const { data: encryptedSecret, error: encryptError } = await supabase.rpc('encrypt_credential', {
+        plaintext: credentialsForm.tuya_client_secret,
+        key: encryptionKey
+      });
+
+      if (encryptError) throw encryptError;
+
       if (existingCreds) {
         const { error } = await supabase
           .from('tuya_device_credentials')
           .update({
             tuya_client_id: credentialsForm.tuya_client_id,
-            tuya_client_secret: credentialsForm.tuya_client_secret,
+            tuya_client_secret: encryptedSecret,
             tuya_region: credentialsForm.tuya_region,
           })
           .eq('id', existingCreds.id);
@@ -297,7 +306,7 @@ export const SmartDeviceManagement = () => {
           .insert({
             yacht_id: selectedYachtId,
             tuya_client_id: credentialsForm.tuya_client_id,
-            tuya_client_secret: credentialsForm.tuya_client_secret,
+            tuya_client_secret: encryptedSecret,
             tuya_region: credentialsForm.tuya_region,
             created_by: profile?.id,
           });
@@ -337,14 +346,28 @@ export const SmartDeviceManagement = () => {
       const existingCreds = ttlockCredentials[0];
       const passwordMd5 = await md5Hash(ttlockCredentialsForm.ttlock_password);
 
+      const encryptionKey = import.meta.env.VITE_SMART_DEVICE_ENCRYPTION_KEY || 'temporary_migration_key_replace_in_production';
+
+      const { data: encryptedSecret, error: secretError } = await supabase.rpc('encrypt_credential', {
+        plaintext: ttlockCredentialsForm.ttlock_client_secret,
+        key: encryptionKey
+      });
+
+      const { data: encryptedPassword, error: passwordError } = await supabase.rpc('encrypt_credential', {
+        plaintext: passwordMd5,
+        key: encryptionKey
+      });
+
+      if (secretError || passwordError) throw secretError || passwordError;
+
       if (existingCreds) {
         const { error } = await supabase
           .from('ttlock_device_credentials')
           .update({
             ttlock_client_id: ttlockCredentialsForm.ttlock_client_id,
-            ttlock_client_secret: ttlockCredentialsForm.ttlock_client_secret,
+            ttlock_client_secret: encryptedSecret,
             ttlock_username: ttlockCredentialsForm.ttlock_username,
-            ttlock_password_md5: passwordMd5,
+            ttlock_password_md5: encryptedPassword,
           })
           .eq('id', existingCreds.id);
 
@@ -363,9 +386,9 @@ export const SmartDeviceManagement = () => {
           .insert({
             yacht_id: selectedYachtId,
             ttlock_client_id: ttlockCredentialsForm.ttlock_client_id,
-            ttlock_client_secret: ttlockCredentialsForm.ttlock_client_secret,
+            ttlock_client_secret: encryptedSecret,
             ttlock_username: ttlockCredentialsForm.ttlock_username,
-            ttlock_password_md5: passwordMd5,
+            ttlock_password_md5: encryptedPassword,
             created_by: profile?.id,
           });
 
