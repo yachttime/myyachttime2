@@ -222,7 +222,7 @@ export default function QuickBooksAccountMapping() {
       setSuccess('Opening QuickBooks authorization window. After connecting, the window will close automatically.');
 
       // Listen for messages from the callback window
-      const messageHandler = (event: MessageEvent) => {
+      const messageHandler = async (event: MessageEvent) => {
         console.log('[QuickBooks] Message received:', event.data);
 
         if (event.data?.type === 'quickbooks_connected') {
@@ -242,9 +242,15 @@ export default function QuickBooksAccountMapping() {
             console.error('[QuickBooks] No encrypted_session in callback message!');
           }
 
-          setSuccess('QuickBooks connected successfully! Click "Sync Accounts" to load your Chart of Accounts.');
-          loadData();
+          setSuccess('QuickBooks connected successfully! Syncing accounts now...');
+          await loadData();
           window.removeEventListener('message', messageHandler);
+
+          // Automatically sync accounts right after connection
+          // This prevents token expiration issues
+          setTimeout(() => {
+            syncAccounts();
+          }, 500);
         }
       };
       window.addEventListener('message', messageHandler);
@@ -324,11 +330,17 @@ export default function QuickBooksAccountMapping() {
       const result = await response.json();
 
       if (!response.ok) {
-        if (result.error?.includes('authorization has expired') || result.error?.includes('Please reconnect')) {
+        console.error('[QuickBooks] Sync failed:', result);
+        if (result.error?.includes('authorization has expired') ||
+            result.error?.includes('Please reconnect') ||
+            result.error?.includes('expired') ||
+            result.error?.includes('3100')) {
           // Clear encrypted session and reload
           setEncryptedSession(null);
           localStorage.removeItem('quickbooks_encrypted_session');
           await loadData();
+          setError(result.error + '\n\nPlease reconnect to QuickBooks to continue.');
+          return;
         }
         throw new Error(result.error || 'Failed to sync QuickBooks accounts');
       }
