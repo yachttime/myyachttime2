@@ -279,6 +279,7 @@ export default function QuickBooksAccountMapping() {
   const syncAccounts = async () => {
     setError(null);
     setSuccess(null);
+    setSyncing(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -338,14 +339,17 @@ export default function QuickBooksAccountMapping() {
     } catch (err: any) {
       console.error('Error syncing accounts:', err);
       setError(err.message || 'Failed to sync QuickBooks accounts');
+    } finally {
+      setSyncing(false);
     }
   };
 
   const disconnectQuickBooks = async () => {
-    if (!confirm('Are you sure you want to disconnect from QuickBooks?')) return;
+    if (!confirm('Are you sure you want to disconnect from QuickBooks? This will clear all connection data and you will need to reconnect.')) return;
 
     setError(null);
     setSuccess(null);
+    setLoading(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -377,6 +381,8 @@ export default function QuickBooksAccountMapping() {
     } catch (err: any) {
       console.error('Error disconnecting from QuickBooks:', err);
       setError(err.message || 'Failed to disconnect from QuickBooks');
+    } finally {
+      setLoading(false);
     }
   };
 
