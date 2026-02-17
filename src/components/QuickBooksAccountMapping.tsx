@@ -273,6 +273,16 @@ export default function QuickBooksAccountMapping() {
               console.error('[QuickBooks] Popup closed but no session was saved');
               setError('Connection window was closed. If you completed the connection, please try clicking "Reconnect to QuickBooks" again.');
               setSuccess(null);
+            } else if (savedSession !== encryptedSession) {
+              // Session was updated (QuickBooks auto-login case)
+              console.log('[QuickBooks] Session detected after popup closed, triggering sync');
+              setEncryptedSession(savedSession);
+              setSuccess('QuickBooks connected successfully! Syncing accounts now...');
+              loadData().then(() => {
+                setTimeout(() => {
+                  syncAccounts();
+                }, 500);
+              });
             }
           }, 1000);
         }
