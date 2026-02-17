@@ -188,6 +188,10 @@
           throw new Error('No authentication session found. Please make sure you are logged in.');
         }
 
+        // Send current origin for dynamic redirect URI
+        const currentOrigin = window.location.origin;
+        console.log('Current origin:', currentOrigin);
+
         const response = await fetch(`${supabaseUrl}/functions/v1/quickbooks-oauth`, {
           method: 'POST',
           headers: {
@@ -198,7 +202,8 @@
             action: 'exchange_token',
             code,
             realmId,
-            state
+            state,
+            origin: currentOrigin
           }),
         });
 

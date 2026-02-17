@@ -163,13 +163,20 @@ export default function QuickBooksAccountMapping() {
       }
 
       console.log('[QuickBooks] Session obtained, requesting auth URL...');
+      // Send current origin for dynamic redirect URI
+      const currentOrigin = window.location.origin;
+      console.log('[QuickBooks] Current origin:', currentOrigin);
+
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/quickbooks-oauth`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ action: 'get_auth_url' }),
+        body: JSON.stringify({
+          action: 'get_auth_url',
+          origin: currentOrigin
+        }),
       });
 
       console.log('[QuickBooks] Response status:', response.status);
