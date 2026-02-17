@@ -205,15 +205,17 @@ export default function QuickBooksAccountMapping() {
         return;
       }
 
-      // Production flow: open popup
-      authWindow = window.open(authUrl, 'QuickBooksAuth', 'width=800,height=600');
+      // Production flow: open popup with more restrictive features
+      // Using more specific window features to prevent redirect from escaping popup
+      const windowFeatures = 'width=800,height=600,scrollbars=yes,resizable=yes,toolbar=no,menubar=no,location=no,directories=no,status=yes';
+      authWindow = window.open(authUrl, 'QuickBooksAuth', windowFeatures);
 
       if (!authWindow) {
         throw new Error('Failed to open authorization window. Please check your popup blocker settings.');
       }
 
-      console.log('[QuickBooks] Popup opened successfully');
-      setSuccess('Opening QuickBooks authorization window. After connecting, click "Sync Accounts" to load your Chart of Accounts.');
+      console.log('[QuickBooks] Popup opened successfully with restricted features');
+      setSuccess('Opening QuickBooks authorization window. After connecting, the window will close automatically.');
 
       // Listen for messages from the callback window
       const messageHandler = (event: MessageEvent) => {
@@ -572,7 +574,7 @@ export default function QuickBooksAccountMapping() {
             <div className="flex items-center gap-2">
               {connectionStatus ? (
                 <>
-                  {encryptedSession ? (
+                  {(encryptedSession || localStorage.getItem('quickbooks_encrypted_session')) ? (
                     <button
                       onClick={syncAccounts}
                       className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"

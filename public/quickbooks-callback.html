@@ -217,18 +217,24 @@
         showSuccess();
 
         // Notify opener window with encrypted session
+        console.log('Checking window.opener...', window.opener ? 'exists' : 'null');
         if (window.opener) {
+          console.log('Posting message to opener window...');
           window.opener.postMessage({
             type: 'quickbooks_connected',
             success: true,
             encrypted_session: result.encrypted_session
           }, '*');
+          console.log('Message posted successfully');
+        } else {
+          console.error('window.opener is null - cannot notify parent window!');
         }
 
-        // Auto-close after 3 seconds
+        // Auto-close after 2 seconds (faster now that we know it works)
         setTimeout(() => {
+          console.log('Auto-closing window in 2 seconds...');
           window.close();
-        }, 3000);
+        }, 2000);
 
       } catch (err) {
         console.error('Error:', err);
