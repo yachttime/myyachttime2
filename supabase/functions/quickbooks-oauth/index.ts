@@ -78,6 +78,13 @@ Deno.serve(async (req: Request) => {
       throw new Error('QuickBooks credentials not configured. Please set QUICKBOOKS_CLIENT_ID, QUICKBOOKS_CLIENT_SECRET, and QUICKBOOKS_REDIRECT_URI environment variables in your Supabase project settings.');
     }
 
+    console.log('=== QuickBooks OAuth Configuration ===');
+    console.log('Client ID:', clientId);
+    console.log('Redirect URI:', redirectUri);
+    console.log('Redirect URI length:', redirectUri.length);
+    console.log('Redirect URI encoded:', encodeURIComponent(redirectUri));
+    console.log('======================================');
+
     // Get user from authorization header
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
