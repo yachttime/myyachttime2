@@ -182,9 +182,11 @@ export default function QuickBooksAccountMapping() {
       const { authUrl } = result;
       console.log('[QuickBooks] Auth URL obtained:', authUrl);
 
-      // Store Supabase URL in localStorage for the callback page to use
+      // Store Supabase URL and auth token in localStorage for the callback page to use
       localStorage.setItem('VITE_SUPABASE_URL', import.meta.env.VITE_SUPABASE_URL);
-      console.log('[QuickBooks] Stored Supabase URL in localStorage');
+      localStorage.setItem('quickbooks_auth_token', session.access_token);
+      localStorage.setItem('quickbooks_auth_timestamp', Date.now().toString());
+      console.log('[QuickBooks] Stored Supabase URL and auth token in localStorage');
 
       // Check if we're in a development environment (WebContainer/StackBlitz)
       const isDevelopment = window.location.hostname.includes('webcontainer') ||
@@ -215,14 +217,23 @@ export default function QuickBooksAccountMapping() {
 
       // Listen for messages from the callback window
       const messageHandler = (event: MessageEvent) => {
+        console.log('[QuickBooks] Message received:', event.data);
+
         if (event.data?.type === 'quickbooks_connected') {
           console.log('[QuickBooks] Connection successful!');
+
+          // Clean up temporary auth tokens
+          localStorage.removeItem('quickbooks_auth_token');
+          localStorage.removeItem('quickbooks_auth_timestamp');
 
           // Store encrypted session (QuickBooks compliance requirement)
           if (event.data.encrypted_session) {
             setEncryptedSession(event.data.encrypted_session);
             localStorage.setItem('quickbooks_encrypted_session', event.data.encrypted_session);
-            console.log('[QuickBooks] Encrypted session stored');
+            console.log('[QuickBooks] Encrypted session stored in localStorage');
+            console.log('[QuickBooks] Session preview:', event.data.encrypted_session.substring(0, 50) + '...');
+          } else {
+            console.error('[QuickBooks] No encrypted_session in callback message!');
           }
 
           setSuccess('QuickBooks connected successfully! Click "Sync Accounts" to load your Chart of Accounts.');
@@ -231,6 +242,24 @@ export default function QuickBooksAccountMapping() {
         }
       };
       window.addEventListener('message', messageHandler);
+      console.log('[QuickBooks] Message listener registered');
+
+      // Check if popup was closed without completing
+      const checkPopupClosed = setInterval(() => {
+        if (authWindow && authWindow.closed) {
+          console.log('[QuickBooks] Popup was closed');
+          clearInterval(checkPopupClosed);
+          window.removeEventListener('message', messageHandler);
+
+          // Check if we actually received the session
+          const savedSession = localStorage.getItem('quickbooks_encrypted_session');
+          if (!savedSession) {
+            console.error('[QuickBooks] Popup closed but no session was saved');
+            setError('Connection window was closed. If you completed the connection, please try clicking "Reconnect to QuickBooks" again.');
+            setSuccess(null);
+          }
+        }
+      }, 500);
 
     } catch (err: any) {
       console.error('[QuickBooks] Error connecting:', err);
