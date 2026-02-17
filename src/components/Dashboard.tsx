@@ -1169,6 +1169,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           thumbnail_url: thumbnailUrl,
           yacht_id: effectiveYacht.id,
           order_index: videoUploadForm.order_index,
+          company_id: effectiveYacht.company_id,
         });
 
       if (insertError) throw insertError;
@@ -2343,27 +2344,28 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         fileUrl = await uploadFileToStorage(selectedFile, user.id, setUploadProgress);
       }
 
+      const yacht = allYachts.find(y => y.id === yachtId);
+      if (!yacht) throw new Error('Yacht not found');
+
       const { error } = await supabase.from('yacht_documents').insert({
         yacht_id: yachtId,
         document_name: documentForm.document_name,
         file_url: fileUrl,
         notes: documentForm.notes,
         uploaded_by: user.id,
-        uploaded_by_name: userName
+        uploaded_by_name: userName,
+        company_id: yacht.company_id
       });
 
       if (error) throw error;
 
-      const yacht = allYachts.find(y => y.id === yachtId);
-      if (yacht) {
-        await logYachtActivity(
-          yachtId,
-          yacht.name,
-          `Document "${documentForm.document_name}" uploaded`,
-          user.id,
-          userName
-        );
-      }
+      await logYachtActivity(
+        yachtId,
+        yacht.name,
+        `Document "${documentForm.document_name}" uploaded`,
+        user.id,
+        userName
+      );
 
       setDocumentForm({ document_name: '', file_url: '', notes: '' });
       setSelectedFile(null);
@@ -2539,7 +2541,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             yacht_id: request.yacht_id,
             notification_type: 'repair_request',
             message: `Repair request ${statusText}: "${request.title}"`,
-            reference_id: requestId
+            reference_id: requestId,
+            company_id: userProfile?.company_id
           });
         } catch (notificationError) {
           console.error('Error creating admin notification:', notificationError);
@@ -2556,7 +2559,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             const { error: chatError } = await supabase.from('owner_chat_messages').insert({
               yacht_id: request.yacht_id,
               user_id: user.id,
-              message: ownerMessage
+              message: ownerMessage,
+              company_id: userProfile?.company_id
             });
 
             if (chatError) {
@@ -2794,7 +2798,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         payment_method_type: invoiceForm.payment_method_type,
         invoice_year: invoiceYear,
         invoice_date: new Date().toISOString(),
-        completed_by: user.id
+        completed_by: user.id,
+        company_id: userProfile?.company_id
       });
 
       if (invoiceInsertError) {
@@ -2806,7 +2811,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         yacht_id: selectedRepairForInvoice.yacht_id,
         notification_type: 'repair_request',
         message: `Invoice added to completed repair: "${selectedRepairForInvoice.title}" - ${invoiceForm.final_invoice_amount}`,
-        reference_id: selectedRepairForInvoice.id
+        reference_id: selectedRepairForInvoice.id,
+        company_id: userProfile?.company_id
       });
 
       const userName = userProfile?.first_name && userProfile?.last_name
@@ -2819,7 +2825,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         await supabase.from('owner_chat_messages').insert({
           yacht_id: selectedRepairForInvoice.yacht_id,
           user_id: user.id,
-          message: ownerMessage
+          message: ownerMessage,
+          company_id: userProfile?.company_id
         });
       }
 
@@ -2970,7 +2977,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         payment_method_type: invoiceForm.payment_method_type,
         invoice_year: invoiceYear,
         invoice_date: new Date().toISOString(),
-        completed_by: user.id
+        completed_by: user.id,
+        company_id: userProfile?.company_id
       })
       .select()
       .single();
@@ -2986,7 +2994,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         yacht_id: selectedRepairForInvoice.yacht_id,
         notification_type: 'repair_request',
         message: notificationMessage,
-        reference_id: selectedRepairForInvoice.id
+        reference_id: selectedRepairForInvoice.id,
+        company_id: userProfile?.company_id
       });
 
       const userName = userProfile?.first_name && userProfile?.last_name
@@ -2999,7 +3008,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         await supabase.from('owner_chat_messages').insert({
           yacht_id: selectedRepairForInvoice.yacht_id,
           user_id: user.id,
-          message: ownerMessage
+          message: ownerMessage,
+          company_id: userProfile?.company_id
         });
 
         const { data: managers } = await supabase
@@ -4472,6 +4482,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         priority: 'medium',
         status: 'pending',
         photo_url: photoUrl,
+        company_id: effectiveYacht.company_id,
       });
 
       if (dbError) throw dbError;
@@ -4488,7 +4499,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           yacht_id: effectiveYacht.id,
           user_id: user.id,
           message: maintenanceMessage,
-          notification_type: 'maintenance_request'
+          notification_type: 'maintenance_request',
+          company_id: effectiveYacht.company_id
         });
 
       if (notifError) {
@@ -4530,12 +4542,16 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     setInspectionSuccess(false);
 
     try {
+      const selectedYacht = allYachts.find(y => y.id === selectedYachtForInspection);
+      if (!selectedYacht) throw new Error('Yacht not found');
+
       const { data: insertedInspection, error: dbError } = await supabase.from('trip_inspections').insert({
         booking_id: null,
         yacht_id: selectedYachtForInspection,
         inspector_id: selectedMechanicId,
         inspection_type: inspectionType,
         ...inspectionForm,
+        company_id: selectedYacht.company_id,
       }).select().single();
 
       if (dbError) throw dbError;
@@ -4589,15 +4605,18 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     setHandoffSuccess(false);
 
     try {
+      const selectedYacht = allYachts.find(y => y.id === selectedYachtForHandoff);
+      if (!selectedYacht) throw new Error('Yacht not found');
+
       const { data: insertedHandoff, error: dbError } = await supabase.from('owner_handoff_inspections').insert({
         yacht_id: selectedYachtForHandoff,
         inspector_id: selectedMechanicForHandoff,
         ...handoffForm,
+        company_id: selectedYacht.company_id,
       }).select().single();
 
       if (dbError) throw dbError;
 
-      const selectedYacht = allYachts.find(y => y.id === selectedYachtForHandoff);
       const selectedMechanic = mechanics.find(m => m.user_id === selectedMechanicForHandoff);
       if (selectedYacht && insertedHandoff) {
         const mechanicName = selectedMechanic?.first_name && selectedMechanic?.last_name
@@ -4619,6 +4638,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           notification_type: 'owner_handoff',
           reference_id: insertedHandoff.id,
           message: `Meet the Yacht Owner inspection completed for ${selectedYacht.name} by ${mechanicName}`,
+          company_id: selectedYacht.company_id
         });
 
         await loadAdminNotifications();
@@ -4679,7 +4699,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         yacht_name: showQuickAppointmentModal && quickAppointmentType === 'staff' ? null : appointmentForm.yacht_name,
         problem_description: appointmentForm.problem_description,
         appointment_type: showQuickAppointmentModal ? quickAppointmentType : 'customer',
-        created_by: user.id
+        created_by: user.id,
+        company_id: userProfile?.company_id
       };
 
       const { data: appointment, error: dbError } = await supabase.from('appointments').insert(appointmentData).select().single();
@@ -4711,6 +4732,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           notification_type: 'appointment',
           reference_id: appointment.id,
           message: `New appointment scheduled: ${appointmentForm.name}${selectedYacht ? ` for ${selectedYacht.name}` : ''} on ${appointmentForm.date} at ${appointmentForm.time}. Issue: ${appointmentForm.problem_description}`,
+          company_id: userProfile?.company_id
         });
 
         if (appointmentForm.createRepairRequest) {
@@ -4722,7 +4744,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             customer_name: appointmentForm.name,
             customer_email: appointmentForm.email,
             customer_phone: appointmentForm.phone,
-            submitted_by: user.id
+            submitted_by: user.id,
+            company_id: userProfile?.company_id
           };
 
           const { error: repairError } = await supabase.from('repair_requests').insert(repairData);
@@ -4787,7 +4810,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         email: staffAppointmentForm.email,
         problem_description: staffAppointmentForm.notes,
         appointment_type: 'staff',
-        created_by: user.id
+        created_by: user.id,
+        company_id: userProfile?.company_id
       };
 
       const { data: appointment, error: dbError } = await supabase.from('appointments').insert(appointmentData).select().single();
@@ -4801,6 +4825,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           notification_type: 'appointment',
           reference_id: appointment.id,
           message: `New staff appointment scheduled: ${staffAppointmentForm.name} on ${staffAppointmentForm.date} at ${staffAppointmentForm.time}${staffAppointmentForm.notes ? `. Notes: ${staffAppointmentForm.notes}` : ''}`,
+          company_id: userProfile?.company_id
         });
 
         await loadAdminNotifications();
@@ -8640,7 +8665,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             slip_location: yachtForm.slip_location,
                             wifi_name: yachtForm.wifi_name,
                             wifi_password: yachtForm.wifi_password,
-                            owner_id: user?.id
+                            owner_id: user?.id,
+                            company_id: userProfile?.company_id
                           }).select().single();
 
                           if (error) throw error;
@@ -11037,7 +11063,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             estimated_repair_cost: repairForm.estimated_repair_cost || null,
                             file_url: fileUrl,
                             file_name: fileName,
-                            status: 'pending'
+                            status: 'pending',
+                            company_id: userProfile?.company_id
                           };
 
                           if (customerType === 'yacht') {
@@ -11301,7 +11328,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                         .insert({
                                           ...quickCustomerForm,
                                           is_active: true,
-                                          created_by: user?.id
+                                          created_by: user?.id,
+                                          company_id: userProfile?.company_id
                                         })
                                         .select()
                                         .single();
@@ -11431,7 +11459,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                               manufacturer: quickVesselForm.manufacturer || null,
                                               model: quickVesselForm.model || null,
                                               year: quickVesselForm.year ? parseInt(quickVesselForm.year) : null,
-                                              is_active: true
+                                              is_active: true,
+                                              company_id: userProfile?.company_id
                                             })
                                             .select()
                                             .single();
