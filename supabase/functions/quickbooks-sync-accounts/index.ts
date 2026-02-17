@@ -116,11 +116,21 @@ Deno.serve(async (req: Request) => {
     });
 
     if (!decryptResponse.ok) {
-      throw new Error('Failed to decrypt QuickBooks tokens');
+      const errorText = await decryptResponse.text();
+      console.error('Failed to decrypt tokens:', errorText);
+      throw new Error(`Failed to decrypt QuickBooks tokens: ${errorText}`);
     }
 
-    const { access_token } = await decryptResponse.json();
-    accessToken = access_token;
+    const decryptResult = await decryptResponse.json();
+    console.log('Decrypt result keys:', Object.keys(decryptResult));
+
+    if (!decryptResult.access_token) {
+      console.error('No access_token in decrypt result:', decryptResult);
+      throw new Error('Decryption succeeded but no access_token was returned');
+    }
+
+    accessToken = decryptResult.access_token;
+    console.log('Successfully decrypted access token, length:', accessToken.length);
 
     // Fetch Chart of Accounts from QuickBooks
     const query = encodeURIComponent('SELECT * FROM Account MAXRESULTS 1000');
