@@ -76,7 +76,7 @@ Deno.serve(async (req: Request) => {
       .from('user_profiles')
       .select('email_address, full_name')
       .eq('company_id', ticket.company_id)
-      .in('role', ['master', 'manager'])
+      .eq('role', 'master')
       .not('email_address', 'is', null);
 
     if (staffError) {

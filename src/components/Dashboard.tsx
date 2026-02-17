@@ -5487,20 +5487,22 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               <span className="font-medium">Education</span>
             </button>
           )}
-          <button
-            onClick={() => {
-              setActiveTabPersisted('support');
-              setSidebarOpen(false);
-            }}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-              activeTab === 'support'
-                ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-            }`}
-          >
-            <MessageSquare className="w-5 h-5" />
-            <span className="font-medium">Support</span>
-          </button>
+          {(isOwnerRole(effectiveRole) || isMasterRole(effectiveRole)) && (
+            <button
+              onClick={() => {
+                setActiveTabPersisted('support');
+                setSidebarOpen(false);
+              }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                activeTab === 'support'
+                  ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+              }`}
+            >
+              <MessageSquare className="w-5 h-5" />
+              <span className="font-medium">Support</span>
+            </button>
+          )}
           {isStaffRole(effectiveRole) && (
             <button
               onClick={() => {

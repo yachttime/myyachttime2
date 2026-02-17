@@ -98,7 +98,7 @@ export default function SupportTickets() {
     priority: ''
   });
 
-  const isStaff = userProfile?.role && ['master', 'manager', 'staff', 'mechanic'].includes(userProfile.role);
+  const isStaff = userProfile?.role === 'master';
 
   useEffect(() => {
     if (user) {
