@@ -193,6 +193,9 @@ export default function QuickBooksAccountMapping() {
                            window.location.hostname.includes('stackblitz') ||
                            window.location.hostname.includes('local-credentialless');
 
+      console.log('[QuickBooks] Hostname:', window.location.hostname);
+      console.log('[QuickBooks] isDevelopment:', isDevelopment);
+
       if (isDevelopment) {
         // In development, open in a new tab and provide instructions
         window.open(authUrl, '_blank');
