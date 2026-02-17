@@ -223,7 +223,9 @@ export default function QuickBooksAccountMapping() {
 
       // Listen for messages from the callback window
       const messageHandler = async (event: MessageEvent) => {
-        console.log('[QuickBooks] Message received:', event.data);
+        console.log('[QuickBooks] Message received from origin:', event.origin);
+        console.log('[QuickBooks] Message data:', event.data);
+        console.log('[QuickBooks] Message type:', event.data?.type);
 
         if (event.data?.type === 'quickbooks_connected') {
           console.log('[QuickBooks] Connection successful!');
@@ -276,6 +278,8 @@ export default function QuickBooksAccountMapping() {
             } else if (savedSession !== encryptedSession) {
               // Session was updated (QuickBooks auto-login case)
               console.log('[QuickBooks] Session detected after popup closed, triggering sync');
+              console.log('[QuickBooks] Old session:', encryptedSession ? encryptedSession.substring(0, 20) + '...' : 'null');
+              console.log('[QuickBooks] New session:', savedSession.substring(0, 20) + '...');
               setEncryptedSession(savedSession);
               setSuccess('QuickBooks connected successfully! Syncing accounts now...');
               loadData().then(() => {
@@ -283,6 +287,8 @@ export default function QuickBooksAccountMapping() {
                   syncAccounts();
                 }, 500);
               });
+            } else {
+              console.log('[QuickBooks] Session exists but unchanged:', savedSession === encryptedSession);
             }
           }, 1000);
         }
