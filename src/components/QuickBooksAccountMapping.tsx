@@ -252,6 +252,10 @@ export default function QuickBooksAccountMapping() {
       }
 
       if (!encryptedSession) {
+        setError(
+          'QuickBooks session not found. Please reconnect to QuickBooks.\n\n' +
+          'If you see "sorry can\'t connect" error in QuickBooks, verify your Redirect URI matches exactly (see configuration above).'
+        );
         throw new Error('QuickBooks session not found. Please reconnect to QuickBooks.');
       }
 
@@ -549,16 +553,31 @@ export default function QuickBooksAccountMapping() {
           </div>
 
           {connectionStatus ? (
-            <div className="mt-4 flex items-center gap-2 text-sm">
-              <CheckCircle className="text-green-600" size={18} />
-              <span className="text-gray-700">
-                Connected to <strong>{connectionStatus.company_name}</strong>
-              </span>
-              {connectionStatus.last_sync_at && (
-                <span className="text-gray-500">
-                  • Last synced: {new Date(connectionStatus.last_sync_at).toLocaleDateString()}
+            <div className="mt-4 space-y-2">
+              <div className="flex items-center gap-2 text-sm">
+                <CheckCircle className="text-green-600" size={18} />
+                <span className="text-gray-700">
+                  Connected to <strong>{connectionStatus.company_name}</strong>
                 </span>
-              )}
+                {connectionStatus.last_sync_at && (
+                  <span className="text-gray-500">
+                    • Last synced: {new Date(connectionStatus.last_sync_at).toLocaleDateString()}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                {encryptedSession ? (
+                  <>
+                    <CheckCircle className="text-green-600" size={18} />
+                    <span className="text-gray-700">Session active - ready to sync</span>
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="text-red-600" size={18} />
+                    <span className="text-red-700">Session expired - please reconnect to QuickBooks</span>
+                  </>
+                )}
+              </div>
             </div>
           ) : (
             <div className="mt-4 flex items-center gap-2 text-sm">
