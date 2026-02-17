@@ -103,6 +103,7 @@ Deno.serve(async (req: Request) => {
 
     // Decrypt current session to get access token
     const tokenManagerUrl = `${supabaseUrl}/functions/v1/quickbooks-token-manager`;
+    console.log('[Sync] Decrypting session, preview:', currentEncryptedSession.substring(0, 50));
     const decryptResponse = await fetch(tokenManagerUrl, {
       method: 'POST',
       headers: {
@@ -117,20 +118,21 @@ Deno.serve(async (req: Request) => {
 
     if (!decryptResponse.ok) {
       const errorText = await decryptResponse.text();
-      console.error('Failed to decrypt tokens:', errorText);
+      console.error('[Sync] Failed to decrypt tokens, status:', decryptResponse.status);
+      console.error('[Sync] Error text:', errorText);
       throw new Error(`Failed to decrypt QuickBooks tokens: ${errorText}`);
     }
 
     const decryptResult = await decryptResponse.json();
-    console.log('Decrypt result keys:', Object.keys(decryptResult));
+    console.log('[Sync] Decrypt result keys:', Object.keys(decryptResult));
 
     if (!decryptResult.access_token) {
-      console.error('No access_token in decrypt result:', decryptResult);
+      console.error('[Sync] No access_token in decrypt result:', decryptResult);
       throw new Error('Decryption succeeded but no access_token was returned');
     }
 
     accessToken = decryptResult.access_token;
-    console.log('Successfully decrypted access token, length:', accessToken.length);
+    console.log('[Sync] Successfully decrypted access token, length:', accessToken.length);
 
     // Fetch Chart of Accounts from QuickBooks
     const query = encodeURIComponent('SELECT * FROM Account MAXRESULTS 1000');
@@ -172,19 +174,28 @@ Deno.serve(async (req: Request) => {
           })
           .eq('id', connection.id);
 
+        // Check if it's error 3100 (app not authorized for company)
+        const errorData = typeof accountsResult.data === 'string' ? JSON.parse(accountsResult.data) : accountsResult.data;
+        const errorCode = errorData?.fault?.error?.[0]?.code;
+
+        let errorMessage = 'Your QuickBooks connection has expired and needs to be reconnected.';
+        if (errorCode === '3100') {
+          errorMessage = 'QuickBooks Error 3100: Your app is not authorized to access this company. This usually means you\'re using Sandbox credentials with a Production company (or vice versa). Please verify your QuickBooks app environment matches the company you\'re connecting to.';
+        }
+
         await supabase
           .from('admin_notifications')
           .insert({
             company_id: profile.company_id,
             notification_type: 'system_alert',
-            title: 'QuickBooks Connection Expired',
-            message: 'Your QuickBooks connection has expired and needs to be reconnected. Please go to QuickBooks settings and reconnect your account.',
+            title: 'QuickBooks Connection Failed',
+            message: errorMessage,
             is_read: false,
             reference_type: 'quickbooks_connection',
             reference_id: connection.id
           });
 
-        throw new Error('QuickBooks authorization has expired. Please reconnect your QuickBooks account.');
+        throw new Error(errorMessage);
       }
 
       throw new Error(`Failed to fetch accounts from QuickBooks: ${errorText}`);
