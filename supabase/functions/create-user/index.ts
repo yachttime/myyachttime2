@@ -56,6 +56,57 @@ Deno.serve(async (req: Request) => {
 
     const requestData: CreateUserRequest = await req.json();
 
+    // Get the creating user's company_id from their profile
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Authorization required' }),
+        {
+          status: 401,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user: creatingUser }, error: userError } = await supabaseAdmin.auth.getUser(token);
+
+    if (userError || !creatingUser) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid authorization' }),
+        {
+          status: 401,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+    }
+
+    // Get the creating user's company_id
+    const { data: creatingProfile, error: profileFetchError } = await supabaseAdmin
+      .from('user_profiles')
+      .select('company_id')
+      .eq('user_id', creatingUser.id)
+      .single();
+
+    if (profileFetchError || !creatingProfile?.company_id) {
+      return new Response(
+        JSON.stringify({ error: 'Could not determine company for new user' }),
+        {
+          status: 400,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+    }
+
     // Create user using admin API - this does NOT sign in the user
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: requestData.email,
@@ -101,7 +152,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Create user profile
+    // Create user profile with the same company_id as the creating user
     const { error: profileError } = await supabaseAdmin
       .from('user_profiles')
       .insert({
@@ -129,7 +180,8 @@ Deno.serve(async (req: Request) => {
         sms_consent_method: requestData.sms_consent_method || null,
         sms_consent_date: requestData.sms_consent_date || null,
         sms_consent_ip_address: requestData.sms_consent_ip_address || null,
-        must_change_password: true
+        must_change_password: true,
+        company_id: creatingProfile.company_id
       });
 
     if (profileError) {
