@@ -118,6 +118,8 @@ Deno.serve(async (req: Request) => {
       authUrl.searchParams.set('redirect_uri', redirectUri);
       authUrl.searchParams.set('response_type', 'code');
       authUrl.searchParams.set('state', `user_${user.id}_company_${profile.company_id}`);
+      // Force QuickBooks to show company selection screen even if previously authorized
+      authUrl.searchParams.set('prompt', 'consent');
 
       return new Response(
         JSON.stringify({ authUrl: authUrl.toString() }),
