@@ -694,10 +694,8 @@ export function Invoices({ userId }: InvoicesProps) {
       }
 
       if (showDetails) {
-        const updatedInvoice = invoices.find(inv => inv.id === invoice.id);
-        if (updatedInvoice) {
-          setSelectedInvoice(updatedInvoice);
-        }
+        const { data: fresh } = await supabase.from('estimating_invoices').select('*, work_orders!estimating_invoices_work_order_id_fkey(work_order_number), yachts!estimating_invoices_yacht_id_fkey(name)').eq('id', invoice.id).maybeSingle();
+        if (fresh) setSelectedInvoice({ ...fresh, work_order_number: fresh.work_orders?.work_order_number, yacht_name: fresh.yachts?.name });
       }
     } catch (error: any) {
       console.error('Error requesting payment:', error);
@@ -748,11 +746,8 @@ export function Invoices({ userId }: InvoicesProps) {
       if (result.success) {
         showToast(result.message || 'Payment status synced successfully!', 'success');
         await fetchInvoices();
-
-        const updatedInvoice = invoices.find(inv => inv.id === selectedInvoice.id);
-        if (updatedInvoice) {
-          setSelectedInvoice(updatedInvoice);
-        }
+        const { data: fresh } = await supabase.from('estimating_invoices').select('*, work_orders!estimating_invoices_work_order_id_fkey(work_order_number), yachts!estimating_invoices_yacht_id_fkey(name)').eq('id', selectedInvoice.id).maybeSingle();
+        if (fresh) setSelectedInvoice({ ...fresh, work_order_number: fresh.work_orders?.work_order_number, yacht_name: fresh.yachts?.name });
       } else {
         showToast(result.message || 'Payment not yet completed in Stripe', 'info');
       }
@@ -819,11 +814,8 @@ export function Invoices({ userId }: InvoicesProps) {
 
       showToast('Payment link regenerated successfully!', 'success');
       await fetchInvoices();
-
-      const updatedInvoice = invoices.find(inv => inv.id === selectedInvoice.id);
-      if (updatedInvoice) {
-        setSelectedInvoice(updatedInvoice);
-      }
+      const { data: fresh } = await supabase.from('estimating_invoices').select('*, work_orders!estimating_invoices_work_order_id_fkey(work_order_number), yachts!estimating_invoices_yacht_id_fkey(name)').eq('id', selectedInvoice.id).maybeSingle();
+      if (fresh) setSelectedInvoice({ ...fresh, work_order_number: fresh.work_orders?.work_order_number, yacht_name: fresh.yachts?.name });
     } catch (error: any) {
       console.error('Error regenerating payment link:', error);
       showToast(error.message || 'Failed to regenerate payment link', 'error');
@@ -872,11 +864,8 @@ export function Invoices({ userId }: InvoicesProps) {
 
       showToast('Payment link deleted. You can now generate a new payment link.', 'success');
       await fetchInvoices();
-
-      const updatedInvoice = invoices.find(inv => inv.id === selectedInvoice.id);
-      if (updatedInvoice) {
-        setSelectedInvoice(updatedInvoice);
-      }
+      const { data: fresh } = await supabase.from('estimating_invoices').select('*, work_orders!estimating_invoices_work_order_id_fkey(work_order_number), yachts!estimating_invoices_yacht_id_fkey(name)').eq('id', selectedInvoice.id).maybeSingle();
+      if (fresh) setSelectedInvoice({ ...fresh, work_order_number: fresh.work_orders?.work_order_number, yacht_name: fresh.yachts?.name });
     } catch (error: any) {
       console.error('Error deleting payment link:', error);
       showToast(error.message || 'Failed to delete payment link', 'error');
@@ -928,11 +917,8 @@ export function Invoices({ userId }: InvoicesProps) {
 
       showToast('Payment link email sent successfully!', 'success');
       await fetchInvoices();
-
-      const updatedInvoice = invoices.find(inv => inv.id === selectedInvoice.id);
-      if (updatedInvoice) {
-        setSelectedInvoice(updatedInvoice);
-      }
+      const { data: fresh } = await supabase.from('estimating_invoices').select('*, work_orders!estimating_invoices_work_order_id_fkey(work_order_number), yachts!estimating_invoices_yacht_id_fkey(name)').eq('id', selectedInvoice.id).maybeSingle();
+      if (fresh) setSelectedInvoice({ ...fresh, work_order_number: fresh.work_orders?.work_order_number, yacht_name: fresh.yachts?.name });
     } catch (error: any) {
       console.error('Error sending email:', error);
       showToast(error.message || 'Failed to send payment link email', 'error');
@@ -1469,7 +1455,7 @@ export function Invoices({ userId }: InvoicesProps) {
                                 disabled={regenerateLoading}
                                 className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 disabled:opacity-50"
                               >
-                                <CreditCard className="w-3 h-3" />
+                                <RefreshCw className="w-3 h-3" />
                                 {regenerateLoading ? 'Regenerating...' : 'Regenerate Payment Link'}
                               </button>
                               <button
