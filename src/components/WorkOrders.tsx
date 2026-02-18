@@ -154,11 +154,21 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
       setLoading(true);
       setError(null);
 
-      const [workOrdersResult, yachtsResult, employeesResult, laborResult, partsResult, settingsResult] = await Promise.all([
-        supabase
-          .from('work_orders')
-          .select('*, yachts(name)')
-          .order('created_at', { ascending: false }),
+      // First fetch all work orders
+      const workOrdersQuery = supabase
+        .from('work_orders')
+        .select('*, yachts(name)')
+        .order('created_at', { ascending: false });
+
+      // Fetch invoices to identify converted work orders
+      const invoicesQuery = supabase
+        .from('estimating_invoices')
+        .select('work_order_id')
+        .not('work_order_id', 'is', null);
+
+      const [workOrdersResult, invoicesResult, yachtsResult, employeesResult, laborResult, partsResult, settingsResult] = await Promise.all([
+        workOrdersQuery,
+        invoicesQuery,
         supabase
           .from('yachts')
           .select('id, name, marina_name')
@@ -187,12 +197,21 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
       ]);
 
       if (workOrdersResult.error) throw workOrdersResult.error;
+      if (invoicesResult.error) throw invoicesResult.error;
       if (yachtsResult.error) throw yachtsResult.error;
       if (employeesResult.error) throw employeesResult.error;
       if (laborResult.error) throw laborResult.error;
       if (partsResult.error) throw partsResult.error;
 
-      setWorkOrders(workOrdersResult.data || []);
+      // Filter out work orders that have been converted to invoices
+      const convertedWorkOrderIds = new Set(
+        (invoicesResult.data || []).map(inv => inv.work_order_id)
+      );
+      const unconvertedWorkOrders = (workOrdersResult.data || []).filter(
+        wo => !convertedWorkOrderIds.has(wo.id)
+      );
+
+      setWorkOrders(unconvertedWorkOrders);
       setYachts(yachtsResult.data || []);
       setEmployees(employeesResult.data || []);
       setLaborCodes(laborResult.data || []);
