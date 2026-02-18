@@ -289,46 +289,196 @@ export function Invoices({ userId }: InvoicesProps) {
       const margin = 0.75;
       let yPos = margin;
 
-      // Company header
-      doc.setFontSize(20);
-      doc.setFont('helvetica', 'bold');
-      doc.text('INVOICE', pageWidth / 2, yPos, { align: 'center' });
-      yPos += 0.4;
+      // Fetch company info
+      const { data: companyInfo } = await supabase
+        .from('company_info')
+        .select('*')
+        .maybeSingle();
 
-      // Invoice number and date
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
+      // Add logo if available
+      let logoAdded = false;
+      const logoWidth = 0.8;
+      const logoHeight = 0.8;
+
+      if (companyInfo?.logo_url) {
+        try {
+          const logoResponse = await fetch(companyInfo.logo_url);
+          const logoBlob = await logoResponse.blob();
+          const logoDataUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(logoBlob);
+          });
+
+          doc.addImage(logoDataUrl, 'PNG', margin, yPos, logoWidth, logoHeight);
+          logoAdded = true;
+        } catch (err) {
+          console.warn('Could not load logo for PDF:', err);
+        }
+      }
+
+      // Company information next to logo or centered
+      if (logoAdded) {
+        const companyInfoX = margin + logoWidth + 0.15;
+        const originalYPos = yPos;
+
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
+        doc.text(companyInfo?.company_name || 'AZ Marine', companyInfoX, yPos);
+        yPos += 0.13;
+
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'normal');
+
+        if (companyInfo?.address_line1) {
+          doc.text(companyInfo.address_line1, companyInfoX, yPos);
+          yPos += 0.11;
+        }
+
+        if (companyInfo?.address_line2) {
+          doc.text(companyInfo.address_line2, companyInfoX, yPos);
+          yPos += 0.11;
+        }
+
+        if (companyInfo?.city || companyInfo?.state || companyInfo?.zip_code) {
+          const cityStateZip = [
+            companyInfo?.city,
+            companyInfo?.state,
+            companyInfo?.zip_code
+          ].filter(Boolean).join(', ');
+          doc.text(cityStateZip, companyInfoX, yPos);
+          yPos += 0.11;
+        }
+
+        if (companyInfo?.phone) {
+          doc.text(`Phone: ${companyInfo.phone}`, companyInfoX, yPos);
+          yPos += 0.11;
+        }
+
+        if (companyInfo?.email) {
+          doc.text(`Email: ${companyInfo.email}`, companyInfoX, yPos);
+          yPos += 0.11;
+        }
+
+        if (companyInfo?.website) {
+          doc.text(`Web: ${companyInfo.website}`, companyInfoX, yPos);
+          yPos += 0.11;
+        }
+
+        yPos = Math.max(yPos, originalYPos + logoHeight);
+        yPos += 0.15;
+      } else {
+        if (companyInfo?.company_name) {
+          doc.setFontSize(11);
+          doc.setFont('helvetica', 'bold');
+          doc.text(companyInfo.company_name, pageWidth / 2, yPos, { align: 'center' });
+          yPos += 0.15;
+        } else {
+          doc.setFontSize(11);
+          doc.setFont('helvetica', 'bold');
+          doc.text('AZ Marine', pageWidth / 2, yPos, { align: 'center' });
+          yPos += 0.15;
+        }
+
+        if (companyInfo?.address_line1) {
+          doc.setFontSize(8);
+          doc.setFont('helvetica', 'normal');
+          doc.text(companyInfo.address_line1, pageWidth / 2, yPos, { align: 'center' });
+          yPos += 0.12;
+        }
+
+        if (companyInfo?.city || companyInfo?.state || companyInfo?.zip_code) {
+          const cityStateZip = [
+            companyInfo?.city,
+            companyInfo?.state,
+            companyInfo?.zip_code
+          ].filter(Boolean).join(', ');
+          doc.text(cityStateZip, pageWidth / 2, yPos, { align: 'center' });
+          yPos += 0.12;
+        }
+
+        if (companyInfo?.phone) {
+          doc.text(`Phone: ${companyInfo.phone}`, pageWidth / 2, yPos, { align: 'center' });
+          yPos += 0.12;
+        }
+
+        if (companyInfo?.email) {
+          doc.text(`Email: ${companyInfo.email}`, pageWidth / 2, yPos, { align: 'center' });
+          yPos += 0.12;
+        }
+
+        yPos += 0.15;
+      }
+
+      // Draw separator line
+      doc.setLineWidth(0.01);
+      doc.line(margin, yPos, pageWidth - margin, yPos);
+      yPos += 0.2;
+
+      // Invoice header
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
       doc.text(`Invoice #: ${invoice.invoice_number}`, margin, yPos);
-      yPos += 0.2;
-      doc.text(`Date: ${new Date(invoice.invoice_date).toLocaleDateString()}`, margin, yPos);
-      yPos += 0.2;
-      doc.text(`Due Date: ${new Date(invoice.due_date).toLocaleDateString()}`, margin, yPos);
-      yPos += 0.4;
 
-      // Customer info
-      doc.setFont('helvetica', 'bold');
-      doc.text('Bill To:', margin, yPos);
-      yPos += 0.2;
-      doc.setFont('helvetica', 'normal');
-      doc.text(invoice.customer_name, margin, yPos);
-      yPos += 0.15;
-      if (invoice.customer_email) {
-        doc.text(invoice.customer_email, margin, yPos);
-        yPos += 0.15;
-      }
-      if (invoice.customer_phone) {
-        doc.text(invoice.customer_phone, margin, yPos);
-        yPos += 0.15;
-      }
-      if (invoice.yacht_name) {
-        doc.text(`Yacht: ${invoice.yacht_name}`, margin, yPos);
-        yPos += 0.15;
-      }
-      if (invoice.work_order_number) {
-        doc.text(`Work Order: ${invoice.work_order_number}`, margin, yPos);
-        yPos += 0.15;
-      }
+      // Status on right side
+      const status = invoice.payment_status.toUpperCase();
+      const statusWidth = doc.getTextWidth(status);
+      doc.text(status, pageWidth - margin - statusWidth, yPos);
       yPos += 0.3;
+
+      // Invoice details and customer info side by side
+      const leftColX = margin;
+      const rightColX = pageWidth / 2 + 0.25;
+      const leftStartY = yPos;
+
+      // Left column - Invoice Details
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Invoice Details', leftColX, yPos);
+      yPos += 0.18;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.text(`Date: ${new Date(invoice.invoice_date).toLocaleDateString()}`, leftColX, yPos);
+      yPos += 0.14;
+      doc.text(`Due Date: ${new Date(invoice.due_date).toLocaleDateString()}`, leftColX, yPos);
+      yPos += 0.14;
+
+      if (invoice.work_order_number) {
+        doc.text(`Work Order: ${invoice.work_order_number}`, leftColX, yPos);
+        yPos += 0.14;
+      }
+
+      // Right column - Customer Information
+      yPos = leftStartY;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.text('Customer Information', rightColX, yPos);
+      yPos += 0.18;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.text(invoice.customer_name, rightColX, yPos);
+      yPos += 0.14;
+
+      if (invoice.customer_email) {
+        doc.text(invoice.customer_email, rightColX, yPos);
+        yPos += 0.14;
+      }
+
+      if (invoice.customer_phone) {
+        doc.text(invoice.customer_phone, rightColX, yPos);
+        yPos += 0.14;
+      }
+
+      if (invoice.yacht_name) {
+        doc.text(`Yacht: ${invoice.yacht_name}`, rightColX, yPos);
+        yPos += 0.14;
+      }
+
+      yPos = Math.max(yPos, leftStartY + 0.6);
+      yPos += 0.2;
 
       // Line items table
       if (workOrderTasks.length > 0 && workOrderLineItems.length > 0) {
