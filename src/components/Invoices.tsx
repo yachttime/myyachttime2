@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Receipt, Search, Download, Mail, DollarSign, Eye, CheckCircle, Clock, XCircle, ExternalLink, Archive, RotateCcw } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface InvoicesProps {
   userId: string;
@@ -265,7 +267,149 @@ export function Invoices({ userId }: InvoicesProps) {
   }
 
   async function handleDownloadPDF(invoice: Invoice) {
-    alert('PDF download functionality will be implemented');
+    try {
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'in',
+        format: 'letter',
+      });
+
+      const pageWidth = 8.5;
+      const margin = 0.75;
+      let yPos = margin;
+
+      // Company header
+      doc.setFontSize(20);
+      doc.setFont('helvetica', 'bold');
+      doc.text('INVOICE', pageWidth / 2, yPos, { align: 'center' });
+      yPos += 0.4;
+
+      // Invoice number and date
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Invoice #: ${invoice.invoice_number}`, margin, yPos);
+      yPos += 0.2;
+      doc.text(`Date: ${new Date(invoice.invoice_date).toLocaleDateString()}`, margin, yPos);
+      yPos += 0.2;
+      doc.text(`Due Date: ${new Date(invoice.due_date).toLocaleDateString()}`, margin, yPos);
+      yPos += 0.4;
+
+      // Customer info
+      doc.setFont('helvetica', 'bold');
+      doc.text('Bill To:', margin, yPos);
+      yPos += 0.2;
+      doc.setFont('helvetica', 'normal');
+      doc.text(invoice.customer_name, margin, yPos);
+      yPos += 0.15;
+      if (invoice.customer_email) {
+        doc.text(invoice.customer_email, margin, yPos);
+        yPos += 0.15;
+      }
+      if (invoice.customer_phone) {
+        doc.text(invoice.customer_phone, margin, yPos);
+        yPos += 0.15;
+      }
+      if (invoice.yacht_name) {
+        doc.text(`Yacht: ${invoice.yacht_name}`, margin, yPos);
+        yPos += 0.15;
+      }
+      if (invoice.work_order_number) {
+        doc.text(`Work Order: ${invoice.work_order_number}`, margin, yPos);
+        yPos += 0.15;
+      }
+      yPos += 0.3;
+
+      // Line items table
+      if (workOrderTasks.length > 0 && workOrderLineItems.length > 0) {
+        const tableData: any[] = [];
+
+        workOrderTasks.forEach(task => {
+          const taskItems = workOrderLineItems.filter(item => item.task_id === task.id);
+          if (taskItems.length > 0) {
+            // Add task header
+            tableData.push([
+              { content: task.task_name, colSpan: 5, styles: { fontStyle: 'bold', fillColor: [240, 240, 240] } }
+            ]);
+
+            // Add line items
+            taskItems.forEach(item => {
+              tableData.push([
+                item.line_type.toUpperCase(),
+                item.description + (item.work_details ? '\n' + item.work_details : ''),
+                item.quantity.toString(),
+                `$${item.unit_price.toFixed(2)}`,
+                `$${item.total_price.toFixed(2)}`
+              ]);
+            });
+          }
+        });
+
+        autoTable(doc, {
+          startY: yPos,
+          head: [['Type', 'Description', 'Qty', 'Unit Price', 'Total']],
+          body: tableData,
+          theme: 'striped',
+          headStyles: { fillColor: [66, 139, 202] },
+          margin: { left: margin, right: margin },
+          styles: { fontSize: 9 },
+          columnStyles: {
+            0: { cellWidth: 0.8 },
+            1: { cellWidth: 3.5 },
+            2: { cellWidth: 0.6, halign: 'center' },
+            3: { cellWidth: 1, halign: 'right' },
+            4: { cellWidth: 1, halign: 'right' }
+          }
+        });
+
+        yPos = (doc as any).lastAutoTable.finalY + 0.3;
+      }
+
+      // Totals
+      const totalsX = pageWidth - margin - 2;
+      doc.setFontSize(10);
+
+      doc.text('Subtotal:', totalsX, yPos);
+      doc.text(`$${invoice.subtotal.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
+      yPos += 0.2;
+
+      doc.text(`Tax (${(invoice.tax_rate * 100).toFixed(2)}%):`, totalsX, yPos);
+      doc.text(`$${invoice.tax_amount.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
+      yPos += 0.2;
+
+      if (invoice.deposit_applied && invoice.deposit_applied > 0) {
+        doc.text('Deposit Applied:', totalsX, yPos);
+        doc.text(`-$${invoice.deposit_applied.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
+        yPos += 0.2;
+      }
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      const finalLabel = (invoice.deposit_applied && invoice.deposit_applied > 0) ? 'Balance Due:' : 'Total:';
+      const finalAmount = (invoice.balance_due !== null && invoice.balance_due !== invoice.total_amount)
+        ? invoice.balance_due
+        : invoice.total_amount;
+
+      doc.text(finalLabel, totalsX, yPos);
+      doc.text(`$${finalAmount.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
+
+      // Notes
+      if (invoice.notes) {
+        yPos += 0.4;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.text('Notes:', margin, yPos);
+        yPos += 0.2;
+        doc.setFont('helvetica', 'normal');
+        const noteLines = doc.splitTextToSize(invoice.notes, pageWidth - (margin * 2));
+        doc.text(noteLines, margin, yPos);
+      }
+
+      // Save the PDF
+      doc.save(`${invoice.invoice_number}.pdf`);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Error generating PDF. Please try again.');
+    }
   }
 
   async function handleRequestPayment(invoice: Invoice) {
