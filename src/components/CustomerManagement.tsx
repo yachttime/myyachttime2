@@ -658,7 +658,7 @@ export default function CustomerManagement() {
                       type="text"
                       value={newCustomer.first_name}
                       onChange={(e) => setNewCustomer({ ...newCustomer, first_name: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
                       required
                     />
                   </div>
@@ -668,7 +668,7 @@ export default function CustomerManagement() {
                       type="text"
                       value={newCustomer.last_name}
                       onChange={(e) => setNewCustomer({ ...newCustomer, last_name: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
                       required
                     />
                   </div>
@@ -680,7 +680,7 @@ export default function CustomerManagement() {
                     type="text"
                     value={newCustomer.business_name}
                     onChange={(e) => setNewCustomer({ ...newCustomer, business_name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
                     required
                   />
                 </div>
@@ -693,7 +693,7 @@ export default function CustomerManagement() {
                     type="email"
                     value={newCustomer.email}
                     onChange={(e) => setNewCustomer({ ...newCustomer, email: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
@@ -702,7 +702,7 @@ export default function CustomerManagement() {
                     type="tel"
                     value={newCustomer.phone}
                     onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
@@ -713,7 +713,7 @@ export default function CustomerManagement() {
                   type="tel"
                   value={newCustomer.secondary_phone}
                   onChange={(e) => setNewCustomer({ ...newCustomer, secondary_phone: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
@@ -723,7 +723,7 @@ export default function CustomerManagement() {
                   type="text"
                   value={newCustomer.address_line1}
                   onChange={(e) => setNewCustomer({ ...newCustomer, address_line1: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
@@ -733,7 +733,7 @@ export default function CustomerManagement() {
                   type="text"
                   value={newCustomer.address_line2}
                   onChange={(e) => setNewCustomer({ ...newCustomer, address_line2: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
@@ -744,7 +744,7 @@ export default function CustomerManagement() {
                     type="text"
                     value={newCustomer.city}
                     onChange={(e) => setNewCustomer({ ...newCustomer, city: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
@@ -753,7 +753,7 @@ export default function CustomerManagement() {
                     type="text"
                     value={newCustomer.state}
                     onChange={(e) => setNewCustomer({ ...newCustomer, state: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
@@ -762,7 +762,7 @@ export default function CustomerManagement() {
                     type="text"
                     value={newCustomer.zip_code}
                     onChange={(e) => setNewCustomer({ ...newCustomer, zip_code: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
@@ -773,7 +773,7 @@ export default function CustomerManagement() {
                   value={newCustomer.notes}
                   onChange={(e) => setNewCustomer({ ...newCustomer, notes: e.target.value })}
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
@@ -817,7 +817,7 @@ export default function CustomerManagement() {
                   type="text"
                   value={newVessel.vessel_name}
                   onChange={(e) => setNewVessel({ ...newVessel, vessel_name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
                   required
                 />
               </div>
@@ -829,7 +829,7 @@ export default function CustomerManagement() {
                     type="text"
                     value={newVessel.manufacturer}
                     onChange={(e) => setNewVessel({ ...newVessel, manufacturer: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
@@ -838,7 +838,7 @@ export default function CustomerManagement() {
                     type="text"
                     value={newVessel.model}
                     onChange={(e) => setNewVessel({ ...newVessel, model: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
@@ -850,7 +850,7 @@ export default function CustomerManagement() {
                     type="number"
                     value={newVessel.year}
                     onChange={(e) => setNewVessel({ ...newVessel, year: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
@@ -859,7 +859,7 @@ export default function CustomerManagement() {
                     type="number"
                     value={newVessel.length_feet}
                     onChange={(e) => setNewVessel({ ...newVessel, length_feet: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
@@ -870,7 +870,7 @@ export default function CustomerManagement() {
                   type="text"
                   value={newVessel.hull_number}
                   onChange={(e) => setNewVessel({ ...newVessel, hull_number: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
@@ -880,7 +880,7 @@ export default function CustomerManagement() {
                   type="text"
                   value={newVessel.registration_number}
                   onChange={(e) => setNewVessel({ ...newVessel, registration_number: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
@@ -891,7 +891,7 @@ export default function CustomerManagement() {
                     type="text"
                     value={newVessel.engine_make}
                     onChange={(e) => setNewVessel({ ...newVessel, engine_make: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
@@ -900,7 +900,7 @@ export default function CustomerManagement() {
                     type="text"
                     value={newVessel.engine_model}
                     onChange={(e) => setNewVessel({ ...newVessel, engine_model: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
@@ -926,7 +926,7 @@ export default function CustomerManagement() {
                   value={newVessel.notes}
                   onChange={(e) => setNewVessel({ ...newVessel, notes: e.target.value })}
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
@@ -969,7 +969,7 @@ export default function CustomerManagement() {
                       type="text"
                       value={editingCustomer.first_name || ''}
                       onChange={(e) => setEditingCustomer({ ...editingCustomer, first_name: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
@@ -978,7 +978,7 @@ export default function CustomerManagement() {
                       type="text"
                       value={editingCustomer.last_name || ''}
                       onChange={(e) => setEditingCustomer({ ...editingCustomer, last_name: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                 </div>
@@ -989,7 +989,7 @@ export default function CustomerManagement() {
                     type="text"
                     value={editingCustomer.business_name || ''}
                     onChange={(e) => setEditingCustomer({ ...editingCustomer, business_name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               )}
@@ -1001,7 +1001,7 @@ export default function CustomerManagement() {
                     type="email"
                     value={editingCustomer.email || ''}
                     onChange={(e) => setEditingCustomer({ ...editingCustomer, email: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
@@ -1010,7 +1010,7 @@ export default function CustomerManagement() {
                     type="tel"
                     value={editingCustomer.phone || ''}
                     onChange={(e) => setEditingCustomer({ ...editingCustomer, phone: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
@@ -1021,7 +1021,7 @@ export default function CustomerManagement() {
                   type="tel"
                   value={editingCustomer.secondary_phone || ''}
                   onChange={(e) => setEditingCustomer({ ...editingCustomer, secondary_phone: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
@@ -1031,7 +1031,7 @@ export default function CustomerManagement() {
                   type="text"
                   value={editingCustomer.address_line1 || ''}
                   onChange={(e) => setEditingCustomer({ ...editingCustomer, address_line1: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
@@ -1041,7 +1041,7 @@ export default function CustomerManagement() {
                   type="text"
                   value={editingCustomer.address_line2 || ''}
                   onChange={(e) => setEditingCustomer({ ...editingCustomer, address_line2: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
@@ -1052,7 +1052,7 @@ export default function CustomerManagement() {
                     type="text"
                     value={editingCustomer.city || ''}
                     onChange={(e) => setEditingCustomer({ ...editingCustomer, city: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
@@ -1061,7 +1061,7 @@ export default function CustomerManagement() {
                     type="text"
                     value={editingCustomer.state || ''}
                     onChange={(e) => setEditingCustomer({ ...editingCustomer, state: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
@@ -1070,7 +1070,7 @@ export default function CustomerManagement() {
                     type="text"
                     value={editingCustomer.zip_code || ''}
                     onChange={(e) => setEditingCustomer({ ...editingCustomer, zip_code: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
@@ -1081,7 +1081,7 @@ export default function CustomerManagement() {
                   value={editingCustomer.notes || ''}
                   onChange={(e) => setEditingCustomer({ ...editingCustomer, notes: e.target.value })}
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
