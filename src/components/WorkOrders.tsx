@@ -1317,7 +1317,72 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
         <div className="mb-6 bg-white border border-gray-200 rounded-lg p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold">Edit Work Order</h3>
+            <button
+              type="button"
+              onClick={() => {
+                setShowForm(false);
+                setEditingId(null);
+                setEditingWorkOrder(null);
+              }}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
+
+          {/* Action Buttons */}
+          {editingWorkOrder && (
+            <div className="flex flex-wrap items-center gap-3 mb-4 pb-4 border-b border-gray-200">
+              <button
+                type="button"
+                onClick={() => handlePrintWorkOrder(editingWorkOrder.id)}
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 flex items-center gap-2 text-sm font-medium"
+              >
+                <Printer className="w-4 h-4" />
+                Print Work Order
+              </button>
+              {editingWorkOrder.status !== 'completed' && (
+                <button
+                  type="button"
+                  onClick={() => handleCompleteWorkOrder(editingWorkOrder.id)}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 text-sm font-medium"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  Mark as Completed
+                </button>
+              )}
+              {editingWorkOrder.status === 'completed' && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => handleConvertToInvoice(editingWorkOrder.id)}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 text-sm font-medium"
+                  >
+                    <FileText className="w-4 h-4" />
+                    Convert to Invoice
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handlePreviewTimeEntries(editingWorkOrder.id)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm font-medium"
+                  >
+                    <Clock className="w-4 h-4" />
+                    Create Time Entries
+                  </button>
+                </>
+              )}
+              {editingWorkOrder.status === 'pending' && (
+                <button
+                  type="button"
+                  onClick={() => handleDeleteWorkOrder(editingWorkOrder.id)}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2 text-sm font-medium ml-auto"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Delete Work Order
+                </button>
+              )}
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label className="flex items-center gap-2">
@@ -2263,7 +2328,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Date</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -2305,61 +2370,13 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                 <td className="px-6 py-4 text-right text-sm text-gray-500">
                   {new Date(workOrder.created_at).toLocaleDateString()}
                 </td>
-                <td className="px-6 py-4 text-right">
-                  <div className="flex justify-end gap-2">
-                    {workOrder.status !== 'completed' && (
-                      <>
-                        <button
-                          onClick={() => handleCompleteWorkOrder(workOrder.id)}
-                          className="text-green-600 hover:text-green-800"
-                          title="Mark as completed"
-                        >
-                          <CheckCircle className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleEditWorkOrder(workOrder.id)}
-                          className="text-blue-600 hover:text-blue-800"
-                          title="Edit work order"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                      </>
-                    )}
-                    {workOrder.status === 'completed' && (
-                      <>
-                        <button
-                          onClick={() => handleConvertToInvoice(workOrder.id)}
-                          className="text-green-600 hover:text-green-800"
-                          title="Convert to invoice"
-                        >
-                          <FileText className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handlePreviewTimeEntries(workOrder.id)}
-                          className="text-blue-600 hover:text-blue-800"
-                          title="Create time entries from labor hours"
-                        >
-                          <Clock className="w-4 h-4" />
-                        </button>
-                      </>
-                    )}
-                    <button
-                      onClick={() => handlePrintWorkOrder(workOrder.id)}
-                      className="text-gray-600 hover:text-gray-800"
-                      title="Print work order"
-                    >
-                      <Printer className="w-4 h-4" />
-                    </button>
-                    {workOrder.status === 'pending' && (
-                      <button
-                        onClick={() => handleDeleteWorkOrder(workOrder.id)}
-                        className="text-red-600 hover:text-red-800"
-                        title="Delete work order"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
+                <td className="px-6 py-4 text-center">
+                  <button
+                    onClick={() => handleEditWorkOrder(workOrder.id)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+                  >
+                    Open
+                  </button>
                 </td>
               </tr>
               </React.Fragment>

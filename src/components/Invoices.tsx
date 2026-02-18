@@ -241,7 +241,7 @@ export function Invoices({ userId }: InvoicesProps) {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
@@ -300,50 +300,13 @@ export function Invoices({ userId }: InvoicesProps) {
                         {invoice.payment_status.charAt(0).toUpperCase() + invoice.payment_status.slice(1)}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleViewDetails(invoice)}
-                          className="text-blue-600 hover:text-blue-800"
-                          title="View Details"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDownloadPDF(invoice)}
-                          className="text-gray-600 hover:text-gray-800"
-                          title="Download PDF"
-                        >
-                          <Download className="w-4 h-4" />
-                        </button>
-                        {invoice.customer_email && (
-                          <button
-                            onClick={() => handleSendEmail(invoice)}
-                            className="text-green-600 hover:text-green-800"
-                            title="Send Email"
-                          >
-                            <Mail className="w-4 h-4" />
-                          </button>
-                        )}
-                        {invoice.payment_status !== 'paid' && invoice.customer_email && !invoice.payment_link && (
-                          <button
-                            onClick={() => handleRequestPayment(invoice)}
-                            className="text-blue-600 hover:text-blue-800"
-                            title="Request Payment"
-                          >
-                            <DollarSign className="w-4 h-4" />
-                          </button>
-                        )}
-                        {invoice.payment_link && invoice.payment_status !== 'paid' && (
-                          <button
-                            onClick={() => handleCopyPaymentLink(invoice)}
-                            className="text-purple-600 hover:text-purple-800"
-                            title="Copy Payment Link"
-                          >
-                            <ExternalLink className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <button
+                        onClick={() => handleViewDetails(invoice)}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+                      >
+                        Open
+                      </button>
                     </td>
                   </tr>
                 ))
@@ -357,7 +320,7 @@ export function Invoices({ userId }: InvoicesProps) {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between mb-4">
                 <h2 className="text-2xl font-bold text-gray-900">
                   Invoice Details: {selectedInvoice.invoice_number}
                 </h2>
@@ -367,6 +330,44 @@ export function Invoices({ userId }: InvoicesProps) {
                 >
                   <XCircle className="w-6 h-6" />
                 </button>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-gray-200">
+                <button
+                  onClick={() => handleDownloadPDF(selectedInvoice)}
+                  className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 flex items-center gap-2 text-sm font-medium"
+                >
+                  <Download className="w-4 h-4" />
+                  Download PDF
+                </button>
+                {selectedInvoice.customer_email && (
+                  <button
+                    onClick={() => handleSendEmail(selectedInvoice)}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 text-sm font-medium"
+                  >
+                    <Mail className="w-4 h-4" />
+                    Send Email
+                  </button>
+                )}
+                {selectedInvoice.payment_status !== 'paid' && selectedInvoice.customer_email && !selectedInvoice.payment_link && (
+                  <button
+                    onClick={() => handleRequestPayment(selectedInvoice)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm font-medium"
+                  >
+                    <DollarSign className="w-4 h-4" />
+                    Request Payment
+                  </button>
+                )}
+                {selectedInvoice.payment_link && selectedInvoice.payment_status !== 'paid' && (
+                  <button
+                    onClick={() => handleCopyPaymentLink(selectedInvoice)}
+                    className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 flex items-center gap-2 text-sm font-medium"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    Copy Payment Link
+                  </button>
+                )}
               </div>
             </div>
 
@@ -427,30 +428,11 @@ export function Invoices({ userId }: InvoicesProps) {
               </div>
 
               {selectedInvoice.notes && (
-                <div className="mb-6">
+                <div>
                   <h3 className="text-sm font-medium text-gray-500 mb-2">Notes</h3>
                   <p className="text-sm text-gray-700 whitespace-pre-wrap">{selectedInvoice.notes}</p>
                 </div>
               )}
-
-              <div className="flex justify-end gap-3">
-                <button
-                  onClick={() => handleDownloadPDF(selectedInvoice)}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center gap-2"
-                >
-                  <Download className="w-4 h-4" />
-                  Download PDF
-                </button>
-                {selectedInvoice.customer_email && (
-                  <button
-                    onClick={() => handleSendEmail(selectedInvoice)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
-                  >
-                    <Mail className="w-4 h-4" />
-                    Send Email
-                  </button>
-                )}
-              </div>
             </div>
           </div>
         </div>

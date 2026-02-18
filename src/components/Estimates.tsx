@@ -98,6 +98,7 @@ export function Estimates({ userId }: EstimatesProps) {
     deposit_required: false,
     deposit_type: 'percentage',
     deposit_percentage: '',
+    status: 'draft',
     deposit_amount: ''
   });
 
@@ -1006,7 +1007,12 @@ export function Estimates({ userId }: EstimatesProps) {
         apply_shop_supplies: estimate.shop_supplies_amount > 0,
         apply_park_fees: estimate.park_fees_amount > 0,
         notes: estimate.notes || '',
-        customer_notes: estimate.customer_notes || ''
+        customer_notes: estimate.customer_notes || '',
+        status: estimate.status,
+        deposit_required: estimate.deposit_required,
+        deposit_type: estimate.deposit_amount ? 'fixed' : 'percentage',
+        deposit_percentage: estimate.deposit_percentage?.toString() || '',
+        deposit_amount: estimate.deposit_amount?.toString() || ''
       });
 
       // Group line items by task_id
@@ -1288,13 +1294,69 @@ export function Estimates({ userId }: EstimatesProps) {
             <h3 className="text-lg font-semibold">
               {editingId ? 'Edit Estimate' : 'New Estimate'}
             </h3>
-            {showAutoSaveIndicator && (
-              <div className="flex items-center gap-2 text-sm text-green-600">
-                <Check className="w-4 h-4" />
-                <span>Draft saved</span>
-              </div>
-            )}
+            <div className="flex items-center gap-2">
+              {showAutoSaveIndicator && (
+                <div className="flex items-center gap-2 text-sm text-green-600">
+                  <Check className="w-4 h-4" />
+                  <span>Draft saved</span>
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowForm(false);
+                  setEditingId(null);
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
           </div>
+
+          {/* Action Buttons */}
+          {editingId && (
+            <div className="flex flex-wrap items-center gap-3 mb-4 pb-4 border-b border-gray-200">
+              <button
+                type="button"
+                onClick={() => handlePrintEstimate(editingId)}
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 flex items-center gap-2 text-sm font-medium"
+              >
+                <Printer className="w-4 h-4" />
+                Print Estimate
+              </button>
+              {(formData.status === 'draft' || formData.status === 'sent') && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => openApproveModal(editingId)}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 text-sm font-medium"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    Approve & Convert to Work Order
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openDenyModal(editingId)}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2 text-sm font-medium"
+                  >
+                    <XCircle className="w-4 h-4" />
+                    Deny Estimate
+                  </button>
+                </>
+              )}
+              {formData.status === 'draft' && (
+                <button
+                  type="button"
+                  onClick={() => handleDeleteEstimate(editingId)}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2 text-sm font-medium ml-auto"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Delete Estimate
+                </button>
+              )}
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label className="flex items-center gap-2">
@@ -2124,7 +2186,7 @@ export function Estimates({ userId }: EstimatesProps) {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Status</th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase">Total</th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase">Date</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase">Actions</th>
+              <th className="px-6 py-3 text-center text-xs font-medium text-gray-700 uppercase">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
@@ -2152,52 +2214,13 @@ export function Estimates({ userId }: EstimatesProps) {
                 <td className="px-6 py-4 text-right text-sm text-gray-700">
                   {new Date(estimate.created_at).toLocaleDateString()}
                 </td>
-                <td className="px-6 py-4 text-right">
-                  <div className="flex justify-end gap-2">
-                    {(estimate.status === 'draft' || estimate.status === 'sent') && (
-                      <>
-                        <button
-                          onClick={() => openApproveModal(estimate.id)}
-                          className="text-green-600 hover:text-green-800"
-                          title="Approve and convert to work order"
-                        >
-                          <CheckCircle className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => openDenyModal(estimate.id)}
-                          className="text-red-600 hover:text-red-800"
-                          title="Deny estimate"
-                        >
-                          <XCircle className="w-4 h-4" />
-                        </button>
-                      </>
-                    )}
-                    <button
-                      onClick={() => handlePrintEstimate(estimate.id)}
-                      className="text-gray-600 hover:text-gray-800"
-                      title="Print estimate"
-                    >
-                      <Printer className="w-4 h-4" />
-                    </button>
-                    {(estimate.status === 'draft' || estimate.status === 'sent') && (
-                      <button
-                        onClick={() => handleEditEstimate(estimate.id)}
-                        className="text-blue-600 hover:text-blue-800"
-                        title="Edit estimate"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                    )}
-                    {estimate.status === 'draft' && (
-                      <button
-                        onClick={() => handleDeleteEstimate(estimate.id)}
-                        className="text-red-600 hover:text-red-800"
-                        title="Delete estimate"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
+                <td className="px-6 py-4 text-center">
+                  <button
+                    onClick={() => handleEditEstimate(estimate.id)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+                  >
+                    Open
+                  </button>
                 </td>
               </tr>
             ))}
