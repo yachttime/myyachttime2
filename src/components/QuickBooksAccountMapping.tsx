@@ -791,7 +791,7 @@ interface DefaultAccountsTabProps {
 
 function DefaultAccountsTab({ qboAccounts, mappings, onSave, saving }: DefaultAccountsTabProps) {
   const defaultMappingTypes = [
-    { type: 'income', label: 'Service Income', description: 'Default income account for services' },
+    { type: 'income', label: 'Service Fee Income', description: 'Default income account for service fees' },
     { type: 'parts', label: 'Parts Sales', description: 'Default income account for parts' },
     { type: 'labor', label: 'Labor Income', description: 'Default income account for labor' },
     { type: 'cogs', label: 'Cost of Goods Sold', description: 'Default COGS account for parts' },
