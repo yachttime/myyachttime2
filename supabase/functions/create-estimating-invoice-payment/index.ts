@@ -87,8 +87,11 @@ Deno.serve(withErrorHandling(async (req: Request) => {
 
     const paymentMethodType = invoice.final_payment_method_type || 'card';
 
-    const origin = req.headers.get('origin') || Deno.env.get('SITE_URL') || 'https://azmarineservices.com';
-    const appUrl = Deno.env.get('APP_URL') || origin;
+    const appUrl = Deno.env.get('APP_URL') ||
+                   Deno.env.get('SITE_URL') ||
+                   req.headers.get('origin') ||
+                   req.headers.get('referer')?.split('/').slice(0, 3).join('/') ||
+                   'https://azmarineservices.com';
 
     const stripeParams: Record<string, string> = {
       'mode': 'payment',
