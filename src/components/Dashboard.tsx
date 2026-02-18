@@ -4195,7 +4195,6 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       if (!selectedCompany?.id) {
         console.log('Master Calendar: No company selected');
         setMasterCalendarBookings([]);
-        setMasterCalendarAppointments([]);
         return;
       }
 
