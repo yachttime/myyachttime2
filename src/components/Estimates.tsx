@@ -1416,19 +1416,38 @@ export function Estimates({ userId }: EstimatesProps) {
           )}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={formData.is_retail_customer}
-                  onChange={(e) => setFormData({ ...formData, is_retail_customer: e.target.checked })}
-                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                />
-                <span className="text-sm font-medium text-gray-700">Retail Customer</span>
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Customer Type *</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, is_retail_customer: false })}
+                  className={`py-2.5 px-4 rounded-lg font-medium text-sm transition-all border ${
+                    !formData.is_retail_customer
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                      : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  Yacht Customer
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, is_retail_customer: true })}
+                  className={`py-2.5 px-4 rounded-lg font-medium text-sm transition-all border ${
+                    formData.is_retail_customer
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                      : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  Walk-In Customer
+                </button>
+              </div>
             </div>
 
             {formData.is_retail_customer ? (
-              <div className="space-y-4">
+              <div className="space-y-4 border border-gray-200 rounded-lg p-4 bg-gray-50">
+                <div className="flex items-center justify-between mb-1">
+                  <h4 className="text-sm font-semibold text-gray-800">Walk-In Customer Information</h4>
+                </div>
                 <div className="relative customer-search-container">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Search Customer Database</label>
                   <div className="relative">
