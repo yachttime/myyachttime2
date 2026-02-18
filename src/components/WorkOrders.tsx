@@ -2416,7 +2416,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleGenerateDepositLink(workOrder.id);
+                              handleRequestDeposit(workOrder.id);
                             }}
                             disabled={depositLoading}
                             className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 disabled:opacity-50"
