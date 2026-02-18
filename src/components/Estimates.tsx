@@ -172,6 +172,7 @@ export function Estimates({ userId }: EstimatesProps) {
       const draftData = {
         formData,
         tasks,
+        editingId,
         timestamp: new Date().toISOString()
       };
       localStorage.setItem('estimate_draft', JSON.stringify(draftData));
@@ -327,6 +328,9 @@ export function Estimates({ userId }: EstimatesProps) {
       setTasks(restoredTasks);
       const allTaskIndexes = restoredTasks.map((_: any, index: number) => index);
       setExpandedTasks(new Set(allTaskIndexes));
+      if (draftToRestore.editingId) {
+        setEditingId(draftToRestore.editingId);
+      }
       setShowForm(true);
     }
     setShowRestoreDraftModal(false);
@@ -1430,7 +1434,40 @@ export function Estimates({ userId }: EstimatesProps) {
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold text-gray-900">Estimates</h2>
         <button
-          onClick={() => setShowForm(true)}
+          onClick={() => {
+            setEditingId(null);
+            setFormData({
+              is_retail_customer: false,
+              yacht_id: '',
+              vessel_id: '',
+              customer_name: '',
+              customer_email: '',
+              customer_phone: '',
+              marina_name: '',
+              manager_name: '',
+              manager_email: '',
+              manager_phone: '',
+              sales_tax_rate: formData.sales_tax_rate,
+              shop_supplies_rate: formData.shop_supplies_rate,
+              park_fees_rate: formData.park_fees_rate,
+              surcharge_rate: formData.surcharge_rate,
+              apply_shop_supplies: true,
+              apply_park_fees: true,
+              notes: '',
+              customer_notes: DEFAULT_CUSTOMER_NOTES,
+              deposit_required: false,
+              deposit_type: 'percentage',
+              deposit_percentage: '',
+              status: 'draft',
+              deposit_amount: ''
+            });
+            setTasks([]);
+            setShowTaskForm(false);
+            setEditingTaskIndex(null);
+            setExpandedTasks(new Set());
+            localStorage.removeItem('estimate_draft');
+            setShowForm(true);
+          }}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >
           <Plus className="w-4 h-4" />
