@@ -83,38 +83,133 @@ Deno.serve(withErrorHandling(async (req: Request) => {
       throw new Error('Deposit is already paid');
     }
 
-    const paymentMethodType = workOrder.deposit_payment_method_type || 'card';
+    if (workOrder.deposit_stripe_checkout_session_id) {
+      try {
+        const deactivateResponse = await fetch(`https://api.stripe.com/v1/payment_links/${workOrder.deposit_stripe_checkout_session_id}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${stripeSecretKey}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: new URLSearchParams({ 'active': 'false' }).toString(),
+        });
 
-    const checkoutSession = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+        if (deactivateResponse.ok) {
+          console.log('Deactivated old payment link:', workOrder.deposit_stripe_checkout_session_id);
+        }
+      } catch (deactivateError) {
+        console.error('Error deactivating old payment link:', deactivateError);
+      }
+    }
+
+    const amount = parseFloat(workOrder.deposit_amount);
+    if (isNaN(amount) || amount <= 0) {
+      throw new Error(`Invalid deposit amount: ${workOrder.deposit_amount}`);
+    }
+
+    const amountInCents = Math.round(amount * 100);
+
+    const productParams = new URLSearchParams({
+      'name': `Work Order ${workOrder.work_order_number} - Deposit`,
+      'description': `${workOrder.yachts?.name || 'Yacht'} - Work Order Deposit`,
+    });
+
+    const productResponse = await fetch('https://api.stripe.com/v1/products', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${stripeSecretKey}`,
         'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: new URLSearchParams({
-        'mode': 'payment',
-        'payment_method_types[]': paymentMethodType === 'ach' ? 'us_bank_account' : 'card',
-        'line_items[0][price_data][currency]': 'usd',
-        'line_items[0][price_data][product_data][name]': `Work Order ${workOrder.work_order_number} - Deposit`,
-        'line_items[0][price_data][product_data][description]': workOrder.yachts?.name ? `Yacht: ${workOrder.yachts.name}` : 'Marine Service Deposit',
-        'line_items[0][price_data][unit_amount]': Math.round(workOrder.deposit_amount * 100).toString(),
-        'line_items[0][quantity]': '1',
-        'success_url': `${supabaseUrl.replace('.supabase.co', '')}/estimating?payment=success&type=deposit`,
-        'cancel_url': `${supabaseUrl.replace('.supabase.co', '')}/estimating?payment=cancelled`,
-        'metadata[work_order_id]': workOrderId,
-        'metadata[payment_type]': 'work_order_deposit',
-        'customer_email': workOrder.customer_email || '',
-        'expires_at': Math.floor((Date.now() + 30 * 24 * 60 * 60 * 1000) / 1000).toString(),
-      }),
+      body: productParams.toString(),
     });
 
-    if (!checkoutSession.ok) {
-      const errorData = await checkoutSession.json();
-      console.error('Stripe API error:', errorData);
-      throw new Error('Failed to create payment session');
+    if (!productResponse.ok) {
+      const errorText = await productResponse.text();
+      console.error('Stripe Product creation error:', errorText);
+      throw new Error('Failed to create Stripe product');
     }
 
-    const session = await checkoutSession.json();
+    const productData = await productResponse.json();
+
+    const priceParams = new URLSearchParams({
+      'product': productData.id,
+      'currency': 'usd',
+      'unit_amount': amountInCents.toString(),
+    });
+
+    const priceResponse = await fetch('https://api.stripe.com/v1/prices', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${stripeSecretKey}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: priceParams.toString(),
+    });
+
+    if (!priceResponse.ok) {
+      const errorText = await priceResponse.text();
+      console.error('Stripe Price creation error:', errorText);
+      throw new Error('Failed to create Stripe price');
+    }
+
+    const priceData = await priceResponse.json();
+
+    const paymentMethodType = workOrder.deposit_payment_method_type || 'card';
+    const params: Record<string, string> = {
+      'line_items[0][price]': priceData.id,
+      'line_items[0][quantity]': '1',
+      'after_completion[type]': 'redirect',
+      'after_completion[redirect][url]': `${req.headers.get('origin') || supabaseUrl}/payment-success`,
+      'metadata[work_order_id]': workOrderId,
+      'metadata[payment_type]': 'work_order_deposit',
+      'metadata[user_id]': user.id,
+    };
+
+    if (paymentMethodType === 'card') {
+      params['payment_method_types[0]'] = 'card';
+    } else if (paymentMethodType === 'ach') {
+      params['payment_method_types[0]'] = 'us_bank_account';
+    } else if (paymentMethodType === 'both') {
+      params['payment_method_types[0]'] = 'card';
+      params['payment_method_types[1]'] = 'us_bank_account';
+    }
+
+    const paymentLink = await fetch('https://api.stripe.com/v1/payment_links', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${stripeSecretKey}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams(params).toString(),
+    });
+
+    if (!paymentLink.ok) {
+      const errorText = await paymentLink.text();
+      console.error('Stripe API error:', {
+        status: paymentLink.status,
+        statusText: paymentLink.statusText,
+        error: errorText,
+        workOrderId: workOrderId,
+        amount: amount,
+        amountInCents: amountInCents
+      });
+
+      let errorMessage = 'Failed to create payment link';
+      try {
+        const errorJson = JSON.parse(errorText);
+        if (errorJson.error && errorJson.error.message) {
+          errorMessage = `Stripe error: ${errorJson.error.message}`;
+        }
+      } catch (e) {
+        if (errorText.includes('No such')) {
+          errorMessage = 'Stripe configuration error. Please check your Stripe API key.';
+        }
+      }
+
+      throw new Error(errorMessage);
+    }
+
+    const session = await paymentLink.json();
 
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
