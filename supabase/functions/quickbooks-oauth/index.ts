@@ -135,9 +135,14 @@ Deno.serve(async (req: Request) => {
       authUrl.searchParams.set('prompt', 'consent');
 
       console.log('Using redirect URI:', finalRedirectUri);
+      console.log('Full auth URL:', authUrl.toString());
 
       return new Response(
-        JSON.stringify({ authUrl: authUrl.toString() }),
+        JSON.stringify({
+          authUrl: authUrl.toString(),
+          redirectUri: finalRedirectUri,
+          redirectUriLength: finalRedirectUri.length
+        }),
         {
           headers: {
             ...corsHeaders,

@@ -187,8 +187,15 @@ export default function QuickBooksAccountMapping() {
         throw new Error(result.error || 'Failed to get QuickBooks authorization URL');
       }
 
-      const { authUrl } = result;
+      const { authUrl, redirectUri, redirectUriLength } = result;
       console.log('[QuickBooks] Auth URL obtained:', authUrl);
+      console.log('[QuickBooks] Redirect URI from server:', redirectUri);
+      console.log('[QuickBooks] Redirect URI length:', redirectUriLength);
+
+      // Show diagnostic info to user
+      if (redirectUri) {
+        setSuccess(`Redirect URI: ${redirectUri} (length: ${redirectUriLength})`);
+      }
 
       // Store Supabase URL and auth token in localStorage for the callback page to use
       localStorage.setItem('VITE_SUPABASE_URL', import.meta.env.VITE_SUPABASE_URL);
