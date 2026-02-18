@@ -68,6 +68,7 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'parts' | 'vendors'>('parts');
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'active' | 'inactive' | 'all'>('active');
   const [showForm, setShowForm] = useState(false);
   const [showAdjustment, setShowAdjustment] = useState(false);
   const [showVendorForm, setShowVendorForm] = useState(false);
@@ -473,12 +474,19 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
     setShowVendorForm(false);
   };
 
-  const filteredParts = parts.filter(part =>
-    part.is_active &&
-    (part.part_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    part.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (part.vendors?.vendor_name && part.vendors.vendor_name.toLowerCase().includes(searchTerm.toLowerCase())))
-  );
+  const activeParts = parts.filter(p => p.is_active);
+
+  const filteredParts = parts.filter(part => {
+    const matchesStatus =
+      statusFilter === 'all' ? true :
+      statusFilter === 'active' ? part.is_active :
+      !part.is_active;
+    const matchesSearch =
+      part.part_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      part.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (part.vendors?.vendor_name && part.vendors.vendor_name.toLowerCase().includes(searchTerm.toLowerCase()));
+    return matchesStatus && matchesSearch;
+  });
 
   const filteredVendors = vendors.filter(vendor =>
     vendor.vendor_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -486,7 +494,7 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
     (vendor.phone && vendor.phone.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const totalInventoryValue = parts.reduce((sum, part) => sum + (part.quantity_on_hand * part.unit_cost), 0);
+  const totalInventoryValue = activeParts.reduce((sum, part) => sum + (part.quantity_on_hand * part.unit_cost), 0);
 
   if (loading) {
     return <div className="p-8 text-center">Loading parts inventory...</div>;
@@ -554,8 +562,8 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
           <div className="bg-white border border-gray-200 rounded-lg p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Parts</p>
-                <p className="text-2xl font-bold text-gray-900">{parts.length}</p>
+                <p className="text-sm text-gray-600">Active Parts</p>
+                <p className="text-2xl font-bold text-gray-900">{activeParts.length}</p>
               </div>
               <Package className="w-8 h-8 text-blue-500" />
             </div>
@@ -565,8 +573,8 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
               <div>
                 <p className="text-sm text-gray-600">Avg. Gross Profit</p>
                 <p className="text-2xl font-bold text-green-600">
-                  {parts.length > 0
-                    ? `${(parts.reduce((sum, part) => sum + ((part.unit_price - part.unit_cost) / part.unit_cost * 100), 0) / parts.length).toFixed(1)}%`
+                  {activeParts.length > 0
+                    ? `${(activeParts.reduce((sum, part) => sum + ((part.unit_price - part.unit_cost) / part.unit_cost * 100), 0) / activeParts.length).toFixed(1)}%`
                     : '0%'
                   }
                 </p>
@@ -931,8 +939,8 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
 
       {activeTab === 'parts' && (
         <>
-          <div className="mb-4">
-            <div className="relative">
+          <div className="mb-4 flex gap-3 items-center">
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type="text"
@@ -941,6 +949,21 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
               />
+            </div>
+            <div className="flex border border-gray-300 rounded-lg overflow-hidden">
+              {(['active', 'inactive', 'all'] as const).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setStatusFilter(f)}
+                  className={`px-3 py-2 text-sm font-medium capitalize transition-colors ${
+                    statusFilter === f
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  {f}
+                </button>
+              ))}
             </div>
           </div>
 
