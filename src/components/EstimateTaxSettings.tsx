@@ -367,9 +367,9 @@ export function EstimateTaxSettings({ userId }: EstimateTaxSettingsProps) {
                   className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900"
                   placeholder="8.00"
                 />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">%</span>
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-700 text-sm">%</span>
               </div>
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="mt-1 text-xs text-gray-700">
                 Applied to the subtotal for taxable items
               </p>
             </div>
@@ -391,9 +391,9 @@ export function EstimateTaxSettings({ userId }: EstimateTaxSettingsProps) {
                   className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900"
                   placeholder="5.00"
                 />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">%</span>
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-700 text-sm">%</span>
               </div>
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="mt-1 text-xs text-gray-700">
                 Standard rate for consumable shop supplies
               </p>
             </div>
@@ -415,9 +415,9 @@ export function EstimateTaxSettings({ userId }: EstimateTaxSettingsProps) {
                   className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900"
                   placeholder="2.00"
                 />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">%</span>
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-700 text-sm">%</span>
               </div>
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="mt-1 text-xs text-gray-700">
                 Environmental or park usage fees
               </p>
             </div>
@@ -439,9 +439,9 @@ export function EstimateTaxSettings({ userId }: EstimateTaxSettingsProps) {
                   className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900"
                   placeholder="3.00"
                 />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">%</span>
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-700 text-sm">%</span>
               </div>
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="mt-1 text-xs text-gray-700">
                 Additional charges or service fees
               </p>
             </div>
@@ -516,7 +516,7 @@ export function EstimateTaxSettings({ userId }: EstimateTaxSettingsProps) {
                   </div>
                 ) : (
                   <div className="w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50">
-                    <Upload className="w-8 h-8 text-gray-400" />
+                    <Upload className="w-8 h-8 text-gray-600" />
                   </div>
                 )}
                 <div className="flex-1">
@@ -531,7 +531,7 @@ export function EstimateTaxSettings({ userId }: EstimateTaxSettingsProps) {
                       className="hidden"
                     />
                   </label>
-                  <p className="mt-2 text-xs text-gray-500">
+                  <p className="mt-2 text-xs text-gray-700">
                     Recommended: Square image, max 5MB. Supports JPG, PNG, GIF, WebP.
                   </p>
                 </div>

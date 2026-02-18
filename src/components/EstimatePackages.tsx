@@ -359,7 +359,7 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">Loading packages...</div>
+        <div className="text-gray-700">Loading packages...</div>
       </div>
     );
   }
@@ -387,7 +387,7 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
           </div>
           <div className="divide-y divide-gray-200">
             {packages.length === 0 ? (
-              <div className="p-8 text-center text-gray-500">
+              <div className="p-8 text-center text-gray-700">
                 No packages created yet
               </div>
             ) : (
@@ -402,10 +402,10 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <Package className="w-4 h-4 text-gray-400" />
+                        <Package className="w-4 h-4 text-gray-600" />
                         <span className="font-semibold text-gray-900">{pkg.name}</span>
                         {!pkg.is_active && (
-                          <span className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded">
+                          <span className="text-xs px-2 py-1 bg-gray-100 text-gray-800 rounded">
                             Inactive
                           </span>
                         )}
@@ -420,7 +420,7 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
                           e.stopPropagation();
                           openModal(pkg);
                         }}
-                        className="p-1 text-gray-400 hover:text-blue-600"
+                        className="p-1 text-gray-600 hover:text-blue-600"
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
@@ -429,7 +429,7 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
                           e.stopPropagation();
                           handleDelete(pkg.id);
                         }}
-                        className="p-1 text-gray-400 hover:text-red-600"
+                        className="p-1 text-gray-600 hover:text-red-600"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -531,7 +531,7 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
                     </div>
                   ))}
                   {packageLabor.length === 0 && (
-                    <div className="text-sm text-gray-500 text-center py-2">No labor items</div>
+                    <div className="text-sm text-gray-700 text-center py-2">No labor items</div>
                   )}
                 </div>
               </div>
@@ -606,7 +606,7 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
                     </div>
                   ))}
                   {packageParts.length === 0 && (
-                    <div className="text-sm text-gray-500 text-center py-2">No parts</div>
+                    <div className="text-sm text-gray-700 text-center py-2">No parts</div>
                   )}
                 </div>
               </div>
@@ -621,7 +621,7 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
               </div>
             </div>
           ) : (
-            <div className="p-8 text-center text-gray-500">
+            <div className="p-8 text-center text-gray-700">
               Select a package to view and edit its items
             </div>
           )}
@@ -635,7 +635,7 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
               <h3 className="text-xl font-bold text-gray-900">
                 {editingPackage ? 'Edit Package' : 'New Package'}
               </h3>
-              <button onClick={closeModal} className="text-gray-400 hover:text-gray-600">
+              <button onClick={closeModal} className="text-gray-600 hover:text-gray-600">
                 <X className="w-6 h-6" />
               </button>
             </div>

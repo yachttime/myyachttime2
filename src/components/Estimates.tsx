@@ -1330,7 +1330,7 @@ export function Estimates({ userId }: EstimatesProps) {
             ) : (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Yacht * {yachts.length > 0 && <span className="text-xs text-gray-500">({yachts.length} available)</span>}
+                  Yacht * {yachts.length > 0 && <span className="text-xs text-gray-700">({yachts.length} available)</span>}
                 </label>
                 <select
                   required
@@ -1338,7 +1338,7 @@ export function Estimates({ userId }: EstimatesProps) {
                   onChange={(e) => handleYachtChange(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
                 >
-                  <option value="" className="text-gray-500">Select a yacht</option>
+                  <option value="" className="text-gray-700">Select a yacht</option>
                   {yachts.length === 0 ? (
                     <option value="" disabled>No yachts available</option>
                   ) : (
@@ -1487,7 +1487,7 @@ export function Estimates({ userId }: EstimatesProps) {
                             {task.task_overview && (
                               <p className="text-sm text-gray-600 mt-1">{task.task_overview}</p>
                             )}
-                            <p className="text-xs text-gray-500 mt-1">
+                            <p className="text-xs text-gray-700 mt-1">
                               {task.lineItems.length} line item{task.lineItems.length !== 1 ? 's' : ''} -
                               ${task.lineItems.reduce((sum, item) => sum + item.total_price, 0).toFixed(2)}
                             </p>
@@ -1549,11 +1549,11 @@ export function Estimates({ userId }: EstimatesProps) {
                                 <table className="w-full text-sm">
                                   <thead className="bg-gray-50">
                                     <tr>
-                                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Description</th>
-                                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Qty</th>
-                                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Price</th>
-                                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Total</th>
-                                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Action</th>
+                                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-700">Description</th>
+                                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-700">Qty</th>
+                                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-700">Price</th>
+                                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-700">Total</th>
+                                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-700">Action</th>
                                     </tr>
                                   </thead>
                                   <tbody>
@@ -1561,7 +1561,7 @@ export function Estimates({ userId }: EstimatesProps) {
                                       <tr key={lineIndex} className="border-t">
                                         <td className="px-3 py-2">
                                           <div className="flex items-center gap-2">
-                                            <span className="text-xs text-gray-500 uppercase">{item.line_type}</span>
+                                            <span className="text-xs text-gray-700 uppercase">{item.line_type}</span>
                                             {item.is_taxable && (
                                               <span className="text-xs px-1.5 py-0.5 bg-green-100 text-green-700 rounded">Taxable</span>
                                             )}
@@ -1647,7 +1647,7 @@ export function Estimates({ userId }: EstimatesProps) {
                                     <div className="relative part-search-container">
                                       <label className="block text-sm font-medium text-gray-700 mb-1">
                                         Part Number / Name
-                                        <span className="ml-2 text-xs text-gray-500">
+                                        <span className="ml-2 text-xs text-gray-700">
                                           ({parts.length} inventory + {mercuryParts.length} Mercury parts)
                                         </span>
                                       </label>
@@ -1683,7 +1683,7 @@ export function Estimates({ userId }: EstimatesProps) {
                                                   {part.source === 'mercury' ? 'Mercury Marine' : 'Inventory'}
                                                 </span>
                                                 {part.source === 'mercury' && part.item_status && (
-                                                  <span className="text-xs text-gray-500">({part.item_status})</span>
+                                                  <span className="text-xs text-gray-700">({part.item_status})</span>
                                                 )}
                                               </div>
                                               <div className="text-sm text-gray-600">
@@ -1699,7 +1699,7 @@ export function Estimates({ userId }: EstimatesProps) {
                                                 </div>
                                               )}
                                               {part.source === 'mercury' && part.superseded_part_number && (
-                                                <div className="text-xs text-gray-500 mt-1">
+                                                <div className="text-xs text-gray-700 mt-1">
                                                   Superseded by: {part.superseded_part_number}
                                                 </div>
                                               )}
@@ -1828,7 +1828,7 @@ export function Estimates({ userId }: EstimatesProps) {
                           )}
 
                           {task.lineItems.length === 0 && !showLineItemForm && (
-                            <p className="text-sm text-gray-500 text-center py-4">No line items yet. Click "Add Line" to add one.</p>
+                            <p className="text-sm text-gray-700 text-center py-4">No line items yet. Click "Add Line" to add one.</p>
                           )}
                         </div>
                       )}
@@ -1838,7 +1838,7 @@ export function Estimates({ userId }: EstimatesProps) {
               )}
 
               {tasks.length === 0 && !showTaskForm && (
-                <p className="text-sm text-gray-500 text-center py-4">No tasks yet. Click "Add Task" to get started.</p>
+                <p className="text-sm text-gray-700 text-center py-4">No tasks yet. Click "Add Task" to get started.</p>
               )}
             </div>
 
@@ -1865,7 +1865,7 @@ export function Estimates({ userId }: EstimatesProps) {
                           onChange={(e) => setFormData({ ...formData, sales_tax_rate: (parseFloat(e.target.value) / 100).toString() })}
                           className="w-16 px-1.5 py-0.5 text-right border border-gray-300 rounded text-xs text-gray-900"
                         />
-                        <span className="text-xs text-gray-500">= ${calculateSalesTax().toFixed(2)}</span>
+                        <span className="text-xs text-gray-700">= ${calculateSalesTax().toFixed(2)}</span>
                       </div>
                     </div>
 
@@ -1891,7 +1891,7 @@ export function Estimates({ userId }: EstimatesProps) {
                           disabled={!formData.apply_shop_supplies}
                           className="w-16 px-1.5 py-0.5 text-right border border-gray-300 rounded text-xs text-gray-900 disabled:bg-gray-100"
                         />
-                        <span className="text-xs text-gray-500">= ${calculateShopSupplies().toFixed(2)}</span>
+                        <span className="text-xs text-gray-700">= ${calculateShopSupplies().toFixed(2)}</span>
                       </div>
                     </div>
 
@@ -1917,7 +1917,7 @@ export function Estimates({ userId }: EstimatesProps) {
                           disabled={!formData.apply_park_fees}
                           className="w-16 px-1.5 py-0.5 text-right border border-gray-300 rounded text-xs text-gray-900 disabled:bg-gray-100"
                         />
-                        <span className="text-xs text-gray-500">= ${calculateParkFees().toFixed(2)}</span>
+                        <span className="text-xs text-gray-700">= ${calculateParkFees().toFixed(2)}</span>
                       </div>
                     </div>
 
@@ -1933,7 +1933,7 @@ export function Estimates({ userId }: EstimatesProps) {
                           onChange={(e) => setFormData({ ...formData, surcharge_rate: (parseFloat(e.target.value) / 100).toString() })}
                           className="w-16 px-1.5 py-0.5 text-right border border-gray-300 rounded text-xs text-gray-900"
                         />
-                        <span className="text-xs text-gray-500">= ${calculateSurcharge().toFixed(2)}</span>
+                        <span className="text-xs text-gray-700">= ${calculateSurcharge().toFixed(2)}</span>
                       </div>
                     </div>
                   </div>
@@ -1985,7 +1985,7 @@ export function Estimates({ userId }: EstimatesProps) {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Customer Terms & Conditions
-                  <span className="text-xs text-gray-500 ml-2">(Printed at bottom of estimate)</span>
+                  <span className="text-xs text-gray-700 ml-2">(Printed at bottom of estimate)</span>
                 </label>
                 <textarea
                   value={formData.customer_notes}
@@ -2022,12 +2022,12 @@ export function Estimates({ userId }: EstimatesProps) {
         <table className="w-full">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estimate #</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Date</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Estimate #</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Customer</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Status</th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase">Total</th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase">Date</th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
@@ -2035,7 +2035,7 @@ export function Estimates({ userId }: EstimatesProps) {
               <tr key={estimate.id} className="hover:bg-gray-50">
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-gray-400" />
+                    <FileText className="w-4 h-4 text-gray-600" />
                     <span className="font-medium text-gray-900">{estimate.estimate_number}</span>
                   </div>
                 </td>
@@ -2052,7 +2052,7 @@ export function Estimates({ userId }: EstimatesProps) {
                 <td className="px-6 py-4 text-right text-sm font-medium text-gray-900">
                   ${estimate.total_amount.toFixed(2)}
                 </td>
-                <td className="px-6 py-4 text-right text-sm text-gray-500">
+                <td className="px-6 py-4 text-right text-sm text-gray-700">
                   {new Date(estimate.created_at).toLocaleDateString()}
                 </td>
                 <td className="px-6 py-4 text-right">
@@ -2266,7 +2266,7 @@ export function Estimates({ userId }: EstimatesProps) {
                   setSelectedPackageId('');
                   setActiveTaskIndex(null);
                 }}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-600 hover:text-gray-600"
               >
                 <X className="w-6 h-6" />
               </button>
