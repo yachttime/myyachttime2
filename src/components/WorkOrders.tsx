@@ -1322,7 +1322,6 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
               onClick={() => {
                 setShowForm(false);
                 setEditingId(null);
-                setEditingWorkOrder(null);
               }}
               className="text-gray-400 hover:text-gray-600"
             >
@@ -1331,58 +1330,63 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
           </div>
 
           {/* Action Buttons */}
-          {editingWorkOrder && (
-            <div className="flex flex-wrap items-center gap-3 mb-4 pb-4 border-b border-gray-200">
-              <button
-                type="button"
-                onClick={() => handlePrintWorkOrder(editingWorkOrder.id)}
-                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 flex items-center gap-2 text-sm font-medium"
-              >
-                <Printer className="w-4 h-4" />
-                Print Work Order
-              </button>
-              {editingWorkOrder.status !== 'completed' && (
+          {editingId && (() => {
+            const currentWorkOrder = workOrders.find(wo => wo.id === editingId);
+            if (!currentWorkOrder) return null;
+
+            return (
+              <div className="flex flex-wrap items-center gap-3 mb-4 pb-4 border-b border-gray-200">
                 <button
                   type="button"
-                  onClick={() => handleCompleteWorkOrder(editingWorkOrder.id)}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 text-sm font-medium"
+                  onClick={() => handlePrintWorkOrder(currentWorkOrder.id)}
+                  className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 flex items-center gap-2 text-sm font-medium"
                 >
-                  <CheckCircle className="w-4 h-4" />
-                  Mark as Completed
+                  <Printer className="w-4 h-4" />
+                  Print Work Order
                 </button>
-              )}
-              {editingWorkOrder.status === 'completed' && (
-                <>
+                {currentWorkOrder.status !== 'completed' && (
                   <button
                     type="button"
-                    onClick={() => handleConvertToInvoice(editingWorkOrder.id)}
+                    onClick={() => handleCompleteWorkOrder(currentWorkOrder.id)}
                     className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 text-sm font-medium"
                   >
-                    <FileText className="w-4 h-4" />
-                    Convert to Invoice
+                    <CheckCircle className="w-4 h-4" />
+                    Mark as Completed
                   </button>
+                )}
+                {currentWorkOrder.status === 'completed' && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleConvertToInvoice(currentWorkOrder.id)}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 text-sm font-medium"
+                    >
+                      <FileText className="w-4 h-4" />
+                      Convert to Invoice
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handlePreviewTimeEntries(currentWorkOrder.id)}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm font-medium"
+                    >
+                      <Clock className="w-4 h-4" />
+                      Create Time Entries
+                    </button>
+                  </>
+                )}
+                {currentWorkOrder.status === 'pending' && (
                   <button
                     type="button"
-                    onClick={() => handlePreviewTimeEntries(editingWorkOrder.id)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm font-medium"
+                    onClick={() => handleDeleteWorkOrder(currentWorkOrder.id)}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2 text-sm font-medium ml-auto"
                   >
-                    <Clock className="w-4 h-4" />
-                    Create Time Entries
+                    <Trash2 className="w-4 h-4" />
+                    Delete Work Order
                   </button>
-                </>
-              )}
-              {editingWorkOrder.status === 'pending' && (
-                <button
-                  type="button"
-                  onClick={() => handleDeleteWorkOrder(editingWorkOrder.id)}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2 text-sm font-medium ml-auto"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Delete Work Order
-                </button>
-              )}
-            </div>
-          )}
+                )}
+              </div>
+            );
+          })()}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label className="flex items-center gap-2">
