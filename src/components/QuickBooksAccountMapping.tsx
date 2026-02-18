@@ -913,7 +913,7 @@ function DefaultAccountsTab({ qboAccounts, mappings, onSave, saving }: DefaultAc
                   </span>
                 </div>
               ) : (
-                <div className="mt-2 text-sm text-gray-500">No account mapped</div>
+                <div className="mt-2 text-sm text-gray-600">No account mapped</div>
               )}
             </div>
           );
@@ -1001,7 +1001,7 @@ function LaborCodesTab({ laborCodes, qboAccounts, mappings, onSave, saving }: La
                         {account.account_number ? `${account.account_number} - ` : ''}{account.account_name}
                       </span>
                     ) : (
-                      <span className="text-gray-400">Not mapped</span>
+                      <span className="text-gray-600">Not mapped</span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-sm text-right">
@@ -1158,7 +1158,7 @@ function AccountingCodesTab({ accountingCodes, qboAccounts, mappings, onSave, sa
                         {account.account_number ? `${account.account_number} - ` : ''}{account.account_name}
                       </span>
                     ) : (
-                      <span className="text-gray-400">Not mapped</span>
+                      <span className="text-gray-600">Not mapped</span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-sm text-right">
