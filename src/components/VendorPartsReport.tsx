@@ -6,6 +6,7 @@ interface VendorReportRow {
   part_id: string;
   part_number: string;
   name: string;
+  location: string | null;
   quantity_on_hand: number;
   unit_cost: number;
   unit_price: number;
@@ -48,7 +49,7 @@ export function VendorPartsReport({ onClose }: Props) {
         supabase
           .from('parts_inventory')
           .select(`
-            id, part_number, name, quantity_on_hand, unit_cost, unit_price, is_active, vendor_id,
+            id, part_number, name, location, quantity_on_hand, unit_cost, unit_price, is_active, vendor_id,
             vendors (id, vendor_name)
           `)
           .order('part_number'),
@@ -82,6 +83,7 @@ export function VendorPartsReport({ onClose }: Props) {
           part_id: part.id,
           part_number: part.part_number,
           name: part.name,
+          location: (part as any).location ?? null,
           quantity_on_hand: part.quantity_on_hand,
           unit_cost: part.unit_cost,
           unit_price: part.unit_price,
@@ -127,6 +129,7 @@ export function VendorPartsReport({ onClose }: Props) {
             ${part.name}
             ${!part.is_active ? '<span style="font-size:9px;background:#fee2e2;color:#b91c1c;border-radius:3px;padding:1px 4px;margin-left:6px">Inactive</span>' : ''}
           </td>
+          <td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;color:#555">${part.location ?? ''}</td>
           <td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;text-align:center">
             <span style="font-size:10px;font-weight:500;padding:2px 6px;border-radius:3px;background:${part.is_active ? '#dcfce7' : '#f3f4f6'};color:${part.is_active ? '#15803d' : '#6b7280'}">
               ${part.is_active ? 'Active' : 'Inactive'}
@@ -150,6 +153,7 @@ export function VendorPartsReport({ onClose }: Props) {
               <tr style="background:#f0f4f8">
                 <th style="padding:5px 8px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;border-bottom:1px solid #ccc;color:#374151">Part #</th>
                 <th style="padding:5px 8px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;border-bottom:1px solid #ccc;color:#374151">Name</th>
+                <th style="padding:5px 8px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;border-bottom:1px solid #ccc;color:#374151">Location</th>
                 <th style="padding:5px 8px;text-align:center;font-size:10px;font-weight:600;text-transform:uppercase;border-bottom:1px solid #ccc;color:#374151">Status</th>
                 <th style="padding:5px 8px;text-align:right;font-size:10px;font-weight:600;text-transform:uppercase;border-bottom:1px solid #ccc;color:#374151">On Hand</th>
                 <th style="padding:5px 8px;text-align:right;font-size:10px;font-weight:600;text-transform:uppercase;border-bottom:1px solid #ccc;color:#374151">Used (YTD)</th>
@@ -160,7 +164,7 @@ export function VendorPartsReport({ onClose }: Props) {
             <tbody>
               ${partRows}
               <tr style="background:#f0f4f8;font-weight:600;color:#111">
-                <td colspan="3" style="padding:5px 8px;border-top:2px solid #d1d5db;color:#111">Vendor Totals</td>
+                <td colspan="4" style="padding:5px 8px;border-top:2px solid #d1d5db;color:#111">Vendor Totals</td>
                 <td style="padding:5px 8px;border-top:2px solid #d1d5db;text-align:right;color:#111">${totalOnHand}</td>
                 <td style="padding:5px 8px;border-top:2px solid #d1d5db;text-align:right;color:#111">${totalUsed}</td>
                 <td style="padding:5px 8px;border-top:2px solid #d1d5db;color:#111"></td>
@@ -329,6 +333,7 @@ export function VendorPartsReport({ onClose }: Props) {
                         <tr style={{ background: '#f0f4f8' }}>
                           <th style={{ padding: '5px 8px', textAlign: 'left', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid #ccc', color: '#374151' }}>Part #</th>
                           <th style={{ padding: '5px 8px', textAlign: 'left', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid #ccc', color: '#374151' }}>Name</th>
+                          <th style={{ padding: '5px 8px', textAlign: 'left', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid #ccc', color: '#374151' }}>Location</th>
                           <th style={{ padding: '5px 8px', textAlign: 'center', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid #ccc', color: '#374151' }}>Status</th>
                           <th style={{ padding: '5px 8px', textAlign: 'right', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid #ccc', color: '#374151' }}>On Hand</th>
                           <th style={{ padding: '5px 8px', textAlign: 'right', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid #ccc', color: '#374151' }}>Used (YTD)</th>
@@ -348,6 +353,7 @@ export function VendorPartsReport({ onClose }: Props) {
                                 </span>
                               )}
                             </td>
+                            <td style={{ padding: '5px 8px', borderBottom: '1px solid #e5e7eb', color: '#555' }}>{part.location || '-'}</td>
                             <td style={{ padding: '5px 8px', borderBottom: '1px solid #e5e7eb', textAlign: 'center' }}>
                               <span style={{
                                 fontSize: '10px',
@@ -381,7 +387,7 @@ export function VendorPartsReport({ onClose }: Props) {
                           </tr>
                         ))}
                         <tr className="vendor-totals" style={{ background: '#f0f4f8', fontWeight: 600, color: '#111' }}>
-                          <td colSpan={3} style={{ padding: '5px 8px', borderTop: '2px solid #d1d5db', color: '#111' }}>Vendor Totals</td>
+                          <td colSpan={4} style={{ padding: '5px 8px', borderTop: '2px solid #d1d5db', color: '#111' }}>Vendor Totals</td>
                           <td style={{ padding: '5px 8px', borderTop: '2px solid #d1d5db', textAlign: 'right', color: '#111' }}>{totalOnHand}</td>
                           <td style={{ padding: '5px 8px', borderTop: '2px solid #d1d5db', textAlign: 'right', color: '#111' }}>{totalUsed}</td>
                           <td style={{ padding: '5px 8px', borderTop: '2px solid #d1d5db', color: '#111' }}></td>

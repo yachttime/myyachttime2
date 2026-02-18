@@ -986,6 +986,7 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Part #</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vendor</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Location</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Qty</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unit Cost</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unit Price</th>
@@ -997,7 +998,7 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
             <tbody className="divide-y divide-gray-200">
               {filteredParts.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan={10} className="px-6 py-8 text-center text-gray-500">
                     No parts found. {searchTerm ? 'Try a different search.' : 'Add parts to get started.'}
                   </td>
                 </tr>
@@ -1012,6 +1013,7 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">{part.part_number}</td>
                     <td className="px-6 py-4 text-sm text-gray-900">{part.name}</td>
                     <td className="px-6 py-4 text-sm text-gray-500">{part.vendors?.vendor_name || '-'}</td>
+                    <td className="px-6 py-4 text-sm text-gray-500">{part.location || '-'}</td>
                     <td className="px-6 py-4 text-sm">
                       <div className="flex items-center gap-2">
                         <span className={isNegative ? 'font-bold text-red-600' : isLowStock ? 'font-semibold text-yellow-600' : 'text-gray-900'}>
