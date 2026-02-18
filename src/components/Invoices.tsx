@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Receipt, Search, Download, Mail, DollarSign, Eye, CheckCircle, Clock, XCircle } from 'lucide-react';
+import { Receipt, Search, Download, Mail, DollarSign, Eye, CheckCircle, Clock, XCircle, ExternalLink } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface InvoicesProps {
@@ -26,6 +26,11 @@ interface Invoice {
   yacht_name?: string;
   created_at: string;
   notes: string | null;
+  deposit_applied: number | null;
+  balance_due: number | null;
+  payment_link: string | null;
+  payment_link_expires_at: string | null;
+  payment_email_sent_at: string | null;
 }
 
 export function Invoices({ userId }: InvoicesProps) {
@@ -127,6 +132,49 @@ export function Invoices({ userId }: InvoicesProps) {
 
   async function handleDownloadPDF(invoice: Invoice) {
     alert('PDF download functionality will be implemented');
+  }
+
+  async function handleRequestPayment(invoice: Invoice) {
+    if (!invoice.customer_email) {
+      alert('No email address on file for this customer');
+      return;
+    }
+
+    if (!confirm(`Send payment request for invoice ${invoice.invoice_number} to ${invoice.customer_email}?`)) {
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        'create-estimating-invoice-payment',
+        {
+          body: {
+            invoiceId: invoice.id,
+            recipientEmail: invoice.customer_email
+          }
+        }
+      );
+
+      if (error) throw error;
+
+      alert('Payment link sent successfully!');
+      fetchInvoices();
+    } catch (error) {
+      console.error('Error requesting payment:', error);
+      alert('Failed to send payment request. Please try again.');
+    }
+  }
+
+  async function handleCopyPaymentLink(invoice: Invoice) {
+    if (!invoice.payment_link) return;
+
+    try {
+      await navigator.clipboard.writeText(invoice.payment_link);
+      alert('Payment link copied to clipboard!');
+    } catch (error) {
+      console.error('Error copying link:', error);
+      alert('Failed to copy payment link');
+    }
   }
 
   if (loading) {
@@ -235,6 +283,16 @@ export function Invoices({ userId }: InvoicesProps) {
                       <div className="text-sm font-medium text-gray-900">
                         ${invoice.total_amount.toFixed(2)}
                       </div>
+                      {invoice.deposit_applied && invoice.deposit_applied > 0 && (
+                        <div className="text-xs text-gray-500">
+                          Deposit: -${invoice.deposit_applied.toFixed(2)}
+                        </div>
+                      )}
+                      {invoice.balance_due !== null && invoice.balance_due !== invoice.total_amount && (
+                        <div className="text-xs font-medium text-blue-600">
+                          Balance: ${invoice.balance_due.toFixed(2)}
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(invoice.payment_status)}`}>
@@ -265,6 +323,24 @@ export function Invoices({ userId }: InvoicesProps) {
                             title="Send Email"
                           >
                             <Mail className="w-4 h-4" />
+                          </button>
+                        )}
+                        {invoice.payment_status !== 'paid' && invoice.customer_email && !invoice.payment_link && (
+                          <button
+                            onClick={() => handleRequestPayment(invoice)}
+                            className="text-blue-600 hover:text-blue-800"
+                            title="Request Payment"
+                          >
+                            <DollarSign className="w-4 h-4" />
+                          </button>
+                        )}
+                        {invoice.payment_link && invoice.payment_status !== 'paid' && (
+                          <button
+                            onClick={() => handleCopyPaymentLink(invoice)}
+                            className="text-purple-600 hover:text-purple-800"
+                            title="Copy Payment Link"
+                          >
+                            <ExternalLink className="w-4 h-4" />
                           </button>
                         )}
                       </div>

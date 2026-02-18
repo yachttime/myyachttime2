@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, Wrench, AlertCircle, Edit2, Trash2, Check, X, ChevronDown, ChevronUp, Printer, CheckCircle, Clock, FileText } from 'lucide-react';
+import { Plus, Wrench, AlertCircle, Edit2, Trash2, Check, X, ChevronDown, ChevronUp, Printer, CheckCircle, Clock, FileText, DollarSign, Mail, ExternalLink } from 'lucide-react';
 import { generateWorkOrderPDF } from '../utils/pdfGenerator';
 import { useNotification } from '../contexts/NotificationContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -33,6 +33,13 @@ interface WorkOrder {
   customer_notes: string | null;
   created_at: string;
   yachts?: { name: string };
+  deposit_required: boolean;
+  deposit_amount: number | null;
+  deposit_status: string | null;
+  deposit_payment_link: string | null;
+  deposit_link_expires_at: string | null;
+  deposit_paid_at: string | null;
+  deposit_payment_method: string | null;
 }
 
 interface WorkOrderTask {
@@ -815,6 +822,58 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
     } catch (err: any) {
       console.error('Error converting to invoice:', err);
       setError(err.message || 'Failed to convert work order to invoice');
+    }
+  };
+
+  const handleRequestDeposit = async (workOrderId: string) => {
+    const workOrder = workOrders.find(wo => wo.id === workOrderId);
+    if (!workOrder) return;
+
+    const email = workOrder.is_retail_customer
+      ? workOrder.customer_email
+      : userProfile?.email_address;
+
+    if (!email) {
+      setError('No email address available for this customer');
+      return;
+    }
+
+    if (!window.confirm(`Send deposit payment request to ${email}?`)) {
+      return;
+    }
+
+    try {
+      setError(null);
+
+      const { data, error: functionError } = await supabase.functions.invoke(
+        'create-work-order-deposit-payment',
+        {
+          body: {
+            workOrderId,
+            recipientEmail: email
+          }
+        }
+      );
+
+      if (functionError) throw functionError;
+
+      showSuccess('Deposit payment link sent successfully!');
+      await loadData();
+    } catch (err: any) {
+      console.error('Error requesting deposit:', err);
+      setError(err.message || 'Failed to send deposit payment request');
+    }
+  };
+
+  const handleCopyDepositLink = async (workOrder: WorkOrder) => {
+    if (!workOrder.deposit_payment_link) return;
+
+    try {
+      await navigator.clipboard.writeText(workOrder.deposit_payment_link);
+      showSuccess('Payment link copied to clipboard!');
+    } catch (err) {
+      console.error('Error copying link:', err);
+      setError('Failed to copy payment link');
     }
   };
 
@@ -1774,6 +1833,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Work Order #</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Deposit</th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Date</th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
@@ -1811,6 +1871,40 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                     </span>
                   )}
                 </td>
+                <td className="px-6 py-4">
+                  {workOrder.deposit_required ? (
+                    <div className="text-xs">
+                      {workOrder.deposit_status === 'paid' ? (
+                        <div className="flex items-center gap-1 text-green-600">
+                          <CheckCircle className="w-3 h-3" />
+                          <span>Paid ${(workOrder.deposit_amount || 0).toFixed(2)}</span>
+                        </div>
+                      ) : workOrder.deposit_status === 'pending' ? (
+                        <div className="flex items-center gap-1 text-yellow-600">
+                          <Clock className="w-3 h-3" />
+                          <span>Pending ${(workOrder.deposit_amount || 0).toFixed(2)}</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1 text-gray-500">
+                          <DollarSign className="w-3 h-3" />
+                          <span>Required ${(workOrder.deposit_amount || 0).toFixed(2)}</span>
+                        </div>
+                      )}
+                      {workOrder.deposit_payment_link && workOrder.deposit_status !== 'paid' && (
+                        <button
+                          onClick={() => handleCopyDepositLink(workOrder)}
+                          className="text-blue-600 hover:text-blue-800 text-xs mt-1 flex items-center gap-1"
+                          title="Copy payment link"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          Copy Link
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-xs text-gray-400">Not required</span>
+                  )}
+                </td>
                 <td className="px-6 py-4 text-right text-sm font-medium text-gray-900">
                   ${(workOrder.total_amount || 0).toFixed(2)}
                 </td>
@@ -1819,6 +1913,15 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                 </td>
                 <td className="px-6 py-4 text-right">
                   <div className="flex justify-end gap-2">
+                    {workOrder.deposit_required && !workOrder.deposit_payment_link && (
+                      <button
+                        onClick={() => handleRequestDeposit(workOrder.id)}
+                        className="text-blue-600 hover:text-blue-800"
+                        title="Request deposit payment"
+                      >
+                        <Mail className="w-4 h-4" />
+                      </button>
+                    )}
                     {workOrder.status !== 'completed' && (
                       <>
                         <button
