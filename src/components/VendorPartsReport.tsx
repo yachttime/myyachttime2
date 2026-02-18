@@ -115,40 +115,95 @@ export function VendorPartsReport({ onClose }: Props) {
   }, [vendorGroups, selectedVendor, statusFilter]);
 
   function handlePrint() {
-    if (!printRef.current) return;
-    const content = printRef.current.innerHTML;
-    const win = window.open('', '_blank');
-    if (!win) return;
-    win.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Parts Inventory by Vendor</title>
-          <style>
-            * { box-sizing: border-box; margin: 0; padding: 0; }
-            body { font-family: Arial, sans-serif; font-size: 11px; color: #111; padding: 20px; }
-            h1 { font-size: 18px; font-weight: bold; margin-bottom: 4px; }
-            .report-meta { font-size: 10px; color: #555; margin-bottom: 20px; }
-            .vendor-section { margin-bottom: 24px; page-break-inside: avoid; }
-            .vendor-header { background: #1e3a5f; color: white; padding: 6px 10px; font-size: 12px; font-weight: bold; border-radius: 4px 4px 0 0; }
-            table { width: 100%; border-collapse: collapse; }
-            thead th { background: #f0f4f8; color: #374151; font-size: 10px; font-weight: 600; text-transform: uppercase; padding: 5px 8px; border-bottom: 1px solid #ccc; text-align: left; }
-            tbody tr:nth-child(even) { background: #f9fafb; }
-            tbody td { padding: 5px 8px; border-bottom: 1px solid #e5e7eb; vertical-align: middle; color: #111; }
-            .inactive-badge { font-size: 9px; background: #fee2e2; color: #b91c1c; border-radius: 3px; padding: 1px 4px; margin-left: 4px; }
-            .vendor-totals { background: #f0f4f8; font-weight: 600; color: #111; }
-            @media print {
-              body { padding: 10px; }
-              .vendor-section { page-break-inside: avoid; }
-            }
-          </style>
-        </head>
-        <body>${content}</body>
-      </html>
-    `);
-    win.document.close();
-    win.focus();
-    win.print();
+    const rows = filteredGroups.map(group => {
+      const totalUsed = group.parts.reduce((s, p) => s + p.used_this_year, 0);
+      const totalOnHand = group.parts.reduce((s, p) => s + p.quantity_on_hand, 0);
+      const totalValue = group.parts.reduce((s, p) => s + p.quantity_on_hand * p.unit_cost, 0);
+
+      const partRows = group.parts.map((part, idx) => `
+        <tr style="background:${idx % 2 === 1 ? '#f9fafb' : 'white'}">
+          <td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;font-weight:600;color:#111">${part.part_number}</td>
+          <td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;color:#111">
+            ${part.name}
+            ${!part.is_active ? '<span style="font-size:9px;background:#fee2e2;color:#b91c1c;border-radius:3px;padding:1px 4px;margin-left:6px">Inactive</span>' : ''}
+          </td>
+          <td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;text-align:center">
+            <span style="font-size:10px;font-weight:500;padding:2px 6px;border-radius:3px;background:${part.is_active ? '#dcfce7' : '#f3f4f6'};color:${part.is_active ? '#15803d' : '#6b7280'}">
+              ${part.is_active ? 'Active' : 'Inactive'}
+            </span>
+          </td>
+          <td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;text-align:right;color:${part.quantity_on_hand <= 0 ? '#dc2626' : '#111'}">${part.quantity_on_hand}</td>
+          <td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;text-align:right;color:${part.used_this_year > 0 ? '#1d4ed8' : '#9ca3af'};font-weight:${part.used_this_year > 0 ? 500 : 400}">${part.used_this_year}</td>
+          <td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;text-align:right;color:#111">$${part.unit_cost.toFixed(2)}</td>
+          <td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;text-align:right;color:#111">$${(part.quantity_on_hand * part.unit_cost).toFixed(2)}</td>
+        </tr>
+      `).join('');
+
+      return `
+        <div style="margin-bottom:24px;page-break-inside:avoid">
+          <div style="background:#1e3a5f;color:white;padding:6px 10px;font-weight:bold;font-size:13px;border-radius:4px 4px 0 0">
+            ${group.vendor_name}
+            <span style="font-weight:normal;font-size:11px;margin-left:8px;opacity:0.8">(${group.parts.length} part${group.parts.length !== 1 ? 's' : ''})</span>
+          </div>
+          <table style="width:100%;border-collapse:collapse">
+            <thead>
+              <tr style="background:#f0f4f8">
+                <th style="padding:5px 8px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;border-bottom:1px solid #ccc;color:#374151">Part #</th>
+                <th style="padding:5px 8px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;border-bottom:1px solid #ccc;color:#374151">Name</th>
+                <th style="padding:5px 8px;text-align:center;font-size:10px;font-weight:600;text-transform:uppercase;border-bottom:1px solid #ccc;color:#374151">Status</th>
+                <th style="padding:5px 8px;text-align:right;font-size:10px;font-weight:600;text-transform:uppercase;border-bottom:1px solid #ccc;color:#374151">On Hand</th>
+                <th style="padding:5px 8px;text-align:right;font-size:10px;font-weight:600;text-transform:uppercase;border-bottom:1px solid #ccc;color:#374151">Used (YTD)</th>
+                <th style="padding:5px 8px;text-align:right;font-size:10px;font-weight:600;text-transform:uppercase;border-bottom:1px solid #ccc;color:#374151">Unit Cost</th>
+                <th style="padding:5px 8px;text-align:right;font-size:10px;font-weight:600;text-transform:uppercase;border-bottom:1px solid #ccc;color:#374151">Inventory Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${partRows}
+              <tr style="background:#f0f4f8;font-weight:600;color:#111">
+                <td colspan="3" style="padding:5px 8px;border-top:2px solid #d1d5db;color:#111">Vendor Totals</td>
+                <td style="padding:5px 8px;border-top:2px solid #d1d5db;text-align:right;color:#111">${totalOnHand}</td>
+                <td style="padding:5px 8px;border-top:2px solid #d1d5db;text-align:right;color:#111">${totalUsed}</td>
+                <td style="padding:5px 8px;border-top:2px solid #d1d5db;color:#111"></td>
+                <td style="padding:5px 8px;border-top:2px solid #d1d5db;text-align:right;color:#111">$${totalValue.toFixed(2)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      `;
+    }).join('');
+
+    const dateStr = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    const filterNote = statusFilter !== 'all' ? ` &bull; ${statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)} parts only` : '';
+
+    const html = `<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Parts Inventory by Vendor</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: Arial, sans-serif; font-size: 11px; color: #111; padding: 20px; background: white; }
+      @media print { body { padding: 10px; } }
+    </style>
+  </head>
+  <body>
+    <h1 style="font-size:18px;font-weight:bold;margin-bottom:2px;color:#111">Parts Inventory by Vendor</h1>
+    <p style="font-size:11px;color:#555;margin-bottom:16px">
+      Generated: ${dateStr} &bull; ${filteredGroups.length} vendor${filteredGroups.length !== 1 ? 's' : ''} &bull; ${totalParts} total part${totalParts !== 1 ? 's' : ''}${filterNote}
+    </p>
+    ${rows}
+  </body>
+</html>`;
+
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const win = window.open(url, '_blank');
+    if (win) {
+      win.addEventListener('load', () => {
+        win.print();
+        URL.revokeObjectURL(url);
+      });
+    }
   }
 
   const totalParts = filteredGroups.reduce((s, v) => s + v.parts.length, 0);
