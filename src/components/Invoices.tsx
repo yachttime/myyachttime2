@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Receipt, Search, Printer, Mail, DollarSign, Eye, CheckCircle, Clock, XCircle, ExternalLink, Archive, RotateCcw, RefreshCw, X, Copy, CreditCard } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { Toast } from './Toast';
+import { useConfirm } from '../hooks/useConfirm';
 
 interface InvoicesProps {
   userId: string;
@@ -82,6 +84,12 @@ export function Invoices({ userId }: InvoicesProps) {
   const [syncPaymentLoading, setSyncPaymentLoading] = useState(false);
   const [regenerateLoading, setRegenerateLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const { confirm, ConfirmDialog } = useConfirm();
+
+  const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'success') => {
+    setToast({ message, type });
+  }, []);
 
   useEffect(() => {
     fetchInvoices();
@@ -271,12 +279,19 @@ export function Invoices({ userId }: InvoicesProps) {
 
   async function handleSendEmail(invoice: Invoice) {
     if (!invoice.customer_email) {
-      alert('No email address on file for this customer');
+      showToast('No email address on file for this customer', 'error');
       return;
     }
 
-    if (confirm(`Send invoice ${invoice.invoice_number} to ${invoice.customer_email}?`)) {
-      alert('Email functionality will be implemented');
+    const confirmed = await confirm({
+      title: 'Send Invoice',
+      message: `Send invoice ${invoice.invoice_number} to ${invoice.customer_email}?`,
+      confirmText: 'Send',
+      variant: 'info'
+    });
+
+    if (confirmed) {
+      showToast('Email functionality will be implemented', 'info');
     }
   }
 
@@ -608,19 +623,24 @@ export function Invoices({ userId }: InvoicesProps) {
       window.open(pdfUrl, '_blank');
     } catch (error) {
       console.error('Error printing invoice:', error);
-      alert('Error printing invoice. Please try again.');
+      showToast('Error printing invoice. Please try again.', 'error');
     }
   }
 
   async function handleRequestPayment(invoice: Invoice) {
     if (!invoice.customer_email) {
-      alert('No email address on file for this customer');
+      showToast('No email address on file for this customer', 'error');
       return;
     }
 
-    if (!confirm(`Send payment request for invoice ${invoice.invoice_number} to ${invoice.customer_email}?`)) {
-      return;
-    }
+    const confirmed = await confirm({
+      title: 'Generate Payment Link',
+      message: `Send payment request for invoice ${invoice.invoice_number} to ${invoice.customer_email}?`,
+      confirmText: 'Generate & Send',
+      variant: 'info'
+    });
+
+    if (!confirmed) return;
 
     setPaymentLoading(true);
     try {
@@ -649,17 +669,14 @@ export function Invoices({ userId }: InvoicesProps) {
         throw new Error(errorData.error || 'Failed to create payment link');
       }
 
-      const data = await response.json();
-      alert('Payment link sent successfully!');
+      showToast('Payment link generated successfully!', 'success');
 
-      // Refresh invoice data
       if (activeTab === 'active') {
         await fetchInvoices();
       } else {
         await fetchArchivedInvoices();
       }
 
-      // Refresh the selected invoice details
       if (showDetails) {
         const updatedInvoice = invoices.find(inv => inv.id === invoice.id);
         if (updatedInvoice) {
@@ -668,7 +685,7 @@ export function Invoices({ userId }: InvoicesProps) {
       }
     } catch (error: any) {
       console.error('Error requesting payment:', error);
-      alert(error.message || 'Failed to send payment request. Please try again.');
+      showToast(error.message || 'Failed to send payment request. Please try again.', 'error');
     } finally {
       setPaymentLoading(false);
     }
@@ -679,10 +696,10 @@ export function Invoices({ userId }: InvoicesProps) {
 
     try {
       await navigator.clipboard.writeText(invoice.payment_link);
-      alert('Payment link copied to clipboard!');
+      showToast('Payment link copied to clipboard!', 'success');
     } catch (error) {
       console.error('Error copying link:', error);
-      alert('Failed to copy payment link');
+      showToast('Failed to copy payment link', 'error');
     }
   }
 
@@ -712,20 +729,19 @@ export function Invoices({ userId }: InvoicesProps) {
       const result = await response.json();
 
       if (result.success) {
-        alert(result.message || 'Payment status synced successfully!');
+        showToast(result.message || 'Payment status synced successfully!', 'success');
         await fetchInvoices();
 
-        // Refresh selected invoice
         const updatedInvoice = invoices.find(inv => inv.id === selectedInvoice.id);
         if (updatedInvoice) {
           setSelectedInvoice(updatedInvoice);
         }
       } else {
-        alert(result.message || 'Payment not yet completed in Stripe');
+        showToast(result.message || 'Payment not yet completed in Stripe', 'info');
       }
     } catch (error: any) {
       console.error('Error syncing payment status:', error);
-      alert(`Error: ${error.message || 'Failed to sync payment status'}`);
+      showToast(error.message || 'Failed to sync payment status', 'error');
     } finally {
       setSyncPaymentLoading(false);
     }
@@ -734,9 +750,14 @@ export function Invoices({ userId }: InvoicesProps) {
   async function handleRegeneratePaymentLink() {
     if (!selectedInvoice) return;
 
-    if (!confirm('This will delete the expired payment link and create a new one. Continue?')) {
-      return;
-    }
+    const confirmed = await confirm({
+      title: 'Regenerate Payment Link',
+      message: 'This will delete the expired payment link and create a new one. Continue?',
+      confirmText: 'Regenerate',
+      variant: 'warning'
+    });
+
+    if (!confirmed) return;
 
     setRegenerateLoading(true);
     try {
@@ -745,7 +766,6 @@ export function Invoices({ userId }: InvoicesProps) {
         throw new Error('Not authenticated');
       }
 
-      // First delete the old link
       const deleteApiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-invoice-payment-link`;
       const deleteResponse = await fetch(deleteApiUrl, {
         method: 'POST',
@@ -763,7 +783,6 @@ export function Invoices({ userId }: InvoicesProps) {
         throw new Error(deleteResult.error || 'Failed to delete old payment link');
       }
 
-      // Then create a new one
       const createApiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-estimating-invoice-payment`;
       const createResponse = await fetch(createApiUrl, {
         method: 'POST',
@@ -781,17 +800,16 @@ export function Invoices({ userId }: InvoicesProps) {
         throw new Error(createResult.error || 'Failed to create new payment link');
       }
 
-      alert('Payment link regenerated successfully!');
+      showToast('Payment link regenerated successfully!', 'success');
       await fetchInvoices();
 
-      // Refresh selected invoice
       const updatedInvoice = invoices.find(inv => inv.id === selectedInvoice.id);
       if (updatedInvoice) {
         setSelectedInvoice(updatedInvoice);
       }
     } catch (error: any) {
       console.error('Error regenerating payment link:', error);
-      alert(`Error: ${error.message || 'Failed to regenerate payment link'}`);
+      showToast(error.message || 'Failed to regenerate payment link', 'error');
     } finally {
       setRegenerateLoading(false);
     }
@@ -800,9 +818,14 @@ export function Invoices({ userId }: InvoicesProps) {
   async function handleDeletePaymentLink() {
     if (!selectedInvoice) return;
 
-    if (!confirm('Are you sure you want to delete this payment link? You can generate a new one after making changes to the invoice.')) {
-      return;
-    }
+    const confirmed = await confirm({
+      title: 'Delete Payment Link',
+      message: 'Are you sure you want to delete this payment link? You can generate a new one after making changes to the invoice.',
+      confirmText: 'Delete',
+      variant: 'danger'
+    });
+
+    if (!confirmed) return;
 
     setDeleteLoading(true);
     try {
@@ -830,17 +853,16 @@ export function Invoices({ userId }: InvoicesProps) {
         throw new Error(result.error || 'Failed to delete payment link');
       }
 
-      alert('Payment link deleted successfully! You can now edit the invoice and generate a new payment link');
+      showToast('Payment link deleted. You can now generate a new payment link.', 'success');
       await fetchInvoices();
 
-      // Refresh selected invoice
       const updatedInvoice = invoices.find(inv => inv.id === selectedInvoice.id);
       if (updatedInvoice) {
         setSelectedInvoice(updatedInvoice);
       }
     } catch (error: any) {
       console.error('Error deleting payment link:', error);
-      alert(`Error: ${error.message || 'Failed to delete payment link'}`);
+      showToast(error.message || 'Failed to delete payment link', 'error');
     } finally {
       setDeleteLoading(false);
     }
@@ -848,13 +870,18 @@ export function Invoices({ userId }: InvoicesProps) {
 
   async function handleEmailPaymentLink() {
     if (!selectedInvoice || !selectedInvoice.customer_email) {
-      alert('No email address on file for this customer');
+      showToast('No email address on file for this customer', 'error');
       return;
     }
 
-    if (!confirm(`Send payment link to ${selectedInvoice.customer_email}?`)) {
-      return;
-    }
+    const confirmed = await confirm({
+      title: 'Email Payment Link',
+      message: `Send payment link to ${selectedInvoice.customer_email}?`,
+      confirmText: 'Send Email',
+      variant: 'info'
+    });
+
+    if (!confirmed) return;
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -882,17 +909,16 @@ export function Invoices({ userId }: InvoicesProps) {
         throw new Error(errorData.error || 'Failed to send email');
       }
 
-      alert('Payment link email sent successfully!');
+      showToast('Payment link email sent successfully!', 'success');
       await fetchInvoices();
 
-      // Refresh selected invoice
       const updatedInvoice = invoices.find(inv => inv.id === selectedInvoice.id);
       if (updatedInvoice) {
         setSelectedInvoice(updatedInvoice);
       }
     } catch (error: any) {
       console.error('Error sending email:', error);
-      alert(error.message || 'Failed to send payment link email');
+      showToast(error.message || 'Failed to send payment link email', 'error');
     }
   }
 
@@ -906,6 +932,15 @@ export function Invoices({ userId }: InvoicesProps) {
 
   return (
     <div className="p-6">
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+      <ConfirmDialog />
+
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Invoices</h1>
         <p className="text-gray-600">Manage and track customer invoices</p>
