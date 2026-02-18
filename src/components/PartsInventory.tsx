@@ -138,7 +138,7 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
           .order('vendor_name'),
         supabase
           .from('accounting_codes')
-          .select('id, code, name')
+          .select('id, code, name, is_default_inventory')
           .eq('is_active', true)
           .order('code')
       ]);
@@ -498,7 +498,13 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
         <div className="flex gap-2">
           {activeTab === 'parts' && (
             <button
-              onClick={() => setShowForm(true)}
+              onClick={() => {
+                const defaultCode = accountingCodes.find((ac: any) => ac.is_default_inventory);
+                if (defaultCode) {
+                  setFormData(prev => ({ ...prev, accounting_code_id: defaultCode.id }));
+                }
+                setShowForm(true);
+              }}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             >
               <Plus className="w-4 h-4" />
