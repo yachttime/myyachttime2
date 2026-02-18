@@ -899,8 +899,22 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
         throw new Error(result.error || 'Failed to generate deposit payment link');
       }
 
+      // Fetch the updated work order
+      const { data: updatedWorkOrder, error: fetchError } = await supabase
+        .from('work_orders')
+        .select('*, yachts(name)')
+        .eq('id', workOrderId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Update editingWorkOrder if this is the one being edited
+      if (editingWorkOrder?.id === workOrderId) {
+        setEditingWorkOrder(updatedWorkOrder);
+      }
+
       await loadData();
-      showSuccess('Deposit payment link generated! Expand the row to view details and send to customer.');
+      showSuccess('Deposit payment link generated!');
 
       const newExpanded = new Set(expandedWorkOrders);
       newExpanded.add(workOrderId);
