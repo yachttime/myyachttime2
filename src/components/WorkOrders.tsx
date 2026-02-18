@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, Wrench, AlertCircle, Edit2, Trash2, Check, X, ChevronDown, ChevronUp, Printer, CheckCircle, Clock, FileText, DollarSign, Mail, ExternalLink } from 'lucide-react';
+import { Plus, Wrench, AlertCircle, Edit2, Trash2, Check, X, ChevronDown, ChevronUp, Printer, CheckCircle, Clock, FileText, DollarSign, Mail, ExternalLink, RefreshCw, Eye, MousePointer, Download } from 'lucide-react';
 import { generateWorkOrderPDF } from '../utils/pdfGenerator';
 import { useNotification } from '../contexts/NotificationContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -83,13 +83,13 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [showDepositModal, setShowDepositModal] = useState(false);
-  const [selectedWorkOrderForDeposit, setSelectedWorkOrderForDeposit] = useState<WorkOrder | null>(null);
   const [depositLoading, setDepositLoading] = useState(false);
-  const [depositForm, setDepositForm] = useState({
-    deposit_amount: '',
-    payment_method_type: 'card' as 'card' | 'ach'
-  });
+  const [expandedWorkOrders, setExpandedWorkOrders] = useState<Set<string>>(new Set());
+  const [depositEmailRecipient, setDepositEmailRecipient] = useState('');
+  const [depositEmailRecipientName, setDepositEmailRecipientName] = useState('');
+  const [sendingDepositEmail, setSendingDepositEmail] = useState(false);
+  const [syncingPayment, setSyncingPayment] = useState<Record<string, boolean>>({});
+  const [checkingEmailStatus, setCheckingEmailStatus] = useState<Record<string, boolean>>({});
 
   const [formData, setFormData] = useState({
     is_retail_customer: false,
@@ -863,38 +863,15 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
     }
   };
 
-  const handleRequestDeposit = (workOrderId: string) => {
+  const handleRequestDeposit = async (workOrderId: string) => {
     const workOrder = workOrders.find(wo => wo.id === workOrderId);
-    if (!workOrder) return;
-
-    setSelectedWorkOrderForDeposit(workOrder);
-    setDepositForm({
-      deposit_amount: workOrder.deposit_amount ? workOrder.deposit_amount.toString() : '',
-      payment_method_type: workOrder.deposit_payment_method_type || 'card'
-    });
-    setShowDepositModal(true);
-  };
-
-  const handleGenerateDepositLink = async () => {
-    if (!selectedWorkOrderForDeposit || !depositForm.deposit_amount) return;
+    if (!workOrder || !workOrder.deposit_amount || workOrder.deposit_amount <= 0) {
+      setError('Please set a deposit amount first');
+      return;
+    }
 
     setDepositLoading(true);
     try {
-      const isRegeneration = selectedWorkOrderForDeposit.deposit_payment_link_url &&
-        selectedWorkOrderForDeposit.deposit_link_expires_at &&
-        new Date(selectedWorkOrderForDeposit.deposit_link_expires_at) < new Date();
-
-      const { error: updateError } = await supabase
-        .from('work_orders')
-        .update({
-          deposit_amount: parseFloat(depositForm.deposit_amount),
-          deposit_payment_method_type: depositForm.payment_method_type,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', selectedWorkOrderForDeposit.id);
-
-      if (updateError) throw updateError;
-
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
         throw new Error('Not authenticated');
@@ -909,7 +886,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          workOrderId: selectedWorkOrderForDeposit.id
+          workOrderId
         })
       });
 
@@ -920,15 +897,140 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
       }
 
       await loadData();
-      showSuccess(isRegeneration ? 'Deposit payment link regenerated successfully! Valid for 30 days.' : 'Deposit payment link generated successfully! Valid for 30 days.');
-      setShowDepositModal(false);
-      setSelectedWorkOrderForDeposit(null);
-      setDepositForm({ deposit_amount: '', payment_method_type: 'card' });
+      showSuccess('Deposit payment link generated! Expand the row to view details and send to customer.');
+
+      const newExpanded = new Set(expandedWorkOrders);
+      newExpanded.add(workOrderId);
+      setExpandedWorkOrders(newExpanded);
     } catch (error: any) {
       console.error('Error generating deposit link:', error);
       setError(`Error: ${error.message || 'Failed to generate deposit link'}`);
     } finally {
       setDepositLoading(false);
+    }
+  };
+
+  const handleSendDepositEmail = async (workOrder: WorkOrder) => {
+    if (!workOrder.deposit_payment_link_url || !depositEmailRecipient) {
+      setError('Payment link and recipient email are required');
+      return;
+    }
+
+    setSendingDepositEmail(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Not authenticated');
+      }
+
+      const sendApiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-deposit-request-email`;
+      const sendResponse = await fetch(sendApiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          workOrderId: workOrder.id,
+          recipientEmail: depositEmailRecipient,
+          recipientName: depositEmailRecipientName || depositEmailRecipient
+        })
+      });
+
+      const sendResult = await sendResponse.json();
+
+      if (!sendResult.success) {
+        throw new Error(sendResult.error || 'Failed to send deposit request email');
+      }
+
+      await loadData();
+      showSuccess('Deposit request email sent successfully!');
+      setDepositEmailRecipient('');
+      setDepositEmailRecipientName('');
+    } catch (error: any) {
+      console.error('Error sending deposit email:', error);
+      setError(`Error: ${error.message || 'Failed to send email'}`);
+    } finally {
+      setSendingDepositEmail(false);
+    }
+  };
+
+  const handleSyncPaymentStatus = async (workOrder: WorkOrder) => {
+    setSyncingPayment({ ...syncingPayment, [workOrder.id]: true });
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Not authenticated');
+      }
+
+      const syncApiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-stripe-payment`;
+      const response = await fetch(syncApiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          workOrderId: workOrder.id,
+          type: 'work_order_deposit'
+        })
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to sync payment status');
+      }
+
+      await loadData();
+
+      if (result.status === 'paid') {
+        showSuccess('Payment confirmed! Deposit has been paid.');
+      } else {
+        showSuccess('Payment status synced. Still awaiting payment.');
+      }
+    } catch (error: any) {
+      console.error('Error syncing payment:', error);
+      setError(`Error: ${error.message || 'Failed to sync payment'}`);
+    } finally {
+      setSyncingPayment({ ...syncingPayment, [workOrder.id]: false });
+    }
+  };
+
+  const handleCheckEmailStatus = async (workOrder: WorkOrder) => {
+    setCheckingEmailStatus({ ...checkingEmailStatus, [workOrder.id]: true });
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Not authenticated');
+      }
+
+      const checkApiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/check-email-status`;
+      const response = await fetch(checkApiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          workOrderId: workOrder.id,
+          emailType: 'work_order_deposit'
+        })
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to check email status');
+      }
+
+      await loadData();
+      showSuccess('Email status updated!');
+    } catch (error: any) {
+      console.error('Error checking email status:', error);
+      setError(`Error: ${error.message || 'Failed to check email status'}`);
+    } finally {
+      setCheckingEmailStatus({ ...checkingEmailStatus, [workOrder.id]: false });
     }
   };
 
@@ -1955,9 +2057,26 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
             </thead>
             <tbody className="divide-y divide-gray-200">
               {workOrders.map((workOrder) => (
-              <tr key={workOrder.id} className="hover:bg-gray-50">
+              <React.Fragment key={workOrder.id}>
+              <tr
+                className="hover:bg-gray-50 cursor-pointer"
+                onClick={() => {
+                  const newExpanded = new Set(expandedWorkOrders);
+                  if (newExpanded.has(workOrder.id)) {
+                    newExpanded.delete(workOrder.id);
+                  } else {
+                    newExpanded.add(workOrder.id);
+                  }
+                  setExpandedWorkOrders(newExpanded);
+                }}
+              >
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center gap-2">
+                    {expandedWorkOrders.has(workOrder.id) ? (
+                      <ChevronDown className="w-4 h-4 text-gray-400" />
+                    ) : (
+                      <ChevronUp className="w-4 h-4 text-gray-400" />
+                    )}
                     <Wrench className="w-4 h-4 text-gray-400" />
                     <span className="font-medium text-gray-900">{workOrder.work_order_number}</span>
                   </div>
@@ -2091,6 +2210,204 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                   </div>
                 </td>
               </tr>
+
+              {/* Expanded Row with Deposit Details */}
+              {expandedWorkOrders.has(workOrder.id) && workOrder.deposit_required && (
+                <tr>
+                  <td colSpan={7} className="px-6 py-4 bg-gray-50">
+                    <div className="bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-200 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <DollarSign className="w-5 h-5 text-blue-600" />
+                        <h5 className="font-semibold text-blue-900">Deposit Details</h5>
+                        {workOrder.deposit_payment_status && (
+                          <>
+                            {workOrder.deposit_payment_status === 'pending' && !workOrder.deposit_email_sent_at && (
+                              <span className="ml-auto bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full text-xs font-semibold">
+                                Need to Request Deposit
+                              </span>
+                            )}
+                            {workOrder.deposit_payment_status === 'pending' && workOrder.deposit_email_sent_at && (
+                              <span className="ml-auto bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-semibold">
+                                Awaiting Payment
+                              </span>
+                            )}
+                            {workOrder.deposit_payment_status === 'paid' && (
+                              <span className="ml-auto bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
+                                <CheckCircle className="w-3 h-3" />
+                                Paid
+                              </span>
+                            )}
+                          </>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <p className="text-sm text-gray-700">
+                          <span className="font-semibold">Amount:</span> ${(workOrder.deposit_amount || 0).toFixed(2)}
+                        </p>
+
+                        {workOrder.deposit_paid_at && (
+                          <p className="text-xs text-green-600">
+                            Paid on: {new Date(workOrder.deposit_paid_at).toLocaleDateString()} at {new Date(workOrder.deposit_paid_at).toLocaleTimeString()}
+                          </p>
+                        )}
+
+                        {workOrder.deposit_email_sent_at && (
+                          <div className="mt-3 pt-3 border-t border-blue-200">
+                            <p className="text-xs font-semibold text-gray-700 mb-2">Email Tracking</p>
+                            <div className="space-y-1">
+                              {workOrder.deposit_email_recipient && (
+                                <div className="flex items-center gap-2 text-xs text-blue-600 mb-2">
+                                  <Mail className="w-3 h-3" />
+                                  <span className="font-medium">To: {workOrder.deposit_email_recipient}</span>
+                                </div>
+                              )}
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2 text-xs text-gray-600">
+                                  <Mail className="w-3 h-3 text-blue-500" />
+                                  <span>Sent: {new Date(workOrder.deposit_email_sent_at).toLocaleDateString()} at {new Date(workOrder.deposit_email_sent_at).toLocaleTimeString()}</span>
+                                </div>
+                                {workOrder.deposit_email_delivered_at ? (
+                                  <div className="flex items-center gap-2 text-xs text-emerald-600">
+                                    <CheckCircle className="w-3 h-3" />
+                                    <span>Delivered: {new Date(workOrder.deposit_email_delivered_at).toLocaleDateString()} at {new Date(workOrder.deposit_email_delivered_at).toLocaleTimeString()}</span>
+                                  </div>
+                                ) : workOrder.deposit_email_bounced_at ? (
+                                  <div className="flex items-center gap-2 text-xs text-red-600">
+                                    <AlertCircle className="w-3 h-3" />
+                                    <span>Bounced: {new Date(workOrder.deposit_email_bounced_at).toLocaleDateString()} at {new Date(workOrder.deposit_email_bounced_at).toLocaleTimeString()}</span>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-2 text-xs text-yellow-600">
+                                    <Clock className="w-3 h-3" />
+                                    <span>Awaiting Delivery Confirmation</span>
+                                  </div>
+                                )}
+                                {workOrder.deposit_email_opened_at && (
+                                  <div className="flex items-center gap-2 text-xs text-green-600">
+                                    <Eye className="w-3 h-3" />
+                                    <span>Opened: {new Date(workOrder.deposit_email_opened_at).toLocaleDateString()} at {new Date(workOrder.deposit_email_opened_at).toLocaleTimeString()}</span>
+                                  </div>
+                                )}
+                                {workOrder.deposit_email_clicked_at && (
+                                  <div className="flex items-center gap-2 text-xs text-cyan-600">
+                                    <MousePointer className="w-3 h-3" />
+                                    <span>Clicked: {new Date(workOrder.deposit_email_clicked_at).toLocaleDateString()} at {new Date(workOrder.deposit_email_clicked_at).toLocaleTimeString()}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {workOrder.deposit_payment_link_url && (
+                          <div className="mt-3 pt-3 border-t border-blue-200">
+                            <p className="text-xs text-gray-600 mb-2">Payment Link:</p>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="text"
+                                readOnly
+                                value={workOrder.deposit_payment_link_url}
+                                className="flex-1 bg-white border border-gray-300 rounded px-3 py-2 text-xs text-gray-700"
+                              />
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigator.clipboard.writeText(workOrder.deposit_payment_link_url!);
+                                  showSuccess('Payment link copied!');
+                                }}
+                                className="bg-cyan-500 hover:bg-cyan-600 text-white px-3 py-2 rounded text-xs font-semibold transition-all flex items-center gap-1"
+                              >
+                                <Download className="w-3 h-3" />
+                                Copy
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {workOrder.deposit_payment_status === 'pending' && workOrder.deposit_payment_link_url && (
+                        <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t border-blue-200">
+                          {!workOrder.deposit_email_sent_at ? (
+                            <div className="flex gap-2 w-full">
+                              <input
+                                type="email"
+                                placeholder="Recipient email"
+                                value={depositEmailRecipient}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  setDepositEmailRecipient(e.target.value);
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                className="flex-1 bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                              />
+                              <input
+                                type="text"
+                                placeholder="Recipient name (optional)"
+                                value={depositEmailRecipientName}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  setDepositEmailRecipientName(e.target.value);
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                className="flex-1 bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                              />
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSendDepositEmail(workOrder);
+                                }}
+                                disabled={sendingDepositEmail || !depositEmailRecipient}
+                                className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 disabled:opacity-50"
+                              >
+                                <Mail className="w-3 h-3" />
+                                {sendingDepositEmail ? 'Sending...' : 'Send Email'}
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDepositEmailRecipient(workOrder.deposit_email_recipient || '');
+                                  setDepositEmailRecipientName('');
+                                }}
+                                className="bg-cyan-600 hover:bg-cyan-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1"
+                              >
+                                <Mail className="w-3 h-3" />
+                                Resend Email
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSyncPaymentStatus(workOrder);
+                                }}
+                                disabled={syncingPayment[workOrder.id]}
+                                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 disabled:opacity-50"
+                              >
+                                <RefreshCw className="w-3 h-3" />
+                                {syncingPayment[workOrder.id] ? 'Syncing...' : 'Sync Payment'}
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCheckEmailStatus(workOrder);
+                                }}
+                                disabled={checkingEmailStatus[workOrder.id]}
+                                className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 disabled:opacity-50"
+                              >
+                                <Mail className="w-3 h-3" />
+                                {checkingEmailStatus[workOrder.id] ? 'Checking...' : 'Check Email Status'}
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              )}
+              </React.Fragment>
             ))}
           </tbody>
         </table>
@@ -2102,144 +2419,6 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
             <p className="text-gray-500">Work orders will appear here when estimates are approved.</p>
           </div>
         )}
-        </div>
-      )}
-
-      {/* Deposit Modal */}
-      {showDepositModal && selectedWorkOrderForDeposit && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-lg w-full">
-            <div className="p-6 border-b border-gray-200">
-              <h3 className="text-xl font-bold text-gray-900">Request Deposit</h3>
-              <p className="text-gray-600 mt-2">Work Order #{selectedWorkOrderForDeposit.work_order_number}</p>
-            </div>
-
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Deposit Amount <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  required
-                  value={depositForm.deposit_amount}
-                  onChange={(e) => setDepositForm({...depositForm, deposit_amount: e.target.value})}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500"
-                  placeholder="e.g., 500.00"
-                />
-                <p className="text-sm text-gray-500 mt-1">Enter the deposit amount required to start work</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Payment Method <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={depositForm.payment_method_type}
-                  onChange={(e) => setDepositForm({...depositForm, payment_method_type: e.target.value as 'card' | 'ach'})}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500"
-                >
-                  <option value="card">Credit/Debit Card</option>
-                  <option value="ach">ACH Bank Transfer</option>
-                </select>
-                <p className="text-sm text-gray-500 mt-1">Choose which payment method the customer can use</p>
-              </div>
-
-              {selectedWorkOrderForDeposit.deposit_payment_link_url && (() => {
-                const hasExpirationDate = selectedWorkOrderForDeposit.deposit_link_expires_at;
-                const isExpired = hasExpirationDate
-                  ? new Date(selectedWorkOrderForDeposit.deposit_link_expires_at) < new Date()
-                  : true;
-
-                return (
-                  <div className={`${isExpired ? 'bg-yellow-50 border-yellow-200' : 'bg-blue-50 border-blue-200'} border rounded-lg p-4`}>
-                    <div className="flex items-center justify-between mb-2">
-                      <p className={`text-sm font-medium ${isExpired ? 'text-yellow-700' : 'text-blue-700'}`}>
-                        {isExpired ? '⚠️ Deposit Link Expired' : '✓ Deposit Link Created'}
-                      </p>
-                      {hasExpirationDate && (
-                        <p className="text-xs text-gray-600">
-                          {isExpired ? 'Expired' : 'Expires'} {new Date(selectedWorkOrderForDeposit.deposit_link_expires_at).toLocaleDateString()}
-                        </p>
-                      )}
-                    </div>
-                    {isExpired && (
-                      <p className="text-xs text-yellow-600 mb-2">
-                        This payment link has expired. Generate a new link to continue.
-                      </p>
-                    )}
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={selectedWorkOrderForDeposit.deposit_payment_link_url}
-                        readOnly
-                        className="flex-1 bg-white border border-gray-300 rounded px-3 py-2 text-sm"
-                      />
-                      {!isExpired && (
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(selectedWorkOrderForDeposit.deposit_payment_link_url!);
-                            showSuccess('Payment link copied to clipboard!');
-                          }}
-                          className="px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded text-sm font-semibold transition-all"
-                        >
-                          Copy
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {selectedWorkOrderForDeposit.deposit_payment_status === 'paid' && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-                  <p className="text-green-700 font-semibold">✓ Deposit Paid</p>
-                  <p className="text-sm text-gray-600 mt-1">
-                    Paid on {new Date(selectedWorkOrderForDeposit.deposit_paid_at!).toLocaleString()}
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <div className="p-6 border-t border-gray-200 flex gap-3">
-              <button
-                onClick={() => {
-                  setShowDepositModal(false);
-                  setSelectedWorkOrderForDeposit(null);
-                  setDepositForm({ deposit_amount: '', payment_method_type: 'card' });
-                }}
-                className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 rounded-lg transition-all"
-                disabled={depositLoading}
-              >
-                {selectedWorkOrderForDeposit.deposit_payment_link_url && !(() => {
-                  const hasExpirationDate = selectedWorkOrderForDeposit.deposit_link_expires_at;
-                  return hasExpirationDate ? new Date(selectedWorkOrderForDeposit.deposit_link_expires_at) < new Date() : true;
-                })() ? 'Close' : 'Cancel'}
-              </button>
-              {(() => {
-                const hasLink = selectedWorkOrderForDeposit.deposit_payment_link_url;
-                const hasExpirationDate = selectedWorkOrderForDeposit.deposit_link_expires_at;
-                const isExpired = hasExpirationDate
-                  ? new Date(selectedWorkOrderForDeposit.deposit_link_expires_at) < new Date()
-                  : true;
-
-                if (!hasLink || isExpired) {
-                  return (
-                    <button
-                      onClick={handleGenerateDepositLink}
-                      disabled={depositLoading || !depositForm.deposit_amount}
-                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {depositLoading ? 'Creating Link...' : isExpired ? 'Regenerate Deposit Link' : 'Create Deposit Link'}
-                    </button>
-                  );
-                }
-                return null;
-              })()}
-            </div>
-          </div>
         </div>
       )}
     </div>
