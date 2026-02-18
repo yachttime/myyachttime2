@@ -474,9 +474,10 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
   };
 
   const filteredParts = parts.filter(part =>
-    part.part_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    part.is_active &&
+    (part.part_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
     part.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (part.vendors?.vendor_name && part.vendors.vendor_name.toLowerCase().includes(searchTerm.toLowerCase()))
+    (part.vendors?.vendor_name && part.vendors.vendor_name.toLowerCase().includes(searchTerm.toLowerCase())))
   );
 
   const filteredVendors = vendors.filter(vendor =>
