@@ -18,6 +18,7 @@ interface StripeEvent {
       metadata?: {
         invoice_id?: string;
         repair_request_id?: string;
+        work_order_id?: string;
         payment_type?: string;
         yacht_id?: string;
         user_id?: string;
@@ -93,6 +94,7 @@ Deno.serve(async (req: Request) => {
       const session = event.data.object;
       const invoiceId = session.metadata?.invoice_id;
       const repairRequestId = session.metadata?.repair_request_id;
+      const workOrderId = session.metadata?.work_order_id;
       const paymentType = session.metadata?.payment_type;
       const yachtId = session.metadata?.yacht_id;
 
@@ -318,7 +320,358 @@ Deno.serve(async (req: Request) => {
         );
       }
 
-      // Handle invoice payments
+      // Handle deposit payments for work orders
+      if (paymentType === 'work_order_deposit' && workOrderId) {
+        console.log('Processing deposit payment for work order:', workOrderId);
+
+        const { data: existingWorkOrder } = await supabase
+          .from('work_orders')
+          .select('deposit_payment_status, deposit_paid_at, deposit_stripe_payment_intent_id')
+          .eq('id', workOrderId)
+          .single();
+
+        if (existingWorkOrder?.deposit_payment_status === 'paid' && existingWorkOrder.deposit_paid_at) {
+          console.log('Deposit already paid for work order:', workOrderId, 'Ignoring duplicate payment.');
+
+          await supabase.from('admin_notifications').insert({
+            message: `⚠️ DUPLICATE DEPOSIT PAYMENT detected for work order ${workOrderId.substring(0, 8)}. Original payment: ${existingWorkOrder.deposit_stripe_payment_intent_id}. New payment intent: ${session.payment_intent}. Please review and refund if necessary.`,
+            yacht_id: yachtId || null,
+            reference_id: workOrderId,
+            created_at: new Date().toISOString(),
+          });
+
+          return new Response(
+            JSON.stringify({ received: true, warning: 'Duplicate payment detected' }),
+            {
+              status: 200,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            }
+          );
+        }
+
+        let paymentMethod = session.payment_method_types?.[0] || 'card';
+        const paymentIntentId = session.payment_intent;
+
+        if (paymentIntentId && stripeSecretKey) {
+          try {
+            const piResponse = await fetch(
+              `https://api.stripe.com/v1/payment_intents/${paymentIntentId}`,
+              {
+                headers: {
+                  'Authorization': `Bearer ${stripeSecretKey}`,
+                },
+              }
+            );
+            if (piResponse.ok) {
+              const piData = await piResponse.json();
+              paymentMethod = piData.charges?.data?.[0]?.payment_method_details?.type || paymentMethod;
+            }
+          } catch (error) {
+            console.error('Error fetching payment intent:', error);
+          }
+        }
+
+        const { data: updatedWorkOrder, error: updateError } = await supabase
+          .from('work_orders')
+          .update({
+            deposit_payment_status: 'paid',
+            deposit_paid_at: new Date().toISOString(),
+            deposit_stripe_payment_intent_id: paymentIntentId || null,
+            deposit_payment_method_type: paymentMethod === 'us_bank_account' ? 'ach' : 'card',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', workOrderId)
+          .eq('deposit_payment_status', 'pending')
+          .select('work_order_number')
+          .single();
+
+        if (updateError) {
+          console.error('Error updating work order deposit:', updateError);
+          throw updateError;
+        }
+
+        const { data: workOrder } = await supabase
+          .from('work_orders')
+          .select(`
+            work_order_number,
+            deposit_amount,
+            customer_name,
+            customer_email,
+            yachts(name)
+          `)
+          .eq('id', workOrderId)
+          .single();
+
+        await supabase.from('admin_notifications').insert({
+          message: `Deposit received for Work Order ${workOrder?.work_order_number || workOrderId.substring(0, 8)} - $${parseFloat(workOrder?.deposit_amount || 0).toFixed(2)}`,
+          yacht_id: yachtId || null,
+          reference_id: workOrderId,
+          created_at: new Date().toISOString(),
+        });
+
+        if (yachtId) {
+          await supabase.from('owner_chat_messages').insert({
+            yacht_id: yachtId,
+            sender_role: 'staff',
+            message: `Deposit payment confirmed for Work Order ${workOrder?.work_order_number} - $${parseFloat(workOrder?.deposit_amount || 0).toFixed(2)}. Work will begin shortly!`,
+            created_at: new Date().toISOString(),
+          });
+        }
+
+        const customerEmail = workOrder?.customer_email;
+        const customerName = workOrder?.customer_name || 'Valued Customer';
+        const yachtName = workOrder?.yachts?.name || 'My Yacht Time';
+
+        if (customerEmail) {
+          try {
+            const resendApiKey = Deno.env.get('RESEND_API_KEY');
+            if (resendApiKey) {
+              const emailResponse = await fetch('https://api.resend.com/emails', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${resendApiKey}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  from: 'My Yacht Time <notifications@myyachttime.com>',
+                  to: [customerEmail],
+                  subject: `Deposit Confirmed - Work Order ${workOrder?.work_order_number}`,
+                  html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                      <h2 style="color: #3b82f6;">Deposit Confirmed</h2>
+                      <p>Dear ${customerName},</p>
+                      <p>Thank you! Your deposit payment has been successfully processed.</p>
+
+                      <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                        <h3 style="margin-top: 0;">Deposit Details</h3>
+                        <p><strong>Work Order:</strong> ${workOrder?.work_order_number}</p>
+                        <p><strong>Deposit Amount:</strong> $${parseFloat(workOrder?.deposit_amount || 0).toFixed(2)}</p>
+                        <p><strong>Yacht:</strong> ${yachtName}</p>
+                        <p><strong>Payment Method:</strong> ${paymentMethod === 'us_bank_account' ? 'ACH Bank Transfer' : 'Credit/Debit Card'}</p>
+                      </div>
+
+                      <div style="background-color: #dbeafe; padding: 15px; border-radius: 8px; border-left: 4px solid #3b82f6;">
+                        <p style="margin: 0;"><strong>What's Next?</strong></p>
+                        <p style="margin: 10px 0 0 0;">Our team will begin work immediately. You'll be notified once the work is complete and the final invoice is ready.</p>
+                      </div>
+
+                      <p>A receipt has been sent to your email from Stripe.</p>
+                      <p>If you have any questions, please don't hesitate to contact us.</p>
+
+                      <p>Best regards,<br>My Yacht Time Team</p>
+                    </div>
+                  `,
+                  tags: [
+                    { name: 'category', value: 'deposit_confirmation' },
+                    { name: 'work_order_id', value: workOrderId },
+                  ],
+                }),
+              });
+
+              if (emailResponse.ok) {
+                const emailData = await emailResponse.json();
+                console.log(`Deposit confirmation email sent to ${customerEmail}, ID: ${emailData.id}`);
+
+                await supabase
+                  .from('work_orders')
+                  .update({
+                    deposit_confirmation_email_sent_at: new Date().toISOString(),
+                  })
+                  .eq('id', workOrderId);
+              }
+            }
+          } catch (emailError) {
+            console.error('Error sending deposit confirmation email:', emailError);
+          }
+        }
+
+        console.log(`Deposit for work order ${workOrderId} marked as paid`);
+
+        return new Response(
+          JSON.stringify({ received: true }),
+          {
+            headers: {
+              ...corsHeaders,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+      }
+
+      // Handle estimating invoice payments
+      if (paymentType === 'estimating_invoice_payment' && invoiceId) {
+        console.log('Processing payment for estimating invoice:', invoiceId);
+
+        const { data: existingInvoice } = await supabase
+          .from('estimating_invoices')
+          .select('payment_status, balance_due, amount_paid')
+          .eq('id', invoiceId)
+          .single();
+
+        if (existingInvoice?.payment_status === 'paid' && existingInvoice.balance_due === 0) {
+          console.log('Invoice already paid:', invoiceId, 'Ignoring duplicate payment.');
+
+          await supabase.from('admin_notifications').insert({
+            message: `⚠️ DUPLICATE INVOICE PAYMENT detected for estimating invoice ${invoiceId.substring(0, 8)}. Please review and refund if necessary.`,
+            yacht_id: yachtId || null,
+            reference_id: invoiceId,
+            created_at: new Date().toISOString(),
+          });
+
+          return new Response(
+            JSON.stringify({ received: true, warning: 'Duplicate payment detected' }),
+            {
+              status: 200,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            }
+          );
+        }
+
+        let paymentMethod = session.payment_method_types?.[0] || 'card';
+        const paymentIntentId = session.payment_intent;
+        const amountPaid = (session.amount_total || 0) / 100;
+
+        if (paymentIntentId && stripeSecretKey) {
+          try {
+            const piResponse = await fetch(
+              `https://api.stripe.com/v1/payment_intents/${paymentIntentId}`,
+              {
+                headers: {
+                  'Authorization': `Bearer ${stripeSecretKey}`,
+                },
+              }
+            );
+            if (piResponse.ok) {
+              const piData = await piResponse.json();
+              paymentMethod = piData.charges?.data?.[0]?.payment_method_details?.type || paymentMethod;
+            }
+          } catch (error) {
+            console.error('Error fetching payment intent:', error);
+          }
+        }
+
+        const { data: invoice } = await supabase
+          .from('estimating_invoices')
+          .select('*, yachts(name), work_orders(work_order_number)')
+          .eq('id', invoiceId)
+          .single();
+
+        const newAmountPaid = (invoice?.amount_paid || 0) + amountPaid;
+        const newBalanceDue = invoice?.total_amount - invoice?.deposit_applied - newAmountPaid;
+        const newPaymentStatus = newBalanceDue <= 0 ? 'paid' : newAmountPaid > 0 ? 'partial' : 'unpaid';
+
+        const { error: updateError } = await supabase
+          .from('estimating_invoices')
+          .update({
+            amount_paid: newAmountPaid,
+            balance_due: newBalanceDue,
+            payment_status: newPaymentStatus,
+            final_payment_stripe_payment_intent_id: paymentIntentId || null,
+            final_payment_paid_at: new Date().toISOString(),
+            final_payment_method_type: paymentMethod === 'us_bank_account' ? 'ach' : 'card',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', invoiceId);
+
+        if (updateError) {
+          console.error('Error updating estimating invoice:', updateError);
+          throw updateError;
+        }
+
+        await supabase.from('admin_notifications').insert({
+          message: `Payment received for Invoice ${invoice?.invoice_number} - $${amountPaid.toFixed(2)} ${newPaymentStatus === 'paid' ? '(PAID IN FULL)' : ''}`,
+          yacht_id: yachtId || null,
+          reference_id: invoiceId,
+          created_at: new Date().toISOString(),
+        });
+
+        if (yachtId) {
+          await supabase.from('owner_chat_messages').insert({
+            yacht_id: yachtId,
+            sender_role: 'staff',
+            message: `Payment confirmed for Invoice ${invoice?.invoice_number} - $${amountPaid.toFixed(2)}. ${newPaymentStatus === 'paid' ? 'Paid in full. Thank you!' : `Balance remaining: $${newBalanceDue.toFixed(2)}`}`,
+            created_at: new Date().toISOString(),
+          });
+        }
+
+        const customerEmail = invoice?.customer_email;
+        const customerName = invoice?.customer_name || 'Valued Customer';
+        const yachtName = invoice?.yachts?.name || 'My Yacht Time';
+
+        if (customerEmail) {
+          try {
+            const resendApiKey = Deno.env.get('RESEND_API_KEY');
+            if (resendApiKey) {
+              const emailResponse = await fetch('https://api.resend.com/emails', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${resendApiKey}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  from: 'My Yacht Time <notifications@myyachttime.com>',
+                  to: [customerEmail],
+                  subject: `Payment Confirmed - Invoice ${invoice?.invoice_number}`,
+                  html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                      <h2 style="color: #059669;">Payment Confirmed</h2>
+                      <p>Dear ${customerName},</p>
+                      <p>Thank you! Your payment has been successfully processed.</p>
+
+                      <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                        <h3 style="margin-top: 0;">Payment Details</h3>
+                        <p><strong>Invoice:</strong> ${invoice?.invoice_number}</p>
+                        <p><strong>Work Order:</strong> ${invoice?.work_orders?.work_order_number || 'N/A'}</p>
+                        <p><strong>Amount Paid:</strong> $${amountPaid.toFixed(2)}</p>
+                        <p><strong>Yacht:</strong> ${yachtName}</p>
+                        <p><strong>Payment Method:</strong> ${paymentMethod === 'us_bank_account' ? 'ACH Bank Transfer' : 'Credit/Debit Card'}</p>
+                        ${newPaymentStatus === 'paid' ? '<p style="color: #059669; font-weight: bold;">✓ PAID IN FULL</p>' : `<p><strong>Balance Remaining:</strong> $${newBalanceDue.toFixed(2)}</p>`}
+                      </div>
+
+                      <p>A receipt has been sent to your email from Stripe.</p>
+                      <p>If you have any questions, please don't hesitate to contact us.</p>
+
+                      <p>Best regards,<br>My Yacht Time Team</p>
+                    </div>
+                  `,
+                  tags: [
+                    { name: 'category', value: 'payment_confirmation' },
+                    { name: 'invoice_id', value: invoiceId },
+                  ],
+                }),
+              });
+
+              if (emailResponse.ok) {
+                const emailData = await emailResponse.json();
+                console.log(`Payment confirmation email sent to ${customerEmail}, ID: ${emailData.id}`);
+
+                await supabase
+                  .from('estimating_invoices')
+                  .update({
+                    final_payment_confirmation_email_sent_at: new Date().toISOString(),
+                  })
+                  .eq('id', invoiceId);
+              }
+            }
+          } catch (emailError) {
+            console.error('Error sending payment confirmation email:', emailError);
+          }
+        }
+
+        console.log(`Payment for estimating invoice ${invoiceId} processed: $${amountPaid.toFixed(2)}, status: ${newPaymentStatus}`);
+
+        return new Response(
+          JSON.stringify({ received: true }),
+          {
+            headers: {
+              ...corsHeaders,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+      }
+
+      // Handle legacy yacht invoice payments
       if (!invoiceId) {
         console.error('No invoice_id or repair_request_id in session metadata');
         return new Response(JSON.stringify({ received: true }), {
