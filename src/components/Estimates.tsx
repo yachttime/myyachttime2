@@ -82,6 +82,7 @@ export function Estimates({ userId }: EstimatesProps) {
   const [formData, setFormData] = useState({
     is_retail_customer: false,
     yacht_id: '',
+    vessel_id: '',
     customer_name: '',
     customer_email: '',
     customer_phone: '',
@@ -155,6 +156,11 @@ export function Estimates({ userId }: EstimatesProps) {
   const [showNewCustomerForm, setShowNewCustomerForm] = useState(false);
   const [newCustomerForm, setNewCustomerForm] = useState({ customer_type: 'individual' as 'individual' | 'business', first_name: '', last_name: '', business_name: '', email: '', phone: '' });
   const [savingNewCustomer, setSavingNewCustomer] = useState(false);
+  const [selectedCustomerId, setSelectedCustomerId] = useState('');
+  const [customerVessels, setCustomerVessels] = useState<any[]>([]);
+  const [showNewVesselForm, setShowNewVesselForm] = useState(false);
+  const [newVesselForm, setNewVesselForm] = useState({ vessel_name: '', manufacturer: '', model: '', year: '' });
+  const [savingNewVessel, setSavingNewVessel] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -358,15 +364,60 @@ export function Estimates({ userId }: EstimatesProps) {
       const displayName = isBusiness
         ? data.business_name
         : `${data.first_name || ''} ${data.last_name || ''}`.trim();
-      setFormData({ ...formData, customer_name: displayName, customer_email: data.email || '', customer_phone: data.phone || '' });
+      setFormData({ ...formData, customer_name: displayName, customer_email: data.email || '', customer_phone: data.phone || '', vessel_id: '' });
       setCustomerSearch(displayName);
       setYachtCustomerSearch(displayName);
+      setSelectedCustomerId(data.id);
+      setCustomerVessels([]);
       setShowNewCustomerForm(false);
       setNewCustomerForm({ customer_type: 'individual', first_name: '', last_name: '', business_name: '', email: '', phone: '' });
     } catch (err) {
       showError('Failed to save customer');
     } finally {
       setSavingNewCustomer(false);
+    }
+  };
+
+  const loadCustomerVessels = async (customerId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('customer_vessels')
+        .select('id, vessel_name, manufacturer, model, year')
+        .eq('customer_id', customerId)
+        .eq('is_active', true)
+        .order('vessel_name');
+      if (error) throw error;
+      setCustomerVessels(data || []);
+    } catch (err) {
+      setCustomerVessels([]);
+    }
+  };
+
+  const handleSaveNewVessel = async () => {
+    if (!newVesselForm.vessel_name.trim() || !selectedCustomerId) return;
+    setSavingNewVessel(true);
+    try {
+      const { data, error } = await supabase
+        .from('customer_vessels')
+        .insert({
+          customer_id: selectedCustomerId,
+          vessel_name: newVesselForm.vessel_name.trim(),
+          manufacturer: newVesselForm.manufacturer.trim() || null,
+          model: newVesselForm.model.trim() || null,
+          year: newVesselForm.year ? parseInt(newVesselForm.year) : null,
+          is_active: true
+        })
+        .select('id, vessel_name, manufacturer, model, year')
+        .single();
+      if (error) throw error;
+      setCustomerVessels(prev => [...prev, data].sort((a, b) => a.vessel_name.localeCompare(b.vessel_name)));
+      setFormData(prev => ({ ...prev, vessel_id: data.id }));
+      setShowNewVesselForm(false);
+      setNewVesselForm({ vessel_name: '', manufacturer: '', model: '', year: '' });
+    } catch (err) {
+      showError('Failed to save vessel');
+    } finally {
+      setSavingNewVessel(false);
     }
   };
 
@@ -1514,7 +1565,7 @@ export function Estimates({ userId }: EstimatesProps) {
                     </div>
                     <button
                       type="button"
-                      onClick={() => { setFormData({ ...formData, customer_name: '', customer_email: '', customer_phone: '' }); setCustomerSearch(''); }}
+                      onClick={() => { setFormData({ ...formData, customer_name: '', customer_email: '', customer_phone: '', vessel_id: '' }); setCustomerSearch(''); setSelectedCustomerId(''); setCustomerVessels([]); setShowNewVesselForm(false); }}
                       className="text-gray-400 hover:text-gray-600 ml-2"
                     >
                       <X className="w-4 h-4" />
@@ -1555,10 +1606,14 @@ export function Estimates({ userId }: EstimatesProps) {
                                 <button
                                   key={c.id}
                                   type="button"
-                                  onClick={() => {
-                                    setFormData({ ...formData, customer_name: displayName, customer_email: c.email || '', customer_phone: c.phone || '' });
+                                  onClick={async () => {
+                                    setFormData({ ...formData, customer_name: displayName, customer_email: c.email || '', customer_phone: c.phone || '', vessel_id: '' });
                                     setCustomerSearch(displayName);
                                     setShowCustomerDropdown(false);
+                                    setSelectedCustomerId(c.id);
+                                    setCustomerVessels([]);
+                                    setShowNewVesselForm(false);
+                                    await loadCustomerVessels(c.id);
                                   }}
                                   className="w-full text-left px-4 py-2.5 hover:bg-blue-50 transition-colors flex items-center gap-3 border-b border-gray-100 last:border-0"
                                 >
@@ -1659,6 +1714,89 @@ export function Estimates({ userId }: EstimatesProps) {
                     >
                       {savingNewCustomer ? 'Saving...' : 'Add Customer'}
                     </button>
+                  </div>
+                )}
+
+                {selectedCustomerId && !showNewCustomerForm && (
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-medium text-gray-600">Select Vessel</label>
+                      {!showNewVesselForm && (
+                        <button
+                          type="button"
+                          onClick={() => setShowNewVesselForm(true)}
+                          className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors"
+                        >
+                          + New Vessel
+                        </button>
+                      )}
+                    </div>
+
+                    {showNewVesselForm && (
+                      <div className="rounded-xl border border-blue-500/40 bg-[#0f1e3a] p-4 space-y-3 mb-3 shadow-lg">
+                        <div className="flex items-center justify-between">
+                          <h5 className="text-sm font-semibold text-white">Quick Add Vessel</h5>
+                          <button
+                            type="button"
+                            onClick={() => { setShowNewVesselForm(false); setNewVesselForm({ vessel_name: '', manufacturer: '', model: '', year: '' }); }}
+                            className="text-gray-400 hover:text-white transition-colors"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="Vessel Name *"
+                          value={newVesselForm.vessel_name}
+                          onChange={(e) => setNewVesselForm({ ...newVesselForm, vessel_name: e.target.value })}
+                          className="w-full px-3 py-2.5 rounded-lg bg-[#162040] border border-[#1e3560] text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500"
+                        />
+                        <div className="grid grid-cols-2 gap-3">
+                          <input
+                            type="text"
+                            placeholder="Manufacturer"
+                            value={newVesselForm.manufacturer}
+                            onChange={(e) => setNewVesselForm({ ...newVesselForm, manufacturer: e.target.value })}
+                            className="px-3 py-2.5 rounded-lg bg-[#162040] border border-[#1e3560] text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500"
+                          />
+                          <input
+                            type="text"
+                            placeholder="Model"
+                            value={newVesselForm.model}
+                            onChange={(e) => setNewVesselForm({ ...newVesselForm, model: e.target.value })}
+                            className="px-3 py-2.5 rounded-lg bg-[#162040] border border-[#1e3560] text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500"
+                          />
+                        </div>
+                        <input
+                          type="number"
+                          placeholder="Year"
+                          value={newVesselForm.year}
+                          onChange={(e) => setNewVesselForm({ ...newVesselForm, year: e.target.value })}
+                          className="w-full px-3 py-2.5 rounded-lg bg-[#162040] border border-[#1e3560] text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleSaveNewVessel}
+                          disabled={savingNewVessel || !newVesselForm.vessel_name.trim()}
+                          className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold rounded-lg transition-colors"
+                        >
+                          {savingNewVessel ? 'Saving...' : 'Add Vessel'}
+                        </button>
+                      </div>
+                    )}
+
+                    <select
+                      value={formData.vessel_id}
+                      onChange={(e) => setFormData({ ...formData, vessel_id: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm text-gray-900"
+                    >
+                      <option value="">Select a vessel</option>
+                      {customerVessels.map((vessel: any) => (
+                        <option key={vessel.id} value={vessel.id}>
+                          {vessel.vessel_name}{vessel.manufacturer && vessel.model ? ` (${vessel.manufacturer} ${vessel.model})` : ''}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 )}
               </div>
