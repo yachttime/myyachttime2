@@ -1099,10 +1099,10 @@ export function Estimates({ userId }: EstimatesProps) {
       if (archiveError) throw archiveError;
 
       showSuccess('Estimate archived successfully');
+      localStorage.removeItem('estimate_draft');
+      await resetForm();
       await loadData();
       setEstimateToArchive(null);
-      setShowForm(false);
-      setEditingId(null);
     } catch (err) {
       console.error('Error archiving estimate:', err);
       showError('Failed to archive estimate');
@@ -1349,10 +1349,7 @@ export function Estimates({ userId }: EstimatesProps) {
               )}
               <button
                 type="button"
-                onClick={() => {
-                  setShowForm(false);
-                  setEditingId(null);
-                }}
+                onClick={handleCancel}
                 className="text-gray-400 hover:text-gray-600"
               >
                 <X className="w-5 h-5" />
