@@ -1040,7 +1040,7 @@ export async function generateEstimatePDF(
     if (task.lineItems && task.lineItems.length > 0) {
       const lineItemHeaders = [['Description', 'Qty', 'Unit Price', 'Total']];
       const lineItemData = task.lineItems.map((item: any) => {
-        let description = item.description || '';
+        let description = (item.description || '').replace(/^[A-Za-z0-9][-A-Za-z0-9]*\s+-\s+/, '');
         if (item.work_details) {
           description += `\n  ${item.work_details}`;
         }
@@ -1573,7 +1573,7 @@ export async function generateWorkOrderPDF(
     if (task.lineItems && task.lineItems.length > 0) {
       const lineItemHeaders = [['Description', 'Qty', 'Unit Price', 'Total']];
       const lineItemData = task.lineItems.map((item: any) => {
-        let description = item.description || '';
+        let description = (item.description || '').replace(/^[A-Za-z0-9][-A-Za-z0-9]*\s+-\s+/, '');
         if (item.work_details) {
           description += `\n  ${item.work_details}`;
         }
