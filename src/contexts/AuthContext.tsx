@@ -77,8 +77,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       (async () => {
         if (event === 'SIGNED_OUT') {
+          setUser(null);
           setUserProfile(null);
           setYacht(null);
+          return;
+        }
+
+        if (event === 'TOKEN_REFRESHED') {
+          setUser(session?.user ?? null);
+          return;
         }
 
         if (event === 'PASSWORD_RECOVERY' && session?.user) {
@@ -88,12 +95,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             .eq('user_id', session.user.id);
         }
 
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          await loadUserProfile(session.user.id);
-        } else {
-          setUserProfile(null);
-          setYacht(null);
+        if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'PASSWORD_RECOVERY') {
+          setUser(session?.user ?? null);
+          if (session?.user) {
+            await loadUserProfile(session.user.id);
+          } else {
+            setUserProfile(null);
+            setYacht(null);
+          }
         }
       })();
     });
