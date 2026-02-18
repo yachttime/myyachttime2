@@ -152,6 +152,9 @@ export function Estimates({ userId }: EstimatesProps) {
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [yachtCustomerSearch, setYachtCustomerSearch] = useState('');
   const [showYachtCustomerDropdown, setShowYachtCustomerDropdown] = useState(false);
+  const [showNewCustomerForm, setShowNewCustomerForm] = useState(false);
+  const [newCustomerForm, setNewCustomerForm] = useState({ first_name: '', last_name: '', email: '', phone: '' });
+  const [savingNewCustomer, setSavingNewCustomer] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -328,6 +331,38 @@ export function Estimates({ userId }: EstimatesProps) {
     localStorage.removeItem('estimate_draft');
     setShowRestoreDraftModal(false);
     setDraftToRestore(null);
+  };
+
+  const handleSaveNewCustomer = async () => {
+    if (!newCustomerForm.first_name.trim() && !newCustomerForm.last_name.trim()) return;
+    setSavingNewCustomer(true);
+    try {
+      const { data, error } = await supabase
+        .from('customers')
+        .insert({
+          customer_type: 'individual',
+          first_name: newCustomerForm.first_name.trim(),
+          last_name: newCustomerForm.last_name.trim(),
+          email: newCustomerForm.email.trim() || null,
+          phone: newCustomerForm.phone.trim() || null,
+          is_active: true
+        })
+        .select('id, customer_type, first_name, last_name, business_name, email, phone')
+        .single();
+      if (error) throw error;
+      const updated = [...customers, data].sort((a, b) => (a.last_name || '').localeCompare(b.last_name || ''));
+      setCustomers(updated);
+      const displayName = `${data.first_name || ''} ${data.last_name || ''}`.trim();
+      setFormData({ ...formData, customer_name: displayName, customer_email: data.email || '', customer_phone: data.phone || '' });
+      setCustomerSearch(displayName);
+      setYachtCustomerSearch(displayName);
+      setShowNewCustomerForm(false);
+      setNewCustomerForm({ first_name: '', last_name: '', email: '', phone: '' });
+    } catch (err) {
+      showError('Failed to save customer');
+    } finally {
+      setSavingNewCustomer(false);
+    }
   };
 
   const handleYachtChange = (yachtId: string) => {
@@ -1450,104 +1485,164 @@ export function Estimates({ userId }: EstimatesProps) {
             </div>
 
             {formData.is_retail_customer ? (
-              <div className="space-y-4 border border-gray-200 rounded-lg p-4 bg-gray-50">
-                <h4 className="text-sm font-semibold text-gray-800">Walk-In Customer Information</h4>
-                <div className="relative customer-search-container">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Select Customer</label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input
-                      type="text"
-                      placeholder="Search by name, email, or phone..."
-                      value={customerSearch}
-                      onChange={(e) => {
-                        setCustomerSearch(e.target.value);
-                        setShowCustomerDropdown(true);
-                      }}
-                      onFocus={() => setShowCustomerDropdown(true)}
-                      className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
-                    />
-                  </div>
-                  {showCustomerDropdown && (() => {
-                    const search = customerSearch.toLowerCase();
-                    const filtered = customers.filter(c => {
-                      if (!search) return true;
-                      const fullName = c.customer_type === 'business'
-                        ? (c.business_name || '').toLowerCase()
-                        : `${c.first_name || ''} ${c.last_name || ''}`.toLowerCase();
-                      return fullName.includes(search) || (c.email || '').toLowerCase().includes(search) || (c.phone || '').includes(search);
-                    });
-                    return (
-                      <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-y-auto">
-                        {filtered.length === 0 ? (
-                          <div className="px-4 py-3 text-sm text-gray-500 text-center">No customers found</div>
-                        ) : (
-                          filtered.map(c => {
-                            const displayName = c.customer_type === 'business'
-                              ? c.business_name
-                              : `${c.first_name || ''} ${c.last_name || ''}`.trim();
-                            return (
-                              <button
-                                key={c.id}
-                                type="button"
-                                onClick={() => {
-                                  setFormData({ ...formData, customer_name: displayName, customer_email: c.email || '', customer_phone: c.phone || '' });
-                                  setCustomerSearch(displayName);
-                                  setShowCustomerDropdown(false);
-                                }}
-                                className="w-full text-left px-4 py-2.5 hover:bg-blue-50 transition-colors flex items-center gap-3 border-b border-gray-100 last:border-0"
-                              >
-                                <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                                <div>
-                                  <p className="text-sm font-medium text-gray-900">{displayName}</p>
-                                  {c.email && <p className="text-xs text-gray-500">{c.email}</p>}
-                                  {c.phone && <p className="text-xs text-gray-400">{c.phone}</p>}
-                                </div>
-                              </button>
-                            );
-                          })
-                        )}
+              <div className="space-y-3 border border-gray-200 rounded-lg p-4 bg-gray-50">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-semibold text-gray-800">Walk-In Customer Information</h4>
+                  <button
+                    type="button"
+                    onClick={() => { setShowNewCustomerForm(true); setShowCustomerDropdown(false); }}
+                    className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    New Customer
+                  </button>
+                </div>
+
+                {formData.customer_name && !showNewCustomerForm ? (
+                  <div className="flex items-center justify-between bg-white border border-blue-200 rounded-lg px-3 py-2.5">
+                    <div className="flex items-center gap-2">
+                      <User className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{formData.customer_name}</p>
+                        <p className="text-xs text-gray-500">{[formData.customer_email, formData.customer_phone].filter(Boolean).join(' · ')}</p>
                       </div>
-                    );
-                  })()}
-                </div>
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name *</label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.customer_name}
-                      onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { setFormData({ ...formData, customer_name: '', customer_email: '', customer_phone: '' }); setCustomerSearch(''); }}
+                      className="text-gray-400 hover:text-gray-600 ml-2"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
-                    <input
-                      type="email"
-                      required
-                      value={formData.customer_email}
-                      onChange={(e) => setFormData({ ...formData, customer_email: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
+                ) : !showNewCustomerForm ? (
+                  <div className="relative customer-search-container">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <input
+                        type="text"
+                        placeholder="Search by name, email, or phone..."
+                        value={customerSearch}
+                        onChange={(e) => { setCustomerSearch(e.target.value); setShowCustomerDropdown(true); }}
+                        onFocus={() => setShowCustomerDropdown(true)}
+                        className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
+                      />
+                    </div>
+                    {showCustomerDropdown && (() => {
+                      const search = customerSearch.toLowerCase();
+                      const filtered = customers.filter(c => {
+                        if (!search) return true;
+                        const fullName = c.customer_type === 'business'
+                          ? (c.business_name || '').toLowerCase()
+                          : `${c.first_name || ''} ${c.last_name || ''}`.toLowerCase();
+                        return fullName.includes(search) || (c.email || '').toLowerCase().includes(search) || (c.phone || '').includes(search);
+                      });
+                      return (
+                        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-y-auto">
+                          {filtered.length === 0 ? (
+                            <div className="px-4 py-3 text-sm text-gray-500 text-center">No customers found</div>
+                          ) : (
+                            filtered.map(c => {
+                              const displayName = c.customer_type === 'business'
+                                ? c.business_name
+                                : `${c.first_name || ''} ${c.last_name || ''}`.trim();
+                              return (
+                                <button
+                                  key={c.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setFormData({ ...formData, customer_name: displayName, customer_email: c.email || '', customer_phone: c.phone || '' });
+                                    setCustomerSearch(displayName);
+                                    setShowCustomerDropdown(false);
+                                  }}
+                                  className="w-full text-left px-4 py-2.5 hover:bg-blue-50 transition-colors flex items-center gap-3 border-b border-gray-100 last:border-0"
+                                >
+                                  <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                  <div>
+                                    <p className="text-sm font-medium text-gray-900">{displayName}</p>
+                                    {c.email && <p className="text-xs text-gray-500">{c.email}</p>}
+                                    {c.phone && <p className="text-xs text-gray-400">{c.phone}</p>}
+                                  </div>
+                                </button>
+                              );
+                            })
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                    <input
-                      type="tel"
-                      value={formData.customer_phone}
-                      onChange={(e) => setFormData({ ...formData, customer_phone: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
+                ) : null}
+
+                {showNewCustomerForm && (
+                  <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
+                    <h5 className="text-sm font-semibold text-gray-800">Add New Customer</h5>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">First Name *</label>
+                        <input
+                          type="text"
+                          value={newCustomerForm.first_name}
+                          onChange={(e) => setNewCustomerForm({ ...newCustomerForm, first_name: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                          placeholder="First name"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Last Name *</label>
+                        <input
+                          type="text"
+                          value={newCustomerForm.last_name}
+                          onChange={(e) => setNewCustomerForm({ ...newCustomerForm, last_name: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                          placeholder="Last name"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Email</label>
+                        <input
+                          type="email"
+                          value={newCustomerForm.email}
+                          onChange={(e) => setNewCustomerForm({ ...newCustomerForm, email: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                          placeholder="email@example.com"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Phone</label>
+                        <input
+                          type="tel"
+                          value={newCustomerForm.phone}
+                          onChange={(e) => setNewCustomerForm({ ...newCustomerForm, phone: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                          placeholder="(555) 123-4567"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={handleSaveNewCustomer}
+                        disabled={savingNewCustomer || (!newCustomerForm.first_name.trim() && !newCustomerForm.last_name.trim())}
+                        className="flex-1 bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                      >
+                        {savingNewCustomer ? 'Saving...' : 'Save & Select'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setShowNewCustomerForm(false); setNewCustomerForm({ first_name: '', last_name: '', email: '', phone: '' }); }}
+                        className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             ) : (
               <div className="space-y-4">
                 <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
                   <h4 className="text-sm font-semibold text-gray-800 mb-3">Customer Information</h4>
-                  <div className="relative yacht-customer-search-container mb-3">
+                  {!formData.customer_name && <div className="relative yacht-customer-search-container mb-3">
                     <label className="block text-sm font-medium text-gray-700 mb-1">Search Customer Database</label>
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -1602,37 +1697,26 @@ export function Estimates({ userId }: EstimatesProps) {
                         </div>
                       );
                     })()}
-                  </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name</label>
-                      <input
-                        type="text"
-                        value={formData.customer_name}
-                        onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
-                        placeholder="From database or enter manually"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
-                      />
+                  </div>}
+
+                  {formData.customer_name && (
+                    <div className="flex items-center justify-between bg-white border border-blue-200 rounded-lg px-3 py-2.5 mt-2">
+                      <div className="flex items-center gap-2">
+                        <User className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{formData.customer_name}</p>
+                          <p className="text-xs text-gray-500">{[formData.customer_email, formData.customer_phone].filter(Boolean).join(' · ')}</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => { setFormData({ ...formData, customer_name: '', customer_email: '', customer_phone: '' }); setYachtCustomerSearch(''); }}
+                        className="text-gray-400 hover:text-gray-600 ml-2"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Customer Email</label>
-                      <input
-                        type="email"
-                        value={formData.customer_email}
-                        onChange={(e) => setFormData({ ...formData, customer_email: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Customer Phone</label>
-                      <input
-                        type="tel"
-                        value={formData.customer_phone}
-                        onChange={(e) => setFormData({ ...formData, customer_phone: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                  </div>
+                  )}
                 </div>
 
                 <div>
