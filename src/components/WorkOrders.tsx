@@ -89,6 +89,9 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
   const [sendingDepositEmail, setSendingDepositEmail] = useState(false);
   const [syncingPayment, setSyncingPayment] = useState<Record<string, boolean>>({});
   const [checkingEmailStatus, setCheckingEmailStatus] = useState<Record<string, boolean>>({});
+  const [depositCheckModal, setDepositCheckModal] = useState<string | null>(null);
+  const [depositCheckLoading, setDepositCheckLoading] = useState(false);
+  const [depositCheckForm, setDepositCheckForm] = useState({ checkNumber: '', amount: '', notes: '' });
 
   const [formData, setFormData] = useState({
     is_retail_customer: false,
@@ -992,6 +995,75 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
       setError(`Error: ${error.message || 'Failed to generate deposit link'}`);
     } finally {
       setDepositLoading(false);
+    }
+  };
+
+  const handleRecordDepositCheck = async (workOrderId: string) => {
+    const workOrder = workOrders.find(wo => wo.id === workOrderId);
+    if (!workOrder) return;
+
+    const amount = parseFloat(depositCheckForm.amount);
+    if (!depositCheckForm.checkNumber.trim()) {
+      setError('Check number is required');
+      return;
+    }
+    if (!amount || amount <= 0) {
+      setError('Enter a valid amount');
+      return;
+    }
+
+    setDepositCheckLoading(true);
+    try {
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('company_id')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (!profile?.company_id) throw new Error('Company not found');
+
+      const { error: paymentError } = await supabase
+        .from('estimating_payments')
+        .insert({
+          company_id: profile.company_id,
+          payment_type: 'deposit',
+          work_order_id: workOrderId,
+          yacht_id: workOrder.yacht_id,
+          customer_name: workOrder.customer_name,
+          customer_email: workOrder.customer_email,
+          is_retail_customer: workOrder.is_retail_customer,
+          amount,
+          payment_method: 'check',
+          reference_number: depositCheckForm.checkNumber.trim(),
+          notes: depositCheckForm.notes.trim() || null,
+          recorded_by: userId,
+          payment_date: new Date().toISOString()
+        });
+
+      if (paymentError) throw paymentError;
+
+      const { error: woError } = await supabase
+        .from('work_orders')
+        .update({
+          deposit_payment_status: 'paid',
+          deposit_paid_at: new Date().toISOString(),
+          deposit_payment_method_type: 'check',
+          deposit_check_number: depositCheckForm.checkNumber.trim(),
+          deposit_check_recorded_at: new Date().toISOString()
+        })
+        .eq('id', workOrderId);
+
+      if (woError) throw woError;
+
+      setDepositCheckModal(null);
+      setDepositCheckForm({ checkNumber: '', amount: '', notes: '' });
+      await loadData();
+      showSuccess(`Check #${depositCheckForm.checkNumber} recorded as deposit`);
+    } catch (err: any) {
+      console.error('Error recording deposit check:', err);
+      setError(err.message || 'Failed to record check deposit');
+    } finally {
+      setDepositCheckLoading(false);
     }
   };
 
@@ -2185,6 +2257,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                         <option value="card">Credit/Debit Card</option>
                         <option value="ach">ACH Bank Transfer</option>
                         <option value="both">Both Credit Card and ACH</option>
+                        <option value="check">Check</option>
                       </select>
                     </div>
                   </div>
@@ -2230,16 +2303,29 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
 
                     {!editingWorkOrder.deposit_payment_link_url && !editingWorkOrder.deposit_paid_at && (
                       <div className="mt-3 pt-3 border-t border-cyan-500/20 flex flex-col items-center justify-center gap-3 py-4">
-                        <p className="text-sm text-gray-600 font-medium">No payment link generated yet</p>
-                        <button
-                          onClick={() => handleRequestDeposit(editingWorkOrder.id)}
-                          disabled={depositLoading}
-                          type="button"
-                          className="bg-cyan-600 hover:bg-cyan-700 text-white px-6 py-3 rounded-lg text-base font-bold transition-all flex items-center gap-2 disabled:opacity-50 shadow-lg hover:shadow-xl"
-                        >
-                          <DollarSign className="w-5 h-5" />
-                          {depositLoading ? 'Generating Payment Link...' : 'Generate Payment Link'}
-                        </button>
+                        <p className="text-sm text-gray-600 font-medium">No payment recorded yet</p>
+                        <div className="flex flex-wrap gap-3 justify-center">
+                          <button
+                            onClick={() => handleRequestDeposit(editingWorkOrder.id)}
+                            disabled={depositLoading || editingWorkOrder.deposit_payment_method_type === 'check'}
+                            type="button"
+                            className="bg-cyan-600 hover:bg-cyan-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 disabled:opacity-40 shadow hover:shadow-md"
+                          >
+                            <DollarSign className="w-4 h-4" />
+                            {depositLoading ? 'Generating...' : 'Generate Payment Link'}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setDepositCheckForm({ checkNumber: '', amount: editingWorkOrder.deposit_amount ? parseFloat(String(editingWorkOrder.deposit_amount)).toFixed(2) : '', notes: '' });
+                              setDepositCheckModal(editingWorkOrder.id);
+                            }}
+                            type="button"
+                            className="bg-gray-700 hover:bg-gray-800 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 shadow hover:shadow-md"
+                          >
+                            <FileText className="w-4 h-4" />
+                            Record Check
+                          </button>
+                        </div>
                       </div>
                     )}
 
@@ -2247,6 +2333,12 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                       <p className="text-xs text-green-700">
                         Paid on: {new Date(editingWorkOrder.deposit_paid_at).toLocaleDateString()} at {new Date(editingWorkOrder.deposit_paid_at).toLocaleTimeString()}
                       </p>
+                    )}
+                    {(editingWorkOrder as any).deposit_check_number && (
+                      <div className="flex items-center gap-2 p-2 bg-white border border-cyan-200 rounded text-xs">
+                        <FileText className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
+                        <span className="font-semibold text-gray-700">Check #{(editingWorkOrder as any).deposit_check_number}</span>
+                      </div>
                     )}
 
                     {editingWorkOrder.deposit_email_sent_at && (
@@ -2555,6 +2647,93 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
           </div>
         </div>
       )}
+
+      {depositCheckModal && (() => {
+        const wo = workOrders.find(w => w.id === depositCheckModal);
+        if (!wo) return null;
+        return (
+          <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[60] p-4">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+              <div className="flex items-center justify-between p-5 border-b border-gray-200">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-gray-700" />
+                  <h3 className="text-lg font-semibold text-gray-900">Record Check Deposit</h3>
+                </div>
+                <button onClick={() => setDepositCheckModal(null)} className="text-gray-400 hover:text-gray-600">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-5 space-y-4">
+                <div className="p-3 bg-gray-50 rounded-lg text-sm text-gray-700">
+                  <p className="font-medium">{wo.work_order_number} — {wo.customer_name}</p>
+                  <p className="text-gray-500 text-xs mt-0.5">Deposit required: ${parseFloat(String(wo.deposit_amount || 0)).toFixed(2)}</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Check Number *</label>
+                    <input
+                      type="text"
+                      value={depositCheckForm.checkNumber}
+                      onChange={(e) => setDepositCheckForm({ ...depositCheckForm, checkNumber: e.target.value })}
+                      placeholder="e.g. 1042"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
+                      autoFocus
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Amount *</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      value={depositCheckForm.amount}
+                      onChange={(e) => setDepositCheckForm({ ...depositCheckForm, amount: e.target.value })}
+                      placeholder="0.00"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Notes (optional)</label>
+                  <input
+                    type="text"
+                    value={depositCheckForm.notes}
+                    onChange={(e) => setDepositCheckForm({ ...depositCheckForm, notes: e.target.value })}
+                    placeholder="e.g. received at front desk"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
+                  />
+                </div>
+
+                <p className="text-xs text-gray-500 bg-blue-50 border border-blue-100 rounded p-2">
+                  Recording this check will mark the deposit as paid and log it to accounting.
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-3 px-5 pb-5">
+                <button
+                  onClick={() => setDepositCheckModal(null)}
+                  type="button"
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleRecordDepositCheck(depositCheckModal)}
+                  disabled={depositCheckLoading || !depositCheckForm.checkNumber.trim() || !depositCheckForm.amount}
+                  type="button"
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 text-sm font-semibold disabled:opacity-50"
+                >
+                  <FileText className="w-4 h-4" />
+                  {depositCheckLoading ? 'Recording...' : 'Record Check'}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

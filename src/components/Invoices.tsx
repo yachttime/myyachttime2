@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Receipt, Search, Printer, Mail, DollarSign, Eye, CheckCircle, Clock, XCircle, ExternalLink, Archive, RotateCcw, RefreshCw, X, Copy, CreditCard, AlertCircle, MousePointer, Download } from 'lucide-react';
+import { Receipt, Search, Printer, Mail, DollarSign, Eye, CheckCircle, Clock, XCircle, ExternalLink, Archive, RotateCcw, RefreshCw, X, Copy, CreditCard, AlertCircle, MousePointer, Download, FileText } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -102,6 +102,10 @@ export function Invoices({ userId }: InvoicesProps) {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [emailPrompt, setEmailPrompt] = useState<{ invoice: Invoice; email: string; emailOnly?: boolean } | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [checkPaymentModal, setCheckPaymentModal] = useState(false);
+  const [checkPaymentLoading, setCheckPaymentLoading] = useState(false);
+  const [checkForm, setCheckForm] = useState({ checkNumber: '', amount: '', depositAccount: '', notes: '' });
+  const [qbBankAccounts, setQbBankAccounts] = useState<{ qbo_account_id: string; account_name: string; account_number: string | null }[]>([]);
   const { confirm, ConfirmDialog } = useConfirm();
 
   const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'success') => {
@@ -110,7 +114,18 @@ export function Invoices({ userId }: InvoicesProps) {
 
   useEffect(() => {
     fetchInvoices();
+    fetchQbBankAccounts();
   }, []);
+
+  async function fetchQbBankAccounts() {
+    const { data } = await supabase
+      .from('quickbooks_accounts')
+      .select('qbo_account_id, account_name, account_number')
+      .eq('account_type', 'Bank')
+      .eq('active', true)
+      .order('account_number');
+    if (data) setQbBankAccounts(data);
+  }
 
   async function fetchInvoices() {
     try {
@@ -984,6 +999,95 @@ export function Invoices({ userId }: InvoicesProps) {
     }
   }
 
+  async function handleRecordCheckPayment() {
+    if (!selectedInvoice) return;
+    const amount = parseFloat(checkForm.amount);
+    if (!checkForm.checkNumber.trim()) {
+      showToast('Check number is required', 'error');
+      return;
+    }
+    if (!amount || amount <= 0) {
+      showToast('Enter a valid amount', 'error');
+      return;
+    }
+
+    setCheckPaymentLoading(true);
+    try {
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('company_id')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (!profile?.company_id) throw new Error('Company not found');
+
+      const balanceDue = selectedInvoice.balance_due ?? selectedInvoice.total_amount;
+      const isFullPayment = amount >= balanceDue;
+
+      const { error: paymentError } = await supabase
+        .from('estimating_payments')
+        .insert({
+          company_id: profile.company_id,
+          payment_type: 'invoice',
+          invoice_id: selectedInvoice.id,
+          work_order_id: selectedInvoice.work_order_id,
+          yacht_id: selectedInvoice.yacht_id,
+          customer_name: selectedInvoice.customer_name,
+          customer_email: selectedInvoice.customer_email,
+          amount,
+          payment_method: 'check',
+          reference_number: checkForm.checkNumber.trim(),
+          notes: checkForm.notes.trim() || null,
+          recorded_by: userId,
+          payment_date: new Date().toISOString()
+        });
+
+      if (paymentError) throw paymentError;
+
+      const invoiceUpdates: Record<string, unknown> = {
+        check_number: checkForm.checkNumber.trim(),
+        check_payment_amount: amount,
+        check_payment_recorded_at: new Date().toISOString(),
+        payment_method_type: 'check'
+      };
+
+      if (isFullPayment) {
+        invoiceUpdates.payment_status = 'paid';
+        invoiceUpdates.paid_at = new Date().toISOString();
+        invoiceUpdates.amount_paid = amount;
+      }
+
+      const { error: invoiceError } = await supabase
+        .from('estimating_invoices')
+        .update(invoiceUpdates)
+        .eq('id', selectedInvoice.id);
+
+      if (invoiceError) throw invoiceError;
+
+      setCheckPaymentModal(false);
+      setCheckForm({ checkNumber: '', amount: '', depositAccount: '', notes: '' });
+      showToast(`Check #${checkForm.checkNumber} recorded successfully`, 'success');
+
+      if (activeTab === 'active') {
+        await fetchInvoices();
+      } else {
+        await fetchArchivedInvoices();
+      }
+
+      const { data: fresh } = await supabase
+        .from('estimating_invoices')
+        .select('*, work_orders!estimating_invoices_work_order_id_fkey(work_order_number), yachts!estimating_invoices_yacht_id_fkey(name)')
+        .eq('id', selectedInvoice.id)
+        .maybeSingle();
+      if (fresh) setSelectedInvoice({ ...fresh, work_order_number: fresh.work_orders?.work_order_number, yacht_name: fresh.yachts?.name });
+    } catch (err: any) {
+      console.error('Error recording check payment:', err);
+      showToast(err.message || 'Failed to record check payment', 'error');
+    } finally {
+      setCheckPaymentLoading(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -1399,6 +1503,17 @@ export function Invoices({ userId }: InvoicesProps) {
                             Paid on: {new Date(paidAt).toLocaleDateString()} at {new Date(paidAt).toLocaleTimeString()}
                           </p>
                         )}
+                        {(selectedInvoice as any).check_number && (
+                          <div className="mt-2 p-2 bg-white border border-green-200 rounded flex items-center gap-2">
+                            <FileText className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                            <div>
+                              <p className="text-xs font-semibold text-gray-700">Check #{(selectedInvoice as any).check_number}</p>
+                              {(selectedInvoice as any).check_payment_amount && (
+                                <p className="text-xs text-gray-500">${parseFloat((selectedInvoice as any).check_payment_amount).toFixed(2)} recorded {(selectedInvoice as any).check_payment_recorded_at ? `on ${new Date((selectedInvoice as any).check_payment_recorded_at).toLocaleDateString()}` : ''}</p>
+                              )}
+                            </div>
+                          </div>
+                        )}
 
                         {emailSentAt && (
                           <div className="mt-3 pt-3 border-t border-green-200">
@@ -1499,6 +1614,17 @@ export function Invoices({ userId }: InvoicesProps) {
                               {paymentLoading ? 'Generating...' : 'Generate Payment Link'}
                             </button>
                           )}
+                          <button
+                            onClick={() => {
+                              const balanceDue = selectedInvoice.balance_due ?? selectedInvoice.total_amount;
+                              setCheckForm({ checkNumber: '', amount: balanceDue.toFixed(2), depositAccount: '', notes: '' });
+                              setCheckPaymentModal(true);
+                            }}
+                            className="bg-gray-700 hover:bg-gray-800 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1"
+                          >
+                            <FileText className="w-3 h-3" />
+                            Record Check
+                          </button>
                           {paymentLink && (
                             <>
                               <button
@@ -1622,6 +1748,107 @@ export function Invoices({ userId }: InvoicesProps) {
                 className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm disabled:opacity-50"
               >
                 {emailPrompt.emailOnly ? 'Send Email' : 'Generate & Send'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {checkPaymentModal && selectedInvoice && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between p-5 border-b border-gray-200">
+              <div className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-gray-700" />
+                <h3 className="text-lg font-semibold text-gray-900">Record Check Payment</h3>
+              </div>
+              <button onClick={() => setCheckPaymentModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div className="p-3 bg-gray-50 rounded-lg text-sm text-gray-700">
+                <p className="font-medium">{selectedInvoice.invoice_number} — {selectedInvoice.customer_name}</p>
+                <p className="text-gray-500 text-xs mt-0.5">Balance due: ${(selectedInvoice.balance_due ?? selectedInvoice.total_amount).toFixed(2)}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Check Number *</label>
+                  <input
+                    type="text"
+                    value={checkForm.checkNumber}
+                    onChange={(e) => setCheckForm({ ...checkForm, checkNumber: e.target.value })}
+                    placeholder="e.g. 1042"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Amount *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={checkForm.amount}
+                    onChange={(e) => setCheckForm({ ...checkForm, amount: e.target.value })}
+                    placeholder="0.00"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Deposit to Account (QuickBooks)</label>
+                <select
+                  value={checkForm.depositAccount}
+                  onChange={(e) => setCheckForm({ ...checkForm, depositAccount: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
+                >
+                  <option value="">— Select bank account —</option>
+                  {qbBankAccounts.map((acct) => (
+                    <option key={acct.qbo_account_id} value={acct.qbo_account_id}>
+                      {acct.account_number ? `${acct.account_number} - ` : ''}{acct.account_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Notes (optional)</label>
+                <input
+                  type="text"
+                  value={checkForm.notes}
+                  onChange={(e) => setCheckForm({ ...checkForm, notes: e.target.value })}
+                  placeholder="e.g. received at front desk"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
+                />
+              </div>
+
+              {checkForm.amount && parseFloat(checkForm.amount) > 0 && (
+                <div className={`p-3 rounded-lg text-xs font-medium ${parseFloat(checkForm.amount) >= (selectedInvoice.balance_due ?? selectedInvoice.total_amount) ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-yellow-50 text-yellow-700 border border-yellow-200'}`}>
+                  {parseFloat(checkForm.amount) >= (selectedInvoice.balance_due ?? selectedInvoice.total_amount)
+                    ? 'This will mark the invoice as fully paid.'
+                    : `Partial payment — $${((selectedInvoice.balance_due ?? selectedInvoice.total_amount) - parseFloat(checkForm.amount)).toFixed(2)} will remain due.`}
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3 px-5 pb-5">
+              <button
+                onClick={() => setCheckPaymentModal(false)}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRecordCheckPayment}
+                disabled={checkPaymentLoading || !checkForm.checkNumber.trim() || !checkForm.amount}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 text-sm font-semibold disabled:opacity-50"
+              >
+                <FileText className="w-4 h-4" />
+                {checkPaymentLoading ? 'Recording...' : 'Record Payment'}
               </button>
             </div>
           </div>
