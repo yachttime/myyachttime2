@@ -77,6 +77,11 @@ export function Estimates({ userId }: EstimatesProps) {
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const editingIdRef = React.useRef<string | null>(null);
+  const setEditingIdSync = (id: string | null) => {
+    editingIdRef.current = id;
+    setEditingId(id);
+  };
   const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
 
   const [formData, setFormData] = useState({
@@ -172,7 +177,7 @@ export function Estimates({ userId }: EstimatesProps) {
       const draftData = {
         formData,
         tasks,
-        editingId,
+        editingId: editingIdRef.current,
         timestamp: new Date().toISOString()
       };
       localStorage.setItem('estimate_draft', JSON.stringify(draftData));
@@ -329,7 +334,7 @@ export function Estimates({ userId }: EstimatesProps) {
       const allTaskIndexes = restoredTasks.map((_: any, index: number) => index);
       setExpandedTasks(new Set(allTaskIndexes));
       if (draftToRestore.editingId) {
-        setEditingId(draftToRestore.editingId);
+        setEditingIdSync(draftToRestore.editingId);
       }
       setShowForm(true);
     }
@@ -1020,7 +1025,7 @@ export function Estimates({ userId }: EstimatesProps) {
     setShowCustomerDropdown(false);
     setTasks([]);
     setShowForm(false);
-    setEditingId(null);
+    setEditingIdSync(null);
     setShowTaskForm(false);
     setEditingTaskIndex(null);
     setExpandedTasks(new Set());
@@ -1183,7 +1188,7 @@ export function Estimates({ userId }: EstimatesProps) {
       const allTaskIndexes = loadedTasks.map((_, index) => index);
       setExpandedTasks(new Set(allTaskIndexes));
 
-      setEditingId(estimateId);
+      setEditingIdSync(estimateId);
       setShowForm(true);
       setLoading(false);
     } catch (err) {
@@ -1435,7 +1440,7 @@ export function Estimates({ userId }: EstimatesProps) {
         <h2 className="text-2xl font-bold text-gray-900">Estimates</h2>
         <button
           onClick={() => {
-            setEditingId(null);
+            setEditingIdSync(null);
             setFormData({
               is_retail_customer: false,
               yacht_id: '',
