@@ -84,7 +84,7 @@ export function LaborCodes({ userId }: LaborCodesProps) {
             internal_code_id,
             qbo_account:quickbooks_accounts (account_name, account_number)
           `)
-          .eq('internal_code_type', 'labor')
+          .eq('internal_code_type', 'labor_code')
       ]);
 
       if (laborResult.error) throw laborResult.error;
