@@ -2011,6 +2011,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                       >
                         <option value="card">Credit/Debit Card</option>
                         <option value="ach">ACH Bank Transfer</option>
+                        <option value="both">Both Credit Card and ACH</option>
                       </select>
                     </div>
                   </div>
