@@ -1733,13 +1733,13 @@ export function Estimates({ userId }: EstimatesProps) {
                     </div>
 
                     {showNewVesselForm && (
-                      <div className="rounded-xl border border-blue-500/40 bg-[#0f1e3a] p-4 space-y-3 mb-3 shadow-lg">
+                      <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-3 mb-3 shadow-sm">
                         <div className="flex items-center justify-between">
-                          <h5 className="text-sm font-semibold text-white">Quick Add Vessel</h5>
+                          <h5 className="text-sm font-semibold text-gray-800">Quick Add Vessel</h5>
                           <button
                             type="button"
                             onClick={() => { setShowNewVesselForm(false); setNewVesselForm({ vessel_name: '', manufacturer: '', model: '', year: '' }); }}
-                            className="text-gray-400 hover:text-white transition-colors"
+                            className="text-gray-400 hover:text-gray-600 transition-colors"
                           >
                             <X className="w-4 h-4" />
                           </button>
@@ -1749,7 +1749,7 @@ export function Estimates({ userId }: EstimatesProps) {
                           placeholder="Vessel Name *"
                           value={newVesselForm.vessel_name}
                           onChange={(e) => setNewVesselForm({ ...newVesselForm, vessel_name: e.target.value })}
-                          className="w-full px-3 py-2.5 rounded-lg bg-[#162040] border border-[#1e3560] text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                         <div className="grid grid-cols-2 gap-3">
                           <input
@@ -1757,14 +1757,14 @@ export function Estimates({ userId }: EstimatesProps) {
                             placeholder="Manufacturer"
                             value={newVesselForm.manufacturer}
                             onChange={(e) => setNewVesselForm({ ...newVesselForm, manufacturer: e.target.value })}
-                            className="px-3 py-2.5 rounded-lg bg-[#162040] border border-[#1e3560] text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500"
+                            className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                           <input
                             type="text"
                             placeholder="Model"
                             value={newVesselForm.model}
                             onChange={(e) => setNewVesselForm({ ...newVesselForm, model: e.target.value })}
-                            className="px-3 py-2.5 rounded-lg bg-[#162040] border border-[#1e3560] text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500"
+                            className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         </div>
                         <input
@@ -1772,7 +1772,7 @@ export function Estimates({ userId }: EstimatesProps) {
                           placeholder="Year"
                           value={newVesselForm.year}
                           onChange={(e) => setNewVesselForm({ ...newVesselForm, year: e.target.value })}
-                          className="w-full px-3 py-2.5 rounded-lg bg-[#162040] border border-[#1e3560] text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                         <button
                           type="button"
