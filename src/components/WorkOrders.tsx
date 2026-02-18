@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, Wrench, AlertCircle, Edit2, Trash2, Check, X, ChevronDown, ChevronUp, Printer, CheckCircle, Clock } from 'lucide-react';
+import { Plus, Wrench, AlertCircle, Edit2, Trash2, Check, X, ChevronDown, ChevronUp, Printer, CheckCircle, Clock, FileText } from 'lucide-react';
 import { generateWorkOrderPDF } from '../utils/pdfGenerator';
 import { useNotification } from '../contexts/NotificationContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -791,6 +791,30 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
     } catch (err: any) {
       console.error('Error completing work order:', err);
       setError(err.message || 'Failed to complete work order');
+    }
+  };
+
+  const handleConvertToInvoice = async (workOrderId: string) => {
+    if (!window.confirm('Convert this completed work order to an invoice? This will create a new invoice record.')) {
+      return;
+    }
+
+    try {
+      setError(null);
+
+      const { data, error: convertError } = await supabase
+        .rpc('convert_work_order_to_invoice', {
+          p_work_order_id: workOrderId,
+          p_user_id: userId
+        });
+
+      if (convertError) throw convertError;
+
+      showSuccess('Work order converted to invoice successfully!');
+      await loadData();
+    } catch (err: any) {
+      console.error('Error converting to invoice:', err);
+      setError(err.message || 'Failed to convert work order to invoice');
     }
   };
 
@@ -1814,13 +1838,22 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                       </>
                     )}
                     {workOrder.status === 'completed' && (
-                      <button
-                        onClick={() => handlePreviewTimeEntries(workOrder.id)}
-                        className="text-blue-600 hover:text-blue-800"
-                        title="Create time entries from labor hours"
-                      >
-                        <Clock className="w-4 h-4" />
-                      </button>
+                      <>
+                        <button
+                          onClick={() => handleConvertToInvoice(workOrder.id)}
+                          className="text-green-600 hover:text-green-800"
+                          title="Convert to invoice"
+                        >
+                          <FileText className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handlePreviewTimeEntries(workOrder.id)}
+                          className="text-blue-600 hover:text-blue-800"
+                          title="Create time entries from labor hours"
+                        >
+                          <Clock className="w-4 h-4" />
+                        </button>
+                      </>
                     )}
                     <button
                       onClick={() => handlePrintWorkOrder(workOrder.id)}
