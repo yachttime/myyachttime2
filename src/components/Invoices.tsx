@@ -100,6 +100,7 @@ export function Invoices({ userId }: InvoicesProps) {
   const [syncPaymentLoading, setSyncPaymentLoading] = useState(false);
   const [regenerateLoading, setRegenerateLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [emailPrompt, setEmailPrompt] = useState<{ invoice: Invoice; email: string } | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
   const { confirm, ConfirmDialog } = useConfirm();
 
@@ -645,13 +646,16 @@ export function Invoices({ userId }: InvoicesProps) {
 
   async function handleRequestPayment(invoice: Invoice) {
     if (!invoice.customer_email) {
-      showToast('No email address on file for this customer', 'error');
+      setEmailPrompt({ invoice, email: '' });
       return;
     }
+    await generatePaymentLink(invoice, invoice.customer_email);
+  }
 
+  async function generatePaymentLink(invoice: Invoice, recipientEmail: string) {
     const confirmed = await confirm({
       title: 'Generate Payment Link',
-      message: `Send payment request for invoice ${invoice.invoice_number} to ${invoice.customer_email}?`,
+      message: `Send payment request for invoice ${invoice.invoice_number} to ${recipientEmail}?`,
       confirmText: 'Generate & Send',
       variant: 'info'
     });
@@ -675,7 +679,7 @@ export function Invoices({ userId }: InvoicesProps) {
           },
           body: JSON.stringify({
             invoiceId: invoice.id,
-            recipientEmail: invoice.customer_email
+            recipientEmail
           })
         }
       );
@@ -684,6 +688,8 @@ export function Invoices({ userId }: InvoicesProps) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to create payment link');
       }
+
+      await supabase.from('estimating_invoices').update({ customer_email: recipientEmail }).eq('id', invoice.id);
 
       showToast('Payment link generated successfully!', 'success');
 
@@ -1510,6 +1516,53 @@ export function Invoices({ userId }: InvoicesProps) {
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 Archive
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {emailPrompt && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[60] p-4">
+          <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 max-w-md w-full shadow-xl">
+            <h3 className="text-lg font-semibold text-white mb-2">Enter Customer Email</h3>
+            <p className="text-sm text-slate-400 mb-4">
+              No email on file for this invoice. Enter an email address to generate and send the payment link.
+            </p>
+            <input
+              type="email"
+              value={emailPrompt.email}
+              onChange={(e) => setEmailPrompt({ ...emailPrompt, email: e.target.value })}
+              placeholder="customer@example.com"
+              className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500 mb-4"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && emailPrompt.email) {
+                  const inv = emailPrompt.invoice;
+                  const email = emailPrompt.email;
+                  setEmailPrompt(null);
+                  generatePaymentLink(inv, email);
+                }
+              }}
+              autoFocus
+            />
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setEmailPrompt(null)}
+                className="px-4 py-2 text-slate-300 bg-slate-700 rounded-lg hover:bg-slate-600 transition-colors text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (!emailPrompt.email) return;
+                  const inv = emailPrompt.invoice;
+                  const email = emailPrompt.email;
+                  setEmailPrompt(null);
+                  generatePaymentLink(inv, email);
+                }}
+                disabled={!emailPrompt.email}
+                className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm disabled:opacity-50"
+              >
+                Generate & Send
               </button>
             </div>
           </div>
