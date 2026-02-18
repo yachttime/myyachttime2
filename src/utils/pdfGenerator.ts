@@ -1157,9 +1157,63 @@ export async function generateEstimatePDF(
     },
     margin: { left: margin, right: margin },
     didDrawPage: (data: any) => {
-      yPos = data.cursor.y + 0.2;
+      yPos = data.cursor.y;
     }
   });
+
+  // Check if deposit has been applied (for work order)
+  const depositApplied = (typeof workOrder !== 'undefined' && workOrder.deposit_amount && workOrder.deposit_paid_at) ? workOrder.deposit_amount : 0;
+
+  if (depositApplied > 0) {
+    yPos += 0.1;
+
+    autoTable(doc, {
+      startY: yPos,
+      body: [['Deposit Applied:', `-$${depositApplied.toFixed(2)}`]],
+      theme: 'plain',
+      styles: {
+        fontSize: 8,
+        cellPadding: 0.0375,
+        font: 'helvetica'
+      },
+      columnStyles: {
+        0: { halign: 'right', cellWidth: 5.5 },
+        1: { halign: 'right', cellWidth: 1.2 }
+      },
+      margin: { left: margin, right: margin },
+      didDrawPage: (data: any) => {
+        yPos = data.cursor.y;
+      }
+    });
+
+    doc.setLineWidth(0.03);
+    doc.line(margin + 3.5, yPos, pageWidth - margin, yPos);
+    yPos += 0.1125;
+
+    const balanceDue = estimate.total_amount - depositApplied;
+
+    autoTable(doc, {
+      startY: yPos,
+      body: [['BALANCE DUE:', `$${balanceDue.toFixed(2)}`]],
+      theme: 'plain',
+      styles: {
+        fontSize: 9,
+        cellPadding: 0.0375,
+        font: 'helvetica',
+        fontStyle: 'bold'
+      },
+      columnStyles: {
+        0: { halign: 'right', cellWidth: 5.5 },
+        1: { halign: 'right', cellWidth: 1.2 }
+      },
+      margin: { left: margin, right: margin },
+      didDrawPage: (data: any) => {
+        yPos = data.cursor.y + 0.2;
+      }
+    });
+  } else {
+    yPos += 0.2;
+  }
 
   if (estimate.notes) {
     addSpace(0.15);
@@ -1634,9 +1688,63 @@ export async function generateWorkOrderPDF(
     },
     margin: { left: margin, right: margin },
     didDrawPage: (data: any) => {
-      yPos = data.cursor.y + 0.2;
+      yPos = data.cursor.y;
     }
   });
+
+  // Check if deposit has been applied (for work order)
+  const depositApplied = (typeof workOrder !== 'undefined' && workOrder.deposit_amount && workOrder.deposit_paid_at) ? workOrder.deposit_amount : 0;
+
+  if (depositApplied > 0) {
+    yPos += 0.1;
+
+    autoTable(doc, {
+      startY: yPos,
+      body: [['Deposit Applied:', `-$${depositApplied.toFixed(2)}`]],
+      theme: 'plain',
+      styles: {
+        fontSize: 8,
+        cellPadding: 0.0375,
+        font: 'helvetica'
+      },
+      columnStyles: {
+        0: { halign: 'right', cellWidth: 5.5 },
+        1: { halign: 'right', cellWidth: 1.2 }
+      },
+      margin: { left: margin, right: margin },
+      didDrawPage: (data: any) => {
+        yPos = data.cursor.y;
+      }
+    });
+
+    doc.setLineWidth(0.03);
+    doc.line(margin + 3.5, yPos, pageWidth - margin, yPos);
+    yPos += 0.1125;
+
+    const balanceDue = estimate.total_amount - depositApplied;
+
+    autoTable(doc, {
+      startY: yPos,
+      body: [['BALANCE DUE:', `$${balanceDue.toFixed(2)}`]],
+      theme: 'plain',
+      styles: {
+        fontSize: 9,
+        cellPadding: 0.0375,
+        font: 'helvetica',
+        fontStyle: 'bold'
+      },
+      columnStyles: {
+        0: { halign: 'right', cellWidth: 5.5 },
+        1: { halign: 'right', cellWidth: 1.2 }
+      },
+      margin: { left: margin, right: margin },
+      didDrawPage: (data: any) => {
+        yPos = data.cursor.y + 0.2;
+      }
+    });
+  } else {
+    yPos += 0.2;
+  }
 
   if (estimate.notes) {
     addSpace(0.15);
