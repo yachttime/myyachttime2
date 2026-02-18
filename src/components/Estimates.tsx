@@ -218,7 +218,7 @@ export function Estimates({ userId }: EstimatesProps) {
       const [estimatesResult, yachtsResult, managersResult, laborResult, partsResult, mercuryResult, settingsResult, packagesResult, customersResult] = await Promise.all([
         supabase
           .from('estimates')
-          .select('*, yachts(name, manufacturer, model)')
+          .select('*, yachts(name, manufacturer, model), customer_vessels(vessel_name, manufacturer, model)')
           .neq('status', 'converted')
           .eq('archived', false)
           .order('created_at', { ascending: false }),
@@ -834,6 +834,7 @@ export function Estimates({ userId }: EstimatesProps) {
         // Update existing estimate
         const estimateData = {
           yacht_id: formData.is_retail_customer ? null : formData.yacht_id,
+          customer_vessel_id: formData.is_retail_customer ? (formData.vessel_id || null) : null,
           customer_name: formData.customer_name || null,
           customer_email: formData.customer_email || null,
           customer_phone: formData.customer_phone || null,
@@ -877,6 +878,7 @@ export function Estimates({ userId }: EstimatesProps) {
         const estimateData = {
           estimate_number: estimateNumber,
           yacht_id: formData.is_retail_customer ? null : formData.yacht_id,
+          customer_vessel_id: formData.is_retail_customer ? (formData.vessel_id || null) : null,
           customer_name: formData.customer_name || null,
           customer_email: formData.customer_email || null,
           customer_phone: formData.customer_phone || null,
@@ -1145,8 +1147,32 @@ export function Estimates({ userId }: EstimatesProps) {
         deposit_required: estimate.deposit_required,
         deposit_type: estimate.deposit_amount ? 'fixed' : 'percentage',
         deposit_percentage: estimate.deposit_percentage?.toString() || '',
-        deposit_amount: estimate.deposit_amount?.toString() || ''
+        deposit_amount: estimate.deposit_amount?.toString() || '',
+        vessel_id: estimate.customer_vessel_id || ''
       });
+
+      // If retail customer, find matching customer and load their vessels
+      if (estimate.is_retail_customer && estimate.customer_name) {
+        setCustomerSearch(estimate.customer_name);
+        const matchingCustomer = customers.find(c => {
+          const displayName = `${c.first_name} ${c.last_name}`.trim();
+          return displayName === estimate.customer_name || c.company_name === estimate.customer_name;
+        });
+        if (matchingCustomer) {
+          setSelectedCustomerId(matchingCustomer.id);
+          await loadCustomerVessels(matchingCustomer.id);
+        } else {
+          const { data: customerData } = await supabase
+            .from('customers')
+            .select('id')
+            .or(`company_name.eq.${estimate.customer_name}`)
+            .maybeSingle();
+          if (customerData) {
+            setSelectedCustomerId(customerData.id);
+            await loadCustomerVessels(customerData.id);
+          }
+        }
+      }
 
       // Group line items by task_id
       const lineItemsByTask: Record<string, any[]> = {};
@@ -2773,7 +2799,18 @@ export function Estimates({ userId }: EstimatesProps) {
                 </td>
                 <td className="px-6 py-4">
                   {estimate.is_retail_customer ? (
-                    <span className="text-sm text-gray-500">—</span>
+                    estimate.customer_vessels ? (
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">{estimate.customer_vessels.vessel_name}</div>
+                        {(estimate.customer_vessels.manufacturer || estimate.customer_vessels.model) && (
+                          <div className="text-xs text-gray-500">
+                            {[estimate.customer_vessels.manufacturer, estimate.customer_vessels.model].filter(Boolean).join(' ')}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-sm text-gray-400">—</span>
+                    )
                   ) : (
                     <div>
                       <div className="text-sm font-medium text-gray-900">{estimate.yachts?.name || '—'}</div>
