@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Receipt, Search, Printer, Mail, DollarSign, Eye, CheckCircle, Clock, XCircle, ExternalLink, Archive, RotateCcw } from 'lucide-react';
+import { Receipt, Search, Printer, Mail, DollarSign, Eye, CheckCircle, Clock, XCircle, ExternalLink, Archive, RotateCcw, RefreshCw, X, Copy, CreditCard } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -79,6 +79,9 @@ export function Invoices({ userId }: InvoicesProps) {
   const [workOrderTasks, setWorkOrderTasks] = useState<WorkOrderTask[]>([]);
   const [workOrderLineItems, setWorkOrderLineItems] = useState<WorkOrderLineItem[]>([]);
   const [paymentLoading, setPaymentLoading] = useState(false);
+  const [syncPaymentLoading, setSyncPaymentLoading] = useState(false);
+  const [regenerateLoading, setRegenerateLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   useEffect(() => {
     fetchInvoices();
@@ -683,6 +686,216 @@ export function Invoices({ userId }: InvoicesProps) {
     }
   }
 
+  async function handleSyncPaymentStatus() {
+    if (!selectedInvoice) return;
+
+    setSyncPaymentLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Not authenticated');
+      }
+
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-stripe-payment`;
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          estimating_invoice_id: selectedInvoice.id
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        alert(result.message || 'Payment status synced successfully!');
+        await fetchInvoices();
+
+        // Refresh selected invoice
+        const updatedInvoice = invoices.find(inv => inv.id === selectedInvoice.id);
+        if (updatedInvoice) {
+          setSelectedInvoice(updatedInvoice);
+        }
+      } else {
+        alert(result.message || 'Payment not yet completed in Stripe');
+      }
+    } catch (error: any) {
+      console.error('Error syncing payment status:', error);
+      alert(`Error: ${error.message || 'Failed to sync payment status'}`);
+    } finally {
+      setSyncPaymentLoading(false);
+    }
+  }
+
+  async function handleRegeneratePaymentLink() {
+    if (!selectedInvoice) return;
+
+    if (!confirm('This will delete the expired payment link and create a new one. Continue?')) {
+      return;
+    }
+
+    setRegenerateLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Not authenticated');
+      }
+
+      // First delete the old link
+      const deleteApiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-invoice-payment-link`;
+      const deleteResponse = await fetch(deleteApiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          estimatingInvoiceId: selectedInvoice.id
+        })
+      });
+
+      const deleteResult = await deleteResponse.json();
+      if (!deleteResult.success) {
+        throw new Error(deleteResult.error || 'Failed to delete old payment link');
+      }
+
+      // Then create a new one
+      const createApiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-estimating-invoice-payment`;
+      const createResponse = await fetch(createApiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          invoiceId: selectedInvoice.id
+        })
+      });
+
+      const createResult = await createResponse.json();
+      if (!createResult.success) {
+        throw new Error(createResult.error || 'Failed to create new payment link');
+      }
+
+      alert('Payment link regenerated successfully!');
+      await fetchInvoices();
+
+      // Refresh selected invoice
+      const updatedInvoice = invoices.find(inv => inv.id === selectedInvoice.id);
+      if (updatedInvoice) {
+        setSelectedInvoice(updatedInvoice);
+      }
+    } catch (error: any) {
+      console.error('Error regenerating payment link:', error);
+      alert(`Error: ${error.message || 'Failed to regenerate payment link'}`);
+    } finally {
+      setRegenerateLoading(false);
+    }
+  }
+
+  async function handleDeletePaymentLink() {
+    if (!selectedInvoice) return;
+
+    if (!confirm('Are you sure you want to delete this payment link? You can generate a new one after making changes to the invoice.')) {
+      return;
+    }
+
+    setDeleteLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Not authenticated');
+      }
+
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-invoice-payment-link`;
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          estimatingInvoiceId: selectedInvoice.id
+        })
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to delete payment link');
+      }
+
+      alert('Payment link deleted successfully! You can now edit the invoice and generate a new payment link');
+      await fetchInvoices();
+
+      // Refresh selected invoice
+      const updatedInvoice = invoices.find(inv => inv.id === selectedInvoice.id);
+      if (updatedInvoice) {
+        setSelectedInvoice(updatedInvoice);
+      }
+    } catch (error: any) {
+      console.error('Error deleting payment link:', error);
+      alert(`Error: ${error.message || 'Failed to delete payment link'}`);
+    } finally {
+      setDeleteLoading(false);
+    }
+  }
+
+  async function handleEmailPaymentLink() {
+    if (!selectedInvoice || !selectedInvoice.customer_email) {
+      alert('No email address on file for this customer');
+      return;
+    }
+
+    if (!confirm(`Send payment link to ${selectedInvoice.customer_email}?`)) {
+      return;
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-payment-link-email`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            estimatingInvoiceId: selectedInvoice.id,
+            recipientEmail: selectedInvoice.customer_email
+          })
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to send email');
+      }
+
+      alert('Payment link email sent successfully!');
+      await fetchInvoices();
+
+      // Refresh selected invoice
+      const updatedInvoice = invoices.find(inv => inv.id === selectedInvoice.id);
+      if (updatedInvoice) {
+        setSelectedInvoice(updatedInvoice);
+      }
+    } catch (error: any) {
+      console.error('Error sending email:', error);
+      alert(error.message || 'Failed to send payment link email');
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -1054,71 +1267,117 @@ export function Invoices({ userId }: InvoicesProps) {
                         <span className="font-semibold">Balance Due:</span> ${(selectedInvoice.balance_due || selectedInvoice.total_amount).toFixed(2)}
                       </p>
 
-                      {!selectedInvoice.payment_link && (
+                      {selectedInvoice.payment_link && (
+                        <div className="mt-3 pt-3 border-t border-green-500/20">
+                          <p className="text-xs font-semibold text-gray-700 mb-2">Payment Link:</p>
+                          <div className="bg-gray-50 p-3 rounded border border-gray-200 mb-3">
+                            <input
+                              type="text"
+                              value={selectedInvoice.payment_link}
+                              readOnly
+                              className="w-full text-xs bg-transparent border-none focus:outline-none text-gray-700 font-mono"
+                            />
+                          </div>
+
+                          <div className="flex flex-wrap gap-2 mb-3">
+                            <button
+                              onClick={() => handleCopyPaymentLink(selectedInvoice)}
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1"
+                            >
+                              <Copy className="w-3 h-3" />
+                              Copy
+                            </button>
+                            <button
+                              onClick={handleEmailPaymentLink}
+                              className="bg-cyan-600 hover:bg-cyan-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1"
+                            >
+                              <Mail className="w-3 h-3" />
+                              Email
+                            </button>
+                          </div>
+
+                          {selectedInvoice.payment_email_sent_at && (
+                            <>
+                              <p className="text-xs font-semibold text-gray-700 mb-2">Email Engagement</p>
+                              <div className="space-y-1 mb-3">
+                                {selectedInvoice.payment_email_recipient && (
+                                  <div className="flex items-center gap-2 text-xs text-blue-700">
+                                    <Mail className="w-3 h-3" />
+                                    <span>To: {selectedInvoice.payment_email_recipient}</span>
+                                  </div>
+                                )}
+                                <p className="text-xs text-gray-600">
+                                  Sent: {new Date(selectedInvoice.payment_email_sent_at).toLocaleString()}
+                                </p>
+                                {selectedInvoice.payment_email_delivered_at && (
+                                  <p className="text-xs text-green-600 flex items-center gap-1">
+                                    <CheckCircle className="w-3 h-3" />
+                                    Delivered: {new Date(selectedInvoice.payment_email_delivered_at).toLocaleString()}
+                                  </p>
+                                )}
+                                {selectedInvoice.payment_email_opened_at && (
+                                  <p className="text-xs text-blue-600 flex items-center gap-1">
+                                    <Eye className="w-3 h-3" />
+                                    Opened: {new Date(selectedInvoice.payment_email_opened_at).toLocaleString()} {selectedInvoice.payment_email_clicked_at && '3x'}
+                                  </p>
+                                )}
+                                {selectedInvoice.payment_email_clicked_at && (
+                                  <p className="text-xs text-purple-600 flex items-center gap-1">
+                                    <ExternalLink className="w-3 h-3" />
+                                    Clicked: {new Date(selectedInvoice.payment_email_clicked_at).toLocaleString()}
+                                  </p>
+                                )}
+                                {selectedInvoice.payment_email_bounced_at && (
+                                  <p className="text-xs text-red-600 flex items-center gap-1">
+                                    <XCircle className="w-3 h-3" />
+                                    Bounced: {new Date(selectedInvoice.payment_email_bounced_at).toLocaleString()}
+                                  </p>
+                                )}
+                              </div>
+                            </>
+                          )}
+
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              onClick={handleSyncPaymentStatus}
+                              disabled={syncPaymentLoading}
+                              className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 disabled:opacity-50"
+                            >
+                              <RefreshCw className="w-3 h-3" />
+                              {syncPaymentLoading ? 'Syncing...' : 'Sync Payment'}
+                            </button>
+                            <button
+                              onClick={handleRegeneratePaymentLink}
+                              disabled={regenerateLoading}
+                              className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 disabled:opacity-50"
+                            >
+                              <CreditCard className="w-3 h-3" />
+                              {regenerateLoading ? 'Regenerating...' : 'Regenerate Payment Link'}
+                            </button>
+                            <button
+                              onClick={handleDeletePaymentLink}
+                              disabled={deleteLoading}
+                              className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 disabled:opacity-50"
+                            >
+                              <X className="w-3 h-3" />
+                              {deleteLoading ? 'Deleting...' : 'Delete Payment Link'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {!selectedInvoice.payment_link && selectedInvoice.payment_status === 'pending' && (
                         <div className="mt-3 pt-3 border-t border-green-500/20 flex flex-col items-center justify-center gap-3 py-4">
                           <p className="text-sm text-gray-600 font-medium">No payment link generated yet</p>
                           <button
                             onClick={() => handleRequestPayment(selectedInvoice)}
                             disabled={paymentLoading}
                             type="button"
-                            className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg text-base font-bold transition-all flex items-center gap-2 disabled:opacity-50 shadow-lg hover:shadow-xl"
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-lg text-base font-bold transition-all flex items-center gap-2 disabled:opacity-50 shadow-lg hover:shadow-xl"
                           >
-                            <DollarSign className="w-5 h-5" />
-                            {paymentLoading ? 'Generating Payment Link...' : 'Request Payment'}
+                            <CreditCard className="w-5 h-5" />
+                            {paymentLoading ? 'Generating...' : 'Generate Payment Link'}
                           </button>
-                        </div>
-                      )}
-
-                      {selectedInvoice.payment_email_sent_at && (
-                        <div className="mt-3 pt-3 border-t border-green-500/20">
-                          <p className="text-xs font-semibold text-gray-700 mb-2">Email Tracking</p>
-                          <div className="space-y-1">
-                            {selectedInvoice.payment_email_recipient && (
-                              <div className="flex items-center gap-2 text-xs text-blue-700 mb-2">
-                                <Mail className="w-3 h-3" />
-                                <span>Sent to: {selectedInvoice.payment_email_recipient}</span>
-                              </div>
-                            )}
-                            <p className="text-xs text-gray-600">
-                              Sent: {new Date(selectedInvoice.payment_email_sent_at).toLocaleDateString()} at {new Date(selectedInvoice.payment_email_sent_at).toLocaleTimeString()}
-                            </p>
-                            {selectedInvoice.payment_email_delivered_at && (
-                              <p className="text-xs text-green-600 flex items-center gap-1">
-                                <CheckCircle className="w-3 h-3" />
-                                Delivered: {new Date(selectedInvoice.payment_email_delivered_at).toLocaleDateString()} at {new Date(selectedInvoice.payment_email_delivered_at).toLocaleTimeString()}
-                              </p>
-                            )}
-                            {selectedInvoice.payment_email_opened_at && (
-                              <p className="text-xs text-blue-600 flex items-center gap-1">
-                                <Eye className="w-3 h-3" />
-                                Opened: {new Date(selectedInvoice.payment_email_opened_at).toLocaleDateString()} at {new Date(selectedInvoice.payment_email_opened_at).toLocaleTimeString()}
-                              </p>
-                            )}
-                            {selectedInvoice.payment_email_clicked_at && (
-                              <p className="text-xs text-purple-600 flex items-center gap-1">
-                                <ExternalLink className="w-3 h-3" />
-                                Link Clicked: {new Date(selectedInvoice.payment_email_clicked_at).toLocaleDateString()} at {new Date(selectedInvoice.payment_email_clicked_at).toLocaleTimeString()}
-                              </p>
-                            )}
-                            {selectedInvoice.payment_email_bounced_at && (
-                              <p className="text-xs text-red-600 flex items-center gap-1">
-                                <XCircle className="w-3 h-3" />
-                                Bounced: {new Date(selectedInvoice.payment_email_bounced_at).toLocaleDateString()}
-                              </p>
-                            )}
-                          </div>
-
-                          {selectedInvoice.payment_link && (
-                            <div className="mt-3">
-                              <button
-                                onClick={() => handleCopyPaymentLink(selectedInvoice)}
-                                className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2"
-                              >
-                                <ExternalLink className="w-4 h-4" />
-                                Copy Payment Link
-                              </button>
-                            </div>
-                          )}
                         </div>
                       )}
                     </div>
