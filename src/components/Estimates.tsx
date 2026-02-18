@@ -2177,18 +2177,19 @@ export function Estimates({ userId }: EstimatesProps) {
         </div>
       )}
 
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-gray-50 border-b border-gray-200">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Estimate #</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Customer</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Status</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase">Total</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase">Date</th>
-              <th className="px-6 py-3 text-center text-xs font-medium text-gray-700 uppercase">Actions</th>
-            </tr>
-          </thead>
+      {!showForm && (
+        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Estimate #</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Customer</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Status</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase">Total</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase">Date</th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-700 uppercase">Actions</th>
+              </tr>
+            </thead>
           <tbody className="divide-y divide-gray-200">
             {estimates.map((estimate) => (
               <tr key={estimate.id} className="hover:bg-gray-50">
@@ -2226,7 +2227,8 @@ export function Estimates({ userId }: EstimatesProps) {
             ))}
           </tbody>
         </table>
-      </div>
+        </div>
+      )}
 
       {showApproveModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
