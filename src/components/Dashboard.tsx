@@ -3952,29 +3952,26 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       // Then, enrich with user and yacht data
       if (messagesData && messagesData.length > 0) {
-        const enrichedMessages = await Promise.all(
-          messagesData.map(async (msg) => {
-            // Get user profile
-            const { data: profileData } = await supabase
-              .from('user_profiles')
-              .select('first_name, last_name')
-              .eq('user_id', msg.user_id)
-              .single();
+        const uniqueUserIds = [...new Set(messagesData.map(m => m.user_id).filter(Boolean))];
+        const uniqueYachtIds = [...new Set(messagesData.map(m => m.yacht_id).filter(Boolean))];
 
-            // Get yacht name
-            const { data: yachtData } = await supabase
-              .from('yachts')
-              .select('name')
-              .eq('id', msg.yacht_id)
-              .single();
+        const [profilesRes, yachtsRes] = await Promise.all([
+          uniqueUserIds.length > 0
+            ? supabase.from('user_profiles').select('user_id, first_name, last_name').in('user_id', uniqueUserIds)
+            : Promise.resolve({ data: [] }),
+          uniqueYachtIds.length > 0
+            ? supabase.from('yachts').select('id, name').in('id', uniqueYachtIds)
+            : Promise.resolve({ data: [] })
+        ]);
 
-            return {
-              ...msg,
-              user_profiles: profileData,
-              yachts: yachtData
-            };
-          })
-        );
+        const profileMap = new Map((profilesRes.data || []).map((p: any) => [p.user_id, p]));
+        const yachtMap = new Map((yachtsRes.data || []).map((y: any) => [y.id, y]));
+
+        const enrichedMessages = messagesData.map(msg => ({
+          ...msg,
+          user_profiles: profileMap.get(msg.user_id) || null,
+          yachts: yachtMap.get(msg.yacht_id) || null
+        }));
 
         setChatMessages(enrichedMessages);
       } else {
