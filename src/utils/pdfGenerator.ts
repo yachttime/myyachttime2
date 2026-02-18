@@ -754,7 +754,9 @@ export async function generateEstimatePDF(
   estimate: any,
   tasks: any[],
   yachtName: string | null,
-  companyInfo?: any
+  companyInfo?: any,
+  yachtMake?: string | null,
+  yachtModel?: string | null
 ): Promise<jsPDF> {
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -998,8 +1000,25 @@ export async function generateEstimatePDF(
       yPos += 0.13;
     }
   } else {
-    doc.text(`Yacht: ${yachtName || 'N/A'}`, rightColumnX, yPos);
+    doc.text(`Vessel: ${yachtName || 'N/A'}`, rightColumnX, yPos);
     yPos += 0.13;
+    if (yachtMake || yachtModel) {
+      const makeModel = [yachtMake, yachtModel].filter(Boolean).join(' ');
+      doc.text(`Make/Model: ${makeModel}`, rightColumnX, yPos);
+      yPos += 0.13;
+    }
+    if (estimate.customer_name) {
+      doc.text(`Customer: ${estimate.customer_name}`, rightColumnX, yPos);
+      yPos += 0.13;
+    }
+    if (estimate.customer_email) {
+      doc.text(`Email: ${estimate.customer_email}`, rightColumnX, yPos);
+      yPos += 0.13;
+    }
+    if (estimate.customer_phone) {
+      doc.text(`Phone: ${estimate.customer_phone}`, rightColumnX, yPos);
+      yPos += 0.13;
+    }
     if (estimate.marina_name) {
       doc.text(`Marina: ${estimate.marina_name}`, rightColumnX, yPos);
       yPos += 0.13;

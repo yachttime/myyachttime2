@@ -1377,7 +1377,7 @@ export function Estimates({ userId }: EstimatesProps) {
 
       const { data: estimateData, error: estimateError } = await supabase
         .from('estimates')
-        .select('*, yachts(name)')
+        .select('*, yachts(name, manufacturer, model)')
         .eq('id', estimateId)
         .single();
 
@@ -1417,7 +1417,9 @@ export function Estimates({ userId }: EstimatesProps) {
       );
 
       const yachtName = estimateData.yachts?.name || null;
-      const pdf = await generateEstimatePDF(estimateData, tasksWithLineItems, yachtName, companyInfo);
+      const yachtMake = estimateData.yachts?.manufacturer || null;
+      const yachtModel = estimateData.yachts?.model || null;
+      const pdf = await generateEstimatePDF(estimateData, tasksWithLineItems, yachtName, companyInfo, yachtMake, yachtModel);
 
       const pdfBlob = pdf.output('blob');
       const pdfUrl = URL.createObjectURL(pdfBlob);
