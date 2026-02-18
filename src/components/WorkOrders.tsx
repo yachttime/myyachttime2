@@ -2040,17 +2040,17 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                       <span className="font-semibold">Amount:</span> ${parseFloat(editingWorkOrder.deposit_amount || '0').toFixed(2)}
                     </p>
 
-                    {!editingWorkOrder.deposit_payment_link_url && (
-                      <div className="mt-3 pt-3 border-t border-cyan-500/20">
-                        <p className="text-xs text-gray-600 mb-2">No payment link generated yet</p>
+                    {!editingWorkOrder.deposit_payment_link_url && !editingWorkOrder.deposit_paid_at && (
+                      <div className="mt-3 pt-3 border-t border-cyan-500/20 flex flex-col items-center justify-center gap-3 py-4">
+                        <p className="text-sm text-gray-600 font-medium">No payment link generated yet</p>
                         <button
                           onClick={() => handleRequestDeposit(editingWorkOrder.id)}
                           disabled={depositLoading}
                           type="button"
-                          className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 disabled:opacity-50"
+                          className="bg-cyan-600 hover:bg-cyan-700 text-white px-6 py-3 rounded-lg text-base font-bold transition-all flex items-center gap-2 disabled:opacity-50 shadow-lg hover:shadow-xl"
                         >
-                          <DollarSign className="w-4 h-4" />
-                          {depositLoading ? 'Generating...' : 'Generate Payment Link'}
+                          <DollarSign className="w-5 h-5" />
+                          {depositLoading ? 'Generating Payment Link...' : 'Generate Payment Link'}
                         </button>
                       </div>
                     )}
