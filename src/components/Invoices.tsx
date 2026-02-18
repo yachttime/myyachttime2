@@ -100,7 +100,7 @@ export function Invoices({ userId }: InvoicesProps) {
   const [syncPaymentLoading, setSyncPaymentLoading] = useState(false);
   const [regenerateLoading, setRegenerateLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
-  const [emailPrompt, setEmailPrompt] = useState<{ invoice: Invoice; email: string } | null>(null);
+  const [emailPrompt, setEmailPrompt] = useState<{ invoice: Invoice; email: string; emailOnly?: boolean } | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
   const { confirm, ConfirmDialog } = useConfirm();
 
@@ -691,7 +691,25 @@ export function Invoices({ userId }: InvoicesProps) {
 
       await supabase.from('estimating_invoices').update({ customer_email: recipientEmail }).eq('id', invoice.id);
 
-      showToast('Payment link generated successfully!', 'success');
+      const emailResponse = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-estimating-invoice-payment-email`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ invoiceId: invoice.id, recipientEmail })
+        }
+      );
+
+      if (!emailResponse.ok) {
+        const emailErr = await emailResponse.json();
+        console.error('Email send failed:', emailErr);
+        showToast('Payment link created but email failed to send. Use "Email Payment Link" to retry.', 'info');
+      } else {
+        showToast('Payment link generated and emailed successfully!', 'success');
+      }
 
       if (activeTab === 'active') {
         await fetchInvoices();
@@ -880,9 +898,44 @@ export function Invoices({ userId }: InvoicesProps) {
     }
   }
 
+  async function handleEmailPaymentLinkWithEmail(invoice: Invoice, recipientEmail: string) {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error('Not authenticated');
+
+      await supabase.from('estimating_invoices').update({ customer_email: recipientEmail }).eq('id', invoice.id);
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-estimating-invoice-payment-email`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ invoiceId: invoice.id, recipientEmail })
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to send email');
+      }
+
+      showToast('Payment link email sent successfully!', 'success');
+      await fetchInvoices();
+      const { data: fresh } = await supabase.from('estimating_invoices').select('*, work_orders!estimating_invoices_work_order_id_fkey(work_order_number), yachts!estimating_invoices_yacht_id_fkey(name)').eq('id', invoice.id).maybeSingle();
+      if (fresh) setSelectedInvoice({ ...fresh, work_order_number: fresh.work_orders?.work_order_number, yacht_name: fresh.yachts?.name });
+    } catch (error: any) {
+      console.error('Error sending email:', error);
+      showToast(error.message || 'Failed to send payment link email', 'error');
+    }
+  }
+
   async function handleEmailPaymentLink() {
-    if (!selectedInvoice || !selectedInvoice.customer_email) {
-      showToast('No email address on file for this customer', 'error');
+    if (!selectedInvoice) return;
+    if (!selectedInvoice.customer_email) {
+      setEmailPrompt({ invoice: selectedInvoice, email: '', emailOnly: true });
       return;
     }
 
@@ -902,7 +955,7 @@ export function Invoices({ userId }: InvoicesProps) {
       }
 
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-payment-link-email`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-estimating-invoice-payment-email`,
         {
           method: 'POST',
           headers: {
@@ -910,7 +963,7 @@ export function Invoices({ userId }: InvoicesProps) {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            estimatingInvoiceId: selectedInvoice.id,
+            invoiceId: selectedInvoice.id,
             recipientEmail: selectedInvoice.customer_email
           })
         }
@@ -1526,7 +1579,7 @@ export function Invoices({ userId }: InvoicesProps) {
           <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 max-w-md w-full shadow-xl">
             <h3 className="text-lg font-semibold text-white mb-2">Enter Customer Email</h3>
             <p className="text-sm text-slate-400 mb-4">
-              No email on file for this invoice. Enter an email address to generate and send the payment link.
+              No email on file for this invoice. Enter an email address to {emailPrompt.emailOnly ? 'send the payment link.' : 'generate and send the payment link.'}
             </p>
             <input
               type="email"
@@ -1536,10 +1589,13 @@ export function Invoices({ userId }: InvoicesProps) {
               className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500 mb-4"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && emailPrompt.email) {
-                  const inv = emailPrompt.invoice;
-                  const email = emailPrompt.email;
+                  const { invoice, email, emailOnly } = emailPrompt;
                   setEmailPrompt(null);
-                  generatePaymentLink(inv, email);
+                  if (emailOnly) {
+                    handleEmailPaymentLinkWithEmail(invoice, email);
+                  } else {
+                    generatePaymentLink(invoice, email);
+                  }
                 }
               }}
               autoFocus
@@ -1554,15 +1610,18 @@ export function Invoices({ userId }: InvoicesProps) {
               <button
                 onClick={() => {
                   if (!emailPrompt.email) return;
-                  const inv = emailPrompt.invoice;
-                  const email = emailPrompt.email;
+                  const { invoice, email, emailOnly } = emailPrompt;
                   setEmailPrompt(null);
-                  generatePaymentLink(inv, email);
+                  if (emailOnly) {
+                    handleEmailPaymentLinkWithEmail(invoice, email);
+                  } else {
+                    generatePaymentLink(invoice, email);
+                  }
                 }}
                 disabled={!emailPrompt.email}
                 className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm disabled:opacity-50"
               >
-                Generate & Send
+                {emailPrompt.emailOnly ? 'Send Email' : 'Generate & Send'}
               </button>
             </div>
           </div>
