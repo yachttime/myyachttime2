@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, Edit2, AlertCircle, Package, TrendingUp, TrendingDown, Search, Camera, X } from 'lucide-react';
+import { Plus, Edit2, AlertCircle, Package, TrendingUp, TrendingDown, Search, Camera, X, Printer } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
+import { VendorPartsReport } from './VendorPartsReport';
 
 interface Part {
   id: string;
@@ -69,6 +70,7 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
   const [activeTab, setActiveTab] = useState<'parts' | 'vendors'>('parts');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'active' | 'inactive' | 'all'>('active');
+  const [showVendorReport, setShowVendorReport] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [showAdjustment, setShowAdjustment] = useState(false);
   const [showVendorForm, setShowVendorForm] = useState(false);
@@ -506,19 +508,28 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
         <h2 className="text-2xl font-bold text-gray-900">Parts Inventory</h2>
         <div className="flex gap-2">
           {activeTab === 'parts' && (
-            <button
-              onClick={() => {
-                const defaultCode = accountingCodes.find((ac: any) => ac.is_default_inventory);
-                if (defaultCode) {
-                  setFormData(prev => ({ ...prev, accounting_code_id: defaultCode.id }));
-                }
-                setShowForm(true);
-              }}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              <Plus className="w-4 h-4" />
-              Add Part
-            </button>
+            <>
+              <button
+                onClick={() => setShowVendorReport(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 border border-gray-300"
+              >
+                <Printer className="w-4 h-4" />
+                Print by Vendor
+              </button>
+              <button
+                onClick={() => {
+                  const defaultCode = accountingCodes.find((ac: any) => ac.is_default_inventory);
+                  if (defaultCode) {
+                    setFormData(prev => ({ ...prev, accounting_code_id: defaultCode.id }));
+                  }
+                  setShowForm(true);
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                <Plus className="w-4 h-4" />
+                Add Part
+              </button>
+            </>
           )}
           {activeTab === 'vendors' && (
             <button
@@ -1320,6 +1331,9 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
             </div>
           </div>
         </>
+      )}
+      {showVendorReport && (
+        <VendorPartsReport onClose={() => setShowVendorReport(false)} />
       )}
     </div>
   );
