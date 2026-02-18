@@ -168,8 +168,9 @@ export function Estimates({ userId }: EstimatesProps) {
   const [savingNewVessel, setSavingNewVessel] = useState(false);
 
   useEffect(() => {
-    loadData();
-    loadDraft();
+    loadData().then(() => {
+      loadDraft(handleEditEstimate);
+    });
   }, []);
 
   useEffect(() => {
@@ -299,7 +300,7 @@ export function Estimates({ userId }: EstimatesProps) {
     }
   };
 
-  const loadDraft = () => {
+  const loadDraft = (editEstimateFn?: (id: string) => void) => {
     try {
       const draftStr = localStorage.getItem('estimate_draft');
       if (draftStr) {
@@ -308,8 +309,12 @@ export function Estimates({ userId }: EstimatesProps) {
         const oneDay = 24 * 60 * 60 * 1000;
 
         if (draftAge < oneDay) {
-          setDraftToRestore(draft);
-          setShowRestoreDraftModal(true);
+          if (draft.editingId && editEstimateFn) {
+            editEstimateFn(draft.editingId);
+          } else if (!draft.editingId) {
+            setDraftToRestore(draft);
+            setShowRestoreDraftModal(true);
+          }
         } else {
           localStorage.removeItem('estimate_draft');
         }
@@ -1112,6 +1117,9 @@ export function Estimates({ userId }: EstimatesProps) {
 
       console.log('Loaded line items:', allLineItems);
 
+      // Set editing ID first so auto-save captures it correctly
+      setEditingIdSync(estimateId);
+
       // Set form data
       setFormData({
         is_retail_customer: estimate.is_retail_customer,
@@ -1188,7 +1196,6 @@ export function Estimates({ userId }: EstimatesProps) {
       const allTaskIndexes = loadedTasks.map((_, index) => index);
       setExpandedTasks(new Set(allTaskIndexes));
 
-      setEditingIdSync(estimateId);
       setShowForm(true);
       setLoading(false);
     } catch (err) {
