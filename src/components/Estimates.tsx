@@ -153,7 +153,7 @@ export function Estimates({ userId }: EstimatesProps) {
   const [yachtCustomerSearch, setYachtCustomerSearch] = useState('');
   const [showYachtCustomerDropdown, setShowYachtCustomerDropdown] = useState(false);
   const [showNewCustomerForm, setShowNewCustomerForm] = useState(false);
-  const [newCustomerForm, setNewCustomerForm] = useState({ first_name: '', last_name: '', email: '', phone: '' });
+  const [newCustomerForm, setNewCustomerForm] = useState({ customer_type: 'individual' as 'individual' | 'business', first_name: '', last_name: '', business_name: '', email: '', phone: '' });
   const [savingNewCustomer, setSavingNewCustomer] = useState(false);
 
   useEffect(() => {
@@ -334,15 +334,18 @@ export function Estimates({ userId }: EstimatesProps) {
   };
 
   const handleSaveNewCustomer = async () => {
-    if (!newCustomerForm.first_name.trim() && !newCustomerForm.last_name.trim()) return;
+    const isBusiness = newCustomerForm.customer_type === 'business';
+    if (isBusiness && !newCustomerForm.business_name.trim()) return;
+    if (!isBusiness && !newCustomerForm.first_name.trim() && !newCustomerForm.last_name.trim()) return;
     setSavingNewCustomer(true);
     try {
       const { data, error } = await supabase
         .from('customers')
         .insert({
-          customer_type: 'individual',
-          first_name: newCustomerForm.first_name.trim(),
-          last_name: newCustomerForm.last_name.trim(),
+          customer_type: newCustomerForm.customer_type,
+          first_name: isBusiness ? null : newCustomerForm.first_name.trim() || null,
+          last_name: isBusiness ? null : newCustomerForm.last_name.trim() || null,
+          business_name: isBusiness ? newCustomerForm.business_name.trim() : null,
           email: newCustomerForm.email.trim() || null,
           phone: newCustomerForm.phone.trim() || null,
           is_active: true
@@ -350,14 +353,16 @@ export function Estimates({ userId }: EstimatesProps) {
         .select('id, customer_type, first_name, last_name, business_name, email, phone')
         .single();
       if (error) throw error;
-      const updated = [...customers, data].sort((a, b) => (a.last_name || '').localeCompare(b.last_name || ''));
+      const updated = [...customers, data].sort((a, b) => (a.last_name || a.business_name || '').localeCompare(b.last_name || b.business_name || ''));
       setCustomers(updated);
-      const displayName = `${data.first_name || ''} ${data.last_name || ''}`.trim();
+      const displayName = isBusiness
+        ? data.business_name
+        : `${data.first_name || ''} ${data.last_name || ''}`.trim();
       setFormData({ ...formData, customer_name: displayName, customer_email: data.email || '', customer_phone: data.phone || '' });
       setCustomerSearch(displayName);
       setYachtCustomerSearch(displayName);
       setShowNewCustomerForm(false);
-      setNewCustomerForm({ first_name: '', last_name: '', email: '', phone: '' });
+      setNewCustomerForm({ customer_type: 'individual', first_name: '', last_name: '', business_name: '', email: '', phone: '' });
     } catch (err) {
       showError('Failed to save customer');
     } finally {
@@ -1574,67 +1579,86 @@ export function Estimates({ userId }: EstimatesProps) {
                 ) : null}
 
                 {showNewCustomerForm && (
-                  <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
-                    <h5 className="text-sm font-semibold text-gray-800">Add New Customer</h5>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">First Name *</label>
+                  <div className="rounded-xl border border-blue-500/40 bg-[#0f1e3a] p-5 space-y-4 shadow-lg">
+                    <div className="flex items-center justify-between">
+                      <h5 className="text-sm font-semibold text-white">Quick Add Customer</h5>
+                      <button
+                        type="button"
+                        onClick={() => { setShowNewCustomerForm(false); setNewCustomerForm({ customer_type: 'individual', first_name: '', last_name: '', business_name: '', email: '', phone: '' }); }}
+                        className="text-gray-400 hover:text-white transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 rounded-lg overflow-hidden border border-[#1e3560]">
+                      <button
+                        type="button"
+                        onClick={() => setNewCustomerForm({ ...newCustomerForm, customer_type: 'individual' })}
+                        className={`py-2 text-sm font-medium transition-colors ${newCustomerForm.customer_type === 'individual' ? 'bg-blue-600 text-white' : 'bg-[#162040] text-gray-400 hover:text-gray-200'}`}
+                      >
+                        Individual
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNewCustomerForm({ ...newCustomerForm, customer_type: 'business' })}
+                        className={`py-2 text-sm font-medium transition-colors ${newCustomerForm.customer_type === 'business' ? 'bg-blue-600 text-white' : 'bg-[#162040] text-gray-400 hover:text-gray-200'}`}
+                      >
+                        Business
+                      </button>
+                    </div>
+
+                    {newCustomerForm.customer_type === 'individual' ? (
+                      <div className="grid grid-cols-2 gap-3">
                         <input
                           type="text"
                           value={newCustomerForm.first_name}
                           onChange={(e) => setNewCustomerForm({ ...newCustomerForm, first_name: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
-                          placeholder="First name"
+                          placeholder="First Name"
+                          className="px-3 py-2.5 rounded-lg bg-[#162040] border border-[#1e3560] text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500"
                         />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">Last Name *</label>
                         <input
                           type="text"
                           value={newCustomerForm.last_name}
                           onChange={(e) => setNewCustomerForm({ ...newCustomerForm, last_name: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
-                          placeholder="Last name"
+                          placeholder="Last Name"
+                          className="px-3 py-2.5 rounded-lg bg-[#162040] border border-[#1e3560] text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500"
                         />
                       </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">Email</label>
-                        <input
-                          type="email"
-                          value={newCustomerForm.email}
-                          onChange={(e) => setNewCustomerForm({ ...newCustomerForm, email: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
-                          placeholder="email@example.com"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">Phone</label>
-                        <input
-                          type="tel"
-                          value={newCustomerForm.phone}
-                          onChange={(e) => setNewCustomerForm({ ...newCustomerForm, phone: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
-                          placeholder="(555) 123-4567"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex gap-2 pt-1">
-                      <button
-                        type="button"
-                        onClick={handleSaveNewCustomer}
-                        disabled={savingNewCustomer || (!newCustomerForm.first_name.trim() && !newCustomerForm.last_name.trim())}
-                        className="flex-1 bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
-                      >
-                        {savingNewCustomer ? 'Saving...' : 'Save & Select'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => { setShowNewCustomerForm(false); setNewCustomerForm({ first_name: '', last_name: '', email: '', phone: '' }); }}
-                        className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors"
-                      >
-                        Cancel
-                      </button>
-                    </div>
+                    ) : (
+                      <input
+                        type="text"
+                        value={newCustomerForm.business_name}
+                        onChange={(e) => setNewCustomerForm({ ...newCustomerForm, business_name: e.target.value })}
+                        placeholder="Business Name"
+                        className="w-full px-3 py-2.5 rounded-lg bg-[#162040] border border-[#1e3560] text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500"
+                      />
+                    )}
+
+                    <input
+                      type="email"
+                      value={newCustomerForm.email}
+                      onChange={(e) => setNewCustomerForm({ ...newCustomerForm, email: e.target.value })}
+                      placeholder="Email"
+                      className="w-full px-3 py-2.5 rounded-lg bg-[#162040] border border-[#1e3560] text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500"
+                    />
+
+                    <input
+                      type="tel"
+                      value={newCustomerForm.phone}
+                      onChange={(e) => setNewCustomerForm({ ...newCustomerForm, phone: e.target.value })}
+                      placeholder="Phone"
+                      className="w-full px-3 py-2.5 rounded-lg bg-[#162040] border border-[#1e3560] text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={handleSaveNewCustomer}
+                      disabled={savingNewCustomer || (newCustomerForm.customer_type === 'business' ? !newCustomerForm.business_name.trim() : !newCustomerForm.first_name.trim() && !newCustomerForm.last_name.trim())}
+                      className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold rounded-lg transition-colors"
+                    >
+                      {savingNewCustomer ? 'Saving...' : 'Add Customer'}
+                    </button>
                   </div>
                 )}
               </div>
