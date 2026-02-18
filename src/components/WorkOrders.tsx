@@ -1999,6 +1999,56 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
               </div>
             </div>
 
+            {/* Deposit Settings Section */}
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+              <h3 className="text-base font-semibold text-gray-900 mb-4">Deposit Settings</h3>
+
+              <div className="flex items-center mb-4">
+                <input
+                  type="checkbox"
+                  id="deposit_required"
+                  checked={formData.deposit_required}
+                  onChange={(e) => setFormData({ ...formData, deposit_required: e.target.checked })}
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <label htmlFor="deposit_required" className="ml-2 text-sm font-medium text-gray-900">
+                  Require Deposit
+                </label>
+              </div>
+
+              {formData.deposit_required && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Deposit Amount ($)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.deposit_amount}
+                      onChange={(e) => setFormData({ ...formData, deposit_amount: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
+                      placeholder="e.g., 500.00"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Payment Method
+                    </label>
+                    <select
+                      value={formData.deposit_payment_method_type}
+                      onChange={(e) => setFormData({ ...formData, deposit_payment_method_type: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
+                    >
+                      <option value="card">Credit/Debit Card</option>
+                      <option value="ach">ACH Bank Transfer</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Internal Notes</label>
@@ -2146,15 +2196,6 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                 </td>
                 <td className="px-6 py-4 text-right">
                   <div className="flex justify-end gap-2">
-                    {workOrder.deposit_required && !workOrder.deposit_payment_link_url && workOrder.deposit_payment_status !== 'paid' && (
-                      <button
-                        onClick={() => handleRequestDeposit(workOrder.id)}
-                        className="text-blue-600 hover:text-blue-800"
-                        title="Create deposit payment link"
-                      >
-                        <DollarSign className="w-4 h-4" />
-                      </button>
-                    )}
                     {workOrder.status !== 'completed' && (
                       <>
                         <button
@@ -2212,27 +2253,27 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
               </tr>
 
               {/* Expanded Row with Deposit Details */}
-              {expandedWorkOrders.has(workOrder.id) && workOrder.deposit_required && (
+              {expandedWorkOrders.has(workOrder.id) && workOrder.deposit_required && workOrder.deposit_payment_link_url && (
                 <tr>
-                  <td colSpan={7} className="px-6 py-4 bg-gray-50">
-                    <div className="bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-200 rounded-lg p-4">
+                  <td colSpan={7} className="px-6 py-4 bg-slate-900">
+                    <div className="bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/30 rounded-lg p-4">
                       <div className="flex items-center gap-2 mb-3">
-                        <DollarSign className="w-5 h-5 text-blue-600" />
-                        <h5 className="font-semibold text-blue-900">Deposit Details</h5>
+                        <DollarSign className="w-5 h-5 text-cyan-400" />
+                        <h5 className="font-semibold text-cyan-400">Deposit Details</h5>
                         {workOrder.deposit_payment_status && (
                           <>
                             {workOrder.deposit_payment_status === 'pending' && !workOrder.deposit_email_sent_at && (
-                              <span className="ml-auto bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full text-xs font-semibold">
+                              <span className="ml-auto bg-yellow-500/20 text-yellow-400 px-3 py-1 rounded-full text-xs font-semibold">
                                 Need to Request Deposit
                               </span>
                             )}
                             {workOrder.deposit_payment_status === 'pending' && workOrder.deposit_email_sent_at && (
-                              <span className="ml-auto bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-semibold">
+                              <span className="ml-auto bg-blue-500/20 text-blue-400 px-3 py-1 rounded-full text-xs font-semibold">
                                 Awaiting Payment
                               </span>
                             )}
                             {workOrder.deposit_payment_status === 'paid' && (
-                              <span className="ml-auto bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
+                              <span className="ml-auto bg-green-500/20 text-green-400 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
                                 <CheckCircle className="w-3 h-3" />
                                 Paid
                               </span>
@@ -2242,7 +2283,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                       </div>
 
                       <div className="space-y-2">
-                        <p className="text-sm text-gray-700">
+                        <p className="text-sm text-slate-300">
                           <span className="font-semibold">Amount:</span> ${(workOrder.deposit_amount || 0).toFixed(2)}
                         </p>
 
@@ -2253,44 +2294,44 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                         )}
 
                         {workOrder.deposit_email_sent_at && (
-                          <div className="mt-3 pt-3 border-t border-blue-200">
-                            <p className="text-xs font-semibold text-gray-700 mb-2">Email Tracking</p>
+                          <div className="mt-3 pt-3 border-t border-cyan-500/20">
+                            <p className="text-xs font-semibold text-slate-300 mb-2">Email Tracking</p>
                             <div className="space-y-1">
                               {workOrder.deposit_email_recipient && (
-                                <div className="flex items-center gap-2 text-xs text-blue-600 mb-2">
+                                <div className="flex items-center gap-2 text-xs text-blue-300 mb-2">
                                   <Mail className="w-3 h-3" />
                                   <span className="font-medium">To: {workOrder.deposit_email_recipient}</span>
                                 </div>
                               )}
                               <div className="space-y-1">
-                                <div className="flex items-center gap-2 text-xs text-gray-600">
-                                  <Mail className="w-3 h-3 text-blue-500" />
+                                <div className="flex items-center gap-2 text-xs text-slate-400">
+                                  <Mail className="w-3 h-3 text-blue-400" />
                                   <span>Sent: {new Date(workOrder.deposit_email_sent_at).toLocaleDateString()} at {new Date(workOrder.deposit_email_sent_at).toLocaleTimeString()}</span>
                                 </div>
                                 {workOrder.deposit_email_delivered_at ? (
-                                  <div className="flex items-center gap-2 text-xs text-emerald-600">
+                                  <div className="flex items-center gap-2 text-xs text-emerald-400">
                                     <CheckCircle className="w-3 h-3" />
                                     <span>Delivered: {new Date(workOrder.deposit_email_delivered_at).toLocaleDateString()} at {new Date(workOrder.deposit_email_delivered_at).toLocaleTimeString()}</span>
                                   </div>
                                 ) : workOrder.deposit_email_bounced_at ? (
-                                  <div className="flex items-center gap-2 text-xs text-red-600">
+                                  <div className="flex items-center gap-2 text-xs text-red-400">
                                     <AlertCircle className="w-3 h-3" />
                                     <span>Bounced: {new Date(workOrder.deposit_email_bounced_at).toLocaleDateString()} at {new Date(workOrder.deposit_email_bounced_at).toLocaleTimeString()}</span>
                                   </div>
                                 ) : (
-                                  <div className="flex items-center gap-2 text-xs text-yellow-600">
+                                  <div className="flex items-center gap-2 text-xs text-yellow-400">
                                     <Clock className="w-3 h-3" />
                                     <span>Awaiting Delivery Confirmation</span>
                                   </div>
                                 )}
                                 {workOrder.deposit_email_opened_at && (
-                                  <div className="flex items-center gap-2 text-xs text-green-600">
+                                  <div className="flex items-center gap-2 text-xs text-green-400">
                                     <Eye className="w-3 h-3" />
                                     <span>Opened: {new Date(workOrder.deposit_email_opened_at).toLocaleDateString()} at {new Date(workOrder.deposit_email_opened_at).toLocaleTimeString()}</span>
                                   </div>
                                 )}
                                 {workOrder.deposit_email_clicked_at && (
-                                  <div className="flex items-center gap-2 text-xs text-cyan-600">
+                                  <div className="flex items-center gap-2 text-xs text-cyan-400">
                                     <MousePointer className="w-3 h-3" />
                                     <span>Clicked: {new Date(workOrder.deposit_email_clicked_at).toLocaleDateString()} at {new Date(workOrder.deposit_email_clicked_at).toLocaleTimeString()}</span>
                                   </div>
@@ -2301,14 +2342,14 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                         )}
 
                         {workOrder.deposit_payment_link_url && (
-                          <div className="mt-3 pt-3 border-t border-blue-200">
-                            <p className="text-xs text-gray-600 mb-2">Payment Link:</p>
+                          <div className="mt-3 pt-3 border-t border-cyan-500/20">
+                            <p className="text-xs text-slate-400 mb-2">Payment Link:</p>
                             <div className="flex items-center gap-2">
                               <input
                                 type="text"
                                 readOnly
                                 value={workOrder.deposit_payment_link_url}
-                                className="flex-1 bg-white border border-gray-300 rounded px-3 py-2 text-xs text-gray-700"
+                                className="flex-1 bg-slate-900/50 border border-slate-700 rounded px-3 py-2 text-xs text-slate-300"
                               />
                               <button
                                 onClick={(e) => {
@@ -2327,7 +2368,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                       </div>
 
                       {workOrder.deposit_payment_status === 'pending' && workOrder.deposit_payment_link_url && (
-                        <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t border-blue-200">
+                        <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t border-cyan-500/20">
                           {!workOrder.deposit_email_sent_at ? (
                             <div className="flex gap-2 w-full">
                               <input
