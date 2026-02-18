@@ -2410,9 +2410,20 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                   <td colSpan={7} className="px-6 py-4 bg-gray-50">
                     {!workOrder.deposit_payment_link_url ? (
                       <div className="bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/30 rounded-lg p-4">
-                        <div className="flex items-center justify-center gap-3">
-                          <DollarSign className="w-5 h-5 text-cyan-400 animate-pulse" />
-                          <p className="text-sm text-slate-600">Creating deposit payment link...</p>
+                        <div className="flex flex-col items-center justify-center gap-3">
+                          <DollarSign className="w-8 h-8 text-cyan-400" />
+                          <p className="text-sm text-slate-600 font-medium">Deposit Required: ${(workOrder.deposit_amount || 0).toFixed(2)}</p>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleGenerateDepositLink(workOrder.id);
+                            }}
+                            disabled={depositLoading}
+                            className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 disabled:opacity-50"
+                          >
+                            <DollarSign className="w-4 h-4" />
+                            {depositLoading ? 'Generating...' : 'Generate Payment Link'}
+                          </button>
                         </div>
                       </div>
                     ) : (
@@ -2570,13 +2581,13 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setDepositEmailRecipient(workOrder.deposit_email_recipient || '');
-                                  setDepositEmailRecipientName('');
+                                  handleSendDepositEmail(workOrder);
                                 }}
-                                className="bg-cyan-600 hover:bg-cyan-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1"
+                                disabled={sendingDepositEmail}
+                                className="bg-cyan-600 hover:bg-cyan-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 disabled:opacity-50"
                               >
                                 <Mail className="w-3 h-3" />
-                                Resend Email
+                                {sendingDepositEmail ? 'Sending...' : 'Resend Email'}
                               </button>
                               <button
                                 onClick={(e) => {
