@@ -35,11 +35,11 @@ interface WorkOrder {
   yachts?: { name: string };
   deposit_required: boolean;
   deposit_amount: number | null;
-  deposit_status: string | null;
-  deposit_payment_link: string | null;
+  deposit_payment_status: string | null;
+  deposit_payment_link_url: string | null;
   deposit_link_expires_at: string | null;
   deposit_paid_at: string | null;
-  deposit_payment_method: string | null;
+  deposit_payment_method_type: string | null;
 }
 
 interface WorkOrderTask {
@@ -101,7 +101,10 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
     apply_shop_supplies: true,
     apply_park_fees: true,
     notes: '',
-    customer_notes: ''
+    customer_notes: '',
+    deposit_required: false,
+    deposit_amount: '',
+    deposit_payment_method_type: 'card'
   });
 
   const [tasks, setTasks] = useState<WorkOrderTask[]>([]);
@@ -499,6 +502,8 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
         return;
       }
 
+      const depositAmount = formData.deposit_amount ? parseFloat(formData.deposit_amount) : null;
+
       const workOrderData = {
         yacht_id: formData.is_retail_customer ? null : formData.yacht_id,
         customer_name: formData.is_retail_customer ? formData.customer_name : null,
@@ -520,7 +525,11 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
         surcharge_amount: surchargeAmount,
         total_amount: totalAmount,
         notes: formData.notes || null,
-        customer_notes: formData.customer_notes || null
+        customer_notes: formData.customer_notes || null,
+        deposit_required: formData.deposit_required,
+        deposit_amount: depositAmount,
+        deposit_payment_method_type: formData.deposit_payment_method_type,
+        deposit_payment_status: formData.deposit_required && depositAmount ? 'not_required' : 'not_required'
       };
 
       const { data: workOrder, error: workOrderError } = await supabase
@@ -715,7 +724,10 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
         apply_shop_supplies: (workOrder.shop_supplies_amount || 0) > 0,
         apply_park_fees: (workOrder.park_fees_amount || 0) > 0,
         notes: workOrder.notes || '',
-        customer_notes: workOrder.customer_notes || ''
+        customer_notes: workOrder.customer_notes || '',
+        deposit_required: workOrder.deposit_required || false,
+        deposit_amount: workOrder.deposit_amount ? workOrder.deposit_amount.toString() : '',
+        deposit_payment_method_type: workOrder.deposit_payment_method_type || 'card'
       });
 
       const lineItemsByTask: Record<string, any[]> = {};
@@ -848,16 +860,12 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
     const workOrder = workOrders.find(wo => wo.id === workOrderId);
     if (!workOrder) return;
 
-    const email = workOrder.is_retail_customer
-      ? workOrder.customer_email
-      : userProfile?.email_address;
-
-    if (!email) {
-      setError('No email address available for this customer');
+    if (!workOrder.deposit_amount || workOrder.deposit_amount <= 0) {
+      setError('Please set a deposit amount first');
       return;
     }
 
-    if (!window.confirm(`Send deposit payment request to ${email}?`)) {
+    if (!window.confirm(`Create deposit payment link for $${workOrder.deposit_amount.toFixed(2)}?`)) {
       return;
     }
 
@@ -868,27 +876,26 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
         'create-work-order-deposit-payment',
         {
           body: {
-            workOrderId,
-            recipientEmail: email
+            workOrderId
           }
         }
       );
 
       if (functionError) throw functionError;
 
-      showSuccess('Deposit payment link sent successfully!');
+      showSuccess('Deposit payment link created! You can now copy and send it to the customer.');
       await loadData();
     } catch (err: any) {
-      console.error('Error requesting deposit:', err);
-      setError(err.message || 'Failed to send deposit payment request');
+      console.error('Error creating deposit link:', err);
+      setError(err.message || 'Failed to create deposit payment link');
     }
   };
 
   const handleCopyDepositLink = async (workOrder: WorkOrder) => {
-    if (!workOrder.deposit_payment_link) return;
+    if (!workOrder.deposit_payment_link_url) return;
 
     try {
-      await navigator.clipboard.writeText(workOrder.deposit_payment_link);
+      await navigator.clipboard.writeText(workOrder.deposit_payment_link_url);
       showSuccess('Payment link copied to clipboard!');
     } catch (err) {
       console.error('Error copying link:', err);
@@ -1803,6 +1810,52 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
               </div>
             )}
 
+            {/* Deposit Section */}
+            <div className="border-t pt-4">
+              <h4 className="text-sm font-semibold text-gray-900 mb-3">Deposit Settings</h4>
+              <div className="space-y-4">
+                <div>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={formData.deposit_required}
+                      onChange={(e) => setFormData({ ...formData, deposit_required: e.target.checked })}
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <span className="text-sm font-medium text-gray-700">Require Deposit</span>
+                  </label>
+                </div>
+
+                {formData.deposit_required && (
+                  <div className="grid grid-cols-2 gap-4 pl-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Deposit Amount ($)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={formData.deposit_amount}
+                        onChange={(e) => setFormData({ ...formData, deposit_amount: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
+                      <select
+                        value={formData.deposit_payment_method_type}
+                        onChange={(e) => setFormData({ ...formData, deposit_payment_method_type: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="card">Credit/Debit Card</option>
+                        <option value="ach">ACH Bank Transfer</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Internal Notes</label>
@@ -1894,12 +1947,12 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                 <td className="px-6 py-4">
                   {workOrder.deposit_required ? (
                     <div className="text-xs">
-                      {workOrder.deposit_status === 'paid' ? (
+                      {workOrder.deposit_payment_status === 'paid' ? (
                         <div className="flex items-center gap-1 text-green-600">
                           <CheckCircle className="w-3 h-3" />
                           <span>Paid ${(workOrder.deposit_amount || 0).toFixed(2)}</span>
                         </div>
-                      ) : workOrder.deposit_status === 'pending' ? (
+                      ) : workOrder.deposit_payment_status === 'pending' ? (
                         <div className="flex items-center gap-1 text-yellow-600">
                           <Clock className="w-3 h-3" />
                           <span>Pending ${(workOrder.deposit_amount || 0).toFixed(2)}</span>
@@ -1910,7 +1963,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                           <span>Required ${(workOrder.deposit_amount || 0).toFixed(2)}</span>
                         </div>
                       )}
-                      {workOrder.deposit_payment_link && workOrder.deposit_status !== 'paid' && (
+                      {workOrder.deposit_payment_link_url && workOrder.deposit_payment_status !== 'paid' && (
                         <button
                           onClick={() => handleCopyDepositLink(workOrder)}
                           className="text-blue-600 hover:text-blue-800 text-xs mt-1 flex items-center gap-1"
@@ -1933,13 +1986,13 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                 </td>
                 <td className="px-6 py-4 text-right">
                   <div className="flex justify-end gap-2">
-                    {workOrder.deposit_required && !workOrder.deposit_payment_link && (
+                    {workOrder.deposit_required && !workOrder.deposit_payment_link_url && workOrder.deposit_payment_status !== 'paid' && (
                       <button
                         onClick={() => handleRequestDeposit(workOrder.id)}
                         className="text-blue-600 hover:text-blue-800"
-                        title="Request deposit payment"
+                        title="Create deposit payment link"
                       >
-                        <Mail className="w-4 h-4" />
+                        <DollarSign className="w-4 h-4" />
                       </button>
                     )}
                     {workOrder.status !== 'completed' && (
