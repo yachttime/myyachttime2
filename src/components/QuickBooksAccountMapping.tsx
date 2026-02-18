@@ -797,7 +797,9 @@ function DefaultAccountsTab({ qboAccounts, mappings, onSave, saving }: DefaultAc
     { type: 'cogs', label: 'Cost of Goods Sold', description: 'Default COGS account for parts' },
     { type: 'inventory_asset', label: 'Inventory Asset', description: 'Default asset account for inventory' },
     { type: 'tax', label: 'Sales Tax Payable', description: 'Default account for sales tax' },
-    { type: 'expense', label: 'Operating Expenses', description: 'Default account for expenses' }
+    { type: 'expense', label: 'Operating Expenses', description: 'Default account for expenses' },
+    { type: 'deposit', label: 'Customer Deposits', description: 'Liability or deferred revenue account where customer deposits are recorded when collected (e.g. Customer Deposits Liability)' },
+    { type: 'payment', label: 'Payment Received Account', description: 'Bank or undeposited funds account where invoice payments are received (e.g. Undeposited Funds or a specific bank account)' }
   ];
 
   const [editingType, setEditingType] = useState<string | null>(null);
@@ -823,7 +825,7 @@ function DefaultAccountsTab({ qboAccounts, mappings, onSave, saving }: DefaultAc
     <div className="space-y-4">
       <div className="bg-blue-50 border border-blue-200 rounded p-3">
         <p className="text-sm text-blue-800">
-          Set up default QuickBooks accounts for different transaction types. These will be used when creating estimates and invoices.
+          Set up default QuickBooks accounts for different transaction types. These will be used when creating estimates, invoices, deposits, and payment receipts. Mapping <strong>Customer Deposits</strong> and <strong>Payment Received Account</strong> is required to properly record deposits collected upfront and payments received against invoices.
         </p>
       </div>
 
