@@ -121,6 +121,7 @@ export function Estimates({ userId }: EstimatesProps) {
 
   const [showLineItemForm, setShowLineItemForm] = useState(false);
   const [activeTaskIndex, setActiveTaskIndex] = useState<number | null>(null);
+  const [editingLineItemIndex, setEditingLineItemIndex] = useState<number | null>(null);
   const [lineItemFormData, setLineItemFormData] = useState({
     line_type: 'labor' as EstimateLineItem['line_type'],
     description: '',
@@ -564,6 +565,68 @@ export function Estimates({ userId }: EstimatesProps) {
     const updatedTasks = [...tasks];
     updatedTasks[taskIndex].lineItems = updatedTasks[taskIndex].lineItems.filter((_, i) => i !== lineIndex);
     setTasks(updatedTasks);
+  };
+
+  const handleEditLineItem = (taskIndex: number, lineIndex: number) => {
+    const item = tasks[taskIndex].lineItems[lineIndex];
+    setLineItemFormData({
+      line_type: item.line_type,
+      description: item.description,
+      quantity: String(item.quantity),
+      unit_price: String(item.unit_price),
+      is_taxable: item.is_taxable ?? true,
+      labor_code_id: item.labor_code_id || '',
+      part_id: item.part_id || '',
+      part_number_search: '',
+      work_details: item.work_details || '',
+      mercury_part_id: '',
+      part_source: 'custom',
+      core_charge_amount: '0',
+      container_charge_amount: '0'
+    });
+    setEditingLineItemIndex(lineIndex);
+    setActiveTaskIndex(taskIndex);
+    setShowLineItemForm(true);
+  };
+
+  const handleSaveEditLineItem = () => {
+    if (activeTaskIndex === null || editingLineItemIndex === null) return;
+    const quantity = parseFloat(lineItemFormData.quantity);
+    const unit_price = parseFloat(lineItemFormData.unit_price);
+    const updatedTasks = [...tasks];
+    updatedTasks[activeTaskIndex].lineItems[editingLineItemIndex] = {
+      ...updatedTasks[activeTaskIndex].lineItems[editingLineItemIndex],
+      line_type: lineItemFormData.line_type,
+      description: lineItemFormData.description,
+      quantity,
+      unit_price,
+      total_price: quantity * unit_price,
+      is_taxable: lineItemFormData.is_taxable,
+      labor_code_id: lineItemFormData.labor_code_id || null,
+      part_id: lineItemFormData.part_id || null,
+      work_details: lineItemFormData.work_details || null
+    };
+    setTasks(updatedTasks);
+    setLineItemFormData({
+      line_type: 'labor',
+      description: '',
+      quantity: '1',
+      unit_price: '0',
+      is_taxable: true,
+      labor_code_id: '',
+      part_id: '',
+      part_number_search: '',
+      work_details: '',
+      mercury_part_id: '',
+      part_source: 'custom',
+      core_charge_amount: '0',
+      container_charge_amount: '0'
+    });
+    setShowLineItemForm(false);
+    setActiveTaskIndex(null);
+    setEditingLineItemIndex(null);
+    setFilteredParts([]);
+    setShowPartDropdown(false);
   };
 
   const handleAddPackage = async () => {
@@ -2210,13 +2273,24 @@ export function Estimates({ userId }: EstimatesProps) {
                                         <td className="px-3 py-2 text-right align-top text-gray-900">${item.unit_price.toFixed(2)}</td>
                                         <td className="px-3 py-2 text-right align-top text-gray-900">${item.total_price.toFixed(2)}</td>
                                         <td className="px-3 py-2 text-right align-top">
-                                          <button
-                                            type="button"
-                                            onClick={() => handleRemoveLineItem(taskIndex, lineIndex)}
-                                            className="text-red-600 hover:text-red-800"
-                                          >
-                                            <Trash2 className="w-4 h-4" />
-                                          </button>
+                                          <div className="flex items-center justify-end gap-2">
+                                            <button
+                                              type="button"
+                                              onClick={() => handleEditLineItem(taskIndex, lineIndex)}
+                                              className="text-blue-600 hover:text-blue-800"
+                                              title="Edit line item"
+                                            >
+                                              <Edit2 className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleRemoveLineItem(taskIndex, lineIndex)}
+                                              className="text-red-600 hover:text-red-800"
+                                              title="Remove line item"
+                                            >
+                                              <Trash2 className="w-4 h-4" />
+                                            </button>
+                                          </div>
                                         </td>
                                       </tr>
                                     ))}
@@ -2244,6 +2318,9 @@ export function Estimates({ userId }: EstimatesProps) {
 
                           {showLineItemForm && activeTaskIndex === taskIndex && (
                             <div className="mb-4 p-4 bg-gray-50 rounded-lg space-y-3">
+                              <p className="text-sm font-semibold text-gray-800">
+                                {editingLineItemIndex !== null ? 'Edit Line Item' : 'Add Line Item'}
+                              </p>
                               <div className="grid grid-cols-2 gap-3">
                                 <div>
                                   <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
@@ -2444,6 +2521,7 @@ export function Estimates({ userId }: EstimatesProps) {
                                   onClick={() => {
                                     setShowLineItemForm(false);
                                     setActiveTaskIndex(null);
+                                    setEditingLineItemIndex(null);
                                   }}
                                   className="px-3 py-1 text-sm text-gray-700 bg-gray-100 rounded hover:bg-gray-200"
                                 >
@@ -2451,10 +2529,10 @@ export function Estimates({ userId }: EstimatesProps) {
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={handleAddLineItem}
+                                  onClick={editingLineItemIndex !== null ? handleSaveEditLineItem : handleAddLineItem}
                                   className="px-3 py-1 text-sm text-white bg-blue-600 rounded hover:bg-blue-700"
                                 >
-                                  Add Line
+                                  {editingLineItemIndex !== null ? 'Save Changes' : 'Add Line'}
                                 </button>
                               </div>
                             </div>
