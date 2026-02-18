@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, Wrench, AlertCircle, Edit2, Trash2, Check, X, ChevronDown, ChevronUp, Printer, CheckCircle, Clock, FileText, DollarSign, Mail, ExternalLink, RefreshCw, Eye, MousePointer, Download } from 'lucide-react';
+import { Plus, Wrench, AlertCircle, Edit2, Trash2, Check, X, ChevronDown, ChevronUp, Printer, CheckCircle, Clock, FileText, DollarSign, Mail, ExternalLink, RefreshCw, Eye, MousePointer, Download, Archive, RotateCcw } from 'lucide-react';
 import { generateWorkOrderPDF } from '../utils/pdfGenerator';
 import { useNotification } from '../contexts/NotificationContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -141,6 +141,9 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
   const [showTimeEntryPreview, setShowTimeEntryPreview] = useState(false);
   const [timeEntryPreview, setTimeEntryPreview] = useState<any[]>([]);
   const [selectedWorkOrderForTime, setSelectedWorkOrderForTime] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
+  const [showArchiveModal, setShowArchiveModal] = useState(false);
+  const [workOrderToArchive, setWorkOrderToArchive] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -166,10 +169,11 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
       setLoading(true);
       setError(null);
 
-      // First fetch all work orders
+      // First fetch all work orders (only non-archived)
       const workOrdersQuery = supabase
         .from('work_orders')
         .select('*, yachts(name)')
+        .eq('archived', false)
         .order('created_at', { ascending: false });
 
       // Fetch invoices to identify converted work orders
@@ -243,6 +247,75 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
       setError('Failed to load work orders');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadArchivedWorkOrders = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const { data, error: workOrdersError } = await supabase
+        .from('work_orders')
+        .select('*, yachts(name)')
+        .eq('archived', true)
+        .order('created_at', { ascending: false });
+
+      if (workOrdersError) throw workOrdersError;
+      setWorkOrders(data || []);
+    } catch (err) {
+      console.error('Error loading archived work orders:', err);
+      setError('Failed to load archived work orders');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleArchiveClick = (workOrderId: string) => {
+    setWorkOrderToArchive(workOrderId);
+    setShowArchiveModal(true);
+  };
+
+  const handleConfirmArchive = async () => {
+    if (!workOrderToArchive) return;
+
+    setShowArchiveModal(false);
+
+    try {
+      setError(null);
+
+      const { error: archiveError } = await supabase
+        .from('work_orders')
+        .update({ archived: true })
+        .eq('id', workOrderToArchive);
+
+      if (archiveError) throw archiveError;
+
+      showSuccess('Work order archived successfully');
+      await loadData();
+      setWorkOrderToArchive(null);
+    } catch (err) {
+      console.error('Error archiving work order:', err);
+      setError('Failed to archive work order');
+    }
+  };
+
+  const handleRestoreWorkOrder = async (workOrderId: string) => {
+    try {
+      setError(null);
+
+      const { error: restoreError } = await supabase
+        .from('work_orders')
+        .update({ archived: false })
+        .eq('id', workOrderId);
+
+      if (restoreError) throw restoreError;
+
+      showSuccess('Work order restored successfully');
+      await loadArchivedWorkOrders();
+    } catch (err) {
+      console.error('Error restoring work order:', err);
+      setError('Failed to restore work order');
     }
   };
 
@@ -1226,6 +1299,42 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
           <AlertCircle className="w-5 h-5" />
           {error}
+        </div>
+      )}
+
+      {!showForm && (
+        <div className="mb-6">
+          <div className="border-b border-gray-200">
+            <div className="flex gap-4">
+              <button
+                onClick={() => {
+                  setActiveTab('active');
+                  loadData();
+                }}
+                className={`px-6 py-3 text-sm font-medium ${
+                  activeTab === 'active'
+                    ? 'text-blue-600 border-b-2 border-blue-600'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Active Work Orders
+              </button>
+              <button
+                onClick={() => {
+                  setActiveTab('archived');
+                  loadArchivedWorkOrders();
+                }}
+                className={`px-6 py-3 text-sm font-medium ${
+                  activeTab === 'archived'
+                    ? 'text-blue-600 border-b-2 border-blue-600'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <Archive className="w-4 h-4 inline mr-2" />
+                Archived
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -2375,12 +2484,31 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                   {new Date(workOrder.created_at).toLocaleDateString()}
                 </td>
                 <td className="px-6 py-4 text-center">
-                  <button
-                    onClick={() => handleEditWorkOrder(workOrder.id)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
-                  >
-                    Open
-                  </button>
+                  <div className="flex items-center justify-center gap-2">
+                    <button
+                      onClick={() => handleEditWorkOrder(workOrder.id)}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+                    >
+                      Open
+                    </button>
+                    {activeTab === 'active' ? (
+                      <button
+                        onClick={() => handleArchiveClick(workOrder.id)}
+                        className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                        title="Archive work order"
+                      >
+                        <Archive className="w-4 h-4" />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleRestoreWorkOrder(workOrder.id)}
+                        className="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="Restore work order"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
               </React.Fragment>
@@ -2395,6 +2523,36 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
             <p className="text-gray-500">Work orders will appear here when estimates are approved.</p>
           </div>
         )}
+        </div>
+      )}
+
+      {showArchiveModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Archive Work Order
+            </h3>
+            <p className="text-gray-700 mb-6">
+              Archive this work order? You can restore it later from the Archived tab if needed.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowArchiveModal(false);
+                  setWorkOrderToArchive(null);
+                }}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmArchive}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Archive
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

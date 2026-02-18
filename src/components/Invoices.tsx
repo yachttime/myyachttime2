@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Receipt, Search, Download, Mail, DollarSign, Eye, CheckCircle, Clock, XCircle, ExternalLink } from 'lucide-react';
+import { Receipt, Search, Download, Mail, DollarSign, Eye, CheckCircle, Clock, XCircle, ExternalLink, Archive, RotateCcw } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface InvoicesProps {
@@ -40,6 +40,9 @@ export function Invoices({ userId }: InvoicesProps) {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [showDetails, setShowDetails] = useState(false);
+  const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
+  const [showArchiveModal, setShowArchiveModal] = useState(false);
+  const [invoiceToArchive, setInvoiceToArchive] = useState<string | null>(null);
 
   useEffect(() => {
     fetchInvoices();
@@ -55,6 +58,7 @@ export function Invoices({ userId }: InvoicesProps) {
           work_orders!estimating_invoices_work_order_id_fkey(work_order_number),
           yachts!estimating_invoices_yacht_id_fkey(name)
         `)
+        .eq('archived', false)
         .order('invoice_date', { ascending: false });
 
       if (error) throw error;
@@ -72,6 +76,75 @@ export function Invoices({ userId }: InvoicesProps) {
       setLoading(false);
     }
   }
+
+  async function fetchArchivedInvoices() {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('estimating_invoices')
+        .select(`
+          *,
+          work_orders!estimating_invoices_work_order_id_fkey(work_order_number),
+          yachts!estimating_invoices_yacht_id_fkey(name)
+        `)
+        .eq('archived', true)
+        .order('invoice_date', { ascending: false });
+
+      if (error) throw error;
+
+      const formattedInvoices = data?.map(inv => ({
+        ...inv,
+        work_order_number: inv.work_orders?.work_order_number,
+        yacht_name: inv.yachts?.name
+      })) || [];
+
+      setInvoices(formattedInvoices);
+    } catch (error) {
+      console.error('Error fetching archived invoices:', error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const handleArchiveClick = (invoiceId: string) => {
+    setInvoiceToArchive(invoiceId);
+    setShowArchiveModal(true);
+  };
+
+  const handleConfirmArchive = async () => {
+    if (!invoiceToArchive) return;
+
+    setShowArchiveModal(false);
+
+    try {
+      const { error } = await supabase
+        .from('estimating_invoices')
+        .update({ archived: true })
+        .eq('id', invoiceToArchive);
+
+      if (error) throw error;
+
+      await fetchInvoices();
+      setInvoiceToArchive(null);
+    } catch (error) {
+      console.error('Error archiving invoice:', error);
+    }
+  };
+
+  const handleRestoreInvoice = async (invoiceId: string) => {
+    try {
+      const { error } = await supabase
+        .from('estimating_invoices')
+        .update({ archived: false })
+        .eq('id', invoiceId);
+
+      if (error) throw error;
+
+      await fetchArchivedInvoices();
+    } catch (error) {
+      console.error('Error restoring invoice:', error);
+    }
+  };
 
   const filteredInvoices = invoices.filter(invoice => {
     const matchesSearch =
@@ -192,6 +265,40 @@ export function Invoices({ userId }: InvoicesProps) {
         <p className="text-gray-600">Manage and track customer invoices</p>
       </div>
 
+      <div className="mb-6">
+        <div className="border-b border-gray-200">
+          <div className="flex gap-4">
+            <button
+              onClick={() => {
+                setActiveTab('active');
+                fetchInvoices();
+              }}
+              className={`px-6 py-3 text-sm font-medium ${
+                activeTab === 'active'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Active Invoices
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab('archived');
+                fetchArchivedInvoices();
+              }}
+              className={`px-6 py-3 text-sm font-medium ${
+                activeTab === 'archived'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Archive className="w-4 h-4 inline mr-2" />
+              Archived
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
         <div className="p-4 border-b border-gray-200">
           <div className="flex flex-col sm:flex-row gap-4">
@@ -301,12 +408,31 @@ export function Invoices({ userId }: InvoicesProps) {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center">
-                      <button
-                        onClick={() => handleViewDetails(invoice)}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
-                      >
-                        Open
-                      </button>
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => handleViewDetails(invoice)}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+                        >
+                          Open
+                        </button>
+                        {activeTab === 'active' ? (
+                          <button
+                            onClick={() => handleArchiveClick(invoice.id)}
+                            className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                            title="Archive invoice"
+                          >
+                            <Archive className="w-4 h-4" />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleRestoreInvoice(invoice.id)}
+                            className="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Restore invoice"
+                          >
+                            <RotateCcw className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -433,6 +559,36 @@ export function Invoices({ userId }: InvoicesProps) {
                   <p className="text-sm text-gray-700 whitespace-pre-wrap">{selectedInvoice.notes}</p>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showArchiveModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Archive Invoice
+            </h3>
+            <p className="text-gray-700 mb-6">
+              Archive this invoice? You can restore it later from the Archived tab if needed.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowArchiveModal(false);
+                  setInvoiceToArchive(null);
+                }}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmArchive}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Archive
+              </button>
             </div>
           </div>
         </div>
