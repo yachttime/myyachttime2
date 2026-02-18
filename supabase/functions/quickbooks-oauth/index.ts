@@ -82,7 +82,10 @@ Deno.serve(async (req: Request) => {
     console.log('Client ID:', clientId);
     console.log('Redirect URI:', redirectUri);
     console.log('Redirect URI length:', redirectUri.length);
+    console.log('Redirect URI bytes:', Array.from(redirectUri).map(c => c.charCodeAt(0)));
     console.log('Redirect URI encoded:', encodeURIComponent(redirectUri));
+    console.log('Redirect URI trimmed:', redirectUri.trim());
+    console.log('Redirect URI has whitespace?', redirectUri !== redirectUri.trim());
     console.log('======================================');
 
     // Get user from authorization header
