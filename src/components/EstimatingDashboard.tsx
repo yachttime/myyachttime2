@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FileText, Package, Briefcase, Wrench, Settings, LayoutDashboard, Clock, DollarSign, AlertCircle, FileText as FileIcon, Receipt } from 'lucide-react';
 import { Estimates } from './Estimates';
 import { WorkOrders } from './WorkOrders';
+import { Invoices } from './Invoices';
 import { PartsInventory } from './PartsInventory';
 import { AccountingCodes } from './AccountingCodes';
 import { LaborCodes } from './LaborCodes';
@@ -15,7 +16,7 @@ interface EstimatingDashboardProps {
   userId: string;
 }
 
-type TabType = 'dashboard' | 'estimates' | 'workorders' | 'parts' | 'settings';
+type TabType = 'dashboard' | 'estimates' | 'workorders' | 'invoices' | 'parts' | 'settings';
 
 interface DashboardStats {
   totalEstimates: number;
@@ -48,6 +49,7 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
     { id: 'dashboard' as TabType, label: 'Dashboard', icon: LayoutDashboard },
     { id: 'estimates' as TabType, label: 'Estimates', icon: FileText },
     { id: 'workorders' as TabType, label: 'Work Orders', icon: Wrench },
+    { id: 'invoices' as TabType, label: 'Invoices', icon: Receipt },
     { id: 'parts' as TabType, label: 'Parts Inventory', icon: Package },
     { id: 'settings' as TabType, label: 'Settings', icon: Settings }
   ];
@@ -250,11 +252,11 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
                   </button>
 
                   <button
-                    onClick={() => setActiveTab('workorders')}
+                    onClick={() => setActiveTab('invoices')}
                     className="w-full flex items-center gap-3 p-4 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors text-left"
                   >
                     <Receipt className="w-5 h-5 text-orange-600" />
-                    <span className="font-medium text-gray-900">Create Invoice</span>
+                    <span className="font-medium text-gray-900">View Invoices</span>
                   </button>
                 </div>
               </div>
@@ -295,6 +297,10 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
 
         {activeTab === 'workorders' && (
           <WorkOrders userId={userId} />
+        )}
+
+        {activeTab === 'invoices' && (
+          <Invoices userId={userId} />
         )}
 
         {activeTab === 'parts' && (
