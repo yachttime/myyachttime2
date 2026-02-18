@@ -25,6 +25,14 @@ interface AccountingCode {
   name: string;
 }
 
+interface QboMapping {
+  internal_code_id: string;
+  qbo_account?: {
+    account_name: string;
+    account_number: string;
+  };
+}
+
 interface LaborCodesProps {
   userId: string;
 }
@@ -33,6 +41,7 @@ export function LaborCodes({ userId }: LaborCodesProps) {
   const { confirm, ConfirmDialog } = useConfirm();
   const [laborCodes, setLaborCodes] = useState<LaborCode[]>([]);
   const [accountingCodes, setAccountingCodes] = useState<AccountingCode[]>([]);
+  const [qboMappings, setQboMappings] = useState<QboMapping[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -56,7 +65,7 @@ export function LaborCodes({ userId }: LaborCodesProps) {
       setLoading(true);
       setError(null);
 
-      const [laborResult, accountingResult] = await Promise.all([
+      const [laborResult, accountingResult, qboMappingsResult] = await Promise.all([
         supabase
           .from('labor_codes')
           .select(`
@@ -68,7 +77,14 @@ export function LaborCodes({ userId }: LaborCodesProps) {
           .from('accounting_codes')
           .select('id, code, name')
           .eq('is_active', true)
-          .order('code')
+          .order('code'),
+        supabase
+          .from('quickbooks_account_mappings')
+          .select(`
+            internal_code_id,
+            qbo_account:quickbooks_accounts (account_name, account_number)
+          `)
+          .eq('internal_code_type', 'labor')
       ]);
 
       if (laborResult.error) throw laborResult.error;
@@ -76,6 +92,7 @@ export function LaborCodes({ userId }: LaborCodesProps) {
 
       setLaborCodes(laborResult.data || []);
       setAccountingCodes(accountingResult.data || []);
+      setQboMappings((qboMappingsResult.data || []) as QboMapping[]);
     } catch (err) {
       console.error('Error loading data:', err);
       setError('Failed to load labor codes');
@@ -339,7 +356,7 @@ export function LaborCodes({ userId }: LaborCodesProps) {
                 Hourly Rate
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Accounting Code
+                QuickBooks Account
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Status
@@ -372,7 +389,14 @@ export function LaborCodes({ userId }: LaborCodesProps) {
                     ${code.hourly_rate.toFixed(2)}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500">
-                    {code.accounting_codes ? `${code.accounting_codes.code}` : '-'}
+                    {(() => {
+                      const mapping = qboMappings.find(m => m.internal_code_id === code.id);
+                      if (mapping?.qbo_account) {
+                        const { account_number, account_name } = mapping.qbo_account;
+                        return account_number ? `${account_number} - ${account_name}` : account_name;
+                      }
+                      return <span className="text-gray-400 italic">Not mapped</span>;
+                    })()}
                   </td>
                   <td className="px-6 py-4 text-sm">
                     {code.is_active ? (
