@@ -914,7 +914,9 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
   };
 
   const handleSendDepositEmail = async (workOrder: WorkOrder) => {
-    if (!workOrder.deposit_payment_link_url || !depositEmailRecipient) {
+    const recipientEmail = depositEmailRecipient || workOrder.deposit_email_recipient || workOrder.customer_email;
+
+    if (!workOrder.deposit_payment_link_url || !recipientEmail) {
       setError('Payment link and recipient email are required');
       return;
     }
@@ -935,8 +937,8 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
         },
         body: JSON.stringify({
           workOrderId: workOrder.id,
-          recipientEmail: depositEmailRecipient,
-          recipientName: depositEmailRecipientName || depositEmailRecipient
+          recipientEmail: recipientEmail,
+          recipientName: depositEmailRecipientName || workOrder.customer_name || recipientEmail
         })
       });
 
@@ -2164,15 +2166,13 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                       ) : (
                         <>
                           <button
-                            onClick={() => {
-                              setDepositEmailRecipient(editingWorkOrder.deposit_email_recipient || '');
-                              setDepositEmailRecipientName('');
-                            }}
+                            onClick={() => handleSendDepositEmail(editingWorkOrder)}
+                            disabled={sendingDepositEmail}
                             type="button"
-                            className="bg-cyan-600 hover:bg-cyan-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1"
+                            className="bg-cyan-600 hover:bg-cyan-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 disabled:opacity-50"
                           >
                             <Mail className="w-3 h-3" />
-                            Resend Email
+                            {sendingDepositEmail ? 'Sending...' : 'Resend Email'}
                           </button>
                           <button
                             onClick={() => handleSyncPaymentStatus(editingWorkOrder)}
