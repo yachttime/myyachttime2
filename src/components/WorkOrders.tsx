@@ -2013,6 +2013,187 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
               </div>
             </div>
 
+            {/* Display Deposit Tracking Panel in Edit Mode */}
+            {editingWorkOrder && editingWorkOrder.deposit_required && editingWorkOrder.deposit_payment_link_url && (
+              <div className="border-t pt-4">
+                <div className="bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/30 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <DollarSign className="w-5 h-5 text-cyan-600" />
+                    <h5 className="font-semibold text-cyan-700">Deposit Payment Status</h5>
+                    {editingWorkOrder.deposit_payment_status && (
+                      <>
+                        {editingWorkOrder.deposit_payment_status === 'pending' && !editingWorkOrder.deposit_email_sent_at && (
+                          <span className="ml-auto bg-yellow-500/20 text-yellow-700 px-3 py-1 rounded-full text-xs font-semibold">
+                            Need to Request Deposit
+                          </span>
+                        )}
+                        {editingWorkOrder.deposit_payment_status === 'pending' && editingWorkOrder.deposit_email_sent_at && (
+                          <span className="ml-auto bg-blue-500/20 text-blue-700 px-3 py-1 rounded-full text-xs font-semibold">
+                            Awaiting Payment
+                          </span>
+                        )}
+                        {editingWorkOrder.deposit_payment_status === 'paid' && (
+                          <span className="ml-auto bg-green-500/20 text-green-700 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
+                            <CheckCircle className="w-3 h-3" />
+                            Paid
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-sm text-gray-700">
+                      <span className="font-semibold">Amount:</span> ${parseFloat(editingWorkOrder.deposit_amount || '0').toFixed(2)}
+                    </p>
+
+                    {editingWorkOrder.deposit_paid_at && (
+                      <p className="text-xs text-green-700">
+                        Paid on: {new Date(editingWorkOrder.deposit_paid_at).toLocaleDateString()} at {new Date(editingWorkOrder.deposit_paid_at).toLocaleTimeString()}
+                      </p>
+                    )}
+
+                    {editingWorkOrder.deposit_email_sent_at && (
+                      <div className="mt-3 pt-3 border-t border-cyan-500/20">
+                        <p className="text-xs font-semibold text-gray-700 mb-2">Email Tracking</p>
+                        <div className="space-y-1">
+                          {editingWorkOrder.deposit_email_recipient && (
+                            <div className="flex items-center gap-2 text-xs text-blue-700 mb-2">
+                              <Mail className="w-3 h-3" />
+                              <span className="font-medium">To: {editingWorkOrder.deposit_email_recipient}</span>
+                            </div>
+                          )}
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 text-xs text-gray-600">
+                              <Mail className="w-3 h-3 text-blue-600" />
+                              <span>Sent: {new Date(editingWorkOrder.deposit_email_sent_at).toLocaleDateString()} at {new Date(editingWorkOrder.deposit_email_sent_at).toLocaleTimeString()}</span>
+                            </div>
+                            {editingWorkOrder.deposit_email_delivered_at ? (
+                              <div className="flex items-center gap-2 text-xs text-emerald-700">
+                                <CheckCircle className="w-3 h-3" />
+                                <span>Delivered: {new Date(editingWorkOrder.deposit_email_delivered_at).toLocaleDateString()} at {new Date(editingWorkOrder.deposit_email_delivered_at).toLocaleTimeString()}</span>
+                              </div>
+                            ) : editingWorkOrder.deposit_email_bounced_at ? (
+                              <div className="flex items-center gap-2 text-xs text-red-700">
+                                <AlertCircle className="w-3 h-3" />
+                                <span>Bounced: {new Date(editingWorkOrder.deposit_email_bounced_at).toLocaleDateString()} at {new Date(editingWorkOrder.deposit_email_bounced_at).toLocaleTimeString()}</span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2 text-xs text-yellow-700">
+                                <Clock className="w-3 h-3" />
+                                <span>Awaiting Delivery Confirmation</span>
+                              </div>
+                            )}
+                            {editingWorkOrder.deposit_email_opened_at && (
+                              <div className="flex items-center gap-2 text-xs text-green-700">
+                                <Eye className="w-3 h-3" />
+                                <span>Opened: {new Date(editingWorkOrder.deposit_email_opened_at).toLocaleDateString()} at {new Date(editingWorkOrder.deposit_email_opened_at).toLocaleTimeString()}</span>
+                              </div>
+                            )}
+                            {editingWorkOrder.deposit_email_clicked_at && (
+                              <div className="flex items-center gap-2 text-xs text-cyan-700">
+                                <MousePointer className="w-3 h-3" />
+                                <span>Clicked: {new Date(editingWorkOrder.deposit_email_clicked_at).toLocaleDateString()} at {new Date(editingWorkOrder.deposit_email_clicked_at).toLocaleTimeString()}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {editingWorkOrder.deposit_payment_link_url && (
+                      <div className="mt-3 pt-3 border-t border-cyan-500/20">
+                        <p className="text-xs text-gray-600 mb-2">Payment Link:</p>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            readOnly
+                            value={editingWorkOrder.deposit_payment_link_url}
+                            className="flex-1 bg-gray-100 border border-gray-300 rounded px-3 py-2 text-xs text-gray-700"
+                          />
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(editingWorkOrder.deposit_payment_link_url!);
+                              showSuccess('Payment link copied!');
+                            }}
+                            type="button"
+                            className="bg-cyan-600 hover:bg-cyan-700 text-white px-3 py-2 rounded text-xs font-semibold transition-all flex items-center gap-1"
+                          >
+                            <Download className="w-3 h-3" />
+                            Copy
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {editingWorkOrder.deposit_payment_status === 'pending' && editingWorkOrder.deposit_payment_link_url && (
+                    <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t border-cyan-500/20">
+                      {!editingWorkOrder.deposit_email_sent_at ? (
+                        <div className="flex gap-2 w-full">
+                          <input
+                            type="email"
+                            placeholder="Recipient email"
+                            value={depositEmailRecipient}
+                            onChange={(e) => setDepositEmailRecipient(e.target.value)}
+                            className="flex-1 bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                          />
+                          <input
+                            type="text"
+                            placeholder="Recipient name (optional)"
+                            value={depositEmailRecipientName}
+                            onChange={(e) => setDepositEmailRecipientName(e.target.value)}
+                            className="flex-1 bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                          />
+                          <button
+                            onClick={() => handleSendDepositEmail(editingWorkOrder)}
+                            disabled={sendingDepositEmail || !depositEmailRecipient}
+                            type="button"
+                            className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 disabled:opacity-50"
+                          >
+                            <Mail className="w-3 h-3" />
+                            {sendingDepositEmail ? 'Sending...' : 'Send Email'}
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => {
+                              setDepositEmailRecipient(editingWorkOrder.deposit_email_recipient || '');
+                              setDepositEmailRecipientName('');
+                            }}
+                            type="button"
+                            className="bg-cyan-600 hover:bg-cyan-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1"
+                          >
+                            <Mail className="w-3 h-3" />
+                            Resend Email
+                          </button>
+                          <button
+                            onClick={() => handleSyncPaymentStatus(editingWorkOrder)}
+                            disabled={syncingPayment[editingWorkOrder.id]}
+                            type="button"
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 disabled:opacity-50"
+                          >
+                            <RefreshCw className="w-3 h-3" />
+                            {syncingPayment[editingWorkOrder.id] ? 'Syncing...' : 'Sync Payment'}
+                          </button>
+                          <button
+                            onClick={() => handleCheckEmailStatus(editingWorkOrder)}
+                            disabled={checkingEmailStatus[editingWorkOrder.id]}
+                            type="button"
+                            className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 disabled:opacity-50"
+                          >
+                            <Mail className="w-3 h-3" />
+                            {checkingEmailStatus[editingWorkOrder.id] ? 'Checking...' : 'Check Email Status'}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Internal Notes</label>
