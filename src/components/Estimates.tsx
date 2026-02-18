@@ -218,7 +218,7 @@ export function Estimates({ userId }: EstimatesProps) {
       const [estimatesResult, yachtsResult, managersResult, laborResult, partsResult, mercuryResult, settingsResult, packagesResult, customersResult] = await Promise.all([
         supabase
           .from('estimates')
-          .select('*, yachts(name)')
+          .select('*, yachts(name, manufacturer, model)')
           .neq('status', 'converted')
           .eq('archived', false)
           .order('created_at', { ascending: false }),
@@ -2750,6 +2750,7 @@ export function Estimates({ userId }: EstimatesProps) {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Estimate #</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Customer</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Vessel</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Status</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase">Total</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase">Date</th>
@@ -2766,9 +2767,23 @@ export function Estimates({ userId }: EstimatesProps) {
                   </div>
                 </td>
                 <td className="px-6 py-4">
-                  <div className="text-sm text-gray-900">
-                    {estimate.is_retail_customer ? estimate.customer_name : estimate.yachts?.name}
+                  <div className="text-sm font-medium text-gray-900">
+                    {estimate.customer_name || '—'}
                   </div>
+                </td>
+                <td className="px-6 py-4">
+                  {estimate.is_retail_customer ? (
+                    <span className="text-sm text-gray-500">—</span>
+                  ) : (
+                    <div>
+                      <div className="text-sm font-medium text-gray-900">{estimate.yachts?.name || '—'}</div>
+                      {(estimate.yachts?.manufacturer || estimate.yachts?.model) && (
+                        <div className="text-xs text-gray-500">
+                          {[estimate.yachts?.manufacturer, estimate.yachts?.model].filter(Boolean).join(' ')}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </td>
                 <td className="px-6 py-4">
                   <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(estimate.status)}`}>
