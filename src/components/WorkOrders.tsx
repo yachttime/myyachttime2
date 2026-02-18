@@ -2014,7 +2014,9 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
             </div>
 
             {/* Display Deposit Tracking Panel in Edit Mode */}
-            {editingWorkOrder && editingWorkOrder.deposit_required && editingWorkOrder.deposit_payment_link_url && (
+            {editingId && (() => {
+              const editingWorkOrder = workOrders.find(wo => wo.id === editingId);
+              return editingWorkOrder && editingWorkOrder.deposit_required && editingWorkOrder.deposit_payment_link_url && (
               <div className="border-t pt-4">
                 <div className="bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/30 rounded-lg p-4">
                   <div className="flex items-center gap-2 mb-3">
@@ -2192,7 +2194,8 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                   )}
                 </div>
               </div>
-            )}
+              );
+            })()}
 
             <div className="grid grid-cols-2 gap-4">
               <div>
