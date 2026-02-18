@@ -778,16 +778,14 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Accounting Code</label>
+            <div className="hidden">
               <select
                 value={formData.accounting_code_id}
                 onChange={(e) => setFormData({ ...formData, accounting_code_id: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
               >
-                <option value="" className="bg-white text-gray-900">Select accounting code</option>
+                <option value="">Select accounting code</option>
                 {accountingCodes.map((ac) => (
-                  <option key={ac.id} value={ac.id} className="bg-white text-gray-900">
+                  <option key={ac.id} value={ac.id}>
                     {ac.code} - {ac.name}
                   </option>
                 ))}
