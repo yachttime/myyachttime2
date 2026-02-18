@@ -1186,26 +1186,26 @@ export function Invoices({ userId }: InvoicesProps) {
       </div>
 
       {showDetails && selectedInvoice && (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50">
-          <div className="bg-slate-800 border border-slate-700 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-slate-700">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white border border-gray-200 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-2xl font-bold text-white">
+                <h2 className="text-2xl font-bold text-gray-900">
                   Invoice Details: {selectedInvoice.invoice_number}
                 </h2>
                 <button
                   onClick={() => setShowDetails(false)}
-                  className="text-slate-400 hover:text-slate-200"
+                  className="text-gray-400 hover:text-gray-600"
                 >
                   <XCircle className="w-6 h-6" />
                 </button>
               </div>
 
               {/* Action Buttons */}
-              <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-slate-700">
+              <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-gray-200">
                 <button
                   onClick={() => handlePrintInvoice(selectedInvoice)}
-                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg flex items-center gap-2 text-sm font-medium transition-colors"
+                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors"
                 >
                   <Printer className="w-4 h-4" />
                   Print Invoice
@@ -1216,34 +1216,34 @@ export function Invoices({ userId }: InvoicesProps) {
             <div className="p-6">
               <div className="grid grid-cols-2 gap-6 mb-6">
                 <div>
-                  <h3 className="text-sm font-medium text-slate-400 mb-2">Customer Information</h3>
-                  <p className="text-lg font-medium text-white">{selectedInvoice.customer_name}</p>
+                  <h3 className="text-sm font-medium text-gray-500 mb-2">Customer Information</h3>
+                  <p className="text-lg font-medium text-gray-900">{selectedInvoice.customer_name}</p>
                   {selectedInvoice.customer_email && (
-                    <p className="text-sm text-slate-300">{selectedInvoice.customer_email}</p>
+                    <p className="text-sm text-gray-600">{selectedInvoice.customer_email}</p>
                   )}
                   {selectedInvoice.customer_phone && (
-                    <p className="text-sm text-slate-300">{selectedInvoice.customer_phone}</p>
+                    <p className="text-sm text-gray-600">{selectedInvoice.customer_phone}</p>
                   )}
                   {selectedInvoice.yacht_name && (
-                    <p className="text-sm text-slate-300 mt-2">Yacht: {selectedInvoice.yacht_name}</p>
+                    <p className="text-sm text-gray-600 mt-2">Yacht: {selectedInvoice.yacht_name}</p>
                   )}
                 </div>
 
                 <div>
-                  <h3 className="text-sm font-medium text-slate-400 mb-2">Invoice Details</h3>
+                  <h3 className="text-sm font-medium text-gray-500 mb-2">Invoice Details</h3>
                   <div className="space-y-1">
                     <div className="flex justify-between text-sm">
-                      <span className="text-slate-400">Invoice Date:</span>
-                      <span className="text-slate-200">{new Date(selectedInvoice.invoice_date).toLocaleDateString()}</span>
+                      <span className="text-gray-500">Invoice Date:</span>
+                      <span className="text-gray-900">{new Date(selectedInvoice.invoice_date).toLocaleDateString()}</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-slate-400">Due Date:</span>
-                      <span className="text-slate-200">{new Date(selectedInvoice.due_date).toLocaleDateString()}</span>
+                      <span className="text-gray-500">Due Date:</span>
+                      <span className="text-gray-900">{new Date(selectedInvoice.due_date).toLocaleDateString()}</span>
                     </div>
                     {selectedInvoice.work_order_number && (
                       <div className="flex justify-between text-sm">
-                        <span className="text-slate-400">Work Order:</span>
-                        <span className="text-slate-200">{selectedInvoice.work_order_number}</span>
+                        <span className="text-gray-500">Work Order:</span>
+                        <span className="text-gray-900">{selectedInvoice.work_order_number}</span>
                       </div>
                     )}
                   </div>
@@ -1253,46 +1253,46 @@ export function Invoices({ userId }: InvoicesProps) {
               {/* Line Items Section */}
               {workOrderTasks.length > 0 && (
                 <div className="mb-6">
-                  <h3 className="text-lg font-medium text-white mb-4">Line Items</h3>
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Line Items</h3>
                   <div className="space-y-6">
                     {workOrderTasks.map((task) => {
                       const taskLineItems = workOrderLineItems.filter(item => item.task_id === task.id);
                       if (taskLineItems.length === 0) return null;
 
                       return (
-                        <div key={task.id} className="border border-slate-700 rounded-lg overflow-hidden">
-                          <div className="bg-slate-700/50 px-4 py-3 border-b border-slate-700">
-                            <h4 className="font-semibold text-white">{task.task_name}</h4>
+                        <div key={task.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                          <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                            <h4 className="font-semibold text-gray-900">{task.task_name}</h4>
                             {task.task_overview && (
-                              <p className="text-sm text-slate-300 mt-1">{task.task_overview}</p>
+                              <p className="text-sm text-gray-600 mt-1">{task.task_overview}</p>
                             )}
                           </div>
-                          <div className="divide-y divide-slate-700">
+                          <div className="divide-y divide-gray-200">
                             {taskLineItems.map((item) => (
                               <div key={item.id} className="px-4 py-3">
                                 <div className="flex justify-between items-start">
                                   <div className="flex-1">
                                     <div className="flex items-center gap-2">
-                                      <span className="text-xs font-medium text-slate-400 uppercase bg-slate-700 px-2 py-1 rounded">
+                                      <span className="text-xs font-medium text-gray-500 uppercase bg-gray-100 px-2 py-1 rounded">
                                         {item.line_type}
                                       </span>
-                                      <span className="text-sm font-medium text-slate-200">
+                                      <span className="text-sm font-medium text-gray-900">
                                         {item.description}
                                       </span>
                                     </div>
                                     {item.work_details && (
-                                      <p className="text-sm text-slate-400 mt-1 ml-[3.75rem]">{item.work_details}</p>
+                                      <p className="text-sm text-gray-500 mt-1 ml-[3.75rem]">{item.work_details}</p>
                                     )}
-                                    <div className="flex gap-4 mt-2 ml-[3.75rem] text-sm text-slate-400">
+                                    <div className="flex gap-4 mt-2 ml-[3.75rem] text-sm text-gray-500">
                                       <span>Qty: {item.quantity}</span>
                                       <span>Unit Price: ${item.unit_price.toFixed(2)}</span>
                                       {item.is_taxable && (
-                                        <span className="text-blue-400">Taxable</span>
+                                        <span className="text-blue-600">Taxable</span>
                                       )}
                                     </div>
                                   </div>
                                   <div className="text-right ml-4">
-                                    <div className="text-base font-semibold text-white">
+                                    <div className="text-base font-semibold text-gray-900">
                                       ${item.total_price.toFixed(2)}
                                     </div>
                                   </div>
@@ -1307,28 +1307,28 @@ export function Invoices({ userId }: InvoicesProps) {
                 </div>
               )}
 
-              <div className="bg-slate-900/50 border border-slate-700 rounded-lg p-4 mb-6">
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-slate-400">Subtotal:</span>
-                    <span className="text-slate-200">${selectedInvoice.subtotal.toFixed(2)}</span>
+                    <span className="text-gray-500">Subtotal:</span>
+                    <span className="text-gray-900">${selectedInvoice.subtotal.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-slate-400">Tax ({(selectedInvoice.tax_rate * 100).toFixed(2)}%):</span>
-                    <span className="text-slate-200">${selectedInvoice.tax_amount.toFixed(2)}</span>
+                    <span className="text-gray-500">Tax ({(selectedInvoice.tax_rate * 100).toFixed(2)}%):</span>
+                    <span className="text-gray-900">${selectedInvoice.tax_amount.toFixed(2)}</span>
                   </div>
                   {selectedInvoice.deposit_applied && selectedInvoice.deposit_applied > 0 && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-slate-400">Deposit Applied:</span>
-                      <span className="text-emerald-400">-${selectedInvoice.deposit_applied.toFixed(2)}</span>
+                      <span className="text-gray-500">Deposit Applied:</span>
+                      <span className="text-green-600">-${selectedInvoice.deposit_applied.toFixed(2)}</span>
                     </div>
                   )}
-                  <div className="border-t border-slate-700 pt-2 mt-2">
+                  <div className="border-t border-gray-200 pt-2 mt-2">
                     <div className="flex justify-between">
-                      <span className="text-lg font-bold text-white">
+                      <span className="text-lg font-bold text-gray-900">
                         {selectedInvoice.deposit_applied && selectedInvoice.deposit_applied > 0 ? 'Balance Due:' : 'Total:'}
                       </span>
-                      <span className="text-lg font-bold text-white">
+                      <span className="text-lg font-bold text-gray-900">
                         ${(selectedInvoice.balance_due !== null && selectedInvoice.balance_due !== selectedInvoice.total_amount
                           ? selectedInvoice.balance_due
                           : selectedInvoice.total_amount
@@ -1340,7 +1340,7 @@ export function Invoices({ userId }: InvoicesProps) {
               </div>
 
               {/* Payment Collection Section */}
-              <div className="border-t border-slate-700 pt-6">
+              <div className="border-t border-gray-200 pt-6">
                 {(() => {
                   const paymentLink = selectedInvoice.final_payment_link_url || selectedInvoice.payment_link;
                   const emailSentAt = selectedInvoice.final_payment_email_sent_at || selectedInvoice.payment_email_sent_at;
@@ -1353,37 +1353,37 @@ export function Invoices({ userId }: InvoicesProps) {
                   const paidAt = selectedInvoice.final_payment_paid_at || selectedInvoice.paid_at;
 
                   return (
-                    <div className="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/30 rounded-lg p-4">
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                       <div className="flex items-center gap-2 mb-3">
-                        <Receipt className="w-5 h-5 text-emerald-400" />
-                        <h5 className="font-semibold text-emerald-400">Invoice Details</h5>
+                        <Receipt className="w-5 h-5 text-green-600" />
+                        <h5 className="font-semibold text-green-700">Payment Details</h5>
                         {selectedInvoice.payment_status !== 'paid' && !emailSentAt && !paymentLink && (
-                          <span className="ml-auto bg-yellow-500/20 text-yellow-400 px-3 py-1 rounded-full text-xs font-semibold">
+                          <span className="ml-auto bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs font-semibold">
                             Payment Not Requested
                           </span>
                         )}
                         {selectedInvoice.payment_status !== 'paid' && emailClickedAt && (
-                          <span className="ml-auto bg-teal-500/20 text-teal-400 px-3 py-1 rounded-full text-xs font-semibold">
+                          <span className="ml-auto bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-semibold">
                             Viewed Invoice
                           </span>
                         )}
                         {selectedInvoice.payment_status !== 'paid' && !emailClickedAt && emailOpenedAt && (
-                          <span className="ml-auto bg-cyan-500/20 text-cyan-400 px-3 py-1 rounded-full text-xs font-semibold">
+                          <span className="ml-auto bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-semibold">
                             Opened Email
                           </span>
                         )}
                         {selectedInvoice.payment_status !== 'paid' && !emailOpenedAt && emailDeliveredAt && (
-                          <span className="ml-auto bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 px-3 py-1 rounded-full text-xs font-semibold">
+                          <span className="ml-auto bg-blue-100 text-blue-800 border border-blue-200 px-3 py-1 rounded-full text-xs font-semibold">
                             Email Delivered
                           </span>
                         )}
                         {selectedInvoice.payment_status !== 'paid' && emailSentAt && !emailDeliveredAt && !emailOpenedAt && !emailClickedAt && (
-                          <span className="ml-auto bg-blue-500/20 text-blue-400 px-3 py-1 rounded-full text-xs font-semibold">
+                          <span className="ml-auto bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-semibold">
                             Email Sent
                           </span>
                         )}
                         {selectedInvoice.payment_status === 'paid' && (
-                          <span className="ml-auto bg-green-500/20 text-green-400 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
+                          <span className="ml-auto bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
                             <CheckCircle className="w-3 h-3" />
                             Paid
                           </span>
@@ -1391,65 +1391,65 @@ export function Invoices({ userId }: InvoicesProps) {
                       </div>
 
                       <div className="space-y-2">
-                        <p className="text-sm text-slate-300">
-                          <span className="font-semibold text-white">Amount:</span> {(selectedInvoice.balance_due ?? selectedInvoice.total_amount).toFixed(2)}
+                        <p className="text-sm text-gray-700">
+                          <span className="font-semibold text-gray-900">Amount:</span> {(selectedInvoice.balance_due ?? selectedInvoice.total_amount).toFixed(2)}
                         </p>
                         {paidAt && (
-                          <p className="text-xs text-emerald-400">
+                          <p className="text-xs text-green-600">
                             Paid on: {new Date(paidAt).toLocaleDateString()} at {new Date(paidAt).toLocaleTimeString()}
                           </p>
                         )}
 
                         {emailSentAt && (
-                          <div className="mt-3 pt-3 border-t border-emerald-500/20">
-                            <p className="text-xs font-semibold text-slate-300 mb-2">Email Engagement</p>
+                          <div className="mt-3 pt-3 border-t border-green-200">
+                            <p className="text-xs font-semibold text-gray-700 mb-2">Email Engagement</p>
                             <div className="space-y-1">
                               {emailRecipient && (
-                                <div className="flex items-center gap-2 text-xs text-blue-300 mb-2">
+                                <div className="flex items-center gap-2 text-xs text-blue-600 mb-2">
                                   <Mail className="w-3 h-3" />
                                   <span className="font-medium">To: {emailRecipient}</span>
                                 </div>
                               )}
-                              <div className="flex items-center gap-2 text-xs text-slate-400">
-                                <Mail className="w-3 h-3 text-blue-400" />
+                              <div className="flex items-center gap-2 text-xs text-gray-500">
+                                <Mail className="w-3 h-3 text-blue-500" />
                                 <span>Sent: {new Date(emailSentAt).toLocaleDateString()} at {new Date(emailSentAt).toLocaleTimeString()}</span>
                               </div>
                               {emailDeliveredAt && (
-                                <div className="flex items-center gap-2 text-xs text-emerald-400">
+                                <div className="flex items-center gap-2 text-xs text-green-600">
                                   <CheckCircle className="w-3 h-3" />
                                   <span>Delivered: {new Date(emailDeliveredAt).toLocaleDateString()} at {new Date(emailDeliveredAt).toLocaleTimeString()}</span>
                                 </div>
                               )}
                               {emailOpenedAt && (
-                                <div className="flex items-center gap-2 text-xs text-cyan-400">
+                                <div className="flex items-center gap-2 text-xs text-blue-600">
                                   <Eye className="w-3 h-3" />
                                   <span>Opened: {new Date(emailOpenedAt).toLocaleDateString()} at {new Date(emailOpenedAt).toLocaleTimeString()}</span>
                                   {(selectedInvoice.email_open_count ?? 0) > 1 && (
-                                    <span className="bg-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded text-xs font-semibold">
+                                    <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-semibold">
                                       {selectedInvoice.email_open_count}x
                                     </span>
                                   )}
                                 </div>
                               )}
                               {emailClickedAt && (
-                                <div className="flex items-center gap-2 text-xs text-teal-400">
+                                <div className="flex items-center gap-2 text-xs text-blue-700">
                                   <MousePointer className="w-3 h-3" />
                                   <span>Clicked: {new Date(emailClickedAt).toLocaleDateString()} at {new Date(emailClickedAt).toLocaleTimeString()}</span>
                                   {(selectedInvoice.email_click_count ?? 0) > 1 && (
-                                    <span className="bg-teal-500/20 text-teal-400 px-2 py-0.5 rounded text-xs font-semibold">
+                                    <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-semibold">
                                       {selectedInvoice.email_click_count}x
                                     </span>
                                   )}
                                 </div>
                               )}
                               {selectedInvoice.payment_status === 'paid' && confirmationEmailSentAt && (
-                                <div className="flex items-center gap-2 text-xs text-emerald-400 pt-2 border-t border-emerald-500/20 mt-2">
+                                <div className="flex items-center gap-2 text-xs text-green-600 pt-2 border-t border-green-200 mt-2">
                                   <CheckCircle className="w-3 h-3" />
                                   <span className="font-medium">Payment Confirmation Sent: {new Date(confirmationEmailSentAt).toLocaleDateString()} at {new Date(confirmationEmailSentAt).toLocaleTimeString()}</span>
                                 </div>
                               )}
                               {emailBouncedAt && (
-                                <div className="flex items-center gap-2 text-xs text-red-400">
+                                <div className="flex items-center gap-2 text-xs text-red-600">
                                   <AlertCircle className="w-3 h-3" />
                                   <span>Bounced: {new Date(emailBouncedAt).toLocaleDateString()} at {new Date(emailBouncedAt).toLocaleTimeString()}</span>
                                 </div>
@@ -1459,25 +1459,25 @@ export function Invoices({ userId }: InvoicesProps) {
                         )}
 
                         {paymentLink && (
-                          <div className="mt-3 pt-3 border-t border-emerald-500/20">
-                            <p className="text-xs text-slate-400 mb-2">Payment Link:</p>
+                          <div className="mt-3 pt-3 border-t border-green-200">
+                            <p className="text-xs text-gray-500 mb-2">Payment Link:</p>
                             <div className="flex items-center gap-2">
                               <input
                                 type="text"
                                 readOnly
                                 value={paymentLink}
-                                className="flex-1 bg-slate-900/50 border border-slate-700 rounded px-3 py-2 text-xs text-slate-300"
+                                className="flex-1 bg-white border border-gray-300 rounded px-3 py-2 text-xs text-gray-700"
                               />
                               <button
                                 onClick={() => handleCopyPaymentLink(selectedInvoice)}
-                                className="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-2 rounded text-xs font-semibold transition-all flex items-center gap-1"
+                                className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded text-xs font-semibold transition-all flex items-center gap-1"
                               >
                                 <Download className="w-3 h-3" />
                                 Copy
                               </button>
                               <button
                                 onClick={handleEmailPaymentLink}
-                                className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded text-xs font-semibold transition-all flex items-center gap-1"
+                                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-xs font-semibold transition-all flex items-center gap-1"
                               >
                                 <Mail className="w-3 h-3" />
                                 Email
@@ -1488,12 +1488,12 @@ export function Invoices({ userId }: InvoicesProps) {
                       </div>
 
                       {selectedInvoice.payment_status !== 'paid' && (
-                        <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t border-emerald-500/20">
+                        <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t border-green-200">
                           {!paymentLink && (
                             <button
                               onClick={() => handleRequestPayment(selectedInvoice)}
                               disabled={paymentLoading}
-                              className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 disabled:opacity-50"
+                              className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 disabled:opacity-50"
                             >
                               <CreditCard className="w-3 h-3" />
                               {paymentLoading ? 'Generating...' : 'Generate Payment Link'}
@@ -1535,9 +1535,9 @@ export function Invoices({ userId }: InvoicesProps) {
               </div>
 
               {selectedInvoice.notes && (
-                <div className="border-t border-slate-700 pt-6 mt-6">
-                  <h3 className="text-sm font-medium text-slate-400 mb-2">Notes</h3>
-                  <p className="text-sm text-slate-300 whitespace-pre-wrap">{selectedInvoice.notes}</p>
+                <div className="border-t border-gray-200 pt-6 mt-6">
+                  <h3 className="text-sm font-medium text-gray-500 mb-2">Notes</h3>
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap">{selectedInvoice.notes}</p>
                 </div>
               )}
             </div>
