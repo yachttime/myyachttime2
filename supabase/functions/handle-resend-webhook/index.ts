@@ -142,6 +142,13 @@ Deno.serve(async (req: Request) => {
       .eq('deposit_resend_email_id', event.data.email_id)
       .maybeSingle();
 
+    // Try to find the email in estimating_invoices (final payment emails)
+    const { data: estimatingInvoice } = await supabase
+      .from('estimating_invoices')
+      .select('*')
+      .eq('final_payment_resend_email_id', event.data.email_id)
+      .maybeSingle();
+
     // Try to find the email in staff_messages
     const { data: staffMessage } = await supabase
       .from('staff_messages')
@@ -149,7 +156,7 @@ Deno.serve(async (req: Request) => {
       .eq('resend_email_id', event.data.email_id)
       .maybeSingle();
 
-    if (!invoice && !repairRequest && !repairNotification && !depositRequest && !staffMessage) {
+    if (!invoice && !repairRequest && !repairNotification && !depositRequest && !estimatingInvoice && !staffMessage) {
       console.log('No record found for email_id:', event.data.email_id);
       return new Response(
         JSON.stringify({ received: true, message: 'No record found for this email' }),
@@ -342,6 +349,52 @@ Deno.serve(async (req: Request) => {
           console.error('Error updating deposit request:', updateError);
         } else {
           console.log('Updated deposit request:', depositRequest.id, 'with data:', depositUpdateData);
+        }
+      }
+    }
+
+    // Handle estimating_invoices tracking (final payment emails)
+    if (estimatingInvoice) {
+      const estimatingUpdateData: Record<string, any> = {};
+
+      switch (event.type) {
+        case 'email.delivered':
+          if (!estimatingInvoice.final_payment_email_delivered_at) {
+            estimatingUpdateData.final_payment_email_delivered_at = eventTimestamp;
+          }
+          break;
+
+        case 'email.opened':
+          if (!estimatingInvoice.final_payment_email_opened_at) {
+            estimatingUpdateData.final_payment_email_opened_at = eventTimestamp;
+          }
+          estimatingUpdateData.email_open_count = (estimatingInvoice.email_open_count || 0) + 1;
+          break;
+
+        case 'email.clicked':
+          if (!estimatingInvoice.final_payment_email_clicked_at) {
+            estimatingUpdateData.final_payment_email_clicked_at = eventTimestamp;
+          }
+          estimatingUpdateData.email_click_count = (estimatingInvoice.email_click_count || 0) + 1;
+          break;
+
+        case 'email.bounced':
+          if (!estimatingInvoice.final_payment_email_bounced_at) {
+            estimatingUpdateData.final_payment_email_bounced_at = eventTimestamp;
+          }
+          break;
+      }
+
+      if (Object.keys(estimatingUpdateData).length > 0) {
+        const { error: updateError } = await supabase
+          .from('estimating_invoices')
+          .update(estimatingUpdateData)
+          .eq('id', estimatingInvoice.id);
+
+        if (updateError) {
+          console.error('Error updating estimating invoice:', updateError);
+        } else {
+          console.log('Updated estimating invoice:', estimatingInvoice.id, 'with data:', estimatingUpdateData);
         }
       }
     }
