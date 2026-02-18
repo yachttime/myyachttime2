@@ -797,7 +797,7 @@ function DefaultAccountsTab({ qboAccounts, mappings, onSave, saving }: DefaultAc
     { type: 'cogs', label: 'Cost of Goods Sold', description: 'Default COGS account for parts' },
     { type: 'inventory_asset', label: 'Inventory Asset', description: 'Default asset account for inventory' },
     { type: 'tax', label: 'Sales Tax Payable', description: 'Default account for sales tax' },
-    { type: 'expense', label: 'Operating Expenses', description: 'Default account for expenses' },
+    { type: 'expense', label: 'Sublet Sales', description: 'Default income account for sublet/subcontractor sales' },
     { type: 'deposit', label: 'Customer Deposits', description: 'Liability or deferred revenue account where customer deposits are recorded when collected (e.g. Customer Deposits Liability)' },
     { type: 'payment', label: 'Payment Received Account', description: 'Bank or undeposited funds account where invoice payments are received (e.g. Undeposited Funds or a specific bank account)' }
   ];
