@@ -1999,56 +1999,6 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
               </div>
             </div>
 
-            {/* Deposit Settings Section */}
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-              <h3 className="text-base font-semibold text-gray-900 mb-4">Deposit Settings</h3>
-
-              <div className="flex items-center mb-4">
-                <input
-                  type="checkbox"
-                  id="deposit_required"
-                  checked={formData.deposit_required}
-                  onChange={(e) => setFormData({ ...formData, deposit_required: e.target.checked })}
-                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                />
-                <label htmlFor="deposit_required" className="ml-2 text-sm font-medium text-gray-900">
-                  Require Deposit
-                </label>
-              </div>
-
-              {formData.deposit_required && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Deposit Amount ($)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={formData.deposit_amount}
-                      onChange={(e) => setFormData({ ...formData, deposit_amount: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
-                      placeholder="e.g., 500.00"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Payment Method
-                    </label>
-                    <select
-                      value={formData.deposit_payment_method_type}
-                      onChange={(e) => setFormData({ ...formData, deposit_payment_method_type: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
-                    >
-                      <option value="card">Credit/Debit Card</option>
-                      <option value="ach">ACH Bank Transfer</option>
-                    </select>
-                  </div>
-                </div>
-              )}
-            </div>
-
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Internal Notes</label>
@@ -2255,7 +2205,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
               {/* Expanded Row with Deposit Details */}
               {expandedWorkOrders.has(workOrder.id) && workOrder.deposit_required && workOrder.deposit_payment_link_url && (
                 <tr>
-                  <td colSpan={7} className="px-6 py-4 bg-slate-900">
+                  <td colSpan={7} className="px-6 py-4 bg-gray-50">
                     <div className="bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/30 rounded-lg p-4">
                       <div className="flex items-center gap-2 mb-3">
                         <DollarSign className="w-5 h-5 text-cyan-400" />
