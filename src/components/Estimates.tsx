@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, FileText, AlertCircle, Edit2, Trash2, Check, X, ChevronDown, ChevronUp, Printer, CheckCircle, XCircle, Package, Archive, RotateCcw } from 'lucide-react';
+import { Plus, FileText, AlertCircle, Edit2, Trash2, Check, X, ChevronDown, ChevronUp, Printer, CheckCircle, XCircle, Package, Archive, RotateCcw, Search, User } from 'lucide-react';
 import { generateEstimatePDF } from '../utils/pdfGenerator';
 import { useNotification } from '../contexts/NotificationContext';
 
@@ -147,6 +147,9 @@ export function Estimates({ userId }: EstimatesProps) {
   const [packages, setPackages] = useState<any[]>([]);
   const [showPackageModal, setShowPackageModal] = useState(false);
   const [selectedPackageId, setSelectedPackageId] = useState<string>('');
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -177,18 +180,21 @@ export function Estimates({ userId }: EstimatesProps) {
       if (showPartDropdown && !target.closest('.part-search-container')) {
         setShowPartDropdown(false);
       }
+      if (showCustomerDropdown && !target.closest('.customer-search-container')) {
+        setShowCustomerDropdown(false);
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showPartDropdown]);
+  }, [showPartDropdown, showCustomerDropdown]);
 
   const loadData = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const [estimatesResult, yachtsResult, managersResult, laborResult, partsResult, mercuryResult, settingsResult, packagesResult] = await Promise.all([
+      const [estimatesResult, yachtsResult, managersResult, laborResult, partsResult, mercuryResult, settingsResult, packagesResult, customersResult] = await Promise.all([
         supabase
           .from('estimates')
           .select('*, yachts(name)')
@@ -228,7 +234,12 @@ export function Estimates({ userId }: EstimatesProps) {
           .from('estimate_packages')
           .select('id, name, description')
           .eq('is_active', true)
-          .order('name')
+          .order('name'),
+        supabase
+          .from('customers')
+          .select('id, customer_type, first_name, last_name, business_name, email, phone')
+          .eq('is_active', true)
+          .order('last_name')
       ]);
 
       if (estimatesResult.error) throw estimatesResult.error;
@@ -246,6 +257,7 @@ export function Estimates({ userId }: EstimatesProps) {
       setParts(partsResult.data || []);
       setMercuryParts(mercuryResult.data || []);
       setPackages(packagesResult.data || []);
+      setCustomers(customersResult.data || []);
 
       console.log('Loaded Mercury Parts:', mercuryResult.data?.length || 0, 'parts');
 
@@ -903,6 +915,8 @@ export function Estimates({ userId }: EstimatesProps) {
       notes: '',
       customer_notes: DEFAULT_CUSTOMER_NOTES
     });
+    setCustomerSearch('');
+    setShowCustomerDropdown(false);
     setTasks([]);
     setShowForm(false);
     setEditingId(null);
@@ -1414,35 +1428,103 @@ export function Estimates({ userId }: EstimatesProps) {
             </div>
 
             {formData.is_retail_customer ? (
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.customer_name}
-                    onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
+              <div className="space-y-4">
+                <div className="relative customer-search-container">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Search Customer Database</label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Search by name, email, or phone..."
+                      value={customerSearch}
+                      onChange={(e) => {
+                        setCustomerSearch(e.target.value);
+                        setShowCustomerDropdown(true);
+                      }}
+                      onFocus={() => setShowCustomerDropdown(true)}
+                      className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  {showCustomerDropdown && customerSearch.length > 0 && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                      {customers
+                        .filter(c => {
+                          const fullName = c.customer_type === 'business'
+                            ? (c.business_name || '').toLowerCase()
+                            : `${c.first_name || ''} ${c.last_name || ''}`.toLowerCase();
+                          const search = customerSearch.toLowerCase();
+                          return fullName.includes(search) || (c.email || '').toLowerCase().includes(search) || (c.phone || '').includes(search);
+                        })
+                        .map(c => {
+                          const displayName = c.customer_type === 'business'
+                            ? c.business_name
+                            : `${c.first_name || ''} ${c.last_name || ''}`.trim();
+                          return (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() => {
+                                setFormData({
+                                  ...formData,
+                                  customer_name: displayName,
+                                  customer_email: c.email || '',
+                                  customer_phone: c.phone || ''
+                                });
+                                setCustomerSearch(displayName);
+                                setShowCustomerDropdown(false);
+                              }}
+                              className="w-full text-left px-4 py-2.5 hover:bg-blue-50 transition-colors flex items-center gap-3 border-b border-gray-100 last:border-0"
+                            >
+                              <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">{displayName}</p>
+                                {c.email && <p className="text-xs text-gray-500">{c.email}</p>}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      {customers.filter(c => {
+                        const fullName = c.customer_type === 'business'
+                          ? (c.business_name || '').toLowerCase()
+                          : `${c.first_name || ''} ${c.last_name || ''}`.toLowerCase();
+                        const search = customerSearch.toLowerCase();
+                        return fullName.includes(search) || (c.email || '').toLowerCase().includes(search) || (c.phone || '').includes(search);
+                      }).length === 0 && (
+                        <div className="px-4 py-3 text-sm text-gray-500 text-center">No customers found</div>
+                      )}
+                    </div>
+                  )}
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
-                  <input
-                    type="email"
-                    required
-                    value={formData.customer_email}
-                    onChange={(e) => setFormData({ ...formData, customer_email: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                  <input
-                    type="tel"
-                    value={formData.customer_phone}
-                    onChange={(e) => setFormData({ ...formData, customer_phone: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.customer_name}
+                      onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                    <input
+                      type="email"
+                      required
+                      value={formData.customer_email}
+                      onChange={(e) => setFormData({ ...formData, customer_email: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                    <input
+                      type="tel"
+                      value={formData.customer_phone}
+                      onChange={(e) => setFormData({ ...formData, customer_phone: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
                 </div>
               </div>
             ) : (
