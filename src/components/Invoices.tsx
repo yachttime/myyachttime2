@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Receipt, Search, Printer, Mail, DollarSign, Eye, CheckCircle, Clock, XCircle, ExternalLink, Archive, RotateCcw, RefreshCw, X, Copy, CreditCard } from 'lucide-react';
+import { Receipt, Search, Printer, Mail, DollarSign, Eye, CheckCircle, Clock, XCircle, ExternalLink, Archive, RotateCcw, RefreshCw, X, Copy, CreditCard, AlertCircle, MousePointer, Download } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -45,6 +45,9 @@ interface Invoice {
   payment_method_type: string | null;
   paid_at: string | null;
   payment_confirmation_email_sent_at: string | null;
+  email_open_count: number | null;
+  email_click_count: number | null;
+  amount_paid: number | null;
 }
 
 interface WorkOrderTask {
@@ -1278,108 +1281,143 @@ export function Invoices({ userId }: InvoicesProps) {
               </div>
 
               {/* Payment Collection Section */}
-              {selectedInvoice.payment_status !== 'paid' && (
-                <div className="border-t pt-6">
-                  <div className="bg-gradient-to-r from-green-500/10 to-blue-500/10 border border-green-500/30 rounded-lg p-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <DollarSign className="w-5 h-5 text-green-600" />
-                      <h5 className="font-semibold text-green-700">Payment Collection</h5>
-                      {!selectedInvoice.payment_link && (
-                        <span className="ml-auto bg-yellow-500/20 text-yellow-700 px-3 py-1 rounded-full text-xs font-semibold">
-                          Payment Not Requested
-                        </span>
-                      )}
-                      {selectedInvoice.payment_link && selectedInvoice.payment_status !== 'paid' && (
-                        <span className="ml-auto bg-blue-500/20 text-blue-700 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          Payment Pending
-                        </span>
-                      )}
-                    </div>
+              <div className="border-t pt-6">
+                <div className="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/30 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Receipt className="w-5 h-5 text-emerald-600" />
+                    <h5 className="font-semibold text-emerald-700">Payment Collection</h5>
+                    {selectedInvoice.payment_status !== 'paid' && !selectedInvoice.payment_email_sent_at && !selectedInvoice.payment_link && (
+                      <span className="ml-auto bg-yellow-500/20 text-yellow-700 px-3 py-1 rounded-full text-xs font-semibold">
+                        Payment Not Requested
+                      </span>
+                    )}
+                    {selectedInvoice.payment_status !== 'paid' && selectedInvoice.payment_email_clicked_at && (
+                      <span className="ml-auto bg-violet-500/20 text-violet-700 px-3 py-1 rounded-full text-xs font-semibold">
+                        Viewed Invoice
+                      </span>
+                    )}
+                    {selectedInvoice.payment_status !== 'paid' && !selectedInvoice.payment_email_clicked_at && selectedInvoice.payment_email_opened_at && (
+                      <span className="ml-auto bg-indigo-500/20 text-indigo-700 px-3 py-1 rounded-full text-xs font-semibold">
+                        Opened Email
+                      </span>
+                    )}
+                    {selectedInvoice.payment_status !== 'paid' && !selectedInvoice.payment_email_opened_at && selectedInvoice.payment_email_delivered_at && (
+                      <span className="ml-auto bg-cyan-500/20 text-cyan-700 px-3 py-1 rounded-full text-xs font-semibold">
+                        Email Delivered
+                      </span>
+                    )}
+                    {selectedInvoice.payment_status !== 'paid' && selectedInvoice.payment_email_sent_at && !selectedInvoice.payment_email_delivered_at && !selectedInvoice.payment_email_opened_at && !selectedInvoice.payment_email_clicked_at && (
+                      <span className="ml-auto bg-blue-500/20 text-blue-700 px-3 py-1 rounded-full text-xs font-semibold">
+                        Email Sent
+                      </span>
+                    )}
+                    {selectedInvoice.payment_status === 'paid' && (
+                      <span className="ml-auto bg-green-500/20 text-green-700 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
+                        <CheckCircle className="w-3 h-3" />
+                        Paid
+                      </span>
+                    )}
+                  </div>
 
-                    <div className="space-y-2">
-                      <p className="text-sm text-gray-700">
-                        <span className="font-semibold">Balance Due:</span> ${(selectedInvoice.balance_due || selectedInvoice.total_amount).toFixed(2)}
+                  <div className="space-y-2">
+                    <p className="text-sm text-gray-700">
+                      <span className="font-semibold">Balance Due:</span> ${(selectedInvoice.balance_due ?? selectedInvoice.total_amount).toFixed(2)}
+                    </p>
+                    {selectedInvoice.paid_at && (
+                      <p className="text-xs text-green-600">
+                        Paid on: {new Date(selectedInvoice.paid_at).toLocaleDateString()} at {new Date(selectedInvoice.paid_at).toLocaleTimeString()}
                       </p>
+                    )}
 
-                      {selectedInvoice.payment_email_sent_at && (
-                        <div className="mt-3 pt-3 border-t border-green-500/20">
-                          <p className="text-xs font-semibold text-gray-700 mb-2">Email Engagement</p>
-                          <div className="space-y-2 mb-3">
-                            {selectedInvoice.payment_email_recipient && (
-                              <div className="flex items-center gap-2 text-xs text-blue-700">
-                                <Mail className="w-3 h-3" />
-                                <span>To: {selectedInvoice.payment_email_recipient}</span>
-                              </div>
-                            )}
-                            <div className="flex items-center gap-2 text-xs text-gray-700">
-                              <Clock className="w-3 h-3" />
-                              <span>Sent: {new Date(selectedInvoice.payment_email_sent_at).toLocaleDateString()} at {new Date(selectedInvoice.payment_email_sent_at).toLocaleTimeString()}</span>
-                            </div>
-                            {selectedInvoice.payment_email_delivered_at && (
-                              <div className="flex items-center gap-2 text-xs text-green-600">
-                                <CheckCircle className="w-3 h-3" />
-                                <span>Delivered: {new Date(selectedInvoice.payment_email_delivered_at).toLocaleDateString()} at {new Date(selectedInvoice.payment_email_delivered_at).toLocaleTimeString()}</span>
-                              </div>
-                            )}
-                            {selectedInvoice.payment_email_opened_at && (
-                              <div className="flex items-center gap-2 text-xs text-cyan-600">
-                                <Eye className="w-3 h-3" />
-                                <span>Opened: {new Date(selectedInvoice.payment_email_opened_at).toLocaleDateString()} at {new Date(selectedInvoice.payment_email_opened_at).toLocaleTimeString()}</span>
-                              </div>
-                            )}
-                            {selectedInvoice.payment_email_clicked_at && (
-                              <div className="flex items-center gap-2 text-xs text-purple-600">
-                                <ExternalLink className="w-3 h-3" />
-                                <span>Clicked: {new Date(selectedInvoice.payment_email_clicked_at).toLocaleDateString()} at {new Date(selectedInvoice.payment_email_clicked_at).toLocaleTimeString()}</span>
-                              </div>
-                            )}
-                            {selectedInvoice.payment_confirmation_email_sent_at && (
-                              <div className="flex items-center gap-2 text-xs text-green-600 pt-2 border-t border-green-500/20">
-                                <CheckCircle className="w-3 h-3" />
-                                <span className="font-medium">Payment Confirmation Sent: {new Date(selectedInvoice.payment_confirmation_email_sent_at).toLocaleDateString()} at {new Date(selectedInvoice.payment_confirmation_email_sent_at).toLocaleTimeString()}</span>
-                              </div>
-                            )}
-                            {selectedInvoice.payment_email_bounced_at && (
-                              <div className="flex items-center gap-2 text-xs text-red-600">
-                                <XCircle className="w-3 h-3" />
-                                <span>Bounced: {new Date(selectedInvoice.payment_email_bounced_at).toLocaleDateString()} at {new Date(selectedInvoice.payment_email_bounced_at).toLocaleTimeString()}</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {selectedInvoice.payment_link && (
-                        <div className="mt-3 pt-3 border-t border-green-500/20">
-                          <p className="text-xs font-semibold text-gray-700 mb-2">Payment Link:</p>
-                          <div className="flex items-center gap-2 mb-3">
-                            <input
-                              type="text"
-                              readOnly
-                              value={selectedInvoice.payment_link}
-                              className="flex-1 bg-gray-50 border border-gray-300 rounded px-3 py-2 text-xs text-gray-700"
-                            />
-                            <button
-                              onClick={() => handleCopyPaymentLink(selectedInvoice)}
-                              className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded text-xs font-semibold transition-all flex items-center gap-1"
-                            >
-                              <Copy className="w-3 h-3" />
-                              Copy
-                            </button>
-                            <button
-                              onClick={handleEmailPaymentLink}
-                              className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-xs font-semibold transition-all flex items-center gap-1"
-                            >
+                    {selectedInvoice.payment_email_sent_at && (
+                      <div className="mt-3 pt-3 border-t border-emerald-500/20">
+                        <p className="text-xs font-semibold text-gray-700 mb-2">Email Engagement</p>
+                        <div className="space-y-1">
+                          {selectedInvoice.payment_email_recipient && (
+                            <div className="flex items-center gap-2 text-xs text-blue-600 mb-2">
                               <Mail className="w-3 h-3" />
-                              Email
-                            </button>
+                              <span className="font-medium">To: {selectedInvoice.payment_email_recipient}</span>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2 text-xs text-gray-500">
+                            <Mail className="w-3 h-3 text-blue-500" />
+                            <span>Sent: {new Date(selectedInvoice.payment_email_sent_at).toLocaleDateString()} at {new Date(selectedInvoice.payment_email_sent_at).toLocaleTimeString()}</span>
                           </div>
+                          {selectedInvoice.payment_email_delivered_at && (
+                            <div className="flex items-center gap-2 text-xs text-emerald-600">
+                              <CheckCircle className="w-3 h-3" />
+                              <span>Delivered: {new Date(selectedInvoice.payment_email_delivered_at).toLocaleDateString()} at {new Date(selectedInvoice.payment_email_delivered_at).toLocaleTimeString()}</span>
+                            </div>
+                          )}
+                          {selectedInvoice.payment_email_opened_at && (
+                            <div className="flex items-center gap-2 text-xs text-cyan-600">
+                              <Eye className="w-3 h-3" />
+                              <span>Opened: {new Date(selectedInvoice.payment_email_opened_at).toLocaleDateString()} at {new Date(selectedInvoice.payment_email_opened_at).toLocaleTimeString()}</span>
+                              {(selectedInvoice.email_open_count ?? 0) > 1 && (
+                                <span className="bg-cyan-500/20 text-cyan-700 px-2 py-0.5 rounded text-xs font-semibold">
+                                  {selectedInvoice.email_open_count}x
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          {selectedInvoice.payment_email_clicked_at && (
+                            <div className="flex items-center gap-2 text-xs text-teal-600">
+                              <MousePointer className="w-3 h-3" />
+                              <span>Clicked: {new Date(selectedInvoice.payment_email_clicked_at).toLocaleDateString()} at {new Date(selectedInvoice.payment_email_clicked_at).toLocaleTimeString()}</span>
+                              {(selectedInvoice.email_click_count ?? 0) > 1 && (
+                                <span className="bg-teal-500/20 text-teal-700 px-2 py-0.5 rounded text-xs font-semibold">
+                                  {selectedInvoice.email_click_count}x
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          {selectedInvoice.payment_status === 'paid' && selectedInvoice.payment_confirmation_email_sent_at && (
+                            <div className="flex items-center gap-2 text-xs text-emerald-600 pt-2 border-t border-emerald-500/20 mt-2">
+                              <CheckCircle className="w-3 h-3" />
+                              <span className="font-medium">Payment Confirmation Sent: {new Date(selectedInvoice.payment_confirmation_email_sent_at).toLocaleDateString()} at {new Date(selectedInvoice.payment_confirmation_email_sent_at).toLocaleTimeString()}</span>
+                            </div>
+                          )}
+                          {selectedInvoice.payment_email_bounced_at && (
+                            <div className="flex items-center gap-2 text-xs text-red-600">
+                              <AlertCircle className="w-3 h-3" />
+                              <span>Bounced: {new Date(selectedInvoice.payment_email_bounced_at).toLocaleDateString()} at {new Date(selectedInvoice.payment_email_bounced_at).toLocaleTimeString()}</span>
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
+                      </div>
+                    )}
 
-                    <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t border-green-500/20">
+                    {selectedInvoice.payment_link && (
+                      <div className="mt-3 pt-3 border-t border-emerald-500/20">
+                        <p className="text-xs text-gray-500 mb-2">Payment Link:</p>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            readOnly
+                            value={selectedInvoice.payment_link}
+                            className="flex-1 bg-gray-50 border border-gray-200 rounded px-3 py-2 text-xs text-gray-700"
+                          />
+                          <button
+                            onClick={() => handleCopyPaymentLink(selectedInvoice)}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded text-xs font-semibold transition-all flex items-center gap-1"
+                          >
+                            <Download className="w-3 h-3" />
+                            Copy
+                          </button>
+                          <button
+                            onClick={handleEmailPaymentLink}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-xs font-semibold transition-all flex items-center gap-1"
+                          >
+                            <Mail className="w-3 h-3" />
+                            Email
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {selectedInvoice.payment_status !== 'paid' && (
+                    <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t border-emerald-500/20">
                       {!selectedInvoice.payment_link && (
                         <button
                           onClick={() => handleRequestPayment(selectedInvoice)}
@@ -1419,9 +1457,9 @@ export function Invoices({ userId }: InvoicesProps) {
                         </>
                       )}
                     </div>
-                  </div>
+                  )}
                 </div>
-              )}
+              </div>
 
               {selectedInvoice.notes && (
                 <div className="border-t pt-6 mt-6">
