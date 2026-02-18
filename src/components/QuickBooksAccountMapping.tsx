@@ -859,11 +859,11 @@ function DefaultAccountsTab({ qboAccounts, mappings, onSave, saving }: DefaultAc
                     <select
                       value={selectedAccount}
                       onChange={(e) => setSelectedAccount(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
                     >
-                      <option value="">Select an account...</option>
+                      <option value="" className="text-gray-900">Select an account...</option>
                       {qboAccounts.map(acc => (
-                        <option key={acc.id} value={acc.qbo_account_id}>
+                        <option key={acc.id} value={acc.qbo_account_id} className="text-gray-900">
                           {acc.account_number ? `${acc.account_number} - ` : ''}{acc.fully_qualified_name || acc.account_name}
                         </option>
                       ))}
@@ -987,11 +987,11 @@ function LaborCodesTab({ laborCodes, qboAccounts, mappings, onSave, saving }: La
                       <select
                         value={selectedAccount}
                         onChange={(e) => setSelectedAccount(e.target.value)}
-                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-white text-gray-900"
                       >
-                        <option value="">Select account...</option>
+                        <option value="" className="text-gray-900">Select account...</option>
                         {qboAccounts.map(acc => (
-                          <option key={acc.id} value={acc.qbo_account_id}>
+                          <option key={acc.id} value={acc.qbo_account_id} className="text-gray-900">
                             {acc.account_number ? `${acc.account_number} - ` : ''}{acc.account_name}
                           </option>
                         ))}
@@ -1144,11 +1144,11 @@ function AccountingCodesTab({ accountingCodes, qboAccounts, mappings, onSave, sa
                       <select
                         value={selectedAccount}
                         onChange={(e) => setSelectedAccount(e.target.value)}
-                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-white text-gray-900"
                       >
-                        <option value="">Select account...</option>
+                        <option value="" className="text-gray-900">Select account...</option>
                         {qboAccounts.map(acc => (
-                          <option key={acc.id} value={acc.qbo_account_id}>
+                          <option key={acc.id} value={acc.qbo_account_id} className="text-gray-900">
                             {acc.account_number ? `${acc.account_number} - ` : ''}{acc.account_name}
                           </option>
                         ))}
