@@ -1845,21 +1845,22 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
         </div>
       )}
 
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-gray-50 border-b border-gray-200">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Work Order #</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Deposit</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Date</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {workOrders.map((workOrder) => (
+      {!showForm && (
+        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Work Order #</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Deposit</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Date</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {workOrders.map((workOrder) => (
               <tr key={workOrder.id} className="hover:bg-gray-50">
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center gap-2">
@@ -2007,7 +2008,8 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
             <p className="text-gray-500">Work orders will appear here when estimates are approved.</p>
           </div>
         )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
