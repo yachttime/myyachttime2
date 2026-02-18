@@ -175,7 +175,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
       // First fetch all work orders (only non-archived)
       const workOrdersQuery = supabase
         .from('work_orders')
-        .select('*, yachts(name)')
+        .select('*, yachts(name, manufacturer, model), customer_vessels(vessel_name, manufacturer, model)')
         .eq('archived', false)
         .order('created_at', { ascending: false });
 
@@ -260,7 +260,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
 
       const { data, error: workOrdersError } = await supabase
         .from('work_orders')
-        .select('*, yachts(name)')
+        .select('*, yachts(name, manufacturer, model), customer_vessels(vessel_name, manufacturer, model)')
         .eq('archived', true)
         .order('created_at', { ascending: false });
 
@@ -977,7 +977,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
       // Fetch the updated work order
       const { data: updatedWorkOrder, error: fetchError } = await supabase
         .from('work_orders')
-        .select('*, yachts(name)')
+        .select('*, yachts(name, manufacturer, model), customer_vessels(vessel_name, manufacturer, model)')
         .eq('id', workOrderId)
         .single();
 
@@ -1211,7 +1211,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
 
       const { data: workOrderData, error: workOrderError } = await supabase
         .from('work_orders')
-        .select('*, yachts(name)')
+        .select('*, yachts(name, manufacturer, model), customer_vessels(vessel_name, manufacturer, model)')
         .eq('id', workOrderId)
         .single();
 
@@ -2541,6 +2541,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Work Order #</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vessel</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Date</th>
@@ -2561,6 +2562,35 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                   <div className="text-sm text-gray-900">
                     {workOrder.is_retail_customer ? workOrder.customer_name : workOrder.yachts?.name}
                   </div>
+                </td>
+                <td className="px-6 py-4">
+                  {workOrder.is_retail_customer ? (
+                    workOrder.customer_vessels ? (
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">{workOrder.customer_vessels.vessel_name}</div>
+                        {(workOrder.customer_vessels.manufacturer || workOrder.customer_vessels.model) && (
+                          <div className="text-xs text-gray-500">
+                            {[workOrder.customer_vessels.manufacturer, workOrder.customer_vessels.model].filter(Boolean).join(' ')}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-sm text-gray-400">—</span>
+                    )
+                  ) : (
+                    workOrder.yachts ? (
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">{workOrder.yachts.name}</div>
+                        {(workOrder.yachts.manufacturer || workOrder.yachts.model) && (
+                          <div className="text-xs text-gray-500">
+                            {[workOrder.yachts.manufacturer, workOrder.yachts.model].filter(Boolean).join(' ')}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-sm text-gray-400">—</span>
+                    )
+                  )}
                 </td>
                 <td className="px-6 py-4">
                   {workOrder.status !== 'completed' ? (

@@ -134,8 +134,8 @@ export function Invoices({ userId }: InvoicesProps) {
         .from('estimating_invoices')
         .select(`
           *,
-          work_orders!estimating_invoices_work_order_id_fkey(work_order_number),
-          yachts!estimating_invoices_yacht_id_fkey(name)
+          work_orders!estimating_invoices_work_order_id_fkey(work_order_number, vessel_id, customer_vessels(vessel_name, manufacturer, model)),
+          yachts!estimating_invoices_yacht_id_fkey(name, manufacturer, model)
         `)
         .eq('archived', false)
         .order('invoice_date', { ascending: false });
@@ -145,7 +145,12 @@ export function Invoices({ userId }: InvoicesProps) {
       const formattedInvoices = data?.map(inv => ({
         ...inv,
         work_order_number: inv.work_orders?.work_order_number,
-        yacht_name: inv.yachts?.name
+        yacht_name: inv.yachts?.name,
+        yacht_manufacturer: inv.yachts?.manufacturer,
+        yacht_model: inv.yachts?.model,
+        vessel_name: inv.work_orders?.customer_vessels?.vessel_name,
+        vessel_manufacturer: inv.work_orders?.customer_vessels?.manufacturer,
+        vessel_model: inv.work_orders?.customer_vessels?.model
       })) || [];
 
       setInvoices(formattedInvoices);
@@ -163,8 +168,8 @@ export function Invoices({ userId }: InvoicesProps) {
         .from('estimating_invoices')
         .select(`
           *,
-          work_orders!estimating_invoices_work_order_id_fkey(work_order_number),
-          yachts!estimating_invoices_yacht_id_fkey(name)
+          work_orders!estimating_invoices_work_order_id_fkey(work_order_number, vessel_id, customer_vessels(vessel_name, manufacturer, model)),
+          yachts!estimating_invoices_yacht_id_fkey(name, manufacturer, model)
         `)
         .eq('archived', true)
         .order('invoice_date', { ascending: false });
@@ -174,7 +179,12 @@ export function Invoices({ userId }: InvoicesProps) {
       const formattedInvoices = data?.map(inv => ({
         ...inv,
         work_order_number: inv.work_orders?.work_order_number,
-        yacht_name: inv.yachts?.name
+        yacht_name: inv.yachts?.name,
+        yacht_manufacturer: inv.yachts?.manufacturer,
+        yacht_model: inv.yachts?.model,
+        vessel_name: inv.work_orders?.customer_vessels?.vessel_name,
+        vessel_manufacturer: inv.work_orders?.customer_vessels?.manufacturer,
+        vessel_model: inv.work_orders?.customer_vessels?.model
       })) || [];
 
       setInvoices(formattedInvoices);
@@ -1184,6 +1194,9 @@ export function Invoices({ userId }: InvoicesProps) {
                   Customer
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Vessel
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Date
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -1203,7 +1216,7 @@ export function Invoices({ userId }: InvoicesProps) {
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredInvoices.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center">
+                  <td colSpan={8} className="px-6 py-12 text-center">
                     <Receipt className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                     <p className="text-gray-500 text-sm">No invoices found</p>
                   </td>
@@ -1223,8 +1236,34 @@ export function Invoices({ userId }: InvoicesProps) {
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm text-gray-900">{invoice.customer_name}</div>
-                      {invoice.yacht_name && (
-                        <div className="text-xs text-gray-500">{invoice.yacht_name}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      {invoice.is_retail_customer ? (
+                        invoice.vessel_name ? (
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{invoice.vessel_name}</div>
+                            {(invoice.vessel_manufacturer || invoice.vessel_model) && (
+                              <div className="text-xs text-gray-500">
+                                {[invoice.vessel_manufacturer, invoice.vessel_model].filter(Boolean).join(' ')}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-sm text-gray-400">—</span>
+                        )
+                      ) : (
+                        invoice.yacht_name ? (
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{invoice.yacht_name}</div>
+                            {(invoice.yacht_manufacturer || invoice.yacht_model) && (
+                              <div className="text-xs text-gray-500">
+                                {[invoice.yacht_manufacturer, invoice.yacht_model].filter(Boolean).join(' ')}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-sm text-gray-400">—</span>
+                        )
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
