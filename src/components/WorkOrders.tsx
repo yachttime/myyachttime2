@@ -2417,6 +2417,17 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
 
                   {editingWorkOrder.deposit_payment_status === 'pending' && editingWorkOrder.deposit_payment_link_url && (
                     <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t border-cyan-500/20">
+                      <button
+                        onClick={() => {
+                          setDepositCheckForm({ checkNumber: '', amount: editingWorkOrder.deposit_amount ? parseFloat(String(editingWorkOrder.deposit_amount)).toFixed(2) : '', notes: '' });
+                          setDepositCheckModal(editingWorkOrder.id);
+                        }}
+                        type="button"
+                        className="bg-gray-700 hover:bg-gray-800 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1"
+                      >
+                        <FileText className="w-3 h-3" />
+                        Record Check Instead
+                      </button>
                       {!editingWorkOrder.deposit_email_sent_at ? (
                         <div className="flex gap-2 w-full">
                           <input
