@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, Edit2, Trash2, X, Check, AlertCircle } from 'lucide-react';
+import { Plus, Edit2, Trash2, Check, AlertCircle, Info } from 'lucide-react';
 import { useConfirm } from '../hooks/useConfirm';
 
 interface AccountingCode {
@@ -30,7 +30,6 @@ export function AccountingCodes({ userId }: AccountingCodesProps) {
     name: '',
     description: '',
     account_type: 'expense' as 'income' | 'expense' | 'asset' | 'liability',
-    quickbooks_account_id: '',
     is_active: true
   });
 
@@ -72,7 +71,6 @@ export function AccountingCodes({ userId }: AccountingCodesProps) {
             name: formData.name,
             description: formData.description || null,
             account_type: formData.account_type,
-            quickbooks_account_id: formData.quickbooks_account_id || null,
             is_active: formData.is_active
           })
           .eq('id', editingId);
@@ -86,7 +84,6 @@ export function AccountingCodes({ userId }: AccountingCodesProps) {
             name: formData.name,
             description: formData.description || null,
             account_type: formData.account_type,
-            quickbooks_account_id: formData.quickbooks_account_id || null,
             is_active: formData.is_active,
             created_by: userId
           });
@@ -108,7 +105,6 @@ export function AccountingCodes({ userId }: AccountingCodesProps) {
       name: code.name,
       description: code.description || '',
       account_type: code.account_type,
-      quickbooks_account_id: code.quickbooks_account_id || '',
       is_active: code.is_active
     });
     setEditingId(code.id);
@@ -138,7 +134,6 @@ export function AccountingCodes({ userId }: AccountingCodesProps) {
       name: '',
       description: '',
       account_type: 'expense',
-      quickbooks_account_id: '',
       is_active: true
     });
     setEditingId(null);
@@ -158,7 +153,7 @@ export function AccountingCodes({ userId }: AccountingCodesProps) {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex justify-between items-center mb-4">
         <h2 className="text-2xl font-bold text-gray-900">Accounting Codes</h2>
         <button
           onClick={() => setShowForm(true)}
@@ -167,6 +162,14 @@ export function AccountingCodes({ userId }: AccountingCodesProps) {
           <Plus className="w-4 h-4" />
           Add Code
         </button>
+      </div>
+
+      <div className="mb-6 flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
+        <Info className="w-5 h-5 mt-0.5 flex-shrink-0 text-blue-500" />
+        <div>
+          <p className="font-semibold mb-1">What are accounting codes?</p>
+          <p>Accounting codes are internal categories (income, expense, asset, liability) used to classify labor codes and parts in estimates. They are linked to your QuickBooks accounts in the <strong>QuickBooks</strong> settings tab — no QuickBooks mapping is needed here.</p>
+        </div>
       </div>
 
       {error && (
@@ -241,19 +244,6 @@ export function AccountingCodes({ userId }: AccountingCodesProps) {
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                QuickBooks Account ID
-              </label>
-              <input
-                type="text"
-                value={formData.quickbooks_account_id}
-                onChange={(e) => setFormData({ ...formData, quickbooks_account_id: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
-                placeholder="QuickBooks account mapping"
-              />
-            </div>
-
             <div className="flex items-center gap-2">
               <input
                 type="checkbox"
@@ -301,9 +291,6 @@ export function AccountingCodes({ userId }: AccountingCodesProps) {
                 Type
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                QuickBooks ID
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Status
               </th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -314,7 +301,7 @@ export function AccountingCodes({ userId }: AccountingCodesProps) {
           <tbody className="divide-y divide-gray-200">
             {codes.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
                   No accounting codes found. Create one to get started.
                 </td>
               </tr>
@@ -334,9 +321,6 @@ export function AccountingCodes({ userId }: AccountingCodesProps) {
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${accountTypeColors[code.account_type]}`}>
                       {code.account_type}
                     </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
-                    {code.quickbooks_account_id || '-'}
                   </td>
                   <td className="px-6 py-4 text-sm">
                     {code.is_active ? (
