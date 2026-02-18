@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, FileText, AlertCircle, Edit2, Trash2, Check, X, ChevronDown, ChevronUp, Printer, CheckCircle, XCircle, Package } from 'lucide-react';
+import { Plus, FileText, AlertCircle, Edit2, Trash2, Check, X, ChevronDown, ChevronUp, Printer, CheckCircle, XCircle, Package, Archive, RotateCcw } from 'lucide-react';
 import { generateEstimatePDF } from '../utils/pdfGenerator';
 import { useNotification } from '../contexts/NotificationContext';
 
@@ -35,6 +35,7 @@ interface Estimate {
   deposit_required: boolean;
   deposit_percentage: number | null;
   deposit_amount: number | null;
+  archived: boolean;
 }
 
 interface EstimateTask {
@@ -76,6 +77,7 @@ export function Estimates({ userId }: EstimatesProps) {
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
 
   const [formData, setFormData] = useState({
     is_retail_customer: false,
@@ -140,8 +142,8 @@ export function Estimates({ userId }: EstimatesProps) {
   const [showRestoreDraftModal, setShowRestoreDraftModal] = useState(false);
   const [draftToRestore, setDraftToRestore] = useState<any>(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [estimateToDelete, setEstimateToDelete] = useState<string | null>(null);
+  const [showArchiveModal, setShowArchiveModal] = useState(false);
+  const [estimateToArchive, setEstimateToArchive] = useState<string | null>(null);
   const [packages, setPackages] = useState<any[]>([]);
   const [showPackageModal, setShowPackageModal] = useState(false);
   const [selectedPackageId, setSelectedPackageId] = useState<string>('');
@@ -191,6 +193,7 @@ export function Estimates({ userId }: EstimatesProps) {
           .from('estimates')
           .select('*, yachts(name)')
           .neq('status', 'converted')
+          .eq('archived', false)
           .order('created_at', { ascending: false }),
         supabase
           .from('yachts')
@@ -1075,31 +1078,74 @@ export function Estimates({ userId }: EstimatesProps) {
     }
   };
 
-  const handleDeleteEstimate = (estimateId: string) => {
-    setEstimateToDelete(estimateId);
-    setShowDeleteModal(true);
+  const handleArchiveEstimate = (estimateId: string) => {
+    setEstimateToArchive(estimateId);
+    setShowArchiveModal(true);
   };
 
-  const handleConfirmDelete = async () => {
-    if (!estimateToDelete) return;
+  const handleConfirmArchive = async () => {
+    if (!estimateToArchive) return;
 
-    setShowDeleteModal(false);
+    setShowArchiveModal(false);
 
     try {
       setError(null);
 
-      const { error: deleteError } = await supabase
+      const { error: archiveError } = await supabase
         .from('estimates')
-        .delete()
-        .eq('id', estimateToDelete);
+        .update({ archived: true })
+        .eq('id', estimateToArchive);
 
-      if (deleteError) throw deleteError;
+      if (archiveError) throw archiveError;
 
+      showSuccess('Estimate archived successfully');
       await loadData();
-      setEstimateToDelete(null);
+      setEstimateToArchive(null);
+      setShowForm(false);
+      setEditingId(null);
     } catch (err) {
-      console.error('Error deleting estimate:', err);
-      setError('Failed to delete estimate');
+      console.error('Error archiving estimate:', err);
+      showError('Failed to archive estimate');
+    }
+  };
+
+  const handleRestoreEstimate = async (estimateId: string) => {
+    try {
+      setError(null);
+
+      const { error: restoreError } = await supabase
+        .from('estimates')
+        .update({ archived: false })
+        .eq('id', estimateId);
+
+      if (restoreError) throw restoreError;
+
+      showSuccess('Estimate restored successfully');
+      await loadArchivedEstimates();
+    } catch (err) {
+      console.error('Error restoring estimate:', err);
+      showError('Failed to restore estimate');
+    }
+  };
+
+  const loadArchivedEstimates = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const { data, error } = await supabase
+        .from('estimates')
+        .select('*, yachts(name)')
+        .eq('archived', true)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setEstimates(data || []);
+    } catch (err) {
+      console.error('Error loading archived estimates:', err);
+      setError('Failed to load archived estimates');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -1348,11 +1394,11 @@ export function Estimates({ userId }: EstimatesProps) {
               {formData.status === 'draft' && (
                 <button
                   type="button"
-                  onClick={() => handleDeleteEstimate(editingId)}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2 text-sm font-medium ml-auto"
+                  onClick={() => handleArchiveEstimate(editingId)}
+                  className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center gap-2 text-sm font-medium ml-auto"
                 >
-                  <Trash2 className="w-4 h-4" />
-                  Delete Estimate
+                  <Archive className="w-4 h-4" />
+                  Archive Estimate
                 </button>
               )}
             </div>
@@ -2178,8 +2224,42 @@ export function Estimates({ userId }: EstimatesProps) {
       )}
 
       {!showForm && (
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-          <table className="w-full">
+        <>
+          {/* Tabs */}
+          <div className="bg-white border border-gray-200 rounded-t-lg">
+            <div className="flex border-b border-gray-200">
+              <button
+                onClick={() => {
+                  setActiveTab('active');
+                  loadData();
+                }}
+                className={`px-6 py-3 text-sm font-medium ${
+                  activeTab === 'active'
+                    ? 'text-blue-600 border-b-2 border-blue-600'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Active Estimates
+              </button>
+              <button
+                onClick={() => {
+                  setActiveTab('archived');
+                  loadArchivedEstimates();
+                }}
+                className={`px-6 py-3 text-sm font-medium ${
+                  activeTab === 'archived'
+                    ? 'text-blue-600 border-b-2 border-blue-600'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <Archive className="w-4 h-4 inline mr-2" />
+                Archived
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-white border-x border-b border-gray-200 rounded-b-lg overflow-hidden">
+            <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Estimate #</th>
@@ -2216,18 +2296,29 @@ export function Estimates({ userId }: EstimatesProps) {
                   {new Date(estimate.created_at).toLocaleDateString()}
                 </td>
                 <td className="px-6 py-4 text-center">
-                  <button
-                    onClick={() => handleEditEstimate(estimate.id)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
-                  >
-                    Open
-                  </button>
+                  {activeTab === 'active' ? (
+                    <button
+                      onClick={() => handleEditEstimate(estimate.id)}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+                    >
+                      Open
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleRestoreEstimate(estimate.id)}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium flex items-center gap-2 mx-auto"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                      Restore
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-        </div>
+          </div>
+        </>
       )}
 
       {showApproveModal && (
@@ -2344,30 +2435,30 @@ export function Estimates({ userId }: EstimatesProps) {
         </div>
       )}
 
-      {showDeleteModal && (
+      {showArchiveModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Delete Estimate
+              Archive Estimate
             </h3>
             <p className="text-gray-700 mb-6">
-              Are you sure you want to delete this estimate? This action cannot be undone.
+              Archive this estimate? You can restore it later from the Archived tab if needed.
             </p>
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => {
-                  setShowDeleteModal(false);
-                  setEstimateToDelete(null);
+                  setShowArchiveModal(false);
+                  setEstimateToArchive(null);
                 }}
                 className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
               >
                 Cancel
               </button>
               <button
-                onClick={handleConfirmDelete}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                onClick={handleConfirmArchive}
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
               >
-                Delete
+                Archive
               </button>
             </div>
           </div>
