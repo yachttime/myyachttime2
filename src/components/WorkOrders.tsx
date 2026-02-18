@@ -159,6 +159,20 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showPartDropdown]);
 
+  // Auto-create deposit payment links for expanded work orders
+  useEffect(() => {
+    workOrders.forEach(async (workOrder) => {
+      if (
+        expandedWorkOrders.has(workOrder.id) &&
+        workOrder.deposit_required &&
+        !workOrder.deposit_payment_link_url &&
+        workOrder.deposit_amount
+      ) {
+        await handleRequestDeposit(workOrder.id);
+      }
+    });
+  }, [expandedWorkOrders, workOrders]);
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -2203,9 +2217,17 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
               </tr>
 
               {/* Expanded Row with Deposit Details */}
-              {expandedWorkOrders.has(workOrder.id) && workOrder.deposit_required && workOrder.deposit_payment_link_url && (
+              {expandedWorkOrders.has(workOrder.id) && workOrder.deposit_required && (
                 <tr>
                   <td colSpan={7} className="px-6 py-4 bg-gray-50">
+                    {!workOrder.deposit_payment_link_url ? (
+                      <div className="bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/30 rounded-lg p-4">
+                        <div className="flex items-center justify-center gap-3">
+                          <DollarSign className="w-5 h-5 text-cyan-400 animate-pulse" />
+                          <p className="text-sm text-slate-600">Creating deposit payment link...</p>
+                        </div>
+                      </div>
+                    ) : (
                     <div className="bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/30 rounded-lg p-4">
                       <div className="flex items-center gap-2 mb-3">
                         <DollarSign className="w-5 h-5 text-cyan-400" />
@@ -2395,6 +2417,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                         </div>
                       )}
                     </div>
+                    )}
                   </td>
                 </tr>
               )}
