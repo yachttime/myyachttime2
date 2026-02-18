@@ -184,7 +184,7 @@ export function Estimates({ userId }: EstimatesProps) {
 
       return () => clearTimeout(timer);
     }
-  }, [formData, tasks, showForm, isSubmitting]);
+  }, [formData, tasks, showForm, isSubmitting, editingId]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
