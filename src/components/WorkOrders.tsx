@@ -159,19 +159,8 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showPartDropdown]);
 
-  // Auto-create deposit payment links for expanded work orders
-  useEffect(() => {
-    workOrders.forEach(async (workOrder) => {
-      if (
-        expandedWorkOrders.has(workOrder.id) &&
-        workOrder.deposit_required &&
-        !workOrder.deposit_payment_link_url &&
-        workOrder.deposit_amount
-      ) {
-        await handleRequestDeposit(workOrder.id);
-      }
-    });
-  }, [expandedWorkOrders, workOrders]);
+  // Removed auto-creation of deposit payment links to prevent unnecessary API calls
+  // Payment links will be created when user explicitly clicks "Request Deposit" button
 
   const loadData = async () => {
     try {
@@ -2016,7 +2005,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
             {/* Display Deposit Tracking Panel in Edit Mode */}
             {editingId && (() => {
               const editingWorkOrder = workOrders.find(wo => wo.id === editingId);
-              return editingWorkOrder && editingWorkOrder.deposit_required && editingWorkOrder.deposit_payment_link_url && (
+              return editingWorkOrder && editingWorkOrder.deposit_required && (
               <div className="border-t pt-4">
                 <div className="bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/30 rounded-lg p-4">
                   <div className="flex items-center gap-2 mb-3">
@@ -2048,6 +2037,21 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                     <p className="text-sm text-gray-700">
                       <span className="font-semibold">Amount:</span> ${parseFloat(editingWorkOrder.deposit_amount || '0').toFixed(2)}
                     </p>
+
+                    {!editingWorkOrder.deposit_payment_link_url && (
+                      <div className="mt-3 pt-3 border-t border-cyan-500/20">
+                        <p className="text-xs text-gray-600 mb-2">No payment link generated yet</p>
+                        <button
+                          onClick={() => handleRequestDeposit(editingWorkOrder.id)}
+                          disabled={depositLoading}
+                          type="button"
+                          className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 disabled:opacity-50"
+                        >
+                          <DollarSign className="w-4 h-4" />
+                          {depositLoading ? 'Generating...' : 'Generate Payment Link'}
+                        </button>
+                      </div>
+                    )}
 
                     {editingWorkOrder.deposit_paid_at && (
                       <p className="text-xs text-green-700">
