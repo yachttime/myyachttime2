@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
-import { X, Printer, AlertCircle } from 'lucide-react';
+import { X, Printer, AlertCircle, Filter } from 'lucide-react';
 
 interface VendorReportRow {
   part_id: string;
@@ -23,10 +23,14 @@ interface Props {
   onClose: () => void;
 }
 
+type StatusFilter = 'all' | 'active' | 'inactive';
+
 export function VendorPartsReport({ onClose }: Props) {
   const [vendorGroups, setVendorGroups] = useState<VendorGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedVendor, setSelectedVendor] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const printRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -96,6 +100,20 @@ export function VendorPartsReport({ onClose }: Props) {
     }
   }
 
+  const filteredGroups = useMemo(() => {
+    return vendorGroups
+      .filter(g => selectedVendor === 'all' || (g.vendor_id ?? 'unassigned') === selectedVendor)
+      .map(g => ({
+        ...g,
+        parts: g.parts.filter(p => {
+          if (statusFilter === 'active') return p.is_active;
+          if (statusFilter === 'inactive') return !p.is_active;
+          return true;
+        }),
+      }))
+      .filter(g => g.parts.length > 0);
+  }, [vendorGroups, selectedVendor, statusFilter]);
+
   function handlePrint() {
     if (!printRef.current) return;
     const content = printRef.current.innerHTML;
@@ -114,11 +132,11 @@ export function VendorPartsReport({ onClose }: Props) {
             .vendor-section { margin-bottom: 24px; page-break-inside: avoid; }
             .vendor-header { background: #1e3a5f; color: white; padding: 6px 10px; font-size: 12px; font-weight: bold; border-radius: 4px 4px 0 0; }
             table { width: 100%; border-collapse: collapse; }
-            thead th { background: #f0f4f8; font-size: 10px; font-weight: 600; text-transform: uppercase; padding: 5px 8px; border-bottom: 1px solid #ccc; text-align: left; }
+            thead th { background: #f0f4f8; color: #374151; font-size: 10px; font-weight: 600; text-transform: uppercase; padding: 5px 8px; border-bottom: 1px solid #ccc; text-align: left; }
             tbody tr:nth-child(even) { background: #f9fafb; }
-            tbody td { padding: 5px 8px; border-bottom: 1px solid #e5e7eb; vertical-align: middle; }
+            tbody td { padding: 5px 8px; border-bottom: 1px solid #e5e7eb; vertical-align: middle; color: #111; }
             .inactive-badge { font-size: 9px; background: #fee2e2; color: #b91c1c; border-radius: 3px; padding: 1px 4px; margin-left: 4px; }
-            .vendor-totals { background: #f0f4f8; font-weight: 600; }
+            .vendor-totals { background: #f0f4f8; font-weight: 600; color: #111; }
             @media print {
               body { padding: 10px; }
               .vendor-section { page-break-inside: avoid; }
@@ -133,7 +151,14 @@ export function VendorPartsReport({ onClose }: Props) {
     win.print();
   }
 
-  const totalParts = vendorGroups.reduce((s, v) => s + v.parts.length, 0);
+  const totalParts = filteredGroups.reduce((s, v) => s + v.parts.length, 0);
+
+  const vendorOptions = useMemo(() => {
+    return vendorGroups.map(g => ({
+      value: g.vendor_id ?? 'unassigned',
+      label: g.vendor_name,
+    }));
+  }, [vendorGroups]);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -158,6 +183,56 @@ export function VendorPartsReport({ onClose }: Props) {
           </div>
         </div>
 
+        <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-100 bg-gray-50">
+          <Filter className="w-4 h-4 text-gray-400 flex-shrink-0" />
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-medium text-gray-600 whitespace-nowrap">Vendor</label>
+            <select
+              value={selectedVendor}
+              onChange={e => setSelectedVendor(e.target.value)}
+              className="text-sm border border-gray-300 rounded-md px-2 py-1 bg-white text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="all">All Vendors</option>
+              {vendorOptions.map(v => (
+                <option key={v.value} value={v.value}>{v.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-medium text-gray-600 whitespace-nowrap">Status</label>
+            <div className="flex rounded-md border border-gray-300 overflow-hidden">
+              {(['all', 'active', 'inactive'] as StatusFilter[]).map(s => (
+                <button
+                  key={s}
+                  onClick={() => setStatusFilter(s)}
+                  className={`px-3 py-1 text-xs font-medium transition-colors ${
+                    statusFilter === s
+                      ? s === 'active'
+                        ? 'bg-green-600 text-white'
+                        : s === 'inactive'
+                        ? 'bg-red-500 text-white'
+                        : 'bg-gray-700 text-white'
+                      : 'bg-white text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  {s.charAt(0).toUpperCase() + s.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+          {(selectedVendor !== 'all' || statusFilter !== 'all') && (
+            <button
+              onClick={() => { setSelectedVendor('all'); setStatusFilter('all'); }}
+              className="text-xs text-blue-600 hover:text-blue-800 underline ml-1"
+            >
+              Clear filters
+            </button>
+          )}
+          <span className="ml-auto text-xs text-gray-500">
+            {filteredGroups.length} vendor{filteredGroups.length !== 1 ? 's' : ''} &bull; {totalParts} part{totalParts !== 1 ? 's' : ''}
+          </span>
+        </div>
+
         <div className="flex-1 overflow-y-auto p-5">
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700 text-sm">
@@ -168,14 +243,17 @@ export function VendorPartsReport({ onClose }: Props) {
 
           {loading ? (
             <div className="text-center py-12 text-gray-500">Loading report...</div>
+          ) : filteredGroups.length === 0 ? (
+            <div className="text-center py-12 text-gray-400">No parts match the selected filters.</div>
           ) : (
             <div ref={printRef}>
               <h1 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '2px', color: '#111' }}>Parts Inventory by Vendor</h1>
               <div className="report-meta" style={{ fontSize: '11px', color: '#555', marginBottom: '16px' }}>
-                Generated: {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} &nbsp;&bull;&nbsp; {vendorGroups.length} vendor{vendorGroups.length !== 1 ? 's' : ''} &nbsp;&bull;&nbsp; {totalParts} total part{totalParts !== 1 ? 's' : ''}
+                Generated: {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} &nbsp;&bull;&nbsp; {filteredGroups.length} vendor{filteredGroups.length !== 1 ? 's' : ''} &nbsp;&bull;&nbsp; {totalParts} total part{totalParts !== 1 ? 's' : ''}
+                {statusFilter !== 'all' && <> &nbsp;&bull;&nbsp; {statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)} parts only</>}
               </div>
 
-              {vendorGroups.map((group) => {
+              {filteredGroups.map((group) => {
                 const totalUsed = group.parts.reduce((s, p) => s + p.used_this_year, 0);
                 const totalOnHand = group.parts.reduce((s, p) => s + p.quantity_on_hand, 0);
                 const totalValue = group.parts.reduce((s, p) => s + p.quantity_on_hand * p.unit_cost, 0);
