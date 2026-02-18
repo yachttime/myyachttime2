@@ -30,8 +30,8 @@ interface AccountingCode {
   id: string;
   code: string;
   name: string;
-  category: string;
-  gl_account: string;
+  account_type: string;
+  description: string | null;
 }
 
 interface LaborCode {
@@ -1065,14 +1065,35 @@ function AccountingCodesTab({ accountingCodes, qboAccounts, mappings, onSave, sa
     setNotes(existing?.notes || '');
   };
 
-  const handleSave = async (category: string) => {
+  const handleSave = async (accountType: string) => {
     if (!editingCodeId || !selectedAccount) return;
-    const mappingType = category === 'INCOME' ? 'income' : 'expense';
-    await onSave(mappingType, editingCodeId, 'accounting_code', selectedAccount, false, notes);
+    await onSave(accountType, editingCodeId, 'accounting_code', selectedAccount, false, notes);
     setEditingCodeId(null);
     setSelectedAccount('');
     setNotes('');
   };
+
+  if (accountingCodes.length === 0) {
+    return (
+      <div className="space-y-4">
+        <div className="bg-blue-50 border border-blue-200 rounded p-3">
+          <p className="text-sm text-blue-800">
+            Map accounting codes to QuickBooks accounts for detailed financial tracking and reporting.
+          </p>
+        </div>
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 text-center">
+          <AlertCircle className="mx-auto text-amber-600 mb-3" size={48} />
+          <h3 className="text-lg font-semibold text-amber-900 mb-2">No Accounting Codes Found</h3>
+          <p className="text-amber-800 mb-4">
+            You need to create accounting codes before you can map them to QuickBooks accounts.
+          </p>
+          <p className="text-sm text-amber-700">
+            Go to the Accounting Codes page to create your first code, then return here to map it.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -1088,8 +1109,7 @@ function AccountingCodesTab({ accountingCodes, qboAccounts, mappings, onSave, sa
             <tr>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Code</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">GL Account</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Account Type</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">QuickBooks Account</th>
               <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
             </tr>
@@ -1103,15 +1123,22 @@ function AccountingCodesTab({ accountingCodes, qboAccounts, mappings, onSave, sa
               return (
                 <tr key={code.id}>
                   <td className="px-4 py-3 text-sm font-medium text-gray-900">{code.code}</td>
-                  <td className="px-4 py-3 text-sm text-gray-700">{code.name}</td>
+                  <td className="px-4 py-3 text-sm text-gray-700">
+                    {code.name}
+                    {code.description && (
+                      <div className="text-xs text-gray-500 mt-1">{code.description}</div>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-sm">
                     <span className={`px-2 py-1 rounded text-xs font-medium ${
-                      code.category === 'INCOME' ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
+                      code.account_type === 'income' ? 'bg-green-100 text-green-800' :
+                      code.account_type === 'expense' ? 'bg-red-100 text-red-800' :
+                      code.account_type === 'asset' ? 'bg-blue-100 text-blue-800' :
+                      'bg-orange-100 text-orange-800'
                     }`}>
-                      {code.category}
+                      {code.account_type}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-700">{code.gl_account}</td>
                   <td className="px-4 py-3 text-sm">
                     {isEditing ? (
                       <select
@@ -1138,7 +1165,7 @@ function AccountingCodesTab({ accountingCodes, qboAccounts, mappings, onSave, sa
                     {isEditing ? (
                       <div className="flex justify-end gap-2">
                         <button
-                          onClick={() => handleSave(code.category)}
+                          onClick={() => handleSave(code.account_type)}
                           disabled={!selectedAccount || saving}
                           className="text-green-600 hover:text-green-700 disabled:opacity-50"
                         >
