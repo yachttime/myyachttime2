@@ -1249,12 +1249,12 @@ export function Invoices({ userId }: InvoicesProps) {
                     <div className="flex items-center gap-2 mb-3">
                       <DollarSign className="w-5 h-5 text-green-600" />
                       <h5 className="font-semibold text-green-700">Payment Collection</h5>
-                      {selectedInvoice.payment_status === 'unpaid' && !selectedInvoice.payment_email_sent_at && (
+                      {!selectedInvoice.payment_link && (
                         <span className="ml-auto bg-yellow-500/20 text-yellow-700 px-3 py-1 rounded-full text-xs font-semibold">
                           Payment Not Requested
                         </span>
                       )}
-                      {selectedInvoice.payment_email_sent_at && selectedInvoice.payment_status !== 'paid' && (
+                      {selectedInvoice.payment_link && selectedInvoice.payment_status !== 'paid' && (
                         <span className="ml-auto bg-blue-500/20 text-blue-700 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
                           <Clock className="w-3 h-3" />
                           Payment Pending
@@ -1267,118 +1267,121 @@ export function Invoices({ userId }: InvoicesProps) {
                         <span className="font-semibold">Balance Due:</span> ${(selectedInvoice.balance_due || selectedInvoice.total_amount).toFixed(2)}
                       </p>
 
+                      {selectedInvoice.payment_email_sent_at && (
+                        <div className="mt-3 pt-3 border-t border-green-500/20">
+                          <p className="text-xs font-semibold text-gray-700 mb-2">Email Engagement</p>
+                          <div className="space-y-2 mb-3">
+                            {selectedInvoice.payment_email_recipient && (
+                              <div className="flex items-center gap-2 text-xs text-blue-700">
+                                <Mail className="w-3 h-3" />
+                                <span>To: {selectedInvoice.payment_email_recipient}</span>
+                              </div>
+                            )}
+                            <div className="flex items-center gap-2 text-xs text-gray-700">
+                              <Clock className="w-3 h-3" />
+                              <span>Sent: {new Date(selectedInvoice.payment_email_sent_at).toLocaleDateString()} at {new Date(selectedInvoice.payment_email_sent_at).toLocaleTimeString()}</span>
+                            </div>
+                            {selectedInvoice.payment_email_delivered_at && (
+                              <div className="flex items-center gap-2 text-xs text-green-600">
+                                <CheckCircle className="w-3 h-3" />
+                                <span>Delivered: {new Date(selectedInvoice.payment_email_delivered_at).toLocaleDateString()} at {new Date(selectedInvoice.payment_email_delivered_at).toLocaleTimeString()}</span>
+                              </div>
+                            )}
+                            {selectedInvoice.payment_email_opened_at && (
+                              <div className="flex items-center gap-2 text-xs text-cyan-600">
+                                <Eye className="w-3 h-3" />
+                                <span>Opened: {new Date(selectedInvoice.payment_email_opened_at).toLocaleDateString()} at {new Date(selectedInvoice.payment_email_opened_at).toLocaleTimeString()}</span>
+                              </div>
+                            )}
+                            {selectedInvoice.payment_email_clicked_at && (
+                              <div className="flex items-center gap-2 text-xs text-purple-600">
+                                <ExternalLink className="w-3 h-3" />
+                                <span>Clicked: {new Date(selectedInvoice.payment_email_clicked_at).toLocaleDateString()} at {new Date(selectedInvoice.payment_email_clicked_at).toLocaleTimeString()}</span>
+                              </div>
+                            )}
+                            {selectedInvoice.payment_confirmation_email_sent_at && (
+                              <div className="flex items-center gap-2 text-xs text-green-600 pt-2 border-t border-green-500/20">
+                                <CheckCircle className="w-3 h-3" />
+                                <span className="font-medium">Payment Confirmation Sent: {new Date(selectedInvoice.payment_confirmation_email_sent_at).toLocaleDateString()} at {new Date(selectedInvoice.payment_confirmation_email_sent_at).toLocaleTimeString()}</span>
+                              </div>
+                            )}
+                            {selectedInvoice.payment_email_bounced_at && (
+                              <div className="flex items-center gap-2 text-xs text-red-600">
+                                <XCircle className="w-3 h-3" />
+                                <span>Bounced: {new Date(selectedInvoice.payment_email_bounced_at).toLocaleDateString()} at {new Date(selectedInvoice.payment_email_bounced_at).toLocaleTimeString()}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
                       {selectedInvoice.payment_link && (
                         <div className="mt-3 pt-3 border-t border-green-500/20">
                           <p className="text-xs font-semibold text-gray-700 mb-2">Payment Link:</p>
-                          <div className="bg-gray-50 p-3 rounded border border-gray-200 mb-3">
+                          <div className="flex items-center gap-2 mb-3">
                             <input
                               type="text"
-                              value={selectedInvoice.payment_link}
                               readOnly
-                              className="w-full text-xs bg-transparent border-none focus:outline-none text-gray-700 font-mono"
+                              value={selectedInvoice.payment_link}
+                              className="flex-1 bg-gray-50 border border-gray-300 rounded px-3 py-2 text-xs text-gray-700"
                             />
-                          </div>
-
-                          <div className="flex flex-wrap gap-2 mb-3">
                             <button
                               onClick={() => handleCopyPaymentLink(selectedInvoice)}
-                              className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1"
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded text-xs font-semibold transition-all flex items-center gap-1"
                             >
                               <Copy className="w-3 h-3" />
                               Copy
                             </button>
                             <button
                               onClick={handleEmailPaymentLink}
-                              className="bg-cyan-600 hover:bg-cyan-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1"
+                              className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-xs font-semibold transition-all flex items-center gap-1"
                             >
                               <Mail className="w-3 h-3" />
                               Email
                             </button>
                           </div>
-
-                          {selectedInvoice.payment_email_sent_at && (
-                            <>
-                              <p className="text-xs font-semibold text-gray-700 mb-2">Email Engagement</p>
-                              <div className="space-y-1 mb-3">
-                                {selectedInvoice.payment_email_recipient && (
-                                  <div className="flex items-center gap-2 text-xs text-blue-700">
-                                    <Mail className="w-3 h-3" />
-                                    <span>To: {selectedInvoice.payment_email_recipient}</span>
-                                  </div>
-                                )}
-                                <p className="text-xs text-gray-600">
-                                  Sent: {new Date(selectedInvoice.payment_email_sent_at).toLocaleString()}
-                                </p>
-                                {selectedInvoice.payment_email_delivered_at && (
-                                  <p className="text-xs text-green-600 flex items-center gap-1">
-                                    <CheckCircle className="w-3 h-3" />
-                                    Delivered: {new Date(selectedInvoice.payment_email_delivered_at).toLocaleString()}
-                                  </p>
-                                )}
-                                {selectedInvoice.payment_email_opened_at && (
-                                  <p className="text-xs text-blue-600 flex items-center gap-1">
-                                    <Eye className="w-3 h-3" />
-                                    Opened: {new Date(selectedInvoice.payment_email_opened_at).toLocaleString()} {selectedInvoice.payment_email_clicked_at && '3x'}
-                                  </p>
-                                )}
-                                {selectedInvoice.payment_email_clicked_at && (
-                                  <p className="text-xs text-purple-600 flex items-center gap-1">
-                                    <ExternalLink className="w-3 h-3" />
-                                    Clicked: {new Date(selectedInvoice.payment_email_clicked_at).toLocaleString()}
-                                  </p>
-                                )}
-                                {selectedInvoice.payment_email_bounced_at && (
-                                  <p className="text-xs text-red-600 flex items-center gap-1">
-                                    <XCircle className="w-3 h-3" />
-                                    Bounced: {new Date(selectedInvoice.payment_email_bounced_at).toLocaleString()}
-                                  </p>
-                                )}
-                              </div>
-                            </>
-                          )}
-
-                          <div className="flex flex-wrap gap-2">
-                            <button
-                              onClick={handleSyncPaymentStatus}
-                              disabled={syncPaymentLoading}
-                              className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 disabled:opacity-50"
-                            >
-                              <RefreshCw className="w-3 h-3" />
-                              {syncPaymentLoading ? 'Syncing...' : 'Sync Payment'}
-                            </button>
-                            <button
-                              onClick={handleRegeneratePaymentLink}
-                              disabled={regenerateLoading}
-                              className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 disabled:opacity-50"
-                            >
-                              <CreditCard className="w-3 h-3" />
-                              {regenerateLoading ? 'Regenerating...' : 'Regenerate Payment Link'}
-                            </button>
-                            <button
-                              onClick={handleDeletePaymentLink}
-                              disabled={deleteLoading}
-                              className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 disabled:opacity-50"
-                            >
-                              <X className="w-3 h-3" />
-                              {deleteLoading ? 'Deleting...' : 'Delete Payment Link'}
-                            </button>
-                          </div>
                         </div>
                       )}
+                    </div>
 
-                      {!selectedInvoice.payment_link && selectedInvoice.payment_status === 'pending' && (
-                        <div className="mt-3 pt-3 border-t border-green-500/20 flex flex-col items-center justify-center gap-3 py-4">
-                          <p className="text-sm text-gray-600 font-medium">No payment link generated yet</p>
+                    <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t border-green-500/20">
+                      {!selectedInvoice.payment_link && (
+                        <button
+                          onClick={() => handleRequestPayment(selectedInvoice)}
+                          disabled={paymentLoading}
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 disabled:opacity-50"
+                        >
+                          <CreditCard className="w-3 h-3" />
+                          {paymentLoading ? 'Generating...' : 'Generate Payment Link'}
+                        </button>
+                      )}
+                      {selectedInvoice.payment_link && (
+                        <>
                           <button
-                            onClick={() => handleRequestPayment(selectedInvoice)}
-                            disabled={paymentLoading}
-                            type="button"
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-lg text-base font-bold transition-all flex items-center gap-2 disabled:opacity-50 shadow-lg hover:shadow-xl"
+                            onClick={handleSyncPaymentStatus}
+                            disabled={syncPaymentLoading}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 disabled:opacity-50"
                           >
-                            <CreditCard className="w-5 h-5" />
-                            {paymentLoading ? 'Generating...' : 'Generate Payment Link'}
+                            <RefreshCw className="w-3 h-3" />
+                            {syncPaymentLoading ? 'Syncing...' : 'Sync Payment'}
                           </button>
-                        </div>
+                          <button
+                            onClick={handleRegeneratePaymentLink}
+                            disabled={regenerateLoading}
+                            className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 disabled:opacity-50"
+                          >
+                            <CreditCard className="w-3 h-3" />
+                            {regenerateLoading ? 'Regenerating...' : 'Regenerate Payment Link'}
+                          </button>
+                          <button
+                            onClick={handleDeletePaymentLink}
+                            disabled={deleteLoading}
+                            className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 disabled:opacity-50"
+                          >
+                            <X className="w-3 h-3" />
+                            {deleteLoading ? 'Deleting...' : 'Delete Payment Link'}
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>
