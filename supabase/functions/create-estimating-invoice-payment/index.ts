@@ -87,29 +87,37 @@ Deno.serve(withErrorHandling(async (req: Request) => {
 
     const paymentMethodType = invoice.final_payment_method_type || 'card';
 
+    const origin = req.headers.get('origin') || Deno.env.get('SITE_URL') || 'https://azmarineservices.com';
+    const appUrl = Deno.env.get('APP_URL') || origin;
+
+    const stripeParams: Record<string, string> = {
+      'mode': 'payment',
+      'payment_method_types[]': paymentMethodType === 'ach' ? 'us_bank_account' : 'card',
+      'line_items[0][price_data][currency]': 'usd',
+      'line_items[0][price_data][product_data][name]': `Invoice ${invoice.invoice_number} - Balance Due`,
+      'line_items[0][price_data][product_data][description]': invoice.yachts?.name
+        ? `Yacht: ${invoice.yachts.name} | WO: ${invoice.work_orders?.work_order_number || 'N/A'}`
+        : `Work Order: ${invoice.work_orders?.work_order_number || 'N/A'}`,
+      'line_items[0][price_data][unit_amount]': Math.round(balanceDue * 100).toString(),
+      'line_items[0][quantity]': '1',
+      'success_url': `${appUrl}/estimating?payment=success&type=invoice&session_id={CHECKOUT_SESSION_ID}`,
+      'cancel_url': `${appUrl}/estimating?payment=cancelled`,
+      'metadata[invoice_id]': invoiceId,
+      'metadata[payment_type]': 'estimating_invoice_payment',
+      'expires_at': Math.floor((Date.now() + 23 * 60 * 60 * 1000) / 1000).toString(),
+    };
+
+    if (invoice.customer_email) {
+      stripeParams['customer_email'] = invoice.customer_email;
+    }
+
     const checkoutSession = await fetch('https://api.stripe.com/v1/checkout/sessions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${stripeSecretKey}`,
         'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: new URLSearchParams({
-        'mode': 'payment',
-        'payment_method_types[]': paymentMethodType === 'ach' ? 'us_bank_account' : 'card',
-        'line_items[0][price_data][currency]': 'usd',
-        'line_items[0][price_data][product_data][name]': `Invoice ${invoice.invoice_number} - Balance Due`,
-        'line_items[0][price_data][product_data][description]': invoice.yachts?.name
-          ? `Yacht: ${invoice.yachts.name} | WO: ${invoice.work_orders?.work_order_number || 'N/A'}`
-          : `Work Order: ${invoice.work_orders?.work_order_number || 'N/A'}`,
-        'line_items[0][price_data][unit_amount]': Math.round(balanceDue * 100).toString(),
-        'line_items[0][quantity]': '1',
-        'success_url': `${supabaseUrl.replace('.supabase.co', '')}/estimating?payment=success&type=invoice`,
-        'cancel_url': `${supabaseUrl.replace('.supabase.co', '')}/estimating?payment=cancelled`,
-        'metadata[invoice_id]': invoiceId,
-        'metadata[payment_type]': 'estimating_invoice_payment',
-        'customer_email': invoice.customer_email || '',
-        'expires_at': Math.floor((Date.now() + 30 * 24 * 60 * 60 * 1000) / 1000).toString(),
-      }),
+      body: new URLSearchParams(stripeParams),
     });
 
     if (!checkoutSession.ok) {
