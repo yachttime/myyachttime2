@@ -88,13 +88,19 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
       const [estimatesRes, workOrdersRes, invoicesRes, partsRes] = await Promise.all([
         supabase.from('estimates').select('id, status, total_amount', { count: 'exact' }).neq('status', 'converted'),
         supabase.from('work_orders').select('id, status', { count: 'exact' }),
-        supabase.from('estimating_invoices').select('id, total_amount, payment_status', { count: 'exact' }),
+        supabase.from('estimating_invoices').select('id, total_amount, payment_status, work_order_id', { count: 'exact' }),
         supabase.from('parts_inventory').select('id, quantity_on_hand, reorder_level', { count: 'exact' })
       ]);
 
       const estimates = estimatesRes.data || [];
-      const workOrders = workOrdersRes.data || [];
+      const allWorkOrders = workOrdersRes.data || [];
       const invoices = invoicesRes.data || [];
+
+      // Filter out work orders that have been converted to invoices
+      const convertedWorkOrderIds = new Set(
+        invoices.filter(inv => inv.work_order_id).map(inv => inv.work_order_id)
+      );
+      const workOrders = allWorkOrders.filter(wo => !convertedWorkOrderIds.has(wo.id));
       const parts = partsRes.data || [];
 
       const pendingApproval = estimates.filter(e => e.status === 'sent').length;
