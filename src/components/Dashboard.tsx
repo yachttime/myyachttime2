@@ -11235,42 +11235,44 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             </select>
                           </div>
                         ) : (
-                          <div className="bg-blue-500/10 border border-blue-500 rounded-lg p-4 space-y-4">
+                          <div className="border border-blue-500 rounded-xl p-4 space-y-4" style={{background: 'rgba(10,20,50,0.7)'}}>
                             <div className="flex items-center justify-between">
                               <h4 className="font-semibold text-blue-400">Walk-In Customer Information</h4>
-                              <button
-                                type="button"
-                                onClick={() => setShowQuickAddCustomer(true)}
-                                className="text-sm bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded"
-                              >
-                                + New Customer
-                              </button>
+                              {!showQuickAddCustomer && (
+                                <button
+                                  type="button"
+                                  onClick={() => { setShowQuickAddCustomer(true); setShowQuickAddVessel(false); }}
+                                  className="text-sm bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg font-medium transition-colors"
+                                >
+                                  + New Customer
+                                </button>
+                              )}
                             </div>
 
                             {showQuickAddCustomer && (
-                              <div className="bg-slate-900/50 border border-blue-500/30 rounded-lg p-4 space-y-3">
-                                <div className="flex items-center justify-between mb-2">
-                                  <h5 className="font-medium text-blue-300">Quick Add Customer</h5>
+                              <div className="rounded-xl border border-blue-500/40 p-4 space-y-3" style={{background: 'rgba(10,20,50,0.9)'}}>
+                                <div className="flex items-center justify-between">
+                                  <h5 className="text-sm font-semibold text-white">Quick Add Customer</h5>
                                   <button
                                     type="button"
                                     onClick={() => setShowQuickAddCustomer(false)}
-                                    className="text-slate-400 hover:text-white"
+                                    className="text-slate-400 hover:text-white transition-colors"
                                   >
                                     ✕
                                   </button>
                                 </div>
-                                <div className="grid grid-cols-2 gap-3">
+                                <div className="grid grid-cols-2 rounded-lg overflow-hidden border border-slate-700">
                                   <button
                                     type="button"
                                     onClick={() => setQuickCustomerForm({...quickCustomerForm, customer_type: 'individual'})}
-                                    className={`px-3 py-2 rounded text-sm ${quickCustomerForm.customer_type === 'individual' ? 'bg-blue-500 text-white' : 'bg-slate-800 text-slate-400'}`}
+                                    className={`py-2 text-sm font-medium transition-colors ${quickCustomerForm.customer_type === 'individual' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-slate-200'}`}
                                   >
                                     Individual
                                   </button>
                                   <button
                                     type="button"
                                     onClick={() => setQuickCustomerForm({...quickCustomerForm, customer_type: 'business'})}
-                                    className={`px-3 py-2 rounded text-sm ${quickCustomerForm.customer_type === 'business' ? 'bg-blue-500 text-white' : 'bg-slate-800 text-slate-400'}`}
+                                    className={`py-2 text-sm font-medium transition-colors ${quickCustomerForm.customer_type === 'business' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-slate-200'}`}
                                   >
                                     Business
                                   </button>
@@ -11282,14 +11284,14 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                       placeholder="First Name"
                                       value={quickCustomerForm.first_name}
                                       onChange={(e) => setQuickCustomerForm({...quickCustomerForm, first_name: e.target.value})}
-                                      className="bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
+                                      className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
                                     />
                                     <input
                                       type="text"
                                       placeholder="Last Name"
                                       value={quickCustomerForm.last_name}
                                       onChange={(e) => setQuickCustomerForm({...quickCustomerForm, last_name: e.target.value})}
-                                      className="bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
+                                      className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
                                     />
                                   </div>
                                 ) : (
@@ -11298,7 +11300,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                     placeholder="Business Name"
                                     value={quickCustomerForm.business_name}
                                     onChange={(e) => setQuickCustomerForm({...quickCustomerForm, business_name: e.target.value})}
-                                    className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
+                                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
                                   />
                                 )}
                                 <input
@@ -11306,14 +11308,14 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   placeholder="Email"
                                   value={quickCustomerForm.email}
                                   onChange={(e) => setQuickCustomerForm({...quickCustomerForm, email: e.target.value})}
-                                  className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
+                                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
                                 />
                                 <input
                                   type="tel"
                                   placeholder="Phone"
                                   value={quickCustomerForm.phone}
                                   onChange={(e) => setQuickCustomerForm({...quickCustomerForm, phone: e.target.value})}
-                                  className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
+                                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
                                 />
                                 <button
                                   type="button"
@@ -11331,24 +11333,16 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                         .single();
                                       if (error) throw error;
                                       await loadCustomers();
-                                      setRepairForm({...repairForm, customer_id: data.id});
+                                      setRepairForm({...repairForm, customer_id: data.id, vessel_id: ''});
                                       setSelectedCustomerId(data.id);
                                       await loadCustomerVessels(data.id);
                                       setShowQuickAddCustomer(false);
-                                      setQuickCustomerForm({
-                                        customer_type: 'individual',
-                                        first_name: '',
-                                        last_name: '',
-                                        business_name: '',
-                                        email: '',
-                                        phone: ''
-                                      });
-                                      alert('Customer added successfully!');
+                                      setQuickCustomerForm({ customer_type: 'individual', first_name: '', last_name: '', business_name: '', email: '', phone: '' });
                                     } catch (error: any) {
                                       alert('Failed to add customer: ' + error.message);
                                     }
                                   }}
-                                  className="w-full bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium"
+                                  className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors"
                                 >
                                   Add Customer
                                 </button>
@@ -11356,7 +11350,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             )}
 
                             <div>
-                              <label className="block text-sm font-medium mb-2">Select Customer *</label>
+                              <label className="block text-sm font-medium text-slate-300 mb-2">Select Customer *</label>
                               <select
                                 required
                                 value={repairForm.customer_id}
@@ -11370,14 +11364,14 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                     setCustomerVessels([]);
                                   }
                                 }}
-                                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500"
+                                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 text-sm"
                               >
                                 <option value="">Select a customer</option>
                                 {customers.map((customer: any) => (
                                   <option key={customer.id} value={customer.id}>
                                     {customer.customer_type === 'business'
                                       ? customer.business_name
-                                      : `${customer.first_name} ${customer.last_name}`
+                                      : `${customer.first_name || ''} ${customer.last_name || ''}`.trim()
                                     }
                                   </option>
                                 ))}
@@ -11387,24 +11381,26 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             {repairForm.customer_id && (
                               <div>
                                 <div className="flex items-center justify-between mb-2">
-                                  <label className="block text-sm font-medium">Select Vessel *</label>
-                                  <button
-                                    type="button"
-                                    onClick={() => setShowQuickAddVessel(true)}
-                                    className="text-sm bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded"
-                                  >
-                                    + New Vessel
-                                  </button>
+                                  <label className="block text-sm font-medium text-slate-300">Select Vessel *</label>
+                                  {!showQuickAddVessel && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setShowQuickAddVessel(true)}
+                                      className="text-sm bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg font-medium transition-colors"
+                                    >
+                                      + New Vessel
+                                    </button>
+                                  )}
                                 </div>
 
                                 {showQuickAddVessel && (
-                                  <div className="bg-slate-900/50 border border-blue-500/30 rounded-lg p-4 space-y-3 mb-3">
+                                  <div className="rounded-xl border border-blue-500/40 p-4 space-y-3 mb-3" style={{background: 'rgba(10,20,50,0.9)'}}>
                                     <div className="flex items-center justify-between">
-                                      <h5 className="font-medium text-blue-300">Quick Add Vessel</h5>
+                                      <h5 className="text-sm font-semibold text-white">Quick Add Vessel</h5>
                                       <button
                                         type="button"
                                         onClick={() => setShowQuickAddVessel(false)}
-                                        className="text-slate-400 hover:text-white"
+                                        className="text-slate-400 hover:text-white transition-colors"
                                       >
                                         ✕
                                       </button>
@@ -11414,7 +11410,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                       placeholder="Vessel Name *"
                                       value={quickVesselForm.vessel_name}
                                       onChange={(e) => setQuickVesselForm({...quickVesselForm, vessel_name: e.target.value})}
-                                      className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
+                                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
                                     />
                                     <div className="grid grid-cols-2 gap-3">
                                       <input
@@ -11422,22 +11418,22 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                         placeholder="Manufacturer"
                                         value={quickVesselForm.manufacturer}
                                         onChange={(e) => setQuickVesselForm({...quickVesselForm, manufacturer: e.target.value})}
-                                        className="bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
+                                        className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
                                       />
                                       <input
                                         type="text"
                                         placeholder="Model"
                                         value={quickVesselForm.model}
                                         onChange={(e) => setQuickVesselForm({...quickVesselForm, model: e.target.value})}
-                                        className="bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
+                                        className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
                                       />
                                     </div>
                                     <input
-                                      type="text"
+                                      type="number"
                                       placeholder="Year"
                                       value={quickVesselForm.year}
                                       onChange={(e) => setQuickVesselForm({...quickVesselForm, year: e.target.value})}
-                                      className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
+                                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
                                     />
                                     <button
                                       type="button"
@@ -11464,18 +11460,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                           await loadCustomerVessels(repairForm.customer_id);
                                           setRepairForm({...repairForm, vessel_id: data.id});
                                           setShowQuickAddVessel(false);
-                                          setQuickVesselForm({
-                                            vessel_name: '',
-                                            manufacturer: '',
-                                            model: '',
-                                            year: ''
-                                          });
-                                          alert('Vessel added successfully!');
+                                          setQuickVesselForm({ vessel_name: '', manufacturer: '', model: '', year: '' });
                                         } catch (error: any) {
                                           alert('Failed to add vessel: ' + error.message);
                                         }
                                       }}
-                                      className="w-full bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium"
+                                      className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors"
                                     >
                                       Add Vessel
                                     </button>
@@ -11486,12 +11476,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   required
                                   value={repairForm.vessel_id}
                                   onChange={(e) => setRepairForm({...repairForm, vessel_id: e.target.value})}
-                                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500"
+                                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 text-sm"
                                 >
                                   <option value="">Select a vessel</option>
                                   {customerVessels.map((vessel: any) => (
                                     <option key={vessel.id} value={vessel.id}>
-                                      {vessel.vessel_name} {vessel.manufacturer && vessel.model ? `(${vessel.manufacturer} ${vessel.model})` : ''}
+                                      {vessel.vessel_name}{vessel.manufacturer && vessel.model ? ` (${vessel.manufacturer} ${vessel.model})` : ''}
                                     </option>
                                   ))}
                                 </select>
