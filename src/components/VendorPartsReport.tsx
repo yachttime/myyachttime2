@@ -170,7 +170,7 @@ export function VendorPartsReport({ onClose }: Props) {
             <div className="text-center py-12 text-gray-500">Loading report...</div>
           ) : (
             <div ref={printRef}>
-              <h1 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '2px' }}>Parts Inventory by Vendor</h1>
+              <h1 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '2px', color: '#111' }}>Parts Inventory by Vendor</h1>
               <div className="report-meta" style={{ fontSize: '11px', color: '#555', marginBottom: '16px' }}>
                 Generated: {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} &nbsp;&bull;&nbsp; {vendorGroups.length} vendor{vendorGroups.length !== 1 ? 's' : ''} &nbsp;&bull;&nbsp; {totalParts} total part{totalParts !== 1 ? 's' : ''}
               </div>
@@ -194,20 +194,20 @@ export function VendorPartsReport({ onClose }: Props) {
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                       <thead>
                         <tr style={{ background: '#f0f4f8' }}>
-                          <th style={{ padding: '5px 8px', textAlign: 'left', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid #ccc' }}>Part #</th>
-                          <th style={{ padding: '5px 8px', textAlign: 'left', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid #ccc' }}>Name</th>
-                          <th style={{ padding: '5px 8px', textAlign: 'center', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid #ccc' }}>Status</th>
-                          <th style={{ padding: '5px 8px', textAlign: 'right', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid #ccc' }}>On Hand</th>
-                          <th style={{ padding: '5px 8px', textAlign: 'right', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid #ccc' }}>Used (YTD)</th>
-                          <th style={{ padding: '5px 8px', textAlign: 'right', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid #ccc' }}>Unit Cost</th>
-                          <th style={{ padding: '5px 8px', textAlign: 'right', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid #ccc' }}>Inventory Value</th>
+                          <th style={{ padding: '5px 8px', textAlign: 'left', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid #ccc', color: '#374151' }}>Part #</th>
+                          <th style={{ padding: '5px 8px', textAlign: 'left', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid #ccc', color: '#374151' }}>Name</th>
+                          <th style={{ padding: '5px 8px', textAlign: 'center', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid #ccc', color: '#374151' }}>Status</th>
+                          <th style={{ padding: '5px 8px', textAlign: 'right', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid #ccc', color: '#374151' }}>On Hand</th>
+                          <th style={{ padding: '5px 8px', textAlign: 'right', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid #ccc', color: '#374151' }}>Used (YTD)</th>
+                          <th style={{ padding: '5px 8px', textAlign: 'right', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid #ccc', color: '#374151' }}>Unit Cost</th>
+                          <th style={{ padding: '5px 8px', textAlign: 'right', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid #ccc', color: '#374151' }}>Inventory Value</th>
                         </tr>
                       </thead>
                       <tbody>
                         {group.parts.map((part, idx) => (
                           <tr key={part.part_id} style={{ background: idx % 2 === 1 ? '#f9fafb' : 'white' }}>
-                            <td style={{ padding: '5px 8px', borderBottom: '1px solid #e5e7eb', fontWeight: 600 }}>{part.part_number}</td>
-                            <td style={{ padding: '5px 8px', borderBottom: '1px solid #e5e7eb' }}>
+                            <td style={{ padding: '5px 8px', borderBottom: '1px solid #e5e7eb', fontWeight: 600, color: '#111' }}>{part.part_number}</td>
+                            <td style={{ padding: '5px 8px', borderBottom: '1px solid #e5e7eb', color: '#111' }}>
                               {part.name}
                               {!part.is_active && (
                                 <span style={{ fontSize: '9px', background: '#fee2e2', color: '#b91c1c', borderRadius: '3px', padding: '1px 4px', marginLeft: '6px' }}>
@@ -239,20 +239,20 @@ export function VendorPartsReport({ onClose }: Props) {
                                 <span style={{ color: '#9ca3af' }}>0</span>
                               )}
                             </td>
-                            <td style={{ padding: '5px 8px', borderBottom: '1px solid #e5e7eb', textAlign: 'right' }}>
+                            <td style={{ padding: '5px 8px', borderBottom: '1px solid #e5e7eb', textAlign: 'right', color: '#111' }}>
                               ${part.unit_cost.toFixed(2)}
                             </td>
-                            <td style={{ padding: '5px 8px', borderBottom: '1px solid #e5e7eb', textAlign: 'right' }}>
+                            <td style={{ padding: '5px 8px', borderBottom: '1px solid #e5e7eb', textAlign: 'right', color: '#111' }}>
                               ${(part.quantity_on_hand * part.unit_cost).toFixed(2)}
                             </td>
                           </tr>
                         ))}
-                        <tr className="vendor-totals" style={{ background: '#f0f4f8', fontWeight: 600 }}>
-                          <td colSpan={3} style={{ padding: '5px 8px', borderTop: '2px solid #d1d5db' }}>Vendor Totals</td>
-                          <td style={{ padding: '5px 8px', borderTop: '2px solid #d1d5db', textAlign: 'right' }}>{totalOnHand}</td>
-                          <td style={{ padding: '5px 8px', borderTop: '2px solid #d1d5db', textAlign: 'right' }}>{totalUsed}</td>
-                          <td style={{ padding: '5px 8px', borderTop: '2px solid #d1d5db' }}></td>
-                          <td style={{ padding: '5px 8px', borderTop: '2px solid #d1d5db', textAlign: 'right' }}>${totalValue.toFixed(2)}</td>
+                        <tr className="vendor-totals" style={{ background: '#f0f4f8', fontWeight: 600, color: '#111' }}>
+                          <td colSpan={3} style={{ padding: '5px 8px', borderTop: '2px solid #d1d5db', color: '#111' }}>Vendor Totals</td>
+                          <td style={{ padding: '5px 8px', borderTop: '2px solid #d1d5db', textAlign: 'right', color: '#111' }}>{totalOnHand}</td>
+                          <td style={{ padding: '5px 8px', borderTop: '2px solid #d1d5db', textAlign: 'right', color: '#111' }}>{totalUsed}</td>
+                          <td style={{ padding: '5px 8px', borderTop: '2px solid #d1d5db', color: '#111' }}></td>
+                          <td style={{ padding: '5px 8px', borderTop: '2px solid #d1d5db', textAlign: 'right', color: '#111' }}>${totalValue.toFixed(2)}</td>
                         </tr>
                       </tbody>
                     </table>
