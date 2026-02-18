@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Receipt, Search, Download, Mail, DollarSign, Eye, CheckCircle, Clock, XCircle, ExternalLink, Archive, RotateCcw } from 'lucide-react';
+import { Receipt, Search, Printer, Mail, DollarSign, Eye, CheckCircle, Clock, XCircle, ExternalLink, Archive, RotateCcw } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -277,7 +277,7 @@ export function Invoices({ userId }: InvoicesProps) {
     }
   }
 
-  async function handleDownloadPDF(invoice: Invoice) {
+  async function handlePrintInvoice(invoice: Invoice) {
     try {
       const doc = new jsPDF({
         orientation: 'portrait',
@@ -297,22 +297,56 @@ export function Invoices({ userId }: InvoicesProps) {
 
       // Add logo if available
       let logoAdded = false;
-      const logoWidth = 0.8;
-      const logoHeight = 0.8;
+      let logoWidth = 0;
+      let logoHeight = 0;
 
       if (companyInfo?.logo_url) {
         try {
           const logoResponse = await fetch(companyInfo.logo_url);
           const logoBlob = await logoResponse.blob();
-          const logoDataUrl = await new Promise<string>((resolve, reject) => {
+
+          await new Promise<void>((resolve, reject) => {
             const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
+            reader.onloadend = () => {
+              try {
+                const base64data = reader.result as string;
+
+                const img = new Image();
+                img.onload = () => {
+                  try {
+                    const maxLogoWidth = 1.8;
+                    const maxLogoHeight = 1.3;
+
+                    const aspectRatio = img.width / img.height;
+                    logoWidth = maxLogoWidth;
+                    logoHeight = logoWidth / aspectRatio;
+
+                    if (logoHeight > maxLogoHeight) {
+                      logoHeight = maxLogoHeight;
+                      logoWidth = logoHeight * aspectRatio;
+                    }
+
+                    doc.addImage(base64data, 'PNG', margin, yPos, logoWidth, logoHeight);
+                    logoAdded = true;
+                    resolve();
+                  } catch (err) {
+                    console.warn('Could not add logo to PDF:', err);
+                    resolve();
+                  }
+                };
+                img.onerror = () => {
+                  console.warn('Could not load logo image');
+                  resolve();
+                };
+                img.src = base64data;
+              } catch (err) {
+                console.warn('Could not process logo:', err);
+                resolve();
+              }
+            };
             reader.onerror = reject;
             reader.readAsDataURL(logoBlob);
           });
-
-          doc.addImage(logoDataUrl, 'PNG', margin, yPos, logoWidth, logoHeight);
-          logoAdded = true;
         } catch (err) {
           console.warn('Could not load logo for PDF:', err);
         }
@@ -565,11 +599,13 @@ export function Invoices({ userId }: InvoicesProps) {
         doc.text(noteLines, margin, yPos);
       }
 
-      // Save the PDF
-      doc.save(`${invoice.invoice_number}.pdf`);
+      // Open PDF in new tab for printing
+      const pdfBlob = doc.output('blob');
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      window.open(pdfUrl, '_blank');
     } catch (error) {
-      console.error('Error generating PDF:', error);
-      alert('Error generating PDF. Please try again.');
+      console.error('Error printing invoice:', error);
+      alert('Error printing invoice. Please try again.');
     }
   }
 
@@ -858,11 +894,11 @@ export function Invoices({ userId }: InvoicesProps) {
               {/* Action Buttons */}
               <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-gray-200">
                 <button
-                  onClick={() => handleDownloadPDF(selectedInvoice)}
+                  onClick={() => handlePrintInvoice(selectedInvoice)}
                   className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 flex items-center gap-2 text-sm font-medium"
                 >
-                  <Download className="w-4 h-4" />
-                  Download PDF
+                  <Printer className="w-4 h-4" />
+                  Print Invoice
                 </button>
               </div>
             </div>
