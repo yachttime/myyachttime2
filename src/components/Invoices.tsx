@@ -33,6 +33,27 @@ interface Invoice {
   payment_email_sent_at: string | null;
 }
 
+interface WorkOrderTask {
+  id: string;
+  task_name: string;
+  task_overview: string;
+  task_order: number;
+  apply_surcharge: boolean;
+}
+
+interface WorkOrderLineItem {
+  id: string;
+  task_id: string;
+  line_type: string;
+  description: string;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+  is_taxable: boolean;
+  line_order: number;
+  work_details: string | null;
+}
+
 export function Invoices({ userId }: InvoicesProps) {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,6 +64,8 @@ export function Invoices({ userId }: InvoicesProps) {
   const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [invoiceToArchive, setInvoiceToArchive] = useState<string | null>(null);
+  const [workOrderTasks, setWorkOrderTasks] = useState<WorkOrderTask[]>([]);
+  const [workOrderLineItems, setWorkOrderLineItems] = useState<WorkOrderLineItem[]>([]);
 
   useEffect(() => {
     fetchInvoices();
@@ -146,6 +169,45 @@ export function Invoices({ userId }: InvoicesProps) {
     }
   };
 
+  async function fetchWorkOrderDetails(workOrderId: string) {
+    try {
+      const [tasksResult, lineItemsResult] = await Promise.all([
+        supabase
+          .from('work_order_tasks')
+          .select('*')
+          .eq('work_order_id', workOrderId)
+          .order('task_order'),
+        supabase
+          .from('work_order_line_items')
+          .select('*')
+          .eq('work_order_id', workOrderId)
+          .order('line_order')
+      ]);
+
+      if (tasksResult.error) throw tasksResult.error;
+      if (lineItemsResult.error) throw lineItemsResult.error;
+
+      setWorkOrderTasks(tasksResult.data || []);
+      setWorkOrderLineItems(lineItemsResult.data || []);
+    } catch (error) {
+      console.error('Error fetching work order details:', error);
+      setWorkOrderTasks([]);
+      setWorkOrderLineItems([]);
+    }
+  }
+
+  async function handleViewInvoice(invoice: Invoice) {
+    setSelectedInvoice(invoice);
+    setShowDetails(true);
+
+    if (invoice.work_order_id) {
+      await fetchWorkOrderDetails(invoice.work_order_id);
+    } else {
+      setWorkOrderTasks([]);
+      setWorkOrderLineItems([]);
+    }
+  }
+
   const filteredInvoices = invoices.filter(invoice => {
     const matchesSearch =
       invoice.invoice_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -188,8 +250,7 @@ export function Invoices({ userId }: InvoicesProps) {
   }
 
   function handleViewDetails(invoice: Invoice) {
-    setSelectedInvoice(invoice);
-    setShowDetails(true);
+    handleViewInvoice(invoice);
   }
 
   async function handleSendEmail(invoice: Invoice) {
@@ -534,6 +595,63 @@ export function Invoices({ userId }: InvoicesProps) {
                 </div>
               </div>
 
+              {/* Line Items Section */}
+              {workOrderTasks.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Line Items</h3>
+                  <div className="space-y-6">
+                    {workOrderTasks.map((task) => {
+                      const taskLineItems = workOrderLineItems.filter(item => item.task_id === task.id);
+                      if (taskLineItems.length === 0) return null;
+
+                      return (
+                        <div key={task.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                          <div className="bg-gray-100 px-4 py-3 border-b border-gray-200">
+                            <h4 className="font-semibold text-gray-900">{task.task_name}</h4>
+                            {task.task_overview && (
+                              <p className="text-sm text-gray-600 mt-1">{task.task_overview}</p>
+                            )}
+                          </div>
+                          <div className="divide-y divide-gray-200">
+                            {taskLineItems.map((item) => (
+                              <div key={item.id} className="px-4 py-3">
+                                <div className="flex justify-between items-start">
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs font-medium text-gray-500 uppercase bg-gray-100 px-2 py-1 rounded">
+                                        {item.line_type}
+                                      </span>
+                                      <span className="text-sm font-medium text-gray-900">
+                                        {item.description}
+                                      </span>
+                                    </div>
+                                    {item.work_details && (
+                                      <p className="text-sm text-gray-600 mt-1 ml-[3.75rem]">{item.work_details}</p>
+                                    )}
+                                    <div className="flex gap-4 mt-2 ml-[3.75rem] text-sm text-gray-600">
+                                      <span>Qty: {item.quantity}</span>
+                                      <span>Unit Price: ${item.unit_price.toFixed(2)}</span>
+                                      {item.is_taxable && (
+                                        <span className="text-blue-600">Taxable</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="text-right ml-4">
+                                    <div className="text-base font-semibold text-gray-900">
+                                      ${item.total_price.toFixed(2)}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               <div className="bg-gray-50 rounded-lg p-4 mb-6">
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
@@ -544,10 +662,23 @@ export function Invoices({ userId }: InvoicesProps) {
                     <span className="text-gray-600">Tax ({(selectedInvoice.tax_rate * 100).toFixed(2)}%):</span>
                     <span className="text-gray-900">${selectedInvoice.tax_amount.toFixed(2)}</span>
                   </div>
+                  {selectedInvoice.deposit_applied && selectedInvoice.deposit_applied > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Deposit Applied:</span>
+                      <span className="text-green-600">-${selectedInvoice.deposit_applied.toFixed(2)}</span>
+                    </div>
+                  )}
                   <div className="border-t border-gray-300 pt-2 mt-2">
                     <div className="flex justify-between">
-                      <span className="text-lg font-bold text-gray-900">Total:</span>
-                      <span className="text-lg font-bold text-gray-900">${selectedInvoice.total_amount.toFixed(2)}</span>
+                      <span className="text-lg font-bold text-gray-900">
+                        {selectedInvoice.deposit_applied && selectedInvoice.deposit_applied > 0 ? 'Balance Due:' : 'Total:'}
+                      </span>
+                      <span className="text-lg font-bold text-gray-900">
+                        ${(selectedInvoice.balance_due !== null && selectedInvoice.balance_due !== selectedInvoice.total_amount
+                          ? selectedInvoice.balance_due
+                          : selectedInvoice.total_amount
+                        ).toFixed(2)}
+                      </span>
                     </div>
                   </div>
                 </div>
