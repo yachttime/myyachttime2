@@ -32,6 +32,9 @@ interface Estimate {
   manager_phone: string | null;
   created_at: string;
   yachts?: { name: string };
+  deposit_required: boolean;
+  deposit_percentage: number | null;
+  deposit_amount: number | null;
 }
 
 interface EstimateTask {
@@ -91,7 +94,11 @@ export function Estimates({ userId }: EstimatesProps) {
     apply_shop_supplies: true,
     apply_park_fees: true,
     notes: '',
-    customer_notes: DEFAULT_CUSTOMER_NOTES
+    customer_notes: DEFAULT_CUSTOMER_NOTES,
+    deposit_required: false,
+    deposit_type: 'percentage',
+    deposit_percentage: '',
+    deposit_amount: ''
   });
 
   const [tasks, setTasks] = useState<EstimateTask[]>([]);
@@ -717,7 +724,10 @@ export function Estimates({ userId }: EstimatesProps) {
           surcharge_amount: surchargeAmount,
           total_amount: totalAmount,
           notes: formData.notes || null,
-          customer_notes: formData.customer_notes || null
+          customer_notes: formData.customer_notes || null,
+          deposit_required: formData.deposit_required,
+          deposit_percentage: formData.deposit_required && formData.deposit_type === 'percentage' ? parseFloat(formData.deposit_percentage) || null : null,
+          deposit_amount: formData.deposit_required && formData.deposit_type === 'fixed' ? parseFloat(formData.deposit_amount) || null : null
         };
 
         const { data, error: estimateError } = await supabase
@@ -759,7 +769,10 @@ export function Estimates({ userId }: EstimatesProps) {
           total_amount: totalAmount,
           notes: formData.notes || null,
           customer_notes: formData.customer_notes || null,
-          created_by: userId
+          created_by: userId,
+          deposit_required: formData.deposit_required,
+          deposit_percentage: formData.deposit_required && formData.deposit_type === 'percentage' ? parseFloat(formData.deposit_percentage) || null : null,
+          deposit_amount: formData.deposit_required && formData.deposit_type === 'fixed' ? parseFloat(formData.deposit_amount) || null : null
         };
 
         const { data, error: estimateError } = await supabase
@@ -1965,6 +1978,90 @@ export function Estimates({ userId }: EstimatesProps) {
                         <span>Total:</span>
                         <span>${calculateTotal().toFixed(2)}</span>
                       </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-blue-50 border border-blue-200 rounded p-3 mt-2">
+                    <h5 className="text-xs font-semibold text-blue-900 mb-2">Deposit Settings</h5>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id="deposit_required"
+                          checked={formData.deposit_required}
+                          onChange={(e) => setFormData({ ...formData, deposit_required: e.target.checked })}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <label htmlFor="deposit_required" className="text-xs font-medium text-gray-700">
+                          Require Deposit to Start Work
+                        </label>
+                      </div>
+
+                      {formData.deposit_required && (
+                        <>
+                          <div className="flex items-center gap-2 pl-6">
+                            <label className="flex items-center gap-1">
+                              <input
+                                type="radio"
+                                name="deposit_type"
+                                value="percentage"
+                                checked={formData.deposit_type === 'percentage'}
+                                onChange={() => setFormData({ ...formData, deposit_type: 'percentage', deposit_amount: '' })}
+                                className="text-blue-600 focus:ring-blue-500"
+                              />
+                              <span className="text-xs text-gray-700">Percentage</span>
+                            </label>
+                            <label className="flex items-center gap-1">
+                              <input
+                                type="radio"
+                                name="deposit_type"
+                                value="fixed"
+                                checked={formData.deposit_type === 'fixed'}
+                                onChange={() => setFormData({ ...formData, deposit_type: 'fixed', deposit_percentage: '' })}
+                                className="text-blue-600 focus:ring-blue-500"
+                              />
+                              <span className="text-xs text-gray-700">Fixed Amount</span>
+                            </label>
+                          </div>
+
+                          {formData.deposit_type === 'percentage' ? (
+                            <div className="flex items-center gap-2 pl-6">
+                              <label className="text-xs text-gray-700">Percentage:</label>
+                              <input
+                                type="number"
+                                step="1"
+                                min="0"
+                                max="100"
+                                value={formData.deposit_percentage}
+                                onChange={(e) => setFormData({ ...formData, deposit_percentage: e.target.value })}
+                                placeholder="50"
+                                className="w-20 px-2 py-1 text-xs border border-gray-300 rounded"
+                              />
+                              <span className="text-xs text-gray-700">
+                                % = ${formData.deposit_percentage ? ((calculateTotal() * parseFloat(formData.deposit_percentage)) / 100).toFixed(2) : '0.00'}
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 pl-6">
+                              <label className="text-xs text-gray-700">Amount:</label>
+                              <span className="text-xs text-gray-700">$</span>
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={formData.deposit_amount}
+                                onChange={(e) => setFormData({ ...formData, deposit_amount: e.target.value })}
+                                placeholder="0.00"
+                                className="w-24 px-2 py-1 text-xs border border-gray-300 rounded"
+                              />
+                            </div>
+                          )}
+
+                          <div className="text-xs text-gray-600 pl-6 italic">
+                            Deposit will be collected when work order is created
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
