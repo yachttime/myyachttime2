@@ -150,6 +150,8 @@ export function Estimates({ userId }: EstimatesProps) {
   const [customers, setCustomers] = useState<any[]>([]);
   const [customerSearch, setCustomerSearch] = useState('');
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const [yachtCustomerSearch, setYachtCustomerSearch] = useState('');
+  const [showYachtCustomerDropdown, setShowYachtCustomerDropdown] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -183,11 +185,14 @@ export function Estimates({ userId }: EstimatesProps) {
       if (showCustomerDropdown && !target.closest('.customer-search-container')) {
         setShowCustomerDropdown(false);
       }
+      if (showYachtCustomerDropdown && !target.closest('.yacht-customer-search-container')) {
+        setShowYachtCustomerDropdown(false);
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showPartDropdown, showCustomerDropdown]);
+  }, [showPartDropdown, showCustomerDropdown, showYachtCustomerDropdown]);
 
   const loadData = async () => {
     try {
@@ -249,6 +254,7 @@ export function Estimates({ userId }: EstimatesProps) {
       if (partsResult.error) throw partsResult.error;
       if (mercuryResult.error) throw mercuryResult.error;
       if (packagesResult.error) throw packagesResult.error;
+      if (customersResult.error) throw customersResult.error;
 
       setEstimates(estimatesResult.data || []);
       setYachts(yachtsResult.data || []);
@@ -721,9 +727,9 @@ export function Estimates({ userId }: EstimatesProps) {
         // Update existing estimate
         const estimateData = {
           yacht_id: formData.is_retail_customer ? null : formData.yacht_id,
-          customer_name: formData.is_retail_customer ? formData.customer_name : null,
-          customer_email: formData.is_retail_customer ? formData.customer_email : null,
-          customer_phone: formData.is_retail_customer ? formData.customer_phone : null,
+          customer_name: formData.customer_name || null,
+          customer_email: formData.customer_email || null,
+          customer_phone: formData.customer_phone || null,
           is_retail_customer: formData.is_retail_customer,
           marina_name: formData.is_retail_customer ? null : formData.marina_name || null,
           manager_name: formData.is_retail_customer ? null : formData.manager_name || null,
@@ -764,9 +770,9 @@ export function Estimates({ userId }: EstimatesProps) {
         const estimateData = {
           estimate_number: estimateNumber,
           yacht_id: formData.is_retail_customer ? null : formData.yacht_id,
-          customer_name: formData.is_retail_customer ? formData.customer_name : null,
-          customer_email: formData.is_retail_customer ? formData.customer_email : null,
-          customer_phone: formData.is_retail_customer ? formData.customer_phone : null,
+          customer_name: formData.customer_name || null,
+          customer_email: formData.customer_email || null,
+          customer_phone: formData.customer_phone || null,
           is_retail_customer: formData.is_retail_customer,
           marina_name: formData.is_retail_customer ? null : formData.marina_name || null,
           manager_name: formData.is_retail_customer ? null : formData.manager_name || null,
@@ -1445,11 +1451,9 @@ export function Estimates({ userId }: EstimatesProps) {
 
             {formData.is_retail_customer ? (
               <div className="space-y-4 border border-gray-200 rounded-lg p-4 bg-gray-50">
-                <div className="flex items-center justify-between mb-1">
-                  <h4 className="text-sm font-semibold text-gray-800">Walk-In Customer Information</h4>
-                </div>
+                <h4 className="text-sm font-semibold text-gray-800">Walk-In Customer Information</h4>
                 <div className="relative customer-search-container">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Search Customer Database</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Select Customer</label>
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <input
@@ -1461,58 +1465,51 @@ export function Estimates({ userId }: EstimatesProps) {
                         setShowCustomerDropdown(true);
                       }}
                       onFocus={() => setShowCustomerDropdown(true)}
-                      className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
                     />
                   </div>
-                  {showCustomerDropdown && customerSearch.length > 0 && (
-                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                      {customers
-                        .filter(c => {
-                          const fullName = c.customer_type === 'business'
-                            ? (c.business_name || '').toLowerCase()
-                            : `${c.first_name || ''} ${c.last_name || ''}`.toLowerCase();
-                          const search = customerSearch.toLowerCase();
-                          return fullName.includes(search) || (c.email || '').toLowerCase().includes(search) || (c.phone || '').includes(search);
-                        })
-                        .map(c => {
-                          const displayName = c.customer_type === 'business'
-                            ? c.business_name
-                            : `${c.first_name || ''} ${c.last_name || ''}`.trim();
-                          return (
-                            <button
-                              key={c.id}
-                              type="button"
-                              onClick={() => {
-                                setFormData({
-                                  ...formData,
-                                  customer_name: displayName,
-                                  customer_email: c.email || '',
-                                  customer_phone: c.phone || ''
-                                });
-                                setCustomerSearch(displayName);
-                                setShowCustomerDropdown(false);
-                              }}
-                              className="w-full text-left px-4 py-2.5 hover:bg-blue-50 transition-colors flex items-center gap-3 border-b border-gray-100 last:border-0"
-                            >
-                              <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                              <div>
-                                <p className="text-sm font-medium text-gray-900">{displayName}</p>
-                                {c.email && <p className="text-xs text-gray-500">{c.email}</p>}
-                              </div>
-                            </button>
-                          );
-                        })}
-                      {customers.filter(c => {
-                        const fullName = c.customer_type === 'business'
-                          ? (c.business_name || '').toLowerCase()
-                          : `${c.first_name || ''} ${c.last_name || ''}`.toLowerCase();
-                        const search = customerSearch.toLowerCase();
-                        return fullName.includes(search) || (c.email || '').toLowerCase().includes(search) || (c.phone || '').includes(search);
-                      }).length === 0 && (
-                        <div className="px-4 py-3 text-sm text-gray-500 text-center">No customers found</div>
-                      )}
-                    </div>
-                  )}
+                  {showCustomerDropdown && (() => {
+                    const search = customerSearch.toLowerCase();
+                    const filtered = customers.filter(c => {
+                      if (!search) return true;
+                      const fullName = c.customer_type === 'business'
+                        ? (c.business_name || '').toLowerCase()
+                        : `${c.first_name || ''} ${c.last_name || ''}`.toLowerCase();
+                      return fullName.includes(search) || (c.email || '').toLowerCase().includes(search) || (c.phone || '').includes(search);
+                    });
+                    return (
+                      <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-y-auto">
+                        {filtered.length === 0 ? (
+                          <div className="px-4 py-3 text-sm text-gray-500 text-center">No customers found</div>
+                        ) : (
+                          filtered.map(c => {
+                            const displayName = c.customer_type === 'business'
+                              ? c.business_name
+                              : `${c.first_name || ''} ${c.last_name || ''}`.trim();
+                            return (
+                              <button
+                                key={c.id}
+                                type="button"
+                                onClick={() => {
+                                  setFormData({ ...formData, customer_name: displayName, customer_email: c.email || '', customer_phone: c.phone || '' });
+                                  setCustomerSearch(displayName);
+                                  setShowCustomerDropdown(false);
+                                }}
+                                className="w-full text-left px-4 py-2.5 hover:bg-blue-50 transition-colors flex items-center gap-3 border-b border-gray-100 last:border-0"
+                              >
+                                <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                <div>
+                                  <p className="text-sm font-medium text-gray-900">{displayName}</p>
+                                  {c.email && <p className="text-xs text-gray-500">{c.email}</p>}
+                                  {c.phone && <p className="text-xs text-gray-400">{c.phone}</p>}
+                                </div>
+                              </button>
+                            );
+                          })
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div className="grid grid-cols-3 gap-4">
                   <div>
@@ -1547,7 +1544,98 @@ export function Estimates({ userId }: EstimatesProps) {
                 </div>
               </div>
             ) : (
-              <div>
+              <div className="space-y-4">
+                <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                  <h4 className="text-sm font-semibold text-gray-800 mb-3">Customer Information</h4>
+                  <div className="relative yacht-customer-search-container mb-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Search Customer Database</label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <input
+                        type="text"
+                        placeholder="Search by name, email, or phone..."
+                        value={yachtCustomerSearch}
+                        onChange={(e) => { setYachtCustomerSearch(e.target.value); setShowYachtCustomerDropdown(true); }}
+                        onFocus={() => setShowYachtCustomerDropdown(true)}
+                        className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
+                      />
+                    </div>
+                    {showYachtCustomerDropdown && (() => {
+                      const search = yachtCustomerSearch.toLowerCase();
+                      const filtered = customers.filter(c => {
+                        if (!search) return true;
+                        const fullName = c.customer_type === 'business'
+                          ? (c.business_name || '').toLowerCase()
+                          : `${c.first_name || ''} ${c.last_name || ''}`.toLowerCase();
+                        return fullName.includes(search) || (c.email || '').toLowerCase().includes(search) || (c.phone || '').includes(search);
+                      });
+                      return (
+                        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-y-auto">
+                          {filtered.length === 0 ? (
+                            <div className="px-4 py-3 text-sm text-gray-500 text-center">No customers found</div>
+                          ) : (
+                            filtered.map(c => {
+                              const displayName = c.customer_type === 'business'
+                                ? c.business_name
+                                : `${c.first_name || ''} ${c.last_name || ''}`.trim();
+                              return (
+                                <button
+                                  key={c.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setFormData({ ...formData, customer_name: displayName, customer_email: c.email || '', customer_phone: c.phone || '' });
+                                    setYachtCustomerSearch(displayName);
+                                    setShowYachtCustomerDropdown(false);
+                                  }}
+                                  className="w-full text-left px-4 py-2.5 hover:bg-blue-50 transition-colors flex items-center gap-3 border-b border-gray-100 last:border-0"
+                                >
+                                  <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                  <div>
+                                    <p className="text-sm font-medium text-gray-900">{displayName}</p>
+                                    {c.email && <p className="text-xs text-gray-500">{c.email}</p>}
+                                    {c.phone && <p className="text-xs text-gray-400">{c.phone}</p>}
+                                  </div>
+                                </button>
+                              );
+                            })
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name</label>
+                      <input
+                        type="text"
+                        value={formData.customer_name}
+                        onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
+                        placeholder="From database or enter manually"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Customer Email</label>
+                      <input
+                        type="email"
+                        value={formData.customer_email}
+                        onChange={(e) => setFormData({ ...formData, customer_email: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Customer Phone</label>
+                      <input
+                        type="tel"
+                        value={formData.customer_phone}
+                        onChange={(e) => setFormData({ ...formData, customer_phone: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Yacht * {yachts.length > 0 && <span className="text-xs text-gray-700">({yachts.length} available)</span>}
                 </label>
@@ -1569,6 +1657,7 @@ export function Estimates({ userId }: EstimatesProps) {
                 {yachts.length === 0 && (
                   <p className="mt-1 text-sm text-red-600">No active yachts found. Please check your permissions.</p>
                 )}
+                </div>
 
                 {formData.yacht_id && (
                   <div className="mt-4 bg-blue-50 p-4 rounded-lg border border-blue-200">
