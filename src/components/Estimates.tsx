@@ -828,7 +828,9 @@ export function Estimates({ userId }: EstimatesProps) {
 
       let estimate;
 
-      if (editingId) {
+      const currentEditingId = editingIdRef.current;
+
+      if (currentEditingId) {
         // Update existing estimate
         const estimateData = {
           yacht_id: formData.is_retail_customer ? null : formData.yacht_id,
@@ -860,7 +862,7 @@ export function Estimates({ userId }: EstimatesProps) {
         const { data, error: estimateError } = await supabase
           .from('estimates')
           .update(estimateData)
-          .eq('id', editingId)
+          .eq('id', currentEditingId)
           .select()
           .single();
 
@@ -868,7 +870,7 @@ export function Estimates({ userId }: EstimatesProps) {
         estimate = data;
 
         // Delete existing tasks and line items
-        await supabase.from('estimate_tasks').delete().eq('estimate_id', editingId);
+        await supabase.from('estimate_tasks').delete().eq('estimate_id', currentEditingId);
       } else {
         // Create new estimate
         const estimateNumber = await generateEstimateNumber();
@@ -960,7 +962,7 @@ export function Estimates({ userId }: EstimatesProps) {
         }
       }
 
-      showSuccess(editingId ? 'Estimate updated successfully!' : 'Estimate created successfully! Use the Approve button to convert it to a work order and adjust inventory.');
+      showSuccess(currentEditingId ? 'Estimate updated successfully!' : 'Estimate created successfully! Use the Approve button to convert it to a work order and adjust inventory.');
 
       localStorage.removeItem('estimate_draft');
       await resetForm();
