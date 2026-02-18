@@ -610,7 +610,7 @@ export function MercuryPartsManager({ userId, userRole }: MercuryPartsManagerPro
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg"
+              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-900"
             >
               <option value="all">All Status</option>
               <option value="active">Active Only</option>

@@ -910,7 +910,7 @@ export default function CustomerManagement() {
                 <select
                   value={newVessel.fuel_type}
                   onChange={(e) => setNewVessel({ ...newVessel, fuel_type: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900"
                 >
                   <option value="">Select...</option>
                   <option value="gasoline">Gasoline</option>

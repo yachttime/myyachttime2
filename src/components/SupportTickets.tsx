@@ -364,7 +364,7 @@ export default function SupportTickets() {
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
         >
           <option value="all">All Tickets</option>
           {STATUSES.map(status => (
@@ -468,7 +468,7 @@ export default function SupportTickets() {
                           <select
                             value={staffUpdate.status}
                             onChange={(e) => setStaffUpdate({ ...staffUpdate, status: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
                           >
                             {STATUSES.map(status => (
                               <option key={status.value} value={status.value}>
@@ -484,7 +484,7 @@ export default function SupportTickets() {
                           <select
                             value={staffUpdate.priority}
                             onChange={(e) => setStaffUpdate({ ...staffUpdate, priority: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
                           >
                             {PRIORITIES.map(priority => (
                               <option key={priority.value} value={priority.value}>
@@ -650,7 +650,7 @@ export default function SupportTickets() {
                   <select
                     value={newTicket.category}
                     onChange={(e) => setNewTicket({ ...newTicket, category: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
                   >
                     {CATEGORIES.map(cat => (
                       <option key={cat.value} value={cat.value}>{cat.label}</option>
@@ -665,7 +665,7 @@ export default function SupportTickets() {
                   <select
                     value={newTicket.priority}
                     onChange={(e) => setNewTicket({ ...newTicket, priority: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
                   >
                     {PRIORITIES.map(priority => (
                       <option key={priority.value} value={priority.value}>
