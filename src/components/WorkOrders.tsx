@@ -83,6 +83,13 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [showDepositModal, setShowDepositModal] = useState(false);
+  const [selectedWorkOrderForDeposit, setSelectedWorkOrderForDeposit] = useState<WorkOrder | null>(null);
+  const [depositLoading, setDepositLoading] = useState(false);
+  const [depositForm, setDepositForm] = useState({
+    deposit_amount: '',
+    payment_method_type: 'card' as 'card' | 'ach'
+  });
 
   const [formData, setFormData] = useState({
     is_retail_customer: false,
@@ -856,38 +863,72 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
     }
   };
 
-  const handleRequestDeposit = async (workOrderId: string) => {
+  const handleRequestDeposit = (workOrderId: string) => {
     const workOrder = workOrders.find(wo => wo.id === workOrderId);
     if (!workOrder) return;
 
-    if (!workOrder.deposit_amount || workOrder.deposit_amount <= 0) {
-      setError('Please set a deposit amount first');
-      return;
-    }
+    setSelectedWorkOrderForDeposit(workOrder);
+    setDepositForm({
+      deposit_amount: workOrder.deposit_amount ? workOrder.deposit_amount.toString() : '',
+      payment_method_type: workOrder.deposit_payment_method_type || 'card'
+    });
+    setShowDepositModal(true);
+  };
 
-    if (!window.confirm(`Create deposit payment link for $${workOrder.deposit_amount.toFixed(2)}?`)) {
-      return;
-    }
+  const handleGenerateDepositLink = async () => {
+    if (!selectedWorkOrderForDeposit || !depositForm.deposit_amount) return;
 
+    setDepositLoading(true);
     try {
-      setError(null);
+      const isRegeneration = selectedWorkOrderForDeposit.deposit_payment_link_url &&
+        selectedWorkOrderForDeposit.deposit_link_expires_at &&
+        new Date(selectedWorkOrderForDeposit.deposit_link_expires_at) < new Date();
 
-      const { data, error: functionError } = await supabase.functions.invoke(
-        'create-work-order-deposit-payment',
-        {
-          body: {
-            workOrderId
-          }
-        }
-      );
+      const { error: updateError } = await supabase
+        .from('work_orders')
+        .update({
+          deposit_amount: parseFloat(depositForm.deposit_amount),
+          deposit_payment_method_type: depositForm.payment_method_type,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', selectedWorkOrderForDeposit.id);
 
-      if (functionError) throw functionError;
+      if (updateError) throw updateError;
 
-      showSuccess('Deposit payment link created! You can now copy and send it to the customer.');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Not authenticated');
+      }
+
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-work-order-deposit-payment`;
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          workOrderId: selectedWorkOrderForDeposit.id
+        })
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to generate deposit payment link');
+      }
+
       await loadData();
-    } catch (err: any) {
-      console.error('Error creating deposit link:', err);
-      setError(err.message || 'Failed to create deposit payment link');
+      showSuccess(isRegeneration ? 'Deposit payment link regenerated successfully! Valid for 30 days.' : 'Deposit payment link generated successfully! Valid for 30 days.');
+      setShowDepositModal(false);
+      setSelectedWorkOrderForDeposit(null);
+      setDepositForm({ deposit_amount: '', payment_method_type: 'card' });
+    } catch (error: any) {
+      console.error('Error generating deposit link:', error);
+      setError(`Error: ${error.message || 'Failed to generate deposit link'}`);
+    } finally {
+      setDepositLoading(false);
     }
   };
 
@@ -2061,6 +2102,144 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
             <p className="text-gray-500">Work orders will appear here when estimates are approved.</p>
           </div>
         )}
+        </div>
+      )}
+
+      {/* Deposit Modal */}
+      {showDepositModal && selectedWorkOrderForDeposit && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-lg w-full">
+            <div className="p-6 border-b border-gray-200">
+              <h3 className="text-xl font-bold text-gray-900">Request Deposit</h3>
+              <p className="text-gray-600 mt-2">Work Order #{selectedWorkOrderForDeposit.work_order_number}</p>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Deposit Amount <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  required
+                  value={depositForm.deposit_amount}
+                  onChange={(e) => setDepositForm({...depositForm, deposit_amount: e.target.value})}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500"
+                  placeholder="e.g., 500.00"
+                />
+                <p className="text-sm text-gray-500 mt-1">Enter the deposit amount required to start work</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Payment Method <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={depositForm.payment_method_type}
+                  onChange={(e) => setDepositForm({...depositForm, payment_method_type: e.target.value as 'card' | 'ach'})}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500"
+                >
+                  <option value="card">Credit/Debit Card</option>
+                  <option value="ach">ACH Bank Transfer</option>
+                </select>
+                <p className="text-sm text-gray-500 mt-1">Choose which payment method the customer can use</p>
+              </div>
+
+              {selectedWorkOrderForDeposit.deposit_payment_link_url && (() => {
+                const hasExpirationDate = selectedWorkOrderForDeposit.deposit_link_expires_at;
+                const isExpired = hasExpirationDate
+                  ? new Date(selectedWorkOrderForDeposit.deposit_link_expires_at) < new Date()
+                  : true;
+
+                return (
+                  <div className={`${isExpired ? 'bg-yellow-50 border-yellow-200' : 'bg-blue-50 border-blue-200'} border rounded-lg p-4`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className={`text-sm font-medium ${isExpired ? 'text-yellow-700' : 'text-blue-700'}`}>
+                        {isExpired ? '⚠️ Deposit Link Expired' : '✓ Deposit Link Created'}
+                      </p>
+                      {hasExpirationDate && (
+                        <p className="text-xs text-gray-600">
+                          {isExpired ? 'Expired' : 'Expires'} {new Date(selectedWorkOrderForDeposit.deposit_link_expires_at).toLocaleDateString()}
+                        </p>
+                      )}
+                    </div>
+                    {isExpired && (
+                      <p className="text-xs text-yellow-600 mb-2">
+                        This payment link has expired. Generate a new link to continue.
+                      </p>
+                    )}
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={selectedWorkOrderForDeposit.deposit_payment_link_url}
+                        readOnly
+                        className="flex-1 bg-white border border-gray-300 rounded px-3 py-2 text-sm"
+                      />
+                      {!isExpired && (
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(selectedWorkOrderForDeposit.deposit_payment_link_url!);
+                            showSuccess('Payment link copied to clipboard!');
+                          }}
+                          className="px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded text-sm font-semibold transition-all"
+                        >
+                          Copy
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {selectedWorkOrderForDeposit.deposit_payment_status === 'paid' && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                  <p className="text-green-700 font-semibold">✓ Deposit Paid</p>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Paid on {new Date(selectedWorkOrderForDeposit.deposit_paid_at!).toLocaleString()}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 border-t border-gray-200 flex gap-3">
+              <button
+                onClick={() => {
+                  setShowDepositModal(false);
+                  setSelectedWorkOrderForDeposit(null);
+                  setDepositForm({ deposit_amount: '', payment_method_type: 'card' });
+                }}
+                className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 rounded-lg transition-all"
+                disabled={depositLoading}
+              >
+                {selectedWorkOrderForDeposit.deposit_payment_link_url && !(() => {
+                  const hasExpirationDate = selectedWorkOrderForDeposit.deposit_link_expires_at;
+                  return hasExpirationDate ? new Date(selectedWorkOrderForDeposit.deposit_link_expires_at) < new Date() : true;
+                })() ? 'Close' : 'Cancel'}
+              </button>
+              {(() => {
+                const hasLink = selectedWorkOrderForDeposit.deposit_payment_link_url;
+                const hasExpirationDate = selectedWorkOrderForDeposit.deposit_link_expires_at;
+                const isExpired = hasExpirationDate
+                  ? new Date(selectedWorkOrderForDeposit.deposit_link_expires_at) < new Date()
+                  : true;
+
+                if (!hasLink || isExpired) {
+                  return (
+                    <button
+                      onClick={handleGenerateDepositLink}
+                      disabled={depositLoading || !depositForm.deposit_amount}
+                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {depositLoading ? 'Creating Link...' : isExpired ? 'Regenerate Deposit Link' : 'Create Deposit Link'}
+                    </button>
+                  );
+                }
+                return null;
+              })()}
+            </div>
+          </div>
         </div>
       )}
     </div>
