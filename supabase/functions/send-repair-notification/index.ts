@@ -16,11 +16,6 @@ interface RepairNotificationRequest {
   repairRequestId: string;
 }
 
-function generateSecureToken(): string {
-  const array = new Uint8Array(32);
-  crypto.getRandomValues(array);
-  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
-}
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -165,35 +160,53 @@ Deno.serve(async (req: Request) => {
         continue;
       }
 
-      // Generate approval and denial tokens for this manager (7-day expiry)
-      const approveToken = generateSecureToken();
-      const denyToken = generateSecureToken();
-      const expiresAt = new Date();
-      expiresAt.setHours(expiresAt.getHours() + 168);
-
-      const { error: tokenError } = await supabase
+      // Reuse existing unused, unexpired tokens for this manager email if available
+      const { data: existingTokens } = await supabase
         .from('repair_request_approval_tokens')
-        .insert([
-          {
-            repair_request_id: repairRequestId,
-            token: approveToken,
-            action_type: 'approve',
-            manager_email: email,
-            expires_at: expiresAt.toISOString()
-          },
-          {
-            repair_request_id: repairRequestId,
-            token: denyToken,
-            action_type: 'deny',
-            manager_email: email,
-            expires_at: expiresAt.toISOString()
-          }
-        ]);
+        .select('*')
+        .eq('repair_request_id', repairRequestId)
+        .eq('manager_email', email)
+        .is('used_at', null)
+        .gt('expires_at', new Date().toISOString());
 
-      if (tokenError) {
-        console.error('Error creating tokens for:', email, tokenError);
-        emailResults.push({ email, success: false, error: `Token creation failed: ${tokenError.message}` });
-        continue;
+      let approveToken: string;
+      let denyToken: string;
+
+      const existingApprove = existingTokens?.find(t => t.action_type === 'approve');
+      const existingDeny = existingTokens?.find(t => t.action_type === 'deny');
+
+      if (existingApprove && existingDeny) {
+        approveToken = existingApprove.token;
+        denyToken = existingDeny.token;
+      } else {
+        approveToken = crypto.randomUUID();
+        denyToken = crypto.randomUUID();
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + 30);
+
+        const tokensToInsert = [];
+        if (!existingApprove) {
+          tokensToInsert.push({ repair_request_id: repairRequestId, token: approveToken, action_type: 'approve', manager_email: email, expires_at: expiresAt.toISOString() });
+        } else {
+          approveToken = existingApprove.token;
+        }
+        if (!existingDeny) {
+          tokensToInsert.push({ repair_request_id: repairRequestId, token: denyToken, action_type: 'deny', manager_email: email, expires_at: expiresAt.toISOString() });
+        } else {
+          denyToken = existingDeny.token;
+        }
+
+        if (tokensToInsert.length > 0) {
+          const { error: tokenError } = await supabase
+            .from('repair_request_approval_tokens')
+            .insert(tokensToInsert);
+
+          if (tokenError) {
+            console.error('Error creating tokens for:', email, tokenError);
+            emailResults.push({ email, success: false, error: `Token creation failed: ${tokenError.message}` });
+            continue;
+          }
+        }
       }
 
       const approveUrl = `${supabaseUrl}/functions/v1/handle-repair-approval?token=${approveToken}`;
