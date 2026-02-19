@@ -9,6 +9,7 @@ import { LaborCodes } from './LaborCodes';
 import { EstimateTaxSettings } from './EstimateTaxSettings';
 import { EstimatePackages } from './EstimatePackages';
 import { MercuryPartsManager } from './MercuryPartsManager';
+import { MarineWholesalePartsManager } from './MarineWholesalePartsManager';
 import QuickBooksAccountMapping from './QuickBooksAccountMapping';
 import { supabase } from '../lib/supabase';
 
@@ -54,7 +55,7 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
     { id: 'settings' as TabType, label: 'Settings', icon: Settings }
   ];
 
-  const [settingsSubTab, setSettingsSubTab] = useState<'labor' | 'accounting' | 'taxes' | 'packages' | 'mercury' | 'quickbooks'>('labor');
+  const [settingsSubTab, setSettingsSubTab] = useState<'labor' | 'accounting' | 'taxes' | 'packages' | 'mercury' | 'marine_wholesale' | 'quickbooks'>('labor');
   const [userRole, setUserRole] = useState<string>('');
 
   useEffect(() => {
@@ -369,6 +370,16 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
                     Mercury Parts
                   </button>
                   <button
+                    onClick={() => setSettingsSubTab('marine_wholesale')}
+                    className={`px-4 py-2 text-sm font-medium border-b-2 ${
+                      settingsSubTab === 'marine_wholesale'
+                        ? 'border-blue-600 text-blue-600'
+                        : 'border-transparent text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Marine Wholesale
+                  </button>
+                  <button
                     onClick={() => setSettingsSubTab('quickbooks')}
                     className={`px-4 py-2 text-sm font-medium border-b-2 ${
                       settingsSubTab === 'quickbooks'
@@ -387,6 +398,7 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
             {settingsSubTab === 'taxes' && <EstimateTaxSettings userId={userId} />}
             {settingsSubTab === 'packages' && <EstimatePackages userId={userId} />}
             {settingsSubTab === 'mercury' && <MercuryPartsManager userId={userId} userRole={userRole} />}
+            {settingsSubTab === 'marine_wholesale' && <MarineWholesalePartsManager userId={userId} userRole={userRole} />}
             {settingsSubTab === 'quickbooks' && <QuickBooksAccountMapping />}
           </div>
         )}
