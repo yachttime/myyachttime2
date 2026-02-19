@@ -2888,7 +2888,7 @@ export function Estimates({ userId }: EstimatesProps) {
                                 value={formData.deposit_amount}
                                 onChange={(e) => setFormData({ ...formData, deposit_amount: e.target.value })}
                                 placeholder="0.00"
-                                className="w-24 px-2 py-1 text-xs border border-gray-300 rounded"
+                                className="w-24 px-2 py-1 text-xs text-gray-900 border border-gray-300 rounded"
                               />
                             </div>
                           )}
