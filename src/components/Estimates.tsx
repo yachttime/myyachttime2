@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, FileText, AlertCircle, Edit2, Trash2, Check, X, ChevronDown, ChevronUp, Printer, CheckCircle, XCircle, Package, Archive, RotateCcw, Search, User } from 'lucide-react';
+import { Plus, FileText, AlertCircle, Edit2, Trash2, Check, X, ChevronDown, ChevronUp, Printer, CheckCircle, XCircle, Package, Archive, RotateCcw, Search, User, ClipboardList } from 'lucide-react';
 import { generateEstimatePDF } from '../utils/pdfGenerator';
 import { useNotification } from '../contexts/NotificationContext';
 
@@ -167,6 +167,8 @@ export function Estimates({ userId }: EstimatesProps) {
   const [showNewVesselForm, setShowNewVesselForm] = useState(false);
   const [newVesselForm, setNewVesselForm] = useState({ vessel_name: '', manufacturer: '', model: '', year: '' });
   const [savingNewVessel, setSavingNewVessel] = useState(false);
+  const [sendingToAdmin, setSendingToAdmin] = useState(false);
+  const [existingRepairRequestId, setExistingRepairRequestId] = useState<string | null>(null);
 
   useEffect(() => {
     loadData().then(() => {
@@ -1101,6 +1103,7 @@ export function Estimates({ userId }: EstimatesProps) {
     setShowTaskForm(false);
     setEditingTaskIndex(null);
     setExpandedTasks(new Set());
+    setExistingRepairRequestId(null);
     localStorage.removeItem('estimate_draft');
   };
 
@@ -1286,6 +1289,14 @@ export function Estimates({ userId }: EstimatesProps) {
       // Expand all tasks
       const allTaskIndexes = loadedTasks.map((_, index) => index);
       setExpandedTasks(new Set(allTaskIndexes));
+
+      // Check if a repair request already exists for this estimate
+      const { data: existingRR } = await supabase
+        .from('repair_requests')
+        .select('id')
+        .eq('estimate_id', estimateId)
+        .maybeSingle();
+      setExistingRepairRequestId(existingRR?.id || null);
 
       setShowForm(true);
       setLoading(false);
@@ -1519,6 +1530,111 @@ export function Estimates({ userId }: EstimatesProps) {
     }
   };
 
+  const handleSendToAdmin = async (estimateId: string) => {
+    try {
+      setSendingToAdmin(true);
+      setError(null);
+
+      const { data: estimateData, error: estimateError } = await supabase
+        .from('estimates')
+        .select('*, yachts(name, manufacturer, model)')
+        .eq('id', estimateId)
+        .single();
+
+      if (estimateError) throw estimateError;
+
+      const { data: companyInfo } = await supabase
+        .from('company_info')
+        .select('*')
+        .limit(1)
+        .maybeSingle();
+
+      const { data: tasksData, error: tasksError } = await supabase
+        .from('estimate_tasks')
+        .select('*')
+        .eq('estimate_id', estimateId)
+        .order('task_order');
+
+      if (tasksError) throw tasksError;
+
+      const tasksWithLineItems = await Promise.all(
+        (tasksData || []).map(async (task) => {
+          const { data: lineItemsData, error: lineItemsError } = await supabase
+            .from('estimate_line_items')
+            .select('*')
+            .eq('task_id', task.id)
+            .order('line_order');
+
+          if (lineItemsError) throw lineItemsError;
+
+          return { ...task, lineItems: lineItemsData };
+        })
+      );
+
+      const yachtName = estimateData.yachts?.name || null;
+      const yachtMake = estimateData.yachts?.manufacturer || null;
+      const yachtModel = estimateData.yachts?.model || null;
+      const pdf = await generateEstimatePDF(estimateData, tasksWithLineItems, yachtName, companyInfo, yachtMake, yachtModel);
+
+      const pdfBlob = pdf.output('blob');
+      const fileName = `estimate_${estimateData.estimate_number}.pdf`;
+      const filePath = `estimates/${estimateId}/${fileName}`;
+
+      const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('estimate-pdfs')
+        .upload(filePath, pdfFile, { upsert: true, cacheControl: '3600' });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('estimate-pdfs')
+        .getPublicUrl(filePath);
+
+      const totalFormatted = `$${(estimateData.total_amount || 0).toFixed(2)}`;
+      const customerDisplay = estimateData.customer_name || yachtName || 'Unknown';
+      const description = `Estimate ${estimateData.estimate_number} for ${customerDisplay}. Total: ${totalFormatted}. Created from the estimating system.`;
+
+      const insertPayload: Record<string, any> = {
+        submitted_by: userId,
+        title: `Estimate ${estimateData.estimate_number}`,
+        description,
+        file_url: publicUrl,
+        file_name: fileName,
+        estimate_pdf_url: publicUrl,
+        estimate_pdf_name: fileName,
+        estimate_id: estimateId,
+        status: 'pending',
+        is_retail_customer: estimateData.is_retail_customer,
+        customer_name: estimateData.customer_name || null,
+        customer_email: estimateData.customer_email || null,
+        customer_phone: estimateData.customer_phone || null,
+        estimated_repair_cost: totalFormatted
+      };
+
+      if (!estimateData.is_retail_customer && estimateData.yacht_id) {
+        insertPayload.yacht_id = estimateData.yacht_id;
+      }
+
+      const { data: newRR, error: rrError } = await supabase
+        .from('repair_requests')
+        .insert(insertPayload)
+        .select('id')
+        .single();
+
+      if (rrError) throw rrError;
+
+      setExistingRepairRequestId(newRR.id);
+      showSuccess(`Repair request created from Estimate ${estimateData.estimate_number}`);
+    } catch (err: any) {
+      console.error('Error sending estimate to admin:', err);
+      showError('Failed to create repair request: ' + (err.message || 'Unknown error'));
+    } finally {
+      setSendingToAdmin(false);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
       draft: 'bg-gray-100 text-gray-800',
@@ -1571,6 +1687,7 @@ export function Estimates({ userId }: EstimatesProps) {
             setEditingTaskIndex(null);
             setExpandedTasks(new Set());
             localStorage.removeItem('estimate_draft');
+            setExistingRepairRequestId(null);
             setShowForm(true);
           }}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -1621,6 +1738,26 @@ export function Estimates({ userId }: EstimatesProps) {
                 <Printer className="w-4 h-4" />
                 Print Estimate
               </button>
+              {existingRepairRequestId ? (
+                <button
+                  type="button"
+                  disabled
+                  className="px-4 py-2 bg-emerald-100 text-emerald-700 border border-emerald-300 rounded-lg flex items-center gap-2 text-sm font-medium cursor-not-allowed"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  Sent to Admin
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => handleSendToAdmin(editingId)}
+                  disabled={sendingToAdmin}
+                  className="px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 text-sm font-medium"
+                >
+                  <ClipboardList className="w-4 h-4" />
+                  {sendingToAdmin ? 'Sending...' : 'Send to Admin'}
+                </button>
+              )}
               {(formData.status === 'draft' || formData.status === 'sent') && (
                 <>
                   <button

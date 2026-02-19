@@ -11664,8 +11664,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             <div key={request.id} className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700">
                               <div className="flex items-start justify-between mb-4">
                                 <div className="flex-1">
-                                  <div className="flex items-center gap-3 mb-2">
+                                  <div className="flex items-center gap-3 mb-2 flex-wrap">
                                     <h4 className="text-lg font-semibold">{request.title}</h4>
+                                    {request.estimate_id && (
+                                      <span className="bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 px-2 py-0.5 rounded text-xs font-semibold">
+                                        From Estimate
+                                      </span>
+                                    )}
                                     {request.status === 'pending' && (
                                       <span className="bg-yellow-500/20 text-yellow-500 px-3 py-1 rounded-full text-xs font-semibold">
                                         Pending
@@ -11743,7 +11748,16 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   {request.description && (
                                     <p className="text-slate-400 text-sm mb-2">{request.description}</p>
                                   )}
-                                  {request.file_url && (
+                                  {request.estimate_id && request.estimate_pdf_url ? (
+                                    <a
+                                      href={request.estimate_pdf_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-cyan-400 hover:text-cyan-300 text-sm inline-flex items-center gap-1.5 font-medium"
+                                    >
+                                      📄 View Estimate PDF
+                                    </a>
+                                  ) : request.file_url ? (
                                     <a
                                       href={request.file_url}
                                       target="_blank"
@@ -11752,7 +11766,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                     >
                                       📎 {request.file_name || 'View File'}
                                     </a>
-                                  )}
+                                  ) : null}
                                   <p className="text-slate-500 text-xs mt-2">
                                     Submitted: {new Date(request.created_at).toLocaleDateString()} at {new Date(request.created_at).toLocaleTimeString()}
                                   </p>
