@@ -2628,8 +2628,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const handleResendNotificationEmail = async (requestId: string) => {
     if (!user) return;
 
-    const confirmResend = window.confirm('Send repair request notification email to yacht managers?');
-    if (!confirmResend) return;
+    const confirmed = await confirm({ title: 'Send to Managers', message: 'Send repair request notification email to yacht managers?', confirmText: 'Send Email', variant: 'info' });
+    if (!confirmed) return;
 
     try {
       // Fetch repair request details
