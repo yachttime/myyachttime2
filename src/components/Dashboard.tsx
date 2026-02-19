@@ -2628,7 +2628,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const handleResendNotificationEmail = async (requestId: string) => {
     if (!user) return;
 
-    const confirmResend = window.confirm('Are you sure you want to resend the notification email to managers?');
+    const confirmResend = window.confirm('Send repair request notification email to yacht managers?');
     if (!confirmResend) return;
 
     try {
@@ -2723,7 +2723,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       if (result.success) {
         await new Promise(resolve => setTimeout(resolve, 500));
 
-        let message = `Notification email successfully resent to ${result.successCount} manager(s)`;
+        let message = `Notification email successfully sent to ${result.successCount} manager(s)`;
 
         if (result.failCount && result.failCount > 0) {
           message += `\n\n${result.failCount} email(s) failed:`;
@@ -12390,6 +12390,25 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                             {request.estimate_email_sent_at && (
                                               <span className="text-xs bg-blue-400/20 px-2 py-0.5 rounded">
                                                 Sent {new Date(request.estimate_email_sent_at).toLocaleDateString()}
+                                              </span>
+                                            )}
+                                          </button>
+                                        )}
+                                        {!request.is_retail_customer && request.yacht_id && (
+                                          <button
+                                            onClick={(e) => {
+                                              e.preventDefault();
+                                              e.stopPropagation();
+                                              handleResendNotificationEmail(request.id);
+                                            }}
+                                            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2"
+                                            title="Send repair request to yacht managers"
+                                          >
+                                            <Mail className="w-4 h-4" />
+                                            {request.notification_recipients ? 'Resend to Managers' : 'Send to Managers'}
+                                            {request.notification_email_sent_at && (
+                                              <span className="text-xs bg-blue-400/20 px-2 py-0.5 rounded">
+                                                Sent {new Date(request.notification_email_sent_at).toLocaleDateString()}
                                               </span>
                                             )}
                                           </button>
