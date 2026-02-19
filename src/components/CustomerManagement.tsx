@@ -434,7 +434,7 @@ export default function CustomerManagement() {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <h3 className="font-semibold text-gray-900">{getCustomerDisplayName(customer)}</h3>
-                  <p className="text-sm text-gray-600">{customer.customer_type}</p>
+                  <p className="text-sm text-gray-600 capitalize">{customer.customer_type}</p>
                   {customer.email && (
                     <p className="text-sm text-gray-500 mt-1">{customer.email}</p>
                   )}
@@ -476,30 +476,30 @@ export default function CustomerManagement() {
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <p className="text-gray-600">Type</p>
-                    <p className="font-medium capitalize">{selectedCustomer.customer_type}</p>
+                    <p className="font-medium capitalize text-gray-900">{selectedCustomer.customer_type}</p>
                   </div>
                   {selectedCustomer.email && (
                     <div>
                       <p className="text-gray-600">Email</p>
-                      <p className="font-medium">{selectedCustomer.email}</p>
+                      <p className="font-medium text-gray-900">{selectedCustomer.email}</p>
                     </div>
                   )}
                   {selectedCustomer.phone && (
                     <div>
                       <p className="text-gray-600">Phone</p>
-                      <p className="font-medium">{selectedCustomer.phone}</p>
+                      <p className="font-medium text-gray-900">{selectedCustomer.phone}</p>
                     </div>
                   )}
                   {selectedCustomer.secondary_phone && (
                     <div>
                       <p className="text-gray-600">Secondary Phone</p>
-                      <p className="font-medium">{selectedCustomer.secondary_phone}</p>
+                      <p className="font-medium text-gray-900">{selectedCustomer.secondary_phone}</p>
                     </div>
                   )}
                   {(selectedCustomer.address_line1 || selectedCustomer.city) && (
                     <div className="col-span-2">
                       <p className="text-gray-600">Address</p>
-                      <p className="font-medium">
+                      <p className="font-medium text-gray-900">
                         {selectedCustomer.address_line1}
                         {selectedCustomer.address_line2 && `, ${selectedCustomer.address_line2}`}
                         <br />
@@ -511,7 +511,7 @@ export default function CustomerManagement() {
                   {selectedCustomer.notes && (
                     <div className="col-span-2">
                       <p className="text-gray-600">Notes</p>
-                      <p className="font-medium">{selectedCustomer.notes}</p>
+                      <p className="font-medium text-gray-900">{selectedCustomer.notes}</p>
                     </div>
                   )}
                 </div>
@@ -568,31 +568,31 @@ export default function CustomerManagement() {
                         {vessel.manufacturer && (
                           <div>
                             <span className="text-gray-600">Make: </span>
-                            <span className="font-medium">{vessel.manufacturer}</span>
+                            <span className="font-medium text-gray-900">{vessel.manufacturer}</span>
                           </div>
                         )}
                         {vessel.model && (
                           <div>
                             <span className="text-gray-600">Model: </span>
-                            <span className="font-medium">{vessel.model}</span>
+                            <span className="font-medium text-gray-900">{vessel.model}</span>
                           </div>
                         )}
                         {vessel.year && (
                           <div>
                             <span className="text-gray-600">Year: </span>
-                            <span className="font-medium">{vessel.year}</span>
+                            <span className="font-medium text-gray-900">{vessel.year}</span>
                           </div>
                         )}
                         {vessel.length_feet && (
                           <div>
                             <span className="text-gray-600">Length: </span>
-                            <span className="font-medium">{vessel.length_feet} ft</span>
+                            <span className="font-medium text-gray-900">{vessel.length_feet} ft</span>
                           </div>
                         )}
                         {vessel.hull_number && (
                           <div className="col-span-2">
                             <span className="text-gray-600">Hull #: </span>
-                            <span className="font-medium">{vessel.hull_number}</span>
+                            <span className="font-medium text-gray-900">{vessel.hull_number}</span>
                           </div>
                         )}
                       </div>
