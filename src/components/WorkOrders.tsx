@@ -4,6 +4,7 @@ import { Plus, Wrench, AlertCircle, Edit2, Trash2, Check, X, ChevronDown, Chevro
 import { generateWorkOrderPDF } from '../utils/pdfGenerator';
 import { useNotification } from '../contexts/NotificationContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useConfirm } from '../hooks/useConfirm';
 
 interface WorkOrder {
   id: string;
@@ -74,6 +75,7 @@ interface WorkOrdersProps {
 export function WorkOrders({ userId }: WorkOrdersProps) {
   const { showSuccess } = useNotification();
   const { userProfile } = useAuth();
+  const { confirm, ConfirmDialog } = useConfirm();
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [yachts, setYachts] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
@@ -728,8 +730,9 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
     }
   };
 
-  const handleCancel = () => {
-    if (window.confirm('Are you sure you want to cancel editing?')) {
+  const handleCancel = async () => {
+    const ok = await confirm({ title: 'Cancel Editing', message: 'Are you sure you want to cancel editing?', variant: 'warning' });
+    if (ok) {
       resetForm();
     }
   };
@@ -929,9 +932,8 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
   };
 
   const handleDeleteWorkOrder = async (workOrderId: string) => {
-    if (!window.confirm('Are you sure you want to delete this work order? This action cannot be undone.')) {
-      return;
-    }
+    const ok = await confirm({ title: 'Delete Work Order', message: 'Are you sure you want to delete this work order? This action cannot be undone.', variant: 'danger', confirmText: 'Delete' });
+    if (!ok) return;
 
     try {
       setError(null);
@@ -951,9 +953,8 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
   };
 
   const handleCompleteWorkOrder = async (workOrderId: string) => {
-    if (!window.confirm('Mark this work order as completed?')) {
-      return;
-    }
+    const ok = await confirm({ title: 'Complete Work Order', message: 'Mark this work order as completed?', confirmText: 'Complete' });
+    if (!ok) return;
 
     try {
       setError(null);
@@ -977,9 +978,8 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
   };
 
   const handleConvertToInvoice = async (workOrderId: string) => {
-    if (!window.confirm('Convert this completed work order to an invoice? This will create a new invoice record.')) {
-      return;
-    }
+    const ok = await confirm({ title: 'Convert to Invoice', message: 'Convert this completed work order to an invoice? This will create a new invoice record.' });
+    if (!ok) return;
 
     try {
       setError(null);
@@ -1422,6 +1422,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
+      <ConfirmDialog />
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold text-gray-900">Work Orders</h2>
       </div>
