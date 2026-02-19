@@ -1598,6 +1598,7 @@ export function Estimates({ userId }: EstimatesProps) {
 
       const insertPayload: Record<string, any> = {
         submitted_by: userId,
+        company_id: estimateData.company_id,
         title: `Estimate ${estimateData.estimate_number}`,
         description,
         file_url: publicUrl,
