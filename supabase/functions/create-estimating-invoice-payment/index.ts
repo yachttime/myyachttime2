@@ -156,8 +156,7 @@ Deno.serve(withErrorHandling(async (req: Request) => {
 
     const priceData = await priceResponse.json();
 
-    const appUrl = Deno.env.get('APP_URL') ||
-                   Deno.env.get('SITE_URL') ||
+    const appUrl = Deno.env.get('SITE_URL') ||
                    req.headers.get('origin') ||
                    req.headers.get('referer')?.split('/').slice(0, 3).join('/') ||
                    'https://azmarineservices.com';
