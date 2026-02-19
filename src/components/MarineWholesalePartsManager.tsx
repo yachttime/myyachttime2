@@ -141,6 +141,8 @@ export function MarineWholesalePartsManager({ userId, userRole }: MarineWholesal
   const [selectedPart, setSelectedPart] = useState<MarineWholesalePart | null>(null);
   const [showPartDetails, setShowPartDetails] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const isMaster = isMasterRole(userRole as any);
 
@@ -225,7 +227,7 @@ export function MarineWholesalePartsManager({ userId, userRole }: MarineWholesal
       setUploadProgress(100);
     } catch (error) {
       console.error('Error parsing file:', error);
-      alert('Error parsing file. Please check the file format.');
+      setErrorMessage('Error parsing file. Please check the file format.');
     } finally {
       setUploading(false);
     }
@@ -294,7 +296,7 @@ export function MarineWholesalePartsManager({ userId, userRole }: MarineWholesal
 
       setUploadProgress(100);
 
-      alert(`Successfully imported ${imported} Marine Wholesale parts!\n\nAll previous parts have been replaced with the new data.`);
+      setSuccessMessage(`Successfully imported ${imported.toLocaleString()} Marine Wholesale parts! All previous parts have been replaced with the new data.`);
       setSelectedFile(null);
       setParseResult(null);
       setShowPreview(false);
@@ -302,7 +304,7 @@ export function MarineWholesalePartsManager({ userId, userRole }: MarineWholesal
       fetchImportHistory();
     } catch (error) {
       console.error('Error importing parts:', error);
-      alert('Error importing parts. Please try again.');
+      setErrorMessage('Error importing parts. Please try again.');
     } finally {
       setUploading(false);
     }
@@ -347,6 +349,26 @@ export function MarineWholesalePartsManager({ userId, userRole }: MarineWholesal
           </button>
         ))}
       </div>
+
+      {successMessage && (
+        <div className="flex items-start gap-3 bg-green-50 border border-green-300 rounded-lg p-4">
+          <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-green-800 flex-1">{successMessage}</p>
+          <button onClick={() => setSuccessMessage(null)} className="text-green-600 hover:text-green-800">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {errorMessage && (
+        <div className="flex items-start gap-3 bg-red-50 border border-red-300 rounded-lg p-4">
+          <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-red-800 flex-1">{errorMessage}</p>
+          <button onClick={() => setErrorMessage(null)} className="text-red-600 hover:text-red-800">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {activeTab === 'upload' && (
         <div className="space-y-6">
