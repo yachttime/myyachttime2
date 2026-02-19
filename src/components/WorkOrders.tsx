@@ -820,11 +820,42 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
         assignmentsByTask[assignment.task_id].push(assignment.employee_id);
       });
 
+      let resolvedEmail = workOrder.customer_email || '';
+      if (!resolvedEmail && workOrder.is_retail_customer && workOrder.customer_name) {
+        const nameParts = workOrder.customer_name.trim().split(/\s+/);
+        const firstName = nameParts[0] || '';
+        const lastName = nameParts.slice(1).join(' ') || '';
+        let custEmail = '';
+        if (firstName && lastName) {
+          const { data: byName } = await supabase
+            .from('customers')
+            .select('email')
+            .ilike('first_name', firstName)
+            .ilike('last_name', lastName)
+            .not('email', 'is', null)
+            .maybeSingle();
+          custEmail = byName?.email || '';
+        }
+        if (!custEmail) {
+          const { data: byBiz } = await supabase
+            .from('customers')
+            .select('email')
+            .ilike('business_name', workOrder.customer_name)
+            .not('email', 'is', null)
+            .maybeSingle();
+          custEmail = byBiz?.email || '';
+        }
+        if (custEmail) {
+          resolvedEmail = custEmail;
+          await supabase.from('work_orders').update({ customer_email: resolvedEmail }).eq('id', workOrderId);
+        }
+      }
+
       setFormData({
         is_retail_customer: workOrder.is_retail_customer,
         yacht_id: workOrder.yacht_id || '',
         customer_name: workOrder.customer_name || '',
-        customer_email: workOrder.customer_email || '',
+        customer_email: resolvedEmail,
         customer_phone: workOrder.customer_phone || '',
         marina_name: workOrder.marina_name || '',
         manager_name: workOrder.manager_name || '',
