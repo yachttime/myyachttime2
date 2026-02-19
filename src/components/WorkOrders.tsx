@@ -92,6 +92,8 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
   const [depositCheckModal, setDepositCheckModal] = useState<string | null>(null);
   const [depositCheckLoading, setDepositCheckLoading] = useState(false);
   const [depositCheckForm, setDepositCheckForm] = useState({ checkNumber: '', amount: '', notes: '' });
+  const [customerSuggestions, setCustomerSuggestions] = useState<{ id: string; display_name: string; email: string; phone: string }[]>([]);
+  const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
 
   const [formData, setFormData] = useState({
     is_retail_customer: false,
@@ -250,6 +252,32 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
       setError('Failed to load work orders');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const lookupCustomer = async (name: string) => {
+    if (name.length < 2) {
+      setCustomerSuggestions([]);
+      setShowCustomerSuggestions(false);
+      return;
+    }
+    const { data } = await supabase
+      .from('customers')
+      .select('id, customer_type, first_name, last_name, business_name, email, phone')
+      .or(`first_name.ilike.%${name}%,last_name.ilike.%${name}%,business_name.ilike.%${name}%`)
+      .eq('is_active', true)
+      .limit(8);
+    if (data && data.length > 0) {
+      setCustomerSuggestions(data.map(c => ({
+        id: c.id,
+        display_name: c.customer_type === 'business' ? c.business_name : `${c.first_name || ''} ${c.last_name || ''}`.trim(),
+        email: c.email || '',
+        phone: c.phone || ''
+      })));
+      setShowCustomerSuggestions(true);
+    } else {
+      setCustomerSuggestions([]);
+      setShowCustomerSuggestions(false);
     }
   };
 
@@ -1583,14 +1611,37 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
 
             {formData.is_retail_customer ? (
               <div className="grid grid-cols-3 gap-4">
-                <div>
+                <div className="relative">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name</label>
                   <input
                     type="text"
                     value={formData.customer_name}
-                    onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
+                    onChange={(e) => {
+                      setFormData({ ...formData, customer_name: e.target.value });
+                      lookupCustomer(e.target.value);
+                    }}
+                    onBlur={() => setTimeout(() => setShowCustomerSuggestions(false), 150)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
+                    autoComplete="off"
                   />
+                  {showCustomerSuggestions && customerSuggestions.length > 0 && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                      {customerSuggestions.map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onMouseDown={() => {
+                            setFormData({ ...formData, customer_name: c.display_name, customer_email: c.email, customer_phone: c.phone });
+                            setShowCustomerSuggestions(false);
+                          }}
+                          className="w-full text-left px-4 py-2 hover:bg-blue-50 text-sm"
+                        >
+                          <span className="font-medium text-gray-900">{c.display_name}</span>
+                          {c.email && <span className="text-gray-500 ml-2">{c.email}</span>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
