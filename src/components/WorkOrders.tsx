@@ -64,6 +64,9 @@ interface WorkOrderLineItem {
   is_taxable: boolean;
   labor_code_id?: string | null;
   part_id?: string | null;
+  part_source?: string | null;
+  mercury_part_id?: string | null;
+  marine_wholesale_part_id?: string | null;
   line_order: number;
   work_details?: string | null;
 }
@@ -81,6 +84,8 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
   const [employees, setEmployees] = useState<any[]>([]);
   const [laborCodes, setLaborCodes] = useState<any[]>([]);
   const [parts, setParts] = useState<any[]>([]);
+  const [mercuryParts, setMercuryParts] = useState<any[]>([]);
+  const [marineWholesaleParts, setMarineWholesaleParts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -139,10 +144,13 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
     is_taxable: true,
     labor_code_id: '',
     part_id: '',
+    part_source: 'inventory',
+    mercury_part_id: '',
+    marine_wholesale_part_id: '',
     part_number_search: '',
     work_details: ''
   });
-  const [filteredParts, setFilteredParts] = useState<typeof parts>([]);
+  const [filteredParts, setFilteredParts] = useState<any[]>([]);
   const [showPartDropdown, setShowPartDropdown] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showTimeEntryPreview, setShowTimeEntryPreview] = useState(false);
@@ -189,7 +197,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
         .select('work_order_id')
         .not('work_order_id', 'is', null);
 
-      const [workOrdersResult, invoicesResult, yachtsResult, employeesResult, laborResult, partsResult, settingsResult] = await Promise.all([
+      const [workOrdersResult, invoicesResult, yachtsResult, employeesResult, laborResult, partsResult, settingsResult, mercuryResult, marineWholesaleResult] = await Promise.all([
         workOrdersQuery,
         invoicesQuery,
         supabase
@@ -216,7 +224,17 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
         supabase
           .from('estimate_settings')
           .select('*')
-          .maybeSingle()
+          .maybeSingle(),
+        supabase
+          .from('mercury_marine_parts')
+          .select('id, part_number, description, msrp, dealer_price, is_active')
+          .eq('is_active', true)
+          .order('part_number'),
+        supabase
+          .from('marine_wholesale_parts')
+          .select('id, sku, mfg_part_number, description, list_price, cost, is_active')
+          .eq('is_active', true)
+          .order('sku')
       ]);
 
       if (workOrdersResult.error) throw workOrdersResult.error;
@@ -239,6 +257,8 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
       setEmployees(employeesResult.data || []);
       setLaborCodes(laborResult.data || []);
       setParts(partsResult.data || []);
+      setMercuryParts(mercuryResult.data || []);
+      setMarineWholesaleParts(marineWholesaleResult.data || []);
 
       if (settingsResult.data) {
         setFormData(prev => ({
@@ -431,6 +451,9 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
       is_taxable: lineItemFormData.is_taxable,
       labor_code_id: lineItemFormData.labor_code_id || null,
       part_id: lineItemFormData.part_id || null,
+      part_source: lineItemFormData.line_type === 'part' ? lineItemFormData.part_source : null,
+      mercury_part_id: lineItemFormData.mercury_part_id || null,
+      marine_wholesale_part_id: lineItemFormData.marine_wholesale_part_id || null,
       line_order: updatedTasks[activeTaskIndex].lineItems.length,
       work_details: lineItemFormData.work_details || null
     };
@@ -446,6 +469,9 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
       is_taxable: true,
       labor_code_id: '',
       part_id: '',
+      part_source: 'inventory',
+      mercury_part_id: '',
+      marine_wholesale_part_id: '',
       part_number_search: '',
       work_details: ''
     });
@@ -475,16 +501,49 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
   };
 
   const handlePartChange = (partId: string) => {
-    const part = parts.find(p => p.id === partId);
-    if (part) {
-      setLineItemFormData({
-        ...lineItemFormData,
-        part_id: partId,
-        part_number_search: part.part_number,
-        description: `${part.part_number} - ${part.name}`,
-        unit_price: part.unit_price.toString(),
-        is_taxable: part.is_taxable
-      });
+    const src = lineItemFormData.part_source;
+    if (src === 'inventory') {
+      const part = parts.find(p => p.id === partId);
+      if (part) {
+        setLineItemFormData({
+          ...lineItemFormData,
+          part_id: partId,
+          mercury_part_id: '',
+          marine_wholesale_part_id: '',
+          part_number_search: part.part_number,
+          description: `${part.part_number} - ${part.name}`,
+          unit_price: part.unit_price.toString(),
+          is_taxable: part.is_taxable
+        });
+      }
+    } else if (src === 'mercury') {
+      const part = mercuryParts.find(p => p.id === partId);
+      if (part) {
+        setLineItemFormData({
+          ...lineItemFormData,
+          part_id: '',
+          mercury_part_id: partId,
+          marine_wholesale_part_id: '',
+          part_number_search: part.part_number,
+          description: `${part.part_number} - ${part.description}`,
+          unit_price: part.msrp.toString(),
+          is_taxable: true
+        });
+      }
+    } else if (src === 'marine_wholesale') {
+      const part = marineWholesaleParts.find(p => p.id === partId);
+      if (part) {
+        setLineItemFormData({
+          ...lineItemFormData,
+          part_id: '',
+          mercury_part_id: '',
+          marine_wholesale_part_id: partId,
+          part_number_search: part.sku,
+          description: `${part.sku} - ${part.description}`,
+          unit_price: part.list_price.toString(),
+          is_taxable: true
+        });
+      }
     }
   };
 
@@ -492,30 +551,59 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
     setLineItemFormData({
       ...lineItemFormData,
       part_number_search: searchValue,
-      part_id: ''
+      part_id: '',
+      mercury_part_id: '',
+      marine_wholesale_part_id: ''
     });
 
     if (searchValue.trim()) {
-      const filtered = parts.filter(p =>
-        p.part_number.toLowerCase().includes(searchValue.toLowerCase()) ||
-        p.name.toLowerCase().includes(searchValue.toLowerCase())
-      );
-      setFilteredParts(filtered);
-      setShowPartDropdown(true);
+      const src = lineItemFormData.part_source;
+      let filtered: any[] = [];
+
+      if (src === 'inventory') {
+        filtered = parts
+          .filter(p =>
+            p.part_number.toLowerCase().includes(searchValue.toLowerCase()) ||
+            p.name.toLowerCase().includes(searchValue.toLowerCase())
+          )
+          .map(p => ({ ...p, _source: 'inventory', _display_number: p.part_number, _display_name: p.name, _price: p.unit_price }));
+      } else if (src === 'mercury') {
+        filtered = mercuryParts
+          .filter(p =>
+            p.part_number.toLowerCase().includes(searchValue.toLowerCase()) ||
+            p.description.toLowerCase().includes(searchValue.toLowerCase())
+          )
+          .map(p => ({ ...p, _source: 'mercury', _display_number: p.part_number, _display_name: p.description, _price: p.msrp }));
+      } else if (src === 'marine_wholesale') {
+        filtered = marineWholesaleParts
+          .filter(p =>
+            p.sku.toLowerCase().includes(searchValue.toLowerCase()) ||
+            (p.mfg_part_number || '').toLowerCase().includes(searchValue.toLowerCase()) ||
+            p.description.toLowerCase().includes(searchValue.toLowerCase())
+          )
+          .map(p => ({ ...p, _source: 'marine_wholesale', _display_number: p.sku, _display_name: p.description, _price: p.list_price }));
+      }
+
+      setFilteredParts(filtered.slice(0, 50));
+      setShowPartDropdown(filtered.length > 0);
     } else {
       setFilteredParts([]);
       setShowPartDropdown(false);
     }
   };
 
-  const handleSelectPartFromDropdown = (part: typeof parts[0]) => {
+  const handleSelectPartFromDropdown = (part: any) => {
+    const src = part._source || lineItemFormData.part_source;
     setLineItemFormData({
       ...lineItemFormData,
-      part_id: part.id,
-      part_number_search: part.part_number,
-      description: `${part.part_number} - ${part.name}`,
-      unit_price: part.unit_price.toString(),
-      is_taxable: part.is_taxable
+      part_id: src === 'inventory' ? part.id : '',
+      mercury_part_id: src === 'mercury' ? part.id : '',
+      marine_wholesale_part_id: src === 'marine_wholesale' ? part.id : '',
+      part_source: src,
+      part_number_search: part._display_number,
+      description: `${part._display_number} - ${part._display_name}`,
+      unit_price: (part._price || 0).toString(),
+      is_taxable: part.is_taxable ?? true
     });
     setShowPartDropdown(false);
     setFilteredParts([]);
@@ -2039,53 +2127,97 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
 
                                 {lineItemFormData.line_type === 'part' && (
                                   <>
-                                    <div className="relative part-search-container">
-                                      <label className="block text-sm font-medium text-gray-700 mb-1">Part Number / Name</label>
-                                      <input
-                                        type="text"
-                                        value={lineItemFormData.part_number_search}
-                                        onChange={(e) => handlePartNumberSearch(e.target.value)}
-                                        onFocus={() => {
-                                          if (lineItemFormData.part_number_search.trim() && filteredParts.length > 0) {
-                                            setShowPartDropdown(true);
-                                          }
-                                        }}
-                                        placeholder="Start typing..."
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
-                                      />
-
-                                      {showPartDropdown && filteredParts.length > 0 && (
-                                        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                                          {filteredParts.map((part) => (
-                                            <button
-                                              key={part.id}
-                                              type="button"
-                                              onClick={() => handleSelectPartFromDropdown(part)}
-                                              className="w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-gray-100 last:border-b-0"
-                                            >
-                                              <div className="font-medium text-gray-900">{part.part_number}</div>
-                                              <div className="text-sm text-gray-600">{part.name}</div>
-                                              <div className="text-sm text-green-600 font-medium">${part.unit_price.toFixed(2)}</div>
-                                            </button>
-                                          ))}
-                                        </div>
-                                      )}
-                                    </div>
                                     <div>
-                                      <label className="block text-sm font-medium text-gray-700 mb-1">Or Browse</label>
+                                      <label className="block text-sm font-medium text-gray-700 mb-1">Part Source</label>
                                       <select
-                                        value={lineItemFormData.part_id}
-                                        onChange={(e) => handlePartChange(e.target.value)}
+                                        value={lineItemFormData.part_source}
+                                        onChange={(e) => setLineItemFormData({
+                                          ...lineItemFormData,
+                                          part_source: e.target.value,
+                                          part_id: '',
+                                          mercury_part_id: '',
+                                          marine_wholesale_part_id: '',
+                                          part_number_search: '',
+                                          description: '',
+                                          unit_price: '0'
+                                        })}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
                                       >
-                                        <option value="">Select part</option>
-                                        {parts.map((part) => (
-                                          <option key={part.id} value={part.id}>
-                                            {part.part_number} - {part.name}
-                                          </option>
-                                        ))}
+                                        <option value="inventory">Parts Inventory</option>
+                                        <option value="mercury">Mercury Marine</option>
+                                        <option value="marine_wholesale">Marine Wholesale</option>
+                                        <option value="custom">Custom / Other</option>
                                       </select>
                                     </div>
+
+                                    {lineItemFormData.part_source !== 'custom' && (
+                                      <div className="relative part-search-container col-span-2">
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                          {lineItemFormData.part_source === 'inventory' && 'Search Part Number / Name'}
+                                          {lineItemFormData.part_source === 'mercury' && 'Search Mercury Part Number / Description'}
+                                          {lineItemFormData.part_source === 'marine_wholesale' && 'Search SKU / Mfg Part # / Description'}
+                                        </label>
+                                        <input
+                                          type="text"
+                                          value={lineItemFormData.part_number_search}
+                                          onChange={(e) => handlePartNumberSearch(e.target.value)}
+                                          onFocus={() => {
+                                            if (lineItemFormData.part_number_search.trim() && filteredParts.length > 0) {
+                                              setShowPartDropdown(true);
+                                            }
+                                          }}
+                                          placeholder="Start typing to search..."
+                                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
+                                        />
+
+                                        {showPartDropdown && filteredParts.length > 0 && (
+                                          <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                                            {filteredParts.map((part) => (
+                                              <button
+                                                key={part.id}
+                                                type="button"
+                                                onClick={() => handleSelectPartFromDropdown(part)}
+                                                className="w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-gray-100 last:border-b-0"
+                                              >
+                                                <div className="font-medium text-gray-900">{part._display_number}</div>
+                                                <div className="text-sm text-gray-600 truncate">{part._display_name}</div>
+                                                <div className="text-sm text-green-600 font-medium">${(part._price || 0).toFixed(2)}</div>
+                                              </button>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+
+                                    {lineItemFormData.part_source === 'inventory' && (
+                                      <div className="col-span-2">
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Or Browse Inventory</label>
+                                        <select
+                                          value={lineItemFormData.part_id}
+                                          onChange={(e) => handlePartChange(e.target.value)}
+                                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
+                                        >
+                                          <option value="">Select part</option>
+                                          {parts.map((part) => (
+                                            <option key={part.id} value={part.id}>
+                                              {part.part_number} - {part.name}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </div>
+                                    )}
+
+                                    {lineItemFormData.part_source === 'mercury' && mercuryParts.length === 0 && (
+                                      <div className="col-span-2 text-sm text-yellow-700 bg-yellow-50 border border-yellow-200 rounded px-3 py-2">
+                                        No Mercury Marine parts loaded. Upload a price list in Estimating &gt; Settings &gt; Mercury Parts.
+                                      </div>
+                                    )}
+
+                                    {lineItemFormData.part_source === 'marine_wholesale' && marineWholesaleParts.length === 0 && (
+                                      <div className="col-span-2 text-sm text-yellow-700 bg-yellow-50 border border-yellow-200 rounded px-3 py-2">
+                                        No Marine Wholesale parts loaded. Upload a price list in Estimating &gt; Settings &gt; Marine Wholesale.
+                                      </div>
+                                    )}
                                   </>
                                 )}
                               </div>
