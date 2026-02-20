@@ -548,7 +548,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
     }
   };
 
-  const handlePartNumberSearch = (searchValue: string) => {
+  const handlePartNumberSearch = async (searchValue: string) => {
     setLineItemFormData({
       ...lineItemFormData,
       part_number_search: searchValue,
@@ -581,13 +581,12 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
         filtered = filtered.concat(merc);
       }
       if (src === 'marine_wholesale' || src === 'all') {
-        const mw = marineWholesaleParts
-          .filter(p =>
-            p.sku.toLowerCase().includes(q) ||
-            (p.mfg_part_number || '').toLowerCase().includes(q) ||
-            p.description.toLowerCase().includes(q)
-          )
-          .map(p => ({ ...p, _source: 'marine_wholesale', _source_label: 'Marine Wholesale', _display_number: p.sku, _display_name: p.description, _price: p.list_price }));
+        const { data: mwData } = await supabase
+          .from('marine_wholesale_parts')
+          .select('id, sku, mfg_part_number, description, list_price, cost')
+          .or(`sku.ilike.%${searchValue}%,mfg_part_number.ilike.%${searchValue}%,description.ilike.%${searchValue}%`)
+          .limit(50);
+        const mw = (mwData || []).map(p => ({ ...p, _source: 'marine_wholesale', _source_label: 'Marine Wholesale', _display_number: p.sku, _display_name: p.description, _price: p.list_price }));
         filtered = filtered.concat(mw);
       }
 
