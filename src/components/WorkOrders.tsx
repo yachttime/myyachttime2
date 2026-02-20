@@ -233,7 +233,6 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
         supabase
           .from('marine_wholesale_parts')
           .select('id, sku, mfg_part_number, description, list_price, cost, is_active')
-          .eq('is_active', true)
           .order('sku')
       ]);
 
