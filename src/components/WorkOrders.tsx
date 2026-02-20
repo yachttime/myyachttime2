@@ -144,7 +144,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
     is_taxable: true,
     labor_code_id: '',
     part_id: '',
-    part_source: 'inventory',
+    part_source: 'all',
     mercury_part_id: '',
     marine_wholesale_part_id: '',
     part_number_search: '',
@@ -451,7 +451,9 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
       is_taxable: lineItemFormData.is_taxable,
       labor_code_id: lineItemFormData.labor_code_id || null,
       part_id: lineItemFormData.part_id || null,
-      part_source: lineItemFormData.line_type === 'part' ? lineItemFormData.part_source : null,
+      part_source: lineItemFormData.line_type === 'part'
+        ? (lineItemFormData.mercury_part_id ? 'mercury' : lineItemFormData.marine_wholesale_part_id ? 'marine_wholesale' : lineItemFormData.part_id ? 'inventory' : 'custom')
+        : null,
       mercury_part_id: lineItemFormData.mercury_part_id || null,
       marine_wholesale_part_id: lineItemFormData.marine_wholesale_part_id || null,
       line_order: updatedTasks[activeTaskIndex].lineItems.length,
@@ -469,7 +471,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
       is_taxable: true,
       labor_code_id: '',
       part_id: '',
-      part_source: 'inventory',
+      part_source: 'all',
       mercury_part_id: '',
       marine_wholesale_part_id: '',
       part_number_search: '',
@@ -558,33 +560,39 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
 
     if (searchValue.trim()) {
       const src = lineItemFormData.part_source;
+      const q = searchValue.toLowerCase();
       let filtered: any[] = [];
 
-      if (src === 'inventory') {
-        filtered = parts
+      if (src === 'inventory' || src === 'all') {
+        const inv = parts
           .filter(p =>
-            p.part_number.toLowerCase().includes(searchValue.toLowerCase()) ||
-            p.name.toLowerCase().includes(searchValue.toLowerCase())
+            p.part_number.toLowerCase().includes(q) ||
+            p.name.toLowerCase().includes(q)
           )
-          .map(p => ({ ...p, _source: 'inventory', _display_number: p.part_number, _display_name: p.name, _price: p.unit_price }));
-      } else if (src === 'mercury') {
-        filtered = mercuryParts
+          .map(p => ({ ...p, _source: 'inventory', _source_label: 'Inventory', _display_number: p.part_number, _display_name: p.name, _price: p.unit_price }));
+        filtered = filtered.concat(inv);
+      }
+      if (src === 'mercury' || src === 'all') {
+        const merc = mercuryParts
           .filter(p =>
-            p.part_number.toLowerCase().includes(searchValue.toLowerCase()) ||
-            p.description.toLowerCase().includes(searchValue.toLowerCase())
+            p.part_number.toLowerCase().includes(q) ||
+            p.description.toLowerCase().includes(q)
           )
-          .map(p => ({ ...p, _source: 'mercury', _display_number: p.part_number, _display_name: p.description, _price: p.msrp }));
-      } else if (src === 'marine_wholesale') {
-        filtered = marineWholesaleParts
+          .map(p => ({ ...p, _source: 'mercury', _source_label: 'Mercury Marine', _display_number: p.part_number, _display_name: p.description, _price: p.msrp }));
+        filtered = filtered.concat(merc);
+      }
+      if (src === 'marine_wholesale' || src === 'all') {
+        const mw = marineWholesaleParts
           .filter(p =>
-            p.sku.toLowerCase().includes(searchValue.toLowerCase()) ||
-            (p.mfg_part_number || '').toLowerCase().includes(searchValue.toLowerCase()) ||
-            p.description.toLowerCase().includes(searchValue.toLowerCase())
+            p.sku.toLowerCase().includes(q) ||
+            (p.mfg_part_number || '').toLowerCase().includes(q) ||
+            p.description.toLowerCase().includes(q)
           )
-          .map(p => ({ ...p, _source: 'marine_wholesale', _display_number: p.sku, _display_name: p.description, _price: p.list_price }));
+          .map(p => ({ ...p, _source: 'marine_wholesale', _source_label: 'Marine Wholesale', _display_number: p.sku, _display_name: p.description, _price: p.list_price }));
+        filtered = filtered.concat(mw);
       }
 
-      setFilteredParts(filtered.slice(0, 50));
+      setFilteredParts(filtered.slice(0, 80));
       setShowPartDropdown(filtered.length > 0);
     } else {
       setFilteredParts([]);
@@ -2143,6 +2151,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                                         })}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
                                       >
+                                        <option value="all">Search All Sources</option>
                                         <option value="inventory">Parts Inventory</option>
                                         <option value="mercury">Mercury Marine</option>
                                         <option value="marine_wholesale">Marine Wholesale</option>
@@ -2153,6 +2162,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                                     {lineItemFormData.part_source !== 'custom' && (
                                       <div className="relative part-search-container col-span-2">
                                         <label className="block text-sm font-medium text-gray-700 mb-1">
+                                          {lineItemFormData.part_source === 'all' && 'Search All Sources (Inventory, Mercury, Marine Wholesale)'}
                                           {lineItemFormData.part_source === 'inventory' && 'Search Part Number / Name'}
                                           {lineItemFormData.part_source === 'mercury' && 'Search Mercury Part Number / Description'}
                                           {lineItemFormData.part_source === 'marine_wholesale' && 'Search SKU / Mfg Part # / Description'}
@@ -2166,20 +2176,31 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                                               setShowPartDropdown(true);
                                             }
                                           }}
-                                          placeholder="Start typing to search..."
+                                          placeholder={lineItemFormData.part_source === 'all' ? 'Search across all sources...' : 'Start typing to search...'}
                                           className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
                                         />
 
                                         {showPartDropdown && filteredParts.length > 0 && (
-                                          <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                                            {filteredParts.map((part) => (
+                                          <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-72 overflow-y-auto">
+                                            {filteredParts.map((part, idx) => (
                                               <button
-                                                key={part.id}
+                                                key={`${part._source}-${part.id}-${idx}`}
                                                 type="button"
                                                 onClick={() => handleSelectPartFromDropdown(part)}
                                                 className="w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-gray-100 last:border-b-0"
                                               >
-                                                <div className="font-medium text-gray-900">{part._display_number}</div>
+                                                <div className="flex items-center justify-between gap-2">
+                                                  <div className="font-medium text-gray-900 truncate">{part._display_number}</div>
+                                                  {lineItemFormData.part_source === 'all' && (
+                                                    <span className={`text-xs px-1.5 py-0.5 rounded font-medium flex-shrink-0 ${
+                                                      part._source === 'inventory' ? 'bg-blue-100 text-blue-700' :
+                                                      part._source === 'mercury' ? 'bg-red-100 text-red-700' :
+                                                      'bg-green-100 text-green-700'
+                                                    }`}>
+                                                      {part._source_label}
+                                                    </span>
+                                                  )}
+                                                </div>
                                                 <div className="text-sm text-gray-600 truncate">{part._display_name}</div>
                                                 <div className="text-sm text-green-600 font-medium">${(part._price || 0).toFixed(2)}</div>
                                               </button>
