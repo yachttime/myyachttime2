@@ -788,6 +788,9 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
             is_taxable: item.is_taxable ?? true,
             labor_code_id: item.labor_code_id || null,
             part_id: item.part_id || null,
+            part_source: item.part_source || null,
+            mercury_part_id: item.mercury_part_id || null,
+            marine_wholesale_part_id: item.marine_wholesale_part_id || null,
             work_details: item.work_details || null,
             line_order: index
           }));
@@ -997,6 +1000,9 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
             is_taxable: item.is_taxable ?? true,
             labor_code_id: item.labor_code_id,
             part_id: item.part_id,
+            part_source: item.part_source || null,
+            mercury_part_id: item.mercury_part_id || null,
+            marine_wholesale_part_id: item.marine_wholesale_part_id || null,
             line_order: item.line_order || 0,
             work_details: item.work_details
           }));
