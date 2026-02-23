@@ -28,6 +28,8 @@ interface VesselEngine {
   vessel_id: string;
   label: string;
   description: string;
+  model_number: string;
+  serial_number: string;
   season_start_hours: number | null;
   sort_order: number;
 }
@@ -37,6 +39,8 @@ interface VesselGenerator {
   vessel_id: string;
   label: string;
   description: string;
+  model_number: string;
+  serial_number: string;
   season_start_hours: number | null;
   sort_order: number;
 }
@@ -91,10 +95,10 @@ export default function CustomerManagement() {
     fuel_type: '',
     notes: '',
   });
-  const [newVesselEngines, setNewVesselEngines] = useState<Array<{ label: string; description: string; season_start_hours: string }>>([]);
-  const [newVesselGenerators, setNewVesselGenerators] = useState<Array<{ label: string; description: string; season_start_hours: string }>>([]);
-  const [editVesselEngines, setEditVesselEngines] = useState<Array<{ id?: string; label: string; description: string; season_start_hours: string }>>([]);
-  const [editVesselGenerators, setEditVesselGenerators] = useState<Array<{ id?: string; label: string; description: string; season_start_hours: string }>>([]);
+  const [newVesselEngines, setNewVesselEngines] = useState<Array<{ label: string; model_number: string; serial_number: string; season_start_hours: string }>>([]);
+  const [newVesselGenerators, setNewVesselGenerators] = useState<Array<{ label: string; model_number: string; serial_number: string; season_start_hours: string }>>([]);
+  const [editVesselEngines, setEditVesselEngines] = useState<Array<{ id?: string; label: string; model_number: string; serial_number: string; season_start_hours: string }>>([]);
+  const [editVesselGenerators, setEditVesselGenerators] = useState<Array<{ id?: string; label: string; model_number: string; serial_number: string; season_start_hours: string }>>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [customerVessels, setCustomerVessels] = useState<Vessel[]>([]);
   const [customerHistory, setCustomerHistory] = useState<CustomerHistory | null>(null);
@@ -188,7 +192,7 @@ export default function CustomerManagement() {
     try {
       const { data, error } = await supabase
         .from('customer_vessels')
-        .select('*, customer_vessel_engines(id, label, description, season_start_hours, sort_order), customer_vessel_generators(id, label, description, season_start_hours, sort_order)')
+        .select('*, customer_vessel_engines(id, label, description, model_number, serial_number, season_start_hours, sort_order), customer_vessel_generators(id, label, description, model_number, serial_number, season_start_hours, sort_order)')
         .eq('customer_id', customerId)
         .eq('is_active', true)
         .order('created_at', { ascending: false });
@@ -317,7 +321,8 @@ export default function CustomerManagement() {
           enginesValid.map((e, i) => ({
             vessel_id: data.id,
             label: e.label.trim(),
-            description: e.description.trim(),
+            model_number: e.model_number.trim(),
+            serial_number: e.serial_number.trim(),
             season_start_hours: e.season_start_hours ? parseFloat(e.season_start_hours) : null,
             sort_order: i,
           }))
@@ -328,7 +333,8 @@ export default function CustomerManagement() {
           gensValid.map((g, i) => ({
             vessel_id: data.id,
             label: g.label.trim(),
-            description: g.description.trim(),
+            model_number: g.model_number.trim(),
+            serial_number: g.serial_number.trim(),
             season_start_hours: g.season_start_hours ? parseFloat(g.season_start_hours) : null,
             sort_order: i,
           }))
@@ -396,7 +402,8 @@ export default function CustomerManagement() {
         const payload = {
           vessel_id: vessel.id,
           label: eng.label.trim(),
-          description: eng.description.trim(),
+          model_number: eng.model_number.trim(),
+          serial_number: eng.serial_number.trim(),
           season_start_hours: eng.season_start_hours ? parseFloat(eng.season_start_hours) : null,
           sort_order: i,
         };
@@ -419,7 +426,8 @@ export default function CustomerManagement() {
         const payload = {
           vessel_id: vessel.id,
           label: gen.label.trim(),
-          description: gen.description.trim(),
+          model_number: gen.model_number.trim(),
+          serial_number: gen.serial_number.trim(),
           season_start_hours: gen.season_start_hours ? parseFloat(gen.season_start_hours) : null,
           sort_order: i,
         };
@@ -731,7 +739,8 @@ export default function CustomerManagement() {
                               [...(vessel.customer_vessel_engines || [])].sort((a, b) => a.sort_order - b.sort_order).map(e => ({
                                 id: e.id,
                                 label: e.label,
-                                description: e.description,
+                                model_number: e.model_number || '',
+                                serial_number: e.serial_number || '',
                                 season_start_hours: e.season_start_hours?.toString() || '',
                               }))
                             );
@@ -739,7 +748,8 @@ export default function CustomerManagement() {
                               [...(vessel.customer_vessel_generators || [])].sort((a, b) => a.sort_order - b.sort_order).map(g => ({
                                 id: g.id,
                                 label: g.label,
-                                description: g.description,
+                                model_number: g.model_number || '',
+                                serial_number: g.serial_number || '',
                                 season_start_hours: g.season_start_hours?.toString() || '',
                               }))
                             );
@@ -816,14 +826,15 @@ export default function CustomerManagement() {
                         <div className="mt-3 pt-3 border-t border-gray-100">
                           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Engines</p>
                           {[...vessel.customer_vessel_engines].sort((a, b) => a.sort_order - b.sort_order).map(eng => (
-                            <div key={eng.id} className="flex justify-between items-start gap-2 py-0.5 text-sm">
-                              <div>
+                            <div key={eng.id} className="py-1 text-sm">
+                              <div className="flex justify-between items-start gap-2">
                                 <span className="font-medium text-gray-900">{eng.label}</span>
-                                {eng.description && <span className="text-gray-500 ml-1">— {eng.description}</span>}
+                                {eng.season_start_hours != null && (
+                                  <span className="text-blue-600 font-medium whitespace-nowrap text-xs">{eng.season_start_hours} hrs</span>
+                                )}
                               </div>
-                              {eng.season_start_hours != null && (
-                                <span className="text-blue-600 font-medium whitespace-nowrap text-xs">{eng.season_start_hours} hrs</span>
-                              )}
+                              {eng.model_number && <div className="text-xs text-gray-500">Model #: {eng.model_number}</div>}
+                              {eng.serial_number && <div className="text-xs text-gray-500">Serial #: {eng.serial_number}</div>}
                             </div>
                           ))}
                         </div>
@@ -832,14 +843,15 @@ export default function CustomerManagement() {
                         <div className="mt-2 pt-2 border-t border-gray-100">
                           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Generators</p>
                           {[...vessel.customer_vessel_generators].sort((a, b) => a.sort_order - b.sort_order).map(gen => (
-                            <div key={gen.id} className="flex justify-between items-start gap-2 py-0.5 text-sm">
-                              <div>
+                            <div key={gen.id} className="py-1 text-sm">
+                              <div className="flex justify-between items-start gap-2">
                                 <span className="font-medium text-gray-900">{gen.label}</span>
-                                {gen.description && <span className="text-gray-500 ml-1">— {gen.description}</span>}
+                                {gen.season_start_hours != null && (
+                                  <span className="text-blue-600 font-medium whitespace-nowrap text-xs">{gen.season_start_hours} hrs</span>
+                                )}
                               </div>
-                              {gen.season_start_hours != null && (
-                                <span className="text-blue-600 font-medium whitespace-nowrap text-xs">{gen.season_start_hours} hrs</span>
-                              )}
+                              {gen.model_number && <div className="text-xs text-gray-500">Model #: {gen.model_number}</div>}
+                              {gen.serial_number && <div className="text-xs text-gray-500">Serial #: {gen.serial_number}</div>}
                             </div>
                           ))}
                         </div>
@@ -1132,27 +1144,6 @@ export default function CustomerManagement() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Engine Make</label>
-                  <input
-                    type="text"
-                    value={newVessel.engine_make}
-                    onChange={(e) => setNewVessel({ ...newVessel, engine_make: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Engine Model</label>
-                  <input
-                    type="text"
-                    value={newVessel.engine_model}
-                    onChange={(e) => setNewVessel({ ...newVessel, engine_model: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Fuel Type</label>
                 <select
@@ -1181,21 +1172,28 @@ export default function CustomerManagement() {
               <div className="border-t border-gray-200 pt-4">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-sm font-semibold text-gray-700">Engines</h4>
-                  <button type="button" onClick={() => setNewVesselEngines([...newVesselEngines, { label: '', description: '', season_start_hours: '' }])} className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">+ Add Engine</button>
+                  <button type="button" onClick={() => setNewVesselEngines([...newVesselEngines, { label: '', model_number: '', serial_number: '', season_start_hours: '' }])} className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">+ Add Engine</button>
                 </div>
                 {newVesselEngines.length === 0 && <p className="text-xs text-gray-400 mb-2">No engines added yet.</p>}
                 {newVesselEngines.map((eng, i) => (
                   <div key={i} className="bg-gray-50 rounded-lg p-3 mb-2 space-y-2">
-                    <div className="grid grid-cols-2 gap-2">
-                      <input type="text" value={eng.label} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], label: e.target.value }; setNewVesselEngines(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="Label (e.g. Port Engine)" />
-                      <input type="text" value={eng.description} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], description: e.target.value }; setNewVesselEngines(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="Description (e.g. Yamaha 300HP)" />
+                    <div className="flex items-center justify-between gap-2">
+                      <input type="text" value={eng.label} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], label: e.target.value }; setNewVesselEngines(a); }} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="Label (e.g. Port Engine)" />
+                      <button type="button" onClick={() => setNewVesselEngines(newVesselEngines.filter((_, j) => j !== i))} className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"><X className="w-4 h-4" /></button>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1">
-                        <label className="block text-xs text-gray-500 mb-1">Season Start Hours</label>
-                        <input type="number" step="0.1" min="0" value={eng.season_start_hours} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], season_start_hours: e.target.value }; setNewVesselEngines(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="e.g. 250.5" />
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Model Number</label>
+                        <input type="text" value={eng.model_number} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], model_number: e.target.value }; setNewVesselEngines(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="e.g. F300XCA" />
                       </div>
-                      <button type="button" onClick={() => setNewVesselEngines(newVesselEngines.filter((_, j) => j !== i))} className="mt-5 p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"><X className="w-4 h-4" /></button>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Serial Number</label>
+                        <input type="text" value={eng.serial_number} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], serial_number: e.target.value }; setNewVesselEngines(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="e.g. SN-123456" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Season Start Hours</label>
+                      <input type="number" step="0.1" min="0" value={eng.season_start_hours} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], season_start_hours: e.target.value }; setNewVesselEngines(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="e.g. 250.5" />
                     </div>
                   </div>
                 ))}
@@ -1204,21 +1202,28 @@ export default function CustomerManagement() {
               <div className="border-t border-gray-200 pt-4">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-sm font-semibold text-gray-700">Generators</h4>
-                  <button type="button" onClick={() => setNewVesselGenerators([...newVesselGenerators, { label: '', description: '', season_start_hours: '' }])} className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">+ Add Generator</button>
+                  <button type="button" onClick={() => setNewVesselGenerators([...newVesselGenerators, { label: '', model_number: '', serial_number: '', season_start_hours: '' }])} className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">+ Add Generator</button>
                 </div>
                 {newVesselGenerators.length === 0 && <p className="text-xs text-gray-400 mb-2">No generators added yet.</p>}
                 {newVesselGenerators.map((gen, i) => (
                   <div key={i} className="bg-gray-50 rounded-lg p-3 mb-2 space-y-2">
-                    <div className="grid grid-cols-2 gap-2">
-                      <input type="text" value={gen.label} onChange={(e) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], label: e.target.value }; setNewVesselGenerators(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="Label (e.g. Generator 1)" />
-                      <input type="text" value={gen.description} onChange={(e) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], description: e.target.value }; setNewVesselGenerators(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="Description (e.g. Onan 7.5kW)" />
+                    <div className="flex items-center justify-between gap-2">
+                      <input type="text" value={gen.label} onChange={(e) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], label: e.target.value }; setNewVesselGenerators(a); }} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="Label (e.g. Generator 1)" />
+                      <button type="button" onClick={() => setNewVesselGenerators(newVesselGenerators.filter((_, j) => j !== i))} className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"><X className="w-4 h-4" /></button>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1">
-                        <label className="block text-xs text-gray-500 mb-1">Season Start Hours</label>
-                        <input type="number" step="0.1" min="0" value={gen.season_start_hours} onChange={(e) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], season_start_hours: e.target.value }; setNewVesselGenerators(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="e.g. 150.0" />
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Model Number</label>
+                        <input type="text" value={gen.model_number} onChange={(e) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], model_number: e.target.value }; setNewVesselGenerators(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="e.g. MDKAL" />
                       </div>
-                      <button type="button" onClick={() => setNewVesselGenerators(newVesselGenerators.filter((_, j) => j !== i))} className="mt-5 p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"><X className="w-4 h-4" /></button>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Serial Number</label>
+                        <input type="text" value={gen.serial_number} onChange={(e) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], serial_number: e.target.value }; setNewVesselGenerators(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="e.g. SN-654321" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Season Start Hours</label>
+                      <input type="number" step="0.1" min="0" value={gen.season_start_hours} onChange={(e) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], season_start_hours: e.target.value }; setNewVesselGenerators(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="e.g. 150.0" />
                     </div>
                   </div>
                 ))}
@@ -1286,16 +1291,6 @@ export default function CustomerManagement() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Registration Number</label>
                 <input type="text" value={editVesselForm.registration_number} onChange={(e) => setEditVesselForm({ ...editVesselForm, registration_number: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Engine Make</label>
-                  <input type="text" value={editVesselForm.engine_make} onChange={(e) => setEditVesselForm({ ...editVesselForm, engine_make: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Engine Model</label>
-                  <input type="text" value={editVesselForm.engine_model} onChange={(e) => setEditVesselForm({ ...editVesselForm, engine_model: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500" />
-                </div>
-              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Fuel Type</label>
                 <select value={editVesselForm.fuel_type} onChange={(e) => setEditVesselForm({ ...editVesselForm, fuel_type: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900">
@@ -1314,21 +1309,28 @@ export default function CustomerManagement() {
               <div className="border-t border-gray-200 pt-4">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-sm font-semibold text-gray-700">Engines</h4>
-                  <button type="button" onClick={() => setEditVesselEngines([...editVesselEngines, { label: '', description: '', season_start_hours: '' }])} className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">+ Add Engine</button>
+                  <button type="button" onClick={() => setEditVesselEngines([...editVesselEngines, { label: '', model_number: '', serial_number: '', season_start_hours: '' }])} className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">+ Add Engine</button>
                 </div>
                 {editVesselEngines.length === 0 && <p className="text-xs text-gray-400 mb-2">No engines added yet.</p>}
                 {editVesselEngines.map((eng, i) => (
                   <div key={i} className="bg-gray-50 rounded-lg p-3 mb-2 space-y-2">
-                    <div className="grid grid-cols-2 gap-2">
-                      <input type="text" value={eng.label} onChange={(e) => { const a = [...editVesselEngines]; a[i] = { ...a[i], label: e.target.value }; setEditVesselEngines(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="Label (e.g. Port Engine)" />
-                      <input type="text" value={eng.description} onChange={(e) => { const a = [...editVesselEngines]; a[i] = { ...a[i], description: e.target.value }; setEditVesselEngines(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="Description (e.g. Yamaha 300HP)" />
+                    <div className="flex items-center justify-between gap-2">
+                      <input type="text" value={eng.label} onChange={(e) => { const a = [...editVesselEngines]; a[i] = { ...a[i], label: e.target.value }; setEditVesselEngines(a); }} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="Label (e.g. Port Engine)" />
+                      <button type="button" onClick={() => setEditVesselEngines(editVesselEngines.filter((_, j) => j !== i))} className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"><X className="w-4 h-4" /></button>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1">
-                        <label className="block text-xs text-gray-500 mb-1">Season Start Hours</label>
-                        <input type="number" step="0.1" min="0" value={eng.season_start_hours} onChange={(e) => { const a = [...editVesselEngines]; a[i] = { ...a[i], season_start_hours: e.target.value }; setEditVesselEngines(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="e.g. 250.5" />
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Model Number</label>
+                        <input type="text" value={eng.model_number} onChange={(e) => { const a = [...editVesselEngines]; a[i] = { ...a[i], model_number: e.target.value }; setEditVesselEngines(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="e.g. F300XCA" />
                       </div>
-                      <button type="button" onClick={() => setEditVesselEngines(editVesselEngines.filter((_, j) => j !== i))} className="mt-5 p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"><X className="w-4 h-4" /></button>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Serial Number</label>
+                        <input type="text" value={eng.serial_number} onChange={(e) => { const a = [...editVesselEngines]; a[i] = { ...a[i], serial_number: e.target.value }; setEditVesselEngines(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="e.g. SN-123456" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Season Start Hours</label>
+                      <input type="number" step="0.1" min="0" value={eng.season_start_hours} onChange={(e) => { const a = [...editVesselEngines]; a[i] = { ...a[i], season_start_hours: e.target.value }; setEditVesselEngines(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="e.g. 250.5" />
                     </div>
                   </div>
                 ))}
@@ -1337,21 +1339,28 @@ export default function CustomerManagement() {
               <div className="border-t border-gray-200 pt-4">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-sm font-semibold text-gray-700">Generators</h4>
-                  <button type="button" onClick={() => setEditVesselGenerators([...editVesselGenerators, { label: '', description: '', season_start_hours: '' }])} className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">+ Add Generator</button>
+                  <button type="button" onClick={() => setEditVesselGenerators([...editVesselGenerators, { label: '', model_number: '', serial_number: '', season_start_hours: '' }])} className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">+ Add Generator</button>
                 </div>
                 {editVesselGenerators.length === 0 && <p className="text-xs text-gray-400 mb-2">No generators added yet.</p>}
                 {editVesselGenerators.map((gen, i) => (
                   <div key={i} className="bg-gray-50 rounded-lg p-3 mb-2 space-y-2">
-                    <div className="grid grid-cols-2 gap-2">
-                      <input type="text" value={gen.label} onChange={(e) => { const a = [...editVesselGenerators]; a[i] = { ...a[i], label: e.target.value }; setEditVesselGenerators(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="Label (e.g. Generator 1)" />
-                      <input type="text" value={gen.description} onChange={(e) => { const a = [...editVesselGenerators]; a[i] = { ...a[i], description: e.target.value }; setEditVesselGenerators(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="Description (e.g. Onan 7.5kW)" />
+                    <div className="flex items-center justify-between gap-2">
+                      <input type="text" value={gen.label} onChange={(e) => { const a = [...editVesselGenerators]; a[i] = { ...a[i], label: e.target.value }; setEditVesselGenerators(a); }} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="Label (e.g. Generator 1)" />
+                      <button type="button" onClick={() => setEditVesselGenerators(editVesselGenerators.filter((_, j) => j !== i))} className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"><X className="w-4 h-4" /></button>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1">
-                        <label className="block text-xs text-gray-500 mb-1">Season Start Hours</label>
-                        <input type="number" step="0.1" min="0" value={gen.season_start_hours} onChange={(e) => { const a = [...editVesselGenerators]; a[i] = { ...a[i], season_start_hours: e.target.value }; setEditVesselGenerators(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="e.g. 150.0" />
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Model Number</label>
+                        <input type="text" value={gen.model_number} onChange={(e) => { const a = [...editVesselGenerators]; a[i] = { ...a[i], model_number: e.target.value }; setEditVesselGenerators(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="e.g. MDKAL" />
                       </div>
-                      <button type="button" onClick={() => setEditVesselGenerators(editVesselGenerators.filter((_, j) => j !== i))} className="mt-5 p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"><X className="w-4 h-4" /></button>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Serial Number</label>
+                        <input type="text" value={gen.serial_number} onChange={(e) => { const a = [...editVesselGenerators]; a[i] = { ...a[i], serial_number: e.target.value }; setEditVesselGenerators(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="e.g. SN-654321" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Season Start Hours</label>
+                      <input type="number" step="0.1" min="0" value={gen.season_start_hours} onChange={(e) => { const a = [...editVesselGenerators]; a[i] = { ...a[i], season_start_hours: e.target.value }; setEditVesselGenerators(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="e.g. 150.0" />
                     </div>
                   </div>
                 ))}
