@@ -600,7 +600,7 @@ export function MercuryPartsManager({ userId, userRole }: MercuryPartsManagerPro
                 placeholder="Search by part number or description..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white placeholder-gray-400"
               />
             </div>
             <select
