@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, Download, FileText, AlertCircle, CheckCircle, X, Search, Filter, Eye, Trash2 } from 'lucide-react';
+import { Upload, Download, FileText, AlertCircle, CheckCircle, X, Search, Filter, Eye, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { parseMercuryASCIIFile, generateImportSummary, type MercuryPart, type ParseResult } from '../utils/mercuryParser';
 import { isMasterRole } from '../lib/supabase';
@@ -62,6 +62,9 @@ export function MercuryPartsManager({ userId, userRole }: MercuryPartsManagerPro
   const [selectedPart, setSelectedPart] = useState<MercuryPartRow | null>(null);
   const [showPartDetails, setShowPartDetails] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const PAGE_SIZE = 50;
 
   const isMaster = isMasterRole(userRole as any);
 
@@ -105,13 +108,17 @@ export function MercuryPartsManager({ userId, userRole }: MercuryPartsManagerPro
     }
   }
 
-  async function fetchMercuryParts() {
+  async function fetchMercuryParts(page = currentPage) {
     try {
       setLoading(true);
+      const from = (page - 1) * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+
       let query = supabase
         .from('mercury_marine_parts')
-        .select('*')
-        .order('part_number', { ascending: true });
+        .select('*', { count: 'exact' })
+        .order('part_number', { ascending: true })
+        .range(from, to);
 
       if (searchTerm) {
         query = query.or(`part_number.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`);
@@ -127,16 +134,27 @@ export function MercuryPartsManager({ userId, userRole }: MercuryPartsManagerPro
         }
       }
 
-      const { data, error } = await query.limit(100);
+      const { data, error, count } = await query;
 
       if (error) throw error;
 
       setMercuryParts(data || []);
+      setTotalCount(count || 0);
     } catch (error) {
       console.error('Error fetching Mercury parts:', error);
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleSearch() {
+    setCurrentPage(1);
+    fetchMercuryParts(1);
+  }
+
+  function handlePageChange(page: number) {
+    setCurrentPage(page);
+    fetchMercuryParts(page);
   }
 
   function handleFileSelect(event: React.ChangeEvent<HTMLInputElement>) {
@@ -600,6 +618,7 @@ export function MercuryPartsManager({ userId, userRole }: MercuryPartsManagerPro
                 placeholder="Search by part number or description..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white placeholder-gray-400"
               />
             </div>
@@ -616,13 +635,22 @@ export function MercuryPartsManager({ userId, userRole }: MercuryPartsManagerPro
               <option value="NLA">No Longer Available</option>
             </select>
             <button
-              onClick={fetchMercuryParts}
+              onClick={handleSearch}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             >
               <Search className="w-4 h-4 inline mr-2" />
               Search
             </button>
           </div>
+
+          {totalCount > 0 && (
+            <div className="flex items-center justify-between text-sm text-gray-600">
+              <span>
+                Showing {((currentPage - 1) * PAGE_SIZE) + 1}–{Math.min(currentPage * PAGE_SIZE, totalCount)} of {totalCount.toLocaleString()} parts
+              </span>
+              <span>Page {currentPage} of {Math.ceil(totalCount / PAGE_SIZE)}</span>
+            </div>
+          )}
 
           {loading ? (
             <div className="text-center py-8 text-gray-500">Loading...</div>
@@ -641,7 +669,7 @@ export function MercuryPartsManager({ userId, userRole }: MercuryPartsManagerPro
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {mercuryParts.map((part) => (
-                    <tr key={part.id}>
+                    <tr key={part.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm font-medium text-gray-900">{part.part_number}</td>
                       <td className="px-4 py-3 text-sm text-gray-900">{part.description}</td>
                       <td className="px-4 py-3 text-sm text-green-600 font-medium">${part.msrp.toFixed(2)}</td>
@@ -680,6 +708,63 @@ export function MercuryPartsManager({ userId, userRole }: MercuryPartsManagerPro
                   )}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {totalCount > PAGE_SIZE && (
+            <div className="flex items-center justify-center gap-2">
+              <button
+                onClick={() => handlePageChange(1)}
+                disabled={currentPage === 1 || loading}
+                className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                First
+              </button>
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1 || loading}
+                className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+
+              {(() => {
+                const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+                const pages: number[] = [];
+                let start = Math.max(1, currentPage - 2);
+                let end = Math.min(totalPages, start + 4);
+                if (end - start < 4) start = Math.max(1, end - 4);
+                for (let i = start; i <= end; i++) pages.push(i);
+                return pages.map((page) => (
+                  <button
+                    key={page}
+                    onClick={() => handlePageChange(page)}
+                    disabled={loading}
+                    className={`px-3 py-2 text-sm border rounded-lg disabled:cursor-not-allowed ${
+                      page === currentPage
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ));
+              })()}
+
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage >= Math.ceil(totalCount / PAGE_SIZE) || loading}
+                className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => handlePageChange(Math.ceil(totalCount / PAGE_SIZE))}
+                disabled={currentPage >= Math.ceil(totalCount / PAGE_SIZE) || loading}
+                className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Last
+              </button>
             </div>
           )}
         </div>
