@@ -23,6 +23,24 @@ interface Customer {
   created_at: string;
 }
 
+interface VesselEngine {
+  id: string;
+  vessel_id: string;
+  label: string;
+  description: string;
+  season_start_hours: number | null;
+  sort_order: number;
+}
+
+interface VesselGenerator {
+  id: string;
+  vessel_id: string;
+  label: string;
+  description: string;
+  season_start_hours: number | null;
+  sort_order: number;
+}
+
 interface Vessel {
   id: string;
   customer_id: string;
@@ -38,6 +56,8 @@ interface Vessel {
   fuel_type?: string;
   notes?: string;
   is_active: boolean;
+  customer_vessel_engines?: VesselEngine[];
+  customer_vessel_generators?: VesselGenerator[];
 }
 
 interface CustomerHistory {
@@ -71,6 +91,10 @@ export default function CustomerManagement() {
     fuel_type: '',
     notes: '',
   });
+  const [newVesselEngines, setNewVesselEngines] = useState<Array<{ label: string; description: string; season_start_hours: string }>>([]);
+  const [newVesselGenerators, setNewVesselGenerators] = useState<Array<{ label: string; description: string; season_start_hours: string }>>([]);
+  const [editVesselEngines, setEditVesselEngines] = useState<Array<{ id?: string; label: string; description: string; season_start_hours: string }>>([]);
+  const [editVesselGenerators, setEditVesselGenerators] = useState<Array<{ id?: string; label: string; description: string; season_start_hours: string }>>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [customerVessels, setCustomerVessels] = useState<Vessel[]>([]);
   const [customerHistory, setCustomerHistory] = useState<CustomerHistory | null>(null);
@@ -164,7 +188,7 @@ export default function CustomerManagement() {
     try {
       const { data, error } = await supabase
         .from('customer_vessels')
-        .select('*')
+        .select('*, customer_vessel_engines(id, label, description, season_start_hours, sort_order), customer_vessel_generators(id, label, description, season_start_hours, sort_order)')
         .eq('customer_id', customerId)
         .eq('is_active', true)
         .order('created_at', { ascending: false });
@@ -285,7 +309,33 @@ export default function CustomerManagement() {
 
       if (error) throw error;
 
-      setCustomerVessels([data, ...customerVessels]);
+      const enginesValid = newVesselEngines.filter(e => e.label.trim());
+      const gensValid = newVesselGenerators.filter(g => g.label.trim());
+
+      if (enginesValid.length > 0) {
+        await supabase.from('customer_vessel_engines').insert(
+          enginesValid.map((e, i) => ({
+            vessel_id: data.id,
+            label: e.label.trim(),
+            description: e.description.trim(),
+            season_start_hours: e.season_start_hours ? parseFloat(e.season_start_hours) : null,
+            sort_order: i,
+          }))
+        );
+      }
+      if (gensValid.length > 0) {
+        await supabase.from('customer_vessel_generators').insert(
+          gensValid.map((g, i) => ({
+            vessel_id: data.id,
+            label: g.label.trim(),
+            description: g.description.trim(),
+            season_start_hours: g.season_start_hours ? parseFloat(g.season_start_hours) : null,
+            sort_order: i,
+          }))
+        );
+      }
+
+      await loadCustomerVessels(selectedCustomer.id);
       setShowAddVessel(false);
       setNewVessel({
         vessel_name: '',
@@ -300,6 +350,8 @@ export default function CustomerManagement() {
         fuel_type: '',
         notes: '',
       });
+      setNewVesselEngines([]);
+      setNewVesselGenerators([]);
       setSuccessMessage('Vessel added successfully!');
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error) {
@@ -332,7 +384,53 @@ export default function CustomerManagement() {
 
       if (error) throw error;
 
-      setCustomerVessels(customerVessels.map(v => v.id === vessel.id ? data : v));
+      const existingEngineIds = (vessel.customer_vessel_engines || []).map(e => e.id);
+      const keepEngineIds = editVesselEngines.filter(e => e.id).map(e => e.id!);
+      const deleteEngineIds = existingEngineIds.filter(id => !keepEngineIds.includes(id));
+      if (deleteEngineIds.length > 0) {
+        await supabase.from('customer_vessel_engines').delete().in('id', deleteEngineIds);
+      }
+      for (let i = 0; i < editVesselEngines.length; i++) {
+        const eng = editVesselEngines[i];
+        if (!eng.label.trim()) continue;
+        const payload = {
+          vessel_id: vessel.id,
+          label: eng.label.trim(),
+          description: eng.description.trim(),
+          season_start_hours: eng.season_start_hours ? parseFloat(eng.season_start_hours) : null,
+          sort_order: i,
+        };
+        if (eng.id) {
+          await supabase.from('customer_vessel_engines').update(payload).eq('id', eng.id);
+        } else {
+          await supabase.from('customer_vessel_engines').insert(payload);
+        }
+      }
+
+      const existingGenIds = (vessel.customer_vessel_generators || []).map(g => g.id);
+      const keepGenIds = editVesselGenerators.filter(g => g.id).map(g => g.id!);
+      const deleteGenIds = existingGenIds.filter(id => !keepGenIds.includes(id));
+      if (deleteGenIds.length > 0) {
+        await supabase.from('customer_vessel_generators').delete().in('id', deleteGenIds);
+      }
+      for (let i = 0; i < editVesselGenerators.length; i++) {
+        const gen = editVesselGenerators[i];
+        if (!gen.label.trim()) continue;
+        const payload = {
+          vessel_id: vessel.id,
+          label: gen.label.trim(),
+          description: gen.description.trim(),
+          season_start_hours: gen.season_start_hours ? parseFloat(gen.season_start_hours) : null,
+          sort_order: i,
+        };
+        if (gen.id) {
+          await supabase.from('customer_vessel_generators').update(payload).eq('id', gen.id);
+        } else {
+          await supabase.from('customer_vessel_generators').insert(payload);
+        }
+      }
+
+      if (selectedCustomer) await loadCustomerVessels(selectedCustomer.id);
       setEditingVessel(null);
       setSuccessMessage('Vessel updated successfully!');
       setTimeout(() => setSuccessMessage(''), 3000);
@@ -629,6 +727,22 @@ export default function CustomerManagement() {
                               fuel_type: vessel.fuel_type || '',
                               notes: vessel.notes || '',
                             });
+                            setEditVesselEngines(
+                              [...(vessel.customer_vessel_engines || [])].sort((a, b) => a.sort_order - b.sort_order).map(e => ({
+                                id: e.id,
+                                label: e.label,
+                                description: e.description,
+                                season_start_hours: e.season_start_hours?.toString() || '',
+                              }))
+                            );
+                            setEditVesselGenerators(
+                              [...(vessel.customer_vessel_generators || [])].sort((a, b) => a.sort_order - b.sort_order).map(g => ({
+                                id: g.id,
+                                label: g.label,
+                                description: g.description,
+                                season_start_hours: g.season_start_hours?.toString() || '',
+                              }))
+                            );
                           }}
                           className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 border border-blue-200 rounded hover:bg-blue-50 transition-colors shrink-0"
                         >
@@ -698,6 +812,38 @@ export default function CustomerManagement() {
                           </div>
                         )}
                       </div>
+                      {vessel.customer_vessel_engines && vessel.customer_vessel_engines.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-gray-100">
+                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Engines</p>
+                          {[...vessel.customer_vessel_engines].sort((a, b) => a.sort_order - b.sort_order).map(eng => (
+                            <div key={eng.id} className="flex justify-between items-start gap-2 py-0.5 text-sm">
+                              <div>
+                                <span className="font-medium text-gray-900">{eng.label}</span>
+                                {eng.description && <span className="text-gray-500 ml-1">— {eng.description}</span>}
+                              </div>
+                              {eng.season_start_hours != null && (
+                                <span className="text-blue-600 font-medium whitespace-nowrap text-xs">{eng.season_start_hours} hrs</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {vessel.customer_vessel_generators && vessel.customer_vessel_generators.length > 0 && (
+                        <div className="mt-2 pt-2 border-t border-gray-100">
+                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Generators</p>
+                          {[...vessel.customer_vessel_generators].sort((a, b) => a.sort_order - b.sort_order).map(gen => (
+                            <div key={gen.id} className="flex justify-between items-start gap-2 py-0.5 text-sm">
+                              <div>
+                                <span className="font-medium text-gray-900">{gen.label}</span>
+                                {gen.description && <span className="text-gray-500 ml-1">— {gen.description}</span>}
+                              </div>
+                              {gen.season_start_hours != null && (
+                                <span className="text-blue-600 font-medium whitespace-nowrap text-xs">{gen.season_start_hours} hrs</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
                   {customerVessels.length === 0 && (
@@ -1032,9 +1178,55 @@ export default function CustomerManagement() {
                 />
               </div>
 
+              <div className="border-t border-gray-200 pt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-semibold text-gray-700">Engines</h4>
+                  <button type="button" onClick={() => setNewVesselEngines([...newVesselEngines, { label: '', description: '', season_start_hours: '' }])} className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">+ Add Engine</button>
+                </div>
+                {newVesselEngines.length === 0 && <p className="text-xs text-gray-400 mb-2">No engines added yet.</p>}
+                {newVesselEngines.map((eng, i) => (
+                  <div key={i} className="bg-gray-50 rounded-lg p-3 mb-2 space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <input type="text" value={eng.label} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], label: e.target.value }; setNewVesselEngines(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="Label (e.g. Port Engine)" />
+                      <input type="text" value={eng.description} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], description: e.target.value }; setNewVesselEngines(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="Description (e.g. Yamaha 300HP)" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1">
+                        <label className="block text-xs text-gray-500 mb-1">Season Start Hours</label>
+                        <input type="number" step="0.1" min="0" value={eng.season_start_hours} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], season_start_hours: e.target.value }; setNewVesselEngines(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="e.g. 250.5" />
+                      </div>
+                      <button type="button" onClick={() => setNewVesselEngines(newVesselEngines.filter((_, j) => j !== i))} className="mt-5 p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"><X className="w-4 h-4" /></button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="border-t border-gray-200 pt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-semibold text-gray-700">Generators</h4>
+                  <button type="button" onClick={() => setNewVesselGenerators([...newVesselGenerators, { label: '', description: '', season_start_hours: '' }])} className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">+ Add Generator</button>
+                </div>
+                {newVesselGenerators.length === 0 && <p className="text-xs text-gray-400 mb-2">No generators added yet.</p>}
+                {newVesselGenerators.map((gen, i) => (
+                  <div key={i} className="bg-gray-50 rounded-lg p-3 mb-2 space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <input type="text" value={gen.label} onChange={(e) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], label: e.target.value }; setNewVesselGenerators(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="Label (e.g. Generator 1)" />
+                      <input type="text" value={gen.description} onChange={(e) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], description: e.target.value }; setNewVesselGenerators(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="Description (e.g. Onan 7.5kW)" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1">
+                        <label className="block text-xs text-gray-500 mb-1">Season Start Hours</label>
+                        <input type="number" step="0.1" min="0" value={gen.season_start_hours} onChange={(e) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], season_start_hours: e.target.value }; setNewVesselGenerators(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="e.g. 150.0" />
+                      </div>
+                      <button type="button" onClick={() => setNewVesselGenerators(newVesselGenerators.filter((_, j) => j !== i))} className="mt-5 p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"><X className="w-4 h-4" /></button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
               <div className="flex justify-end gap-3 pt-4">
                 <button
-                  onClick={() => setShowAddVessel(false)}
+                  onClick={() => { setShowAddVessel(false); setNewVesselEngines([]); setNewVesselGenerators([]); }}
                   className="px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200"
                 >
                   Cancel
@@ -1118,6 +1310,53 @@ export default function CustomerManagement() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
                 <textarea value={editVesselForm.notes} onChange={(e) => setEditVesselForm({ ...editVesselForm, notes: e.target.value })} rows={3} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500" />
               </div>
+
+              <div className="border-t border-gray-200 pt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-semibold text-gray-700">Engines</h4>
+                  <button type="button" onClick={() => setEditVesselEngines([...editVesselEngines, { label: '', description: '', season_start_hours: '' }])} className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">+ Add Engine</button>
+                </div>
+                {editVesselEngines.length === 0 && <p className="text-xs text-gray-400 mb-2">No engines added yet.</p>}
+                {editVesselEngines.map((eng, i) => (
+                  <div key={i} className="bg-gray-50 rounded-lg p-3 mb-2 space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <input type="text" value={eng.label} onChange={(e) => { const a = [...editVesselEngines]; a[i] = { ...a[i], label: e.target.value }; setEditVesselEngines(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="Label (e.g. Port Engine)" />
+                      <input type="text" value={eng.description} onChange={(e) => { const a = [...editVesselEngines]; a[i] = { ...a[i], description: e.target.value }; setEditVesselEngines(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="Description (e.g. Yamaha 300HP)" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1">
+                        <label className="block text-xs text-gray-500 mb-1">Season Start Hours</label>
+                        <input type="number" step="0.1" min="0" value={eng.season_start_hours} onChange={(e) => { const a = [...editVesselEngines]; a[i] = { ...a[i], season_start_hours: e.target.value }; setEditVesselEngines(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="e.g. 250.5" />
+                      </div>
+                      <button type="button" onClick={() => setEditVesselEngines(editVesselEngines.filter((_, j) => j !== i))} className="mt-5 p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"><X className="w-4 h-4" /></button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="border-t border-gray-200 pt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-semibold text-gray-700">Generators</h4>
+                  <button type="button" onClick={() => setEditVesselGenerators([...editVesselGenerators, { label: '', description: '', season_start_hours: '' }])} className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">+ Add Generator</button>
+                </div>
+                {editVesselGenerators.length === 0 && <p className="text-xs text-gray-400 mb-2">No generators added yet.</p>}
+                {editVesselGenerators.map((gen, i) => (
+                  <div key={i} className="bg-gray-50 rounded-lg p-3 mb-2 space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <input type="text" value={gen.label} onChange={(e) => { const a = [...editVesselGenerators]; a[i] = { ...a[i], label: e.target.value }; setEditVesselGenerators(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="Label (e.g. Generator 1)" />
+                      <input type="text" value={gen.description} onChange={(e) => { const a = [...editVesselGenerators]; a[i] = { ...a[i], description: e.target.value }; setEditVesselGenerators(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="Description (e.g. Onan 7.5kW)" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1">
+                        <label className="block text-xs text-gray-500 mb-1">Season Start Hours</label>
+                        <input type="number" step="0.1" min="0" value={gen.season_start_hours} onChange={(e) => { const a = [...editVesselGenerators]; a[i] = { ...a[i], season_start_hours: e.target.value }; setEditVesselGenerators(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="e.g. 150.0" />
+                      </div>
+                      <button type="button" onClick={() => setEditVesselGenerators(editVesselGenerators.filter((_, j) => j !== i))} className="mt-5 p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"><X className="w-4 h-4" /></button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
               <div className="flex justify-end gap-3 pt-4">
                 <button onClick={() => setEditingVessel(null)} className="px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200">Cancel</button>
                 <button onClick={() => handleUpdateVessel(editingVessel, editVesselForm)} disabled={!editVesselForm.vessel_name} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">Save Changes</button>
