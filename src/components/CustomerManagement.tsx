@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useRoleImpersonation } from '../contexts/RoleImpersonationContext';
-import { Users, Plus, X, Ship, FileText, Wrench, DollarSign, Search, Edit2, Trash2, Calendar } from 'lucide-react';
+import { Users, Plus, X, Ship, FileText, Wrench, DollarSign, Search, Edit2, Trash2, Calendar, Pencil } from 'lucide-react';
 
 interface Customer {
   id: string;
@@ -57,6 +57,20 @@ export default function CustomerManagement() {
   const [loading, setLoading] = useState(true);
   const [showAddCustomer, setShowAddCustomer] = useState(false);
   const [showAddVessel, setShowAddVessel] = useState(false);
+  const [editingVessel, setEditingVessel] = useState<Vessel | null>(null);
+  const [editVesselForm, setEditVesselForm] = useState({
+    vessel_name: '',
+    manufacturer: '',
+    model: '',
+    year: '',
+    length_feet: '',
+    hull_number: '',
+    registration_number: '',
+    engine_make: '',
+    engine_model: '',
+    fuel_type: '',
+    notes: '',
+  });
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [customerVessels, setCustomerVessels] = useState<Vessel[]>([]);
   const [customerHistory, setCustomerHistory] = useState<CustomerHistory | null>(null);
@@ -291,6 +305,40 @@ export default function CustomerManagement() {
     } catch (error) {
       console.error('Error adding vessel:', error);
       setErrorMessage('Failed to add vessel');
+      setTimeout(() => setErrorMessage(''), 3000);
+    }
+  };
+
+  const handleUpdateVessel = async (vessel: Vessel, form: typeof editVesselForm) => {
+    try {
+      const { data, error } = await supabase
+        .from('customer_vessels')
+        .update({
+          vessel_name: form.vessel_name,
+          manufacturer: form.manufacturer || null,
+          model: form.model || null,
+          year: form.year ? parseInt(form.year) : null,
+          length_feet: form.length_feet ? parseInt(form.length_feet) : null,
+          hull_number: form.hull_number || null,
+          registration_number: form.registration_number || null,
+          engine_make: form.engine_make || null,
+          engine_model: form.engine_model || null,
+          fuel_type: form.fuel_type || null,
+          notes: form.notes || null,
+        })
+        .eq('id', vessel.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setCustomerVessels(customerVessels.map(v => v.id === vessel.id ? data : v));
+      setEditingVessel(null);
+      setSuccessMessage('Vessel updated successfully!');
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (error) {
+      console.error('Error updating vessel:', error);
+      setErrorMessage('Failed to update vessel');
       setTimeout(() => setErrorMessage(''), 3000);
     }
   };
@@ -563,8 +611,32 @@ export default function CustomerManagement() {
                 <div className="space-y-3">
                   {customerVessels.map((vessel) => (
                     <div key={vessel.id} className="border border-gray-200 rounded-lg p-4">
-                      <h4 className="font-semibold text-gray-900">{vessel.vessel_name}</h4>
-                      <div className="grid grid-cols-2 gap-2 mt-2 text-sm">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <h4 className="font-semibold text-gray-900">{vessel.vessel_name}</h4>
+                        <button
+                          onClick={() => {
+                            setEditingVessel(vessel);
+                            setEditVesselForm({
+                              vessel_name: vessel.vessel_name,
+                              manufacturer: vessel.manufacturer || '',
+                              model: vessel.model || '',
+                              year: vessel.year?.toString() || '',
+                              length_feet: vessel.length_feet?.toString() || '',
+                              hull_number: vessel.hull_number || '',
+                              registration_number: vessel.registration_number || '',
+                              engine_make: vessel.engine_make || '',
+                              engine_model: vessel.engine_model || '',
+                              fuel_type: vessel.fuel_type || '',
+                              notes: vessel.notes || '',
+                            });
+                          }}
+                          className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 border border-blue-200 rounded hover:bg-blue-50 transition-colors shrink-0"
+                        >
+                          <Pencil className="w-3 h-3" />
+                          Edit
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
                         {vessel.manufacturer && (
                           <div>
                             <span className="text-gray-600">Make: </span>
@@ -593,6 +665,36 @@ export default function CustomerManagement() {
                           <div className="col-span-2">
                             <span className="text-gray-600">Hull #: </span>
                             <span className="font-medium text-gray-900">{vessel.hull_number}</span>
+                          </div>
+                        )}
+                        {vessel.registration_number && (
+                          <div className="col-span-2">
+                            <span className="text-gray-600">Reg #: </span>
+                            <span className="font-medium text-gray-900">{vessel.registration_number}</span>
+                          </div>
+                        )}
+                        {vessel.engine_make && (
+                          <div>
+                            <span className="text-gray-600">Engine Make: </span>
+                            <span className="font-medium text-gray-900">{vessel.engine_make}</span>
+                          </div>
+                        )}
+                        {vessel.engine_model && (
+                          <div>
+                            <span className="text-gray-600">Engine Model: </span>
+                            <span className="font-medium text-gray-900">{vessel.engine_model}</span>
+                          </div>
+                        )}
+                        {vessel.fuel_type && (
+                          <div>
+                            <span className="text-gray-600">Fuel: </span>
+                            <span className="font-medium text-gray-900 capitalize">{vessel.fuel_type}</span>
+                          </div>
+                        )}
+                        {vessel.notes && (
+                          <div className="col-span-2">
+                            <span className="text-gray-600">Notes: </span>
+                            <span className="font-medium text-gray-900">{vessel.notes}</span>
                           </div>
                         )}
                       </div>
@@ -944,6 +1046,81 @@ export default function CustomerManagement() {
                 >
                   Add Vessel
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editingVessel && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-900">Edit Vessel</h2>
+              <button onClick={() => setEditingVessel(null)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Vessel Name *</label>
+                <input type="text" value={editVesselForm.vessel_name} onChange={(e) => setEditVesselForm({ ...editVesselForm, vessel_name: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500" required />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Manufacturer</label>
+                  <input type="text" value={editVesselForm.manufacturer} onChange={(e) => setEditVesselForm({ ...editVesselForm, manufacturer: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
+                  <input type="text" value={editVesselForm.model} onChange={(e) => setEditVesselForm({ ...editVesselForm, model: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
+                  <input type="number" value={editVesselForm.year} onChange={(e) => setEditVesselForm({ ...editVesselForm, year: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Length (feet)</label>
+                  <input type="number" value={editVesselForm.length_feet} onChange={(e) => setEditVesselForm({ ...editVesselForm, length_feet: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Hull Number</label>
+                <input type="text" value={editVesselForm.hull_number} onChange={(e) => setEditVesselForm({ ...editVesselForm, hull_number: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Registration Number</label>
+                <input type="text" value={editVesselForm.registration_number} onChange={(e) => setEditVesselForm({ ...editVesselForm, registration_number: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Engine Make</label>
+                  <input type="text" value={editVesselForm.engine_make} onChange={(e) => setEditVesselForm({ ...editVesselForm, engine_make: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Engine Model</label>
+                  <input type="text" value={editVesselForm.engine_model} onChange={(e) => setEditVesselForm({ ...editVesselForm, engine_model: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Fuel Type</label>
+                <select value={editVesselForm.fuel_type} onChange={(e) => setEditVesselForm({ ...editVesselForm, fuel_type: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900">
+                  <option value="">Select...</option>
+                  <option value="gasoline">Gasoline</option>
+                  <option value="diesel">Diesel</option>
+                  <option value="electric">Electric</option>
+                  <option value="hybrid">Hybrid</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                <textarea value={editVesselForm.notes} onChange={(e) => setEditVesselForm({ ...editVesselForm, notes: e.target.value })} rows={3} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div className="flex justify-end gap-3 pt-4">
+                <button onClick={() => setEditingVessel(null)} className="px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200">Cancel</button>
+                <button onClick={() => handleUpdateVessel(editingVessel, editVesselForm)} disabled={!editVesselForm.vessel_name} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">Save Changes</button>
               </div>
             </div>
           </div>
