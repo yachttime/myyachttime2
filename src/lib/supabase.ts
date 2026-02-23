@@ -22,6 +22,30 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 
 export type UserRole = 'owner' | 'manager' | 'staff' | 'mechanic' | 'master';
 
+export interface YachtEngine {
+  id: string;
+  yacht_id: string;
+  label: string;
+  description: string;
+  season_start_hours: number | null;
+  sort_order: number;
+  company_id?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface YachtGenerator {
+  id: string;
+  yacht_id: string;
+  label: string;
+  description: string;
+  season_start_hours: number | null;
+  sort_order: number;
+  company_id?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Yacht {
   id: string;
   name: string;
@@ -43,6 +67,8 @@ export interface Yacht {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  yacht_engines?: YachtEngine[];
+  yacht_generators?: YachtGenerator[];
 }
 
 export interface UserProfile {
