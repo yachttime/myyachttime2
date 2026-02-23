@@ -190,11 +190,7 @@ export function MercuryPartsManager({ userId, userRole }: MercuryPartsManagerPro
 
       setUploadProgress(5);
 
-      // Delete all existing Mercury parts to replace with new data
-      const { error: deleteError } = await supabase
-        .from('mercury_marine_parts')
-        .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all rows
+      const { error: deleteError } = await supabase.rpc('truncate_mercury_marine_parts');
 
       if (deleteError) {
         console.error('Error clearing old parts:', deleteError);
