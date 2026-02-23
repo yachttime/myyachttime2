@@ -716,14 +716,14 @@ export function MercuryPartsManager({ userId, userRole }: MercuryPartsManagerPro
               <button
                 onClick={() => handlePageChange(1)}
                 disabled={currentPage === 1 || loading}
-                className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="px-3 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 First
               </button>
               <button
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1 || loading}
-                className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="p-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
@@ -743,7 +743,7 @@ export function MercuryPartsManager({ userId, userRole }: MercuryPartsManagerPro
                     className={`px-3 py-2 text-sm border rounded-lg disabled:cursor-not-allowed ${
                       page === currentPage
                         ? 'bg-blue-600 text-white border-blue-600'
-                        : 'border-gray-300 hover:bg-gray-50'
+                        : 'border-gray-300 text-gray-700 hover:bg-gray-50'
                     }`}
                   >
                     {page}
@@ -754,14 +754,14 @@ export function MercuryPartsManager({ userId, userRole }: MercuryPartsManagerPro
               <button
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={currentPage >= Math.ceil(totalCount / PAGE_SIZE) || loading}
-                className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="p-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
               <button
                 onClick={() => handlePageChange(Math.ceil(totalCount / PAGE_SIZE))}
                 disabled={currentPage >= Math.ceil(totalCount / PAGE_SIZE) || loading}
-                className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="px-3 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Last
               </button>
