@@ -52,6 +52,8 @@ export function MercuryPartsManager({ userId, userRole }: MercuryPartsManagerPro
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStatus, setUploadStatus] = useState<string>('');
+  const [pollingImportId, setPollingImportId] = useState<string | null>(null);
   const [parseResult, setParseResult] = useState<ParseResult | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [importHistory, setImportHistory] = useState<ImportHistory[]>([]);
@@ -185,14 +187,74 @@ export function MercuryPartsManager({ userId, userRole }: MercuryPartsManagerPro
     }
   }
 
+  async function pollImportStatus(importId: string, totalParts: number) {
+    setPollingImportId(importId);
+    const maxAttempts = 300;
+    let attempts = 0;
+
+    const poll = async () => {
+      attempts++;
+      const { data, error } = await supabase
+        .from('mercury_price_list_imports')
+        .select('status, total_parts_imported, error_message')
+        .eq('id', importId)
+        .maybeSingle();
+
+      if (error || !data) {
+        if (attempts < maxAttempts) setTimeout(poll, 3000);
+        return;
+      }
+
+      if (data.status === 'processing') {
+        const pct = totalParts > 0
+          ? Math.min(95, Math.round((data.total_parts_imported / totalParts) * 95))
+          : 50;
+        setUploadProgress(pct);
+        setUploadStatus(`Importing... ${data.total_parts_imported.toLocaleString()} of ${totalParts.toLocaleString()} parts`);
+        if (attempts < maxAttempts) setTimeout(poll, 3000);
+        return;
+      }
+
+      setPollingImportId(null);
+      setUploading(false);
+
+      if (data.status === 'success') {
+        setUploadProgress(100);
+        setUploadStatus('');
+        alert(`Successfully imported ${data.total_parts_imported.toLocaleString()} Mercury Marine parts!\n\nAll previous parts have been replaced with the new data.`);
+        setSelectedFile(null);
+        setParseResult(null);
+        setShowPreview(false);
+        setUploadProgress(0);
+        fetchImportHistory();
+      } else {
+        setUploadProgress(0);
+        setUploadStatus('');
+        alert(`Import failed: ${data.error_message || 'Unknown error'}. Please try again.`);
+        fetchImportHistory();
+      }
+    };
+
+    setTimeout(poll, 3000);
+  }
+
   async function handleConfirmImport() {
     if (!parseResult || !selectedFile) return;
 
     setUploading(true);
-    const startTime = Date.now();
+    setUploadProgress(5);
+    setUploadStatus('Creating import record...');
 
     try {
-      // Create import record
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('company_id')
+        .eq('user_id', session.user.id)
+        .maybeSingle();
+
       const { data: importRecord, error: importError } = await supabase
         .from('mercury_price_list_imports')
         .insert({
@@ -206,77 +268,41 @@ export function MercuryPartsManager({ userId, userRole }: MercuryPartsManagerPro
 
       if (importError) throw importError;
 
-      setUploadProgress(5);
-
-      const { error: deleteError } = await supabase.rpc('truncate_mercury_marine_parts');
-
-      if (deleteError) {
-        console.error('Error clearing old parts:', deleteError);
-        throw new Error('Failed to clear existing parts');
-      }
-
       setUploadProgress(10);
+      setUploadStatus('Sending data to server...');
 
-      // Insert new parts in batches
-      const partsToInsert = parseResult.parts.map(part => ({
-        ...part,
-        import_batch_id: importRecord.id
-      }));
-
-      const batchSize = 100;
-      let imported = 0;
-
-      for (let i = 0; i < partsToInsert.length; i += batchSize) {
-        const batch = partsToInsert.slice(i, i + batchSize);
-        const { error: insertError } = await supabase
-          .from('mercury_marine_parts')
-          .insert(batch);
-
-        if (insertError) {
-          console.error('Error inserting batch:', insertError);
-        } else {
-          imported += batch.length;
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://eqiecntollhgfxmmbize.supabase.co';
+      const response = await fetch(
+        `${supabaseUrl}/functions/v1/process-mercury-import`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            importId: importRecord.id,
+            parts: parseResult.parts,
+            companyId: profile?.company_id ?? null,
+          }),
         }
+      );
 
-        setUploadProgress(10 + Math.round((i / partsToInsert.length) * 85));
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `Server error: ${response.status}`);
       }
 
-      const processingTime = Math.round((Date.now() - startTime) / 1000);
+      setUploadProgress(15);
+      setUploadStatus(`Processing ${parseResult.parts.length.toLocaleString()} parts on server...`);
+      pollImportStatus(importRecord.id, parseResult.parts.length);
 
-      setUploadProgress(95);
-
-      await supabase
-        .from('mercury_price_list_imports')
-        .update({
-          status: 'success',
-          total_parts_imported: imported,
-          processing_time_seconds: processingTime
-        })
-        .eq('id', importRecord.id);
-
-      setUploadProgress(100);
-
-      alert(`Successfully imported ${imported} Mercury Marine parts!\n\nAll previous parts have been replaced with the new data.`);
-      setSelectedFile(null);
-      setParseResult(null);
-      setShowPreview(false);
-      setUploadProgress(0);
-      fetchImportHistory();
     } catch (error) {
-      console.error('Error importing parts:', error);
-      const processingTime = Math.round((Date.now() - startTime) / 1000);
-      await supabase
-        .from('mercury_price_list_imports')
-        .update({
-          status: 'failed',
-          error_message: error instanceof Error ? error.message : 'Unknown error',
-          processing_time_seconds: processingTime
-        })
-        .eq('status', 'processing')
-        .gte('created_at', new Date(startTime - 5000).toISOString());
-      alert('Error importing parts. Please try again.');
-    } finally {
+      console.error('Error starting import:', error);
+      setUploadProgress(0);
+      setUploadStatus('');
       setUploading(false);
+      alert('Error starting import. Please try again.');
     }
   }
 
@@ -425,8 +451,13 @@ export function MercuryPartsManager({ userId, userRole }: MercuryPartsManagerPro
 
           {uploading && (
             <div className="bg-white border border-gray-300 rounded-lg p-6">
-              <div className="mb-2 text-sm font-medium text-gray-700">
-                Processing... {uploadProgress}%
+              <div className="mb-1 text-sm font-medium text-gray-700">
+                {uploadStatus || `Processing... ${uploadProgress}%`}
+              </div>
+              <div className="mb-2 text-xs text-gray-500">
+                {pollingImportId
+                  ? 'Import is running on the server. You can safely navigate away and check back later.'
+                  : `${uploadProgress}%`}
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2.5">
                 <div
