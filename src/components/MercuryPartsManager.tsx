@@ -359,7 +359,7 @@ export function MercuryPartsManager({ userId, userRole }: MercuryPartsManagerPro
               <h4 className="font-medium text-blue-900 text-sm mb-1">Expected format:</h4>
               <ul className="text-sm text-blue-800 space-y-1">
                 <li>• File extension: .lku, .txt, or .ascii</li>
-                <li>• Part numbers like: 8M0173572, 91-8M0083982, 892-47089A06</li>
+                <li>• Part numbers like: 8M0173572, 91-8M0083982, 892-47089A06, or MPNU format (e.g., 2168-9378M)</li>
                 <li>• Full descriptions (30+ characters)</li>
                 <li>• MSRP and dealer pricing included</li>
               </ul>
@@ -434,7 +434,7 @@ export function MercuryPartsManager({ userId, userRole }: MercuryPartsManagerPro
               {parseResult.parts.length > 0 && (() => {
                 const sampleParts = parseResult.parts.slice(0, 20);
                 const hasValidFormat = sampleParts.some(part =>
-                  /^\d+[A-Z]?\d+[A-Z]?/.test(part.part_number) &&
+                  (/^\d+[A-Z]?\d+[A-Z]?/.test(part.part_number) || /^\d{4}-\w+/.test(part.part_number)) &&
                   part.description.length > 20 &&
                   part.msrp > 0
                 );
@@ -454,7 +454,7 @@ export function MercuryPartsManager({ userId, userRole }: MercuryPartsManagerPro
                               The parsed data may not be in the correct format. Mercury Marine part numbers typically:
                             </p>
                             <ul className="text-sm text-yellow-800 list-disc list-inside space-y-1">
-                              <li>Start with numbers (e.g., 8M0173572, 91-8M0083982)</li>
+                              <li>Start with numbers (e.g., 8M0173572, 91-8M0083982) or item class prefix (e.g., 2168-9378M)</li>
                               <li>Have descriptions longer than 20 characters (avg: {Math.round(avgDescLength)} chars detected)</li>
                               <li>Include pricing information ({Math.round((sampleParts.filter(p => p.msrp > 0).length / sampleParts.length) * 100)}% have prices)</li>
                             </ul>

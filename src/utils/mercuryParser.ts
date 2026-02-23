@@ -46,31 +46,45 @@ function parseInt(value: string, defaultValue: number = 0): number {
 }
 
 export function parseFixedWidthLine(line: string): MercuryPart | null {
-  if (!line || line.length < 114) {
+  if (!line) return null;
+
+  const isMpnuFormat = line.startsWith('MPNU');
+  const offset = isMpnuFormat ? 4 : 0;
+
+  if (line.length < 114 + offset) {
     return null;
   }
 
   try {
+    let rawPartNumber = cleanFixedWidthField(line.substring(offset, offset + 9));
+
+    if (isMpnuFormat && rawPartNumber) {
+      const itemClass = cleanFixedWidthField(line.substring(offset + 9, offset + 13));
+      if (itemClass) {
+        rawPartNumber = `${itemClass}-${rawPartNumber}`;
+      }
+    }
+
     const part: MercuryPart = {
-      part_number: cleanFixedWidthField(line.substring(0, 9)),
-      item_class: cleanFixedWidthField(line.substring(9, 13)),
-      description: cleanFixedWidthField(line.substring(13, 30)),
-      superseded_part_number: cleanFixedWidthField(line.substring(30, 44)),
-      msrp: parseDecimal(line.substring(44, 52)),
-      dealer_price: parseDecimal(line.substring(52, 60)),
-      item_status: cleanFixedWidthField(line.substring(60, 63)),
-      pack_quantity: parseInt(line.substring(63, 66), 1),
-      weight_lbs: parseDecimal(line.substring(66, 71)),
-      weight_oz: parseDecimal(line.substring(71, 75)),
-      discount_percentage: parseDecimal(line.substring(75, 77)),
-      upc_code: cleanFixedWidthField(line.substring(77, 97)),
-      core_charge: parseDecimal(line.substring(97, 105)),
-      container_charge: parseDecimal(line.substring(105, 113)),
-      hazardous_code: cleanFixedWidthField(line.substring(113, 114)),
-      unit_length: line.length >= 122 ? parseDecimal(line.substring(114, 122)) : 0,
-      unit_width: line.length >= 130 ? parseDecimal(line.substring(122, 130)) : 0,
-      unit_height: line.length >= 138 ? parseDecimal(line.substring(130, 138)) : 0,
-      ca_proposition_65: line.length > 138 ? cleanFixedWidthField(line.substring(138)) : ''
+      part_number: rawPartNumber,
+      item_class: cleanFixedWidthField(line.substring(offset + 9, offset + 13)),
+      description: cleanFixedWidthField(line.substring(offset + 13, offset + 30)),
+      superseded_part_number: cleanFixedWidthField(line.substring(offset + 30, offset + 44)),
+      msrp: parseDecimal(line.substring(offset + 44, offset + 52)),
+      dealer_price: parseDecimal(line.substring(offset + 52, offset + 60)),
+      item_status: cleanFixedWidthField(line.substring(offset + 60, offset + 63)),
+      pack_quantity: parseInt(line.substring(offset + 63, offset + 66), 1),
+      weight_lbs: parseDecimal(line.substring(offset + 66, offset + 71)),
+      weight_oz: parseDecimal(line.substring(offset + 71, offset + 75)),
+      discount_percentage: parseDecimal(line.substring(offset + 75, offset + 77)),
+      upc_code: cleanFixedWidthField(line.substring(offset + 77, offset + 97)),
+      core_charge: parseDecimal(line.substring(offset + 97, offset + 105)),
+      container_charge: parseDecimal(line.substring(offset + 105, offset + 113)),
+      hazardous_code: cleanFixedWidthField(line.substring(offset + 113, offset + 114)),
+      unit_length: line.length >= offset + 122 ? parseDecimal(line.substring(offset + 114, offset + 122)) : 0,
+      unit_width: line.length >= offset + 130 ? parseDecimal(line.substring(offset + 122, offset + 130)) : 0,
+      unit_height: line.length >= offset + 138 ? parseDecimal(line.substring(offset + 130, offset + 138)) : 0,
+      ca_proposition_65: line.length > offset + 138 ? cleanFixedWidthField(line.substring(offset + 138)) : ''
     };
 
     if (part.ca_proposition_65.endsWith('X')) {
