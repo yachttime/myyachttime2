@@ -636,11 +636,17 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
       )}
 
       {activeTab === 'parts' && showForm && (
-        <div className="mb-6 bg-white border border-gray-200 rounded-lg p-6">
-          <h3 className="text-lg font-semibold mb-4">
-            {editingId ? 'Edit Part' : 'New Part'}
-          </h3>
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+          <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-gray-900">
+              {editingId ? 'Edit Part' : 'New Part'}
+            </h3>
+            <button type="button" onClick={resetForm} className="text-gray-400 hover:text-gray-600">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <form onSubmit={handleSubmit} className="space-y-4 p-6">
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Part Number *</label>
@@ -854,6 +860,7 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
               </button>
             </div>
           </form>
+          </div>
         </div>
       )}
 
@@ -884,10 +891,18 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
       )}
 
       {activeTab === 'parts' && showAdjustment && selectedPart && (
-        <div className="mb-6 bg-white border border-gray-200 rounded-lg p-6">
-          <h3 className="text-lg font-semibold mb-4">
-            Adjust Inventory: {selectedPart.part_number} - {selectedPart.name}
-          </h3>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Adjust Inventory</h3>
+              <p className="text-sm text-gray-500">{selectedPart.part_number} - {selectedPart.name}</p>
+            </div>
+            <button type="button" onClick={resetAdjustmentForm} className="text-gray-400 hover:text-gray-600">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="p-6">
           <p className="text-sm text-gray-600 mb-4">
             Current Quantity: <span className="font-semibold">{selectedPart.quantity_on_hand}</span>
           </p>
@@ -945,6 +960,8 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
               </button>
             </div>
           </form>
+          </div>
+          </div>
         </div>
       )}
 
