@@ -264,6 +264,16 @@ export function MercuryPartsManager({ userId, userRole }: MercuryPartsManagerPro
       fetchImportHistory();
     } catch (error) {
       console.error('Error importing parts:', error);
+      const processingTime = Math.round((Date.now() - startTime) / 1000);
+      await supabase
+        .from('mercury_price_list_imports')
+        .update({
+          status: 'failed',
+          error_message: error instanceof Error ? error.message : 'Unknown error',
+          processing_time_seconds: processingTime
+        })
+        .eq('status', 'processing')
+        .gte('created_at', new Date(startTime - 5000).toISOString());
       alert('Error importing parts. Please try again.');
     } finally {
       setUploading(false);
