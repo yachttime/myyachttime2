@@ -173,50 +173,55 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
       return;
     }
     setCrossSearchLoading(true);
+    const results: {source: string; part_number: string; description: string; price: string}[] = [];
     try {
-      const [inventoryRes, mercuryRes, wholesaleRes] = await Promise.all([
-        supabase
-          .from('parts_inventory')
-          .select('part_number, name, description, alternative_part_numbers, unit_price')
-          .eq('is_active', true)
-          .or(`part_number.ilike.%${term}%,alternative_part_numbers.ilike.%${term}%,name.ilike.%${term}%`)
-          .limit(10)
-          .order('part_number'),
-        supabase
-          .from('mercury_marine_parts')
-          .select('part_number, description, msrp, dealer_price')
-          .eq('is_active', true)
-          .or(`part_number.ilike.%${term}%,description.ilike.%${term}%`)
-          .limit(10)
-          .order('part_number'),
-        supabase
-          .from('marine_wholesale_parts')
-          .select('sku, mfg_part_number, description, list_price')
-          .eq('is_active', true)
-          .or(`sku.ilike.%${term}%,mfg_part_number.ilike.%${term}%,description.ilike.%${term}%`)
-          .limit(10)
-          .order('sku'),
-      ]);
-      const results: {source: string; part_number: string; description: string; price: string}[] = [];
+      const inventoryRes = await supabase
+        .from('parts_inventory')
+        .select('part_number, name, description, alternative_part_numbers, unit_price')
+        .eq('is_active', true)
+        .or(`part_number.ilike.%${term}%,alternative_part_numbers.ilike.%${term}%,name.ilike.%${term}%`)
+        .limit(10)
+        .order('part_number');
       for (const p of (inventoryRes.data || [])) {
         results.push({ source: 'Shop', part_number: p.part_number, description: p.name || p.description || '', price: `$${Number(p.unit_price).toFixed(2)}` });
         if (p.alternative_part_numbers) {
           results.push({ source: 'Shop (Alt)', part_number: p.alternative_part_numbers, description: p.name || p.description || '', price: `$${Number(p.unit_price).toFixed(2)}` });
         }
       }
+    } catch (err) {
+      console.error('Shop inventory search error:', err);
+    }
+    try {
+      const mercuryRes = await supabase
+        .from('mercury_marine_parts')
+        .select('part_number, description, msrp, dealer_price')
+        .eq('is_active', true)
+        .or(`part_number.ilike.%${term}%,description.ilike.%${term}%`)
+        .limit(10)
+        .order('part_number');
       for (const p of (mercuryRes.data || [])) {
         results.push({ source: 'Mercury', part_number: p.part_number, description: p.description || '', price: p.msrp ? `$${Number(p.msrp).toFixed(2)}` : p.dealer_price ? `$${Number(p.dealer_price).toFixed(2)}` : '-' });
       }
+    } catch (err) {
+      console.error('Mercury parts search error:', err);
+    }
+    try {
+      const wholesaleRes = await supabase
+        .from('marine_wholesale_parts')
+        .select('sku, mfg_part_number, description, list_price')
+        .eq('is_active', true)
+        .or(`sku.ilike.%${term}%,mfg_part_number.ilike.%${term}%,description.ilike.%${term}%`)
+        .limit(10)
+        .order('sku');
       for (const p of (wholesaleRes.data || [])) {
         results.push({ source: 'Wholesale', part_number: p.sku, description: p.description || '', price: p.list_price ? `$${Number(p.list_price).toFixed(2)}` : '-' });
       }
-      setCrossSearchResults(results);
-      setShowCrossSearch(results.length > 0);
     } catch (err) {
-      console.error('Cross search error:', err);
-    } finally {
-      setCrossSearchLoading(false);
+      console.error('Marine wholesale search error:', err);
     }
+    setCrossSearchResults(results);
+    setShowCrossSearch(results.length > 0);
+    setCrossSearchLoading(false);
   }, []);
 
   useEffect(() => {
