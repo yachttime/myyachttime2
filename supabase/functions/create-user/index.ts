@@ -31,6 +31,7 @@ interface CreateUserRequest {
   sms_consent_method?: string;
   sms_consent_date?: string;
   sms_consent_ip_address?: string;
+  company_id?: string;
 }
 
 Deno.serve(async (req: Request) => {
@@ -87,24 +88,29 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Get the creating user's company_id
-    const { data: creatingProfile, error: profileFetchError } = await supabaseAdmin
-      .from('user_profiles')
-      .select('company_id')
-      .eq('user_id', creatingUser.id)
-      .single();
+    // Use the explicitly provided company_id if given, otherwise fall back to the creating user's company
+    let companyId = requestData.company_id || null;
 
-    if (profileFetchError || !creatingProfile?.company_id) {
-      return new Response(
-        JSON.stringify({ error: 'Could not determine company for new user' }),
-        {
-          status: 400,
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
+    if (!companyId) {
+      const { data: creatingProfile, error: profileFetchError } = await supabaseAdmin
+        .from('user_profiles')
+        .select('company_id')
+        .eq('user_id', creatingUser.id)
+        .single();
+
+      if (profileFetchError || !creatingProfile?.company_id) {
+        return new Response(
+          JSON.stringify({ error: 'Could not determine company for new user' }),
+          {
+            status: 400,
+            headers: {
+              ...corsHeaders,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+      }
+      companyId = creatingProfile.company_id;
     }
 
     // Create user using admin API - this does NOT sign in the user
@@ -181,7 +187,7 @@ Deno.serve(async (req: Request) => {
         sms_consent_date: requestData.sms_consent_date || null,
         sms_consent_ip_address: requestData.sms_consent_ip_address || null,
         must_change_password: true,
-        company_id: creatingProfile.company_id
+        company_id: companyId
       });
 
     if (profileError) {

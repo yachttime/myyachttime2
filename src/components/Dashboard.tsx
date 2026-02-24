@@ -1545,7 +1545,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               sms_consent_given: userEditForm.sms_consent_given || false,
               sms_consent_method: userEditForm.sms_consent_method || 'web_form',
               sms_consent_date: userEditForm.sms_consent_given ? new Date().toISOString() : null,
-              sms_consent_ip_address: null
+              sms_consent_ip_address: null,
+              company_id: selectedCompany?.id || null
             })
           });
 
