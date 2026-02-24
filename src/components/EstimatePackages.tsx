@@ -150,17 +150,22 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
       if (partSource === 'inventory') {
         const { data } = await supabase
           .from('parts_inventory')
-          .select('id, part_number, alternative_part_numbers, description, unit_price')
-          .or(`part_number.ilike.%${term}%,alternative_part_numbers.ilike.%${term}%,description.ilike.%${term}%`)
+          .select('id, part_number, alternative_part_numbers, name, description, unit_price')
+          .or(`part_number.ilike.%${term}%,alternative_part_numbers.ilike.%${term}%,name.ilike.%${term}%,description.ilike.%${term}%`)
+          .eq('is_active', true)
           .limit(30)
           .order('part_number');
         const results: PartSearchResult[] = [];
+        const seen = new Set<string>();
         for (const p of (data || [])) {
+          if (seen.has(p.id)) continue;
+          seen.add(p.id);
+          const displayDesc = p.name || p.description || '';
           results.push({
             id: p.id,
             part_number: p.part_number,
             alternative_part_numbers: p.alternative_part_numbers || '',
-            description: p.description,
+            description: displayDesc,
             unit_price: p.unit_price ?? 0,
             source: 'inventory' as PartSource,
             source_label: 'Shop',
@@ -171,7 +176,7 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
               id: p.id + '_alt',
               part_number: p.alternative_part_numbers,
               alternative_part_numbers: p.part_number,
-              description: p.description,
+              description: displayDesc,
               unit_price: p.unit_price ?? 0,
               source: 'inventory' as PartSource,
               source_label: 'Shop',
