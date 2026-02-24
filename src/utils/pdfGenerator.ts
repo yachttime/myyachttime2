@@ -1074,8 +1074,9 @@ export async function generateEstimatePDF(
     if (task.lineItems && task.lineItems.length > 0) {
       const lineItemHeaders = [['Description', 'Qty', 'Unit Price', 'Total']];
       const lineItemData = task.lineItems.map((item: any) => {
-        if (item.package_header) {
-          return [{ content: item.package_header, colSpan: 4, styles: { fillColor: [220, 252, 231], textColor: [22, 101, 52], fontStyle: 'bold', fontSize: 8 } }, '', '', ''];
+        const isPackageHeader = item.package_header || (item.line_type === 'labor' && item.description === '' && item.quantity === 0 && item.unit_price === 0);
+        if (isPackageHeader) {
+          return [{ content: item.package_header || 'Package', colSpan: 4, styles: { fillColor: [220, 252, 231], textColor: [22, 101, 52], fontStyle: 'bold', fontSize: 8 } }, '', '', ''];
         }
         let description = (item.description || '').replace(/^[A-Za-z0-9][-A-Za-z0-9]*\s+-\s+/, '');
         if (item.work_details) {
@@ -1628,8 +1629,9 @@ export async function generateWorkOrderPDF(
     if (task.lineItems && task.lineItems.length > 0) {
       const lineItemHeaders = [['Description', 'Qty', 'Unit Price', 'Total']];
       const lineItemData = task.lineItems.map((item: any) => {
-        if (item.package_header) {
-          return [{ content: item.package_header, colSpan: 4, styles: { fillColor: [220, 252, 231], textColor: [22, 101, 52], fontStyle: 'bold', fontSize: 8 } }, '', '', ''];
+        const isPackageHeader = item.package_header || (item.line_type === 'labor' && item.description === '' && item.quantity === 0 && item.unit_price === 0);
+        if (isPackageHeader) {
+          return [{ content: item.package_header || 'Package', colSpan: 4, styles: { fillColor: [220, 252, 231], textColor: [22, 101, 52], fontStyle: 'bold', fontSize: 8 } }, '', '', ''];
         }
         let description = (item.description || '').replace(/^[A-Za-z0-9][-A-Za-z0-9]*\s+-\s+/, '');
         if (item.work_details) {

@@ -2437,12 +2437,12 @@ export function Estimates({ userId }: EstimatesProps) {
                                   </thead>
                                   <tbody>
                                     {task.lineItems.map((item, lineIndex) => (
-                                      item.package_header ? (
+                                      (item.package_header || (item.line_type === 'labor' && item.description === '' && item.quantity === 0 && item.unit_price === 0)) ? (
                                         <tr key={lineIndex} className="border-t bg-green-50">
                                           <td colSpan={4} className="px-3 py-2">
                                             <div className="flex items-center gap-2">
                                               <Package className="w-3.5 h-3.5 text-green-600" />
-                                              <span className="text-xs font-semibold text-green-700 uppercase tracking-wide">{item.package_header}</span>
+                                              <span className="text-xs font-semibold text-green-700 uppercase tracking-wide">{item.package_header || 'Package'}</span>
                                             </div>
                                           </td>
                                           <td className="px-3 py-2 text-right align-top">
