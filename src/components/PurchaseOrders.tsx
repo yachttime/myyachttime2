@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { ShoppingCart, ChevronDown, ChevronUp, CheckCircle, Clock, XCircle, Send, RotateCcw, Archive, Package, Building2, Phone, Mail, MapPin, FileText, Printer } from 'lucide-react';
+import { ShoppingCart, ChevronDown, ChevronUp, CheckCircle, Clock, XCircle, Send, RotateCcw, Package, Building2, Phone, Mail, MapPin, FileText, Printer, AlertCircle } from 'lucide-react';
 import { useNotification } from '../contexts/NotificationContext';
 import { useConfirm } from '../hooks/useConfirm';
 
@@ -48,15 +48,20 @@ interface PurchaseOrdersProps {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
-  draft: {
-    label: 'Draft',
-    color: 'bg-gray-100 text-gray-700',
+  pending: {
+    label: 'Pending',
+    color: 'bg-yellow-100 text-yellow-700',
     icon: <Clock className="w-3.5 h-3.5" />,
   },
-  sent: {
-    label: 'Sent',
+  ordered: {
+    label: 'Ordered',
     color: 'bg-blue-100 text-blue-700',
     icon: <Send className="w-3.5 h-3.5" />,
+  },
+  partially_received: {
+    label: 'Partially Received',
+    color: 'bg-orange-100 text-orange-700',
+    icon: <AlertCircle className="w-3.5 h-3.5" />,
   },
   received: {
     label: 'Received',
@@ -336,8 +341,9 @@ export function PurchaseOrders({ userId }: PurchaseOrdersProps) {
           className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="all">All Statuses</option>
-          <option value="draft">Draft</option>
-          <option value="sent">Sent</option>
+          <option value="pending">Pending</option>
+          <option value="ordered">Ordered</option>
+          <option value="partially_received">Partially Received</option>
           <option value="received">Received</option>
           <option value="cancelled">Cancelled</option>
         </select>
@@ -388,7 +394,7 @@ export function PurchaseOrders({ userId }: PurchaseOrdersProps) {
                         {statusCfg.icon}
                         {statusCfg.label}
                       </span>
-                      {allReceived && po.status !== 'received' && (
+                      {allReceived && !['received', 'cancelled'].includes(po.status) && (
                         <span className="text-xs text-green-600 font-medium">All items received</span>
                       )}
                     </div>
@@ -592,17 +598,27 @@ export function PurchaseOrders({ userId }: PurchaseOrdersProps) {
                     {/* Actions */}
                     <div className="p-4 border-t border-gray-100 bg-gray-50 flex items-center justify-between gap-3 flex-wrap">
                       <div className="flex items-center gap-2 flex-wrap">
-                        {po.status === 'draft' && (
+                        {po.status === 'pending' && (
                           <button
-                            onClick={() => updateStatus(po.id, 'sent')}
+                            onClick={() => updateStatus(po.id, 'ordered')}
                             disabled={updatingStatus === po.id}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
                           >
                             <Send className="w-3.5 h-3.5" />
-                            Mark as Sent
+                            Mark as Ordered
                           </button>
                         )}
-                        {(po.status === 'draft' || po.status === 'sent') && (
+                        {(po.status === 'ordered') && (
+                          <button
+                            onClick={() => updateStatus(po.id, 'partially_received')}
+                            disabled={updatingStatus === po.id}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 disabled:opacity-50"
+                          >
+                            <AlertCircle className="w-3.5 h-3.5" />
+                            Partially Received
+                          </button>
+                        )}
+                        {(po.status === 'pending' || po.status === 'ordered' || po.status === 'partially_received') && (
                           <button
                             onClick={() => updateStatus(po.id, 'received')}
                             disabled={updatingStatus === po.id}
@@ -614,7 +630,7 @@ export function PurchaseOrders({ userId }: PurchaseOrdersProps) {
                         )}
                         {po.status === 'received' && (
                           <button
-                            onClick={() => updateStatus(po.id, 'sent')}
+                            onClick={() => updateStatus(po.id, 'ordered')}
                             disabled={updatingStatus === po.id}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-100 disabled:opacity-50"
                           >
@@ -642,12 +658,12 @@ export function PurchaseOrders({ userId }: PurchaseOrdersProps) {
                         )}
                         {po.status === 'cancelled' && (
                           <button
-                            onClick={() => updateStatus(po.id, 'draft')}
+                            onClick={() => updateStatus(po.id, 'pending')}
                             disabled={updatingStatus === po.id}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-100 disabled:opacity-50"
                           >
                             <RotateCcw className="w-3.5 h-3.5" />
-                            Restore to Draft
+                            Restore to Pending
                           </button>
                         )}
                       </div>
