@@ -697,76 +697,78 @@ export function PurchaseOrders({ userId }: PurchaseOrdersProps) {
 
                               {/* Actions */}
                               <div className="p-4 border-t border-gray-100 bg-gray-50 flex items-center justify-between gap-3 flex-wrap">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  {po.status === 'pending' && (
-                                    <button
-                                      onClick={() => updateStatus(po.id, 'ordered')}
-                                      disabled={updatingStatus === po.id}
-                                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-                                    >
-                                      <Send className="w-3.5 h-3.5" />
-                                      Mark as Ordered
-                                    </button>
-                                  )}
-                                  {po.status === 'ordered' && (
-                                    <button
-                                      onClick={() => updateStatus(po.id, 'partially_received')}
-                                      disabled={updatingStatus === po.id}
-                                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 disabled:opacity-50"
-                                    >
-                                      <AlertCircle className="w-3.5 h-3.5" />
-                                      Partially Received
-                                    </button>
-                                  )}
-                                  {(po.status === 'pending' || po.status === 'ordered' || po.status === 'partially_received') && (
-                                    <button
-                                      onClick={() => updateStatus(po.id, 'received')}
-                                      disabled={updatingStatus === po.id}
-                                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50"
-                                    >
-                                      <CheckCircle className="w-3.5 h-3.5" />
-                                      Mark as Received
-                                    </button>
-                                  )}
-                                  {po.status === 'received' && (
-                                    <button
-                                      onClick={() => updateStatus(po.id, 'ordered')}
-                                      disabled={updatingStatus === po.id}
-                                      className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-100 disabled:opacity-50"
-                                    >
-                                      <RotateCcw className="w-3.5 h-3.5" />
-                                      Reopen
-                                    </button>
-                                  )}
-                                  {po.status !== 'cancelled' && (
-                                    <button
-                                      onClick={async () => {
-                                        const ok = await confirm({
-                                          title: 'Cancel Purchase Order',
-                                          message: `Are you sure you want to cancel ${po.po_number}?`,
-                                          confirmText: 'Cancel PO',
-                                          confirmVariant: 'danger',
-                                        });
-                                        if (ok) updateStatus(po.id, 'cancelled');
-                                      }}
-                                      disabled={updatingStatus === po.id}
-                                      className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 disabled:opacity-50"
-                                    >
-                                      <XCircle className="w-3.5 h-3.5" />
-                                      Cancel
-                                    </button>
-                                  )}
-                                  {po.status === 'cancelled' && (
-                                    <button
-                                      onClick={() => updateStatus(po.id, 'pending')}
-                                      disabled={updatingStatus === po.id}
-                                      className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-100 disabled:opacity-50"
-                                    >
-                                      <RotateCcw className="w-3.5 h-3.5" />
-                                      Restore to Pending
-                                    </button>
-                                  )}
-                                </div>
+                                {!viewOnly && (
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    {po.status === 'pending' && (
+                                      <button
+                                        onClick={() => updateStatus(po.id, 'ordered')}
+                                        disabled={updatingStatus === po.id}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                                      >
+                                        <Send className="w-3.5 h-3.5" />
+                                        Mark as Ordered
+                                      </button>
+                                    )}
+                                    {po.status === 'ordered' && (
+                                      <button
+                                        onClick={() => updateStatus(po.id, 'partially_received')}
+                                        disabled={updatingStatus === po.id}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 disabled:opacity-50"
+                                      >
+                                        <AlertCircle className="w-3.5 h-3.5" />
+                                        Partially Received
+                                      </button>
+                                    )}
+                                    {(po.status === 'pending' || po.status === 'ordered' || po.status === 'partially_received') && (
+                                      <button
+                                        onClick={() => updateStatus(po.id, 'received')}
+                                        disabled={updatingStatus === po.id}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50"
+                                      >
+                                        <CheckCircle className="w-3.5 h-3.5" />
+                                        Mark as Received
+                                      </button>
+                                    )}
+                                    {po.status === 'received' && (
+                                      <button
+                                        onClick={() => updateStatus(po.id, 'ordered')}
+                                        disabled={updatingStatus === po.id}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-100 disabled:opacity-50"
+                                      >
+                                        <RotateCcw className="w-3.5 h-3.5" />
+                                        Reopen
+                                      </button>
+                                    )}
+                                    {po.status !== 'cancelled' && (
+                                      <button
+                                        onClick={async () => {
+                                          const ok = await confirm({
+                                            title: 'Cancel Purchase Order',
+                                            message: `Are you sure you want to cancel ${po.po_number}?`,
+                                            confirmText: 'Cancel PO',
+                                            confirmVariant: 'danger',
+                                          });
+                                          if (ok) updateStatus(po.id, 'cancelled');
+                                        }}
+                                        disabled={updatingStatus === po.id}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 disabled:opacity-50"
+                                      >
+                                        <XCircle className="w-3.5 h-3.5" />
+                                        Cancel
+                                      </button>
+                                    )}
+                                    {po.status === 'cancelled' && (
+                                      <button
+                                        onClick={() => updateStatus(po.id, 'pending')}
+                                        disabled={updatingStatus === po.id}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-100 disabled:opacity-50"
+                                      >
+                                        <RotateCcw className="w-3.5 h-3.5" />
+                                        Restore to Pending
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
                                 <button
                                   onClick={() => handlePrint(po)}
                                   className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-100"
