@@ -304,7 +304,10 @@ export function PurchaseOrders({ userId }: PurchaseOrdersProps) {
     if (w) {
       w.document.write(html);
       w.document.close();
-      w.onload = () => w.print();
+      setTimeout(() => {
+        w.focus();
+        w.print();
+      }, 250);
     }
   }
 
