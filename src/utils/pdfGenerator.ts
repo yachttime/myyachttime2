@@ -1042,9 +1042,7 @@ export async function generateEstimatePDF(
   addSpace(0.15);
 
   tasks.forEach((task, taskIndex) => {
-    // Check if we need a page break before starting a new task
-    // Ensure at least 2 inches of space for task header + some content
-    if (yPos > 8.5) {
+    if (yPos > 9.0) {
       doc.addPage();
       yPos = margin;
     }
@@ -1059,6 +1057,9 @@ export async function generateEstimatePDF(
     if (task.lineItems && task.lineItems.length > 0) {
       const lineItemHeaders = [['Description', 'Qty', 'Unit Price', 'Total']];
       const lineItemData = task.lineItems.map((item: any) => {
+        if (item.package_header) {
+          return [{ content: item.package_header, colSpan: 4, styles: { fillColor: [220, 252, 231], textColor: [22, 101, 52], fontStyle: 'bold', fontSize: 8 } }, '', '', ''];
+        }
         let description = (item.description || '').replace(/^[A-Za-z0-9][-A-Za-z0-9]*\s+-\s+/, '');
         if (item.work_details) {
           description += `\n  ${item.work_details}`;
@@ -1078,6 +1079,7 @@ export async function generateEstimatePDF(
         head: lineItemHeaders,
         body: lineItemData,
         theme: 'grid',
+        rowPageBreak: 'avoid',
         styles: {
           fontSize: 9,
           cellPadding: 0.08,
@@ -1577,7 +1579,7 @@ export async function generateWorkOrderPDF(
   addSpace(0.15);
 
   tasks.forEach((task, taskIndex) => {
-    if (yPos > 8.5) {
+    if (yPos > 9.0) {
       doc.addPage();
       yPos = margin;
     }
@@ -1592,6 +1594,9 @@ export async function generateWorkOrderPDF(
     if (task.lineItems && task.lineItems.length > 0) {
       const lineItemHeaders = [['Description', 'Qty', 'Unit Price', 'Total']];
       const lineItemData = task.lineItems.map((item: any) => {
+        if (item.package_header) {
+          return [{ content: item.package_header, colSpan: 4, styles: { fillColor: [220, 252, 231], textColor: [22, 101, 52], fontStyle: 'bold', fontSize: 8 } }, '', '', ''];
+        }
         let description = (item.description || '').replace(/^[A-Za-z0-9][-A-Za-z0-9]*\s+-\s+/, '');
         if (item.work_details) {
           description += `\n  ${item.work_details}`;
@@ -1609,6 +1614,7 @@ export async function generateWorkOrderPDF(
         head: lineItemHeaders,
         body: lineItemData,
         theme: 'grid',
+        rowPageBreak: 'avoid',
         styles: {
           fontSize: 9,
           cellPadding: 0.08,
