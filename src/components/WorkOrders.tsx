@@ -1830,7 +1830,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
 
                 <div className="grid grid-cols-2 gap-4 bg-blue-50 p-4 rounded-lg border border-blue-200">
                   <div className="col-span-2">
-                    <h4 className="text-sm font-semibold text-blue-900 mb-2">Billing Manager Information</h4>
+                    <h4 className="text-sm font-semibold text-blue-900 mb-2">Repair Approval Manager</h4>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Marina Name</label>

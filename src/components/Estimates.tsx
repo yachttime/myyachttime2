@@ -234,7 +234,8 @@ export function Estimates({ userId }: EstimatesProps) {
           .from('user_profiles')
           .select('id, yacht_id, first_name, last_name, can_approve_repairs, email, phone')
           .eq('role', 'manager')
-          .eq('is_active', true),
+          .eq('is_active', true)
+          .eq('can_approve_repairs', true),
         supabase
           .from('labor_codes')
           .select('id, code, name, hourly_rate, is_taxable')
@@ -2203,7 +2204,7 @@ export function Estimates({ userId }: EstimatesProps) {
 
                 {formData.yacht_id && (
                   <div className="mt-4 bg-blue-50 p-4 rounded-lg border border-blue-200">
-                    <h4 className="text-sm font-semibold text-blue-900 mb-3">Billing Manager Information</h4>
+                    <h4 className="text-sm font-semibold text-blue-900 mb-3">Repair Approval Manager</h4>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Marina Name</label>
