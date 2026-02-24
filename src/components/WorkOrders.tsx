@@ -83,6 +83,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [yachts, setYachts] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
+  const [workOrderEmployees, setWorkOrderEmployees] = useState<Record<string, string[]>>({});
   const [laborCodes, setLaborCodes] = useState<any[]>([]);
   const [parts, setParts] = useState<any[]>([]);
   const [mercuryParts, setMercuryParts] = useState<any[]>([]);
@@ -273,6 +274,38 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
       setWorkOrders(unconvertedWorkOrders);
       setYachts(yachtsResult.data || []);
       setEmployees(employeesResult.data || []);
+
+      if (unconvertedWorkOrders.length > 0) {
+        const workOrderIds = unconvertedWorkOrders.map(wo => wo.id);
+        const { data: tasksForWOs } = await supabase
+          .from('work_order_tasks')
+          .select('id, work_order_id')
+          .in('work_order_id', workOrderIds);
+
+        if (tasksForWOs && tasksForWOs.length > 0) {
+          const taskIds = tasksForWOs.map(t => t.id);
+          const { data: assignmentsData } = await supabase
+            .from('work_order_task_assignments')
+            .select('task_id, employee_id, user_profiles(first_name, last_name)')
+            .in('task_id', taskIds);
+
+          const taskToWO: Record<string, string> = {};
+          tasksForWOs.forEach(t => { taskToWO[t.id] = t.work_order_id; });
+
+          const woEmpMap: Record<string, string[]> = {};
+          (assignmentsData || []).forEach((a: any) => {
+            const woId = taskToWO[a.task_id];
+            if (!woId) return;
+            const name = a.user_profiles
+              ? `${a.user_profiles.first_name} ${a.user_profiles.last_name}`.trim()
+              : '';
+            if (!name) return;
+            if (!woEmpMap[woId]) woEmpMap[woId] = [];
+            if (!woEmpMap[woId].includes(name)) woEmpMap[woId].push(name);
+          });
+          setWorkOrderEmployees(woEmpMap);
+        }
+      }
       setLaborCodes(laborResult.data || []);
       setParts(partsResult.data || []);
       setMercuryParts(mercuryResult.data || []);
@@ -2963,6 +2996,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vessel</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Assigned</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Date</th>
                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
@@ -3028,6 +3062,19 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                     <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(workOrder.status)}`}>
                       {workOrder.status.replace('_', ' ')}
                     </span>
+                  )}
+                </td>
+                <td className="px-6 py-4">
+                  {(workOrderEmployees[workOrder.id] || []).length > 0 ? (
+                    <div className="flex flex-wrap gap-1">
+                      {workOrderEmployees[workOrder.id].map((name, i) => (
+                        <span key={i} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
+                          {name}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-xs text-gray-400">—</span>
                   )}
                 </td>
                 <td className="px-6 py-4 text-right text-sm font-medium text-gray-900">
