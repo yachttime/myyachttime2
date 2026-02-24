@@ -1122,12 +1122,44 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {filteredParts.length === 0 ? (
+              {filteredParts.length === 0 && crossSearchResults.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="px-6 py-8 text-center text-gray-500">
                     No parts found. {searchTerm ? 'Try a different search.' : 'Add parts to get started.'}
                   </td>
                 </tr>
+              ) : filteredParts.length === 0 && crossSearchResults.length > 0 ? (
+                <>
+                  <tr>
+                    <td colSpan={10} className="px-4 py-2 bg-gray-50 border-b border-gray-200">
+                      <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">No shop inventory match — results from other sources</span>
+                    </td>
+                  </tr>
+                  {crossSearchResults.map((r, i) => {
+                    const badgeColor =
+                      r.source === 'Shop' ? 'bg-gray-100 text-gray-600' :
+                      r.source === 'Shop (Alt)' ? 'bg-amber-100 text-amber-700' :
+                      r.source === 'Mercury' ? 'bg-blue-100 text-blue-700' :
+                      'bg-teal-100 text-teal-700';
+                    return (
+                      <tr key={i} className="hover:bg-gray-50">
+                        <td className="px-6 py-3 text-sm font-medium text-gray-900">
+                          <div className="flex items-center gap-2">
+                            {r.part_number}
+                            <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${badgeColor}`}>{r.source}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-3 text-sm text-gray-700" colSpan={3}>{r.description}</td>
+                        <td className="px-6 py-3 text-sm text-gray-400">—</td>
+                        <td className="px-6 py-3 text-sm text-gray-400">—</td>
+                        <td className="px-6 py-3 text-sm font-semibold text-gray-800">{r.price}</td>
+                        <td className="px-6 py-3 text-sm text-gray-400">—</td>
+                        <td className="px-6 py-3 text-sm text-gray-400">—</td>
+                        <td className="px-6 py-3 text-sm text-right text-gray-400">—</td>
+                      </tr>
+                    );
+                  })}
+                </>
               ) : (
                 filteredParts.map((part) => {
                   const isNegative = part.quantity_on_hand < 0;
