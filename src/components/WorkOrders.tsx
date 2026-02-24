@@ -1206,7 +1206,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
           payment_type: 'deposit',
           work_order_id: workOrderId,
           yacht_id: workOrder.yacht_id,
-          customer_name: workOrder.customer_name || workOrder.yachts?.name || 'N/A',
+          customer_name: workOrder.customer_name || workOrder.yachts?.name || null,
           customer_email: workOrder.customer_email,
           is_retail_customer: workOrder.is_retail_customer,
           amount,
