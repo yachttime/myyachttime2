@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { ShoppingCart, ChevronDown, ChevronUp, CheckCircle, Clock, XCircle, Send, RotateCcw, Package, Building2, Phone, Mail, MapPin, FileText, Printer, AlertCircle } from 'lucide-react';
+import {
+  ShoppingCart, ChevronDown, ChevronUp, CheckCircle, Clock, XCircle,
+  Send, RotateCcw, Package, Building2, Phone, Mail, MapPin, FileText,
+  Printer, AlertCircle, Layers,
+} from 'lucide-react';
 import { useNotification } from '../contexts/NotificationContext';
 import { useConfirm } from '../hooks/useConfirm';
 
@@ -43,6 +47,18 @@ interface PurchaseOrderLineItem {
   line_order: number;
 }
 
+interface WorkOrderGroup {
+  work_order_id: string;
+  work_order_number: string;
+  customer_name: string | null;
+  yacht_name: string | null;
+  orders: PurchaseOrder[];
+  total: number;
+  pendingCount: number;
+  orderedCount: number;
+  receivedCount: number;
+}
+
 interface PurchaseOrdersProps {
   userId: string;
 }
@@ -59,7 +75,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.
     icon: <Send className="w-3.5 h-3.5" />,
   },
   partially_received: {
-    label: 'Partially Received',
+    label: 'Partial',
     color: 'bg-orange-100 text-orange-700',
     icon: <AlertCircle className="w-3.5 h-3.5" />,
   },
@@ -81,9 +97,9 @@ export function PurchaseOrders({ userId }: PurchaseOrdersProps) {
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [expandedWO, setExpandedWO] = useState<string | null>(null);
   const [expandedPO, setExpandedPO] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [filterVendor, setFilterVendor] = useState<string>('');
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const [editingNotes, setEditingNotes] = useState<string | null>(null);
   const [notesValue, setNotesValue] = useState('');
@@ -245,7 +261,6 @@ export function PurchaseOrders({ userId }: PurchaseOrdersProps) {
       <div style="text-transform:capitalize;">${po.status}</div>
     </div>
   </div>
-
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:32px;margin-bottom:32px;">
     <div class="section">
       <div class="label">Vendor</div>
@@ -263,7 +278,6 @@ export function PurchaseOrders({ userId }: PurchaseOrdersProps) {
       ${po.customer_phone ? `<div>${po.customer_phone}</div>` : ''}
     </div>
   </div>
-
   <table>
     <thead>
       <tr>
@@ -282,7 +296,6 @@ export function PurchaseOrders({ userId }: PurchaseOrdersProps) {
       </tr>
     </tbody>
   </table>
-
   ${po.notes ? `<div style="margin-top:24px;"><div class="label">Notes</div><div style="margin-top:4px;">${po.notes}</div></div>` : ''}
 </body>
 </html>`;
@@ -295,13 +308,38 @@ export function PurchaseOrders({ userId }: PurchaseOrdersProps) {
     }
   }
 
-  const filteredPOs = purchaseOrders.filter(po => {
+  const filteredOrders = purchaseOrders.filter(po => {
     if (filterStatus !== 'all' && po.status !== filterStatus) return false;
-    if (filterVendor && !po.vendor_name.toLowerCase().includes(filterVendor.toLowerCase())) return false;
     return true;
   });
 
-  const vendorNames = [...new Set(purchaseOrders.map(po => po.vendor_name))].sort();
+  const workOrderGroups: WorkOrderGroup[] = [];
+  const seen = new Map<string, WorkOrderGroup>();
+
+  for (const po of filteredOrders) {
+    const key = po.work_order_id;
+    if (!seen.has(key)) {
+      const group: WorkOrderGroup = {
+        work_order_id: po.work_order_id,
+        work_order_number: po.work_order_number,
+        customer_name: po.customer_name,
+        yacht_name: po.yacht_name,
+        orders: [],
+        total: 0,
+        pendingCount: 0,
+        orderedCount: 0,
+        receivedCount: 0,
+      };
+      seen.set(key, group);
+      workOrderGroups.push(group);
+    }
+    const group = seen.get(key)!;
+    group.orders.push(po);
+    group.total += Number(po.total_cost) || 0;
+    if (po.status === 'pending') group.pendingCount++;
+    else if (po.status === 'ordered') group.orderedCount++;
+    else if (po.status === 'received') group.receivedCount++;
+  }
 
   if (loading) {
     return (
@@ -319,11 +357,11 @@ export function PurchaseOrders({ userId }: PurchaseOrdersProps) {
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Purchase Orders</h2>
           <p className="text-sm text-gray-500 mt-1">
-            Auto-generated when estimates are converted to work orders
+            Grouped by work order — auto-generated when estimates are converted
           </p>
         </div>
         <div className="text-sm text-gray-500">
-          {filteredPOs.length} of {purchaseOrders.length} orders
+          {workOrderGroups.length} work order{workOrderGroups.length !== 1 ? 's' : ''} &middot; {filteredOrders.length} POs
         </div>
       </div>
 
@@ -333,7 +371,7 @@ export function PurchaseOrders({ userId }: PurchaseOrdersProps) {
         </div>
       )}
 
-      {/* Filters */}
+      {/* Filter */}
       <div className="flex gap-3 mb-6">
         <select
           value={filterStatus}
@@ -347,19 +385,9 @@ export function PurchaseOrders({ userId }: PurchaseOrdersProps) {
           <option value="received">Received</option>
           <option value="cancelled">Cancelled</option>
         </select>
-        <select
-          value={filterVendor}
-          onChange={e => setFilterVendor(e.target.value)}
-          className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="">All Vendors</option>
-          {vendorNames.map(v => (
-            <option key={v} value={v}>{v}</option>
-          ))}
-        </select>
       </div>
 
-      {filteredPOs.length === 0 ? (
+      {workOrderGroups.length === 0 ? (
         <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
           <ShoppingCart className="w-12 h-12 text-gray-300 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-1">No Purchase Orders</h3>
@@ -369,59 +397,66 @@ export function PurchaseOrders({ userId }: PurchaseOrdersProps) {
         </div>
       ) : (
         <div className="space-y-4">
-          {filteredPOs.map(po => {
-            const isExpanded = expandedPO === po.id;
-            const statusCfg = STATUS_CONFIG[po.status] || STATUS_CONFIG.draft;
-            const allReceived = (po.line_items || []).length > 0 && (po.line_items || []).every(i => i.received);
+          {workOrderGroups.map(group => {
+            const isWOExpanded = expandedWO === group.work_order_id;
+            const allDone = group.orders.every(o => o.status === 'received' || o.status === 'cancelled');
 
             return (
-              <div key={po.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                {/* Header */}
+              <div key={group.work_order_id} className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+                {/* Work Order Header */}
                 <div
                   className="flex items-center gap-4 p-4 cursor-pointer hover:bg-gray-50 transition-colors"
-                  onClick={() => setExpandedPO(isExpanded ? null : po.id)}
+                  onClick={() => setExpandedWO(isWOExpanded ? null : group.work_order_id)}
                 >
                   <div className="flex-shrink-0">
-                    <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
-                      <ShoppingCart className="w-5 h-5 text-blue-600" />
+                    <div className={`w-11 h-11 rounded-lg flex items-center justify-center ${allDone ? 'bg-green-50' : 'bg-blue-50'}`}>
+                      <Layers className={`w-5 h-5 ${allDone ? 'text-green-600' : 'text-blue-600'}`} />
                     </div>
                   </div>
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-bold text-gray-900 text-lg">{po.po_number}</span>
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${statusCfg.color}`}>
-                        {statusCfg.icon}
-                        {statusCfg.label}
-                      </span>
-                      {allReceived && !['received', 'cancelled'].includes(po.status) && (
-                        <span className="text-xs text-green-600 font-medium">All items received</span>
+                      <span className="font-bold text-gray-900 text-lg">{group.work_order_number}</span>
+                      {allDone && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                          <CheckCircle className="w-3.5 h-3.5" />
+                          Complete
+                        </span>
                       )}
                     </div>
                     <div className="flex items-center gap-4 mt-1 text-sm text-gray-500 flex-wrap">
-                      <span className="flex items-center gap-1">
-                        <FileText className="w-3.5 h-3.5" />
-                        WO: {po.work_order_number}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Building2 className="w-3.5 h-3.5" />
-                        {po.vendor_name}
-                      </span>
-                      {po.customer_name && (
-                        <span>{po.customer_name}</span>
+                      {group.customer_name && (
+                        <span>{group.customer_name}</span>
                       )}
-                      {po.yacht_name && (
-                        <span className="text-gray-400">· {po.yacht_name}</span>
+                      {group.yacht_name && (
+                        <span className="text-gray-400">· {group.yacht_name}</span>
+                      )}
+                      <span className="text-gray-400">·</span>
+                      <span>{group.orders.length} purchase order{group.orders.length !== 1 ? 's' : ''}</span>
+                      {group.pendingCount > 0 && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
+                          {group.pendingCount} pending
+                        </span>
+                      )}
+                      {group.orderedCount > 0 && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                          {group.orderedCount} ordered
+                        </span>
+                      )}
+                      {group.receivedCount > 0 && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                          {group.receivedCount} received
+                        </span>
                       )}
                     </div>
                   </div>
 
                   <div className="flex items-center gap-4 flex-shrink-0">
                     <div className="text-right">
-                      <div className="text-lg font-bold text-gray-900">${po.total_cost.toFixed(2)}</div>
-                      <div className="text-xs text-gray-500">{(po.line_items || []).length} items</div>
+                      <div className="text-lg font-bold text-gray-900">${group.total.toFixed(2)}</div>
+                      <div className="text-xs text-gray-500">total</div>
                     </div>
-                    {isExpanded ? (
+                    {isWOExpanded ? (
                       <ChevronUp className="w-5 h-5 text-gray-400" />
                     ) : (
                       <ChevronDown className="w-5 h-5 text-gray-400" />
@@ -429,251 +464,310 @@ export function PurchaseOrders({ userId }: PurchaseOrdersProps) {
                   </div>
                 </div>
 
-                {/* Expanded Details */}
-                {isExpanded && (
-                  <div className="border-t border-gray-100">
-                    {/* Vendor & Customer Info */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-0 divide-y md:divide-y-0 md:divide-x divide-gray-100">
-                      {/* Vendor */}
-                      <div className="p-4">
-                        <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1">
-                          <Building2 className="w-3.5 h-3.5" />
-                          Vendor
-                        </h4>
-                        <div className="space-y-1.5">
-                          <div className="font-semibold text-gray-900">{po.vendor_name}</div>
-                          {po.vendor_contact_name && (
-                            <div className="text-sm text-gray-600">{po.vendor_contact_name}</div>
-                          )}
-                          {po.vendor_email && (
-                            <div className="flex items-center gap-1.5 text-sm text-gray-600">
-                              <Mail className="w-3.5 h-3.5 text-gray-400" />
-                              <a href={`mailto:${po.vendor_email}`} className="hover:text-blue-600">{po.vendor_email}</a>
-                            </div>
-                          )}
-                          {po.vendor_phone && (
-                            <div className="flex items-center gap-1.5 text-sm text-gray-600">
-                              <Phone className="w-3.5 h-3.5 text-gray-400" />
-                              {po.vendor_phone}
-                            </div>
-                          )}
-                          {(po.vendor_address || po.vendor_city) && (
-                            <div className="flex items-center gap-1.5 text-sm text-gray-600">
-                              <MapPin className="w-3.5 h-3.5 text-gray-400" />
-                              {[po.vendor_address, po.vendor_city, po.vendor_state, po.vendor_zip].filter(Boolean).join(', ')}
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                {/* PO List inside Work Order */}
+                {isWOExpanded && (
+                  <div className="border-t border-gray-100 bg-gray-50 divide-y divide-gray-100">
+                    {group.orders.map(po => {
+                      const isPOExpanded = expandedPO === po.id;
+                      const statusCfg = STATUS_CONFIG[po.status] || STATUS_CONFIG.pending;
+                      const allReceived = (po.line_items || []).length > 0 && (po.line_items || []).every(i => i.received);
 
-                      {/* Customer */}
-                      <div className="p-4">
-                        <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-                          Customer / Vessel
-                        </h4>
-                        <div className="space-y-1.5">
-                          {po.customer_name ? (
-                            <div className="font-semibold text-gray-900">{po.customer_name}</div>
-                          ) : (
-                            <div className="text-sm text-gray-400">No customer info</div>
-                          )}
-                          {po.yacht_name && (
-                            <div className="text-sm text-gray-600">Vessel: {po.yacht_name}</div>
-                          )}
-                          {po.customer_email && (
-                            <div className="flex items-center gap-1.5 text-sm text-gray-600">
-                              <Mail className="w-3.5 h-3.5 text-gray-400" />
-                              {po.customer_email}
-                            </div>
-                          )}
-                          {po.customer_phone && (
-                            <div className="flex items-center gap-1.5 text-sm text-gray-600">
-                              <Phone className="w-3.5 h-3.5 text-gray-400" />
-                              {po.customer_phone}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Line Items */}
-                    <div className="p-4 border-t border-gray-100">
-                      <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1">
-                        <Package className="w-3.5 h-3.5" />
-                        Parts to Order
-                      </h4>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="border-b border-gray-200">
-                              <th className="text-left py-2 pr-4 text-xs text-gray-500 font-medium">Part #</th>
-                              <th className="text-left py-2 pr-4 text-xs text-gray-500 font-medium">Description</th>
-                              <th className="text-center py-2 pr-4 text-xs text-gray-500 font-medium">Qty</th>
-                              <th className="text-right py-2 pr-4 text-xs text-gray-500 font-medium">Unit Cost</th>
-                              <th className="text-right py-2 pr-4 text-xs text-gray-500 font-medium">Total</th>
-                              <th className="text-center py-2 text-xs text-gray-500 font-medium">Received</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {(po.line_items || []).map(item => (
-                              <tr key={item.id} className={`border-b border-gray-50 ${item.received ? 'bg-green-50' : ''}`}>
-                                <td className="py-2.5 pr-4 font-mono text-xs text-gray-600">
-                                  {item.part_number || <span className="text-gray-400">-</span>}
-                                </td>
-                                <td className="py-2.5 pr-4 text-gray-900">{item.description}</td>
-                                <td className="py-2.5 pr-4 text-center text-gray-700">{item.quantity}</td>
-                                <td className="py-2.5 pr-4 text-right text-gray-700">${item.unit_cost.toFixed(2)}</td>
-                                <td className="py-2.5 pr-4 text-right font-medium text-gray-900">${item.total_cost.toFixed(2)}</td>
-                                <td className="py-2.5 text-center">
-                                  <button
-                                    onClick={() => toggleLineItemReceived(po.id, item.id, !item.received)}
-                                    className={`w-6 h-6 rounded-full border-2 flex items-center justify-center mx-auto transition-colors ${
-                                      item.received
-                                        ? 'bg-green-500 border-green-500 text-white'
-                                        : 'border-gray-300 hover:border-green-400'
-                                    }`}
-                                    title={item.received ? 'Mark as not received' : 'Mark as received'}
-                                  >
-                                    {item.received && <CheckCircle className="w-4 h-4" />}
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
-                            <tr className="bg-gray-50">
-                              <td colSpan={4} className="py-2.5 pr-4 text-right font-semibold text-gray-900 text-sm">
-                                Total Cost
-                              </td>
-                              <td className="py-2.5 pr-4 text-right font-bold text-gray-900">
-                                ${po.total_cost.toFixed(2)}
-                              </td>
-                              <td />
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-
-                    {/* Notes */}
-                    <div className="p-4 border-t border-gray-100">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Notes</h4>
-                        {editingNotes !== po.id && (
-                          <button
-                            onClick={() => { setEditingNotes(po.id); setNotesValue(po.notes || ''); }}
-                            className="text-xs text-blue-600 hover:text-blue-800"
+                      return (
+                        <div key={po.id} className="bg-white mx-4 my-3 rounded-lg border border-gray-200 overflow-hidden">
+                          {/* PO Row Header */}
+                          <div
+                            className="flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 transition-colors"
+                            onClick={() => setExpandedPO(isPOExpanded ? null : po.id)}
                           >
-                            {po.notes ? 'Edit' : 'Add Notes'}
-                          </button>
-                        )}
-                      </div>
-                      {editingNotes === po.id ? (
-                        <div className="space-y-2">
-                          <textarea
-                            value={notesValue}
-                            onChange={e => setNotesValue(e.target.value)}
-                            rows={3}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                            placeholder="Add notes..."
-                          />
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => saveNotes(po.id)}
-                              className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
-                            >
-                              Save
-                            </button>
-                            <button
-                              onClick={() => setEditingNotes(null)}
-                              className="px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50"
-                            >
-                              Cancel
-                            </button>
+                            <div className="w-8 h-8 bg-blue-50 rounded-md flex items-center justify-center flex-shrink-0">
+                              <ShoppingCart className="w-4 h-4 text-blue-600" />
+                            </div>
+
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-semibold text-gray-900">{po.po_number}</span>
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${statusCfg.color}`}>
+                                  {statusCfg.icon}
+                                  {statusCfg.label}
+                                </span>
+                                {allReceived && !['received', 'cancelled'].includes(po.status) && (
+                                  <span className="text-xs text-green-600 font-medium">All items received</span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-500">
+                                <span className="flex items-center gap-1">
+                                  <Building2 className="w-3 h-3" />
+                                  {po.vendor_name}
+                                </span>
+                                <span>{(po.line_items || []).length} items</span>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-3 flex-shrink-0">
+                              <span className="font-bold text-gray-900">${Number(po.total_cost).toFixed(2)}</span>
+                              {isPOExpanded ? (
+                                <ChevronUp className="w-4 h-4 text-gray-400" />
+                              ) : (
+                                <ChevronDown className="w-4 h-4 text-gray-400" />
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      ) : (
-                        <p className="text-sm text-gray-600">{po.notes || <span className="text-gray-400 italic">No notes</span>}</p>
-                      )}
-                    </div>
 
-                    {/* Actions */}
-                    <div className="p-4 border-t border-gray-100 bg-gray-50 flex items-center justify-between gap-3 flex-wrap">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {po.status === 'pending' && (
-                          <button
-                            onClick={() => updateStatus(po.id, 'ordered')}
-                            disabled={updatingStatus === po.id}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-                          >
-                            <Send className="w-3.5 h-3.5" />
-                            Mark as Ordered
-                          </button>
-                        )}
-                        {(po.status === 'ordered') && (
-                          <button
-                            onClick={() => updateStatus(po.id, 'partially_received')}
-                            disabled={updatingStatus === po.id}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 disabled:opacity-50"
-                          >
-                            <AlertCircle className="w-3.5 h-3.5" />
-                            Partially Received
-                          </button>
-                        )}
-                        {(po.status === 'pending' || po.status === 'ordered' || po.status === 'partially_received') && (
-                          <button
-                            onClick={() => updateStatus(po.id, 'received')}
-                            disabled={updatingStatus === po.id}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50"
-                          >
-                            <CheckCircle className="w-3.5 h-3.5" />
-                            Mark as Received
-                          </button>
-                        )}
-                        {po.status === 'received' && (
-                          <button
-                            onClick={() => updateStatus(po.id, 'ordered')}
-                            disabled={updatingStatus === po.id}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-100 disabled:opacity-50"
-                          >
-                            <RotateCcw className="w-3.5 h-3.5" />
-                            Reopen
-                          </button>
-                        )}
-                        {po.status !== 'cancelled' && (
-                          <button
-                            onClick={async () => {
-                              const ok = await confirm({
-                                title: 'Cancel Purchase Order',
-                                message: `Are you sure you want to cancel ${po.po_number}?`,
-                                confirmText: 'Cancel PO',
-                                confirmVariant: 'danger',
-                              });
-                              if (ok) updateStatus(po.id, 'cancelled');
-                            }}
-                            disabled={updatingStatus === po.id}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 disabled:opacity-50"
-                          >
-                            <XCircle className="w-3.5 h-3.5" />
-                            Cancel
-                          </button>
-                        )}
-                        {po.status === 'cancelled' && (
-                          <button
-                            onClick={() => updateStatus(po.id, 'pending')}
-                            disabled={updatingStatus === po.id}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-100 disabled:opacity-50"
-                          >
-                            <RotateCcw className="w-3.5 h-3.5" />
-                            Restore to Pending
-                          </button>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => handlePrint(po)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-100"
-                      >
-                        <Printer className="w-3.5 h-3.5" />
-                        Print PO
-                      </button>
+                          {/* PO Expanded Details */}
+                          {isPOExpanded && (
+                            <div className="border-t border-gray-100">
+                              {/* Vendor & Customer */}
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-0 divide-y md:divide-y-0 md:divide-x divide-gray-100">
+                                <div className="p-4">
+                                  <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1">
+                                    <Building2 className="w-3.5 h-3.5" />
+                                    Vendor
+                                  </h4>
+                                  <div className="space-y-1.5">
+                                    <div className="font-semibold text-gray-900">{po.vendor_name}</div>
+                                    {po.vendor_contact_name && (
+                                      <div className="text-sm text-gray-600">{po.vendor_contact_name}</div>
+                                    )}
+                                    {po.vendor_email && (
+                                      <div className="flex items-center gap-1.5 text-sm text-gray-600">
+                                        <Mail className="w-3.5 h-3.5 text-gray-400" />
+                                        <a href={`mailto:${po.vendor_email}`} className="hover:text-blue-600">{po.vendor_email}</a>
+                                      </div>
+                                    )}
+                                    {po.vendor_phone && (
+                                      <div className="flex items-center gap-1.5 text-sm text-gray-600">
+                                        <Phone className="w-3.5 h-3.5 text-gray-400" />
+                                        {po.vendor_phone}
+                                      </div>
+                                    )}
+                                    {(po.vendor_address || po.vendor_city) && (
+                                      <div className="flex items-center gap-1.5 text-sm text-gray-600">
+                                        <MapPin className="w-3.5 h-3.5 text-gray-400" />
+                                        {[po.vendor_address, po.vendor_city, po.vendor_state, po.vendor_zip].filter(Boolean).join(', ')}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="p-4">
+                                  <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                                    Customer / Vessel
+                                  </h4>
+                                  <div className="space-y-1.5">
+                                    {po.customer_name ? (
+                                      <div className="font-semibold text-gray-900">{po.customer_name}</div>
+                                    ) : (
+                                      <div className="text-sm text-gray-400">No customer info</div>
+                                    )}
+                                    {po.yacht_name && (
+                                      <div className="text-sm text-gray-600">Vessel: {po.yacht_name}</div>
+                                    )}
+                                    {po.customer_email && (
+                                      <div className="flex items-center gap-1.5 text-sm text-gray-600">
+                                        <Mail className="w-3.5 h-3.5 text-gray-400" />
+                                        {po.customer_email}
+                                      </div>
+                                    )}
+                                    {po.customer_phone && (
+                                      <div className="flex items-center gap-1.5 text-sm text-gray-600">
+                                        <Phone className="w-3.5 h-3.5 text-gray-400" />
+                                        {po.customer_phone}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Line Items */}
+                              <div className="p-4 border-t border-gray-100">
+                                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1">
+                                  <Package className="w-3.5 h-3.5" />
+                                  Parts to Order
+                                </h4>
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-sm">
+                                    <thead>
+                                      <tr className="border-b border-gray-200">
+                                        <th className="text-left py-2 pr-4 text-xs text-gray-500 font-medium">Part #</th>
+                                        <th className="text-left py-2 pr-4 text-xs text-gray-500 font-medium">Description</th>
+                                        <th className="text-center py-2 pr-4 text-xs text-gray-500 font-medium">Qty</th>
+                                        <th className="text-right py-2 pr-4 text-xs text-gray-500 font-medium">Unit Cost</th>
+                                        <th className="text-right py-2 pr-4 text-xs text-gray-500 font-medium">Total</th>
+                                        <th className="text-center py-2 text-xs text-gray-500 font-medium">Received</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {(po.line_items || []).map(item => (
+                                        <tr key={item.id} className={`border-b border-gray-50 ${item.received ? 'bg-green-50' : ''}`}>
+                                          <td className="py-2.5 pr-4 font-mono text-xs text-gray-600">
+                                            {item.part_number || <span className="text-gray-400">-</span>}
+                                          </td>
+                                          <td className="py-2.5 pr-4 text-gray-900">{item.description}</td>
+                                          <td className="py-2.5 pr-4 text-center text-gray-700">{item.quantity}</td>
+                                          <td className="py-2.5 pr-4 text-right text-gray-700">${item.unit_cost.toFixed(2)}</td>
+                                          <td className="py-2.5 pr-4 text-right font-medium text-gray-900">${item.total_cost.toFixed(2)}</td>
+                                          <td className="py-2.5 text-center">
+                                            <button
+                                              onClick={() => toggleLineItemReceived(po.id, item.id, !item.received)}
+                                              className={`w-6 h-6 rounded-full border-2 flex items-center justify-center mx-auto transition-colors ${
+                                                item.received
+                                                  ? 'bg-green-500 border-green-500 text-white'
+                                                  : 'border-gray-300 hover:border-green-400'
+                                              }`}
+                                              title={item.received ? 'Mark as not received' : 'Mark as received'}
+                                            >
+                                              {item.received && <CheckCircle className="w-4 h-4" />}
+                                            </button>
+                                          </td>
+                                        </tr>
+                                      ))}
+                                      <tr className="bg-gray-50">
+                                        <td colSpan={4} className="py-2.5 pr-4 text-right font-semibold text-gray-900 text-sm">
+                                          Total Cost
+                                        </td>
+                                        <td className="py-2.5 pr-4 text-right font-bold text-gray-900">
+                                          ${Number(po.total_cost).toFixed(2)}
+                                        </td>
+                                        <td />
+                                      </tr>
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+
+                              {/* Notes */}
+                              <div className="p-4 border-t border-gray-100">
+                                <div className="flex items-center justify-between mb-2">
+                                  <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Notes</h4>
+                                  {editingNotes !== po.id && (
+                                    <button
+                                      onClick={() => { setEditingNotes(po.id); setNotesValue(po.notes || ''); }}
+                                      className="text-xs text-blue-600 hover:text-blue-800"
+                                    >
+                                      {po.notes ? 'Edit' : 'Add Notes'}
+                                    </button>
+                                  )}
+                                </div>
+                                {editingNotes === po.id ? (
+                                  <div className="space-y-2">
+                                    <textarea
+                                      value={notesValue}
+                                      onChange={e => setNotesValue(e.target.value)}
+                                      rows={3}
+                                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                                      placeholder="Add notes..."
+                                    />
+                                    <div className="flex gap-2">
+                                      <button
+                                        onClick={() => saveNotes(po.id)}
+                                        className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+                                      >
+                                        Save
+                                      </button>
+                                      <button
+                                        onClick={() => setEditingNotes(null)}
+                                        className="px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50"
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <p className="text-sm text-gray-600">
+                                    {po.notes || <span className="text-gray-400 italic">No notes</span>}
+                                  </p>
+                                )}
+                              </div>
+
+                              {/* Actions */}
+                              <div className="p-4 border-t border-gray-100 bg-gray-50 flex items-center justify-between gap-3 flex-wrap">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  {po.status === 'pending' && (
+                                    <button
+                                      onClick={() => updateStatus(po.id, 'ordered')}
+                                      disabled={updatingStatus === po.id}
+                                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                                    >
+                                      <Send className="w-3.5 h-3.5" />
+                                      Mark as Ordered
+                                    </button>
+                                  )}
+                                  {po.status === 'ordered' && (
+                                    <button
+                                      onClick={() => updateStatus(po.id, 'partially_received')}
+                                      disabled={updatingStatus === po.id}
+                                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 disabled:opacity-50"
+                                    >
+                                      <AlertCircle className="w-3.5 h-3.5" />
+                                      Partially Received
+                                    </button>
+                                  )}
+                                  {(po.status === 'pending' || po.status === 'ordered' || po.status === 'partially_received') && (
+                                    <button
+                                      onClick={() => updateStatus(po.id, 'received')}
+                                      disabled={updatingStatus === po.id}
+                                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50"
+                                    >
+                                      <CheckCircle className="w-3.5 h-3.5" />
+                                      Mark as Received
+                                    </button>
+                                  )}
+                                  {po.status === 'received' && (
+                                    <button
+                                      onClick={() => updateStatus(po.id, 'ordered')}
+                                      disabled={updatingStatus === po.id}
+                                      className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-100 disabled:opacity-50"
+                                    >
+                                      <RotateCcw className="w-3.5 h-3.5" />
+                                      Reopen
+                                    </button>
+                                  )}
+                                  {po.status !== 'cancelled' && (
+                                    <button
+                                      onClick={async () => {
+                                        const ok = await confirm({
+                                          title: 'Cancel Purchase Order',
+                                          message: `Are you sure you want to cancel ${po.po_number}?`,
+                                          confirmText: 'Cancel PO',
+                                          confirmVariant: 'danger',
+                                        });
+                                        if (ok) updateStatus(po.id, 'cancelled');
+                                      }}
+                                      disabled={updatingStatus === po.id}
+                                      className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 disabled:opacity-50"
+                                    >
+                                      <XCircle className="w-3.5 h-3.5" />
+                                      Cancel
+                                    </button>
+                                  )}
+                                  {po.status === 'cancelled' && (
+                                    <button
+                                      onClick={() => updateStatus(po.id, 'pending')}
+                                      disabled={updatingStatus === po.id}
+                                      className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-100 disabled:opacity-50"
+                                    >
+                                      <RotateCcw className="w-3.5 h-3.5" />
+                                      Restore to Pending
+                                    </button>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handlePrint(po)}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-100"
+                                >
+                                  <Printer className="w-3.5 h-3.5" />
+                                  Print PO
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                    {/* Work Order Totals footer */}
+                    <div className="px-4 py-3 flex items-center justify-between text-sm">
+                      <span className="text-gray-500">{group.orders.length} purchase orders for {group.work_order_number}</span>
+                      <span className="font-bold text-gray-900">Total: ${group.total.toFixed(2)}</span>
                     </div>
                   </div>
                 )}
