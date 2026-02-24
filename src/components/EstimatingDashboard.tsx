@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Package, Briefcase, Wrench, Settings, LayoutDashboard, Clock, DollarSign, AlertCircle, FileText as FileIcon, Receipt } from 'lucide-react';
+import { FileText, Package, Briefcase, Wrench, Settings, LayoutDashboard, Clock, DollarSign, AlertCircle, FileText as FileIcon, Receipt, ShoppingCart } from 'lucide-react';
 import { Estimates } from './Estimates';
 import { WorkOrders } from './WorkOrders';
 import { Invoices } from './Invoices';
 import { PartsInventory } from './PartsInventory';
+import { PurchaseOrders } from './PurchaseOrders';
 import { AccountingCodes } from './AccountingCodes';
 import { LaborCodes } from './LaborCodes';
 import { EstimateTaxSettings } from './EstimateTaxSettings';
@@ -17,7 +18,7 @@ interface EstimatingDashboardProps {
   userId: string;
 }
 
-type TabType = 'dashboard' | 'estimates' | 'workorders' | 'invoices' | 'parts' | 'settings';
+type TabType = 'dashboard' | 'estimates' | 'workorders' | 'invoices' | 'purchaseorders' | 'parts' | 'settings';
 
 interface DashboardStats {
   totalEstimates: number;
@@ -51,6 +52,7 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
     { id: 'estimates' as TabType, label: 'Estimates', icon: FileText },
     { id: 'workorders' as TabType, label: 'Work Orders', icon: Wrench },
     { id: 'invoices' as TabType, label: 'Invoices', icon: Receipt },
+    { id: 'purchaseorders' as TabType, label: 'Purchase Orders', icon: ShoppingCart },
     { id: 'parts' as TabType, label: 'Parts Inventory', icon: Package },
     { id: 'settings' as TabType, label: 'Settings', icon: Settings }
   ];
@@ -308,6 +310,10 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
 
         {activeTab === 'invoices' && (
           <Invoices userId={userId} />
+        )}
+
+        {activeTab === 'purchaseorders' && (
+          <PurchaseOrders userId={userId} />
         )}
 
         {activeTab === 'parts' && (
