@@ -62,6 +62,7 @@ interface PartSearchResult {
   source: PartSource;
   source_label: string;
   is_alt?: boolean;
+  is_taxable?: boolean;
 }
 
 interface EstimatePackagesProps {
@@ -151,7 +152,7 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
       if (partSource === 'inventory') {
         const { data } = await supabase
           .from('parts_inventory')
-          .select('id, part_number, alternative_part_numbers, name, description, unit_price')
+          .select('id, part_number, alternative_part_numbers, name, description, unit_price, is_taxable')
           .or(`part_number.ilike.%${term}%,alternative_part_numbers.ilike.%${term}%,name.ilike.%${term}%,description.ilike.%${term}%`)
           .eq('is_active', true)
           .limit(30)
@@ -170,7 +171,8 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
             unit_price: p.unit_price ?? 0,
             source: 'inventory' as PartSource,
             source_label: 'Shop',
-            is_alt: false
+            is_alt: false,
+            is_taxable: p.is_taxable ?? false
           });
           if (p.alternative_part_numbers) {
             results.push({
@@ -181,7 +183,8 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
               unit_price: p.unit_price ?? 0,
               source: 'inventory' as PartSource,
               source_label: 'Shop',
-              is_alt: true
+              is_alt: true,
+              is_taxable: p.is_taxable ?? false
             });
           }
         }
@@ -200,7 +203,8 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
           description: p.description,
           unit_price: p.msrp ?? p.dealer_price ?? 0,
           source: 'mercury' as PartSource,
-          source_label: 'Mercury'
+          source_label: 'Mercury',
+          is_taxable: true
         })));
       } else if (partSource === 'marine_wholesale') {
         const { data } = await supabase
@@ -216,7 +220,8 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
           description: p.description,
           unit_price: p.list_price ?? p.cost ?? 0,
           source: 'marine_wholesale' as PartSource,
-          source_label: 'Marine Wholesale'
+          source_label: 'Marine Wholesale',
+          is_taxable: true
         })));
       }
       setShowPartDropdown(true);
