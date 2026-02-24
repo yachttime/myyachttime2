@@ -84,6 +84,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
   const [yachts, setYachts] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
   const [workOrderEmployees, setWorkOrderEmployees] = useState<Record<string, string[]>>({});
+  const [workOrderHasUnassigned, setWorkOrderHasUnassigned] = useState<Record<string, boolean>>({});
   const [laborCodes, setLaborCodes] = useState<any[]>([]);
   const [parts, setParts] = useState<any[]>([]);
   const [mercuryParts, setMercuryParts] = useState<any[]>([]);
@@ -284,16 +285,26 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
 
         if (tasksForWOs && tasksForWOs.length > 0) {
           const taskIds = tasksForWOs.map(t => t.id);
-          const { data: assignmentsData } = await supabase
-            .from('work_order_task_assignments')
-            .select('task_id, employee_id, user_profiles!work_order_task_assignments_employee_id_fkey(first_name, last_name)')
-            .in('task_id', taskIds);
+          const [assignmentsResult, lineItemsResult] = await Promise.all([
+            supabase
+              .from('work_order_task_assignments')
+              .select('task_id, employee_id, user_profiles!work_order_task_assignments_employee_id_fkey(first_name, last_name)')
+              .in('task_id', taskIds),
+            supabase
+              .from('work_order_line_items')
+              .select('task_id, line_type')
+              .in('task_id', taskIds)
+              .eq('line_type', 'labor')
+          ]);
+
+          const assignmentsData = assignmentsResult.data || [];
+          const laborLineItems = lineItemsResult.data || [];
 
           const taskToWO: Record<string, string> = {};
           tasksForWOs.forEach(t => { taskToWO[t.id] = t.work_order_id; });
 
           const woEmpMap: Record<string, string[]> = {};
-          (assignmentsData || []).forEach((a: any) => {
+          (assignmentsData).forEach((a: any) => {
             const woId = taskToWO[a.task_id];
             if (!woId) return;
             const name = a.user_profiles
@@ -304,6 +315,17 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
             if (!woEmpMap[woId].includes(name)) woEmpMap[woId].push(name);
           });
           setWorkOrderEmployees(woEmpMap);
+
+          const assignedTaskIds = new Set(assignmentsData.map((a: any) => a.task_id));
+          const tasksWithLaborIds = new Set(laborLineItems.map((li: any) => li.task_id));
+          const unassignedMap: Record<string, boolean> = {};
+          tasksWithLaborIds.forEach(taskId => {
+            if (!assignedTaskIds.has(taskId)) {
+              const woId = taskToWO[taskId];
+              if (woId) unassignedMap[woId] = true;
+            }
+          });
+          setWorkOrderHasUnassigned(unassignedMap);
         }
       }
       setLaborCodes(laborResult.data || []);
@@ -3065,17 +3087,21 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                   )}
                 </td>
                 <td className="px-6 py-4">
-                  {(workOrderEmployees[workOrder.id] || []).length > 0 ? (
-                    <div className="flex flex-wrap gap-1">
-                      {workOrderEmployees[workOrder.id].map((name, i) => (
-                        <span key={i} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
-                          {name}
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <span className="text-xs text-gray-400">—</span>
-                  )}
+                  <div className="flex flex-wrap gap-1">
+                    {(workOrderEmployees[workOrder.id] || []).map((name, i) => (
+                      <span key={i} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
+                        {name}
+                      </span>
+                    ))}
+                    {workOrderHasUnassigned[workOrder.id] && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-50 text-orange-700 border border-orange-200">
+                        Not Assigned
+                      </span>
+                    )}
+                    {(workOrderEmployees[workOrder.id] || []).length === 0 && !workOrderHasUnassigned[workOrder.id] && (
+                      <span className="text-xs text-gray-400">—</span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-6 py-4 text-right text-sm font-medium text-gray-900">
                   ${(workOrder.total_amount || 0).toFixed(2)}
