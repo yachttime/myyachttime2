@@ -2628,7 +2628,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
             {/* Display Deposit Tracking Panel in Edit Mode */}
             {editingId && (() => {
               const editingWorkOrder = workOrders.find(wo => wo.id === editingId);
-              return editingWorkOrder && editingWorkOrder.deposit_required && (
+              return editingWorkOrder && formData.deposit_required && (
               <div className="border-t pt-4">
                 <div className="bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/30 rounded-lg p-4">
                   <div className="flex items-center gap-2 mb-3">
@@ -2658,7 +2658,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
 
                   <div className="space-y-2">
                     <p className="text-sm text-gray-700">
-                      <span className="font-semibold">Required Amount:</span> ${parseFloat(editingWorkOrder.deposit_amount || '0').toFixed(2)}
+                      <span className="font-semibold">Required Amount:</span> ${parseFloat(formData.deposit_amount || String(editingWorkOrder.deposit_amount) || '0').toFixed(2)}
                     </p>
 
                     {workOrderDeposits.length > 0 && (
@@ -2679,28 +2679,34 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                     {!editingWorkOrder.deposit_payment_link_url && !editingWorkOrder.deposit_paid_at && (
                       <div className="mt-3 pt-3 border-t border-cyan-500/20 flex flex-col items-center justify-center gap-3 py-4">
                         <p className="text-sm text-gray-600 font-medium">No payment recorded yet</p>
-                        <div className="flex flex-wrap gap-3 justify-center">
-                          <button
-                            onClick={() => handleRequestDeposit(editingWorkOrder.id)}
-                            disabled={depositLoading || editingWorkOrder.deposit_payment_method_type === 'check'}
-                            type="button"
-                            className="bg-cyan-600 hover:bg-cyan-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 disabled:opacity-40 shadow hover:shadow-md"
-                          >
-                            <DollarSign className="w-4 h-4" />
-                            {depositLoading ? 'Generating...' : 'Generate Payment Link'}
-                          </button>
-                          <button
-                            onClick={() => {
-                              setDepositCheckForm({ checkNumber: '', amount: editingWorkOrder.deposit_amount ? parseFloat(String(editingWorkOrder.deposit_amount)).toFixed(2) : '', notes: '' });
-                              setDepositCheckModal(editingWorkOrder.id);
-                            }}
-                            type="button"
-                            className="bg-gray-700 hover:bg-gray-800 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 shadow hover:shadow-md"
-                          >
-                            <FileText className="w-4 h-4" />
-                            Record Check
-                          </button>
-                        </div>
+                        {!editingWorkOrder.deposit_required ? (
+                          <p className="text-xs text-amber-600 font-medium bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                            Save the work order first to enable deposit actions
+                          </p>
+                        ) : (
+                          <div className="flex flex-wrap gap-3 justify-center">
+                            <button
+                              onClick={() => handleRequestDeposit(editingWorkOrder.id)}
+                              disabled={depositLoading || editingWorkOrder.deposit_payment_method_type === 'check'}
+                              type="button"
+                              className="bg-cyan-600 hover:bg-cyan-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 disabled:opacity-40 shadow hover:shadow-md"
+                            >
+                              <DollarSign className="w-4 h-4" />
+                              {depositLoading ? 'Generating...' : 'Generate Payment Link'}
+                            </button>
+                            <button
+                              onClick={() => {
+                                setDepositCheckForm({ checkNumber: '', amount: editingWorkOrder.deposit_amount ? parseFloat(String(editingWorkOrder.deposit_amount)).toFixed(2) : '', notes: '' });
+                                setDepositCheckModal(editingWorkOrder.id);
+                              }}
+                              type="button"
+                              className="bg-gray-700 hover:bg-gray-800 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 shadow hover:shadow-md"
+                            >
+                              <FileText className="w-4 h-4" />
+                              Record Check
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
 
