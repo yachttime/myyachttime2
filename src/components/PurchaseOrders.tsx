@@ -215,7 +215,19 @@ export function PurchaseOrders({ userId }: PurchaseOrdersProps) {
   }
 
   function handlePrint(po: PurchaseOrder) {
-    const lineItemRows = (po.line_items || [])
+    const consolidatedItems = (po.line_items || []).reduce((acc, item) => {
+      const key = `${item.part_number || ''}|${item.description}|${item.unit_cost}`;
+      const existing = acc.find(i => i._key === key);
+      if (existing) {
+        existing.quantity += item.quantity;
+        existing.total_cost += item.total_cost;
+      } else {
+        acc.push({ ...item, _key: key });
+      }
+      return acc;
+    }, [] as (typeof po.line_items[0] & { _key: string })[]);
+
+    const lineItemRows = consolidatedItems
       .map(
         item => `
       <tr>
