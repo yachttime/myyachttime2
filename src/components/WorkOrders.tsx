@@ -99,6 +99,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
   const [depositCheckModal, setDepositCheckModal] = useState<string | null>(null);
   const [depositCheckLoading, setDepositCheckLoading] = useState(false);
   const [depositCheckForm, setDepositCheckForm] = useState({ checkNumber: '', amount: '', notes: '' });
+  const [workOrderDeposits, setWorkOrderDeposits] = useState<any[]>([]);
   const [customerSuggestions, setCustomerSuggestions] = useState<{ id: string; display_name: string; email: string; phone: string }[]>([]);
   const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
 
@@ -175,6 +176,23 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showPartDropdown]);
+
+  useEffect(() => {
+    if (!editingId) {
+      setWorkOrderDeposits([]);
+      return;
+    }
+    const loadDeposits = async () => {
+      const { data } = await supabase
+        .from('estimating_payments')
+        .select('*')
+        .eq('work_order_id', editingId)
+        .eq('payment_type', 'deposit')
+        .order('payment_date', { ascending: true });
+      setWorkOrderDeposits(data || []);
+    };
+    loadDeposits();
+  }, [editingId]);
 
   // Removed auto-creation of deposit payment links to prevent unnecessary API calls
   // Payment links will be created when user explicitly clicks "Request Deposit" button
@@ -1219,23 +1237,33 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
 
       if (paymentError) throw paymentError;
 
-      const { error: woError } = await supabase
-        .from('work_orders')
-        .update({
-          deposit_payment_status: 'paid',
-          deposit_paid_at: new Date().toISOString(),
-          deposit_payment_method_type: 'check',
-          deposit_check_number: depositCheckForm.checkNumber.trim(),
-          deposit_check_recorded_at: new Date().toISOString()
-        })
-        .eq('id', workOrderId);
+      if (!workOrder.deposit_paid_at) {
+        const { error: woError } = await supabase
+          .from('work_orders')
+          .update({
+            deposit_payment_status: 'paid',
+            deposit_paid_at: new Date().toISOString(),
+            deposit_payment_method_type: 'check',
+            deposit_check_number: depositCheckForm.checkNumber.trim(),
+            deposit_check_recorded_at: new Date().toISOString()
+          })
+          .eq('id', workOrderId);
 
-      if (woError) throw woError;
+        if (woError) throw woError;
+      }
 
+      const checkNum = depositCheckForm.checkNumber;
       setDepositCheckModal(null);
       setDepositCheckForm({ checkNumber: '', amount: '', notes: '' });
       await loadData();
-      showSuccess(`Check #${depositCheckForm.checkNumber} recorded as deposit`);
+      const { data: freshDeposits } = await supabase
+        .from('estimating_payments')
+        .select('*')
+        .eq('work_order_id', workOrderId)
+        .eq('payment_type', 'deposit')
+        .order('payment_date', { ascending: true });
+      setWorkOrderDeposits(freshDeposits || []);
+      showSuccess(`Check #${checkNum} recorded as deposit`);
     } catch (err: any) {
       console.error('Error recording deposit check:', err);
       setError(err.message || 'Failed to record check deposit');
@@ -2527,15 +2555,14 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                         <span>${calculateTotal().toFixed(2)}</span>
                       </div>
                       {(() => {
-                        const wo = editingId ? workOrders.find(w => w.id === editingId) : null;
-                        const depositPaid = wo?.deposit_paid_at && wo?.deposit_amount ? parseFloat(String(wo.deposit_amount)) : 0;
-                        if (depositPaid <= 0) return null;
-                        const balanceDue = calculateTotal() - depositPaid;
+                        const totalDeposits = workOrderDeposits.reduce((sum, d) => sum + parseFloat(String(d.amount || 0)), 0);
+                        if (totalDeposits <= 0) return null;
+                        const balanceDue = calculateTotal() - totalDeposits;
                         return (
                           <>
                             <div className="flex justify-between text-xs text-green-700 mt-1">
-                              <span>Deposit Paid:</span>
-                              <span>-${depositPaid.toFixed(2)}</span>
+                              <span>Total Deposits{workOrderDeposits.length > 1 ? ` (${workOrderDeposits.length})` : ''}:</span>
+                              <span>-${totalDeposits.toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between text-sm font-bold border-t pt-1 mt-1 text-gray-900">
                               <span>Balance Due:</span>
@@ -2631,8 +2658,23 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
 
                   <div className="space-y-2">
                     <p className="text-sm text-gray-700">
-                      <span className="font-semibold">Amount:</span> ${parseFloat(editingWorkOrder.deposit_amount || '0').toFixed(2)}
+                      <span className="font-semibold">Required Amount:</span> ${parseFloat(editingWorkOrder.deposit_amount || '0').toFixed(2)}
                     </p>
+
+                    {workOrderDeposits.length > 0 && (
+                      <div className="mt-2 space-y-1.5">
+                        <p className="text-xs font-semibold text-gray-700">Deposits Recorded:</p>
+                        {workOrderDeposits.map((dep, idx) => (
+                          <div key={dep.id} className="flex items-center gap-2 p-2 bg-white border border-cyan-200 rounded text-xs">
+                            <CheckCircle className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
+                            <span className="font-semibold text-gray-700">#{idx + 1}</span>
+                            <span className="text-green-700 font-bold">${parseFloat(String(dep.amount)).toFixed(2)}</span>
+                            <span className="text-gray-500">{dep.payment_method === 'check' ? `Check #${dep.reference_number}` : dep.payment_method}</span>
+                            <span className="text-gray-400 ml-auto">{new Date(dep.payment_date).toLocaleDateString()}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
                     {!editingWorkOrder.deposit_payment_link_url && !editingWorkOrder.deposit_paid_at && (
                       <div className="mt-3 pt-3 border-t border-cyan-500/20 flex flex-col items-center justify-center gap-3 py-4">
@@ -2663,14 +2705,18 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                     )}
 
                     {editingWorkOrder.deposit_paid_at && (
-                      <p className="text-xs text-green-700">
-                        Paid on: {new Date(editingWorkOrder.deposit_paid_at).toLocaleDateString()} at {new Date(editingWorkOrder.deposit_paid_at).toLocaleTimeString()}
-                      </p>
-                    )}
-                    {(editingWorkOrder as any).deposit_check_number && (
-                      <div className="flex items-center gap-2 p-2 bg-white border border-cyan-200 rounded text-xs">
-                        <FileText className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
-                        <span className="font-semibold text-gray-700">Check #{(editingWorkOrder as any).deposit_check_number}</span>
+                      <div className="mt-2 pt-2 border-t border-cyan-500/20 flex flex-wrap gap-2">
+                        <button
+                          onClick={() => {
+                            setDepositCheckForm({ checkNumber: '', amount: '', notes: '' });
+                            setDepositCheckModal(editingWorkOrder.id);
+                          }}
+                          type="button"
+                          className="bg-gray-700 hover:bg-gray-800 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 shadow"
+                        >
+                          <FileText className="w-3 h-3" />
+                          Add Another Deposit
+                        </button>
                       </div>
                     )}
 
