@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Plus, Edit2, AlertCircle, Package, TrendingUp, TrendingDown, Search, Camera, X, Printer } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
@@ -93,6 +93,11 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
     is_taxable: true
   });
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
+  const [crossSearchResults, setCrossSearchResults] = useState<{source: string; part_number: string; description: string; price: string}[]>([]);
+  const [showCrossSearch, setShowCrossSearch] = useState(false);
+  const [crossSearchLoading, setCrossSearchLoading] = useState(false);
+  const crossSearchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [adjustmentData, setAdjustmentData] = useState({
     transaction_type: 'add' as 'add' | 'remove' | 'adjustment',
     quantity: '',
@@ -160,6 +165,70 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
       setLoading(false);
     }
   };
+
+  const runCrossSearch = useCallback(async (term: string) => {
+    if (!term || term.length < 2) {
+      setCrossSearchResults([]);
+      setShowCrossSearch(false);
+      return;
+    }
+    setCrossSearchLoading(true);
+    try {
+      const [inventoryRes, mercuryRes, wholesaleRes] = await Promise.all([
+        supabase
+          .from('parts_inventory')
+          .select('part_number, name, description, alternative_part_numbers, unit_price')
+          .eq('is_active', true)
+          .or(`part_number.ilike.%${term}%,alternative_part_numbers.ilike.%${term}%,name.ilike.%${term}%`)
+          .limit(10)
+          .order('part_number'),
+        supabase
+          .from('mercury_marine_parts')
+          .select('part_number, description, msrp, dealer_price')
+          .eq('is_active', true)
+          .or(`part_number.ilike.%${term}%,description.ilike.%${term}%`)
+          .limit(10)
+          .order('part_number'),
+        supabase
+          .from('marine_wholesale_parts')
+          .select('sku, mfg_part_number, description, list_price')
+          .eq('is_active', true)
+          .or(`sku.ilike.%${term}%,mfg_part_number.ilike.%${term}%,description.ilike.%${term}%`)
+          .limit(10)
+          .order('sku'),
+      ]);
+      const results: {source: string; part_number: string; description: string; price: string}[] = [];
+      for (const p of (inventoryRes.data || [])) {
+        results.push({ source: 'Shop', part_number: p.part_number, description: p.name || p.description || '', price: `$${Number(p.unit_price).toFixed(2)}` });
+        if (p.alternative_part_numbers) {
+          results.push({ source: 'Shop (Alt)', part_number: p.alternative_part_numbers, description: p.name || p.description || '', price: `$${Number(p.unit_price).toFixed(2)}` });
+        }
+      }
+      for (const p of (mercuryRes.data || [])) {
+        results.push({ source: 'Mercury', part_number: p.part_number, description: p.description || '', price: p.msrp ? `$${Number(p.msrp).toFixed(2)}` : p.dealer_price ? `$${Number(p.dealer_price).toFixed(2)}` : '-' });
+      }
+      for (const p of (wholesaleRes.data || [])) {
+        results.push({ source: 'Wholesale', part_number: p.sku, description: p.description || '', price: p.list_price ? `$${Number(p.list_price).toFixed(2)}` : '-' });
+      }
+      setCrossSearchResults(results);
+      setShowCrossSearch(results.length > 0);
+    } catch (err) {
+      console.error('Cross search error:', err);
+    } finally {
+      setCrossSearchLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (crossSearchDebounce.current) clearTimeout(crossSearchDebounce.current);
+    if (!searchTerm || searchTerm.length < 2) {
+      setCrossSearchResults([]);
+      setShowCrossSearch(false);
+      return;
+    }
+    crossSearchDebounce.current = setTimeout(() => runCrossSearch(searchTerm), 350);
+    return () => { if (crossSearchDebounce.current) clearTimeout(crossSearchDebounce.current); };
+  }, [searchTerm, runCrossSearch]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -486,6 +555,7 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
     const matchesSearch =
       part.part_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
       part.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (part.alternative_part_numbers && part.alternative_part_numbers.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (part.vendors?.vendor_name && part.vendors.vendor_name.toLowerCase().includes(searchTerm.toLowerCase()));
     return matchesStatus && matchesSearch;
   });
@@ -971,12 +1041,51 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
+                ref={searchInputRef}
                 type="text"
                 placeholder="Search parts by number, name, or vendor..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                onFocus={() => { if (crossSearchResults.length > 0) setShowCrossSearch(true); }}
+                onBlur={() => setTimeout(() => setShowCrossSearch(false), 150)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
               />
+              {crossSearchLoading && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+              )}
+              {showCrossSearch && crossSearchResults.length > 0 && (
+                <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-72 overflow-y-auto">
+                  <div className="px-3 py-1.5 border-b border-gray-100 bg-gray-50">
+                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Results from all sources</span>
+                  </div>
+                  {crossSearchResults.map((r, i) => {
+                    const badgeColor =
+                      r.source === 'Shop' ? 'bg-gray-100 text-gray-600' :
+                      r.source === 'Shop (Alt)' ? 'bg-amber-100 text-amber-700' :
+                      r.source === 'Mercury' ? 'bg-blue-100 text-blue-700' :
+                      'bg-teal-100 text-teal-700';
+                    return (
+                      <div
+                        key={i}
+                        className="px-3 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-50 last:border-0"
+                        onMouseDown={() => {
+                          setSearchTerm(r.part_number);
+                          setShowCrossSearch(false);
+                        }}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-sm font-semibold text-gray-900 truncate">{r.part_number}</span>
+                            <span className={`text-xs px-1.5 py-0.5 rounded font-medium whitespace-nowrap ${badgeColor}`}>{r.source}</span>
+                          </div>
+                          <span className="text-sm font-semibold text-gray-700 whitespace-nowrap">{r.price}</span>
+                        </div>
+                        <p className="text-xs text-gray-500 truncate mt-0.5">{r.description}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
             <div className="flex border border-gray-300 rounded-lg overflow-hidden">
               {(['active', 'inactive', 'all'] as const).map((f) => (
