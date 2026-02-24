@@ -272,11 +272,7 @@ export function Estimates({ userId }: EstimatesProps) {
           .select('id, customer_type, first_name, last_name, business_name, email, phone')
           .eq('is_active', true)
           .order('last_name'),
-        supabase
-          .from('marine_wholesale_parts')
-          .select('id, sku, mfg_part_number, description, list_price, is_active')
-          .eq('is_active', true)
-          .order('sku')
+        Promise.resolve({ data: [], error: null })
       ]);
 
       if (estimatesResult.error) throw estimatesResult.error;
@@ -788,13 +784,18 @@ export function Estimates({ userId }: EstimatesProps) {
     }
   };
 
+  const wholesaleSearchRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const handlePartNumberSearch = (searchValue: string) => {
     setLineItemFormData({
       ...lineItemFormData,
       part_number_search: searchValue,
       part_id: '',
-      mercury_part_id: ''
+      mercury_part_id: '',
+      marine_wholesale_part_id: ''
     });
+
+    if (wholesaleSearchRef.current) clearTimeout(wholesaleSearchRef.current);
 
     if (searchValue.trim()) {
       const searchLower = searchValue.toLowerCase().replace(/[-\s]/g, '');
@@ -834,21 +835,30 @@ export function Estimates({ userId }: EstimatesProps) {
         })
         .map(p => ({ ...p, source: 'mercury', name: p.description }));
 
-      const wholesaleFiltered = marineWholesaleParts
-        .filter(p => {
-          const sku = (p.sku || '').toLowerCase().replace(/[-\s]/g, '');
-          const mfgPart = (p.mfg_part_number || '').toLowerCase().replace(/[-\s]/g, '');
-          const desc = (p.description || '').toLowerCase();
-          return sku.includes(searchLower) ||
-                 mfgPart.includes(searchLower) ||
-                 desc.includes(searchValue.toLowerCase()) ||
-                 (p.sku || '').toLowerCase().includes(searchValue.toLowerCase());
-        })
-        .map(p => ({ ...p, source: 'marine_wholesale', part_number: p.sku, name: p.description }));
+      const syncCombined = [...inventoryParts, ...mercuryFiltered];
+      setFilteredParts(syncCombined);
+      setShowPartDropdown(syncCombined.length > 0);
 
-      const combined = [...inventoryParts, ...mercuryFiltered, ...wholesaleFiltered];
-      setFilteredParts(combined);
-      setShowPartDropdown(combined.length > 0);
+      wholesaleSearchRef.current = setTimeout(async () => {
+        const { data: wholesaleData } = await supabase
+          .from('marine_wholesale_parts')
+          .select('id, sku, mfg_part_number, description, list_price')
+          .eq('is_active', true)
+          .or(`sku.ilike.%${searchValue}%,mfg_part_number.ilike.%${searchValue}%,description.ilike.%${searchValue}%`)
+          .order('sku')
+          .limit(50);
+
+        const wholesaleFiltered = (wholesaleData || []).map(p => ({
+          ...p,
+          source: 'marine_wholesale',
+          part_number: p.sku,
+          name: p.description
+        }));
+
+        const combined = [...inventoryParts, ...mercuryFiltered, ...wholesaleFiltered];
+        setFilteredParts(combined);
+        setShowPartDropdown(combined.length > 0);
+      }, 300);
     } else {
       setFilteredParts([]);
       setShowPartDropdown(false);
@@ -2643,7 +2653,7 @@ export function Estimates({ userId }: EstimatesProps) {
                                       <label className="block text-sm font-medium text-gray-700 mb-1">
                                         Part Number / Name
                                         <span className="ml-2 text-xs text-gray-700">
-                                          ({parts.length} inventory + {mercuryParts.length} Mercury + {marineWholesaleParts.length} Wholesale parts)
+                                          ({parts.length} inventory + {mercuryParts.length} Mercury + wholesale parts)
                                         </span>
                                       </label>
                                       <input
