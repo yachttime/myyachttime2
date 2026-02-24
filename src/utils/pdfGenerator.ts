@@ -1045,17 +1045,23 @@ export async function generateEstimatePDF(
   const rowHeightEstimate = 0.26;
   const tableHeaderHeight = 0.28;
   const taskTitleHeight = 0.25;
-  const minRowsBeforeBreak = 3;
 
   tasks.forEach((task, taskIndex) => {
     const itemCount = task.lineItems?.length || 0;
     const overviewHeight = task.task_overview ? 0.2 : 0;
     const taskHeaderHeight = taskTitleHeight + overviewHeight + 0.15;
-    const minContentHeight = taskHeaderHeight + tableHeaderHeight + (Math.min(itemCount, minRowsBeforeBreak) * rowHeightEstimate);
+    const fullTaskHeight = taskHeaderHeight + tableHeaderHeight + (itemCount * rowHeightEstimate) + 0.3;
+    const pageUsableHeight = pageBottomLimit - margin;
 
-    if (yPos + minContentHeight > pageBottomLimit) {
+    if (fullTaskHeight <= pageUsableHeight && yPos + fullTaskHeight > pageBottomLimit) {
       doc.addPage();
       yPos = margin;
+    } else if (fullTaskHeight > pageUsableHeight) {
+      const minContentHeight = taskHeaderHeight + tableHeaderHeight + (3 * rowHeightEstimate);
+      if (yPos + minContentHeight > pageBottomLimit) {
+        doc.addPage();
+        yPos = margin;
+      }
     }
 
     addText(`Task ${taskIndex + 1}: ${task.task_name}`, 12, 'bold');
@@ -1593,17 +1599,23 @@ export async function generateWorkOrderPDF(
   const rowHeightEstimate2 = 0.26;
   const tableHeaderHeight2 = 0.28;
   const taskTitleHeight2 = 0.25;
-  const minRowsBeforeBreak2 = 3;
 
   tasks.forEach((task, taskIndex) => {
     const itemCount = task.lineItems?.length || 0;
     const overviewHeight = task.task_overview ? 0.2 : 0;
     const taskHeaderHeight = taskTitleHeight2 + overviewHeight + 0.15;
-    const minContentHeight = taskHeaderHeight + tableHeaderHeight2 + (Math.min(itemCount, minRowsBeforeBreak2) * rowHeightEstimate2);
+    const fullTaskHeight = taskHeaderHeight + tableHeaderHeight2 + (itemCount * rowHeightEstimate2) + 0.3;
+    const pageUsableHeight = pageBottomLimit2 - margin;
 
-    if (yPos + minContentHeight > pageBottomLimit2) {
+    if (fullTaskHeight <= pageUsableHeight && yPos + fullTaskHeight > pageBottomLimit2) {
       doc.addPage();
       yPos = margin;
+    } else if (fullTaskHeight > pageUsableHeight) {
+      const minContentHeight = taskHeaderHeight + tableHeaderHeight2 + (3 * rowHeightEstimate2);
+      if (yPos + minContentHeight > pageBottomLimit2) {
+        doc.addPage();
+        yPos = margin;
+      }
     }
 
     addText(`Task ${taskIndex + 1}: ${task.task_name}`, 12, 'bold');
