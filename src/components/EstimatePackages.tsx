@@ -137,6 +137,7 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
       setShowPartDropdown(false);
       return;
     }
+    if (selectedPartResult) return;
     if (searchDebounce.current) clearTimeout(searchDebounce.current);
     searchDebounce.current = setTimeout(() => searchParts(partSearch), 300);
     return () => {
@@ -231,7 +232,7 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
       ? { ...result, id: result.id.replace('_alt', '') }
       : result;
     setSelectedPartResult(normalized);
-    setPartSearch(normalized.part_number + ' - ' + normalized.description);
+    setPartSearch(normalized.part_number);
     setPartUnitPrice(normalized.unit_price);
     setShowPartDropdown(false);
   }
@@ -260,7 +261,7 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
           .eq('package_id', packageId),
         supabase
           .from('estimate_package_parts')
-          .select(`*, part:parts_inventory(part_number, description, unit_price)`)
+          .select(`*, part:parts_inventory(part_number, name, description, alternative_part_numbers, unit_price)`)
           .eq('package_id', packageId)
       ]);
       if (laborRes.data) setPackageLabor(laborRes.data as PackageLabor[]);
@@ -419,7 +420,7 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
 
   function getPartDisplayName(part: PackagePart): string {
     if (part.part_number_display) return `${part.part_number_display} - ${part.description_display}`;
-    if (part.part) return `${part.part.part_number} - ${part.part.description}`;
+    if (part.part) return `${part.part.part_number} - ${(part.part as any).name || part.part.description}`;
     return 'Unknown Part';
   }
 
