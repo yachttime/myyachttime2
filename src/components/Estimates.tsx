@@ -242,7 +242,7 @@ export function Estimates({ userId }: EstimatesProps) {
           .order('code'),
         supabase
           .from('parts_inventory')
-          .select('id, part_number, name, unit_price, is_taxable')
+          .select('id, part_number, alternative_part_numbers, name, unit_price, is_taxable')
           .eq('is_active', true)
           .order('part_number'),
         supabase
@@ -744,15 +744,30 @@ export function Estimates({ userId }: EstimatesProps) {
     if (searchValue.trim()) {
       const searchLower = searchValue.toLowerCase().replace(/[-\s]/g, '');
 
-      const inventoryParts = parts
-        .filter(p => {
-          const partNum = p.part_number.toLowerCase().replace(/[-\s]/g, '');
-          const name = p.name.toLowerCase();
-          return partNum.includes(searchLower) ||
-                 name.includes(searchValue.toLowerCase()) ||
-                 p.part_number.toLowerCase().includes(searchValue.toLowerCase());
-        })
-        .map(p => ({ ...p, source: 'inventory' }));
+      const inventoryParts: any[] = [];
+      for (const p of parts) {
+        const partNum = p.part_number.toLowerCase().replace(/[-\s]/g, '');
+        const altNum = (p.alternative_part_numbers || '').toLowerCase().replace(/[-\s]/g, '');
+        const name = p.name.toLowerCase();
+        const matches = partNum.includes(searchLower) ||
+          name.includes(searchValue.toLowerCase()) ||
+          p.part_number.toLowerCase().includes(searchValue.toLowerCase()) ||
+          (altNum && (altNum.includes(searchLower) || (p.alternative_part_numbers || '').toLowerCase().includes(searchValue.toLowerCase())));
+        if (matches) {
+          inventoryParts.push({ ...p, source: 'inventory', _is_alt: false });
+          if (p.alternative_part_numbers) {
+            inventoryParts.push({
+              ...p,
+              id: p.id + '_alt',
+              part_number: p.alternative_part_numbers,
+              alternative_part_numbers: p.part_number,
+              source: 'inventory',
+              _is_alt: true,
+              _real_id: p.id
+            });
+          }
+        }
+      }
 
       const mercuryFiltered = mercuryParts
         .filter(p => {
@@ -796,9 +811,10 @@ export function Estimates({ userId }: EstimatesProps) {
         container_charge_amount: part.container_charge?.toString() || '0'
       });
     } else {
+      const realId = part._real_id || part.id;
       setLineItemFormData({
         ...lineItemFormData,
-        part_id: part.id,
+        part_id: realId,
         mercury_part_id: '',
         part_number_search: part.part_number,
         description: `${part.part_number} - ${part.name}`,
@@ -2530,6 +2546,12 @@ export function Estimates({ userId }: EstimatesProps) {
                                                 }`}>
                                                   {part.source === 'mercury' ? 'Mercury Marine' : 'Inventory'}
                                                 </span>
+                                                {part.source === 'inventory' && part._is_alt && (
+                                                  <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">Alt #</span>
+                                                )}
+                                                {part.source === 'inventory' && !part._is_alt && part.alternative_part_numbers && (
+                                                  <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">Primary</span>
+                                                )}
                                                 {part.source === 'mercury' && part.item_status && (
                                                   <span className="text-xs text-gray-700">({part.item_status})</span>
                                                 )}
@@ -2537,6 +2559,11 @@ export function Estimates({ userId }: EstimatesProps) {
                                               <div className="text-sm text-gray-600">
                                                 {part.source === 'mercury' ? (part.description || part.name) : part.name}
                                               </div>
+                                              {part.source === 'inventory' && part.alternative_part_numbers && (
+                                                <div className="text-xs text-gray-400">
+                                                  {part._is_alt ? `Primary: ${part.alternative_part_numbers}` : `Alt: ${part.alternative_part_numbers}`}
+                                                </div>
+                                              )}
                                               <div className="text-sm text-green-600 font-medium">
                                                 ${part.source === 'mercury' ? (part.msrp ? part.msrp.toFixed(2) : '0.00') : (part.unit_price ? part.unit_price.toFixed(2) : '0.00')}
                                               </div>

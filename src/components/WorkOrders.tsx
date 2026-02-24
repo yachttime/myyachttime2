@@ -218,7 +218,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
           .order('code'),
         supabase
           .from('parts_inventory')
-          .select('id, part_number, name, unit_price, is_taxable')
+          .select('id, part_number, alternative_part_numbers, name, unit_price, is_taxable')
           .eq('is_active', true)
           .order('part_number'),
         supabase
@@ -563,13 +563,30 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
       let filtered: any[] = [];
 
       if (src === 'inventory' || src === 'all') {
-        const inv = parts
-          .filter(p =>
-            p.part_number.toLowerCase().includes(q) ||
-            p.name.toLowerCase().includes(q)
-          )
-          .map(p => ({ ...p, _source: 'inventory', _source_label: 'Inventory', _display_number: p.part_number, _display_name: p.name, _price: p.unit_price }));
-        filtered = filtered.concat(inv);
+        for (const p of parts) {
+          const altNum = (p.alternative_part_numbers || '').toLowerCase();
+          const matches = p.part_number.toLowerCase().includes(q) ||
+            p.name.toLowerCase().includes(q) ||
+            altNum.includes(q);
+          if (matches) {
+            filtered.push({ ...p, _source: 'inventory', _source_label: 'Inventory', _display_number: p.part_number, _display_name: p.name, _price: p.unit_price, _is_alt: false });
+            if (p.alternative_part_numbers) {
+              filtered.push({
+                ...p,
+                id: p.id + '_alt',
+                _real_id: p.id,
+                part_number: p.alternative_part_numbers,
+                alternative_part_numbers: p.part_number,
+                _source: 'inventory',
+                _source_label: 'Inventory',
+                _display_number: p.alternative_part_numbers,
+                _display_name: p.name,
+                _price: p.unit_price,
+                _is_alt: true
+              });
+            }
+          }
+        }
       }
       if (src === 'mercury' || src === 'all') {
         const merc = mercuryParts
@@ -600,9 +617,10 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
 
   const handleSelectPartFromDropdown = (part: any) => {
     const src = part._source || lineItemFormData.part_source;
+    const realId = part._real_id || part.id;
     setLineItemFormData({
       ...lineItemFormData,
-      part_id: src === 'inventory' ? part.id : '',
+      part_id: src === 'inventory' ? realId : '',
       mercury_part_id: src === 'mercury' ? part.id : '',
       marine_wholesale_part_id: src === 'marine_wholesale' ? part.id : '',
       part_source: src,
@@ -2194,7 +2212,15 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                                                 className="w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-gray-100 last:border-b-0"
                                               >
                                                 <div className="flex items-center justify-between gap-2">
-                                                  <div className="font-medium text-gray-900 truncate">{part._display_number}</div>
+                                                  <div className="flex items-center gap-1.5 min-w-0">
+                                                    <span className="font-medium text-gray-900 truncate">{part._display_number}</span>
+                                                    {part._source === 'inventory' && part._is_alt && (
+                                                      <span className="text-xs px-1.5 py-0.5 rounded font-medium bg-amber-100 text-amber-700 flex-shrink-0">Alt #</span>
+                                                    )}
+                                                    {part._source === 'inventory' && !part._is_alt && part.alternative_part_numbers && (
+                                                      <span className="text-xs px-1.5 py-0.5 rounded font-medium bg-green-100 text-green-700 flex-shrink-0">Primary</span>
+                                                    )}
+                                                  </div>
                                                   {lineItemFormData.part_source === 'all' && (
                                                     <span className={`text-xs px-1.5 py-0.5 rounded font-medium flex-shrink-0 ${
                                                       part._source === 'inventory' ? 'bg-blue-100 text-blue-700' :
@@ -2206,6 +2232,11 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                                                   )}
                                                 </div>
                                                 <div className="text-sm text-gray-600 truncate">{part._display_name}</div>
+                                                {part._source === 'inventory' && part.alternative_part_numbers && (
+                                                  <div className="text-xs text-gray-400">
+                                                    {part._is_alt ? `Primary: ${part.alternative_part_numbers}` : `Alt: ${part.alternative_part_numbers}`}
+                                                  </div>
+                                                )}
                                                 <div className="text-sm text-green-600 font-medium">${(part._price || 0).toFixed(2)}</div>
                                               </button>
                                             ))}
