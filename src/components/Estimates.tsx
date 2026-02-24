@@ -693,7 +693,7 @@ export function Estimates({ userId }: EstimatesProps) {
           quantity: part.quantity,
           unit_price: part.unit_price,
           total_price: part.quantity * part.unit_price,
-          is_taxable: part.is_taxable ?? part.part?.is_taxable ?? false,
+          is_taxable: (part.part_source === 'mercury' || part.part_source === 'marine_wholesale') ? true : (part.is_taxable ?? part.part?.is_taxable ?? false),
           labor_code_id: null,
           part_id: part.part_id,
           line_order: currentLineOrder + laborItemCount + index,

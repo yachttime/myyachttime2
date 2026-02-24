@@ -367,6 +367,7 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
         part_number_display: selectedPartResult.part_number,
         description_display: selectedPartResult.description,
         description: '',
+        is_taxable: (partSource === 'mercury' || partSource === 'marine_wholesale') ? true : (selectedPartResult.is_taxable ?? false),
       };
 
       if (partSource === 'inventory') {

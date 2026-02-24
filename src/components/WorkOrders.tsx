@@ -627,7 +627,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
       part_number_search: part._display_number,
       description: `${part._display_number} - ${part._display_name}`,
       unit_price: (part._price || 0).toString(),
-      is_taxable: part.is_taxable ?? true
+      is_taxable: (src === 'mercury' || src === 'marine_wholesale') ? true : (part.is_taxable ?? true)
     });
     setShowPartDropdown(false);
     setFilteredParts([]);
