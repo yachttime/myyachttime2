@@ -274,7 +274,7 @@ export function Estimates({ userId }: EstimatesProps) {
           .order('last_name'),
         supabase
           .from('marine_wholesale_parts')
-          .select('id, sku, manufacturer_part_number, description, list_price, is_active')
+          .select('id, sku, mfg_part_number, description, list_price, is_active')
           .eq('is_active', true)
           .order('sku')
       ]);
@@ -837,7 +837,7 @@ export function Estimates({ userId }: EstimatesProps) {
       const wholesaleFiltered = marineWholesaleParts
         .filter(p => {
           const sku = (p.sku || '').toLowerCase().replace(/[-\s]/g, '');
-          const mfgPart = (p.manufacturer_part_number || '').toLowerCase().replace(/[-\s]/g, '');
+          const mfgPart = (p.mfg_part_number || '').toLowerCase().replace(/[-\s]/g, '');
           const desc = (p.description || '').toLowerCase();
           return sku.includes(searchLower) ||
                  mfgPart.includes(searchLower) ||
