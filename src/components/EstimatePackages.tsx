@@ -56,6 +56,7 @@ type PartSource = 'inventory' | 'mercury' | 'marine_wholesale';
 interface PartSearchResult {
   id: string;
   part_number: string;
+  alternative_part_numbers?: string;
   description: string;
   unit_price: number;
   source: PartSource;
@@ -148,13 +149,14 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
       if (partSource === 'inventory') {
         const { data } = await supabase
           .from('parts_inventory')
-          .select('id, part_number, description, unit_price')
-          .or(`part_number.ilike.%${term}%,description.ilike.%${term}%`)
+          .select('id, part_number, alternative_part_numbers, description, unit_price')
+          .or(`part_number.ilike.%${term}%,alternative_part_numbers.ilike.%${term}%,description.ilike.%${term}%`)
           .limit(30)
           .order('part_number');
         setPartSearchResults((data || []).map(p => ({
           id: p.id,
           part_number: p.part_number,
+          alternative_part_numbers: p.alternative_part_numbers || '',
           description: p.description,
           unit_price: p.unit_price ?? 0,
           source: 'inventory' as PartSource,
@@ -624,7 +626,12 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
                             className="w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-0"
                           >
                             <div className="flex items-center justify-between gap-2">
-                              <span className="text-sm font-medium text-gray-900 truncate">{result.part_number}</span>
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="text-sm font-medium text-gray-900 truncate">{result.part_number}</span>
+                                {result.alternative_part_numbers && (
+                                  <span className="text-xs text-gray-400 truncate">Alt: {result.alternative_part_numbers}</span>
+                                )}
+                              </div>
                               <span className="text-sm font-semibold text-gray-900 whitespace-nowrap">${result.unit_price.toFixed(2)}</span>
                             </div>
                             <div className="text-xs text-gray-500 truncate">{result.description}</div>
