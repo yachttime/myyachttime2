@@ -2526,6 +2526,24 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                         <span>Total:</span>
                         <span>${calculateTotal().toFixed(2)}</span>
                       </div>
+                      {(() => {
+                        const wo = editingId ? workOrders.find(w => w.id === editingId) : null;
+                        const depositPaid = wo?.deposit_paid_at && wo?.deposit_amount ? parseFloat(String(wo.deposit_amount)) : 0;
+                        if (depositPaid <= 0) return null;
+                        const balanceDue = calculateTotal() - depositPaid;
+                        return (
+                          <>
+                            <div className="flex justify-between text-xs text-green-700 mt-1">
+                              <span>Deposit Paid:</span>
+                              <span>-${depositPaid.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between text-sm font-bold border-t pt-1 mt-1 text-gray-900">
+                              <span>Balance Due:</span>
+                              <span>${balanceDue.toFixed(2)}</span>
+                            </div>
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>
