@@ -681,13 +681,19 @@ export function Estimates({ userId }: EstimatesProps) {
 
       const laborItemCount = packageLaborRes.data?.length || 0;
       packagePartsRes.data?.forEach((part: any, index: number) => {
+        const partDescription =
+          (part.part_number_display && part.description_display)
+            ? `${part.part_number_display} - ${part.description_display}`
+            : (part.part?.part_number && part.part?.name)
+              ? `${part.part.part_number} - ${part.part.name}`
+              : part.part_number_display || part.description_display || '';
         const newLineItem: EstimateLineItem = {
           line_type: 'part',
-          description: part.description || `${part.part?.part_number} - ${part.part?.name}` || '',
+          description: partDescription,
           quantity: part.quantity,
           unit_price: part.unit_price,
           total_price: part.quantity * part.unit_price,
-          is_taxable: part.part?.is_taxable || false,
+          is_taxable: part.is_taxable ?? part.part?.is_taxable ?? false,
           labor_code_id: null,
           part_id: part.part_id,
           line_order: currentLineOrder + laborItemCount + index,
