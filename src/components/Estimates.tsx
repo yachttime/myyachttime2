@@ -2723,6 +2723,22 @@ export function Estimates({ userId }: EstimatesProps) {
               {tasks.length === 0 && !showTaskForm && (
                 <p className="text-sm text-gray-700 text-center py-4">No tasks yet. Click "Add Task" to get started.</p>
               )}
+
+              {tasks.length > 0 && !showTaskForm && (
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowTaskForm(true);
+                      setTaskFormData({ task_name: '', task_overview: '' });
+                    }}
+                    className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Task
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Taxes & Surcharges Section */}
