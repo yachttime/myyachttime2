@@ -300,14 +300,15 @@ export function PurchaseOrders({ userId }: PurchaseOrdersProps) {
 </body>
 </html>`;
 
-    const w = window.open('', '_blank');
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const w = window.open(url, '_blank');
     if (w) {
-      w.document.write(html);
-      w.document.close();
-      setTimeout(() => {
+      w.onload = () => {
         w.focus();
         w.print();
-      }, 250);
+        URL.revokeObjectURL(url);
+      };
     }
   }
 
