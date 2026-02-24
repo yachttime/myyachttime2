@@ -286,7 +286,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
           const taskIds = tasksForWOs.map(t => t.id);
           const { data: assignmentsData } = await supabase
             .from('work_order_task_assignments')
-            .select('task_id, employee_id, user_profiles(first_name, last_name)')
+            .select('task_id, employee_id, user_profiles!work_order_task_assignments_employee_id_fkey(first_name, last_name)')
             .in('task_id', taskIds);
 
           const taskToWO: Record<string, string> = {};
