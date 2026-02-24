@@ -1326,6 +1326,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           is_active,
           sms_consent_given,
           sms_consent_method,
+          can_approve_repairs,
+          can_approve_billing,
+          must_change_password,
+          employee_type,
           yachts (name)
         `)
         .eq('company_id', selectedCompany.id)
