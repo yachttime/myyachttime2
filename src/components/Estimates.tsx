@@ -2532,6 +2532,15 @@ export function Estimates({ userId }: EstimatesProps) {
                                       </tr>
                                       )
                                     ))}
+                                  {task.lineItems.filter(i => !(i.package_header || (i.line_type === 'labor' && i.description === '' && i.quantity === 0 && i.unit_price === 0))).length > 0 && (
+                                    <tr className="border-t-2 border-gray-300 bg-gray-50">
+                                      <td colSpan={3} className="px-3 py-2 text-right text-sm font-semibold text-gray-700">Task Subtotal</td>
+                                      <td className="px-3 py-2 text-right text-sm font-semibold text-gray-900">
+                                        ${task.lineItems.filter(i => !(i.package_header || (i.line_type === 'labor' && i.description === '' && i.quantity === 0 && i.unit_price === 0))).reduce((sum, i) => sum + (i.total_price || 0), 0).toFixed(2)}
+                                      </td>
+                                      <td></td>
+                                    </tr>
+                                  )}
                                   </tbody>
                                 </table>
                               </div>
