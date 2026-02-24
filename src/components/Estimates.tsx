@@ -1459,7 +1459,8 @@ export function Estimates({ userId }: EstimatesProps) {
 
       if (error) throw error;
 
-      // Display low stock alerts if any
+      await loadData();
+
       if (data?.low_stock_alerts && data.low_stock_alerts.length > 0) {
         const alerts = data.low_stock_alerts;
         const negativeStock = alerts.filter((a: any) => a.is_negative);
@@ -1468,7 +1469,7 @@ export function Estimates({ userId }: EstimatesProps) {
         let alertMessage = `Estimate approved and converted to Work Order ${data.work_order_number}!\n\n`;
 
         if (negativeStock.length > 0) {
-          alertMessage += '⚠️ CRITICAL - NEGATIVE INVENTORY:\n';
+          alertMessage += 'CRITICAL - NEGATIVE INVENTORY:\n';
           negativeStock.forEach((alert: any) => {
             alertMessage += `• ${alert.part_number} - ${alert.part_name}: ${alert.current_quantity} (ORDER IMMEDIATELY)\n`;
           });
@@ -1476,7 +1477,7 @@ export function Estimates({ userId }: EstimatesProps) {
         }
 
         if (lowStock.length > 0) {
-          alertMessage += '📦 LOW STOCK - REORDER NEEDED:\n';
+          alertMessage += 'LOW STOCK - REORDER NEEDED:\n';
           lowStock.forEach((alert: any) => {
             alertMessage += `• ${alert.part_number} - ${alert.part_name}: ${alert.current_quantity} remaining\n`;
           });
@@ -1486,12 +1487,10 @@ export function Estimates({ userId }: EstimatesProps) {
       } else {
         showSuccess(`Estimate approved and converted to Work Order ${data.work_order_number}!`);
       }
-
-      await loadData();
     } catch (err: any) {
       console.error('Error approving estimate:', err);
-      setError(err.message || 'Failed to approve estimate');
-      showError('Error: ' + (err.message || 'Failed to approve estimate'));
+      const errorMessage = err.message || 'Failed to approve estimate';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
