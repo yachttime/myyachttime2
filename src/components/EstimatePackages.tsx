@@ -61,6 +61,7 @@ interface PartSearchResult {
   unit_price: number;
   source: PartSource;
   source_label: string;
+  is_alt?: boolean;
 }
 
 interface EstimatePackagesProps {
@@ -153,15 +154,32 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
           .or(`part_number.ilike.%${term}%,alternative_part_numbers.ilike.%${term}%,description.ilike.%${term}%`)
           .limit(30)
           .order('part_number');
-        setPartSearchResults((data || []).map(p => ({
-          id: p.id,
-          part_number: p.part_number,
-          alternative_part_numbers: p.alternative_part_numbers || '',
-          description: p.description,
-          unit_price: p.unit_price ?? 0,
-          source: 'inventory' as PartSource,
-          source_label: 'Shop'
-        })));
+        const results: PartSearchResult[] = [];
+        for (const p of (data || [])) {
+          results.push({
+            id: p.id,
+            part_number: p.part_number,
+            alternative_part_numbers: p.alternative_part_numbers || '',
+            description: p.description,
+            unit_price: p.unit_price ?? 0,
+            source: 'inventory' as PartSource,
+            source_label: 'Shop',
+            is_alt: false
+          });
+          if (p.alternative_part_numbers) {
+            results.push({
+              id: p.id + '_alt',
+              part_number: p.alternative_part_numbers,
+              alternative_part_numbers: p.part_number,
+              description: p.description,
+              unit_price: p.unit_price ?? 0,
+              source: 'inventory' as PartSource,
+              source_label: 'Shop',
+              is_alt: true
+            });
+          }
+        }
+        setPartSearchResults(results);
       } else if (partSource === 'mercury') {
         const { data } = await supabase
           .from('mercury_marine_parts')
@@ -204,9 +222,12 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
   }
 
   function selectPartResult(result: PartSearchResult) {
-    setSelectedPartResult(result);
-    setPartSearch(result.part_number + ' - ' + result.description);
-    setPartUnitPrice(result.unit_price);
+    const normalized = result.is_alt
+      ? { ...result, id: result.id.replace('_alt', '') }
+      : result;
+    setSelectedPartResult(normalized);
+    setPartSearch(normalized.part_number + ' - ' + normalized.description);
+    setPartUnitPrice(normalized.unit_price);
     setShowPartDropdown(false);
   }
 
@@ -628,13 +649,22 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
                             <div className="flex items-center justify-between gap-2">
                               <div className="flex items-center gap-2 min-w-0">
                                 <span className="text-sm font-medium text-gray-900 truncate">{result.part_number}</span>
-                                {result.alternative_part_numbers && (
-                                  <span className="text-xs text-gray-400 truncate">Alt: {result.alternative_part_numbers}</span>
-                                )}
+                                {result.is_alt ? (
+                                  <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium whitespace-nowrap">Alt #</span>
+                                ) : result.alternative_part_numbers ? (
+                                  <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium whitespace-nowrap">Primary</span>
+                                ) : null}
                               </div>
                               <span className="text-sm font-semibold text-gray-900 whitespace-nowrap">${result.unit_price.toFixed(2)}</span>
                             </div>
-                            <div className="text-xs text-gray-500 truncate">{result.description}</div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-gray-500 truncate">{result.description}</span>
+                              {result.alternative_part_numbers && (
+                                <span className="text-xs text-gray-400 whitespace-nowrap">
+                                  {result.is_alt ? `Primary: ${result.alternative_part_numbers}` : `Alt: ${result.alternative_part_numbers}`}
+                                </span>
+                              )}
+                            </div>
                           </button>
                         ))}
                       </div>
