@@ -69,6 +69,7 @@ interface WorkOrderLineItem {
   marine_wholesale_part_id?: string | null;
   line_order: number;
   work_details?: string | null;
+  package_header?: string | null;
 }
 
 interface WorkOrdersProps {
@@ -826,6 +827,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
             mercury_part_id: item.mercury_part_id || null,
             marine_wholesale_part_id: item.marine_wholesale_part_id || null,
             work_details: item.work_details || null,
+            package_header: item.package_header || null,
             line_order: index
           }));
 
@@ -1038,7 +1040,8 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
             mercury_part_id: item.mercury_part_id || null,
             marine_wholesale_part_id: item.marine_wholesale_part_id || null,
             line_order: item.line_order || 0,
-            work_details: item.work_details
+            work_details: item.work_details,
+            package_header: item.package_header || null
           }));
 
         return {
@@ -2140,6 +2143,24 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                                   </thead>
                                   <tbody>
                                     {task.lineItems.map((item, lineIndex) => (
+                                      item.package_header ? (
+                                        <tr key={lineIndex} className="border-t bg-green-50">
+                                          <td colSpan={4} className="px-3 py-2">
+                                            <span className="text-xs font-semibold text-green-700 uppercase tracking-wide">
+                                              {item.package_header}
+                                            </span>
+                                          </td>
+                                          <td className="px-3 py-2 text-right align-top">
+                                            <button
+                                              type="button"
+                                              onClick={() => handleRemoveLineItem(taskIndex, lineIndex)}
+                                              className="text-red-600 hover:text-red-800"
+                                            >
+                                              <Trash2 className="w-4 h-4" />
+                                            </button>
+                                          </td>
+                                        </tr>
+                                      ) : (
                                       <tr key={lineIndex} className="border-t">
                                         <td className="px-3 py-2">
                                           <div className="flex items-center gap-2">
@@ -2168,6 +2189,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                                           </button>
                                         </td>
                                       </tr>
+                                      )
                                     ))}
                                   </tbody>
                                 </table>
