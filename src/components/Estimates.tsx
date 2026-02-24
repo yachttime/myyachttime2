@@ -61,6 +61,7 @@ interface EstimateLineItem {
   part_id?: string | null;
   line_order: number;
   work_details?: string | null;
+  package_header?: string;
 }
 
 interface EstimatesProps {
@@ -664,6 +665,22 @@ export function Estimates({ userId }: EstimatesProps) {
       }
 
       const currentLineOrder = updatedTasks[activeTaskIndex].lineItems.length;
+      const packageName = packages.find(p => p.id === selectedPackageId)?.name || 'Package';
+
+      const headerItem: EstimateLineItem = {
+        line_type: 'labor',
+        description: '',
+        quantity: 0,
+        unit_price: 0,
+        total_price: 0,
+        is_taxable: false,
+        labor_code_id: null,
+        part_id: null,
+        line_order: currentLineOrder,
+        work_details: null,
+        package_header: packageName
+      };
+      updatedTasks[activeTaskIndex].lineItems.push(headerItem);
 
       packageLaborRes.data?.forEach((labor: any, index: number) => {
         const newLineItem: EstimateLineItem = {
@@ -675,7 +692,7 @@ export function Estimates({ userId }: EstimatesProps) {
           is_taxable: labor.labor_code?.is_taxable || false,
           labor_code_id: labor.labor_code_id,
           part_id: null,
-          line_order: currentLineOrder + index,
+          line_order: currentLineOrder + 1 + index,
           work_details: null
         };
         updatedTasks[activeTaskIndex].lineItems.push(newLineItem);
@@ -698,7 +715,7 @@ export function Estimates({ userId }: EstimatesProps) {
           is_taxable: (part.part_source === 'mercury' || part.part_source === 'marine_wholesale') ? true : (part.part_source === 'inventory' ? (part.part?.is_taxable ?? part.is_taxable ?? false) : (part.is_taxable ?? false)),
           labor_code_id: null,
           part_id: part.part_id,
-          line_order: currentLineOrder + laborItemCount + index,
+          line_order: currentLineOrder + 1 + laborItemCount + index,
           work_details: null
         };
         updatedTasks[activeTaskIndex].lineItems.push(newLineItem);
@@ -2418,6 +2435,26 @@ export function Estimates({ userId }: EstimatesProps) {
                                   </thead>
                                   <tbody>
                                     {task.lineItems.map((item, lineIndex) => (
+                                      item.package_header ? (
+                                        <tr key={lineIndex} className="border-t bg-green-50">
+                                          <td colSpan={4} className="px-3 py-2">
+                                            <div className="flex items-center gap-2">
+                                              <Package className="w-3.5 h-3.5 text-green-600" />
+                                              <span className="text-xs font-semibold text-green-700 uppercase tracking-wide">{item.package_header}</span>
+                                            </div>
+                                          </td>
+                                          <td className="px-3 py-2 text-right align-top">
+                                            <button
+                                              type="button"
+                                              onClick={() => handleRemoveLineItem(taskIndex, lineIndex)}
+                                              className="text-red-600 hover:text-red-800"
+                                              title="Remove package header"
+                                            >
+                                              <Trash2 className="w-4 h-4" />
+                                            </button>
+                                          </td>
+                                        </tr>
+                                      ) : (
                                       <tr key={lineIndex} className="border-t">
                                         <td className="px-3 py-2">
                                           <div className="flex items-center gap-2">
@@ -2457,6 +2494,7 @@ export function Estimates({ userId }: EstimatesProps) {
                                           </div>
                                         </td>
                                       </tr>
+                                      )
                                     ))}
                                   </tbody>
                                 </table>
