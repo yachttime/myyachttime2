@@ -1894,7 +1894,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                 </button>
               </div>
 
-              {showTaskForm && (
+              {showTaskForm && editingTaskIndex === null && (
                 <div className="mb-4 p-4 bg-gray-50 rounded-lg space-y-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Task Name *</label>
@@ -1932,7 +1932,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                       onClick={handleAddTask}
                       className="px-3 py-1 text-sm text-white bg-blue-600 rounded hover:bg-blue-700"
                     >
-                      {editingTaskIndex !== null ? 'Update Task' : 'Add Task'}
+                      Add Task
                     </button>
                   </div>
                 </div>
@@ -1942,6 +1942,50 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                 <div className="space-y-3">
                   {tasks.map((task, taskIndex) => (
                     <div key={taskIndex} className="border border-gray-300 rounded-lg overflow-hidden">
+                      {editingTaskIndex === taskIndex ? (
+                        <div className="p-4 bg-blue-50 border-b border-blue-200 space-y-3">
+                          <h5 className="font-medium text-gray-900">Edit Task</h5>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Task Name *</label>
+                            <input
+                              type="text"
+                              required
+                              value={taskFormData.task_name}
+                              onChange={(e) => setTaskFormData({ ...taskFormData, task_name: e.target.value })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Task Overview</label>
+                            <textarea
+                              value={taskFormData.task_overview}
+                              onChange={(e) => setTaskFormData({ ...taskFormData, task_overview: e.target.value })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
+                              rows={3}
+                            />
+                          </div>
+                          <div className="flex justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowTaskForm(false);
+                                setEditingTaskIndex(null);
+                                setTaskFormData({ task_name: '', task_overview: '' });
+                              }}
+                              className="px-3 py-1 text-sm text-gray-700 bg-gray-100 rounded hover:bg-gray-200"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleAddTask}
+                              className="px-3 py-1 text-sm text-white bg-blue-600 rounded hover:bg-blue-700"
+                            >
+                              Update Task
+                            </button>
+                          </div>
+                        </div>
+                      ) : null}
                       <div className="bg-gray-100 px-4 py-3 flex justify-between items-center">
                         <div className="flex items-center gap-2 flex-1">
                           <button
