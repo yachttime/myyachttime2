@@ -1041,8 +1041,19 @@ export async function generateEstimatePDF(
   yPos = Math.max(yPos, leftColumnEndY);
   addSpace(0.15);
 
+  const pageBottomLimit = 10.25;
+  const rowHeightEstimate = 0.26;
+  const tableHeaderHeight = 0.28;
+  const taskTitleHeight = 0.25;
+  const minRowsBeforeBreak = 3;
+
   tasks.forEach((task, taskIndex) => {
-    if (yPos > 9.0) {
+    const itemCount = task.lineItems?.length || 0;
+    const overviewHeight = task.task_overview ? 0.2 : 0;
+    const taskHeaderHeight = taskTitleHeight + overviewHeight + 0.15;
+    const minContentHeight = taskHeaderHeight + tableHeaderHeight + (Math.min(itemCount, minRowsBeforeBreak) * rowHeightEstimate);
+
+    if (yPos + minContentHeight > pageBottomLimit) {
       doc.addPage();
       yPos = margin;
     }
@@ -1578,8 +1589,19 @@ export async function generateWorkOrderPDF(
   yPos = Math.max(yPos, leftColumnEndY);
   addSpace(0.15);
 
+  const pageBottomLimit2 = 10.25;
+  const rowHeightEstimate2 = 0.26;
+  const tableHeaderHeight2 = 0.28;
+  const taskTitleHeight2 = 0.25;
+  const minRowsBeforeBreak2 = 3;
+
   tasks.forEach((task, taskIndex) => {
-    if (yPos > 9.0) {
+    const itemCount = task.lineItems?.length || 0;
+    const overviewHeight = task.task_overview ? 0.2 : 0;
+    const taskHeaderHeight = taskTitleHeight2 + overviewHeight + 0.15;
+    const minContentHeight = taskHeaderHeight + tableHeaderHeight2 + (Math.min(itemCount, minRowsBeforeBreak2) * rowHeightEstimate2);
+
+    if (yPos + minContentHeight > pageBottomLimit2) {
       doc.addPage();
       yPos = margin;
     }
