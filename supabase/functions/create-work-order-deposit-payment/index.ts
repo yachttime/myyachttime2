@@ -174,6 +174,12 @@ Deno.serve(withErrorHandling(async (req: Request) => {
       params['payment_method_types[1]'] = 'us_bank_account';
     }
 
+    // Nacha ACH classification compliance (effective March 20, 2026)
+    // Marine services are services, not physical goods
+    if (paymentMethodType === 'ach' || paymentMethodType === 'both') {
+      params['payment_intent_data[payment_method_options][us_bank_account][mandate_options][transaction_type]'] = 'personal';
+    }
+
     const paymentLink = await fetch('https://api.stripe.com/v1/payment_links', {
       method: 'POST',
       headers: {
