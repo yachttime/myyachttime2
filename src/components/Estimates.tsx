@@ -1055,6 +1055,7 @@ export function Estimates({ userId }: EstimatesProps) {
             part_id: item.part_id || null,
             accounting_code_id: item.accounting_code_id || null,
             work_details: item.work_details || null,
+            package_header: item.package_header || null,
             line_order: index
           }));
 
@@ -1311,7 +1312,8 @@ export function Estimates({ userId }: EstimatesProps) {
             labor_code_id: item.labor_code_id,
             part_id: item.part_id,
             line_order: item.line_order,
-            work_details: item.work_details
+            work_details: item.work_details,
+            package_header: item.package_header || undefined
           }));
 
         console.log(`Task "${task.task_name}" (${task.id}) has ${taskLineItems.length} line items`);
