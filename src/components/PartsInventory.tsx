@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { Plus, Edit2, AlertCircle, Package, TrendingUp, TrendingDown, Search, Camera, X, Printer } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
@@ -96,7 +96,7 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
   const [crossSearchResults, setCrossSearchResults] = useState<{source: string; part_number: string; description: string; price: string}[]>([]);
   const [showCrossSearch, setShowCrossSearch] = useState(false);
   const [crossSearchLoading, setCrossSearchLoading] = useState(false);
-  const crossSearchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [adjustmentData, setAdjustmentData] = useState({
     transaction_type: 'add' as 'add' | 'remove' | 'adjustment',
@@ -166,74 +166,56 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
     }
   };
 
-  const runCrossSearch = useCallback(async (term: string) => {
+  useEffect(() => {
+    let cancelled = false;
+    const term = searchTerm.trim();
     if (!term || term.length < 2) {
       setCrossSearchResults([]);
       setShowCrossSearch(false);
       return;
     }
-    setCrossSearchLoading(true);
-    const results: {source: string; part_number: string; description: string; price: string}[] = [];
-    try {
-      const inventoryRes = await supabase
-        .from('parts_inventory')
-        .select('part_number, name, description, alternative_part_numbers, unit_price')
-        .eq('is_active', true)
-        .or(`part_number.ilike.%${term}%,alternative_part_numbers.ilike.%${term}%,name.ilike.%${term}%`)
-        .limit(10)
-        .order('part_number');
-      for (const p of (inventoryRes.data || [])) {
-        results.push({ source: 'Shop', part_number: p.part_number, description: p.name || p.description || '', price: `$${Number(p.unit_price).toFixed(2)}` });
-        if (p.alternative_part_numbers) {
-          results.push({ source: 'Shop (Alt)', part_number: p.alternative_part_numbers, description: p.name || p.description || '', price: `$${Number(p.unit_price).toFixed(2)}` });
-        }
-      }
-    } catch (err) {
-      console.error('Shop inventory search error:', err);
-    }
-    try {
-      const mercuryRes = await supabase
-        .from('mercury_marine_parts')
-        .select('part_number, description, msrp, dealer_price')
-        .eq('is_active', true)
-        .or(`part_number.ilike.%${term}%,description.ilike.%${term}%`)
-        .limit(10)
-        .order('part_number');
-      for (const p of (mercuryRes.data || [])) {
-        results.push({ source: 'Mercury', part_number: p.part_number, description: p.description || '', price: p.msrp ? `$${Number(p.msrp).toFixed(2)}` : p.dealer_price ? `$${Number(p.dealer_price).toFixed(2)}` : '-' });
-      }
-    } catch (err) {
-      console.error('Mercury parts search error:', err);
-    }
-    try {
+    const timer = setTimeout(async () => {
+      if (cancelled) return;
+      setCrossSearchLoading(true);
+      const results: {source: string; part_number: string; description: string; price: string}[] = [];
+
       const wholesaleRes = await supabase
         .from('marine_wholesale_parts')
         .select('sku, mfg_part_number, description, list_price')
         .eq('is_active', true)
         .or(`sku.ilike.%${term}%,mfg_part_number.ilike.%${term}%,description.ilike.%${term}%`)
-        .limit(10)
+        .limit(15)
         .order('sku');
-      for (const p of (wholesaleRes.data || [])) {
-        results.push({ source: 'Wholesale', part_number: p.sku, description: p.description || '', price: p.list_price ? `$${Number(p.list_price).toFixed(2)}` : '-' });
+      if (!cancelled) {
+        for (const p of (wholesaleRes.data || [])) {
+          results.push({ source: 'Wholesale', part_number: p.sku, description: p.description || '', price: p.list_price ? `$${Number(p.list_price).toFixed(2)}` : '-' });
+        }
       }
-    } catch (err) {
-      console.error('Marine wholesale search error:', err);
-    }
-    setCrossSearchResults(results);
-    setShowCrossSearch(results.length > 0);
-    setCrossSearchLoading(false);
-  }, []);
 
-  useEffect(() => {
-    if (crossSearchDebounce.current) clearTimeout(crossSearchDebounce.current);
-    if (!searchTerm || searchTerm.length < 2) {
-      setCrossSearchResults([]);
-      setShowCrossSearch(false);
-      return;
-    }
-    crossSearchDebounce.current = setTimeout(() => runCrossSearch(searchTerm), 350);
-    return () => { if (crossSearchDebounce.current) clearTimeout(crossSearchDebounce.current); };
-  }, [searchTerm, runCrossSearch]);
+      const mercuryRes = await supabase
+        .from('mercury_marine_parts')
+        .select('part_number, description, msrp, dealer_price')
+        .eq('is_active', true)
+        .or(`part_number.ilike.%${term}%,description.ilike.%${term}%`)
+        .limit(15)
+        .order('part_number');
+      if (!cancelled) {
+        for (const p of (mercuryRes.data || [])) {
+          results.push({ source: 'Mercury', part_number: p.part_number, description: p.description || '', price: p.msrp ? `$${Number(p.msrp).toFixed(2)}` : p.dealer_price ? `$${Number(p.dealer_price).toFixed(2)}` : '-' });
+        }
+      }
+
+      if (!cancelled) {
+        setCrossSearchResults(results);
+        setShowCrossSearch(results.length > 0);
+        setCrossSearchLoading(false);
+      }
+    }, 400);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [searchTerm]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
