@@ -1460,6 +1460,13 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
 
       const yachtName = workOrderData.yachts?.name || null;
 
+      const { data: depositsData } = await supabase
+        .from('estimating_payments')
+        .select('*')
+        .eq('work_order_id', workOrderId)
+        .eq('payment_type', 'deposit')
+        .order('payment_date', { ascending: true });
+
       const workOrderWithEstimates = {
         ...workOrderData,
         estimates: {
@@ -1475,7 +1482,8 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
           total_amount: workOrderData.total_amount || 0,
           notes: workOrderData.notes,
           customer_notes: workOrderData.customer_notes
-        }
+        },
+        deposits: depositsData || []
       };
 
       const pdf = await generateWorkOrderPDF(workOrderWithEstimates, tasksWithLineItems, yachtName, companyInfo);
@@ -2687,12 +2695,17 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                       <div className="mt-2 space-y-1.5">
                         <p className="text-xs font-semibold text-gray-700">Deposits Recorded:</p>
                         {workOrderDeposits.map((dep, idx) => (
-                          <div key={dep.id} className="flex items-center gap-2 p-2 bg-white border border-cyan-200 rounded text-xs">
-                            <CheckCircle className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
-                            <span className="font-semibold text-gray-700">#{idx + 1}</span>
-                            <span className="text-green-700 font-bold">${parseFloat(String(dep.amount)).toFixed(2)}</span>
-                            <span className="text-gray-500">{dep.payment_method === 'check' ? `Check #${dep.reference_number}` : dep.payment_method}</span>
-                            <span className="text-gray-400 ml-auto">{new Date(dep.payment_date).toLocaleDateString()}</span>
+                          <div key={dep.id} className="p-2 bg-white border border-cyan-200 rounded text-xs">
+                            <div className="flex items-center gap-2">
+                              <CheckCircle className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
+                              <span className="font-semibold text-gray-700">#{idx + 1}</span>
+                              <span className="text-green-700 font-bold">${parseFloat(String(dep.amount)).toFixed(2)}</span>
+                              <span className="text-gray-500">{dep.payment_method === 'check' ? `Check #${dep.reference_number}` : dep.payment_method}</span>
+                              <span className="text-gray-400 ml-auto">{new Date(dep.payment_date).toLocaleDateString()}</span>
+                            </div>
+                            {dep.notes && (
+                              <div className="mt-1 pl-5 text-gray-500 italic">{dep.notes}</div>
+                            )}
                           </div>
                         ))}
                       </div>

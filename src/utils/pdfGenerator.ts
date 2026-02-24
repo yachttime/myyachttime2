@@ -1753,36 +1753,63 @@ export async function generateWorkOrderPDF(
     }
   });
 
-  // Check if deposit has been applied (for work order)
-  const depositApplied = (typeof workOrder !== 'undefined' && workOrder.deposit_amount && workOrder.deposit_paid_at) ? workOrder.deposit_amount : 0;
 
-  if (depositApplied > 0) {
+  // Check if deposits have been applied — supports multiple recorded deposits
+  const depositsArray: any[] = (Array.isArray(workOrder.deposits) && workOrder.deposits.length > 0)
+    ? workOrder.deposits
+    : [];
+  const totalDepositsApplied = depositsArray.length > 0
+    ? depositsArray.reduce((sum: number, d: any) => sum + parseFloat(String(d.amount || 0)), 0)
+    : (workOrder.deposit_amount && workOrder.deposit_paid_at ? parseFloat(String(workOrder.deposit_amount)) : 0);
+
+  if (totalDepositsApplied > 0) {
     yPos += 0.1;
 
-    autoTable(doc, {
-      startY: yPos,
-      body: [['Deposit Applied:', `-$${depositApplied.toFixed(2)}`]],
-      theme: 'plain',
-      styles: {
-        fontSize: 8,
-        cellPadding: 0.0375,
-        font: 'helvetica'
-      },
-      columnStyles: {
-        0: { halign: 'right', cellWidth: 5.5 },
-        1: { halign: 'right', cellWidth: 1.2 }
-      },
-      margin: { left: margin, right: margin },
-      didDrawPage: (data: any) => {
-        yPos = data.cursor.y;
+    if (depositsArray.length > 1) {
+      for (let i = 0; i < depositsArray.length; i++) {
+        const dep = depositsArray[i];
+        const depAmount = parseFloat(String(dep.amount || 0));
+        const methodLabel = dep.payment_method === 'check'
+          ? `Check #${dep.reference_number || ''}`
+          : (dep.payment_method || '');
+        const notesSuffix = dep.notes ? ` — ${dep.notes}` : '';
+        const label = `Deposit #${i + 1} (${methodLabel}):${notesSuffix}`;
+
+        autoTable(doc, {
+          startY: yPos,
+          body: [[label, `-$${depAmount.toFixed(2)}`]],
+          theme: 'plain',
+          styles: { fontSize: 8, cellPadding: 0.0375, font: 'helvetica' },
+          columnStyles: {
+            0: { halign: 'right', cellWidth: 5.5 },
+            1: { halign: 'right', cellWidth: 1.2 }
+          },
+          margin: { left: margin, right: margin },
+          didDrawPage: (data: any) => { yPos = data.cursor.y; }
+        });
       }
-    });
+    } else {
+      const dep = depositsArray[0];
+      const notesSuffix = dep && dep.notes ? ` — ${dep.notes}` : '';
+      autoTable(doc, {
+        startY: yPos,
+        body: [[`Deposit Applied:${notesSuffix}`, `-$${totalDepositsApplied.toFixed(2)}`]],
+        theme: 'plain',
+        styles: { fontSize: 8, cellPadding: 0.0375, font: 'helvetica' },
+        columnStyles: {
+          0: { halign: 'right', cellWidth: 5.5 },
+          1: { halign: 'right', cellWidth: 1.2 }
+        },
+        margin: { left: margin, right: margin },
+        didDrawPage: (data: any) => { yPos = data.cursor.y; }
+      });
+    }
 
     doc.setLineWidth(0.03);
     doc.line(margin + 3.5, yPos, pageWidth - margin, yPos);
     yPos += 0.1125;
 
-    const balanceDue = estimate.total_amount - depositApplied;
+    const balanceDue = estimate.total_amount - totalDepositsApplied;
 
     autoTable(doc, {
       startY: yPos,
