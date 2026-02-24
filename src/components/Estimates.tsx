@@ -112,6 +112,7 @@ export function Estimates({ userId }: EstimatesProps) {
 
   const [tasks, setTasks] = useState<EstimateTask[]>([]);
   const [showTaskForm, setShowTaskForm] = useState(false);
+  const [taskFormPosition, setTaskFormPosition] = useState<'top' | 'bottom'>('top');
   const [editingTaskIndex, setEditingTaskIndex] = useState<number | null>(null);
   const [expandedTasks, setExpandedTasks] = useState<Set<number>>(new Set());
   const [taskFormData, setTaskFormData] = useState({
@@ -2266,6 +2267,7 @@ export function Estimates({ userId }: EstimatesProps) {
                   type="button"
                   onClick={() => {
                     setShowTaskForm(true);
+                    setTaskFormPosition('top');
                     setEditingTaskIndex(null);
                     setTaskFormData({ task_name: '', task_overview: '' });
                   }}
@@ -2276,7 +2278,7 @@ export function Estimates({ userId }: EstimatesProps) {
                 </button>
               </div>
 
-              {showTaskForm && (
+              {showTaskForm && taskFormPosition === 'top' && (
                 <div className="mb-4 p-4 bg-gray-50 rounded-lg space-y-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Task Name *</label>
@@ -2730,6 +2732,8 @@ export function Estimates({ userId }: EstimatesProps) {
                     type="button"
                     onClick={() => {
                       setShowTaskForm(true);
+                      setTaskFormPosition('bottom');
+                      setEditingTaskIndex(null);
                       setTaskFormData({ task_name: '', task_overview: '' });
                     }}
                     className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
@@ -2737,6 +2741,53 @@ export function Estimates({ userId }: EstimatesProps) {
                     <Plus className="w-4 h-4" />
                     Add Task
                   </button>
+                </div>
+              )}
+
+              {showTaskForm && taskFormPosition === 'bottom' && (
+                <div className="mt-3 p-4 bg-gray-50 rounded-lg space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Task Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={taskFormData.task_name}
+                      onChange={(e) => setTaskFormData({ ...taskFormData, task_name: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
+                      placeholder="e.g., Engine Service, Hull Cleaning, etc."
+                      autoFocus
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Task Overview</label>
+                    <textarea
+                      value={taskFormData.task_overview}
+                      onChange={(e) => setTaskFormData({ ...taskFormData, task_overview: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
+                      rows={3}
+                      placeholder="Describe what this task involves..."
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowTaskForm(false);
+                        setEditingTaskIndex(null);
+                        setTaskFormData({ task_name: '', task_overview: '' });
+                      }}
+                      className="px-3 py-1 text-sm text-gray-700 bg-gray-100 rounded hover:bg-gray-200"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleAddTask}
+                      className="px-3 py-1 text-sm text-white bg-blue-600 rounded hover:bg-blue-700"
+                    >
+                      Add Task
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
