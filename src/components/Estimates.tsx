@@ -3295,7 +3295,13 @@ export function Estimates({ userId }: EstimatesProps) {
                 </td>
                 <td className="px-6 py-4">
                   <div className="text-sm font-medium text-gray-900">
-                    {estimate.customer_name || '—'}
+                    {estimate.customer_name || (() => {
+                      if (estimate.yacht_id) {
+                        const repairManager = managers.find(m => m.yacht_id === estimate.yacht_id);
+                        return repairManager ? `${repairManager.first_name} ${repairManager.last_name}`.trim() : '—';
+                      }
+                      return '—';
+                    })()}
                   </div>
                 </td>
                 <td className="px-6 py-4">
