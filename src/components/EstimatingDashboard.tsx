@@ -26,6 +26,7 @@ interface DashboardStats {
   pendingApproval: number;
   totalWorkOrders: number;
   totalWorkOrdersAmount: number;
+  totalDepositsPaid: number;
   pendingWorkOrders: number;
   unpaidInvoices: number;
   unpaidAmount: number;
@@ -42,6 +43,7 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
     pendingApproval: 0,
     totalWorkOrders: 0,
     totalWorkOrdersAmount: 0,
+    totalDepositsPaid: 0,
     pendingWorkOrders: 0,
     unpaidInvoices: 0,
     unpaidAmount: 0,
@@ -94,7 +96,7 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
 
       const [estimatesRes, workOrdersRes, invoicesRes, partsRes] = await Promise.all([
         supabase.from('estimates').select('id, status, total_amount', { count: 'exact' }).neq('status', 'converted').eq('archived', false),
-        supabase.from('work_orders').select('id, status, total_amount', { count: 'exact' }).eq('archived', false),
+        supabase.from('work_orders').select('id, status, total_amount, deposit_amount, deposit_payment_status', { count: 'exact' }).eq('archived', false),
         supabase.from('estimating_invoices').select('id, total_amount, payment_status, work_order_id', { count: 'exact' }).eq('archived', false),
         supabase.from('parts_inventory').select('id, quantity_on_hand, reorder_level', { count: 'exact' })
       ]);
@@ -114,6 +116,8 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
       const pendingApproval = estimates.filter(e => e.status === 'sent').length;
       const totalWorkOrders = workOrders.length;
       const totalWorkOrdersAmount = workOrders.reduce((sum, w) => sum + (w.total_amount || 0), 0);
+      const totalDepositsPaid = workOrders.reduce((sum, w) =>
+        sum + (w.deposit_payment_status === 'paid' ? (w.deposit_amount || 0) : 0), 0);
       const pendingWorkOrders = workOrders.filter(w =>
         w.status === 'in_progress' || w.status === 'pending'
       ).length;
@@ -135,6 +139,7 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
         pendingApproval,
         totalWorkOrders,
         totalWorkOrdersAmount,
+        totalDepositsPaid,
         pendingWorkOrders,
         unpaidInvoices: unpaidInvoices.length,
         unpaidAmount,
@@ -299,14 +304,24 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
                     </span>
                   </div>
 
-                  <div className="flex items-center justify-between py-3 border-b border-gray-100">
-                    <div>
-                      <span className="text-sm text-gray-600">Total Work Orders</span>
-                      <span className="ml-2 text-xs text-gray-400">({loading ? '...' : stats.totalWorkOrders})</span>
+                  <div className="py-3 border-b border-gray-100">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-sm text-gray-600">Total Work Orders</span>
+                        <span className="ml-2 text-xs text-gray-400">({loading ? '...' : stats.totalWorkOrders})</span>
+                      </div>
+                      <span className="text-lg font-bold text-green-700">
+                        {loading ? '...' : `$${stats.totalWorkOrdersAmount.toFixed(2)}`}
+                      </span>
                     </div>
-                    <span className="text-lg font-bold text-green-700">
-                      {loading ? '...' : `$${stats.totalWorkOrdersAmount.toFixed(2)}`}
-                    </span>
+                    {!loading && stats.totalDepositsPaid > 0 && (
+                      <div className="flex items-center justify-between mt-1">
+                        <span className="text-xs text-gray-500 pl-2">Less deposits paid</span>
+                        <span className="text-sm font-medium text-red-600">
+                          -${stats.totalDepositsPaid.toFixed(2)}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex items-center justify-between py-3 border-b border-gray-100">
