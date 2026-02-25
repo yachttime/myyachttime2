@@ -60,11 +60,6 @@ Deno.serve(async (req: Request) => {
       throw new Error('Repair request not found');
     }
 
-    // Verify this is a retail customer request
-    if (!repairRequest.is_retail_customer) {
-      throw new Error('This feature is only for retail customer repair requests');
-    }
-
     // Check if user has access (staff/manager/mechanic/master only)
     const { data: profile } = await supabase
       .from('user_profiles')
@@ -78,57 +73,45 @@ Deno.serve(async (req: Request) => {
       throw new Error('Unauthorized to send estimate emails');
     }
 
-    // Download attachment if it exists
+    // Download attachment if it exists — prefer estimate PDF over repair file
     let attachmentData = null;
 
-    if (repairRequest.file_url && repairRequest.file_name) {
+    const attachUrl = repairRequest.estimate_pdf_url || repairRequest.file_url;
+    const attachName = repairRequest.estimate_pdf_name || repairRequest.file_name;
+
+    if (attachUrl && attachName) {
       try {
-        console.log('Attempting to download repair attachment:', {
-          url: repairRequest.file_url,
-          filename: repairRequest.file_name
-        });
+        let bucket = 'repair-files';
+        let filePath = attachUrl;
 
-        // Extract the file path from the full URL
-        let filePath = repairRequest.file_url;
-
-        // Remove the base URL and bucket name to get just the file path
-        if (filePath.includes('/repair-files/')) {
-          filePath = filePath.split('/repair-files/')[1];
-        } else if (filePath.includes('/object/public/repair-files/')) {
-          filePath = filePath.split('/object/public/repair-files/')[1];
+        if (attachUrl.includes('/estimate-pdfs/')) {
+          bucket = 'estimate-pdfs';
+          filePath = attachUrl.split('/estimate-pdfs/')[1] || attachUrl.split('/object/public/estimate-pdfs/')[1];
+        } else if (attachUrl.includes('/object/public/estimate-pdfs/')) {
+          bucket = 'estimate-pdfs';
+          filePath = attachUrl.split('/object/public/estimate-pdfs/')[1];
+        } else if (attachUrl.includes('/repair-files/')) {
+          filePath = attachUrl.split('/repair-files/')[1];
+        } else if (attachUrl.includes('/object/public/repair-files/')) {
+          filePath = attachUrl.split('/object/public/repair-files/')[1];
         }
 
-        console.log('Extracted file path:', filePath);
-
         const { data: fileData, error: fileError } = await supabase.storage
-          .from('repair-files')
+          .from(bucket)
           .download(filePath);
 
         if (fileError) {
-          console.error('Error downloading repair file from storage:', fileError);
+          console.error('Error downloading attachment from storage:', fileError);
         } else if (fileData) {
-          console.log('Successfully downloaded file, size:', fileData.size);
-
           const arrayBuffer = await fileData.arrayBuffer();
           const base64Content = btoa(
             new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
           );
-
-          attachmentData = {
-            filename: repairRequest.file_name,
-            content: base64Content,
-          };
-
-          console.log('Successfully prepared attachment:', repairRequest.file_name);
+          attachmentData = { filename: attachName, content: base64Content };
         }
       } catch (error) {
-        console.error('Error processing repair attachment:', error);
+        console.error('Error processing attachment:', error);
       }
-    } else {
-      console.log('No repair file to attach:', {
-        hasUrl: !!repairRequest.file_url,
-        hasFilename: !!repairRequest.file_name
-      });
     }
 
     // Check for existing unused, unexpired tokens

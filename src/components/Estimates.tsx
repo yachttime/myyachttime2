@@ -1773,22 +1773,21 @@ export function Estimates({ userId }: EstimatesProps) {
         );
         if (repairManagers.length > 0) {
           const { data: { session } } = await supabase.auth.getSession();
-          const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-repair-notification`;
-          await fetch(apiUrl, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${session?.access_token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              managerEmails: repairManagers.map(m => m.email),
-              managerNames: repairManagers.map(m => `${m.first_name} ${m.last_name}`),
-              repairTitle: `Estimate ${estimateData.estimate_number} - ${estimateData.work_title || customerDisplay}`,
-              yachtName: yachtName || 'Unknown Yacht',
-              submitterName: 'Estimating System',
-              repairRequestId: newRR.id
-            })
-          });
+          const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-repair-estimate-email`;
+          for (const manager of repairManagers) {
+            await fetch(apiUrl, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${session?.access_token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                repairRequestId: newRR.id,
+                recipientEmail: manager.email,
+                recipientName: `${manager.first_name} ${manager.last_name}`.trim()
+              })
+            });
+          }
         }
       }
 
