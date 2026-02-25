@@ -96,7 +96,7 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
 
       const [estimatesRes, workOrdersRes, invoicesRes, partsRes] = await Promise.all([
         supabase.from('estimates').select('id, status, total_amount', { count: 'exact' }).neq('status', 'converted').eq('archived', false),
-        supabase.from('work_orders').select('id, status, total_amount, deposit_amount, deposit_payment_status', { count: 'exact' }).eq('archived', false),
+        supabase.from('work_orders').select('id, status, total_amount, deposit_amount, deposit_payment_status, deposit_paid_at', { count: 'exact' }).eq('archived', false),
         supabase.from('estimating_invoices').select('id, total_amount, payment_status, work_order_id', { count: 'exact' }).eq('archived', false),
         supabase.from('parts_inventory').select('id, quantity_on_hand, reorder_level', { count: 'exact' })
       ]);
@@ -117,7 +117,7 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
       const totalWorkOrders = workOrders.length;
       const totalWorkOrdersAmount = workOrders.reduce((sum, w) => sum + (w.total_amount || 0), 0);
       const totalDepositsPaid = workOrders.reduce((sum, w) =>
-        sum + (w.deposit_payment_status === 'paid' ? (w.deposit_amount || 0) : 0), 0);
+        sum + (w.deposit_paid_at ? (w.deposit_amount || 0) : 0), 0);
       const pendingWorkOrders = workOrders.filter(w =>
         w.status === 'in_progress' || w.status === 'pending'
       ).length;
