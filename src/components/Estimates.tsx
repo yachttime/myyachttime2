@@ -508,6 +508,7 @@ export function Estimates({ userId }: EstimatesProps) {
       task_overview: task.task_overview
     });
     setEditingTaskIndex(index);
+    setTaskFormPosition('bottom');
     setShowTaskForm(true);
   };
 
