@@ -569,6 +569,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [showQuickAppointmentModal, setShowQuickAppointmentModal] = useState(false);
   const [quickAppointmentDate, setQuickAppointmentDate] = useState<Date | null>(null);
   const [quickAppointmentType, setQuickAppointmentType] = useState<'customer' | 'staff'>('customer');
+  const [customerSearchQuery, setCustomerSearchQuery] = useState('');
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [selectedInspectionForPDF, setSelectedInspectionForPDF] = useState<TripInspection | null>(null);
   const [selectedHandoffForPDF, setSelectedHandoffForPDF] = useState<OwnerHandoffInspection | null>(null);
   const [loadingPdfId, setLoadingPdfId] = useState<string | null>(null);
@@ -4765,6 +4767,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       }
 
       setAppointmentSuccess(true);
+      setCustomerSearchQuery('');
+      setShowCustomerDropdown(false);
       setAppointmentForm({
         date: '',
         time: '',
@@ -17051,6 +17055,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     setShowQuickAppointmentModal(false);
                     setQuickAppointmentDate(null);
                     setQuickAppointmentType('customer');
+                    setCustomerSearchQuery('');
+                    setShowCustomerDropdown(false);
                   }}
                   className="text-slate-400 hover:text-white transition-colors"
                 >
@@ -17106,39 +17112,57 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                         </label>
                         {appointmentForm.useExistingCustomer ? (
                       <div className="space-y-2">
-                        <select
-                          value={appointmentForm.customerId}
-                          onChange={(e) => {
-                            const selectedId = e.target.value;
-                            const customer = allCustomers.find(c => c.id === selectedId);
-                            if (customer) {
-                              setAppointmentForm({
-                                ...appointmentForm,
-                                customerId: selectedId,
-                                name: customer.name,
-                                phone: customer.phone || '',
-                                email: customer.email || ''
-                              });
-                            } else {
-                              setAppointmentForm({
-                                ...appointmentForm,
-                                customerId: '',
-                                name: '',
-                                phone: '',
-                                email: ''
-                              });
-                            }
-                          }}
-                          className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent text-white cursor-pointer"
-                          required
-                        >
-                          <option value="">Select a customer...</option>
-                          {allCustomers.map(customer => (
-                            <option key={customer.id} value={customer.id}>
-                              {customer.name} {customer.phone ? `- ${customer.phone}` : ''}
-                            </option>
-                          ))}
-                        </select>
+                        <div className="relative customer-search-container">
+                          <input
+                            type="text"
+                            value={customerSearchQuery}
+                            onChange={(e) => {
+                              const q = e.target.value;
+                              setCustomerSearchQuery(q);
+                              setShowCustomerDropdown(true);
+                              if (!q) {
+                                setAppointmentForm({ ...appointmentForm, customerId: '', name: '', phone: '', email: '' });
+                              }
+                            }}
+                            onFocus={() => setShowCustomerDropdown(true)}
+                            onBlur={() => setTimeout(() => setShowCustomerDropdown(false), 150)}
+                            placeholder="Search customers..."
+                            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent text-white placeholder-slate-400"
+                          />
+                          {showCustomerDropdown && (
+                            <div className="absolute z-50 w-full mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                              {allCustomers
+                                .filter(c => !customerSearchQuery || c.name.toLowerCase().includes(customerSearchQuery.toLowerCase()) || (c.phone && c.phone.includes(customerSearchQuery)))
+                                .slice(0, 50)
+                                .map(customer => (
+                                  <button
+                                    key={customer.id}
+                                    type="button"
+                                    onMouseDown={(e) => e.preventDefault()}
+                                    onClick={() => {
+                                      setAppointmentForm({
+                                        ...appointmentForm,
+                                        customerId: customer.id,
+                                        name: customer.name,
+                                        phone: customer.phone || '',
+                                        email: customer.email || ''
+                                      });
+                                      setCustomerSearchQuery(customer.name);
+                                      setShowCustomerDropdown(false);
+                                    }}
+                                    className="w-full text-left px-4 py-2.5 hover:bg-slate-700 text-white text-sm border-b border-slate-700 last:border-0"
+                                  >
+                                    <div className="font-medium">{customer.name}</div>
+                                    {customer.phone && <div className="text-xs text-slate-400">{customer.phone}</div>}
+                                  </button>
+                                ))
+                              }
+                              {allCustomers.filter(c => !customerSearchQuery || c.name.toLowerCase().includes(customerSearchQuery.toLowerCase()) || (c.phone && c.phone.includes(customerSearchQuery))).length === 0 && (
+                                <div className="px-4 py-3 text-sm text-slate-400">No customers found</div>
+                              )}
+                            </div>
+                          )}
+                        </div>
                         <button
                           type="button"
                           onClick={() => setAppointmentForm({ ...appointmentForm, useExistingCustomer: false, customerId: '', name: '', phone: '', email: '' })}
