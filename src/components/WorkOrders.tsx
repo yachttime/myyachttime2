@@ -2692,6 +2692,23 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
               {tasks.length === 0 && !showTaskForm && (
                 <p className="text-sm text-gray-500 text-center py-4">No tasks yet</p>
               )}
+
+              {tasks.length > 0 && !showTaskForm && (
+                <div className="mt-3 pt-3 border-t border-gray-100">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowTaskForm(true);
+                      setEditingTaskIndex(null);
+                      setTaskFormData({ task_name: '', task_overview: '' });
+                    }}
+                    className="w-full py-2 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg flex items-center justify-center gap-1 border border-dashed border-blue-300"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Task
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Taxes & Surcharges Section */}
