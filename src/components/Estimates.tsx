@@ -25,6 +25,7 @@ interface Estimate {
   park_fees_rate: number;
   park_fees_amount: number;
   surcharge_rate: number;
+  surcharge_cap: number | null;
   surcharge_amount: number;
   total_amount: number;
   marina_name: string | null;
@@ -101,6 +102,7 @@ export function Estimates({ userId }: EstimatesProps) {
     shop_supplies_rate: '0.05',
     park_fees_rate: '0.02',
     surcharge_rate: '0.03',
+    surcharge_cap: '',
     apply_shop_supplies: true,
     apply_park_fees: true,
     notes: '',
@@ -300,7 +302,8 @@ export function Estimates({ userId }: EstimatesProps) {
           sales_tax_rate: settingsResult.data.sales_tax_rate.toString(),
           shop_supplies_rate: settingsResult.data.shop_supplies_rate.toString(),
           park_fees_rate: settingsResult.data.park_fees_rate.toString(),
-          surcharge_rate: settingsResult.data.surcharge_rate.toString()
+          surcharge_rate: settingsResult.data.surcharge_rate.toString(),
+          surcharge_cap: settingsResult.data.surcharge_cap != null ? settingsResult.data.surcharge_cap.toString() : ''
         }));
       }
     } catch (err) {
@@ -949,7 +952,9 @@ export function Estimates({ userId }: EstimatesProps) {
   };
 
   const calculateSurcharge = () => {
-    return calculateSurchargeableSubtotal() * parseFloat(formData.surcharge_rate || '0');
+    const calculated = calculateSurchargeableSubtotal() * parseFloat(formData.surcharge_rate || '0');
+    const cap = formData.surcharge_cap !== '' ? parseFloat(formData.surcharge_cap) : null;
+    return cap != null && calculated > cap ? cap : calculated;
   };
 
   const calculateTotal = () => {
@@ -989,6 +994,7 @@ export function Estimates({ userId }: EstimatesProps) {
       const parkFeesRate = parseFloat(formData.park_fees_rate);
       const parkFeesAmount = calculateParkFees();
       const surchargeRate = parseFloat(formData.surcharge_rate);
+      const surchargeCap = formData.surcharge_cap !== '' ? parseFloat(formData.surcharge_cap) : null;
       const surchargeAmount = calculateSurcharge();
       const totalAmount = calculateTotal();
 
@@ -1017,6 +1023,7 @@ export function Estimates({ userId }: EstimatesProps) {
           park_fees_rate: parkFeesRate,
           park_fees_amount: parkFeesAmount,
           surcharge_rate: surchargeRate,
+          surcharge_cap: surchargeCap,
           surcharge_amount: surchargeAmount,
           total_amount: totalAmount,
           notes: formData.notes || null,
@@ -1062,6 +1069,7 @@ export function Estimates({ userId }: EstimatesProps) {
           park_fees_rate: parkFeesRate,
           park_fees_amount: parkFeesAmount,
           surcharge_rate: surchargeRate,
+          surcharge_cap: surchargeCap,
           surcharge_amount: surchargeAmount,
           total_amount: totalAmount,
           notes: formData.notes || null,
@@ -1180,12 +1188,14 @@ export function Estimates({ userId }: EstimatesProps) {
       sales_tax_rate: settingsResult.data.sales_tax_rate.toString(),
       shop_supplies_rate: settingsResult.data.shop_supplies_rate.toString(),
       park_fees_rate: settingsResult.data.park_fees_rate.toString(),
-      surcharge_rate: settingsResult.data.surcharge_rate.toString()
+      surcharge_rate: settingsResult.data.surcharge_rate.toString(),
+      surcharge_cap: settingsResult.data.surcharge_cap != null ? settingsResult.data.surcharge_cap.toString() : ''
     } : {
       sales_tax_rate: '0.08',
       shop_supplies_rate: '0.05',
       park_fees_rate: '0.02',
-      surcharge_rate: '0.03'
+      surcharge_rate: '0.03',
+      surcharge_cap: ''
     };
 
     setFormData({
@@ -1312,6 +1322,7 @@ export function Estimates({ userId }: EstimatesProps) {
         shop_supplies_rate: estimate.shop_supplies_rate.toString(),
         park_fees_rate: estimate.park_fees_rate.toString(),
         surcharge_rate: estimate.surcharge_rate.toString(),
+        surcharge_cap: estimate.surcharge_cap != null ? estimate.surcharge_cap.toString() : '',
         apply_shop_supplies: estimate.shop_supplies_amount > 0,
         apply_park_fees: estimate.park_fees_amount > 0,
         notes: estimate.notes || '',
@@ -1780,6 +1791,7 @@ export function Estimates({ userId }: EstimatesProps) {
               shop_supplies_rate: formData.shop_supplies_rate,
               park_fees_rate: formData.park_fees_rate,
               surcharge_rate: formData.surcharge_rate,
+              surcharge_cap: formData.surcharge_cap,
               apply_shop_supplies: true,
               apply_park_fees: true,
               notes: '',
@@ -3020,6 +3032,12 @@ export function Estimates({ userId }: EstimatesProps) {
                         <span className="text-xs text-gray-700">= ${calculateSurcharge().toFixed(2)}</span>
                       </div>
                     </div>
+                    {formData.surcharge_cap !== '' && (
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs text-gray-500">Surcharge Cap</label>
+                        <span className="text-xs text-gray-500">${parseFloat(formData.surcharge_cap).toFixed(2)} max</span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="bg-gray-50 rounded p-2">

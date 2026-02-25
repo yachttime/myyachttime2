@@ -9,6 +9,7 @@ interface TaxSettings {
   shop_supplies_rate: number;
   park_fees_rate: number;
   surcharge_rate: number;
+  surcharge_cap: number | null;
 }
 
 interface CompanyInfo {
@@ -45,7 +46,8 @@ export function EstimateTaxSettings({ userId }: EstimateTaxSettingsProps) {
     sales_tax_rate: '8.00',
     shop_supplies_rate: '5.00',
     park_fees_rate: '2.00',
-    surcharge_rate: '3.00'
+    surcharge_rate: '3.00',
+    surcharge_cap: ''
   });
 
   const [companyFormData, setCompanyFormData] = useState({
@@ -84,7 +86,8 @@ export function EstimateTaxSettings({ userId }: EstimateTaxSettingsProps) {
           sales_tax_rate: (taxSettingsResult.data.sales_tax_rate * 100).toFixed(2),
           shop_supplies_rate: (taxSettingsResult.data.shop_supplies_rate * 100).toFixed(2),
           park_fees_rate: (taxSettingsResult.data.park_fees_rate * 100).toFixed(2),
-          surcharge_rate: (taxSettingsResult.data.surcharge_rate * 100).toFixed(2)
+          surcharge_rate: (taxSettingsResult.data.surcharge_rate * 100).toFixed(2),
+          surcharge_cap: taxSettingsResult.data.surcharge_cap != null ? taxSettingsResult.data.surcharge_cap.toString() : ''
         });
       }
 
@@ -123,7 +126,8 @@ export function EstimateTaxSettings({ userId }: EstimateTaxSettingsProps) {
         sales_tax_rate: parseFloat(formData.sales_tax_rate) / 100,
         shop_supplies_rate: parseFloat(formData.shop_supplies_rate) / 100,
         park_fees_rate: parseFloat(formData.park_fees_rate) / 100,
-        surcharge_rate: parseFloat(formData.surcharge_rate) / 100
+        surcharge_rate: parseFloat(formData.surcharge_rate) / 100,
+        surcharge_cap: formData.surcharge_cap !== '' ? parseFloat(formData.surcharge_cap) : null
       };
 
       const { error: updateError } = await supabase
@@ -445,6 +449,28 @@ export function EstimateTaxSettings({ userId }: EstimateTaxSettingsProps) {
                 Additional charges or service fees
               </p>
             </div>
+
+            <div>
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+                <Percent className="w-4 h-4 text-blue-600" />
+                Surcharge Cap (Max Amount)
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-700 text-sm">$</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.surcharge_cap}
+                  onChange={(e) => setFormData({ ...formData, surcharge_cap: e.target.value })}
+                  className="w-full px-3 py-2 pl-6 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900"
+                  placeholder="Leave blank for no cap"
+                />
+              </div>
+              <p className="mt-1 text-xs text-gray-700">
+                Maximum dollar amount the surcharge can reach. Leave blank for no cap.
+              </p>
+            </div>
           </div>
 
           <div className="border-t pt-6">
@@ -456,7 +482,12 @@ export function EstimateTaxSettings({ userId }: EstimateTaxSettingsProps) {
                   <p>• Sales Tax ({formData.sales_tax_rate}%): ${((parseFloat(formData.sales_tax_rate) / 100) * 1000).toFixed(2)}</p>
                   <p>• Shop Supplies ({formData.shop_supplies_rate}%): ${((parseFloat(formData.shop_supplies_rate) / 100) * 1000).toFixed(2)}</p>
                   <p>• Park Fees ({formData.park_fees_rate}%): ${((parseFloat(formData.park_fees_rate) / 100) * 1000).toFixed(2)}</p>
-                  <p>• Surcharge ({formData.surcharge_rate}%): ${((parseFloat(formData.surcharge_rate) / 100) * 1000).toFixed(2)}</p>
+                  <p>• Surcharge ({formData.surcharge_rate}%): ${(() => {
+                    const calculated = (parseFloat(formData.surcharge_rate) / 100) * 1000;
+                    const cap = formData.surcharge_cap !== '' ? parseFloat(formData.surcharge_cap) : null;
+                    const capped = cap != null && calculated > cap ? cap : calculated;
+                    return capped.toFixed(2) + (cap != null && calculated > cap ? ` (capped at $${cap.toFixed(2)})` : '');
+                  })()}</p>
                 </div>
               </div>
             </div>
