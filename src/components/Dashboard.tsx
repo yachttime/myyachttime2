@@ -5569,7 +5569,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               <span className="font-medium">Time Clock</span>
             </button>
           )}
-          {isMasterRole(effectiveRole) && (
+          {isStaffRole(effectiveRole) && (
             <button
               onClick={() => {
                 setActiveTabPersisted('estimating');
