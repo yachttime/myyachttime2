@@ -318,7 +318,7 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
                       <div className="flex items-center justify-between mt-1">
                         <span className="text-xs text-gray-500 pl-2">Less deposits paid</span>
                         <span className="text-sm font-medium text-red-600">
-                          -${stats.totalDepositsPaid.toFixed(2)}
+                          -${stats.totalDepositsPaid.toFixed(2)} = ${(stats.totalWorkOrdersAmount - stats.totalDepositsPaid).toFixed(2)}
                         </span>
                       </div>
                     )}
