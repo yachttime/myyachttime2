@@ -178,9 +178,9 @@ export function TaxSurchargeReport({ onClose }: Props) {
       head: [['Invoice #', 'Date', 'Customer', 'Phone', 'Email', 'Status', getReportLabel()]],
       body: tableRows,
       margin: { left: margin, right: margin },
-      styles: { fontSize: 8, cellPadding: 4, textColor: [30, 30, 30] },
-      headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255], fontStyle: 'bold' },
-      alternateRowStyles: { fillColor: [248, 250, 252] },
+      styles: { fontSize: 8, cellPadding: 4, textColor: [30, 30, 30] as [number, number, number] },
+      headStyles: { fillColor: [37, 99, 235] as [number, number, number], textColor: [255, 255, 255] as [number, number, number], fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [248, 250, 252] as [number, number, number] },
       columnStyles: {
         0: { cellWidth: 70 },
         1: { cellWidth: 60 },
@@ -188,7 +188,7 @@ export function TaxSurchargeReport({ onClose }: Props) {
         3: { cellWidth: 80 },
         4: { cellWidth: 120 },
         5: { cellWidth: 50 },
-        6: { cellWidth: 60, halign: 'right' }
+        6: { cellWidth: 60, halign: 'right' as const }
       }
     });
 
@@ -199,7 +199,9 @@ export function TaxSurchargeReport({ onClose }: Props) {
     doc.text(`Total ${getReportLabel()} Collected: $${getTotal().toFixed(2)}`, pageWidth - margin, finalY, { align: 'right' });
     doc.text(`${rows.length} invoice${rows.length !== 1 ? 's' : ''}`, margin, finalY);
 
-    doc.output('dataurlnewwindow');
+    const pdfBlob = doc.output('blob');
+    const pdfUrl = URL.createObjectURL(pdfBlob);
+    window.open(pdfUrl, '_blank');
   }
 
   const total = getTotal();
