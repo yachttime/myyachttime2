@@ -1662,6 +1662,53 @@ export function Estimates({ userId }: EstimatesProps) {
     }
   };
 
+  const handleResendToAdmin = async (estimateId: string, repairRequestId: string) => {
+    try {
+      setSendingToAdmin(true);
+      const { data: estimateData, error: estimateError } = await supabase
+        .from('estimates')
+        .select('*, yachts(name, manufacturer, model)')
+        .eq('id', estimateId)
+        .single();
+      if (estimateError) throw estimateError;
+
+      if (!estimateData.is_retail_customer && estimateData.yacht_id) {
+        const repairManagers = managers.filter(
+          m => m.yacht_id === estimateData.yacht_id && m.can_approve_repairs && m.email
+        );
+        if (repairManagers.length === 0) {
+          showError('No repair managers found for this yacht');
+          return;
+        }
+        const { data: { session } } = await supabase.auth.getSession();
+        const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-repair-estimate-email`;
+        let sent = 0;
+        for (const manager of repairManagers) {
+          const resp = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${session?.access_token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              repairRequestId,
+              recipientEmail: manager.email,
+              recipientName: `${manager.first_name} ${manager.last_name}`.trim()
+            })
+          });
+          if (resp.ok) sent++;
+        }
+        showSuccess(`Estimate PDF resent to ${sent} manager(s)`);
+      } else {
+        showError('No yacht managers to resend to');
+      }
+    } catch (err: any) {
+      showError('Failed to resend: ' + (err.message || 'Unknown error'));
+    } finally {
+      setSendingToAdmin(false);
+    }
+  };
+
   const handleSendToAdmin = async (estimateId: string) => {
     try {
       setSendingToAdmin(true);
@@ -1911,11 +1958,12 @@ export function Estimates({ userId }: EstimatesProps) {
               {existingRepairRequestId ? (
                 <button
                   type="button"
-                  disabled
-                  className="px-4 py-2 bg-emerald-100 text-emerald-700 border border-emerald-300 rounded-lg flex items-center gap-2 text-sm font-medium cursor-not-allowed"
+                  onClick={() => handleResendToAdmin(editingId, existingRepairRequestId)}
+                  disabled={sendingToAdmin}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center gap-2 text-sm font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <CheckCircle className="w-4 h-4" />
-                  Sent to Admin
+                  {sendingToAdmin ? 'Sending...' : 'Sent to Admin'}
                 </button>
               ) : (
                 <button
