@@ -996,6 +996,13 @@ export function Estimates({ userId }: EstimatesProps) {
       setError(null);
       setIsSubmitting(true);
 
+      const { data: userProfile } = await supabase
+        .from('user_profiles')
+        .select('company_id')
+        .eq('user_id', userId)
+        .maybeSingle();
+      const userCompanyId = userProfile?.company_id || null;
+
       const subtotal = calculateSubtotal();
       const salesTaxRate = parseFloat(formData.sales_tax_rate);
       const salesTaxAmount = calculateSalesTax();
@@ -1089,7 +1096,8 @@ export function Estimates({ userId }: EstimatesProps) {
           created_by: userId,
           deposit_required: formData.deposit_required,
           deposit_percentage: formData.deposit_required && formData.deposit_type === 'percentage' ? parseFloat(formData.deposit_percentage) || null : null,
-          deposit_amount: formData.deposit_required && formData.deposit_type === 'fixed' ? parseFloat(formData.deposit_amount) || null : null
+          deposit_amount: formData.deposit_required && formData.deposit_type === 'fixed' ? parseFloat(formData.deposit_amount) || null : null,
+          company_id: userCompanyId
         };
 
         const { data, error: estimateError } = await supabase
