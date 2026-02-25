@@ -3578,8 +3578,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       if (result.success) {
         await loadRepairRequests();
-        const statusText = result.emailStatus || 'unknown';
-        showSuccess(`Email status: ${statusText}${result.updated ? ' (Updated)' : ''}`);
+        const statusText = result.allStatuses?.length > 0
+          ? result.allStatuses.join(', ')
+          : (result.emailStatus || 'unknown');
+        showSuccess(`Email status: ${statusText}${result.updated ? ' (Updated)' : ' (No change — open tracking requires webhooks)'}`);
       } else {
         showError(result.error || 'Failed to check email status');
       }
@@ -3588,6 +3590,21 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       showError(`Error: ${error.message || 'Failed to check email status'}`);
     } finally {
       setEmailStatusLoading({ ...emailStatusLoading, [request.id]: false });
+    }
+  };
+
+  const handleMarkEmailOpened = async (request: RepairRequest) => {
+    if (!request.id) return;
+    try {
+      const { error } = await supabase
+        .from('repair_requests')
+        .update({ email_opened_at: new Date().toISOString() })
+        .eq('id', request.id);
+      if (error) throw error;
+      await loadRepairRequests();
+      showSuccess('Email marked as opened');
+    } catch (error: any) {
+      showError('Failed to mark email as opened');
     }
   };
 
@@ -12090,15 +12107,24 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                         )}
                                       </div>
                                       {canManageYacht(effectiveRole) && (
-                                        <div className="mt-3 pt-3 border-t border-slate-700">
+                                        <div className="mt-3 pt-3 border-t border-slate-700 flex flex-wrap gap-2">
                                           <button
                                             onClick={() => handleCheckEmailStatus(request)}
                                             disabled={emailStatusLoading[request.id]}
-                                            className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 disabled:opacity-50"
+                                            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 disabled:opacity-50"
                                           >
                                             <Mail className="w-3 h-3" />
                                             {emailStatusLoading[request.id] ? 'Checking...' : 'Check Email Status'}
                                           </button>
+                                          {request.estimate_email_sent_at && !request.email_opened_at && (
+                                            <button
+                                              onClick={() => handleMarkEmailOpened(request)}
+                                              className="bg-cyan-700 hover:bg-cyan-600 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1"
+                                            >
+                                              <Eye className="w-3 h-3" />
+                                              Mark as Opened
+                                            </button>
+                                          )}
                                         </div>
                                       )}
                                     </div>
