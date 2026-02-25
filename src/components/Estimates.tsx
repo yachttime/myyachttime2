@@ -405,7 +405,7 @@ export function Estimates({ userId }: EstimatesProps) {
     }
   };
 
-  const loadCustomerVessels = async (customerId: string) => {
+  const loadCustomerVessels = async (customerId: string): Promise<any[]> => {
     try {
       const { data, error } = await supabase
         .from('customer_vessels')
@@ -414,9 +414,12 @@ export function Estimates({ userId }: EstimatesProps) {
         .eq('is_active', true)
         .order('vessel_name');
       if (error) throw error;
-      setCustomerVessels(data || []);
+      const vessels = data || [];
+      setCustomerVessels(vessels);
+      return vessels;
     } catch (err) {
       setCustomerVessels([]);
+      return [];
     }
   };
 
@@ -2028,13 +2031,14 @@ export function Estimates({ userId }: EstimatesProps) {
                                   key={c.id}
                                   type="button"
                                   onClick={async () => {
-                                    setFormData({ ...formData, customer_name: displayName, customer_email: c.email || '', customer_phone: c.phone || '', vessel_id: '' });
                                     setCustomerSearch(displayName);
                                     setShowCustomerDropdown(false);
                                     setSelectedCustomerId(c.id);
                                     setCustomerVessels([]);
                                     setShowNewVesselForm(false);
-                                    await loadCustomerVessels(c.id);
+                                    const vessels = await loadCustomerVessels(c.id);
+                                    const autoVesselId = vessels.length === 1 ? vessels[0].id : '';
+                                    setFormData({ ...formData, customer_name: displayName, customer_email: c.email || '', customer_phone: c.phone || '', vessel_id: autoVesselId });
                                   }}
                                   className="w-full text-left px-4 py-2.5 hover:bg-blue-50 transition-colors flex items-center gap-3 border-b border-gray-100 last:border-0"
                                 >
