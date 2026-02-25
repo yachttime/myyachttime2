@@ -3593,20 +3593,6 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     }
   };
 
-  const handleMarkEmailOpened = async (request: RepairRequest) => {
-    if (!request.id) return;
-    try {
-      const { error } = await supabase
-        .from('repair_requests')
-        .update({ email_opened_at: new Date().toISOString() })
-        .eq('id', request.id);
-      if (error) throw error;
-      await loadRepairRequests();
-      showSuccess('Email marked as opened');
-    } catch (error: any) {
-      showError('Failed to mark email as opened');
-    }
-  };
 
   const handleRegeneratePaymentLink = async (invoice: YachtInvoice) => {
     if (!invoice.id) return;
@@ -12116,15 +12102,6 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                             <Mail className="w-3 h-3" />
                                             {emailStatusLoading[request.id] ? 'Checking...' : 'Check Email Status'}
                                           </button>
-                                          {request.estimate_email_sent_at && !request.email_opened_at && (
-                                            <button
-                                              onClick={() => handleMarkEmailOpened(request)}
-                                              className="bg-cyan-700 hover:bg-cyan-600 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1"
-                                            >
-                                              <Eye className="w-3 h-3" />
-                                              Mark as Opened
-                                            </button>
-                                          )}
                                         </div>
                                       )}
                                     </div>
