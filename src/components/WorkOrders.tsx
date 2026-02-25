@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { supabase } from '../lib/supabase';
-import { Plus, Wrench, AlertCircle, Edit2, Trash2, Check, X, ChevronDown, ChevronUp, Printer, CheckCircle, Clock, FileText, DollarSign, Mail, ExternalLink, RefreshCw, Eye, MousePointer, Download, Archive, RotateCcw } from 'lucide-react';
+import { Plus, Wrench, AlertCircle, Edit2, Trash2, Check, X, ChevronDown, ChevronUp, Printer, CheckCircle, Clock, FileText, DollarSign, Mail, ExternalLink, RefreshCw, Eye, MousePointer, Download, Archive, RotateCcw, Package } from 'lucide-react';
 import { generateWorkOrderPDF } from '../utils/pdfGenerator';
 import { useNotification } from '../contexts/NotificationContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -159,6 +160,11 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
   const [filteredParts, setFilteredParts] = useState<any[]>([]);
   const [showPartDropdown, setShowPartDropdown] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [packages, setPackages] = useState<any[]>([]);
+  const [showPackageModal, setShowPackageModal] = useState(false);
+  const [selectedPackageId, setSelectedPackageId] = useState<string>('');
+  const [editingPackageHeader, setEditingPackageHeader] = useState<{ taskIndex: number; lineIndex: number } | null>(null);
+  const [packageHeaderEditValue, setPackageHeaderEditValue] = useState('');
   const [showTimeEntryPreview, setShowTimeEntryPreview] = useState(false);
   const [timeEntryPreview, setTimeEntryPreview] = useState<any[]>([]);
   const [selectedWorkOrderForTime, setSelectedWorkOrderForTime] = useState<string | null>(null);
@@ -220,7 +226,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
         .select('work_order_id')
         .not('work_order_id', 'is', null);
 
-      const [workOrdersResult, invoicesResult, yachtsResult, employeesResult, laborResult, partsResult, settingsResult, mercuryResult, marineWholesaleResult] = await Promise.all([
+      const [workOrdersResult, invoicesResult, yachtsResult, employeesResult, laborResult, partsResult, settingsResult, mercuryResult, marineWholesaleResult, packagesResult] = await Promise.all([
         workOrdersQuery,
         invoicesQuery,
         supabase
@@ -256,7 +262,12 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
         supabase
           .from('marine_wholesale_parts')
           .select('id, sku, mfg_part_number, description, list_price, cost, is_active')
-          .order('sku')
+          .order('sku'),
+        supabase
+          .from('estimate_packages')
+          .select('id, name, description')
+          .eq('is_active', true)
+          .order('name')
       ]);
 
       if (workOrdersResult.error) throw workOrdersResult.error;
@@ -334,6 +345,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
       setParts(partsResult.data || []);
       setMercuryParts(mercuryResult.data || []);
       setMarineWholesaleParts(marineWholesaleResult.data || []);
+      setPackages(packagesResult.data || []);
 
       if (settingsResult.data) {
         setFormData(prev => ({
@@ -562,6 +574,107 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
     const updatedTasks = [...tasks];
     updatedTasks[taskIndex].lineItems = updatedTasks[taskIndex].lineItems.filter((_, i) => i !== lineIndex);
     setTasks(updatedTasks);
+  };
+
+  const handleAddPackage = async () => {
+    if (activeTaskIndex === null || !selectedPackageId) return;
+
+    try {
+      const [packageLaborRes, packagePartsRes] = await Promise.all([
+        supabase
+          .from('estimate_package_labor')
+          .select('*, labor_code:labor_codes(id, code, name, hourly_rate, is_taxable)')
+          .eq('package_id', selectedPackageId),
+        supabase
+          .from('estimate_package_parts')
+          .select('*, part:parts_inventory(id, part_number, name, unit_price, is_taxable)')
+          .eq('package_id', selectedPackageId)
+      ]);
+
+      if (packageLaborRes.error) throw packageLaborRes.error;
+      if (packagePartsRes.error) throw packagePartsRes.error;
+
+      const updatedTasks = [...tasks];
+      if (!updatedTasks[activeTaskIndex].lineItems) {
+        updatedTasks[activeTaskIndex].lineItems = [];
+      }
+
+      const currentLineOrder = updatedTasks[activeTaskIndex].lineItems.length;
+      const packageName = packages.find(p => p.id === selectedPackageId)?.name || 'Package';
+
+      updatedTasks[activeTaskIndex].lineItems.push({
+        line_type: 'labor',
+        description: '',
+        quantity: 0,
+        unit_price: 0,
+        total_price: 0,
+        is_taxable: false,
+        labor_code_id: null,
+        part_id: null,
+        line_order: currentLineOrder,
+        work_details: null,
+        package_header: packageName
+      });
+
+      packageLaborRes.data?.forEach((labor: any, index: number) => {
+        updatedTasks[activeTaskIndex].lineItems.push({
+          line_type: 'labor',
+          description: labor.description || labor.labor_code?.name || '',
+          quantity: labor.hours,
+          unit_price: labor.rate,
+          total_price: labor.hours * labor.rate,
+          is_taxable: labor.labor_code?.is_taxable || false,
+          labor_code_id: labor.labor_code_id,
+          part_id: null,
+          line_order: currentLineOrder + 1 + index,
+          work_details: null
+        });
+      });
+
+      const laborItemCount = packageLaborRes.data?.length || 0;
+      packagePartsRes.data?.forEach((part: any, index: number) => {
+        const partDescription =
+          (part.part_number_display && part.description_display)
+            ? `${part.part_number_display} - ${part.description_display}`
+            : (part.part?.part_number && part.part?.name)
+              ? `${part.part.part_number} - ${part.part.name}`
+              : part.part_number_display || part.description_display || '';
+        updatedTasks[activeTaskIndex].lineItems.push({
+          line_type: 'part',
+          description: partDescription,
+          quantity: part.quantity,
+          unit_price: part.unit_price,
+          total_price: part.quantity * part.unit_price,
+          is_taxable: (part.part_source === 'mercury' || part.part_source === 'marine_wholesale') ? true : (part.part_source === 'inventory' ? (part.part?.is_taxable ?? part.is_taxable ?? false) : (part.is_taxable ?? false)),
+          labor_code_id: null,
+          part_id: part.part_id,
+          line_order: currentLineOrder + 1 + laborItemCount + index,
+          work_details: null
+        });
+      });
+
+      setTasks(updatedTasks);
+      setShowPackageModal(false);
+      setSelectedPackageId('');
+      setActiveTaskIndex(null);
+      showSuccess('Package added successfully');
+    } catch (error) {
+      console.error('Error adding package:', error);
+      setError('Failed to add package');
+    }
+  };
+
+  const handleSavePackageHeaderEdit = () => {
+    if (!editingPackageHeader) return;
+    const { taskIndex, lineIndex } = editingPackageHeader;
+    const updatedTasks = [...tasks];
+    updatedTasks[taskIndex].lineItems[lineIndex] = {
+      ...updatedTasks[taskIndex].lineItems[lineIndex],
+      package_header: packageHeaderEditValue.trim() || 'Package'
+    };
+    setTasks(updatedTasks);
+    setEditingPackageHeader(null);
+    setPackageHeaderEditValue('');
   };
 
   const handleLaborCodeChange = (laborCodeId: string) => {
@@ -2194,17 +2307,32 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
 
                           <div className="flex justify-between items-center mb-3">
                             <span className="text-sm font-medium text-gray-700">Line Items</span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setActiveTaskIndex(taskIndex);
-                                setShowLineItemForm(true);
-                              }}
-                              className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                            >
-                              <Plus className="w-4 h-4" />
-                              Add Line
-                            </button>
+                            <div className="flex items-center gap-3">
+                              {packages.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveTaskIndex(taskIndex);
+                                    setShowPackageModal(true);
+                                  }}
+                                  className="text-sm text-green-600 hover:text-green-700 flex items-center gap-1"
+                                >
+                                  <Package className="w-4 h-4" />
+                                  Add Package
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveTaskIndex(taskIndex);
+                                  setShowLineItemForm(true);
+                                }}
+                                className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                              >
+                                <Plus className="w-4 h-4" />
+                                Add Line
+                              </button>
+                            </div>
                           </div>
 
                           {task.lineItems.length > 0 && (
@@ -2225,9 +2353,28 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                                       item.package_header ? (
                                         <tr key={lineIndex} className="border-t bg-green-50">
                                           <td colSpan={4} className="px-3 py-2">
-                                            <span className="text-xs font-semibold text-green-700 uppercase tracking-wide">
-                                              {item.package_header}
-                                            </span>
+                                            {editingPackageHeader?.taskIndex === taskIndex && editingPackageHeader?.lineIndex === lineIndex ? (
+                                              <div className="flex items-center gap-2">
+                                                <input
+                                                  type="text"
+                                                  value={packageHeaderEditValue}
+                                                  onChange={(e) => setPackageHeaderEditValue(e.target.value)}
+                                                  onKeyDown={(e) => { if (e.key === 'Enter') handleSavePackageHeaderEdit(); if (e.key === 'Escape') { setEditingPackageHeader(null); setPackageHeaderEditValue(''); } }}
+                                                  autoFocus
+                                                  className="px-2 py-1 border border-green-400 rounded text-xs font-semibold text-green-700 uppercase tracking-wide bg-white focus:ring-2 focus:ring-green-400 w-48"
+                                                />
+                                                <button type="button" onClick={handleSavePackageHeaderEdit} className="text-green-600 hover:text-green-800"><Check className="w-4 h-4" /></button>
+                                                <button type="button" onClick={() => { setEditingPackageHeader(null); setPackageHeaderEditValue(''); }} className="text-gray-500 hover:text-gray-700"><X className="w-4 h-4" /></button>
+                                              </div>
+                                            ) : (
+                                              <span
+                                                className="text-xs font-semibold text-green-700 uppercase tracking-wide cursor-pointer hover:text-green-900"
+                                                onClick={() => { setEditingPackageHeader({ taskIndex, lineIndex }); setPackageHeaderEditValue(item.package_header || ''); }}
+                                                title="Click to rename"
+                                              >
+                                                {item.package_header}
+                                              </span>
+                                            )}
                                           </td>
                                           <td className="px-3 py-2 text-right align-top">
                                             <button
@@ -3315,6 +3462,63 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
           </div>
         );
       })()}
+
+      {showPackageModal && ReactDOM.createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[9999]">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div className="flex items-center gap-2">
+                <Package className="w-6 h-6 text-green-600" />
+                <h3 className="text-xl font-bold text-gray-900">Add Package</h3>
+              </div>
+              <button
+                onClick={() => { setShowPackageModal(false); setSelectedPackageId(''); setActiveTaskIndex(null); }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Select Package</label>
+                <select
+                  value={selectedPackageId}
+                  onChange={(e) => setSelectedPackageId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                >
+                  <option value="">Choose a package...</option>
+                  {packages.map((pkg) => (
+                    <option key={pkg.id} value={pkg.id}>{pkg.name}</option>
+                  ))}
+                </select>
+                {selectedPackageId && packages.find(p => p.id === selectedPackageId)?.description && (
+                  <p className="mt-2 text-sm text-gray-600">
+                    {packages.find(p => p.id === selectedPackageId)?.description}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="flex gap-3 p-6 border-t border-gray-200">
+              <button
+                type="button"
+                onClick={() => { setShowPackageModal(false); setSelectedPackageId(''); setActiveTaskIndex(null); }}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleAddPackage}
+                disabled={!selectedPackageId}
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Add Package
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
