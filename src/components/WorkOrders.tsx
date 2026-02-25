@@ -3015,6 +3015,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Work Order #</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Work Title</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vessel</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
@@ -3032,6 +3033,11 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                   <div className="flex items-center gap-2">
                     <Wrench className="w-4 h-4 text-gray-400" />
                     <span className="font-medium text-gray-900">{workOrder.work_order_number}</span>
+                  </div>
+                </td>
+                <td className="px-6 py-4">
+                  <div className="text-sm font-medium text-gray-900">
+                    {workOrder.work_title || '—'}
                   </div>
                 </td>
                 <td className="px-6 py-4">

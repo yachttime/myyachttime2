@@ -111,7 +111,8 @@ export function Estimates({ userId }: EstimatesProps) {
     deposit_type: 'percentage',
     deposit_percentage: '',
     status: 'draft',
-    deposit_amount: ''
+    deposit_amount: '',
+    work_title: ''
   });
 
   const [tasks, setTasks] = useState<EstimateTask[]>([]);
@@ -1034,6 +1035,7 @@ export function Estimates({ userId }: EstimatesProps) {
           total_amount: totalAmount,
           notes: formData.notes || null,
           customer_notes: formData.customer_notes || null,
+          work_title: formData.work_title || null,
           deposit_required: formData.deposit_required,
           deposit_percentage: formData.deposit_required && formData.deposit_type === 'percentage' ? parseFloat(formData.deposit_percentage) || null : null,
           deposit_amount: formData.deposit_required && formData.deposit_type === 'fixed' ? parseFloat(formData.deposit_amount) || null : null
@@ -1080,6 +1082,7 @@ export function Estimates({ userId }: EstimatesProps) {
           total_amount: totalAmount,
           notes: formData.notes || null,
           customer_notes: formData.customer_notes || null,
+          work_title: formData.work_title || null,
           created_by: userId,
           deposit_required: formData.deposit_required,
           deposit_percentage: formData.deposit_required && formData.deposit_type === 'percentage' ? parseFloat(formData.deposit_percentage) || null : null,
@@ -1216,7 +1219,8 @@ export function Estimates({ userId }: EstimatesProps) {
       apply_shop_supplies: true,
       apply_park_fees: true,
       notes: '',
-      customer_notes: DEFAULT_CUSTOMER_NOTES
+      customer_notes: DEFAULT_CUSTOMER_NOTES,
+      work_title: ''
     });
     setCustomerSearch('');
     setShowCustomerDropdown(false);
@@ -1333,6 +1337,7 @@ export function Estimates({ userId }: EstimatesProps) {
         apply_park_fees: estimate.park_fees_amount > 0,
         notes: estimate.notes || '',
         customer_notes: estimate.customer_notes || '',
+        work_title: estimate.work_title || '',
         status: estimate.status,
         deposit_required: estimate.deposit_required,
         deposit_type: estimate.deposit_amount ? 'fixed' : 'percentage',
@@ -1917,6 +1922,17 @@ export function Estimates({ userId }: EstimatesProps) {
             </div>
           )}
           <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Work Title</label>
+              <input
+                type="text"
+                value={formData.work_title}
+                onChange={(e) => setFormData({ ...formData, work_title: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
+                placeholder="e.g., Annual Service, Engine Repair, Survey Items..."
+              />
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Customer Type *</label>
               <div className="grid grid-cols-2 gap-3">
@@ -3250,6 +3266,7 @@ export function Estimates({ userId }: EstimatesProps) {
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Estimate #</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Work Title</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Customer</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Vessel</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Status</th>
@@ -3265,6 +3282,11 @@ export function Estimates({ userId }: EstimatesProps) {
                   <div className="flex items-center gap-2">
                     <FileText className="w-4 h-4 text-gray-600" />
                     <span className="font-medium text-gray-900">{estimate.estimate_number}</span>
+                  </div>
+                </td>
+                <td className="px-6 py-4">
+                  <div className="text-sm font-medium text-gray-900">
+                    {estimate.work_title || '—'}
                   </div>
                 </td>
                 <td className="px-6 py-4">
