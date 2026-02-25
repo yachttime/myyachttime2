@@ -149,7 +149,7 @@ export function Estimates({ userId }: EstimatesProps) {
   const [filteredParts, setFilteredParts] = useState<any[]>([]);
   const [showPartDropdown, setShowPartDropdown] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [mercuryParts, setMercuryParts] = useState<any[]>([]);
+  const [mercuryPartsCount, setMercuryPartsCount] = useState<number>(0);
   const [marineWholesaleParts, setMarineWholesaleParts] = useState<any[]>([]);
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [estimateToApprove, setEstimateToApprove] = useState<string | null>(null);
@@ -227,7 +227,7 @@ export function Estimates({ userId }: EstimatesProps) {
       setLoading(true);
       setError(null);
 
-      const [estimatesResult, yachtsResult, managersResult, laborResult, partsResult, mercuryResult, settingsResult, packagesResult, customersResult, marineWholesaleResult] = await Promise.all([
+      const [estimatesResult, yachtsResult, managersResult, laborResult, partsResult, mercuryCountResult, settingsResult, packagesResult, customersResult, marineWholesaleResult] = await Promise.all([
         supabase
           .from('estimates')
           .select('*, yachts(name, manufacturer, model), customer_vessels(vessel_name, manufacturer, model)')
@@ -257,9 +257,8 @@ export function Estimates({ userId }: EstimatesProps) {
           .order('part_number'),
         supabase
           .from('mercury_marine_parts')
-          .select('id, part_number, description, msrp, item_status, core_charge, container_charge, superseded_part_number, is_active')
-          .eq('is_active', true)
-          .order('part_number'),
+          .select('id', { count: 'exact', head: true })
+          .eq('is_active', true),
         supabase
           .from('estimate_settings')
           .select('*')
@@ -282,7 +281,6 @@ export function Estimates({ userId }: EstimatesProps) {
       if (managersResult.error) throw managersResult.error;
       if (laborResult.error) throw laborResult.error;
       if (partsResult.error) throw partsResult.error;
-      if (mercuryResult.error) throw mercuryResult.error;
       if (packagesResult.error) throw packagesResult.error;
       if (customersResult.error) throw customersResult.error;
 
@@ -291,7 +289,7 @@ export function Estimates({ userId }: EstimatesProps) {
       setManagers(managersResult.data || []);
       setLaborCodes(laborResult.data || []);
       setParts(partsResult.data || []);
-      setMercuryParts(mercuryResult.data || []);
+      setMercuryPartsCount(mercuryCountResult.count || 0);
       setPackages(packagesResult.data || []);
       setCustomers(customersResult.data || []);
       setMarineWholesaleParts(marineWholesaleResult.data || []);
@@ -788,6 +786,7 @@ export function Estimates({ userId }: EstimatesProps) {
   };
 
   const wholesaleSearchRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mercurySearchRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handlePartNumberSearch = (searchValue: string) => {
     setLineItemFormData({
@@ -799,6 +798,7 @@ export function Estimates({ userId }: EstimatesProps) {
     });
 
     if (wholesaleSearchRef.current) clearTimeout(wholesaleSearchRef.current);
+    if (mercurySearchRef.current) clearTimeout(mercurySearchRef.current);
 
     if (searchValue.trim()) {
       const searchLower = searchValue.toLowerCase().replace(/[-\s]/g, '');
@@ -828,37 +828,42 @@ export function Estimates({ userId }: EstimatesProps) {
         }
       }
 
-      const mercuryFiltered = mercuryParts
-        .filter(p => {
-          const partNum = p.part_number.toLowerCase().replace(/[-\s]/g, '');
-          const desc = (p.description || '').toLowerCase();
-          return partNum.includes(searchLower) ||
-                 desc.includes(searchValue.toLowerCase()) ||
-                 p.part_number.toLowerCase().includes(searchValue.toLowerCase());
-        })
-        .map(p => ({ ...p, source: 'mercury', name: p.description }));
+      setFilteredParts(inventoryParts);
+      setShowPartDropdown(inventoryParts.length > 0);
 
-      const syncCombined = [...inventoryParts, ...mercuryFiltered];
-      setFilteredParts(syncCombined);
-      setShowPartDropdown(syncCombined.length > 0);
-
-      wholesaleSearchRef.current = setTimeout(async () => {
-        const { data: wholesaleData } = await supabase
-          .from('marine_wholesale_parts')
-          .select('id, sku, mfg_part_number, description, list_price')
+      mercurySearchRef.current = setTimeout(async () => {
+        const { data: mercuryData } = await supabase
+          .from('mercury_marine_parts')
+          .select('id, part_number, description, msrp, item_status, core_charge, container_charge, superseded_part_number, is_active')
           .eq('is_active', true)
-          .or(`sku.ilike.%${searchValue}%,mfg_part_number.ilike.%${searchValue}%,description.ilike.%${searchValue}%`)
-          .order('sku')
+          .or(`part_number.ilike.%${searchValue}%,description.ilike.%${searchValue}%`)
+          .order('part_number')
           .limit(50);
 
-        const wholesaleFiltered = (wholesaleData || []).map(p => ({
-          ...p,
-          source: 'marine_wholesale',
-          part_number: p.sku,
-          name: p.description
-        }));
+        const mercuryFiltered = (mercuryData || []).map(p => ({ ...p, source: 'mercury', name: p.description }));
 
-        const combined = [...inventoryParts, ...mercuryFiltered, ...wholesaleFiltered];
+        wholesaleSearchRef.current = setTimeout(async () => {
+          const { data: wholesaleData } = await supabase
+            .from('marine_wholesale_parts')
+            .select('id, sku, mfg_part_number, description, list_price')
+            .eq('is_active', true)
+            .or(`sku.ilike.%${searchValue}%,mfg_part_number.ilike.%${searchValue}%,description.ilike.%${searchValue}%`)
+            .order('sku')
+            .limit(50);
+
+          const wholesaleFiltered = (wholesaleData || []).map(p => ({
+            ...p,
+            source: 'marine_wholesale',
+            part_number: p.sku,
+            name: p.description
+          }));
+
+          const combined = [...inventoryParts, ...mercuryFiltered, ...wholesaleFiltered];
+          setFilteredParts(combined);
+          setShowPartDropdown(combined.length > 0);
+        }, 0);
+
+        const combined = [...inventoryParts, ...mercuryFiltered];
         setFilteredParts(combined);
         setShowPartDropdown(combined.length > 0);
       }, 300);
@@ -2665,7 +2670,7 @@ export function Estimates({ userId }: EstimatesProps) {
                                       <label className="block text-sm font-medium text-gray-700 mb-1">
                                         Part Number / Name
                                         <span className="ml-2 text-xs text-gray-700">
-                                          ({parts.length} inventory + {mercuryParts.length} Mercury + wholesale parts)
+                                          ({parts.length} inventory + {mercuryPartsCount.toLocaleString()} Mercury + wholesale parts)
                                         </span>
                                       </label>
                                       <input
