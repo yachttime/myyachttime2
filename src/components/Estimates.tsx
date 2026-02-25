@@ -231,7 +231,7 @@ export function Estimates({ userId }: EstimatesProps) {
       const [estimatesResult, yachtsResult, managersResult, laborResult, partsResult, mercuryCountResult, settingsResult, packagesResult, customersResult, marineWholesaleResult] = await Promise.all([
         supabase
           .from('estimates')
-          .select('*, yachts(name, manufacturer, model), customer_vessels(vessel_name, manufacturer, model)')
+          .select('*, yachts(name, manufacturer, model, year), customer_vessels(vessel_name, manufacturer, model, year)')
           .neq('status', 'converted')
           .eq('archived', false)
           .order('created_at', { ascending: false }),
@@ -3309,9 +3309,9 @@ export function Estimates({ userId }: EstimatesProps) {
                     estimate.customer_vessels ? (
                       <div>
                         <div className="text-sm font-medium text-gray-900">{estimate.customer_vessels.vessel_name}</div>
-                        {(estimate.customer_vessels.manufacturer || estimate.customer_vessels.model) && (
+                        {(estimate.customer_vessels.manufacturer || estimate.customer_vessels.model || estimate.customer_vessels.year) && (
                           <div className="text-xs text-gray-500">
-                            {[estimate.customer_vessels.manufacturer, estimate.customer_vessels.model].filter(Boolean).join(' ')}
+                            {[estimate.customer_vessels.manufacturer, estimate.customer_vessels.model, estimate.customer_vessels.year].filter(Boolean).join(' ')}
                           </div>
                         )}
                       </div>
@@ -3321,9 +3321,9 @@ export function Estimates({ userId }: EstimatesProps) {
                   ) : (
                     <div>
                       <div className="text-sm font-medium text-gray-900">{estimate.yachts?.name || '—'}</div>
-                      {(estimate.yachts?.manufacturer || estimate.yachts?.model) && (
+                      {(estimate.yachts?.manufacturer || estimate.yachts?.model || estimate.yachts?.year) && (
                         <div className="text-xs text-gray-500">
-                          {[estimate.yachts?.manufacturer, estimate.yachts?.model].filter(Boolean).join(' ')}
+                          {[estimate.yachts?.manufacturer, estimate.yachts?.model, estimate.yachts?.year].filter(Boolean).join(' ')}
                         </div>
                       )}
                     </div>
