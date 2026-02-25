@@ -1716,7 +1716,7 @@ export function Estimates({ userId }: EstimatesProps) {
 
       const { data: estimateData, error: estimateError } = await supabase
         .from('estimates')
-        .select('*, yachts(name, manufacturer, model)')
+        .select('*, yachts(name, manufacturer, model, company_id)')
         .eq('id', estimateId)
         .single();
 
@@ -1775,9 +1775,11 @@ export function Estimates({ userId }: EstimatesProps) {
       const customerDisplay = estimateData.customer_name || yachtName || 'Unknown';
       const description = `Estimate ${estimateData.estimate_number} for ${customerDisplay}. Total: ${totalFormatted}. Created from the estimating system.`;
 
+      const resolvedCompanyId = estimateData.company_id || estimateData.yachts?.company_id || null;
+
       const insertPayload: Record<string, any> = {
         submitted_by: userId,
-        company_id: estimateData.company_id,
+        company_id: resolvedCompanyId,
         title: `Estimate ${estimateData.estimate_number}`,
         description,
         file_url: publicUrl,
@@ -1811,7 +1813,7 @@ export function Estimates({ userId }: EstimatesProps) {
         notification_type: 'repair_request',
         reference_id: newRR.id,
         message: `New repair request created from Estimate ${estimateData.estimate_number} for ${customerDisplay}. Total: ${totalFormatted}.`,
-        company_id: estimateData.company_id
+        company_id: resolvedCompanyId
       });
 
       if (!estimateData.is_retail_customer && estimateData.yacht_id) {
