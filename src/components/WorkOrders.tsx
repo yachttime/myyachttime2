@@ -81,6 +81,8 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
   const { userProfile } = useAuth();
   const { confirm, ConfirmDialog } = useConfirm();
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
+  const [editingWorkTitle, setEditingWorkTitle] = useState<string | null>(null);
+  const [workTitleDraft, setWorkTitleDraft] = useState('');
   const [yachts, setYachts] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
   const [workOrderEmployees, setWorkOrderEmployees] = useState<Record<string, string[]>>({});
@@ -1582,6 +1584,20 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
     }
   };
 
+  const handleSaveWorkTitle = async (workOrderId: string) => {
+    const trimmed = workTitleDraft.trim();
+    setEditingWorkTitle(null);
+    try {
+      await supabase
+        .from('work_orders')
+        .update({ work_title: trimmed || null })
+        .eq('id', workOrderId);
+      setWorkOrders(prev => prev.map(wo => wo.id === workOrderId ? { ...wo, work_title: trimmed || null } : wo));
+    } catch (err) {
+      console.error('Failed to save work title', err);
+    }
+  };
+
   const canDeleteAssignedEmployees = userProfile?.role === 'master' || userProfile?.role === 'staff';
 
   const handlePreviewTimeEntries = async (workOrderId: string) => {
@@ -3036,9 +3052,34 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                   </div>
                 </td>
                 <td className="px-6 py-4">
-                  <div className="text-sm font-medium text-gray-900">
-                    {workOrder.work_title || '—'}
-                  </div>
+                  {editingWorkTitle === workOrder.id ? (
+                    <input
+                      type="text"
+                      autoFocus
+                      value={workTitleDraft}
+                      onChange={(e) => setWorkTitleDraft(e.target.value)}
+                      onBlur={() => handleSaveWorkTitle(workOrder.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleSaveWorkTitle(workOrder.id);
+                        if (e.key === 'Escape') setEditingWorkTitle(null);
+                      }}
+                      className="w-full px-2 py-1 text-sm border border-blue-400 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
+                      placeholder="Add work title..."
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => { setEditingWorkTitle(workOrder.id); setWorkTitleDraft(workOrder.work_title || ''); }}
+                      className="text-sm text-left w-full group"
+                      title="Click to edit work title"
+                    >
+                      {workOrder.work_title ? (
+                        <span className="font-medium text-gray-900 group-hover:text-blue-600 transition-colors">{workOrder.work_title}</span>
+                      ) : (
+                        <span className="text-gray-400 group-hover:text-blue-500 transition-colors italic">Add title...</span>
+                      )}
+                    </button>
+                  )}
                 </td>
                 <td className="px-6 py-4">
                   <div className="text-sm text-gray-900">
