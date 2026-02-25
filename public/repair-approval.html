@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Repair Estimate - MyYachtTime</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #064e3b 0%, #10b981 100%);
+    }
+    body.deny-mode {
+      background: linear-gradient(135deg, #7f1d1d 0%, #ef4444 100%);
+    }
+    body.loading-mode {
+      background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
+    }
+    body.error-mode {
+      background: linear-gradient(135deg, #7f1d1d 0%, #dc2626 100%);
+    }
+    .container {
+      max-width: 560px;
+      width: 100%;
+      background: white;
+      border-radius: 14px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      overflow: hidden;
+    }
+    .header {
+      padding: 28px 30px;
+      text-align: center;
+      color: white;
+      background: #10b981;
+    }
+    .header.deny { background: #ef4444; }
+    .header.loading { background: #2563eb; }
+    .header.error { background: #dc2626; }
+    .header .icon { font-size: 52px; margin-bottom: 8px; }
+    .header h1 { margin: 0; font-size: 26px; }
+    .header p { margin: 6px 0 0 0; opacity: 0.9; font-size: 15px; }
+    .body { padding: 28px 30px; }
+    .details {
+      background: #f9fafb;
+      border-radius: 10px;
+      padding: 18px;
+      margin-bottom: 20px;
+      border-left: 4px solid #10b981;
+    }
+    .details.deny { border-left-color: #ef4444; }
+    .detail-row { display: flex; gap: 10px; margin-bottom: 10px; font-size: 14px; }
+    .detail-row:last-child { margin-bottom: 0; }
+    .detail-label { font-weight: bold; color: #374151; min-width: 120px; }
+    .detail-value { color: #6b7280; flex: 1; }
+    .detail-value.cost { color: #059669; font-weight: bold; font-size: 17px; }
+    .warning {
+      padding: 14px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+      margin-bottom: 22px;
+    }
+    .warning.approve { background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; }
+    .warning.deny { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+    .actions { display: flex; gap: 12px; flex-wrap: wrap; }
+    .btn {
+      flex: 1;
+      min-width: 130px;
+      padding: 13px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+      text-decoration: none;
+      text-align: center;
+      transition: background 0.2s, transform 0.1s;
+      display: inline-block;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn-confirm-approve { background: #10b981; color: white; }
+    .btn-confirm-approve:hover { background: #059669; }
+    .btn-confirm-deny { background: #ef4444; color: white; }
+    .btn-confirm-deny:hover { background: #dc2626; }
+    .btn-cancel { background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; }
+    .btn-cancel:hover { background: #e5e7eb; }
+    .processing { display: none; text-align: center; padding: 20px 0; color: #6b7280; font-size: 15px; }
+    .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid #d1d5db;
+      border-top-color: #6b7280;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading-state { text-align: center; padding: 20px 0; }
+    #content-state { display: none; }
+    #error-state { display: none; }
+  </style>
+</head>
+<body class="loading-mode" id="body">
+  <div class="container">
+    <div class="header loading" id="header">
+      <div class="icon">&#8987;</div>
+      <h1>Loading...</h1>
+      <p>Fetching repair details</p>
+    </div>
+    <div class="body">
+      <div id="loading-state">
+        <p style="text-align:center; color:#6b7280;">Please wait while we load the repair details...</p>
+      </div>
+
+      <div id="content-state">
+        <div class="details" id="details-box">
+          <div class="detail-row">
+            <span class="detail-label">Customer / Vessel</span>
+            <span class="detail-value" id="display-name"></span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Service</span>
+            <span class="detail-value" id="display-title"></span>
+          </div>
+          <div class="detail-row" id="desc-row">
+            <span class="detail-label">Description</span>
+            <span class="detail-value" id="display-desc"></span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Estimated Cost</span>
+            <span class="detail-value cost" id="display-cost"></span>
+          </div>
+        </div>
+        <div class="warning" id="warning-box"></div>
+        <div class="actions" id="actions">
+          <button class="btn" id="confirm-btn" onclick="submitApproval()"></button>
+          <a href="https://myyachttime.vercel.app" class="btn btn-cancel">Cancel</a>
+        </div>
+        <div class="processing" id="processing">
+          <span class="spinner"></span> Processing your response...
+        </div>
+      </div>
+
+      <div id="error-state">
+        <p style="text-align:center; color:#dc2626; font-size:15px;" id="error-msg"></p>
+        <p style="text-align:center;">
+          <a href="https://myyachttime.vercel.app" class="btn btn-cancel" style="display:inline-block; margin-top:8px;">Go to MyYachtTime</a>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = 'https://eqiecntollhgfxmmbize.supabase.co';
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+
+    function showError(msg) {
+      document.getElementById('body').className = 'error-mode';
+      document.getElementById('header').className = 'header error';
+      document.getElementById('header').innerHTML = '<div class="icon">&#9888;</div><h1>Error</h1><p>' + msg + '</p>';
+      document.getElementById('loading-state').style.display = 'none';
+      document.getElementById('content-state').style.display = 'none';
+      document.getElementById('error-state').style.display = 'block';
+      document.getElementById('error-msg').textContent = msg;
+    }
+
+    async function loadDetails() {
+      if (!token) {
+        showError('Invalid link. No token provided.');
+        return;
+      }
+
+      try {
+        const resp = await fetch(SUPABASE_URL + '/functions/v1/handle-repair-approval?token=' + encodeURIComponent(token), {
+          method: 'GET',
+          headers: { 'Accept': 'application/json' }
+        });
+
+        const data = await resp.json();
+
+        if (!resp.ok || data.error) {
+          showError(data.error || data.message || 'This link is invalid or has expired.');
+          return;
+        }
+
+        const isApprove = data.action === 'approve';
+        const color = isApprove ? '#10b981' : '#ef4444';
+
+        document.getElementById('body').className = isApprove ? '' : 'deny-mode';
+        const header = document.getElementById('header');
+        header.className = 'header ' + (isApprove ? '' : 'deny');
+        header.innerHTML = '<div class="icon">' + (isApprove ? '&#10003;' : '&#10007;') + '</div>'
+          + '<h1>Confirm ' + (isApprove ? 'Approve' : 'Deny') + '</h1>'
+          + '<p>Please review the details before confirming</p>';
+
+        document.getElementById('display-name').textContent = data.displayName || 'Unknown';
+        document.getElementById('display-title').textContent = data.title || 'Repair Request';
+        document.getElementById('display-cost').textContent = data.estimateDisplay || 'TBD';
+
+        if (data.description) {
+          document.getElementById('display-desc').textContent = data.description;
+        } else {
+          document.getElementById('desc-row').style.display = 'none';
+        }
+
+        document.getElementById('details-box').className = 'details ' + (isApprove ? '' : 'deny');
+
+        const warning = document.getElementById('warning-box');
+        warning.className = 'warning ' + (isApprove ? 'approve' : 'deny');
+        warning.textContent = isApprove
+          ? 'By clicking confirm, you are approving this repair. Work will begin shortly after your approval.'
+          : 'By clicking confirm, you are denying this repair. The team will be notified not to proceed.';
+
+        const btn = document.getElementById('confirm-btn');
+        btn.className = 'btn ' + (isApprove ? 'btn-confirm-approve' : 'btn-confirm-deny');
+        btn.textContent = isApprove ? 'Yes, Approve Estimate' : 'Yes, Deny Estimate';
+
+        document.getElementById('loading-state').style.display = 'none';
+        document.getElementById('content-state').style.display = 'block';
+
+      } catch (err) {
+        showError('Unable to load repair details. Please try again or contact support.');
+      }
+    }
+
+    async function submitApproval() {
+      document.getElementById('actions').style.display = 'none';
+      document.getElementById('processing').style.display = 'block';
+
+      try {
+        const resp = await fetch(SUPABASE_URL + '/functions/v1/handle-repair-approval?token=' + encodeURIComponent(token), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (resp.redirected || resp.status === 302) {
+          window.location.href = resp.url || 'https://myyachttime.vercel.app/repair-approval-success.html';
+          return;
+        }
+
+        const text = await resp.text();
+        let redirectUrl = null;
+
+        try {
+          const data = JSON.parse(text);
+          if (data.redirectUrl) redirectUrl = data.redirectUrl;
+        } catch {}
+
+        if (redirectUrl) {
+          window.location.href = redirectUrl;
+        } else {
+          const params = new URLSearchParams(window.location.search);
+          window.location.href = 'https://myyachttime.vercel.app/repair-approval-success.html?action=' + encodeURIComponent('approved') + '&from=email';
+        }
+
+      } catch (err) {
+        document.getElementById('processing').style.display = 'none';
+        document.getElementById('actions').style.display = 'flex';
+        alert('An error occurred. Please try again or contact support.');
+      }
+    }
+
+    loadDetails();
+  </script>
+</body>
+</html>

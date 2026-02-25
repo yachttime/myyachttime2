@@ -112,7 +112,6 @@ Deno.serve(async (req: Request) => {
     if (req.method === 'POST') {
       const now = new Date().toISOString();
 
-      // Mark ALL tokens for this repair request as used
       await supabaseAdmin
         .from('repair_request_approval_tokens')
         .update({ used_at: now })
@@ -126,9 +125,10 @@ Deno.serve(async (req: Request) => {
 
       if (updateError) {
         console.error('Error updating repair request:', updateError);
-        return new Response(generateErrorPage('Update Failed', 'There was an error processing your request. Please try again or contact support.'), {
-          status: 500, headers: htmlHeaders,
-        });
+        return new Response(
+          JSON.stringify({ error: 'There was an error processing your request. Please try again or contact support.' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
 
       const redirectUrl = new URL(`${siteUrl}/repair-approval-success.html`);
@@ -138,32 +138,32 @@ Deno.serve(async (req: Request) => {
       redirectUrl.searchParams.set('description', encodeURIComponent(description));
       if (costValue) redirectUrl.searchParams.set('cost', costValue.toString());
 
-      return new Response(null, {
-        status: 302,
-        headers: {
-          'Location': redirectUrl.toString(),
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-        },
-      });
+      return new Response(
+        JSON.stringify({ success: true, redirectUrl: redirectUrl.toString() }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    // ── GET: Show confirmation page (scanner-safe) ─────────────────────────
-    // Scanners only follow GET links; they don't submit forms.
-    // The actual approval happens on POST from the button click below.
-    const functionUrl = `${supabaseUrl}/functions/v1/handle-repair-approval`;
-    const confirmPage = generateConfirmationPage({
-      token,
-      action,
-      actionLabel,
-      displayName,
-      title,
-      description,
-      estimateDisplay,
-      functionUrl,
-      siteUrl,
-    });
+    // ── GET: Return JSON for the static page to consume ────────────────────
+    const acceptHeader = req.headers.get('Accept') || '';
+    if (acceptHeader.includes('application/json')) {
+      return new Response(
+        JSON.stringify({ action, actionLabel, displayName, title, description, estimateDisplay }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-    return new Response(confirmPage, { status: 200, headers: htmlHeaders });
+    // Fallback: redirect to static page (handles direct browser link clicks)
+    const staticPageUrl = new URL(`${siteUrl}/repair-approval.html`);
+    staticPageUrl.searchParams.set('token', token);
+    return new Response(null, {
+      status: 302,
+      headers: {
+        'Location': staticPageUrl.toString(),
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Access-Control-Allow-Origin': '*',
+      },
+    });
 
   } catch (error: any) {
     console.error('Error in handle-repair-approval:', error);
