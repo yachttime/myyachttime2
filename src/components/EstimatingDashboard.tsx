@@ -22,8 +22,10 @@ type TabType = 'dashboard' | 'estimates' | 'workorders' | 'invoices' | 'purchase
 
 interface DashboardStats {
   totalEstimates: number;
+  totalEstimatesAmount: number;
   pendingApproval: number;
   totalWorkOrders: number;
+  totalWorkOrdersAmount: number;
   pendingWorkOrders: number;
   unpaidInvoices: number;
   unpaidAmount: number;
@@ -36,8 +38,10 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [stats, setStats] = useState<DashboardStats>({
     totalEstimates: 0,
+    totalEstimatesAmount: 0,
     pendingApproval: 0,
     totalWorkOrders: 0,
+    totalWorkOrdersAmount: 0,
     pendingWorkOrders: 0,
     unpaidInvoices: 0,
     unpaidAmount: 0,
@@ -90,7 +94,7 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
 
       const [estimatesRes, workOrdersRes, invoicesRes, partsRes] = await Promise.all([
         supabase.from('estimates').select('id, status, total_amount', { count: 'exact' }).neq('status', 'converted').eq('archived', false),
-        supabase.from('work_orders').select('id, status', { count: 'exact' }).eq('archived', false),
+        supabase.from('work_orders').select('id, status, total_amount', { count: 'exact' }).eq('archived', false),
         supabase.from('estimating_invoices').select('id, total_amount, payment_status, work_order_id', { count: 'exact' }).eq('archived', false),
         supabase.from('parts_inventory').select('id, quantity_on_hand, reorder_level', { count: 'exact' })
       ]);
@@ -106,8 +110,10 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
       const workOrders = allWorkOrders.filter(wo => !convertedWorkOrderIds.has(wo.id));
       const parts = partsRes.data || [];
 
+      const totalEstimatesAmount = estimates.reduce((sum, e) => sum + (e.total_amount || 0), 0);
       const pendingApproval = estimates.filter(e => e.status === 'sent').length;
       const totalWorkOrders = workOrders.length;
+      const totalWorkOrdersAmount = workOrders.reduce((sum, w) => sum + (w.total_amount || 0), 0);
       const pendingWorkOrders = workOrders.filter(w =>
         w.status === 'in_progress' || w.status === 'pending'
       ).length;
@@ -125,8 +131,10 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
 
       setStats({
         totalEstimates: estimates.length,
+        totalEstimatesAmount,
         pendingApproval,
         totalWorkOrders,
+        totalWorkOrdersAmount,
         pendingWorkOrders,
         unpaidInvoices: unpaidInvoices.length,
         unpaidAmount,
@@ -278,6 +286,26 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
                     <span className="text-sm text-gray-600">Total Revenue (Outstanding)</span>
                     <span className="text-lg font-bold text-gray-900">
                       {loading ? '...' : `$${stats.totalRevenue.toFixed(2)}`}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between py-3 border-b border-gray-100">
+                    <div>
+                      <span className="text-sm text-gray-600">Total Estimates</span>
+                      <span className="ml-2 text-xs text-gray-400">({loading ? '...' : stats.totalEstimates})</span>
+                    </div>
+                    <span className="text-lg font-bold text-blue-700">
+                      {loading ? '...' : `$${stats.totalEstimatesAmount.toFixed(2)}`}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between py-3 border-b border-gray-100">
+                    <div>
+                      <span className="text-sm text-gray-600">Total Work Orders</span>
+                      <span className="ml-2 text-xs text-gray-400">({loading ? '...' : stats.totalWorkOrders})</span>
+                    </div>
+                    <span className="text-lg font-bold text-green-700">
+                      {loading ? '...' : `$${stats.totalWorkOrdersAmount.toFixed(2)}`}
                     </span>
                   </div>
 
