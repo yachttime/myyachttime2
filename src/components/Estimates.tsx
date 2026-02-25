@@ -1758,6 +1758,40 @@ export function Estimates({ userId }: EstimatesProps) {
 
       if (rrError) throw rrError;
 
+      await supabase.from('admin_notifications').insert({
+        user_id: userId,
+        yacht_id: estimateData.yacht_id || null,
+        notification_type: 'repair_request',
+        reference_id: newRR.id,
+        message: `New repair request created from Estimate ${estimateData.estimate_number} for ${customerDisplay}. Total: ${totalFormatted}.`,
+        company_id: estimateData.company_id
+      });
+
+      if (!estimateData.is_retail_customer && estimateData.yacht_id) {
+        const repairManagers = managers.filter(
+          m => m.yacht_id === estimateData.yacht_id && m.can_approve_repairs && m.email
+        );
+        if (repairManagers.length > 0) {
+          const { data: { session } } = await supabase.auth.getSession();
+          const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-repair-notification`;
+          await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${session?.access_token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              managerEmails: repairManagers.map(m => m.email),
+              managerNames: repairManagers.map(m => `${m.first_name} ${m.last_name}`),
+              repairTitle: `Estimate ${estimateData.estimate_number} - ${estimateData.work_title || customerDisplay}`,
+              yachtName: yachtName || 'Unknown Yacht',
+              submitterName: 'Estimating System',
+              repairRequestId: newRR.id
+            })
+          });
+        }
+      }
+
       setExistingRepairRequestId(newRR.id);
       showSuccess(`Repair request created from Estimate ${estimateData.estimate_number}`);
     } catch (err: any) {
