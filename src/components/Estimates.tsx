@@ -1121,7 +1121,8 @@ export function Estimates({ userId }: EstimatesProps) {
             task_name: task.task_name,
             task_overview: task.task_overview,
             task_order: i,
-            apply_surcharge: task.apply_surcharge
+            apply_surcharge: task.apply_surcharge,
+            company_id: estimate.company_id || userCompanyId
           })
           .select()
           .single();
@@ -1148,7 +1149,8 @@ export function Estimates({ userId }: EstimatesProps) {
             accounting_code_id: item.accounting_code_id || null,
             work_details: item.work_details || null,
             package_header: item.package_header || null,
-            line_order: index
+            line_order: index,
+            company_id: estimate.company_id || userCompanyId
           }));
 
           console.log('Inserting line items:', lineItemsToInsert);
