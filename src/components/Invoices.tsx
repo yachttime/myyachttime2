@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Receipt, Search, Printer, Mail, DollarSign, Eye, CheckCircle, Clock, XCircle, ExternalLink, Archive, RotateCcw, RefreshCw, X, Copy, CreditCard, AlertCircle, MousePointer, Download, FileText } from 'lucide-react';
+import { Receipt, Search, Printer, Mail, DollarSign, Eye, CheckCircle, Clock, XCircle, ExternalLink, Archive, RotateCcw, RefreshCw, X, Copy, CreditCard, AlertCircle, MousePointer, Download, FileText, BarChart2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Toast } from './Toast';
 import { useConfirm } from '../hooks/useConfirm';
+import { TaxSurchargeReport } from './TaxSurchargeReport';
 
 interface InvoicesProps {
   userId: string;
@@ -107,6 +108,7 @@ export function Invoices({ userId }: InvoicesProps) {
   const [checkForm, setCheckForm] = useState({ checkNumber: '', amount: '', depositAccount: '', notes: '' });
   const [qbBankAccounts, setQbBankAccounts] = useState<{ qbo_account_id: string; account_name: string; account_number: string | null }[]>([]);
   const { confirm, ConfirmDialog } = useConfirm();
+  const [showTaxReport, setShowTaxReport] = useState(false);
 
   const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToast({ message, type });
@@ -1117,9 +1119,18 @@ export function Invoices({ userId }: InvoicesProps) {
       )}
       <ConfirmDialog />
 
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Invoices</h1>
-        <p className="text-gray-600">Manage and track customer invoices</p>
+      <div className="mb-6 flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Invoices</h1>
+          <p className="text-gray-600">Manage and track customer invoices</p>
+        </div>
+        <button
+          onClick={() => setShowTaxReport(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+        >
+          <BarChart2 className="w-4 h-4" />
+          Tax &amp; Surcharge Report
+        </button>
       </div>
 
       <div className="mb-6">
@@ -1892,6 +1903,10 @@ export function Invoices({ userId }: InvoicesProps) {
             </div>
           </div>
         </div>
+      )}
+
+      {showTaxReport && (
+        <TaxSurchargeReport onClose={() => setShowTaxReport(false)} />
       )}
     </div>
   );
