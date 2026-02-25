@@ -38,6 +38,7 @@ interface Estimate {
   deposit_percentage: number | null;
   deposit_amount: number | null;
   archived: boolean;
+  repair_requests?: { id: string; status: string }[];
 }
 
 interface EstimateTask {
@@ -231,7 +232,7 @@ export function Estimates({ userId }: EstimatesProps) {
       const [estimatesResult, yachtsResult, managersResult, laborResult, partsResult, mercuryCountResult, settingsResult, packagesResult, customersResult, marineWholesaleResult] = await Promise.all([
         supabase
           .from('estimates')
-          .select('*, yachts(name, manufacturer, model, year), customer_vessels(vessel_name, manufacturer, model, year)')
+          .select('*, yachts(name, manufacturer, model, year), customer_vessels(vessel_name, manufacturer, model, year), repair_requests(id, status)')
           .neq('status', 'converted')
           .eq('archived', false)
           .order('created_at', { ascending: false }),
@@ -1507,7 +1508,7 @@ export function Estimates({ userId }: EstimatesProps) {
 
       const { data, error } = await supabase
         .from('estimates')
-        .select('*, yachts(name)')
+        .select('*, yachts(name), repair_requests(id, status)')
         .eq('archived', true)
         .order('created_at', { ascending: false });
 
@@ -3426,9 +3427,16 @@ export function Estimates({ userId }: EstimatesProps) {
                   )}
                 </td>
                 <td className="px-6 py-4">
-                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(estimate.status)}`}>
-                    {estimate.status}
-                  </span>
+                  <div className="flex flex-col gap-1">
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full w-fit ${getStatusColor(estimate.status)}`}>
+                      {estimate.status}
+                    </span>
+                    {estimate.repair_requests && estimate.repair_requests.length > 0 && (
+                      <span className="px-2 py-1 text-xs font-medium rounded-full w-fit bg-amber-100 text-amber-800">
+                        sent to admin
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-6 py-4 text-right text-sm font-medium text-gray-900">
                   ${estimate.total_amount.toFixed(2)}
