@@ -307,11 +307,10 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
               .from('work_order_line_items')
               .select('task_id, line_type')
               .in('task_id', taskIds)
-              .eq('line_type', 'labor')
           ]);
 
           const assignmentsData = assignmentsResult.data || [];
-          const laborLineItems = lineItemsResult.data || [];
+          const allLineItems = lineItemsResult.data || [];
 
           const taskToWO: Record<string, string> = {};
           tasksForWOs.forEach(t => { taskToWO[t.id] = t.work_order_id; });
@@ -330,9 +329,9 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
           setWorkOrderEmployees(woEmpMap);
 
           const assignedTaskIds = new Set(assignmentsData.map((a: any) => a.task_id));
-          const tasksWithLaborIds = new Set(laborLineItems.map((li: any) => li.task_id));
+          const tasksWithItemsIds = new Set(allLineItems.map((li: any) => li.task_id));
           const unassignedMap: Record<string, boolean> = {};
-          tasksWithLaborIds.forEach(taskId => {
+          tasksWithItemsIds.forEach(taskId => {
             if (!assignedTaskIds.has(taskId)) {
               const woId = taskToWO[taskId];
               if (woId) unassignedMap[woId] = true;
