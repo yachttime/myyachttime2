@@ -2693,56 +2693,58 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       }
 
       const { data: { session } } = await supabase.auth.getSession();
-      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-repair-notification`;
 
-      console.log('Calling edge function with:', {
-        managerCount: managersWithEmail.length,
-        repairTitle: request.title,
-        yachtName: request.yachts?.name
-      });
-
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session?.access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          managerEmails: managersWithEmail.map(m => m.email),
-          managerNames: managersWithEmail.map(m => `${m.first_name} ${m.last_name}`),
-          repairTitle: request.title,
-          yachtName: request.yachts?.name || 'Unknown Yacht',
-          submitterName: submitterProfile ? `${submitterProfile.first_name} ${submitterProfile.last_name || ''}`.trim() : 'Unknown',
-          repairRequestId: request.id
-        })
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('API error:', errorText);
-        showError(`API error (${response.status}): ${errorText}`);
-        return;
-      }
-
-      const result = await response.json();
-      console.log('API result:', result);
-
-      if (result.success) {
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-        let message = `Notification email successfully sent to ${result.successCount} manager(s)`;
-
-        if (result.failCount && result.failCount > 0) {
-          message += `\n\n${result.failCount} email(s) failed:`;
-          result.results?.filter((r: any) => !r.success).forEach((r: any) => {
-            message += `\n- ${r.email}: ${r.error}`;
+      if (request.estimate_pdf_url || request.estimate_id) {
+        const estimateApiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-repair-estimate-email`;
+        let successCount = 0;
+        for (const manager of managersWithEmail) {
+          const resp = await fetch(estimateApiUrl, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${session?.access_token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              repairRequestId: request.id,
+              recipientEmail: manager.email,
+              recipientName: `${manager.first_name} ${manager.last_name}`.trim()
+            })
           });
+          if (resp.ok) successCount++;
         }
-
-        showSuccess(message);
+        showSuccess(`Estimate email with PDF sent to ${successCount} manager(s)`);
         await loadRepairRequests();
       } else {
-        showError(`Failed to resend notification: ${result.error || 'Unknown error'}`);
+        const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-repair-notification`;
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session?.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            managerEmails: managersWithEmail.map(m => m.email),
+            managerNames: managersWithEmail.map(m => `${m.first_name} ${m.last_name}`),
+            repairTitle: request.title,
+            yachtName: request.yachts?.name || 'Unknown Yacht',
+            submitterName: submitterProfile ? `${submitterProfile.first_name} ${submitterProfile.last_name || ''}`.trim() : 'Unknown',
+            repairRequestId: request.id
+          })
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          showError(`API error (${response.status}): ${errorText}`);
+          return;
+        }
+
+        const result = await response.json();
+        if (result.success) {
+          showSuccess(`Notification email successfully sent to ${result.successCount} manager(s)`);
+          await loadRepairRequests();
+        } else {
+          showError(`Failed to resend notification: ${result.error || 'Unknown error'}`);
+        }
       }
     } catch (error) {
       console.error('Error resending notification:', error);

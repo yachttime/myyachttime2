@@ -1772,6 +1772,9 @@ export function Estimates({ userId }: EstimatesProps) {
           m => m.yacht_id === estimateData.yacht_id && m.can_approve_repairs && m.email
         );
         if (repairManagers.length > 0) {
+          const recipientList = repairManagers.map(m => m.email).join(', ');
+          await supabase.from('repair_requests').update({ notification_recipients: recipientList }).eq('id', newRR.id);
+
           const { data: { session } } = await supabase.auth.getSession();
           const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-repair-estimate-email`;
           for (const manager of repairManagers) {
