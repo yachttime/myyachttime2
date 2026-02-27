@@ -1740,18 +1740,26 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
   };
 
   const [sendingTaskLaborToTimeClock, setSendingTaskLaborToTimeClock] = useState<Record<number, boolean>>({});
+  const [taskLaborEmployeeOverride, setTaskLaborEmployeeOverride] = useState<Record<number, string>>({});
 
   const handleSendAllTaskLaborToTimeClock = async (taskIndex: number) => {
     const task = tasks[taskIndex];
     if (!task) return;
 
     const assignedEmployees = task.assignedEmployees || [];
-    if (assignedEmployees.length !== 1) {
-      setError('Please assign exactly one employee to this task before sending all labor to the time clock');
+    if (assignedEmployees.length === 0) {
+      setError('Please assign at least one employee to this task before sending labor to the time clock');
       return;
     }
 
-    const employeeId = assignedEmployees[0];
+    const employeeId = assignedEmployees.length === 1
+      ? assignedEmployees[0]
+      : (taskLaborEmployeeOverride[taskIndex] || '');
+
+    if (!employeeId) {
+      setError('Please select which employee to send the labor hours for');
+      return;
+    }
     const unsentLaborLines = task.lineItems.filter(
       item => item.line_type === 'labor' && !item.time_entry_sent_at && item.id && item.quantity > 0
     );
@@ -2448,20 +2456,37 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                               const unsentLabor = task.lineItems.filter(
                                 i => i.line_type === 'labor' && !i.time_entry_sent_at && i.id && i.quantity > 0
                               );
-                              if (assignedEmps.length === 1 && unsentLabor.length > 0) {
+                              if (assignedEmps.length >= 1 && unsentLabor.length > 0) {
                                 const totalHours = unsentLabor.reduce((sum, i) => sum + i.quantity, 0);
+                                const assignedEmpObjects = employees.filter(e => assignedEmps.includes(e.user_id));
                                 return (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleSendAllTaskLaborToTimeClock(taskIndex)}
-                                    disabled={sendingTaskLaborToTimeClock[taskIndex]}
-                                    className="mt-2 w-full px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2 text-sm font-medium"
-                                  >
-                                    <Clock className="w-4 h-4" />
-                                    {sendingTaskLaborToTimeClock[taskIndex]
-                                      ? 'Sending...'
-                                      : `Send ${totalHours} Labor Hours to Time Clock`}
-                                  </button>
+                                  <div className="mt-2 space-y-2">
+                                    {assignedEmps.length > 1 && (
+                                      <select
+                                        value={taskLaborEmployeeOverride[taskIndex] || ''}
+                                        onChange={e => setTaskLaborEmployeeOverride(prev => ({ ...prev, [taskIndex]: e.target.value }))}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-blue-500"
+                                      >
+                                        <option value="">Select employee for time clock entry...</option>
+                                        {assignedEmpObjects.map(emp => (
+                                          <option key={emp.user_id} value={emp.user_id}>
+                                            {emp.first_name} {emp.last_name}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSendAllTaskLaborToTimeClock(taskIndex)}
+                                      disabled={sendingTaskLaborToTimeClock[taskIndex] || (assignedEmps.length > 1 && !taskLaborEmployeeOverride[taskIndex])}
+                                      className="w-full px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2 text-sm font-medium"
+                                    >
+                                      <Clock className="w-4 h-4" />
+                                      {sendingTaskLaborToTimeClock[taskIndex]
+                                        ? 'Sending...'
+                                        : `Send ${totalHours} Labor Hours to Time Clock`}
+                                    </button>
+                                  </div>
                                 );
                               }
                               return null;
