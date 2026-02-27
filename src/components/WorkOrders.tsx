@@ -1752,14 +1752,6 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
       return;
     }
 
-    const employeeId = assignedEmployees.length === 1
-      ? assignedEmployees[0]
-      : (taskLaborEmployeeOverride[taskIndex] || '');
-
-    if (!employeeId) {
-      setError('Please select which employee to send the labor hours for');
-      return;
-    }
     const unsentLaborLines = task.lineItems.filter(
       item => item.line_type === 'labor' && !item.time_entry_sent_at && item.id && item.quantity > 0
     );
@@ -1772,28 +1764,36 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
     setSendingTaskLaborToTimeClock(prev => ({ ...prev, [taskIndex]: true }));
     try {
       const updatedItems = [...task.lineItems];
-      for (const item of unsentLaborLines) {
-        const { error: updateError } = await supabase
-          .from('work_order_line_items')
-          .update({ assigned_employee_id: employeeId })
-          .eq('id', item.id!);
-        if (updateError) throw updateError;
+      const empCount = assignedEmployees.length;
+      const workDate = new Date().toISOString().split('T')[0];
 
-        const { data, error: rpcError } = await supabase.rpc('send_assigned_labor_to_time_clock', {
-          p_line_item_id: item.id,
-          p_work_date: new Date().toISOString().split('T')[0],
-          p_created_by: userId
-        });
-        if (rpcError) throw rpcError;
-        if (!data.success) throw new Error(data.error || 'Failed to send hours');
+      for (const item of unsentLaborLines) {
+        const hoursPerEmployee = item.quantity / empCount;
+        let lastTimeEntryId: string | null = null;
+
+        for (let i = 0; i < empCount; i++) {
+          const empId = assignedEmployees[i];
+          const isLast = i === empCount - 1;
+
+          const { data, error: rpcError } = await supabase.rpc('send_assigned_labor_to_time_clock', {
+            p_line_item_id: item.id,
+            p_work_date: workDate,
+            p_created_by: userId,
+            p_hours_override: hoursPerEmployee,
+            p_employee_override: empId,
+            p_mark_sent: isLast
+          });
+          if (rpcError) throw rpcError;
+          if (!data.success) throw new Error(data.error || 'Failed to send hours');
+          if (isLast) lastTimeEntryId = data.time_entry_id;
+        }
 
         const idx = updatedItems.findIndex(i => i.id === item.id);
         if (idx !== -1) {
           updatedItems[idx] = {
             ...updatedItems[idx],
-            assigned_employee_id: employeeId,
             time_entry_sent_at: new Date().toISOString(),
-            time_entry_id: data.time_entry_id
+            time_entry_id: lastTimeEntryId
           };
         }
       }
@@ -1802,9 +1802,9 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
       updatedTasks[taskIndex] = { ...task, lineItems: updatedItems };
       setTasks(updatedTasks);
 
-      const empName = employees.find(e => e.user_id === employeeId);
       const totalHours = unsentLaborLines.reduce((sum, i) => sum + i.quantity, 0);
-      showSuccess(`Sent ${totalHours} total labor hours to time clock for ${empName?.first_name || 'employee'}`);
+      const hoursEach = (totalHours / empCount).toFixed(1);
+      showSuccess(`Sent ${totalHours} total labor hours to time clock — ${hoursEach} hrs each for ${empCount} employees`);
     } catch (err: any) {
       console.error('Error sending task labor to time clock:', err);
       setError(err.message || 'Failed to send labor hours to time clock');
@@ -2458,33 +2458,20 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                               );
                               if (assignedEmps.length >= 1 && unsentLabor.length > 0) {
                                 const totalHours = unsentLabor.reduce((sum, i) => sum + i.quantity, 0);
-                                const assignedEmpObjects = employees.filter(e => assignedEmps.includes(e.user_id));
+                                const empCount = assignedEmps.length;
+                                const hoursEach = empCount > 1 ? ` (${(totalHours / empCount).toFixed(1)} hrs each)` : '';
                                 return (
-                                  <div className="mt-2 space-y-2">
-                                    {assignedEmps.length > 1 && (
-                                      <select
-                                        value={taskLaborEmployeeOverride[taskIndex] || ''}
-                                        onChange={e => setTaskLaborEmployeeOverride(prev => ({ ...prev, [taskIndex]: e.target.value }))}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-blue-500"
-                                      >
-                                        <option value="">Select employee for time clock entry...</option>
-                                        {assignedEmpObjects.map(emp => (
-                                          <option key={emp.user_id} value={emp.user_id}>
-                                            {emp.first_name} {emp.last_name}
-                                          </option>
-                                        ))}
-                                      </select>
-                                    )}
+                                  <div className="mt-2">
                                     <button
                                       type="button"
                                       onClick={() => handleSendAllTaskLaborToTimeClock(taskIndex)}
-                                      disabled={sendingTaskLaborToTimeClock[taskIndex] || (assignedEmps.length > 1 && !taskLaborEmployeeOverride[taskIndex])}
+                                      disabled={sendingTaskLaborToTimeClock[taskIndex]}
                                       className="w-full px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2 text-sm font-medium"
                                     >
                                       <Clock className="w-4 h-4" />
                                       {sendingTaskLaborToTimeClock[taskIndex]
                                         ? 'Sending...'
-                                        : `Send ${totalHours} Labor Hours to Time Clock`}
+                                        : `Send ${totalHours} Labor Hours to Time Clock${hoursEach}`}
                                     </button>
                                   </div>
                                 );
