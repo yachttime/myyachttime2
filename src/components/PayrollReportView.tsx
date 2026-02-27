@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Download, Calendar, Users, Clock, Plus, Edit2, Trash2, X, Check, CheckCircle } from 'lucide-react';
+import { Download, Calendar, Users, Clock, Plus, Edit2, Trash2, X, Check, CheckCircle, ChevronDown, ChevronRight } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { TimeEntry, getPayrollPeriodsForDateRange } from '../utils/timeClockHelpers';
 import { generatePayrollReportPDF } from '../utils/pdfGenerator';
@@ -45,6 +45,17 @@ interface EmployeeReport {
   grandTotalHours: number;
 }
 
+interface PaidEmployeeSummary {
+  user_id: string;
+  first_name: string;
+  last_name: string;
+  employee_type: string;
+  standardHours: number;
+  overtimeHours: number;
+  workOrderHours: number;
+  grandTotal: number;
+}
+
 export function PayrollReportView() {
   const { confirm, ConfirmDialog } = useConfirm();
   const [loading, setLoading] = useState(false);
@@ -60,6 +71,9 @@ export function PayrollReportView() {
   const [activePayPeriod, setActivePayPeriod] = useState<PayPeriod | null>(null);
   const [paidEmployeeIds, setPaidEmployeeIds] = useState<Set<string>>(new Set());
   const [assigningPayroll, setAssigningPayroll] = useState<string | null>(null);
+  const [expandedPeriodId, setExpandedPeriodId] = useState<string | null>(null);
+  const [periodDetailData, setPeriodDetailData] = useState<Record<string, PaidEmployeeSummary[]>>({});
+  const [loadingDetail, setLoadingDetail] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     period_start: '',
     period_end: '',
@@ -222,6 +236,80 @@ export function PayrollReportView() {
     }
   };
 
+  const handleTogglePeriodDetail = async (period: PayPeriod) => {
+    if (expandedPeriodId === period.id) {
+      setExpandedPeriodId(null);
+      return;
+    }
+    setExpandedPeriodId(period.id);
+    if (periodDetailData[period.id]) return;
+
+    setLoadingDetail(period.id);
+    try {
+      const [regularResult, workOrderResult] = await Promise.all([
+        supabase
+          .from('staff_time_entries')
+          .select('user_id, standard_hours, overtime_hours, user_profiles(first_name, last_name, employee_type)')
+          .eq('pay_period_id', period.id)
+          .is('work_order_id', null),
+        supabase
+          .from('staff_time_entries')
+          .select('user_id, punch_in_time, punch_out_time, user_profiles(first_name, last_name, employee_type)')
+          .eq('pay_period_id', period.id)
+          .not('work_order_id', 'is', null)
+      ]);
+
+      const regular = regularResult.data || [];
+      const workOrders = workOrderResult.data || [];
+
+      const byUser: Record<string, PaidEmployeeSummary> = {};
+
+      regular.forEach((e: any) => {
+        if (!byUser[e.user_id]) {
+          byUser[e.user_id] = {
+            user_id: e.user_id,
+            first_name: e.user_profiles?.first_name || '',
+            last_name: e.user_profiles?.last_name || '',
+            employee_type: e.user_profiles?.employee_type || '',
+            standardHours: 0, overtimeHours: 0, workOrderHours: 0, grandTotal: 0
+          };
+        }
+        byUser[e.user_id].standardHours += e.standard_hours || 0;
+        byUser[e.user_id].overtimeHours += e.overtime_hours || 0;
+      });
+
+      workOrders.forEach((e: any) => {
+        if (!byUser[e.user_id]) {
+          byUser[e.user_id] = {
+            user_id: e.user_id,
+            first_name: e.user_profiles?.first_name || '',
+            last_name: e.user_profiles?.last_name || '',
+            employee_type: e.user_profiles?.employee_type || '',
+            standardHours: 0, overtimeHours: 0, workOrderHours: 0, grandTotal: 0
+          };
+        }
+        const hours = (new Date(e.punch_out_time).getTime() - new Date(e.punch_in_time).getTime()) / (1000 * 60 * 60);
+        byUser[e.user_id].workOrderHours += Math.round(hours * 100) / 100;
+      });
+
+      const summaries = Object.values(byUser).map(s => ({
+        ...s,
+        standardHours: Math.round(s.standardHours * 100) / 100,
+        overtimeHours: Math.round(s.overtimeHours * 100) / 100,
+        workOrderHours: Math.round(s.workOrderHours * 100) / 100,
+        grandTotal: Math.round((s.standardHours + s.overtimeHours + s.workOrderHours) * 100) / 100
+      }));
+
+      summaries.sort((a, b) => `${a.last_name} ${a.first_name}`.localeCompare(`${b.last_name} ${b.first_name}`));
+
+      setPeriodDetailData(prev => ({ ...prev, [period.id]: summaries }));
+    } catch (err) {
+      console.error('Error loading period detail:', err);
+    } finally {
+      setLoadingDetail(null);
+    }
+  };
+
   const handleAssignPayPeriod = async (userId: string) => {
     if (!activePayPeriod) return;
     setAssigningPayroll(userId);
@@ -240,6 +328,7 @@ export function PayrollReportView() {
       const newPaid = new Set(paidEmployeeIds);
       newPaid.add(userId);
       setPaidEmployeeIds(newPaid);
+      setPeriodDetailData(prev => { const n = { ...prev }; delete n[activePayPeriod.id]; return n; });
 
       if (newPaid.size >= employeeReports.filter(r => r.grandTotalHours > 0).length) {
         await supabase
@@ -275,6 +364,7 @@ export function PayrollReportView() {
       const newPaid = new Set(paidEmployeeIds);
       newPaid.delete(userId);
       setPaidEmployeeIds(newPaid);
+      setPeriodDetailData(prev => { const n = { ...prev }; delete n[activePayPeriod.id]; return n; });
 
       if (activePayPeriod.is_processed) {
         await supabase
@@ -588,6 +678,7 @@ export function PayrollReportView() {
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-6"></th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Period #</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Period Start</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Period End</th>
@@ -599,48 +690,142 @@ export function PayrollReportView() {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {payPeriods.map(period => (
-                  <tr key={period.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm text-gray-900 font-medium">#{period.period_number}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900">
-                      {new Date(period.period_start).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">
-                      {new Date(period.period_end).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900 font-medium">
-                      {new Date(period.pay_date).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{period.notes || '-'}</td>
-                    <td className="px-4 py-3 text-sm">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        period.is_processed
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {period.is_processed ? 'Processed' : 'Pending'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-right space-x-2">
-                      <button
-                        onClick={() => handleSelectPayPeriod(period)}
-                        className="text-blue-600 hover:text-blue-700 font-medium"
-                      >
-                        Use Dates
-                      </button>
-                      <button
-                        onClick={() => handleEditPayPeriod(period)}
-                        className="text-gray-600 hover:text-gray-700"
-                      >
-                        <Edit2 className="w-4 h-4 inline" />
-                      </button>
-                      <button
-                        onClick={() => handleDeletePayPeriod(period.id)}
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        <Trash2 className="w-4 h-4 inline" />
-                      </button>
-                    </td>
-                  </tr>
+                  <React.Fragment key={period.id}>
+                    <tr className={`hover:bg-gray-50 ${expandedPeriodId === period.id ? 'bg-blue-50' : ''}`}>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => handleTogglePeriodDetail(period)}
+                          className="text-gray-400 hover:text-blue-600 transition-colors"
+                          title="View paid hours for this period"
+                        >
+                          {expandedPeriodId === period.id
+                            ? <ChevronDown className="w-4 h-4" />
+                            : <ChevronRight className="w-4 h-4" />
+                          }
+                        </button>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-900 font-medium">
+                        <button
+                          onClick={() => handleTogglePeriodDetail(period)}
+                          className="font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                        >
+                          #{period.period_number}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-900">
+                        {new Date(period.period_start).toLocaleDateString()}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-900">
+                        {new Date(period.period_end).toLocaleDateString()}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-900 font-medium">
+                        {new Date(period.pay_date).toLocaleDateString()}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{period.notes || '-'}</td>
+                      <td className="px-4 py-3 text-sm">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          period.is_processed
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {period.is_processed ? 'Processed' : 'Pending'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-right space-x-2">
+                        <button
+                          onClick={() => handleSelectPayPeriod(period)}
+                          className="text-blue-600 hover:text-blue-700 font-medium"
+                        >
+                          Use Dates
+                        </button>
+                        <button
+                          onClick={() => handleEditPayPeriod(period)}
+                          className="text-gray-600 hover:text-gray-700"
+                        >
+                          <Edit2 className="w-4 h-4 inline" />
+                        </button>
+                        <button
+                          onClick={() => handleDeletePayPeriod(period.id)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <Trash2 className="w-4 h-4 inline" />
+                        </button>
+                      </td>
+                    </tr>
+
+                    {expandedPeriodId === period.id && (
+                      <tr>
+                        <td colSpan={8} className="px-0 py-0">
+                          <div className="bg-gray-50 border-t border-b border-blue-100 px-6 py-4">
+                            <div className="flex items-center gap-2 mb-3">
+                              <CheckCircle className="w-4 h-4 text-green-600" />
+                              <span className="text-sm font-semibold text-gray-800">
+                                Paid Hours — Pay Period #{period.period_number} &nbsp;
+                                <span className="text-gray-500 font-normal">
+                                  ({new Date(period.period_start).toLocaleDateString()} – {new Date(period.period_end).toLocaleDateString()}, Pay Date: {new Date(period.pay_date).toLocaleDateString()})
+                                </span>
+                              </span>
+                            </div>
+
+                            {loadingDetail === period.id ? (
+                              <div className="flex items-center gap-2 text-gray-500 text-sm py-2">
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                Loading...
+                              </div>
+                            ) : !periodDetailData[period.id] || periodDetailData[period.id].length === 0 ? (
+                              <p className="text-sm text-gray-500 italic py-2">No hours have been marked as paid for this period yet.</p>
+                            ) : (
+                              <table className="w-full text-sm">
+                                <thead>
+                                  <tr className="text-xs text-gray-500 uppercase">
+                                    <th className="text-left pb-2 pr-4">Employee</th>
+                                    <th className="text-left pb-2 pr-4">Type</th>
+                                    <th className="text-right pb-2 pr-4">Standard Hrs</th>
+                                    <th className="text-right pb-2 pr-4">Overtime Hrs</th>
+                                    <th className="text-right pb-2 pr-4">Work Order Hrs</th>
+                                    <th className="text-right pb-2">Total Hrs</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200">
+                                  {periodDetailData[period.id].map(s => (
+                                    <tr key={s.user_id} className="text-gray-800">
+                                      <td className="py-2 pr-4 font-medium">{s.last_name}, {s.first_name}</td>
+                                      <td className="py-2 pr-4">
+                                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                          s.employee_type === 'hourly' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
+                                        }`}>{s.employee_type}</span>
+                                      </td>
+                                      <td className="py-2 pr-4 text-right">{s.standardHours.toFixed(2)}</td>
+                                      <td className="py-2 pr-4 text-right text-orange-600">{s.overtimeHours.toFixed(2)}</td>
+                                      <td className="py-2 pr-4 text-right text-blue-600">{s.workOrderHours.toFixed(2)}</td>
+                                      <td className="py-2 text-right font-bold">{s.grandTotal.toFixed(2)}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                                <tfoot className="border-t-2 border-gray-300">
+                                  <tr className="text-gray-900 font-bold">
+                                    <td colSpan={2} className="pt-2 pr-4">TOTAL</td>
+                                    <td className="pt-2 pr-4 text-right">
+                                      {periodDetailData[period.id].reduce((s, r) => s + r.standardHours, 0).toFixed(2)}
+                                    </td>
+                                    <td className="pt-2 pr-4 text-right text-orange-600">
+                                      {periodDetailData[period.id].reduce((s, r) => s + r.overtimeHours, 0).toFixed(2)}
+                                    </td>
+                                    <td className="pt-2 pr-4 text-right text-blue-600">
+                                      {periodDetailData[period.id].reduce((s, r) => s + r.workOrderHours, 0).toFixed(2)}
+                                    </td>
+                                    <td className="pt-2 text-right">
+                                      {periodDetailData[period.id].reduce((s, r) => s + r.grandTotal, 0).toFixed(2)}
+                                    </td>
+                                  </tr>
+                                </tfoot>
+                              </table>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 ))}
               </tbody>
             </table>
