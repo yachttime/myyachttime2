@@ -1739,6 +1739,73 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
     }
   };
 
+  const [sendingTaskLaborToTimeClock, setSendingTaskLaborToTimeClock] = useState<Record<number, boolean>>({});
+
+  const handleSendAllTaskLaborToTimeClock = async (taskIndex: number) => {
+    const task = tasks[taskIndex];
+    if (!task) return;
+
+    const assignedEmployees = task.assignedEmployees || [];
+    if (assignedEmployees.length !== 1) {
+      setError('Please assign exactly one employee to this task before sending all labor to the time clock');
+      return;
+    }
+
+    const employeeId = assignedEmployees[0];
+    const unsentLaborLines = task.lineItems.filter(
+      item => item.line_type === 'labor' && !item.time_entry_sent_at && item.id
+    );
+
+    if (unsentLaborLines.length === 0) {
+      setError('No unsent labor lines found for this task');
+      return;
+    }
+
+    setSendingTaskLaborToTimeClock(prev => ({ ...prev, [taskIndex]: true }));
+    try {
+      const updatedItems = [...task.lineItems];
+      for (const item of unsentLaborLines) {
+        if (!item.assigned_employee_id) {
+          await supabase
+            .from('work_order_line_items')
+            .update({ assigned_employee_id: employeeId })
+            .eq('id', item.id!);
+        }
+
+        const { data, error: rpcError } = await supabase.rpc('send_assigned_labor_to_time_clock', {
+          p_line_item_id: item.id,
+          p_work_date: new Date().toISOString().split('T')[0],
+          p_created_by: userId
+        });
+        if (rpcError) throw rpcError;
+        if (!data.success) throw new Error(data.error || 'Failed to send hours');
+
+        const idx = updatedItems.findIndex(i => i.id === item.id);
+        if (idx !== -1) {
+          updatedItems[idx] = {
+            ...updatedItems[idx],
+            assigned_employee_id: employeeId,
+            time_entry_sent_at: new Date().toISOString(),
+            time_entry_id: data.time_entry_id
+          };
+        }
+      }
+
+      const updatedTasks = [...tasks];
+      updatedTasks[taskIndex] = { ...task, lineItems: updatedItems };
+      setTasks(updatedTasks);
+
+      const empName = employees.find(e => e.user_id === employeeId);
+      const totalHours = unsentLaborLines.reduce((sum, i) => sum + i.quantity, 0);
+      showSuccess(`Sent ${totalHours} total labor hours to time clock for ${empName?.first_name || 'employee'}`);
+    } catch (err: any) {
+      console.error('Error sending task labor to time clock:', err);
+      setError(err.message || 'Failed to send labor hours to time clock');
+    } finally {
+      setSendingTaskLaborToTimeClock(prev => ({ ...prev, [taskIndex]: false }));
+    }
+  };
+
   const handleSendLaborToTimeClock = async (taskIndex: number, lineIndex: number) => {
     const item = tasks[taskIndex]?.lineItems[lineIndex];
     if (!item?.id) {
@@ -2367,6 +2434,29 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                                 </option>
                               ))}
                             </select>
+                            {(() => {
+                              const assignedEmps = task.assignedEmployees || [];
+                              const unsentLabor = task.lineItems.filter(
+                                i => i.line_type === 'labor' && !i.time_entry_sent_at && i.id
+                              );
+                              if (assignedEmps.length === 1 && unsentLabor.length > 0) {
+                                const totalHours = unsentLabor.reduce((sum, i) => sum + i.quantity, 0);
+                                return (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSendAllTaskLaborToTimeClock(taskIndex)}
+                                    disabled={sendingTaskLaborToTimeClock[taskIndex]}
+                                    className="mt-2 w-full px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2 text-sm font-medium"
+                                  >
+                                    <Clock className="w-4 h-4" />
+                                    {sendingTaskLaborToTimeClock[taskIndex]
+                                      ? 'Sending...'
+                                      : `Send ${totalHours} Labor Hours to Time Clock`}
+                                  </button>
+                                );
+                              }
+                              return null;
+                            })()}
                           </div>
 
                           <div className="flex justify-between items-center mb-3">
