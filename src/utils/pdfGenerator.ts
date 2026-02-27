@@ -2133,33 +2133,24 @@ export async function generatePayrollReportPDF(
       }
       addSpace(0.05);
 
-      const workOrderHeaders = [['Date', 'Work Order', 'Yacht/Customer', 'Punch In', 'Punch Out', 'Hours', 'Notes']];
-      const workOrderData = report.workOrderEntries.map((entry: any) => {
-        const date = new Date(entry.punch_in_time).toLocaleDateString();
-        const customerOrYacht = entry.yacht_name || entry.customer_name || 'N/A';
-        const punchIn = new Date(entry.punch_in_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-        const punchOut = new Date(entry.punch_out_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-        const notes = entry.notes || '';
-
-        return [
-          date,
-          entry.work_order_number,
-          customerOrYacht,
-          punchIn,
-          punchOut,
-          entry.total_hours.toFixed(2),
-          notes
-        ];
+      const woGrouped: Record<string, { work_order_number: string; total_hours: number }> = {};
+      report.workOrderEntries.forEach((entry: any) => {
+        const key = entry.work_order_number;
+        if (!woGrouped[key]) {
+          woGrouped[key] = { work_order_number: entry.work_order_number, total_hours: 0 };
+        }
+        woGrouped[key].total_hours += entry.total_hours;
       });
+
+      const workOrderHeaders = [['Work Order', 'Hours']];
+      const workOrderData = Object.values(woGrouped).map(wo => [
+        wo.work_order_number,
+        wo.total_hours.toFixed(2)
+      ]);
 
       workOrderData.push([
         'SUBTOTAL',
-        '',
-        '',
-        '',
-        '',
-        report.totalWorkOrderHours.toFixed(2),
-        ''
+        report.totalWorkOrderHours.toFixed(2)
       ]);
 
       autoTable(doc, {
@@ -2168,8 +2159,8 @@ export async function generatePayrollReportPDF(
         body: workOrderData,
         theme: 'grid',
         styles: {
-          fontSize: 8,
-          cellPadding: 0.05,
+          fontSize: 9,
+          cellPadding: 0.07,
           font: 'helvetica',
           textColor: [0, 0, 0]
         },
@@ -2177,16 +2168,11 @@ export async function generatePayrollReportPDF(
           fillColor: [219, 234, 254],
           textColor: [0, 0, 0],
           fontStyle: 'bold',
-          fontSize: 8
+          fontSize: 9
         },
         columnStyles: {
-          0: { cellWidth: 0.9 },
-          1: { cellWidth: 1.3 },
-          2: { cellWidth: 1.5 },
-          3: { cellWidth: 0.9 },
-          4: { cellWidth: 0.9 },
-          5: { halign: 'right', cellWidth: 0.7, fontStyle: 'bold' },
-          6: { cellWidth: 3.8, fontSize: 7 }
+          0: { cellWidth: 2.0 },
+          1: { halign: 'right', cellWidth: 1.0, fontStyle: 'bold' }
         },
         didParseCell: function(data: any) {
           if (data.row.index === workOrderData.length - 1) {
