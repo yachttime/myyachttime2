@@ -245,10 +245,23 @@ export function PayrollReportView() {
 
     setLoadingDetail(period.id);
     try {
-      const { data: entries, error: entriesError } = await supabase
+      const endOfDay = new Date(new Date(period.period_end).setHours(23, 59, 59)).toISOString();
+      const startOfDay = new Date(period.period_start).toISOString();
+
+      let query = supabase
         .from('staff_time_entries')
         .select('user_id, standard_hours, overtime_hours, total_hours, work_order_id')
-        .eq('pay_period_id', period.id);
+        .not('punch_out_time', 'is', null);
+
+      if (period.is_processed) {
+        query = query.eq('pay_period_id', period.id);
+      } else {
+        query = query
+          .gte('punch_in_time', startOfDay)
+          .lte('punch_in_time', endOfDay);
+      }
+
+      const { data: entries, error: entriesError } = await query;
 
       if (entriesError) console.error('Period detail fetch error:', entriesError);
 
