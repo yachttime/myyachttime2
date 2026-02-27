@@ -71,6 +71,9 @@ interface WorkOrderLineItem {
   line_order: number;
   work_details?: string | null;
   package_header?: string | null;
+  assigned_employee_id?: string | null;
+  time_entry_sent_at?: string | null;
+  time_entry_id?: string | null;
 }
 
 interface WorkOrdersProps {
@@ -168,6 +171,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
   const [showTimeEntryPreview, setShowTimeEntryPreview] = useState(false);
   const [timeEntryPreview, setTimeEntryPreview] = useState<any[]>([]);
   const [selectedWorkOrderForTime, setSelectedWorkOrderForTime] = useState<string | null>(null);
+  const [sendingLaborToTimeClock, setSendingLaborToTimeClock] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [workOrderToArchive, setWorkOrderToArchive] = useState<string | null>(null);
@@ -997,7 +1001,10 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
             marine_wholesale_part_id: item.marine_wholesale_part_id || null,
             work_details: item.work_details || null,
             package_header: item.package_header || null,
-            line_order: index
+            line_order: index,
+            assigned_employee_id: item.line_type === 'labor' ? (item.assigned_employee_id || null) : null,
+            time_entry_sent_at: item.time_entry_sent_at || null,
+            time_entry_id: item.time_entry_id || null
           }));
 
           const { error: lineItemsError } = await supabase
@@ -1210,7 +1217,10 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
             marine_wholesale_part_id: item.marine_wholesale_part_id || null,
             line_order: item.line_order || 0,
             work_details: item.work_details,
-            package_header: item.package_header || null
+            package_header: item.package_header || null,
+            assigned_employee_id: item.assigned_employee_id || null,
+            time_entry_sent_at: item.time_entry_sent_at || null,
+            time_entry_id: item.time_entry_id || null
           }));
 
         return {
@@ -1711,6 +1721,53 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
   };
 
   const canDeleteAssignedEmployees = userProfile?.role === 'master' || userProfile?.role === 'staff';
+
+  const handleAssignLaborEmployee = (taskIndex: number, lineIndex: number, employeeId: string) => {
+    const updatedTasks = [...tasks];
+    updatedTasks[taskIndex].lineItems[lineIndex] = {
+      ...updatedTasks[taskIndex].lineItems[lineIndex],
+      assigned_employee_id: employeeId || null
+    };
+    setTasks(updatedTasks);
+  };
+
+  const handleSendLaborToTimeClock = async (taskIndex: number, lineIndex: number) => {
+    const item = tasks[taskIndex]?.lineItems[lineIndex];
+    if (!item?.id) {
+      setError('Please save the work order before sending hours to the time clock');
+      return;
+    }
+    if (!item.assigned_employee_id) {
+      setError('Please assign an employee to this labor line before sending to time clock');
+      return;
+    }
+    if (item.time_entry_sent_at) return;
+
+    setSendingLaborToTimeClock(prev => ({ ...prev, [item.id!]: true }));
+    try {
+      const { data, error: rpcError } = await supabase.rpc('send_assigned_labor_to_time_clock', {
+        p_line_item_id: item.id,
+        p_work_date: new Date().toISOString().split('T')[0],
+        p_created_by: userId
+      });
+      if (rpcError) throw rpcError;
+      if (!data.success) throw new Error(data.error || 'Failed to send hours');
+
+      const updatedTasks = [...tasks];
+      updatedTasks[taskIndex].lineItems[lineIndex] = {
+        ...item,
+        time_entry_sent_at: new Date().toISOString(),
+        time_entry_id: data.time_entry_id
+      };
+      setTasks(updatedTasks);
+      showSuccess(`Sent ${item.quantity} hours to time clock for ${employees.find(e => e.user_id === item.assigned_employee_id)?.first_name || 'employee'}`);
+    } catch (err: any) {
+      console.error('Error sending labor to time clock:', err);
+      setError(err.message || 'Failed to send hours to time clock');
+    } finally {
+      setSendingLaborToTimeClock(prev => ({ ...prev, [item.id!]: false }));
+    }
+  };
 
   const handlePreviewTimeEntries = async (workOrderId: string) => {
     try {
@@ -2386,18 +2443,64 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                                           </td>
                                         </tr>
                                       ) : (
-                                      <tr key={lineIndex} className="border-t">
+                                      <tr key={lineIndex} className={`border-t ${item.line_type === 'labor' && item.time_entry_sent_at ? 'bg-green-50' : ''}`}>
                                         <td className="px-3 py-2">
-                                          <div className="flex items-center gap-2">
+                                          <div className="flex items-center gap-2 flex-wrap">
                                             <span className="text-xs text-gray-500 uppercase">{item.line_type}</span>
                                             {item.is_taxable && (
                                               <span className="text-xs px-1.5 py-0.5 bg-green-100 text-green-700 rounded">Taxable</span>
+                                            )}
+                                            {item.line_type === 'labor' && item.time_entry_sent_at && (
+                                              <span className="text-xs px-1.5 py-0.5 bg-green-600 text-white rounded flex items-center gap-1">
+                                                <Clock className="w-3 h-3" />
+                                                Sent to Time Clock
+                                              </span>
                                             )}
                                           </div>
                                           <div className="font-medium text-gray-900">{item.description}</div>
                                           {item.work_details && (
                                             <div className="text-xs text-gray-600 mt-1 whitespace-pre-wrap">
                                               {item.work_details}
+                                            </div>
+                                          )}
+                                          {item.line_type === 'labor' && (
+                                            <div className="mt-2 flex items-center gap-2">
+                                              {item.time_entry_sent_at ? (
+                                                <div className="text-xs text-green-700 font-medium">
+                                                  {(() => {
+                                                    const emp = employees.find(e => e.user_id === item.assigned_employee_id);
+                                                    return emp ? `Assigned: ${emp.first_name} ${emp.last_name}` : 'Hours sent';
+                                                  })()}
+                                                  <span className="text-gray-400 ml-1">· {new Date(item.time_entry_sent_at).toLocaleDateString()}</span>
+                                                </div>
+                                              ) : (
+                                                <>
+                                                  <select
+                                                    value={item.assigned_employee_id || ''}
+                                                    onChange={(e) => handleAssignLaborEmployee(taskIndex, lineIndex, e.target.value)}
+                                                    className="text-xs px-2 py-1 border border-gray-300 rounded bg-white text-gray-900 focus:ring-1 focus:ring-blue-500"
+                                                  >
+                                                    <option value="">Assign employee...</option>
+                                                    {employees.map(emp => (
+                                                      <option key={emp.user_id} value={emp.user_id}>
+                                                        {emp.first_name} {emp.last_name}
+                                                      </option>
+                                                    ))}
+                                                  </select>
+                                                  {item.assigned_employee_id && (
+                                                    <button
+                                                      type="button"
+                                                      disabled={!item.id || sendingLaborToTimeClock[item.id!]}
+                                                      onClick={() => handleSendLaborToTimeClock(taskIndex, lineIndex)}
+                                                      className="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1"
+                                                      title={!item.id ? 'Save the work order first' : 'Send these hours to the time clock'}
+                                                    >
+                                                      <Clock className="w-3 h-3" />
+                                                      {sendingLaborToTimeClock[item.id!] ? 'Sending...' : 'Send to Time Clock'}
+                                                    </button>
+                                                  )}
+                                                </>
+                                              )}
                                             </div>
                                           )}
                                         </td>
@@ -2409,8 +2512,10 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                                             type="button"
                                             onClick={() => handleRemoveLineItem(taskIndex, lineIndex)}
                                             className="text-red-600 hover:text-red-800"
+                                            disabled={!!item.time_entry_sent_at}
+                                            title={item.time_entry_sent_at ? 'Cannot remove — hours already sent to time clock' : ''}
                                           >
-                                            <Trash2 className="w-4 h-4" />
+                                            <Trash2 className={`w-4 h-4 ${item.time_entry_sent_at ? 'opacity-30' : ''}`} />
                                           </button>
                                         </td>
                                       </tr>
