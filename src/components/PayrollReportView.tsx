@@ -973,29 +973,38 @@ export function PayrollReportView() {
       </div>
 
       <div className="bg-white rounded-lg shadow p-6 space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Start Date
-            </label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              End Date
-            </label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-            />
-          </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Pay Period
+          </label>
+          <select
+            value={activePayPeriod?.id || ''}
+            onChange={(e) => {
+              const period = payPeriods.find(p => p.id === e.target.value) || null;
+              if (period) {
+                handleSelectPayPeriod(period);
+              } else {
+                setActivePayPeriod(null);
+                setStartDate('');
+                setEndDate('');
+                setEmployeeReports([]);
+                setPaidEmployeeIds(new Set());
+              }
+            }}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+          >
+            <option value="">-- Select a Pay Period --</option>
+            {payPeriods.map(p => (
+              <option key={p.id} value={p.id}>
+                #{p.period_number} — {new Date(p.period_start).toLocaleDateString()} to {new Date(p.period_end).toLocaleDateString()} (Pay: {new Date(p.pay_date).toLocaleDateString()}){p.is_processed ? ' ✓' : ''}
+              </option>
+            ))}
+          </select>
+          {activePayPeriod && (
+            <p className="text-xs text-gray-500 mt-1">
+              {new Date(activePayPeriod.period_start).toLocaleDateString()} – {new Date(activePayPeriod.period_end).toLocaleDateString()}
+            </p>
+          )}
         </div>
 
         <div>
