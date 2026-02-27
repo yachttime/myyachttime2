@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Anchor, Calendar, CheckCircle, AlertCircle, BookOpen, LogOut, Wrench, Send, Play, Shield, ClipboardCheck, Ship, CalendarPlus, FileUp, MessageCircle, Mail, CreditCard as Edit2, Trash2, ChevronLeft, ChevronRight, ChevronDown, History, UserCheck, FileText, Upload, Download, X, Users, Save, RefreshCw, Clock, Thermometer, Camera, Receipt, Pencil, Lock, CreditCard, Eye, EyeOff, MousePointer, Ligature as FileSignature, Folder, Menu, Phone, Printer, Plus, QrCode, CircleUser as UserCircle2, DollarSign, Archive, Building2, MessageSquare } from 'lucide-react';
+import { Anchor, Calendar, CheckCircle, AlertCircle, BookOpen, LogOut, Wrench, Send, Play, Shield, ClipboardCheck, Ship, CalendarPlus, FileUp, MessageCircle, Mail, CreditCard as Edit2, Trash2, ChevronLeft, ChevronRight, ChevronDown, History, UserCheck, FileText, Upload, Download, X, Users, Save, RefreshCw, Clock, Thermometer, Camera, Receipt, Pencil, Lock, CreditCard, Eye, EyeOff, MousePointer, Ligature as FileSignature, Folder, Menu, Phone, Printer, Plus, QrCode, CircleUser as UserCircle2, DollarSign, Archive, Building2, MessageSquare, ShieldAlert } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCompany } from '../contexts/CompanyContext';
 import { useRoleImpersonation } from '../contexts/RoleImpersonationContext';
@@ -12593,6 +12593,40 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                       </div>
                                     )}
                                   </>
+                                )}
+
+                                {userProfile?.role === 'master' && (request.status === 'approved' || request.status === 'rejected') && (
+                                  <div className="flex gap-2 ml-4 mt-2">
+                                    {request.status === 'approved' ? (
+                                      <button
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          setApprovalAction({ requestId: request.id, status: 'rejected' });
+                                          setShowApprovalModal(true);
+                                        }}
+                                        className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2"
+                                        title="Master override: change to denied"
+                                      >
+                                        <ShieldAlert className="w-4 h-4" />
+                                        Master Override: Deny
+                                      </button>
+                                    ) : (
+                                      <button
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          setApprovalAction({ requestId: request.id, status: 'approved' });
+                                          setShowApprovalModal(true);
+                                        }}
+                                        className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2"
+                                        title="Master override: change to approved"
+                                      >
+                                        <ShieldAlert className="w-4 h-4" />
+                                        Master Override: Approve
+                                      </button>
+                                    )}
+                                  </div>
                                 )}
 
                                 {/* Archive/Unarchive button for all users with yacht access */}
