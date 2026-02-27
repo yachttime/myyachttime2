@@ -311,7 +311,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
               .in('task_id', taskIds),
             supabase
               .from('work_order_line_items')
-              .select('task_id, line_type, assigned_employee_id, time_entry_sent_at, time_entry_employee_ids')
+              .select('task_id, line_type, assigned_employee_id, time_entry_sent_at, time_entry_id, staff_time_entries!work_order_line_items_time_entry_id_fkey(user_id)')
               .in('task_id', taskIds)
           ]);
 
@@ -345,13 +345,11 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
             const woId = taskToWO[li.task_id];
             if (!woId) return;
             if (!woSentMap[woId]) woSentMap[woId] = new Set();
-            const ids: string[] = li.time_entry_employee_ids?.length
-              ? li.time_entry_employee_ids
-              : li.assigned_employee_id ? [li.assigned_employee_id] : [];
-            ids.forEach(id => {
-              const name = empById[id];
+            const empId = li.assigned_employee_id || li.staff_time_entries?.user_id;
+            if (empId) {
+              const name = empById[empId];
               if (name) woSentMap[woId].add(name);
-            });
+            }
           });
           setWorkOrderSentEmployees(woSentMap);
 
