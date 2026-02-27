@@ -504,7 +504,7 @@ export function PayrollReportView() {
         `${a.user.last_name} ${a.user.first_name}`.localeCompare(`${b.user.last_name} ${b.user.first_name}`)
       );
 
-      await generatePayrollReportPDF(reports, period.period_start, period.period_end, yachtMap);
+      await generatePayrollReportPDF(reports, period.period_start, period.period_end, yachtMap, period.pay_date);
     } catch (err: any) {
       console.error('Error printing pay period:', err);
       alert(err.message || 'Failed to generate payroll PDF');
@@ -1003,6 +1003,7 @@ export function PayrollReportView() {
           {activePayPeriod && (
             <p className="text-xs text-gray-500 mt-1">
               {new Date(activePayPeriod.period_start).toLocaleDateString()} – {new Date(activePayPeriod.period_end).toLocaleDateString()}
+              &nbsp;&bull;&nbsp;Payday: <span className="font-medium text-gray-700">{new Date(activePayPeriod.pay_date).toLocaleDateString()}</span>
             </p>
           )}
         </div>

@@ -1903,7 +1903,8 @@ export async function generatePayrollReportPDF(
   employeeReports: EmployeeReport[],
   startDate: string,
   endDate: string,
-  yachtMap: Record<string, string>
+  yachtMap: Record<string, string>,
+  payDate?: string
 ): Promise<void> {
   const doc = new jsPDF({
     orientation: 'landscape',
@@ -1947,6 +1948,9 @@ export async function generatePayrollReportPDF(
 
   addText('PAYROLL REPORT', 16, 'bold', 'center');
   addText(`Pay Period: ${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}`, 12, 'normal', 'center');
+  if (payDate) {
+    addText(`Payday: ${new Date(payDate).toLocaleDateString()}`, 12, 'normal', 'center');
+  }
   addSpace(0.3);
 
   const summaryHeaders = [['Employee', 'Type', 'Standard Hrs', 'Overtime Hrs', 'Time Clock', 'Work Order Hrs', 'Grand Total']];
