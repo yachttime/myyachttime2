@@ -74,6 +74,7 @@ interface WorkOrderLineItem {
   assigned_employee_id?: string | null;
   time_entry_sent_at?: string | null;
   time_entry_id?: string | null;
+  time_entry_employee_ids?: string[] | null;
 }
 
 interface WorkOrdersProps {
@@ -1188,6 +1189,26 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
         deposit_payment_method_type: workOrder.deposit_payment_method_type || 'card'
       });
 
+      const sentLaborItemIds = (allLineItems || [])
+        .filter((item: any) => item.line_type === 'labor' && item.time_entry_sent_at && item.id)
+        .map((item: any) => item.id);
+
+      const timeEntryEmployeesByLineItem: Record<string, string[]> = {};
+      if (sentLaborItemIds.length > 0) {
+        const { data: timeEntryData } = await supabase
+          .from('staff_time_entries')
+          .select('reference_id, user_id')
+          .in('reference_id', sentLaborItemIds);
+        (timeEntryData || []).forEach((te: any) => {
+          if (!timeEntryEmployeesByLineItem[te.reference_id]) {
+            timeEntryEmployeesByLineItem[te.reference_id] = [];
+          }
+          if (!timeEntryEmployeesByLineItem[te.reference_id].includes(te.user_id)) {
+            timeEntryEmployeesByLineItem[te.reference_id].push(te.user_id);
+          }
+        });
+      }
+
       const lineItemsByTask: Record<string, any[]> = {};
       (allLineItems || []).forEach((item: any) => {
         if (item.task_id) {
@@ -1220,7 +1241,8 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
             package_header: item.package_header || null,
             assigned_employee_id: item.assigned_employee_id || null,
             time_entry_sent_at: item.time_entry_sent_at || null,
-            time_entry_id: item.time_entry_id || null
+            time_entry_id: item.time_entry_id || null,
+            time_entry_employee_ids: item.id ? (timeEntryEmployeesByLineItem[item.id] || null) : null
           }));
 
         return {
@@ -2587,8 +2609,14 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                                               {item.time_entry_sent_at ? (
                                                 <div className="text-xs text-green-700 font-medium">
                                                   {(() => {
-                                                    const emp = employees.find(e => e.user_id === item.assigned_employee_id);
-                                                    return emp ? `Assigned: ${emp.first_name} ${emp.last_name}` : 'Hours sent';
+                                                    const ids = item.time_entry_employee_ids?.length
+                                                      ? item.time_entry_employee_ids
+                                                      : item.assigned_employee_id ? [item.assigned_employee_id] : [];
+                                                    const names = ids
+                                                      .map(id => employees.find(e => e.user_id === id))
+                                                      .filter(Boolean)
+                                                      .map(e => `${e!.first_name} ${e!.last_name}`);
+                                                    return names.length > 0 ? `Assigned: ${names.join(', ')}` : 'Hours sent';
                                                   })()}
                                                   <span className="text-gray-400 ml-1">· {new Date(item.time_entry_sent_at).toLocaleDateString()}</span>
                                                 </div>
