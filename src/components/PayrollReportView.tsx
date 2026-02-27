@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Download, Calendar, Users, Clock, Plus, Edit2, Trash2, X, Check, CheckCircle, ChevronDown, ChevronRight } from 'lucide-react';
+import { Download, Calendar, Users, Clock, Plus, Edit2, Trash2, X, Check, CheckCircle, ChevronDown, ChevronRight, Printer } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { TimeEntry, getPayrollPeriodsForDateRange } from '../utils/timeClockHelpers';
 import { generatePayrollReportPDF } from '../utils/pdfGenerator';
@@ -74,6 +74,7 @@ export function PayrollReportView() {
   const [expandedPeriodId, setExpandedPeriodId] = useState<string | null>(null);
   const [periodDetailData, setPeriodDetailData] = useState<Record<string, PaidEmployeeSummary[]>>({});
   const [loadingDetail, setLoadingDetail] = useState<string | null>(null);
+  const [printingPeriodId, setPrintingPeriodId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     period_start: '',
     period_end: '',
@@ -399,6 +400,117 @@ export function PayrollReportView() {
       notes: ''
     });
     setShowPayPeriodForm(true);
+  };
+
+  const handlePrintPayPeriod = async (period: PayPeriod) => {
+    setPrintingPeriodId(period.id);
+    try {
+      const endOfDay = new Date(new Date(period.period_end).setHours(23, 59, 59)).toISOString();
+      const startOfDay = new Date(period.period_start).toISOString();
+
+      let regularQuery = supabase
+        .from('staff_time_entries')
+        .select('*')
+        .is('work_order_id', null)
+        .not('punch_out_time', 'is', null)
+        .order('punch_in_time');
+
+      let workOrderQuery = supabase
+        .from('staff_time_entries')
+        .select(`
+          *,
+          work_orders!inner (
+            work_order_number,
+            customer_name,
+            yachts (
+              name
+            )
+          )
+        `)
+        .not('work_order_id', 'is', null)
+        .not('punch_out_time', 'is', null)
+        .order('punch_in_time');
+
+      if (period.is_processed) {
+        regularQuery = regularQuery.eq('pay_period_id', period.id);
+        workOrderQuery = workOrderQuery.eq('pay_period_id', period.id);
+      } else {
+        regularQuery = regularQuery.gte('punch_in_time', startOfDay).lte('punch_in_time', endOfDay);
+        workOrderQuery = workOrderQuery.gte('punch_in_time', startOfDay).lte('punch_in_time', endOfDay);
+      }
+
+      const [regularResult, workOrderResult, profilesResult, yachtsResult] = await Promise.all([
+        regularQuery,
+        workOrderQuery,
+        supabase.from('user_profiles').select('user_id, first_name, last_name, employee_type').in('role', ['staff', 'mechanic', 'master']).eq('is_active', true).order('last_name'),
+        supabase.from('yachts').select('id, name')
+      ]);
+
+      const regularEntries = regularResult.data || [];
+      const workOrderEntries = workOrderResult.data || [];
+      const profiles = profilesResult.data || [];
+
+      const yachtMap: Record<string, string> = {};
+      (yachtsResult.data || []).forEach(y => { yachtMap[y.id] = y.name; });
+
+      const allUserIds = new Set([
+        ...regularEntries.map((e: any) => e.user_id),
+        ...workOrderEntries.map((e: any) => e.user_id)
+      ]);
+
+      const reports: any[] = [];
+      profiles.forEach(user => {
+        if (!allUserIds.has(user.user_id)) return;
+
+        const userEntries = regularEntries.filter((e: any) => e.user_id === user.user_id);
+        const totalStandardHours = userEntries.reduce((sum: number, e: any) => sum + (e.standard_hours || 0), 0);
+        const totalOvertimeHours = userEntries.reduce((sum: number, e: any) => sum + (e.overtime_hours || 0), 0);
+        const totalHours = totalStandardHours + totalOvertimeHours;
+
+        const userWorkOrderEntries = workOrderEntries
+          .filter((e: any) => e.user_id === user.user_id)
+          .map((e: any) => {
+            const punchIn = new Date(e.punch_in_time);
+            const punchOut = new Date(e.punch_out_time);
+            const hours = (punchOut.getTime() - punchIn.getTime()) / (1000 * 60 * 60);
+            return {
+              work_order_number: e.work_orders?.work_order_number || 'N/A',
+              work_order_id: e.work_order_id,
+              yacht_name: e.work_orders?.yachts?.name,
+              customer_name: e.work_orders?.customer_name,
+              punch_in_time: e.punch_in_time,
+              punch_out_time: e.punch_out_time,
+              total_hours: Math.round(hours * 100) / 100,
+              notes: e.notes
+            };
+          });
+
+        const totalWorkOrderHours = userWorkOrderEntries.reduce((sum: number, e: any) => sum + e.total_hours, 0);
+        const grandTotalHours = totalHours + totalWorkOrderHours;
+
+        reports.push({
+          user,
+          entries: userEntries,
+          workOrderEntries: userWorkOrderEntries,
+          totalStandardHours: Math.round(totalStandardHours * 100) / 100,
+          totalOvertimeHours: Math.round(totalOvertimeHours * 100) / 100,
+          totalHours: Math.round(totalHours * 100) / 100,
+          totalWorkOrderHours: Math.round(totalWorkOrderHours * 100) / 100,
+          grandTotalHours: Math.round(grandTotalHours * 100) / 100
+        });
+      });
+
+      reports.sort((a, b) =>
+        `${a.user.last_name} ${a.user.first_name}`.localeCompare(`${b.user.last_name} ${b.user.first_name}`)
+      );
+
+      await generatePayrollReportPDF(reports, period.period_start, period.period_end, yachtMap);
+    } catch (err: any) {
+      console.error('Error printing pay period:', err);
+      alert(err.message || 'Failed to generate payroll PDF');
+    } finally {
+      setPrintingPeriodId(null);
+    }
   };
 
   const handleGenerateReport = async () => {
@@ -764,7 +876,8 @@ export function PayrollReportView() {
                       <tr>
                         <td colSpan={8} className="px-0 py-0">
                           <div className="bg-gray-50 border-t border-b border-blue-100 px-6 py-4">
-                            <div className="flex items-center gap-2 mb-3">
+                            <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
                               <CheckCircle className="w-4 h-4 text-green-600" />
                               <span className="text-sm font-semibold text-gray-800">
                                 Paid Hours — Pay Period #{period.period_number} &nbsp;
@@ -773,6 +886,19 @@ export function PayrollReportView() {
                                 </span>
                               </span>
                             </div>
+                            <button
+                              onClick={() => handlePrintPayPeriod(period)}
+                              disabled={printingPeriodId === period.id}
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-900 text-white text-xs font-medium rounded-lg disabled:opacity-50 transition-colors"
+                            >
+                              {printingPeriodId === period.id ? (
+                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                              ) : (
+                                <Printer className="w-3.5 h-3.5" />
+                              )}
+                              {printingPeriodId === period.id ? 'Generating...' : 'Print Payroll'}
+                            </button>
+                          </div>
 
                             {loadingDetail === period.id ? (
                               <div className="flex items-center gap-2 text-gray-500 text-sm py-2">
