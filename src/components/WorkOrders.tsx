@@ -1753,11 +1753,11 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
 
     const employeeId = assignedEmployees[0];
     const unsentLaborLines = task.lineItems.filter(
-      item => item.line_type === 'labor' && !item.time_entry_sent_at && item.id
+      item => item.line_type === 'labor' && !item.time_entry_sent_at && item.id && item.quantity > 0
     );
 
     if (unsentLaborLines.length === 0) {
-      setError('No unsent labor lines found for this task');
+      setError('No labor lines with hours found. Make sure labor line items have a quantity (hours) greater than zero.');
       return;
     }
 
@@ -2446,7 +2446,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                             {(() => {
                               const assignedEmps = task.assignedEmployees || [];
                               const unsentLabor = task.lineItems.filter(
-                                i => i.line_type === 'labor' && !i.time_entry_sent_at && i.id
+                                i => i.line_type === 'labor' && !i.time_entry_sent_at && i.id && i.quantity > 0
                               );
                               if (assignedEmps.length === 1 && unsentLabor.length > 0) {
                                 const totalHours = unsentLabor.reduce((sum, i) => sum + i.quantity, 0);
