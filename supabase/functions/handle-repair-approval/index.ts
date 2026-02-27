@@ -88,9 +88,17 @@ Deno.serve(async (req: Request) => {
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
     const { data: repairRequest } = await supabaseAdmin
       .from('repair_requests')
-      .select('title, description, estimated_repair_cost, customer_name, is_retail_customer, yacht_id, yachts(name)')
+      .select('title, description, estimated_repair_cost, customer_name, is_retail_customer, yacht_id, yachts(name), email_clicked_at')
       .eq('id', tokenData.repair_request_id)
       .maybeSingle();
+
+    // Mark email as clicked when owner opens the approval page for the first time
+    if (repairRequest && !repairRequest.email_clicked_at) {
+      await supabaseAdmin
+        .from('repair_requests')
+        .update({ email_clicked_at: new Date().toISOString() })
+        .eq('id', tokenData.repair_request_id);
+    }
 
     const action = tokenData.action_type === 'approve' ? 'approve' : 'deny';
     const actionLabel = action === 'approve' ? 'Approve' : 'Deny';
