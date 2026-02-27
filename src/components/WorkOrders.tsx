@@ -1765,12 +1765,11 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
     try {
       const updatedItems = [...task.lineItems];
       for (const item of unsentLaborLines) {
-        if (!item.assigned_employee_id) {
-          await supabase
-            .from('work_order_line_items')
-            .update({ assigned_employee_id: employeeId })
-            .eq('id', item.id!);
-        }
+        const { error: updateError } = await supabase
+          .from('work_order_line_items')
+          .update({ assigned_employee_id: employeeId })
+          .eq('id', item.id!);
+        if (updateError) throw updateError;
 
         const { data, error: rpcError } = await supabase.rpc('send_assigned_labor_to_time_clock', {
           p_line_item_id: item.id,
@@ -2041,6 +2040,16 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
               <X className="w-5 h-5" />
             </button>
           </div>
+
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700 text-sm">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              <span>{error}</span>
+              <button type="button" onClick={() => setError(null)} className="ml-auto text-red-400 hover:text-red-600">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
 
           {/* Action Buttons */}
           {editingId && (() => {
