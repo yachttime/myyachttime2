@@ -1722,13 +1722,21 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
 
   const canDeleteAssignedEmployees = userProfile?.role === 'master' || userProfile?.role === 'staff';
 
-  const handleAssignLaborEmployee = (taskIndex: number, lineIndex: number, employeeId: string) => {
+  const handleAssignLaborEmployee = async (taskIndex: number, lineIndex: number, employeeId: string) => {
+    const item = tasks[taskIndex]?.lineItems[lineIndex];
     const updatedTasks = [...tasks];
     updatedTasks[taskIndex].lineItems[lineIndex] = {
       ...updatedTasks[taskIndex].lineItems[lineIndex],
       assigned_employee_id: employeeId || null
     };
     setTasks(updatedTasks);
+
+    if (item?.id) {
+      await supabase
+        .from('work_order_line_items')
+        .update({ assigned_employee_id: employeeId || null })
+        .eq('id', item.id);
+    }
   };
 
   const handleSendLaborToTimeClock = async (taskIndex: number, lineIndex: number) => {
