@@ -311,7 +311,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
               .in('task_id', taskIds),
             supabase
               .from('work_order_line_items')
-              .select('task_id, line_type, assigned_employee_id, time_entry_sent_at, time_entry_id, staff_time_entries!work_order_line_items_time_entry_id_fkey(user_id)')
+              .select('task_id, line_type, time_entry_sent_at')
               .in('task_id', taskIds)
           ]);
 
@@ -334,22 +334,22 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
           });
           setWorkOrderEmployees(woEmpMap);
 
-          const empById: Record<string, string> = {};
-          (employeesResult.data || []).forEach((e: any) => {
-            empById[e.user_id] = `${e.first_name} ${e.last_name}`.trim();
-          });
+          const sentTaskIds = new Set(
+            allLineItems
+              .filter((li: any) => li.line_type === 'labor' && li.time_entry_sent_at)
+              .map((li: any) => li.task_id)
+          );
 
           const woSentMap: Record<string, Set<string>> = {};
-          allLineItems.forEach((li: any) => {
-            if (li.line_type !== 'labor' || !li.time_entry_sent_at) return;
-            const woId = taskToWO[li.task_id];
+          assignmentsData.forEach((a: any) => {
+            if (!sentTaskIds.has(a.task_id)) return;
+            const woId = taskToWO[a.task_id];
             if (!woId) return;
             if (!woSentMap[woId]) woSentMap[woId] = new Set();
-            const empId = li.assigned_employee_id || li.staff_time_entries?.user_id;
-            if (empId) {
-              const name = empById[empId];
-              if (name) woSentMap[woId].add(name);
-            }
+            const name = a.user_profiles
+              ? `${a.user_profiles.first_name} ${a.user_profiles.last_name}`.trim()
+              : '';
+            if (name) woSentMap[woId].add(name);
           });
           setWorkOrderSentEmployees(woSentMap);
 
