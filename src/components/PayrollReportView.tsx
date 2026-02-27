@@ -242,25 +242,39 @@ export function PayrollReportView() {
       return;
     }
     setExpandedPeriodId(period.id);
-    if (periodDetailData[period.id] && periodDetailData[period.id].length > 0) return;
 
     setLoadingDetail(period.id);
     try {
-      const { data: entries } = await supabase
+      const { data: entries, error: entriesError } = await supabase
         .from('staff_time_entries')
-        .select('user_id, standard_hours, overtime_hours, total_hours, work_order_id, user_profiles(first_name, last_name, employee_type)')
+        .select('user_id, standard_hours, overtime_hours, total_hours, work_order_id')
         .eq('pay_period_id', period.id);
 
+      if (entriesError) console.error('Period detail fetch error:', entriesError);
+
       const allEntries = entries || [];
+
+      const uniqueUserIds = [...new Set(allEntries.map((e: any) => e.user_id))];
+      const { data: profiles } = uniqueUserIds.length > 0
+        ? await supabase
+            .from('user_profiles')
+            .select('user_id, first_name, last_name, employee_type')
+            .in('user_id', uniqueUserIds)
+        : { data: [] };
+
+      const profileMap: Record<string, any> = {};
+      (profiles || []).forEach((p: any) => { profileMap[p.user_id] = p; });
+
       const byUser: Record<string, PaidEmployeeSummary> = {};
 
       allEntries.forEach((e: any) => {
+        const profile = profileMap[e.user_id];
         if (!byUser[e.user_id]) {
           byUser[e.user_id] = {
             user_id: e.user_id,
-            first_name: e.user_profiles?.first_name || '',
-            last_name: e.user_profiles?.last_name || '',
-            employee_type: e.user_profiles?.employee_type || '',
+            first_name: profile?.first_name || '',
+            last_name: profile?.last_name || '',
+            employee_type: profile?.employee_type || '',
             standardHours: 0, overtimeHours: 0, workOrderHours: 0, grandTotal: 0
           };
         }
