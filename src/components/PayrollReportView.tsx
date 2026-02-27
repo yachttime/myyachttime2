@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Download, Calendar, Users, Clock, Plus, Edit2, Trash2, X, Check } from 'lucide-react';
+import { Download, Calendar, Users, Clock, Plus, Edit2, Trash2, X, Check, CheckCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { TimeEntry, getPayrollPeriodsForDateRange } from '../utils/timeClockHelpers';
 import { generatePayrollReportPDF } from '../utils/pdfGenerator';
@@ -57,6 +57,9 @@ export function PayrollReportView() {
   const [showPayPeriodForm, setShowPayPeriodForm] = useState(false);
   const [editingPeriod, setEditingPeriod] = useState<PayPeriod | null>(null);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [activePayPeriod, setActivePayPeriod] = useState<PayPeriod | null>(null);
+  const [paidEmployeeIds, setPaidEmployeeIds] = useState<Set<string>>(new Set());
+  const [assigningPayroll, setAssigningPayroll] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     period_start: '',
     period_end: '',
@@ -204,6 +207,88 @@ export function PayrollReportView() {
   const handleSelectPayPeriod = (period: PayPeriod) => {
     setStartDate(period.period_start);
     setEndDate(period.period_end);
+    setActivePayPeriod(period);
+    setEmployeeReports([]);
+    setPaidEmployeeIds(new Set());
+  };
+
+  const loadPaidEmployees = async (periodId: string) => {
+    const { data } = await supabase
+      .from('staff_time_entries')
+      .select('user_id')
+      .eq('pay_period_id', periodId);
+    if (data && data.length > 0) {
+      setPaidEmployeeIds(new Set(data.map((d: any) => d.user_id)));
+    }
+  };
+
+  const handleAssignPayPeriod = async (userId: string) => {
+    if (!activePayPeriod) return;
+    setAssigningPayroll(userId);
+    try {
+      const endOfDay = new Date(new Date(activePayPeriod.period_end).setHours(23, 59, 59)).toISOString();
+      const { error } = await supabase
+        .from('staff_time_entries')
+        .update({ pay_period_id: activePayPeriod.id })
+        .eq('user_id', userId)
+        .gte('punch_in_time', new Date(activePayPeriod.period_start).toISOString())
+        .lte('punch_in_time', endOfDay)
+        .not('punch_out_time', 'is', null);
+
+      if (error) throw error;
+
+      const newPaid = new Set(paidEmployeeIds);
+      newPaid.add(userId);
+      setPaidEmployeeIds(newPaid);
+
+      if (newPaid.size >= employeeReports.filter(r => r.grandTotalHours > 0).length) {
+        await supabase
+          .from('pay_periods')
+          .update({ is_processed: true })
+          .eq('id', activePayPeriod.id);
+        setActivePayPeriod({ ...activePayPeriod, is_processed: true });
+        loadPayPeriods();
+      }
+    } catch (err: any) {
+      console.error('Error assigning pay period:', err);
+      alert(err.message || 'Failed to assign pay period');
+    } finally {
+      setAssigningPayroll(null);
+    }
+  };
+
+  const handleUnassignPayPeriod = async (userId: string) => {
+    if (!activePayPeriod) return;
+    setAssigningPayroll(userId);
+    try {
+      const endOfDay = new Date(new Date(activePayPeriod.period_end).setHours(23, 59, 59)).toISOString();
+      const { error } = await supabase
+        .from('staff_time_entries')
+        .update({ pay_period_id: null })
+        .eq('user_id', userId)
+        .eq('pay_period_id', activePayPeriod.id)
+        .gte('punch_in_time', new Date(activePayPeriod.period_start).toISOString())
+        .lte('punch_in_time', endOfDay);
+
+      if (error) throw error;
+
+      const newPaid = new Set(paidEmployeeIds);
+      newPaid.delete(userId);
+      setPaidEmployeeIds(newPaid);
+
+      if (activePayPeriod.is_processed) {
+        await supabase
+          .from('pay_periods')
+          .update({ is_processed: false })
+          .eq('id', activePayPeriod.id);
+        setActivePayPeriod({ ...activePayPeriod, is_processed: false });
+        loadPayPeriods();
+      }
+    } catch (err: any) {
+      console.error('Error unassigning pay period:', err);
+    } finally {
+      setAssigningPayroll(null);
+    }
   };
 
   const handleNewPayPeriod = () => {
@@ -319,6 +404,10 @@ export function PayrollReportView() {
       });
 
       setEmployeeReports(reports);
+
+      if (activePayPeriod) {
+        await loadPaidEmployees(activePayPeriod.id);
+      }
     } catch (error) {
       console.error('Error generating report:', error);
       alert('Failed to generate report');
@@ -664,6 +753,16 @@ export function PayrollReportView() {
                 <p className="text-sm text-gray-600">
                   {new Date(startDate).toLocaleDateString()} - {new Date(endDate).toLocaleDateString()}
                 </p>
+                {activePayPeriod && (
+                  <p className="text-xs text-blue-600 font-medium mt-1">
+                    Pay Period #{activePayPeriod.period_number} — Pay Date: {new Date(activePayPeriod.pay_date).toLocaleDateString()}
+                    {activePayPeriod.is_processed && (
+                      <span className="ml-2 inline-flex items-center gap-1 text-green-600">
+                        <CheckCircle className="w-3 h-3" /> Processed
+                      </span>
+                    )}
+                  </p>
+                )}
               </div>
               <div className="flex items-center gap-2 text-gray-600">
                 <Users className="w-5 h-5" />
@@ -671,6 +770,12 @@ export function PayrollReportView() {
               </div>
             </div>
           </div>
+
+          {activePayPeriod && (
+            <div className="px-6 py-3 bg-blue-50 border-b border-blue-100 text-sm text-blue-700">
+              Click the <strong>Grand Total</strong> for each employee to mark their hours as paid for this pay period. Click again to undo.
+            </div>
+          )}
 
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -695,44 +800,72 @@ export function PayrollReportView() {
                     Work Order Hours
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Grand Total
+                    Grand Total {activePayPeriod && <span className="normal-case text-blue-500">(click to mark paid)</span>}
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {employeeReports.map(report => (
-                  <tr key={report.user.user_id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {report.user.last_name}, {report.user.first_name}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        report.user.employee_type === 'hourly'
-                          ? 'bg-blue-100 text-blue-800'
-                          : 'bg-green-100 text-green-800'
-                      }`}>
-                        {report.user.employee_type}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
-                      {report.totalStandardHours.toFixed(2)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-orange-600 font-medium">
-                      {report.totalOvertimeHours.toFixed(2)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
-                      {report.totalHours.toFixed(2)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-blue-600 font-medium">
-                      {report.totalWorkOrderHours.toFixed(2)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-bold text-gray-900">
-                      {report.grandTotalHours.toFixed(2)}
-                    </td>
-                  </tr>
-                ))}
+                {employeeReports.map(report => {
+                  const isPaid = paidEmployeeIds.has(report.user.user_id);
+                  const isAssigning = assigningPayroll === report.user.user_id;
+                  return (
+                    <tr key={report.user.user_id} className={`hover:bg-gray-50 ${isPaid ? 'bg-green-50' : ''}`}>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
+                          {report.user.last_name}, {report.user.first_name}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          report.user.employee_type === 'hourly'
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-green-100 text-green-800'
+                        }`}>
+                          {report.user.employee_type}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
+                        {report.totalStandardHours.toFixed(2)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-orange-600 font-medium">
+                        {report.totalOvertimeHours.toFixed(2)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
+                        {report.totalHours.toFixed(2)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-blue-600 font-medium">
+                        {report.totalWorkOrderHours.toFixed(2)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        {activePayPeriod ? (
+                          <button
+                            onClick={() => isPaid ? handleUnassignPayPeriod(report.user.user_id) : handleAssignPayPeriod(report.user.user_id)}
+                            disabled={isAssigning}
+                            title={isPaid ? 'Click to undo — remove from this pay period' : 'Click to mark as paid for this pay period'}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold transition-colors ${
+                              isPaid
+                                ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                : 'bg-gray-100 text-gray-700 hover:bg-blue-100 hover:text-blue-700'
+                            } disabled:opacity-50`}
+                          >
+                            {isAssigning ? (
+                              <span className="animate-pulse">...</span>
+                            ) : isPaid ? (
+                              <>
+                                <CheckCircle className="w-3.5 h-3.5" />
+                                Paid
+                              </>
+                            ) : (
+                              report.grandTotalHours.toFixed(2)
+                            )}
+                          </button>
+                        ) : (
+                          <span className="text-sm font-bold text-gray-900">{report.grandTotalHours.toFixed(2)}</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
               <tfoot className="bg-gray-50 border-t-2 border-gray-300">
                 <tr>
