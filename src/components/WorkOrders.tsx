@@ -92,6 +92,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
   const [employees, setEmployees] = useState<any[]>([]);
   const [workOrderEmployees, setWorkOrderEmployees] = useState<Record<string, string[]>>({});
   const [workOrderHasUnassigned, setWorkOrderHasUnassigned] = useState<Record<string, boolean>>({});
+  const [workOrderSentEmployees, setWorkOrderSentEmployees] = useState<Record<string, Set<string>>>({});
   const [laborCodes, setLaborCodes] = useState<any[]>([]);
   const [parts, setParts] = useState<any[]>([]);
   const [mercuryParts, setMercuryParts] = useState<any[]>([]);
@@ -310,7 +311,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
               .in('task_id', taskIds),
             supabase
               .from('work_order_line_items')
-              .select('task_id, line_type')
+              .select('task_id, line_type, assigned_employee_id, time_entry_sent_at, time_entry_employee_ids')
               .in('task_id', taskIds)
           ]);
 
@@ -332,6 +333,27 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
             if (!woEmpMap[woId].includes(name)) woEmpMap[woId].push(name);
           });
           setWorkOrderEmployees(woEmpMap);
+
+          const empById: Record<string, string> = {};
+          (employeesResult.data || []).forEach((e: any) => {
+            empById[e.user_id] = `${e.first_name} ${e.last_name}`.trim();
+          });
+
+          const woSentMap: Record<string, Set<string>> = {};
+          allLineItems.forEach((li: any) => {
+            if (li.line_type !== 'labor' || !li.time_entry_sent_at) return;
+            const woId = taskToWO[li.task_id];
+            if (!woId) return;
+            if (!woSentMap[woId]) woSentMap[woId] = new Set();
+            const ids: string[] = li.time_entry_employee_ids?.length
+              ? li.time_entry_employee_ids
+              : li.assigned_employee_id ? [li.assigned_employee_id] : [];
+            ids.forEach(id => {
+              const name = empById[id];
+              if (name) woSentMap[woId].add(name);
+            });
+          });
+          setWorkOrderSentEmployees(woSentMap);
 
           const assignedTaskIds = new Set(assignmentsData.map((a: any) => a.task_id));
           const tasksWithItemsIds = new Set(allLineItems.map((li: any) => li.task_id));
@@ -3550,11 +3572,14 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                 </td>
                 <td className="px-6 py-4">
                   <div className="flex flex-wrap gap-1">
-                    {(workOrderEmployees[workOrder.id] || []).map((name, i) => (
-                      <span key={i} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
-                        {name}
-                      </span>
-                    ))}
+                    {(workOrderEmployees[workOrder.id] || []).map((name, i) => {
+                      const sent = workOrderSentEmployees[workOrder.id]?.has(name);
+                      return (
+                        <span key={i} className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${sent ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-blue-50 text-blue-700 border border-blue-100'}`}>
+                          {name}
+                        </span>
+                      );
+                    })}
                     {workOrderHasUnassigned[workOrder.id] && (
                       <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-50 text-orange-700 border border-orange-200">
                         Not Assigned
