@@ -242,29 +242,19 @@ export function PayrollReportView() {
       return;
     }
     setExpandedPeriodId(period.id);
-    if (periodDetailData[period.id]) return;
+    if (periodDetailData[period.id] && periodDetailData[period.id].length > 0) return;
 
     setLoadingDetail(period.id);
     try {
-      const [regularResult, workOrderResult] = await Promise.all([
-        supabase
-          .from('staff_time_entries')
-          .select('user_id, standard_hours, overtime_hours, user_profiles(first_name, last_name, employee_type)')
-          .eq('pay_period_id', period.id)
-          .is('work_order_id', null),
-        supabase
-          .from('staff_time_entries')
-          .select('user_id, punch_in_time, punch_out_time, user_profiles(first_name, last_name, employee_type)')
-          .eq('pay_period_id', period.id)
-          .not('work_order_id', 'is', null)
-      ]);
+      const { data: entries } = await supabase
+        .from('staff_time_entries')
+        .select('user_id, standard_hours, overtime_hours, total_hours, work_order_id, user_profiles(first_name, last_name, employee_type)')
+        .eq('pay_period_id', period.id);
 
-      const regular = regularResult.data || [];
-      const workOrders = workOrderResult.data || [];
-
+      const allEntries = entries || [];
       const byUser: Record<string, PaidEmployeeSummary> = {};
 
-      regular.forEach((e: any) => {
+      allEntries.forEach((e: any) => {
         if (!byUser[e.user_id]) {
           byUser[e.user_id] = {
             user_id: e.user_id,
@@ -274,22 +264,12 @@ export function PayrollReportView() {
             standardHours: 0, overtimeHours: 0, workOrderHours: 0, grandTotal: 0
           };
         }
-        byUser[e.user_id].standardHours += e.standard_hours || 0;
-        byUser[e.user_id].overtimeHours += e.overtime_hours || 0;
-      });
-
-      workOrders.forEach((e: any) => {
-        if (!byUser[e.user_id]) {
-          byUser[e.user_id] = {
-            user_id: e.user_id,
-            first_name: e.user_profiles?.first_name || '',
-            last_name: e.user_profiles?.last_name || '',
-            employee_type: e.user_profiles?.employee_type || '',
-            standardHours: 0, overtimeHours: 0, workOrderHours: 0, grandTotal: 0
-          };
+        if (e.work_order_id) {
+          byUser[e.user_id].workOrderHours += parseFloat(e.total_hours || e.standard_hours || 0);
+        } else {
+          byUser[e.user_id].standardHours += parseFloat(e.standard_hours || 0);
+          byUser[e.user_id].overtimeHours += parseFloat(e.overtime_hours || 0);
         }
-        const hours = (new Date(e.punch_out_time).getTime() - new Date(e.punch_in_time).getTime()) / (1000 * 60 * 60);
-        byUser[e.user_id].workOrderHours += Math.round(hours * 100) / 100;
       });
 
       const summaries = Object.values(byUser).map(s => ({
