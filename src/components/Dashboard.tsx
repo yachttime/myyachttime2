@@ -15959,6 +15959,76 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                       </div>
                                     ))}
                                   </div>
+
+                                  {selectedUserGroup !== 'Staff' && (() => {
+                                    const groupEmails = staffMessages.filter(
+                                      (msg: any) => msg.notification_type === 'bulk_email' && msg.yacht_name === selectedUserGroup
+                                    );
+                                    if (groupEmails.length === 0) return null;
+                                    return (
+                                      <div className="mt-8">
+                                        <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                                          <Mail className="w-5 h-5 text-blue-400" />
+                                          Email History ({groupEmails.length})
+                                        </h4>
+                                        <div className="space-y-3">
+                                          {groupEmails.map((msg: any) => (
+                                            <div key={msg.id} className="bg-slate-800/50 rounded-xl border border-slate-700 p-4">
+                                              <div className="flex items-start justify-between gap-4 mb-3">
+                                                <div className="flex-1 min-w-0">
+                                                  <p className="text-white font-semibold truncate">{msg.email_subject}</p>
+                                                  <p className="text-xs text-slate-400 mt-0.5">
+                                                    {new Date(msg.email_sent_at || msg.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                                    {' '}at{' '}
+                                                    {new Date(msg.email_sent_at || msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    {msg.email_recipients?.length > 0 && ` · ${msg.email_recipients.length} recipient${msg.email_recipients.length !== 1 ? 's' : ''}`}
+                                                    {msg.user_profiles && ` · Sent by ${msg.user_profiles.first_name} ${msg.user_profiles.last_name}`}
+                                                  </p>
+                                                </div>
+                                                <div className="flex flex-wrap gap-1.5 shrink-0">
+                                                  <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full">
+                                                    Sent
+                                                  </span>
+                                                  {msg.email_delivered_at && (
+                                                    <span className="text-xs bg-teal-500/20 text-teal-400 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                                      <CheckCircle className="w-3 h-3" />
+                                                      Delivered
+                                                    </span>
+                                                  )}
+                                                  {msg.email_opened_at && (
+                                                    <span className="text-xs bg-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                                      <Eye className="w-3 h-3" />
+                                                      Opened{msg.email_open_count > 1 ? ` (${msg.email_open_count}x)` : ''}
+                                                    </span>
+                                                  )}
+                                                  {msg.email_clicked_at && (
+                                                    <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                                      <MousePointer className="w-3 h-3" />
+                                                      Clicked{msg.email_click_count > 1 ? ` (${msg.email_click_count}x)` : ''}
+                                                    </span>
+                                                  )}
+                                                  {msg.email_bounced_at && (
+                                                    <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                                      <AlertCircle className="w-3 h-3" />
+                                                      Bounced
+                                                    </span>
+                                                  )}
+                                                  {!msg.email_delivered_at && !msg.email_bounced_at && (
+                                                    <span className="text-xs bg-slate-600/50 text-slate-400 px-2 py-0.5 rounded-full">
+                                                      Pending
+                                                    </span>
+                                                  )}
+                                                </div>
+                                              </div>
+                                              {msg.email_body && (
+                                                <p className="text-sm text-slate-400 line-clamp-2 whitespace-pre-wrap">{msg.email_body}</p>
+                                              )}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
                                 </div>
                               );
                             }
