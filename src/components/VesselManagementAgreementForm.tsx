@@ -25,6 +25,7 @@ export const VesselManagementAgreementForm = ({
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isDraft, setIsDraft] = useState(true);
+  const [savedAgreementId, setSavedAgreementId] = useState<string | undefined>(existingAgreement?.id);
 
   const currentYear = new Date().getFullYear();
 
@@ -97,20 +98,25 @@ export const VesselManagementAgreementForm = ({
         status: 'draft' as const,
       };
 
-      if (existingAgreement) {
+      if (savedAgreementId) {
         const { error: updateError } = await supabase
           .from('vessel_management_agreements')
           .update(agreementData)
-          .eq('id', existingAgreement.id);
+          .eq('id', savedAgreementId);
 
         if (updateError) throw updateError;
       } else {
-        const { error: insertError } = await supabase
+        const { data: insertData, error: insertError } = await supabase
           .from('vessel_management_agreements')
-          .insert([agreementData]);
+          .insert([agreementData])
+          .select()
+          .single();
 
         if (insertError) throw insertError;
+        setSavedAgreementId(insertData.id);
       }
+
+      onSuccess();
 
       if (!silent) {
         setSuccess('Draft saved successfully');
@@ -192,13 +198,13 @@ export const VesselManagementAgreementForm = ({
         owner_signature_ip: 'client',
       };
 
-      let agreementId = existingAgreement?.id;
+      let agreementId = savedAgreementId;
 
-      if (existingAgreement) {
+      if (savedAgreementId) {
         const { error: updateError } = await supabase
           .from('vessel_management_agreements')
           .update(agreementData)
-          .eq('id', existingAgreement.id);
+          .eq('id', savedAgreementId);
 
         if (updateError) throw updateError;
       } else {
