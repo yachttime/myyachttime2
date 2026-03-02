@@ -107,6 +107,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [bulkEmailYachtName, setBulkEmailYachtName] = useState<string>('');
   const [showYachtOwnersEmailModal, setShowYachtOwnersEmailModal] = useState(false);
   const [yachtOwnersEmailData, setYachtOwnersEmailData] = useState<{ yacht: any; owners: Array<{ email: string; name: string }> } | null>(null);
+  const [showManagementEmailModal, setShowManagementEmailModal] = useState(false);
+  const [managementEmailData, setManagementEmailData] = useState<{ yachtName: string; recipients: Array<{ email: string; name: string }> } | null>(null);
 
   const convertTo12Hour = (time24: string): string => {
     if (!time24) return '';
@@ -1392,6 +1394,31 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       console.error('Error fetching yacht owners:', error);
       showError('Failed to load yacht owners');
     }
+  };
+
+  const fetchManagementTeamForEmail = async (yachtName: string, users: any[]) => {
+    const managerRoles = ['manager', 'master'];
+    const managers = users.filter(u => managerRoles.includes(u.role));
+
+    if (managers.length === 0) {
+      showError('No management team members found for this yacht');
+      return;
+    }
+
+    const recipients = managers
+      .map(u => ({
+        email: u.notification_email || u.email,
+        name: u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email,
+      }))
+      .filter(r => r.email && r.email.trim() !== '');
+
+    if (recipients.length === 0) {
+      showError('No management team members with valid email addresses found');
+      return;
+    }
+
+    setManagementEmailData({ yachtName, recipients });
+    setShowManagementEmailModal(true);
   };
 
   const handleUserEdit = (user: any) => {
@@ -16016,6 +16043,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                           Email All
                                           <Mail className="w-4 h-4" />
                                         </button>
+                                        <button
+                                          onClick={() => fetchManagementTeamForEmail(yachtName, users)}
+                                          className="col-span-2 px-6 py-3 bg-slate-600 hover:bg-slate-500 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
+                                        >
+                                          <Mail className="w-4 h-4" />
+                                          Email Management Team
+                                        </button>
                                       </div>
                                     </div>
                                   </div>
@@ -17476,6 +17510,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         recipients={bulkEmailRecipients}
         ccRecipients={bulkEmailCcRecipients}
         yachtName={bulkEmailYachtName}
+        allowRecipientSelection={true}
       />
 
       {/* Yacht Owners Email Modal */}
@@ -17488,6 +17523,19 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         recipients={yachtOwnersEmailData?.owners || []}
         ccRecipients={[]}
         yachtName={yachtOwnersEmailData?.yacht?.name || ''}
+        allowRecipientSelection={true}
+      />
+
+      {/* Management Team Email Modal */}
+      <EmailComposeModal
+        isOpen={showManagementEmailModal}
+        onClose={() => {
+          setShowManagementEmailModal(false);
+          setManagementEmailData(null);
+        }}
+        recipients={managementEmailData?.recipients || []}
+        ccRecipients={[]}
+        yachtName={managementEmailData?.yachtName || ''}
         allowRecipientSelection={true}
       />
       <ConfirmDialog />
