@@ -9676,7 +9676,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                           )}
                                         </div>
                                         <div className="text-slate-500 space-y-1">
-                                          <p>Period: {new Date(agreement.start_date).toLocaleDateString()} - {new Date(agreement.end_date).toLocaleDateString()}</p>
+                                          <p>Period: {agreement.start_date ? new Date(agreement.start_date).toLocaleDateString() : 'TBD'} - {agreement.end_date ? new Date(agreement.end_date).toLocaleDateString() : 'TBD'}</p>
                                           {agreement.submitted_at && (
                                             <p>Submitted: {new Date(agreement.submitted_at).toLocaleString()}</p>
                                           )}
@@ -9689,7 +9689,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                         </div>
                                       </div>
                                       <div className="flex flex-col gap-1">
-                                        {agreement.status === 'draft' && isOwnerRole(effectiveRole) && (
+                                        {agreement.status === 'draft' && (isOwnerRole(effectiveRole) || canManageYacht(effectiveRole)) && (
                                           <button
                                             onClick={() => {
                                               setSelectedAgreement(agreement);
