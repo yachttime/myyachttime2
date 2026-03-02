@@ -42,7 +42,7 @@ Deno.serve(withErrorHandling(async (req: Request) => {
 
     const { data: profile } = await supabase
       .from('user_profiles')
-      .select('role, first_name, last_name')
+      .select('role, first_name, last_name, company_id')
       .eq('user_id', user.id)
       .single();
 
@@ -222,6 +222,7 @@ Deno.serve(withErrorHandling(async (req: Request) => {
         yacht_name: yacht_name || null,
         email_sent_at: new Date().toISOString(),
         resend_email_id: emailData.id,
+        company_id: profile.company_id || null,
       })
       .select()
       .single();

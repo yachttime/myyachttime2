@@ -4125,7 +4125,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           *,
           user_profiles:created_by (first_name, last_name, email)
         `)
-        .eq('company_id', selectedCompany.id)
+        .or(`company_id.eq.${selectedCompany.id},company_id.is.null`)
         .order('created_at', { ascending: false });
 
       // Filter by yacht for managers (but not master, staff, or mechanic)
