@@ -53,6 +53,7 @@ export const VesselManagementAgreementForm = ({
     season_trips: existingAgreement?.season_trips || 0,
     off_season_trips: existingAgreement?.off_season_trips || 0,
     per_trip_fee: existingAgreement?.per_trip_fee || 350.00,
+    annual_fee: existingAgreement?.annual_fee ?? 8000,
     total_trip_cost: existingAgreement?.total_trip_cost || 0,
     grand_total: existingAgreement?.grand_total || 8000,
     contract_date: existingAgreement?.contract_date || new Date().toISOString().split('T')[0],
@@ -562,7 +563,7 @@ export const VesselManagementAgreementForm = ({
 
         <p><strong>1.</strong> Liaison will provide mechanical inspections and maintenance service to Boatco included a Maintenance budget for during season and any off-season repairs needed.</p>
 
-        <p><strong>2.</strong> Boatco, on behalf of each Equity Owner and vessel, on or before  the contract Start date, shall pay an annual management fee of $ 8000.00" Annual Fee"), in addition to the Annual Fee the Boatco agrees to pay the Liaison $350.00 per turn to do a full 2-hour mechanical inspection of the boat, and will provide the Boatco a report with the findings. The estimated number of trips for this agreement will be <span className="font-semibold text-blue-400">{(formData.season_trips || 0) + (formData.off_season_trips || 0) || '________'}</span> this will include in season trips and off-season trips at $350.00 each totaling <span className="font-semibold text-blue-400">${(((formData.season_trips || 0) + (formData.off_season_trips || 0)) * (formData.per_trip_fee || 350)).toFixed(2) || '___________'}</span>. For a grand total of <span className="font-semibold text-blue-400">${(8000 + (((formData.season_trips || 0) + (formData.off_season_trips || 0)) * (formData.per_trip_fee || 350))).toFixed(2) || '______________'}</span> This is a one-time fee per season payable to the Liaison, the Boatco understands that repairs and maintenance will be additional.</p>
+        <p><strong>2.</strong> Boatco, on behalf of each Equity Owner and vessel, on or before  the contract Start date, shall pay an annual management fee of <span className="font-semibold text-blue-400">${(formData.annual_fee ?? 8000).toFixed(2)}</span> ("Annual Fee"), in addition to the Annual Fee the Boatco agrees to pay the Liaison $350.00 per turn to do a full 2-hour mechanical inspection of the boat, and will provide the Boatco a report with the findings. The estimated number of trips for this agreement will be <span className="font-semibold text-blue-400">{(formData.season_trips || 0) + (formData.off_season_trips || 0) || '________'}</span> this will include in season trips and off-season trips at $350.00 each totaling <span className="font-semibold text-blue-400">${(((formData.season_trips || 0) + (formData.off_season_trips || 0)) * (formData.per_trip_fee || 350)).toFixed(2) || '___________'}</span>. For a grand total of <span className="font-semibold text-blue-400">${((formData.annual_fee ?? 8000) + (((formData.season_trips || 0) + (formData.off_season_trips || 0)) * (formData.per_trip_fee || 350))).toFixed(2) || '______________'}</span> This is a one-time fee per season payable to the Liaison, the Boatco understands that repairs and maintenance will be additional.</p>
 
         <p><strong>3.</strong> Rates and billing, during the term of this agreement, any work done on the APM Marina, or in dry storage. AZ Marine is required to charge a surcharge of 15% pre-taxed per invoice. The 15% will be capped at a retail invoice of $50,000. This 15% will be paid to APM for access to APM Properties by AZ Marine. The 15% is non-negotiable. Rates for house systems and Gasoline engines will be $150.00 per hour; All Diesel engine repairs are $175.00 per hour. Up-lake service calls are not subject to any surcharges and will be paid directly to the Liaison. Up-lake rates are as follows, $600.00 Chase boat launch fee, this charge includes all fuel for the work boat, and $275.00 per hour. Hourly charge starts once the chase boat leaves break water, until it returns to break water. If an employee has to use Diving gear to repair the boat their will be an additional $300.00 fee added to the bill. Up-lake billing will be due within 48 hours of the Boatco receiving the invoice. Payments made directly to the Liaison will be done by My yacht time ACH  with no fees or Credit card. Any invoices paid by credit card over $5000.00 will have a fee of 3% added. Mailing paper checks must be approved by Liaison, if Boatco mails a paper check without approval, Liaison will suspend all future work until check arrives. All payments are due within 48 hours of services being completed.</p>
 
@@ -639,7 +640,8 @@ export const VesselManagementAgreementForm = ({
     const calculateTotals = () => {
       const totalTrips = (formData.season_trips || 0) + (formData.off_season_trips || 0);
       const tripCost = totalTrips * (formData.per_trip_fee || 350);
-      const total = 8000 + tripCost;
+      const annualFee = formData.annual_fee ?? 8000;
+      const total = annualFee + tripCost;
 
       if (formData.total_trip_cost !== tripCost || formData.grand_total !== total) {
         setFormData({
@@ -691,22 +693,36 @@ export const VesselManagementAgreementForm = ({
                 />
               </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Per Trip Fee</label>
-              <input
-                type="number"
-                step="0.01"
-                value={formData.per_trip_fee || 350}
-                onChange={(e) => setFormData({ ...formData, per_trip_fee: parseFloat(e.target.value) || 350 })}
-                onBlur={calculateTotals}
-                className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
-                disabled={loading}
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Per Trip Fee</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.per_trip_fee || 350}
+                  onChange={(e) => setFormData({ ...formData, per_trip_fee: parseFloat(e.target.value) || 350 })}
+                  onBlur={calculateTotals}
+                  className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
+                  disabled={loading}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Annual Fee</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.annual_fee ?? 8000}
+                  onChange={(e) => setFormData({ ...formData, annual_fee: parseFloat(e.target.value) || 0 })}
+                  onBlur={calculateTotals}
+                  className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
+                  disabled={loading}
+                />
+              </div>
             </div>
             <div className="bg-slate-700/50 rounded p-3 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-slate-400">Annual Fee:</span>
-                <span className="text-white font-semibold">$8,000.00</span>
+                <span className="text-white font-semibold">${(formData.annual_fee ?? 8000).toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-slate-400">Season Trips ({formData.season_trips || 0} × ${formData.per_trip_fee || 350}):</span>
@@ -722,7 +738,7 @@ export const VesselManagementAgreementForm = ({
               </div>
               <div className="flex justify-between text-base border-t border-slate-600 pt-2">
                 <span className="text-white font-bold">Grand Total:</span>
-                <span className="text-emerald-400 font-bold">${(8000 + (((formData.season_trips || 0) + (formData.off_season_trips || 0)) * (formData.per_trip_fee || 350))).toFixed(2)}</span>
+                <span className="text-emerald-400 font-bold">${((formData.annual_fee ?? 8000) + (((formData.season_trips || 0) + (formData.off_season_trips || 0)) * (formData.per_trip_fee || 350))).toFixed(2)}</span>
               </div>
             </div>
           </div>

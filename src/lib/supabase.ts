@@ -508,6 +508,7 @@ export interface VesselManagementAgreement {
   boat_wifi_password?: string;
   season_trips?: number;
   off_season_trips?: number;
+  annual_fee?: number;
   consent_office_scheduling?: boolean;
   consent_payment_terms?: boolean;
   agreed_arrival_time?: string;
