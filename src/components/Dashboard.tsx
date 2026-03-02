@@ -668,6 +668,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [showEmailChangeConfirm, setShowEmailChangeConfirm] = useState(false);
   const [newEmailAddress, setNewEmailAddress] = useState('');
   const [vesselAgreements, setVesselAgreements] = useState<Record<string, VesselManagementAgreement[]>>({});
+  const [agreementSummaries, setAgreementSummaries] = useState<Record<string, { status: string; season_year: number } | null>>({});
   const [agreementYachtId, setAgreementYachtId] = useState<string | null>(null);
   const [qrCodeYacht, setQrCodeYacht] = useState<{ id: string; name: string } | null>(null);
   const [showAgreementForm, setShowAgreementForm] = useState(false);
@@ -767,6 +768,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   useEffect(() => {
     if (activeTab === 'admin' && adminView === 'repairs') {
       loadRepairRequests();
+    }
+    if (activeTab === 'admin' && adminView === 'yachts') {
+      loadAgreementSummaries();
     }
     if (activeTab === 'calendar') {
       checkSmartDevices();
@@ -2108,6 +2112,31 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     }
   };
 
+  const loadAgreementSummaries = async () => {
+    try {
+      const currentYear = new Date().getFullYear();
+      const { data, error } = await supabase
+        .from('vessel_management_agreements')
+        .select('yacht_id, status, season_year')
+        .eq('season_year', currentYear)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const summaryMap: Record<string, { status: string; season_year: number } | null> = {};
+      const seen = new Set<string>();
+      for (const row of data || []) {
+        if (!seen.has(row.yacht_id)) {
+          seen.add(row.yacht_id);
+          summaryMap[row.yacht_id] = { status: row.status, season_year: row.season_year };
+        }
+      }
+      setAgreementSummaries(summaryMap);
+    } catch (error) {
+      console.error('Error loading agreement summaries:', error);
+    }
+  };
+
   const toggleVesselAgreements = async (yachtId: string) => {
     if (agreementYachtId === yachtId) {
       setAgreementYachtId(null);
@@ -2136,6 +2165,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     setSelectedAgreement(null);
     if (agreementYachtId) {
       await loadVesselAgreements(agreementYachtId);
+      await loadAgreementSummaries();
       if (isManagerRole(effectiveRole) && hasSubmittedAgreement(agreementYachtId)) {
         setAgreementYachtId(null);
       }
@@ -9145,13 +9175,69 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               {documentYachtId === yacht.id ? 'Hide' : 'Docs'}
                             </button>
                             {shouldShowAgreementsButton(yacht.id) && (
-                              <button
-                                onClick={() => toggleVesselAgreements(yacht.id)}
-                                className="flex items-center justify-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors text-sm"
-                              >
-                                <FileSignature className="w-4 h-4" />
-                                {agreementYachtId === yacht.id ? 'Hide' : 'Agreements'}
-                              </button>
+                              <div className="flex flex-col gap-1">
+                                <button
+                                  onClick={() => toggleVesselAgreements(yacht.id)}
+                                  className="flex items-center justify-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors text-sm"
+                                >
+                                  <FileSignature className="w-4 h-4" />
+                                  {agreementYachtId === yacht.id ? 'Hide' : 'Agreements'}
+                                </button>
+                                {(() => {
+                                  const currentYear = new Date().getFullYear();
+                                  const summary = agreementSummaries[yacht.id];
+                                  if (summary === undefined) return null;
+                                  if (summary === null) {
+                                    return (
+                                      <span className="flex items-center justify-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-slate-700/60 text-slate-400">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-slate-500 inline-block"></span>
+                                        {currentYear} — Not Started
+                                      </span>
+                                    );
+                                  }
+                                  if (summary.status === 'approved') {
+                                    return (
+                                      <span className="flex items-center justify-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-emerald-500/20 text-emerald-400">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"></span>
+                                        {currentYear} — Signed & Approved
+                                      </span>
+                                    );
+                                  }
+                                  if (summary.status === 'pending_approval') {
+                                    return (
+                                      <span className="flex items-center justify-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-amber-500/20 text-amber-400">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block"></span>
+                                        {currentYear} — Pending Approval
+                                      </span>
+                                    );
+                                  }
+                                  if (summary.status === 'draft') {
+                                    return (
+                                      <span className="flex items-center justify-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-blue-500/20 text-blue-400">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-blue-400 inline-block"></span>
+                                        {currentYear} — In Progress
+                                      </span>
+                                    );
+                                  }
+                                  if (summary.status === 'rejected') {
+                                    return (
+                                      <span className="flex items-center justify-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-red-500/20 text-red-400">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-red-400 inline-block"></span>
+                                        {currentYear} — Rejected
+                                      </span>
+                                    );
+                                  }
+                                  if (summary.status === 'expired') {
+                                    return (
+                                      <span className="flex items-center justify-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-slate-600/40 text-slate-400">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block"></span>
+                                        {currentYear} — Expired
+                                      </span>
+                                    );
+                                  }
+                                  return null;
+                                })()}
+                              </div>
                             )}
                             {canManageYacht(effectiveRole) && (
                               <button
@@ -9787,10 +9873,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                       : userProfile?.email || 'Unknown'
                                                   );
 
-                                                  setTimeout(() => loadVesselAgreements(yacht.id), 500);
+                                                  setTimeout(() => { loadVesselAgreements(yacht.id); loadAgreementSummaries(); }, 500);
                                                 } catch (err: any) {
                                                   alert(`Failed to approve agreement: ${err.message}`);
                                                   await loadVesselAgreements(yacht.id);
+                                                  await loadAgreementSummaries();
                                                 }
                                               }}
                                               className="px-2 py-1 bg-emerald-500/20 text-emerald-500 rounded hover:bg-emerald-500/30 transition-colors text-xs"
@@ -9835,10 +9922,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                       : userProfile?.email || 'Unknown'
                                                   );
 
-                                                  setTimeout(() => loadVesselAgreements(yacht.id), 500);
+                                                  setTimeout(() => { loadVesselAgreements(yacht.id); loadAgreementSummaries(); }, 500);
                                                 } catch (err: any) {
                                                   alert(`Failed to reject agreement: ${err.message}`);
                                                   await loadVesselAgreements(yacht.id);
+                                                  await loadAgreementSummaries();
                                                 }
                                               }}
                                               className="px-2 py-1 bg-red-500/20 text-red-500 rounded hover:bg-red-500/30 transition-colors text-xs"
@@ -16842,6 +16930,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           onDraftSaved={async () => {
             if (agreementYachtId) {
               await loadVesselAgreements(agreementYachtId);
+              await loadAgreementSummaries();
             }
           }}
         />
@@ -16859,6 +16948,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           onUpdate={() => {
             if (agreementYachtId) {
               loadVesselAgreements(agreementYachtId);
+              loadAgreementSummaries();
             }
           }}
         />
