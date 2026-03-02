@@ -17442,11 +17442,6 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         </div>
       )}
 
-      {/* Version Number - Fixed Bottom Right */}
-      <div className="fixed bottom-4 right-4 text-slate-500 text-sm font-mono bg-slate-900/80 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-slate-700">
-        Version: 2026.02.05.A
-      </div>
-
       {/* QR Code Modal */}
       {qrCodeYacht && (
         <YachtQRCode
