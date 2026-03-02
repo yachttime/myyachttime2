@@ -2074,8 +2074,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         ...prev,
         [yachtId]: filteredAgreements
       }));
+      return filteredAgreements;
     } catch (error) {
       console.error('Error loading vessel agreements:', error);
+      return [];
     }
   };
 
@@ -2086,10 +2088,16 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       setSelectedAgreement(null);
     } else {
       setAgreementYachtId(yachtId);
-      if (!vesselAgreements[yachtId]) {
-        await loadVesselAgreements(yachtId);
+      let agreements = vesselAgreements[yachtId];
+      if (!agreements) {
+        agreements = await loadVesselAgreements(yachtId) || [];
       }
-      if (isManagerRole(effectiveRole) && !hasSubmittedAgreement(yachtId)) {
+      const existingDraft = agreements.find(a => a.status === 'draft');
+      const hasSubmitted = agreements.some(a => a.status === 'pending_approval' || a.status === 'approved');
+      if (isManagerRole(effectiveRole) && existingDraft) {
+        setSelectedAgreement(existingDraft);
+        setShowAgreementForm(true);
+      } else if (isManagerRole(effectiveRole) && !hasSubmitted) {
         setSelectedAgreement(null);
         setShowAgreementForm(true);
       }
@@ -16727,6 +16735,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             setSelectedAgreement(null);
           }}
           onSuccess={handleAgreementSuccess}
+          onDraftSaved={async () => {
+            if (agreementYachtId) {
+              await loadVesselAgreements(agreementYachtId);
+            }
+          }}
         />
       )}
 

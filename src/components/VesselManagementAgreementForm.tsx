@@ -10,6 +10,7 @@ interface VesselManagementAgreementFormProps {
   existingAgreement?: VesselManagementAgreement;
   onClose: () => void;
   onSuccess: () => void;
+  onDraftSaved?: () => void;
 }
 
 export const VesselManagementAgreementForm = ({
@@ -19,6 +20,7 @@ export const VesselManagementAgreementForm = ({
   existingAgreement,
   onClose,
   onSuccess,
+  onDraftSaved,
 }: VesselManagementAgreementFormProps) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -116,7 +118,7 @@ export const VesselManagementAgreementForm = ({
         setSavedAgreementId(insertData.id);
       }
 
-      onSuccess();
+      onDraftSaved?.();
 
       if (!silent) {
         setSuccess('Draft saved successfully');
