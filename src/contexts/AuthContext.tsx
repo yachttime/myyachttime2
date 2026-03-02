@@ -172,6 +172,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signIn = async (email: string, password: string) => {
+    try {
+      localStorage.removeItem('activeTab');
+      localStorage.removeItem('adminView');
+    } catch {}
+
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -209,6 +214,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         throw error;
       }
     }
+
+    try {
+      localStorage.removeItem('activeTab');
+      localStorage.removeItem('adminView');
+    } catch {}
 
     setUser(null);
     setUserProfile(null);
