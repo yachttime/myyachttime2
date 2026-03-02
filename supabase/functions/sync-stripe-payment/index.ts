@@ -8,6 +8,7 @@ const corsHeaders = {
 
 interface SyncRequest {
   invoice_id?: string;
+  estimating_invoice_id?: string;
   repair_request_id?: string;
   is_deposit?: boolean;
 }
@@ -31,7 +32,7 @@ Deno.serve(async (req: Request) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const body = await req.json();
-    const { invoice_id, repair_request_id, is_deposit, payment_intent_id } = body as SyncRequest & { payment_intent_id?: string };
+    const { invoice_id, estimating_invoice_id, repair_request_id, is_deposit, payment_intent_id } = body as SyncRequest & { payment_intent_id?: string };
 
     // Handle manual payment intent sync (when we have the payment intent ID directly)
     if (payment_intent_id && (is_deposit || invoice_id)) {
@@ -291,6 +292,114 @@ Deno.serve(async (req: Request) => {
 
       return new Response(
         JSON.stringify({ success: false, message: 'No Stripe payment link ID found' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Handle estimating invoice sync
+    if (estimating_invoice_id) {
+      const { data: estInvoice, error: estFetchError } = await supabase
+        .from('estimating_invoices')
+        .select('*, yachts(name), work_orders(work_order_number)')
+        .eq('id', estimating_invoice_id)
+        .single();
+
+      if (estFetchError || !estInvoice) {
+        throw new Error('Estimating invoice not found');
+      }
+
+      if (estInvoice.payment_status === 'paid') {
+        return new Response(
+          JSON.stringify({ success: true, message: 'Invoice already marked as paid' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const paymentLinkId = estInvoice.final_payment_stripe_checkout_session_id;
+      if (!paymentLinkId) {
+        return new Response(
+          JSON.stringify({ success: false, message: 'No Stripe payment link ID found for this invoice' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const sessionsResponse = await fetch(
+        `https://api.stripe.com/v1/checkout/sessions?payment_link=${paymentLinkId}&limit=100`,
+        { headers: { 'Authorization': `Bearer ${stripeSecretKey}` } }
+      );
+
+      if (!sessionsResponse.ok) {
+        throw new Error('Failed to fetch checkout sessions from Stripe');
+      }
+
+      const sessions = await sessionsResponse.json();
+      const paidSessions = sessions.data.filter((s: any) => s.payment_status === 'paid');
+
+      if (paidSessions.length === 0) {
+        return new Response(
+          JSON.stringify({ success: false, message: 'No completed payment found in Stripe yet' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const paidSession = paidSessions[0];
+      const paymentIntentId = paidSession.payment_intent;
+      let paymentMethod = paidSession.payment_method_types?.[0] || 'card';
+
+      if (paymentIntentId) {
+        try {
+          const piResponse = await fetch(
+            `https://api.stripe.com/v1/payment_intents/${paymentIntentId}`,
+            { headers: { 'Authorization': `Bearer ${stripeSecretKey}` } }
+          );
+          if (piResponse.ok) {
+            const piData = await piResponse.json();
+            paymentMethod = piData.charges?.data?.[0]?.payment_method_details?.type || paymentMethod;
+          }
+        } catch (err) {
+          console.error('Error fetching payment intent:', err);
+        }
+      }
+
+      const totalPaid = paidSessions.reduce((sum: number, s: any) => sum + (s.amount_total || 0), 0) / 100;
+      const newAmountPaid = (estInvoice.amount_paid || 0) + totalPaid;
+      const balanceDue = Math.max(0, (estInvoice.total_amount || 0) - (estInvoice.deposit_applied || 0) - newAmountPaid);
+      const newStatus = balanceDue <= 0 ? 'paid' : 'partial';
+
+      await supabase
+        .from('estimating_invoices')
+        .update({
+          payment_status: newStatus,
+          amount_paid: newAmountPaid,
+          balance_due: balanceDue,
+          paid_at: newStatus === 'paid' ? new Date().toISOString() : null,
+          stripe_payment_intent_id: paymentIntentId || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', estimating_invoice_id);
+
+      await supabase.from('admin_notifications').insert({
+        message: `Payment received for Invoice ${estInvoice.invoice_number} - $${totalPaid.toFixed(2)}`,
+        yacht_id: estInvoice.yacht_id || null,
+        reference_id: estimating_invoice_id,
+        created_at: new Date().toISOString(),
+      });
+
+      if (estInvoice.yacht_id) {
+        await supabase.from('owner_chat_messages').insert({
+          yacht_id: estInvoice.yacht_id,
+          sender_role: 'staff',
+          message: `Payment confirmed for Invoice ${estInvoice.invoice_number} - $${totalPaid.toFixed(2)}. Thank you!`,
+          created_at: new Date().toISOString(),
+        });
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: `Invoice synced and marked as ${newStatus}`,
+          payment_intent_id: paymentIntentId,
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
