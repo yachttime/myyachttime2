@@ -297,7 +297,7 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
       const quantityChange = adjustmentData.transaction_type === 'remove' ? -quantity : quantity;
       const newQuantity = selectedPart.quantity_on_hand + quantityChange;
 
-      if (newQuantity < 0) {
+      if (adjustmentData.transaction_type === 'remove' && newQuantity < 0) {
         setError('Cannot reduce quantity below zero');
         return;
       }
