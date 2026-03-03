@@ -99,7 +99,7 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [adjustmentData, setAdjustmentData] = useState({
-    transaction_type: 'add' as 'add' | 'remove' | 'adjustment',
+    transaction_type: 'adjustment' as 'add' | 'remove' | 'adjustment',
     quantity: '',
     reason: ''
   });
@@ -361,6 +361,11 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
 
   const openAdjustment = (part: Part) => {
     setSelectedPart(part);
+    setAdjustmentData({
+      transaction_type: 'adjustment',
+      quantity: part.quantity_on_hand.toString(),
+      reason: ''
+    });
     setShowAdjustment(true);
   };
 
@@ -386,7 +391,7 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
 
   const resetAdjustmentForm = () => {
     setAdjustmentData({
-      transaction_type: 'add',
+      transaction_type: 'adjustment',
       quantity: '',
       reason: ''
     });
