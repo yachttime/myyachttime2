@@ -1151,21 +1151,7 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
                 filteredParts.map((part) => {
                   const isNegative = part.quantity_on_hand < 0;
                   const isLowStock = !isNegative && part.quantity_on_hand <= part.reorder_level && part.reorder_level > 0;
-
-                  const altPartNumbers = (part.alternative_part_numbers || '')
-                    .split(',')
-                    .map((s: string) => s.trim().toLowerCase())
-                    .filter(Boolean);
-                  const alternateInStock = altPartNumbers.length > 0 && parts.some(p =>
-                    p.id !== part.id &&
-                    p.is_active &&
-                    p.quantity_on_hand > 0 &&
-                    altPartNumbers.includes(p.part_number.trim().toLowerCase())
-                  );
-
-                  const effectiveNegative = isNegative && !alternateInStock;
-                  const effectiveLowStock = isLowStock && !alternateInStock;
-                  const rowClass = effectiveNegative ? 'bg-red-50 hover:bg-red-100' : effectiveLowStock ? 'bg-yellow-50 hover:bg-yellow-100' : 'hover:bg-gray-50';
+                  const rowClass = isNegative ? 'bg-red-50 hover:bg-red-100' : isLowStock ? 'bg-yellow-50 hover:bg-yellow-100' : 'hover:bg-gray-50';
 
                   return (
                   <tr key={part.id} className={rowClass}>
@@ -1175,22 +1161,17 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
                     <td className="px-6 py-4 text-sm text-gray-500">{part.location || '-'}</td>
                     <td className="px-6 py-4 text-sm">
                       <div className="flex items-center gap-2">
-                        <span className={effectiveNegative ? 'font-bold text-red-600' : effectiveLowStock ? 'font-semibold text-yellow-600' : isNegative ? 'font-bold text-orange-500' : 'text-gray-900'}>
+                        <span className={isNegative ? 'font-bold text-red-600' : isLowStock ? 'font-semibold text-yellow-600' : 'text-gray-900'}>
                           {part.quantity_on_hand}
                         </span>
-                        {effectiveNegative && (
+                        {isNegative && (
                           <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-800">
                             ORDER NOW
                           </span>
                         )}
-                        {effectiveLowStock && (
+                        {isLowStock && (
                           <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
                             LOW STOCK
-                          </span>
-                        )}
-                        {isNegative && alternateInStock && (
-                          <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                            USE ALTERNATE
                           </span>
                         )}
                       </div>

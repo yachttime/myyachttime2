@@ -98,7 +98,7 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
         supabase.from('estimates').select('id, status, total_amount', { count: 'exact' }).neq('status', 'converted').eq('archived', false),
         supabase.from('work_orders').select('id, status, total_amount, deposit_amount, deposit_payment_status, deposit_paid_at', { count: 'exact' }).eq('archived', false),
         supabase.from('estimating_invoices').select('id, total_amount, payment_status, work_order_id', { count: 'exact' }).eq('archived', false),
-        supabase.from('parts_inventory').select('id, part_number, quantity_on_hand, reorder_level, alternative_part_numbers, is_active', { count: 'exact' })
+        supabase.from('parts_inventory').select('id, quantity_on_hand, reorder_level', { count: 'exact' })
       ]);
 
       const estimates = estimatesRes.data || [];
@@ -123,21 +123,7 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
       ).length;
       const unpaidInvoices = invoices.filter(i => i.payment_status !== 'paid');
       const unpaidAmount = unpaidInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
-      const lowStockItems = parts.filter(p => {
-        const needsReorder = p.quantity_on_hand <= p.reorder_level;
-        if (!needsReorder) return false;
-        const altNums = (p.alternative_part_numbers || '')
-          .split(',')
-          .map((s: string) => s.trim().toLowerCase())
-          .filter(Boolean);
-        const alternateAvailable = altNums.length > 0 && parts.some(alt =>
-          alt.id !== p.id &&
-          alt.is_active &&
-          alt.quantity_on_hand > 0 &&
-          altNums.includes(alt.part_number.trim().toLowerCase())
-        );
-        return !alternateAvailable;
-      }).length;
+      const lowStockItems = parts.filter(p => p.quantity_on_hand <= p.reorder_level).length;
 
       const totalRevenue = invoices
         .filter(i => i.payment_status !== 'paid')
