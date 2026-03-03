@@ -234,7 +234,7 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
                 </div>
                 <div className="text-sm font-medium text-gray-900 mb-1">Unpaid Invoices</div>
                 <div className="text-xs text-gray-500">
-                  {loading ? '...' : `$${stats.unpaidAmount.toFixed(2)} outstanding`}
+                  {loading ? '...' : `$${stats.unpaidAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} outstanding`}
                 </div>
               </div>
 
@@ -290,7 +290,7 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
                   <div className="flex items-center justify-between py-3 border-b border-gray-100">
                     <span className="text-sm text-gray-600">Total Revenue (Outstanding)</span>
                     <span className="text-lg font-bold text-gray-900">
-                      {loading ? '...' : `$${stats.totalRevenue.toFixed(2)}`}
+                      {loading ? '...' : `$${stats.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                     </span>
                   </div>
 
@@ -300,7 +300,7 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
                       <span className="ml-2 text-xs text-gray-400">({loading ? '...' : stats.totalEstimates})</span>
                     </div>
                     <span className="text-lg font-bold text-blue-700">
-                      {loading ? '...' : `$${stats.totalEstimatesAmount.toFixed(2)}`}
+                      {loading ? '...' : `$${stats.totalEstimatesAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                     </span>
                   </div>
 
@@ -311,14 +311,14 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
                         <span className="ml-2 text-xs text-gray-400">({loading ? '...' : stats.totalWorkOrders})</span>
                       </div>
                       <span className="text-lg font-bold text-green-700">
-                        {loading ? '...' : `$${stats.totalWorkOrdersAmount.toFixed(2)}`}
+                        {loading ? '...' : `$${stats.totalWorkOrdersAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                       </span>
                     </div>
                     {!loading && stats.totalDepositsPaid > 0 && (
                       <div className="flex items-center justify-between mt-1">
                         <span className="text-xs text-gray-500 pl-2">Less deposits paid</span>
                         <span className="text-sm font-medium text-red-600">
-                          -${stats.totalDepositsPaid.toFixed(2)} = ${(stats.totalWorkOrdersAmount - stats.totalDepositsPaid).toFixed(2)}
+                          -${stats.totalDepositsPaid.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} = ${(stats.totalWorkOrdersAmount - stats.totalDepositsPaid).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                       </div>
                     )}
