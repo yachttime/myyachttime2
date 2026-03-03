@@ -17,6 +17,7 @@ interface TimeEntry {
 
 interface UserProfile {
   employee_type: 'hourly' | 'salary';
+  company_id: string | null;
 }
 
 interface AssignedWorkOrder {
@@ -94,7 +95,7 @@ export function TimeClockPanel() {
 
     const { data } = await supabase
       .from('user_profiles')
-      .select('employee_type')
+      .select('employee_type, company_id')
       .eq('user_id', user.id)
       .single();
 
@@ -199,7 +200,8 @@ export function TimeClockPanel() {
           yacht_id: null,
           punch_in_time: new Date().toISOString(),
           notes: notes || null,
-          punch_in_ip: getClientIP()
+          punch_in_ip: getClientIP(),
+          company_id: profile?.company_id || null
         })
         .select()
         .single();
