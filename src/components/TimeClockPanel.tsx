@@ -163,14 +163,14 @@ export function TimeClockPanel() {
   const loadCurrentEntry = async () => {
     if (!user) return;
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const cutoff = new Date();
+    cutoff.setHours(cutoff.getHours() - 36);
 
     const { data, error } = await supabase
       .from('staff_time_entries')
       .select('*')
       .eq('user_id', user.id)
-      .gte('punch_in_time', today.toISOString())
+      .gte('punch_in_time', cutoff.toISOString())
       .is('punch_out_time', null)
       .order('punch_in_time', { ascending: false })
       .limit(1)
