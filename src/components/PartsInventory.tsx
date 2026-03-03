@@ -294,8 +294,16 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
       setError(null);
 
       const quantity = parseInt(adjustmentData.quantity);
-      const quantityChange = adjustmentData.transaction_type === 'remove' ? -quantity : quantity;
-      const newQuantity = selectedPart.quantity_on_hand + quantityChange;
+      let newQuantity: number;
+      let quantityChange: number;
+
+      if (adjustmentData.transaction_type === 'adjustment') {
+        newQuantity = quantity;
+        quantityChange = quantity - selectedPart.quantity_on_hand;
+      } else {
+        quantityChange = adjustmentData.transaction_type === 'remove' ? -quantity : quantity;
+        newQuantity = selectedPart.quantity_on_hand + quantityChange;
+      }
 
       if (adjustmentData.transaction_type === 'remove' && newQuantity < 0) {
         setError('Cannot reduce quantity below zero');
@@ -979,11 +987,13 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Quantity *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {adjustmentData.transaction_type === 'adjustment' ? 'New Quantity *' : 'Quantity *'}
+              </label>
               <input
                 type="number"
                 required
-                min="1"
+                min={adjustmentData.transaction_type === 'adjustment' ? undefined : '1'}
                 value={adjustmentData.quantity}
                 onChange={(e) => setAdjustmentData({ ...adjustmentData, quantity: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
