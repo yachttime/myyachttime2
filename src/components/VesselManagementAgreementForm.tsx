@@ -154,8 +154,8 @@ export const VesselManagementAgreementForm = ({
       }
 
       if (!formData.vessel_name?.trim() || !formData.vessel_year ||
-          !formData.vessel_length?.trim() || !formData.vessel_hull_number?.trim()) {
-        throw new Error('All vessel information fields are required');
+          !formData.vessel_length?.trim()) {
+        throw new Error('Vessel name, year, and length are required');
       }
 
       if (!formData.manager_repair_approval_name?.trim() || !formData.manager_repair_approval_email?.trim() ||
@@ -484,14 +484,14 @@ export const VesselManagementAgreementForm = ({
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Hull Number *</label>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Hull Number</label>
             <input
               type="text"
               value={formData.vessel_hull_number}
               onChange={(e) => setFormData({ ...formData, vessel_hull_number: e.target.value })}
               className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
               disabled={loading}
-              required
+              placeholder="Optional"
             />
           </div>
           <div>
