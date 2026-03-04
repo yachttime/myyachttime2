@@ -70,6 +70,7 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
   const [activeTab, setActiveTab] = useState<'parts' | 'vendors'>('parts');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'active' | 'inactive' | 'all'>('active');
+  const [vendorFilter, setVendorFilter] = useState<string>('');
   const [showVendorReport, setShowVendorReport] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [showAdjustment, setShowAdjustment] = useState(false);
@@ -557,7 +558,8 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
       part.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (part.alternative_part_numbers && part.alternative_part_numbers.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (part.vendors?.vendor_name && part.vendors.vendor_name.toLowerCase().includes(searchTerm.toLowerCase()));
-    return matchesStatus && matchesSearch;
+    const matchesVendor = vendorFilter === '' ? true : part.vendor_id === vendorFilter;
+    return matchesStatus && matchesSearch && matchesVendor;
   });
 
   const filteredVendors = vendors.filter(vendor =>
@@ -1089,6 +1091,16 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
                 </div>
               )}
             </div>
+            <select
+              value={vendorFilter}
+              onChange={(e) => setVendorFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 bg-white focus:ring-2 focus:ring-blue-500 min-w-[160px]"
+            >
+              <option value="">All Vendors</option>
+              {vendors.filter(v => v.is_active).map((vendor) => (
+                <option key={vendor.id} value={vendor.id}>{vendor.vendor_name}</option>
+              ))}
+            </select>
             <div className="flex border border-gray-300 rounded-lg overflow-hidden">
               {(['active', 'inactive', 'all'] as const).map((f) => (
                 <button
