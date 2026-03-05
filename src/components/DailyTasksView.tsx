@@ -75,6 +75,7 @@ interface NewTaskForm {
   yacht_id: string;
   customer_id: string;
   admin_notes: string;
+  task_date: string;
 }
 
 interface NewTaskPart {
@@ -113,6 +114,7 @@ export function DailyTasksView() {
     yacht_id: '',
     customer_id: '',
     admin_notes: '',
+    task_date: new Date().toISOString().split('T')[0],
   });
   const [modalParts, setModalParts] = useState<NewTaskPart[]>([]);
   const [modalPartDraft, setModalPartDraft] = useState<NewTaskPart>({ part_name: '', quantity: '', notes: '' });
@@ -227,7 +229,7 @@ export function DailyTasksView() {
         staff_notes: '',
         time_spent_minutes: 0,
         is_completed: false,
-        task_date: new Date().toISOString().split('T')[0],
+        task_date: newTask.task_date || new Date().toISOString().split('T')[0],
         company_id: userProfile?.company_id,
       })
       .select('id')
@@ -249,7 +251,7 @@ export function DailyTasksView() {
         );
       }
       setShowCreateModal(false);
-      setNewTask({ title: '', assigned_to: '', yacht_id: '', customer_id: '', admin_notes: '' });
+      setNewTask({ title: '', assigned_to: '', yacht_id: '', customer_id: '', admin_notes: '', task_date: new Date().toISOString().split('T')[0] });
       setModalParts([]);
       setModalPartDraft({ part_name: '', quantity: '', notes: '' });
       setShowModalPartForm(false);
@@ -722,6 +724,16 @@ export function DailyTasksView() {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Task Date *</label>
+                <input
+                  type="date"
+                  value={newTask.task_date}
+                  onChange={(e) => setNewTask((p) => ({ ...p, task_date: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
