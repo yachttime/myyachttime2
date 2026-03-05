@@ -777,108 +777,110 @@ export function DailyTasksView() {
                 />
               </div>
 
-              <div className="border border-gray-200 rounded-lg p-3">
-                <div className="flex items-center justify-between mb-1">
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">Parts Needed</p>
-                    <p className="text-xs text-gray-400">List any parts or materials the staff member should bring</p>
-                  </div>
-                  {!showModalPartForm && (
-                    <button
-                      type="button"
-                      onClick={() => setShowModalPartForm(true)}
-                      className="flex items-center gap-1 text-xs text-amber-600 hover:text-amber-700 font-medium"
-                    >
-                      <Plus className="w-3 h-3" />
-                      Add Part
-                    </button>
-                  )}
-                </div>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-3">
+                <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Staff will fill out when working</p>
 
-                {modalParts.length === 0 && !showModalPartForm && (
-                  <p className="text-xs text-gray-400 italic mt-1">No parts added yet.</p>
-                )}
-
-                {modalParts.length > 0 && (
-                  <div className="space-y-1.5 mt-2">
-                    {modalParts.map((p, i) => (
-                      <div key={i} className="flex items-center gap-2 bg-gray-50 rounded-lg px-2.5 py-2">
-                        <Package className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <span className="text-sm font-medium text-gray-800">{p.part_name}</span>
-                          {p.quantity && <span className="text-xs text-gray-500 ml-2">Qty: {p.quantity}</span>}
-                          {p.notes && <span className="text-xs text-gray-500 ml-2">— {p.notes}</span>}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setModalParts((prev) => prev.filter((_, idx) => idx !== i))}
-                          className="text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {showModalPartForm && (
-                  <div className="space-y-2 mt-2 border-t border-gray-100 pt-2">
-                    <input
-                      type="text"
-                      value={modalPartDraft.part_name}
-                      onChange={(e) => setModalPartDraft((p) => ({ ...p, part_name: e.target.value }))}
-                      placeholder="Part name or description *"
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
-                    />
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={modalPartDraft.quantity}
-                        onChange={(e) => setModalPartDraft((p) => ({ ...p, quantity: e.target.value }))}
-                        placeholder="Quantity"
-                        className="w-28 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
-                      />
-                      <input
-                        type="text"
-                        value={modalPartDraft.notes}
-                        onChange={(e) => setModalPartDraft((p) => ({ ...p, notes: e.target.value }))}
-                        placeholder="Notes (optional)"
-                        className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
-                      />
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        disabled={!modalPartDraft.part_name.trim()}
-                        onClick={() => {
-                          if (!modalPartDraft.part_name.trim()) return;
-                          setModalParts((prev) => [...prev, { ...modalPartDraft }]);
-                          setModalPartDraft({ part_name: '', quantity: '', notes: '' });
-                          setShowModalPartForm(false);
-                        }}
-                        className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white rounded-lg text-xs font-medium transition-colors"
-                      >
-                        Add
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => { setShowModalPartForm(false); setModalPartDraft({ part_name: '', quantity: '', notes: '' }); }}
-                        className="px-3 py-1.5 border border-gray-200 text-gray-600 hover:bg-gray-100 rounded-lg text-xs font-medium transition-colors"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-1">Staff will fill out when working</p>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="bg-white border border-blue-100 rounded-lg px-3 py-2 text-xs text-gray-400 italic">Staff notes / updates...</div>
                   <div className="bg-white border border-blue-100 rounded-lg px-3 py-2 text-xs text-gray-400 italic">Time spent (hrs)...</div>
                 </div>
-                <p className="text-xs text-blue-500 mt-1.5">Staff tap the task card to add their notes and log time spent.</p>
+
+                <div className="border-t border-blue-200 pt-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <div>
+                      <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Parts Needed</p>
+                      <p className="text-xs text-blue-500">List any parts or materials the staff member should bring</p>
+                    </div>
+                    {!showModalPartForm && (
+                      <button
+                        type="button"
+                        onClick={() => setShowModalPartForm(true)}
+                        className="flex items-center gap-1 text-xs text-amber-600 hover:text-amber-700 font-medium"
+                      >
+                        <Plus className="w-3 h-3" />
+                        Add Part
+                      </button>
+                    )}
+                  </div>
+
+                  {modalParts.length === 0 && !showModalPartForm && (
+                    <p className="text-xs text-gray-400 italic mt-1">No parts added yet.</p>
+                  )}
+
+                  {modalParts.length > 0 && (
+                    <div className="space-y-1.5 mt-2">
+                      {modalParts.map((p, i) => (
+                        <div key={i} className="flex items-center gap-2 bg-white border border-blue-100 rounded-lg px-2.5 py-2">
+                          <Package className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <span className="text-sm font-medium text-gray-800">{p.part_name}</span>
+                            {p.quantity && <span className="text-xs text-gray-500 ml-2">Qty: {p.quantity}</span>}
+                            {p.notes && <span className="text-xs text-gray-500 ml-2">— {p.notes}</span>}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setModalParts((prev) => prev.filter((_, idx) => idx !== i))}
+                            className="text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {showModalPartForm && (
+                    <div className="space-y-2 mt-2 border-t border-blue-100 pt-2">
+                      <input
+                        type="text"
+                        value={modalPartDraft.part_name}
+                        onChange={(e) => setModalPartDraft((p) => ({ ...p, part_name: e.target.value }))}
+                        placeholder="Part name or description *"
+                        className="w-full border border-blue-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-transparent bg-white"
+                      />
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={modalPartDraft.quantity}
+                          onChange={(e) => setModalPartDraft((p) => ({ ...p, quantity: e.target.value }))}
+                          placeholder="Quantity"
+                          className="w-28 border border-blue-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-transparent bg-white"
+                        />
+                        <input
+                          type="text"
+                          value={modalPartDraft.notes}
+                          onChange={(e) => setModalPartDraft((p) => ({ ...p, notes: e.target.value }))}
+                          placeholder="Notes (optional)"
+                          className="flex-1 border border-blue-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-transparent bg-white"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          disabled={!modalPartDraft.part_name.trim()}
+                          onClick={() => {
+                            if (!modalPartDraft.part_name.trim()) return;
+                            setModalParts((prev) => [...prev, { ...modalPartDraft }]);
+                            setModalPartDraft({ part_name: '', quantity: '', notes: '' });
+                            setShowModalPartForm(false);
+                          }}
+                          className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white rounded-lg text-xs font-medium transition-colors"
+                        >
+                          Add
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setShowModalPartForm(false); setModalPartDraft({ part_name: '', quantity: '', notes: '' }); }}
+                          className="px-3 py-1.5 border border-blue-200 text-gray-600 hover:bg-blue-100 rounded-lg text-xs font-medium transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <p className="text-xs text-blue-500">Staff tap the task card to add their notes and log time spent.</p>
               </div>
             </div>
 
