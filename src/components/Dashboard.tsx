@@ -16720,7 +16720,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 ? 'text-yellow-300'
                                 : 'text-red-300'
                             }`}>
-                              {booking.yachts?.name || 'Yacht'}
+                              {booking.yachts?.name || (booking.is_appointment ? (booking.owner_name || booking.name) : 'Yacht')}
                             </h3>
                             <p className="text-slate-400">
                               {getBookingDisplayName(booking)}
@@ -16748,6 +16748,91 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       {booking.is_appointment && booking.problem_description && (
                         <div className="bg-slate-900/50 rounded-lg p-3 mt-3">
                           <p className="text-sm text-slate-300">{booking.problem_description}</p>
+                        </div>
+                      )}
+
+                      {booking.is_appointment && isMasterRole(effectiveRole) && (
+                        <div className="mt-3 pt-3 border-t border-slate-700/50">
+                          {assignTaskAppointmentId === booking.id ? (
+                            <div className="space-y-3" onClick={(e) => e.stopPropagation()}>
+                              <p className="text-xs font-semibold text-teal-300 uppercase tracking-wide">Assign to Staff Member</p>
+                              {assignTaskSuccess && (
+                                <div className="text-sm text-green-400 bg-green-500/10 border border-green-500/30 rounded-lg px-3 py-2">
+                                  Task assigned — visible in Daily Tasks.
+                                </div>
+                              )}
+                              {assignTaskError && (
+                                <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
+                                  {assignTaskError}
+                                </div>
+                              )}
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <label className="block text-xs text-slate-400 mb-1">Staff Member *</label>
+                                  <select
+                                    value={assignTaskForm.assigned_to}
+                                    onChange={(e) => setAssignTaskForm(f => ({ ...f, assigned_to: e.target.value }))}
+                                    className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-sm text-white focus:outline-none focus:border-teal-500"
+                                  >
+                                    <option value="">Select staff...</option>
+                                    {assignTaskStaffList.map(s => (
+                                      <option key={s.user_id} value={s.user_id}>
+                                        {[s.first_name, s.last_name].filter(Boolean).join(' ') || 'Unknown'}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="block text-xs text-slate-400 mb-1">Task Date *</label>
+                                  <input
+                                    type="date"
+                                    value={assignTaskForm.task_date}
+                                    onChange={(e) => setAssignTaskForm(f => ({ ...f, task_date: e.target.value }))}
+                                    className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-sm text-white focus:outline-none focus:border-teal-500"
+                                  />
+                                </div>
+                              </div>
+                              <div>
+                                <label className="block text-xs text-slate-400 mb-1">Notes for Staff</label>
+                                <input
+                                  type="text"
+                                  value={assignTaskForm.admin_notes}
+                                  onChange={(e) => setAssignTaskForm(f => ({ ...f, admin_notes: e.target.value }))}
+                                  placeholder="Additional instructions..."
+                                  className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-sm text-white focus:outline-none focus:border-teal-500"
+                                />
+                              </div>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleAssignAppointmentTask(booking)}
+                                  disabled={assignTaskLoading || !assignTaskForm.assigned_to || !assignTaskForm.task_date}
+                                  className="flex-1 py-2 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-medium text-sm rounded-lg transition-colors"
+                                >
+                                  {assignTaskLoading ? 'Assigning...' : 'Assign Task'}
+                                </button>
+                                <button
+                                  onClick={() => setAssignTaskAppointmentId(null)}
+                                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm rounded-lg transition-colors"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openAssignTaskPanel(
+                                  booking.id,
+                                  selectedDayAppointments.date.toISOString().split('T')[0]
+                                );
+                              }}
+                              className="flex items-center gap-2 text-sm text-teal-400 hover:text-teal-300 font-medium transition-colors"
+                            >
+                              <ClipboardList className="w-4 h-4" />
+                              Assign to Staff Member
+                            </button>
+                          )}
                         </div>
                       )}
 
