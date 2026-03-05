@@ -40,7 +40,7 @@ interface DailyTask {
   assigned_to_profile?: { first_name: string | null; last_name: string | null };
   assigned_by_profile?: { first_name: string | null; last_name: string | null };
   yachts?: { name: string } | null;
-  customers?: { first_name: string | null; last_name: string | null; business_name: string | null; customer_type: string } | null;
+  customers?: { first_name: string | null; last_name: string | null; business_name: string | null; customer_type: string; customer_vessels?: { vessel_name: string | null }[] } | null;
   daily_task_parts?: DailyTaskPart[];
   appointments?: { name: string | null; date: string | null; time: string | null; problem_description: string | null; appointment_type: string | null } | null;
 }
@@ -147,7 +147,7 @@ export function DailyTasksView() {
         assigned_to_profile:user_profiles!daily_tasks_assigned_to_fkey(first_name, last_name),
         assigned_by_profile:user_profiles!daily_tasks_assigned_by_fkey(first_name, last_name),
         yachts(name),
-        customers(first_name, last_name, business_name, customer_type),
+        customers(first_name, last_name, business_name, customer_type, customer_vessels(vessel_name)),
         daily_task_parts(id, task_id, part_name, quantity, notes, added_by),
         appointments(name, date, time, problem_description, appointment_type)
       `)
@@ -504,9 +504,11 @@ export function DailyTasksView() {
                           {task.customers.customer_type === 'business'
                             ? task.customers.business_name
                             : [task.customers.first_name, task.customers.last_name].filter(Boolean).join(' ')}
-                          {task.yachts && (
+                          {task.yachts ? (
                             <span className="text-blue-300 ml-0.5">— {task.yachts.name}</span>
-                          )}
+                          ) : task.customers.customer_vessels && task.customers.customer_vessels.length > 0 && task.customers.customer_vessels[0].vessel_name ? (
+                            <span className="text-blue-300 ml-0.5">— {task.customers.customer_vessels[0].vessel_name}</span>
+                          ) : null}
                         </span>
                       )}
                       <span className="flex items-center gap-1 text-xs text-slate-400">
