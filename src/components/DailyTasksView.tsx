@@ -96,6 +96,7 @@ export function DailyTasksView() {
   const { getEffectiveRole } = useRoleImpersonation();
 
   const effectiveRole = getEffectiveRole(userProfile?.role);
+  const canSeeAllTasks = isMasterRole(effectiveRole) || isManagerRole(effectiveRole) || effectiveRole === 'staff';
   const canManage = isMasterRole(effectiveRole) || isManagerRole(effectiveRole);
 
   const [tasks, setTasks] = useState<DailyTask[]>([]);
@@ -149,7 +150,7 @@ export function DailyTasksView() {
       .order('task_date', { ascending: true })
       .order('created_at', { ascending: false });
 
-    if (!canManage) {
+    if (!canSeeAllTasks) {
       query.eq('assigned_to', user.id);
     }
 
