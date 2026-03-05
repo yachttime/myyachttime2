@@ -101,12 +101,13 @@ export async function printAllQRCodesAvery5168(yachts: { id: string; name: strin
             margin-bottom: 0.12in;
           }
           .qr-wrap {
-            display: inline-block;
+            display: block;
+            margin: 0 auto 0.12in;
             border: 3px solid #0891b2;
             border-radius: 10px;
             padding: 8px;
             background: white;
-            margin-bottom: 0.12in;
+            width: fit-content;
           }
           .qr-wrap img {
             display: block;
