@@ -43,27 +43,14 @@ export async function printAllQRCodesAvery5168(yachts: { id: string; name: strin
     const cells = group.map((item, idx) => {
       const pos = labelPositions[idx];
       return `
-        <div style="
-          position: absolute;
-          left: ${pos.left}in;
-          top: ${pos.top}in;
-          width: ${labelW}in;
-          height: ${labelH}in;
-          display: table;
-          overflow: hidden;
-        ">
-          <div style="
-            display: table-cell;
-            vertical-align: middle;
-            text-align: center;
-            padding: 0.2in 0.2in;
-          ">
-            <div class="yacht-title">${item.name}</div>
-            <div class="qr-wrap">
-              <img src="${item.dataUrl}" alt="QR Code" />
+        <div style="position:absolute;left:${pos.left}in;top:${pos.top}in;width:${labelW}in;height:${labelH}in;display:table;table-layout:fixed;overflow:hidden;">
+          <div style="display:table-row;">
+            <div style="display:table-cell;vertical-align:middle;text-align:center;padding:0.2in 0.2in;width:${labelW}in;height:${labelH}in;">
+              <div class="yacht-title">${item.name}</div>
+              <div class="qr-wrap"><img src="${item.dataUrl}" alt="QR Code" /></div>
+              <div class="label-sub">Scan to access My Yacht Time</div>
+              <div class="label-brand">My Yacht Time</div>
             </div>
-            <div class="label-sub">Scan to access My Yacht Time</div>
-            <div class="label-brand">My Yacht Time</div>
           </div>
         </div>
       `;
