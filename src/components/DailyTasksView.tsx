@@ -1,0 +1,735 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  ClipboardList,
+  Plus,
+  CheckCircle2,
+  Circle,
+  Clock,
+  ChevronDown,
+  ChevronUp,
+  Trash2,
+  Ship,
+  User,
+  Package,
+  X,
+  Calendar,
+  AlertCircle,
+} from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
+import { useRoleImpersonation } from '../contexts/RoleImpersonationContext';
+import { isMasterRole, isManagerRole } from '../lib/supabase';
+
+interface DailyTask {
+  id: string;
+  title: string;
+  assigned_to: string;
+  assigned_by: string;
+  yacht_id: string | null;
+  customer_id: string | null;
+  admin_notes: string;
+  staff_notes: string;
+  time_spent_minutes: number;
+  is_completed: boolean;
+  completed_at: string | null;
+  task_date: string;
+  created_at: string;
+  assigned_to_profile?: { first_name: string | null; last_name: string | null };
+  assigned_by_profile?: { first_name: string | null; last_name: string | null };
+  yachts?: { name: string } | null;
+  customers?: { first_name: string | null; last_name: string | null; business_name: string | null; customer_type: string } | null;
+  daily_task_parts?: DailyTaskPart[];
+}
+
+interface DailyTaskPart {
+  id: string;
+  task_id: string;
+  part_name: string;
+  quantity: string;
+  notes: string;
+  added_by: string;
+}
+
+interface StaffOption {
+  user_id: string;
+  first_name: string | null;
+  last_name: string | null;
+}
+
+interface YachtOption {
+  id: string;
+  name: string;
+}
+
+interface CustomerOption {
+  id: string;
+  customer_type: string;
+  first_name: string | null;
+  last_name: string | null;
+  business_name: string | null;
+}
+
+interface NewTaskForm {
+  title: string;
+  assigned_to: string;
+  yacht_id: string;
+  customer_id: string;
+  admin_notes: string;
+}
+
+interface NewPartForm {
+  part_name: string;
+  quantity: string;
+  notes: string;
+}
+
+export function DailyTasksView() {
+  const { user, userProfile } = useAuth();
+  const { getEffectiveRole } = useRoleImpersonation();
+
+  const effectiveRole = getEffectiveRole(userProfile?.role);
+  const canManage = isMasterRole(effectiveRole) || isManagerRole(effectiveRole);
+
+  const [tasks, setTasks] = useState<DailyTask[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [staffOptions, setStaffOptions] = useState<StaffOption[]>([]);
+  const [yachtOptions, setYachtOptions] = useState<YachtOption[]>([]);
+  const [customerOptions, setCustomerOptions] = useState<CustomerOption[]>([]);
+  const [savingTaskId, setSavingTaskId] = useState<string | null>(null);
+  const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const [newTask, setNewTask] = useState<NewTaskForm>({
+    title: '',
+    assigned_to: '',
+    yacht_id: '',
+    customer_id: '',
+    admin_notes: '',
+  });
+  const [creatingTask, setCreatingTask] = useState(false);
+
+  const [staffNotesEdit, setStaffNotesEdit] = useState<Record<string, string>>({});
+  const [timeSpentEdit, setTimeSpentEdit] = useState<Record<string, string>>({});
+
+  const [addingPartForTask, setAddingPartForTask] = useState<string | null>(null);
+  const [newPart, setNewPart] = useState<NewPartForm>({ part_name: '', quantity: '', notes: '' });
+  const [savingPart, setSavingPart] = useState(false);
+  const [deletingPartId, setDeletingPartId] = useState<string | null>(null);
+
+  const loadTasks = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    setError(null);
+
+    const query = supabase
+      .from('daily_tasks')
+      .select(`
+        *,
+        assigned_to_profile:user_profiles!daily_tasks_assigned_to_fkey(first_name, last_name),
+        assigned_by_profile:user_profiles!daily_tasks_assigned_by_fkey(first_name, last_name),
+        yachts(name),
+        customers(first_name, last_name, business_name, customer_type),
+        daily_task_parts(id, task_id, part_name, quantity, notes, added_by)
+      `)
+      .eq('is_completed', false)
+      .order('task_date', { ascending: true })
+      .order('created_at', { ascending: false });
+
+    if (!canManage) {
+      query.eq('assigned_to', user.id);
+    }
+
+    const { data, error: fetchError } = await query;
+    if (fetchError) {
+      setError('Failed to load tasks.');
+    } else {
+      setTasks(data || []);
+      const initial: Record<string, string> = {};
+      const initialTime: Record<string, string> = {};
+      (data || []).forEach((t: DailyTask) => {
+        initial[t.id] = t.staff_notes || '';
+        initialTime[t.id] = t.time_spent_minutes > 0
+          ? String(Math.floor(t.time_spent_minutes / 60) * 60 === t.time_spent_minutes
+              ? t.time_spent_minutes / 60
+              : (t.time_spent_minutes / 60).toFixed(2))
+          : '';
+      });
+      setStaffNotesEdit(initial);
+      setTimeSpentEdit(initialTime);
+    }
+    setLoading(false);
+  }, [user, canManage]);
+
+  useEffect(() => {
+    loadTasks();
+  }, [loadTasks]);
+
+  useEffect(() => {
+    if (canManage && showCreateModal) {
+      loadDropdownOptions();
+    }
+  }, [canManage, showCreateModal]);
+
+  const loadDropdownOptions = async () => {
+    const [staffRes, yachtRes, customerRes] = await Promise.all([
+      supabase
+        .from('user_profiles')
+        .select('user_id, first_name, last_name')
+        .in('role', ['staff', 'mechanic', 'master'])
+        .eq('is_active', true)
+        .order('last_name'),
+      supabase
+        .from('yachts')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('name'),
+      supabase
+        .from('customers')
+        .select('id, customer_type, first_name, last_name, business_name')
+        .eq('is_active', true)
+        .order('last_name'),
+    ]);
+    if (staffRes.data) setStaffOptions(staffRes.data);
+    if (yachtRes.data) setYachtOptions(yachtRes.data);
+    if (customerRes.data) setCustomerOptions(customerRes.data);
+  };
+
+  const customerDisplayName = (c: CustomerOption) => {
+    if (c.customer_type === 'business') return c.business_name || 'Unnamed Business';
+    return [c.first_name, c.last_name].filter(Boolean).join(' ') || 'Unnamed Customer';
+  };
+
+  const handleCreateTask = async () => {
+    if (!newTask.title.trim() || !newTask.assigned_to) return;
+    setCreatingTask(true);
+    setError(null);
+
+    const { error: insertError } = await supabase.from('daily_tasks').insert({
+      title: newTask.title.trim(),
+      assigned_to: newTask.assigned_to,
+      assigned_by: user!.id,
+      yacht_id: newTask.yacht_id || null,
+      customer_id: newTask.customer_id || null,
+      admin_notes: newTask.admin_notes.trim(),
+      staff_notes: '',
+      time_spent_minutes: 0,
+      is_completed: false,
+      task_date: new Date().toISOString().split('T')[0],
+      company_id: userProfile?.company_id,
+    });
+
+    if (insertError) {
+      setError('Failed to create task.');
+    } else {
+      setShowCreateModal(false);
+      setNewTask({ title: '', assigned_to: '', yacht_id: '', customer_id: '', admin_notes: '' });
+      await loadTasks();
+    }
+    setCreatingTask(false);
+  };
+
+  const handleSaveStaffUpdates = async (taskId: string) => {
+    setSavingTaskId(taskId);
+    const notes = staffNotesEdit[taskId] ?? '';
+    const hoursStr = timeSpentEdit[taskId] ?? '0';
+    const hours = parseFloat(hoursStr) || 0;
+    const minutes = Math.round(hours * 60);
+
+    const { error: updateError } = await supabase
+      .from('daily_tasks')
+      .update({ staff_notes: notes, time_spent_minutes: minutes })
+      .eq('id', taskId);
+
+    if (updateError) setError('Failed to save updates.');
+    else await loadTasks();
+    setSavingTaskId(null);
+  };
+
+  const handleMarkComplete = async (taskId: string) => {
+    setSavingTaskId(taskId);
+    const notes = staffNotesEdit[taskId] ?? '';
+    const hoursStr = timeSpentEdit[taskId] ?? '0';
+    const hours = parseFloat(hoursStr) || 0;
+    const minutes = Math.round(hours * 60);
+
+    const { error: updateError } = await supabase
+      .from('daily_tasks')
+      .update({
+        staff_notes: notes,
+        time_spent_minutes: minutes,
+        is_completed: true,
+        completed_at: new Date().toISOString(),
+      })
+      .eq('id', taskId);
+
+    if (updateError) setError('Failed to mark task complete.');
+    else {
+      setExpandedTaskId(null);
+      await loadTasks();
+    }
+    setSavingTaskId(null);
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    setDeletingTaskId(taskId);
+    const { error: deleteError } = await supabase.from('daily_tasks').delete().eq('id', taskId);
+    if (deleteError) setError('Failed to delete task.');
+    else await loadTasks();
+    setDeletingTaskId(null);
+  };
+
+  const handleAddPart = async (taskId: string) => {
+    if (!newPart.part_name.trim()) return;
+    setSavingPart(true);
+    const { error: insertError } = await supabase.from('daily_task_parts').insert({
+      task_id: taskId,
+      part_name: newPart.part_name.trim(),
+      quantity: newPart.quantity.trim(),
+      notes: newPart.notes.trim(),
+      added_by: user!.id,
+      company_id: userProfile?.company_id,
+    });
+    if (insertError) setError('Failed to add part.');
+    else {
+      setNewPart({ part_name: '', quantity: '', notes: '' });
+      setAddingPartForTask(null);
+      await loadTasks();
+    }
+    setSavingPart(false);
+  };
+
+  const handleDeletePart = async (partId: string) => {
+    setDeletingPartId(partId);
+    const { error: deleteError } = await supabase.from('daily_task_parts').delete().eq('id', partId);
+    if (deleteError) setError('Failed to delete part.');
+    else await loadTasks();
+    setDeletingPartId(null);
+  };
+
+  const formatTaskDate = (dateStr: string) => {
+    const today = new Date().toISOString().split('T')[0];
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    if (dateStr === today) return 'Today';
+    if (dateStr === yesterday) return 'Yesterday';
+    return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  const isOverdue = (task: DailyTask) => {
+    const today = new Date().toISOString().split('T')[0];
+    return task.task_date < today && !task.is_completed;
+  };
+
+  const formatTimeSpent = (minutes: number) => {
+    if (!minutes) return null;
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    if (h === 0) return `${m}m`;
+    if (m === 0) return `${h}h`;
+    return `${h}h ${m}m`;
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-semibold text-gray-900">Daily Tasks</h2>
+          <p className="text-sm text-gray-500 mt-0.5">
+            {canManage
+              ? 'Assign and track daily tasks for staff members'
+              : 'Your assigned tasks — incomplete tasks carry over each day'}
+          </p>
+        </div>
+        {canManage && (
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-medium text-sm transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            New Task
+          </button>
+        )}
+      </div>
+
+      {error && (
+        <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          {error}
+          <button onClick={() => setError(null)} className="ml-auto">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {tasks.length === 0 ? (
+        <div className="text-center py-16 bg-gray-50 rounded-xl border border-gray-200">
+          <ClipboardList className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+          <p className="text-gray-500 font-medium">No active tasks</p>
+          <p className="text-gray-400 text-sm mt-1">
+            {canManage ? 'Create a task to assign work to staff members.' : 'You have no tasks assigned to you right now.'}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {tasks.map((task) => {
+            const overdue = isOverdue(task);
+            const isExpanded = expandedTaskId === task.id;
+            const assigneeName = [task.assigned_to_profile?.first_name, task.assigned_to_profile?.last_name].filter(Boolean).join(' ') || 'Unknown';
+            const assignerName = [task.assigned_by_profile?.first_name, task.assigned_by_profile?.last_name].filter(Boolean).join(' ') || 'Unknown';
+            const timeFormatted = formatTimeSpent(task.time_spent_minutes);
+
+            return (
+              <div
+                key={task.id}
+                className={`bg-white rounded-xl border transition-all ${
+                  overdue ? 'border-orange-300 shadow-sm' : 'border-gray-200'
+                }`}
+              >
+                <div
+                  className="flex items-start gap-3 p-4 cursor-pointer select-none"
+                  onClick={() => setExpandedTaskId(isExpanded ? null : task.id)}
+                >
+                  <div className="mt-0.5 flex-shrink-0">
+                    <Circle className="w-5 h-5 text-gray-300" />
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-medium text-gray-900 text-sm">{task.title}</p>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {overdue && (
+                          <span className="text-xs font-medium px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full">
+                            Overdue
+                          </span>
+                        )}
+                        {timeFormatted && (
+                          <span className="flex items-center gap-1 text-xs text-gray-500">
+                            <Clock className="w-3 h-3" />
+                            {timeFormatted}
+                          </span>
+                        )}
+                        {isExpanded ? (
+                          <ChevronUp className="w-4 h-4 text-gray-400" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4 text-gray-400" />
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-3 mt-1.5">
+                      {canManage && (
+                        <span className="flex items-center gap-1 text-xs text-gray-500">
+                          <User className="w-3 h-3" />
+                          {assigneeName}
+                        </span>
+                      )}
+                      {task.yachts && (
+                        <span className="flex items-center gap-1 text-xs text-blue-600">
+                          <Ship className="w-3 h-3" />
+                          {task.yachts.name}
+                        </span>
+                      )}
+                      {task.customers && (
+                        <span className="flex items-center gap-1 text-xs text-green-600">
+                          <User className="w-3 h-3" />
+                          {task.customers.customer_type === 'business'
+                            ? task.customers.business_name
+                            : [task.customers.first_name, task.customers.last_name].filter(Boolean).join(' ')}
+                        </span>
+                      )}
+                      <span className="flex items-center gap-1 text-xs text-gray-400">
+                        <Calendar className="w-3 h-3" />
+                        {formatTaskDate(task.task_date)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {isExpanded && (
+                  <div className="border-t border-gray-100 p-4 space-y-5" onClick={(e) => e.stopPropagation()}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
+                      {canManage && (
+                        <div>
+                          <span className="font-medium text-gray-700">Assigned to:</span> {assigneeName}
+                        </div>
+                      )}
+                      <div>
+                        <span className="font-medium text-gray-700">Assigned by:</span> {assignerName}
+                      </div>
+                      <div>
+                        <span className="font-medium text-gray-700">Task date:</span> {formatTaskDate(task.task_date)}
+                      </div>
+                    </div>
+
+                    {task.admin_notes && (
+                      <div>
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Assignment Notes</p>
+                        <div className="bg-amber-50 border border-amber-100 rounded-lg p-3 text-sm text-gray-800 whitespace-pre-wrap">
+                          {task.admin_notes}
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">My Notes</p>
+                      <textarea
+                        value={staffNotesEdit[task.id] ?? task.staff_notes}
+                        onChange={(e) => setStaffNotesEdit((prev) => ({ ...prev, [task.id]: e.target.value }))}
+                        rows={3}
+                        placeholder="Add your notes, updates, or observations here..."
+                        className="w-full border border-gray-200 rounded-lg p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                      />
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Time Spent (hours)</p>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.25"
+                        value={timeSpentEdit[task.id] ?? ''}
+                        onChange={(e) => setTimeSpentEdit((prev) => ({ ...prev, [task.id]: e.target.value }))}
+                        placeholder="e.g. 1.5"
+                        className="w-36 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Parts Needed</p>
+                        {addingPartForTask !== task.id && (
+                          <button
+                            onClick={() => { setAddingPartForTask(task.id); setNewPart({ part_name: '', quantity: '', notes: '' }); }}
+                            className="flex items-center gap-1 text-xs text-amber-600 hover:text-amber-700 font-medium"
+                          >
+                            <Plus className="w-3 h-3" />
+                            Add Part
+                          </button>
+                        )}
+                      </div>
+
+                      {(task.daily_task_parts ?? []).length > 0 && (
+                        <div className="space-y-2 mb-3">
+                          {(task.daily_task_parts ?? []).map((part) => (
+                            <div key={part.id} className="flex items-start gap-2 bg-gray-50 rounded-lg p-2.5">
+                              <Package className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-800">{part.part_name}</p>
+                                {part.quantity && <p className="text-xs text-gray-500">Qty: {part.quantity}</p>}
+                                {part.notes && <p className="text-xs text-gray-500">{part.notes}</p>}
+                              </div>
+                              <button
+                                onClick={() => handleDeletePart(part.id)}
+                                disabled={deletingPartId === part.id}
+                                className="text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
+                              >
+                                {deletingPartId === part.id ? (
+                                  <div className="w-4 h-4 animate-spin rounded-full border-b-2 border-red-400" />
+                                ) : (
+                                  <X className="w-4 h-4" />
+                                )}
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {addingPartForTask === task.id && (
+                        <div className="border border-gray-200 rounded-lg p-3 space-y-2 bg-gray-50">
+                          <input
+                            type="text"
+                            value={newPart.part_name}
+                            onChange={(e) => setNewPart((p) => ({ ...p, part_name: e.target.value }))}
+                            placeholder="Part name or description *"
+                            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                          />
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={newPart.quantity}
+                              onChange={(e) => setNewPart((p) => ({ ...p, quantity: e.target.value }))}
+                              placeholder="Quantity"
+                              className="w-28 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                            />
+                            <input
+                              type="text"
+                              value={newPart.notes}
+                              onChange={(e) => setNewPart((p) => ({ ...p, notes: e.target.value }))}
+                              placeholder="Notes (optional)"
+                              className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                            />
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleAddPart(task.id)}
+                              disabled={savingPart || !newPart.part_name.trim()}
+                              className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white rounded-lg text-xs font-medium transition-colors"
+                            >
+                              {savingPart ? 'Adding...' : 'Add'}
+                            </button>
+                            <button
+                              onClick={() => setAddingPartForTask(null)}
+                              className="px-3 py-1.5 border border-gray-200 text-gray-600 hover:bg-gray-100 rounded-lg text-xs font-medium transition-colors"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-gray-100 gap-3 flex-wrap">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleSaveStaffUpdates(task.id)}
+                          disabled={savingTaskId === task.id}
+                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
+                        >
+                          {savingTaskId === task.id ? 'Saving...' : 'Save Notes'}
+                        </button>
+                        <button
+                          onClick={() => handleMarkComplete(task.id)}
+                          disabled={savingTaskId === task.id}
+                          className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                          {savingTaskId === task.id ? 'Completing...' : 'Mark Complete'}
+                        </button>
+                      </div>
+
+                      {canManage && (
+                        <button
+                          onClick={() => handleDeleteTask(task.id)}
+                          disabled={deletingTaskId === task.id}
+                          className="flex items-center gap-1.5 px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg text-sm font-medium transition-colors border border-red-200"
+                        >
+                          {deletingTaskId === task.id ? (
+                            <div className="w-4 h-4 animate-spin rounded-full border-b-2 border-red-500" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
+                          Delete
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h3 className="text-lg font-semibold text-gray-900">Create Daily Task</h3>
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Task Title *</label>
+                <input
+                  type="text"
+                  value={newTask.title}
+                  onChange={(e) => setNewTask((p) => ({ ...p, title: e.target.value }))}
+                  placeholder="e.g. Oil change on slip 12 boat"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Assign To *</label>
+                <select
+                  value={newTask.assigned_to}
+                  onChange={(e) => setNewTask((p) => ({ ...p, assigned_to: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                >
+                  <option value="">Select staff member...</option>
+                  {staffOptions.map((s) => (
+                    <option key={s.user_id} value={s.user_id}>
+                      {[s.first_name, s.last_name].filter(Boolean).join(' ') || 'Unknown'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Yacht (optional)</label>
+                  <select
+                    value={newTask.yacht_id}
+                    onChange={(e) => setNewTask((p) => ({ ...p, yacht_id: e.target.value }))}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                  >
+                    <option value="">None</option>
+                    {yachtOptions.map((y) => (
+                      <option key={y.id} value={y.id}>{y.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Customer (optional)</label>
+                  <select
+                    value={newTask.customer_id}
+                    onChange={(e) => setNewTask((p) => ({ ...p, customer_id: e.target.value }))}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                  >
+                    <option value="">None</option>
+                    {customerOptions.map((c) => (
+                      <option key={c.id} value={c.id}>{customerDisplayName(c)}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Assignment Notes</label>
+                <textarea
+                  value={newTask.admin_notes}
+                  onChange={(e) => setNewTask((p) => ({ ...p, admin_notes: e.target.value }))}
+                  rows={4}
+                  placeholder="Describe what needs to be done, any specific instructions, special requirements..."
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-100">
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="px-4 py-2 border border-gray-200 text-gray-600 hover:bg-gray-50 rounded-lg text-sm font-medium transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateTask}
+                disabled={creatingTask || !newTask.title.trim() || !newTask.assigned_to}
+                className="px-4 py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                {creatingTask ? 'Creating...' : 'Create Task'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

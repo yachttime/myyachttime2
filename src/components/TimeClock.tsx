@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Clock, Users, History, FileText } from 'lucide-react';
+import { Clock, Users, History, FileText, ClipboardList } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useRoleImpersonation } from '../contexts/RoleImpersonationContext';
 import { supabase, isMasterRole } from '../lib/supabase';
@@ -7,12 +7,13 @@ import { TimeClockPanel } from './TimeClockPanel';
 import { TimeEntriesView } from './TimeEntriesView';
 import { TimeEntryEditor } from './TimeEntryEditor';
 import { PayrollReportView } from './PayrollReportView';
+import { DailyTasksView } from './DailyTasksView';
 import { TimeEntry } from '../utils/timeClockHelpers';
 
 export function TimeClock() {
   const { userProfile } = useAuth();
   const { getEffectiveRole } = useRoleImpersonation();
-  const [activeSubTab, setActiveSubTab] = useState<'punch' | 'myTime' | 'allTime' | 'payroll'>('punch');
+  const [activeSubTab, setActiveSubTab] = useState<'punch' | 'myTime' | 'allTime' | 'payroll' | 'dailyTasks'>('punch');
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -49,6 +50,17 @@ export function TimeClock() {
           >
             <History className="w-4 h-4" />
             My Time
+          </button>
+          <button
+            onClick={() => setActiveSubTab('dailyTasks')}
+            className={`pb-4 px-2 border-b-2 font-medium text-sm flex items-center gap-2 ${
+              activeSubTab === 'dailyTasks'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <ClipboardList className="w-4 h-4" />
+            Daily Tasks
           </button>
           {isMaster && (
             <>
@@ -96,6 +108,10 @@ export function TimeClock() {
 
         {activeSubTab === 'payroll' && isMaster && (
           <PayrollReportView />
+        )}
+
+        {activeSubTab === 'dailyTasks' && (
+          <DailyTasksView />
         )}
       </div>
 
