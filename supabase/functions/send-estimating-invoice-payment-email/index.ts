@@ -460,6 +460,16 @@ Deno.serve(async (req: Request) => {
         final_payment_email_recipient: recipientEmail,
         final_payment_resend_email_id: emailData.id,
         customer_email: recipientEmail,
+        final_payment_email_delivered_at: null,
+        final_payment_email_opened_at: null,
+        final_payment_email_clicked_at: null,
+        final_payment_email_bounced_at: null,
+        payment_email_delivered_at: null,
+        payment_email_opened_at: null,
+        payment_email_clicked_at: null,
+        payment_email_bounced_at: null,
+        email_open_count: 0,
+        email_click_count: 0,
       })
       .eq('id', invoiceId);
 
