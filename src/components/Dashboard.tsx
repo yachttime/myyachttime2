@@ -461,6 +461,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   });
   const [invoiceLoading, setInvoiceLoading] = useState(false);
   const [repairInvoices, setRepairInvoices] = useState<{ [repairRequestId: string]: YachtInvoice }>({});
+  const [repairEstimatingInvoices, setRepairEstimatingInvoices] = useState<{ [repairRequestId: string]: any }>({});
   const [showEditRepairModal, setShowEditRepairModal] = useState(false);
   const [editingRepairRequest, setEditingRepairRequest] = useState<RepairRequest | null>(null);
   const [editRepairForm, setEditRepairForm] = useState({
@@ -2519,6 +2520,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           *,
           yachts:yacht_id (name),
           yacht_invoices!repair_request_id (*),
+          estimating_invoices:estimating_invoice_id (id, invoice_number, total_amount, invoice_date, payment_status, payment_link_url, payment_email_sent_at, payment_email_delivered_at, payment_email_opened_at, payment_link_clicked_at, paid_at, balance_due, deposit_applied, amount_paid),
           customers:customer_id (id, customer_type, first_name, last_name, business_name, email, phone),
           customer_vessels:vessel_id (id, vessel_name, manufacturer, model, year)
         `)
@@ -2570,12 +2572,16 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
         // Map profiles to requests and extract invoices
         const invoicesMap: { [repairRequestId: string]: YachtInvoice } = {};
+        const estimatingInvoicesMap: { [repairRequestId: string]: any } = {};
 
         const enrichedRequests = data.map(request => {
-          // Extract invoice from the joined data
+          // Extract yacht invoice from the joined data
           if (request.yacht_invoices && request.yacht_invoices.length > 0) {
-            // Take the first invoice (should only be one per repair request)
             invoicesMap[request.id] = request.yacht_invoices[0];
+          }
+          // Extract estimating invoice from the joined data
+          if (request.estimating_invoices) {
+            estimatingInvoicesMap[request.id] = request.estimating_invoices;
           }
 
           return {
@@ -2586,9 +2592,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
         setRepairRequests(enrichedRequests);
         setRepairInvoices(invoicesMap);
+        setRepairEstimatingInvoices(estimatingInvoicesMap);
       } else {
         setRepairRequests([]);
         setRepairInvoices({});
+        setRepairEstimatingInvoices({});
       }
     } catch (error) {
       console.error('Error loading repair requests:', error);
@@ -12099,7 +12107,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               : 'bg-slate-800/50 text-slate-400 hover:bg-slate-700'
                           }`}
                         >
-                          Active ({repairRequests.filter(r => !r.archived && (!repairInvoices[r.id] || repairInvoices[r.id]?.payment_status !== 'paid')).length})
+                          Active ({repairRequests.filter(r => !r.archived && (!repairInvoices[r.id] || repairInvoices[r.id]?.payment_status !== 'paid') && (!repairEstimatingInvoices[r.id] || repairEstimatingInvoices[r.id]?.payment_status !== 'paid')).length})
                         </button>
                         <button
                           onClick={() => setActiveRepairTab('paid')}
@@ -12109,7 +12117,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               : 'bg-slate-800/50 text-slate-400 hover:bg-slate-700'
                           }`}
                         >
-                          Paid ({repairRequests.filter(r => !r.archived && repairInvoices[r.id]?.payment_status === 'paid').length})
+                          Paid ({repairRequests.filter(r => !r.archived && (repairInvoices[r.id]?.payment_status === 'paid' || repairEstimatingInvoices[r.id]?.payment_status === 'paid')).length})
                         </button>
                         <button
                           onClick={() => setActiveRepairTab('archived')}
@@ -12126,9 +12134,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                     {repairRequests.filter(r => {
                       if (activeRepairTab === 'active') {
-                        return !r.archived && (!repairInvoices[r.id] || repairInvoices[r.id]?.payment_status !== 'paid');
+                        return !r.archived && (!repairInvoices[r.id] || repairInvoices[r.id]?.payment_status !== 'paid') && (!repairEstimatingInvoices[r.id] || repairEstimatingInvoices[r.id]?.payment_status !== 'paid');
                       } else if (activeRepairTab === 'paid') {
-                        return !r.archived && repairInvoices[r.id]?.payment_status === 'paid';
+                        return !r.archived && (repairInvoices[r.id]?.payment_status === 'paid' || repairEstimatingInvoices[r.id]?.payment_status === 'paid');
                       } else {
                         return r.archived;
                       }
@@ -12143,9 +12151,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                         {(() => {
                           const filteredRequests = repairRequests.filter(r => {
                             if (activeRepairTab === 'active') {
-                              return !r.archived && (!repairInvoices[r.id] || repairInvoices[r.id]?.payment_status !== 'paid');
+                              return !r.archived && (!repairInvoices[r.id] || repairInvoices[r.id]?.payment_status !== 'paid') && (!repairEstimatingInvoices[r.id] || repairEstimatingInvoices[r.id]?.payment_status !== 'paid');
                             } else if (activeRepairTab === 'paid') {
-                              return !r.archived && repairInvoices[r.id]?.payment_status === 'paid';
+                              return !r.archived && (repairInvoices[r.id]?.payment_status === 'paid' || repairEstimatingInvoices[r.id]?.payment_status === 'paid');
                             } else {
                               return r.archived;
                             }
@@ -12223,6 +12231,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               <div className="border-t border-slate-700 p-4 space-y-4">
                                 {group.requests.map((request: any) => {
                           const invoice = repairInvoices[request.id];
+                          const estimatingInvoice = repairEstimatingInvoices[request.id];
                           return (
                             <div key={request.id} className="bg-slate-900/50 backdrop-blur-sm rounded-xl p-6 border border-slate-700/50">
                               <div className="flex items-start justify-between mb-4">
@@ -12753,6 +12762,72 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                           )}
                                         </div>
                                       )}
+                                    </div>
+                                  )}
+
+                                  {estimatingInvoice && (
+                                    <div className="mt-4 bg-gradient-to-r from-orange-500/10 to-amber-500/10 border border-orange-500/30 rounded-lg p-4">
+                                      <div className="flex items-center gap-2 mb-3">
+                                        <FileText className="w-5 h-5 text-orange-400" />
+                                        <h5 className="font-semibold text-orange-400">Invoice {estimatingInvoice.invoice_number}</h5>
+                                        {estimatingInvoice.payment_status === 'paid' ? (
+                                          <span className="ml-auto bg-green-500/20 text-green-400 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
+                                            <CheckCircle className="w-3 h-3" />
+                                            Paid
+                                          </span>
+                                        ) : estimatingInvoice.payment_link_clicked_at ? (
+                                          <span className="ml-auto bg-teal-500/20 text-teal-400 px-3 py-1 rounded-full text-xs font-semibold">
+                                            Viewed
+                                          </span>
+                                        ) : estimatingInvoice.payment_email_sent_at ? (
+                                          <span className="ml-auto bg-blue-500/20 text-blue-400 px-3 py-1 rounded-full text-xs font-semibold">
+                                            Email Sent
+                                          </span>
+                                        ) : (
+                                          <span className="ml-auto bg-yellow-500/20 text-yellow-400 px-3 py-1 rounded-full text-xs font-semibold">
+                                            Awaiting Payment
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="space-y-1">
+                                        <p className="text-sm text-slate-300">
+                                          <span className="font-semibold">Total:</span> ${Number(estimatingInvoice.total_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </p>
+                                        {estimatingInvoice.deposit_applied > 0 && (
+                                          <p className="text-sm text-slate-300">
+                                            <span className="font-semibold">Deposit Applied:</span> ${Number(estimatingInvoice.deposit_applied || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                          </p>
+                                        )}
+                                        {estimatingInvoice.balance_due != null && (
+                                          <p className="text-sm text-slate-300">
+                                            <span className="font-semibold">Balance Due:</span> ${Number(estimatingInvoice.balance_due || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                          </p>
+                                        )}
+                                        <p className="text-xs text-slate-400">
+                                          Invoice Date: {new Date(estimatingInvoice.invoice_date).toLocaleDateString()}
+                                        </p>
+                                        {estimatingInvoice.paid_at && (
+                                          <p className="text-xs text-green-400">
+                                            Paid on: {new Date(estimatingInvoice.paid_at).toLocaleDateString()}
+                                          </p>
+                                        )}
+                                        {estimatingInvoice.payment_link_url && (
+                                          <div className="mt-2 flex items-center gap-2">
+                                            <input
+                                              type="text"
+                                              readOnly
+                                              value={estimatingInvoice.payment_link_url}
+                                              className="flex-1 bg-slate-900/50 border border-slate-700 rounded px-3 py-2 text-xs text-slate-300"
+                                            />
+                                            <button
+                                              onClick={() => copyToClipboard(estimatingInvoice.payment_link_url)}
+                                              className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-2 rounded text-xs font-semibold transition-all"
+                                            >
+                                              Copy
+                                            </button>
+                                          </div>
+                                        )}
+                                      </div>
                                     </div>
                                   )}
 
