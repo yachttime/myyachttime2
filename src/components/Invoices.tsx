@@ -680,14 +680,15 @@ export function Invoices({ userId }: InvoicesProps) {
     if (!invoice.customer_email) {
       let prefillEmail = '';
       if (invoice.yacht_id) {
-        const { data: ownerProfile } = await supabase
+        const { data: profiles } = await supabase
           .from('user_profiles')
-          .select('email_address')
+          .select('email, role')
           .eq('yacht_id', invoice.yacht_id)
-          .eq('role', 'owner')
-          .maybeSingle();
-        if (ownerProfile?.email_address) {
-          prefillEmail = ownerProfile.email_address;
+          .in('role', ['manager', 'owner']);
+        if (profiles && profiles.length > 0) {
+          const manager = profiles.find((p: any) => p.role === 'manager');
+          const owner = profiles.find((p: any) => p.role === 'owner');
+          prefillEmail = (manager?.email || owner?.email) ?? '';
         }
       }
       setEmailPrompt({ invoice, email: prefillEmail });
