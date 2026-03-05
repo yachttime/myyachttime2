@@ -372,8 +372,8 @@ export function DailyTasksView() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900">Daily Tasks</h2>
-          <p className="text-sm text-gray-500 mt-0.5">
+          <h2 className="text-xl font-semibold text-white">Daily Tasks</h2>
+          <p className="text-sm text-slate-400 mt-0.5">
             {canManage
               ? 'Assign and track daily tasks for staff members'
               : 'Your assigned tasks — incomplete tasks carry over each day'}
