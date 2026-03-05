@@ -15110,7 +15110,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               />
                             </div>
 
-                            {isMasterRole(effectiveRole) && (
+                            {isManagerRole(effectiveRole) && (
                               <div className="border border-slate-600 rounded-xl overflow-hidden">
                                 <button
                                   type="button"
@@ -16751,7 +16751,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                         </div>
                       )}
 
-                      {booking.is_appointment && isMasterRole(effectiveRole) && (
+                      {booking.is_appointment && isManagerRole(effectiveRole) && (
                         <div className="mt-3 pt-3 border-t border-slate-700/50">
                           {assignTaskAppointmentId === booking.id ? (
                             <div className="space-y-3" onClick={(e) => e.stopPropagation()}>
