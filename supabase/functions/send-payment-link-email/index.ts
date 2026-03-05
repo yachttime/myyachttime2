@@ -12,6 +12,9 @@ interface EmailRequest {
   recipientName?: string;
   recaptchaToken?: string;
   additionalRecipients?: { email: string; name?: string }[];
+  attachmentBase64?: string;
+  attachmentFilename?: string;
+  attachmentContentType?: string;
 }
 
 Deno.serve(async (req: Request) => {
@@ -39,7 +42,7 @@ Deno.serve(async (req: Request) => {
       throw new Error('Unauthorized');
     }
 
-    const { invoiceId, recipientEmail, recipientName, recaptchaToken, additionalRecipients }: EmailRequest = await req.json();
+    const { invoiceId, recipientEmail, recipientName, recaptchaToken, additionalRecipients, attachmentBase64, attachmentFilename, attachmentContentType }: EmailRequest = await req.json();
 
     if (!invoiceId || !recipientEmail) {
       throw new Error('Invoice ID and recipient email are required');
@@ -294,8 +297,19 @@ Deno.serve(async (req: Request) => {
         'X-Entity-Ref-ID': invoiceId,
       };
 
+      const attachments = [];
       if (invoiceAttachment) {
-        emailPayload.attachments = [invoiceAttachment];
+        attachments.push(invoiceAttachment);
+      }
+      if (attachmentBase64 && attachmentFilename) {
+        attachments.push({
+          filename: attachmentFilename,
+          content: attachmentBase64,
+          content_type: attachmentContentType || 'application/octet-stream',
+        });
+      }
+      if (attachments.length > 0) {
+        emailPayload.attachments = attachments;
       }
 
       const emailResponse = await fetch('https://api.resend.com/emails', {

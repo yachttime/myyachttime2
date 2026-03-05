@@ -484,6 +484,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [emailRecipientName, setEmailRecipientName] = useState('');
   const [invoiceBillingManagers, setInvoiceBillingManagers] = useState<{ email: string; name: string; source: string }[]>([]);
   const [invoiceBillingManagersLoading, setInvoiceBillingManagersLoading] = useState(false);
+  const [invoiceEmailAttachment, setInvoiceEmailAttachment] = useState<File | null>(null);
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [selectedRepairForDeposit, setSelectedRepairForDeposit] = useState<RepairRequest | null>(null);
   const [depositForm, setDepositForm] = useState({
@@ -3733,6 +3734,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     setEmailRecipient('');
     setEmailRecipientName('');
     setInvoiceBillingManagers([]);
+    setInvoiceEmailAttachment(null);
     setShowEmailModal(true);
 
     if (invoice.yacht_id) {
@@ -3803,6 +3805,22 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         ? invoiceBillingManagers
         : [{ email: emailRecipient, name: emailRecipientName }];
 
+      let attachmentBase64: string | undefined;
+      let attachmentFilename: string | undefined;
+      let attachmentContentType: string | undefined;
+
+      if (invoiceEmailAttachment) {
+        const buffer = await invoiceEmailAttachment.arrayBuffer();
+        const bytes = new Uint8Array(buffer);
+        let binary = '';
+        for (let i = 0; i < bytes.byteLength; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        attachmentBase64 = btoa(binary);
+        attachmentFilename = invoiceEmailAttachment.name;
+        attachmentContentType = invoiceEmailAttachment.type || 'application/octet-stream';
+      }
+
       const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-payment-link-email`;
 
       const response = await fetch(apiUrl, {
@@ -3816,6 +3834,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           recipientEmail: recipients[0].email,
           recipientName: recipients[0].name || undefined,
           additionalRecipients: recipients.slice(1).map(r => ({ email: r.email, name: r.name || undefined })),
+          attachmentBase64,
+          attachmentFilename,
+          attachmentContentType,
         })
       });
 
@@ -3841,6 +3862,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           setEmailRecipient('');
           setEmailRecipientName('');
           setInvoiceBillingManagers([]);
+          setInvoiceEmailAttachment(null);
           showError('Email service not configured. Please copy the payment link and send it manually');
           return;
         }
@@ -3852,6 +3874,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       setEmailRecipient('');
       setEmailRecipientName('');
       setInvoiceBillingManagers([]);
+      setInvoiceEmailAttachment(null);
 
       await loadChatMessages();
       await loadRepairRequests();
@@ -16879,6 +16902,50 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                 </>
               )}
 
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Attach File (Optional)
+                </label>
+                <div className="relative">
+                  {invoiceEmailAttachment ? (
+                    <div className="flex items-center justify-between bg-slate-900/50 border border-blue-500/50 rounded-lg px-4 py-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Paperclip className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                        <span className="text-sm text-white truncate">{invoiceEmailAttachment.name}</span>
+                        <span className="text-xs text-slate-400 flex-shrink-0">
+                          ({(invoiceEmailAttachment.size / 1024).toFixed(0)} KB)
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setInvoiceEmailAttachment(null)}
+                        className="text-slate-400 hover:text-red-400 transition-colors flex-shrink-0 ml-2"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="flex items-center gap-3 bg-slate-900/50 border border-dashed border-slate-600 hover:border-blue-500/50 rounded-lg px-4 py-3 cursor-pointer transition-colors group">
+                      <Paperclip className="w-4 h-4 text-slate-500 group-hover:text-blue-400 transition-colors flex-shrink-0" />
+                      <span className="text-sm text-slate-500 group-hover:text-slate-300 transition-colors">
+                        Attach final invoice or document...
+                      </span>
+                      <input
+                        type="file"
+                        accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] || null;
+                          setInvoiceEmailAttachment(file);
+                          e.target.value = '';
+                        }}
+                      />
+                    </label>
+                  )}
+                </div>
+                <p className="text-xs text-slate-500 mt-1">PDF, Word, Excel, or image files accepted</p>
+              </div>
+
               <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
                 <p className="text-xs text-blue-300">
                   A professional email will be sent with the payment link, invoice details, and instructions for completing the payment.
@@ -16888,7 +16955,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
             <div className="p-6 border-t border-slate-700 flex gap-3">
               <button
-                onClick={() => { setShowEmailModal(false); setInvoiceBillingManagers([]); }}
+                onClick={() => { setShowEmailModal(false); setInvoiceBillingManagers([]); setInvoiceEmailAttachment(null); }}
                 disabled={sendingEmail}
                 className="flex-1 px-6 bg-slate-700 hover:bg-slate-600 text-white font-semibold py-3 rounded-lg transition-colors disabled:opacity-50"
               >
