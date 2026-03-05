@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Anchor, Calendar, CheckCircle, AlertCircle, BookOpen, LogOut, Wrench, Send, Play, Shield, ClipboardCheck, Ship, CalendarPlus, FileUp, MessageCircle, Mail, CreditCard as Edit2, Trash2, ChevronLeft, ChevronRight, ChevronDown, History, UserCheck, FileText, Upload, Download, X, Users, Save, RefreshCw, Clock, Thermometer, Camera, Receipt, Pencil, Lock, CreditCard, Eye, EyeOff, MousePointer, Ligature as FileSignature, Folder, Menu, Phone, Printer, Plus, QrCode, CircleUser as UserCircle2, DollarSign, Archive, Building2, MessageSquare, ShieldAlert, Paperclip } from 'lucide-react';
+import { Anchor, Calendar, CheckCircle, AlertCircle, BookOpen, LogOut, Wrench, Send, Play, Shield, ClipboardCheck, ClipboardList, Ship, CalendarPlus, FileUp, MessageCircle, Mail, CreditCard as Edit2, Trash2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, History, UserCheck, FileText, Upload, Download, X, Users, Save, RefreshCw, Clock, Thermometer, Camera, Receipt, Pencil, Lock, CreditCard, Eye, EyeOff, MousePointer, Ligature as FileSignature, Folder, Menu, Phone, Printer, Plus, QrCode, CircleUser as UserCircle2, DollarSign, Archive, Building2, MessageSquare, ShieldAlert, Paperclip } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCompany } from '../contexts/CompanyContext';
 import { useRoleImpersonation } from '../contexts/RoleImpersonationContext';
@@ -572,6 +572,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   });
   const [editAppointmentLoading, setEditAppointmentLoading] = useState(false);
   const [editAppointmentError, setEditAppointmentError] = useState('');
+  const [assignTaskAppointmentId, setAssignTaskAppointmentId] = useState<string | null>(null);
+  const [assignTaskStaffList, setAssignTaskStaffList] = useState<{user_id: string; first_name: string | null; last_name: string | null}[]>([]);
+  const [assignTaskForm, setAssignTaskForm] = useState({ assigned_to: '', task_date: '', admin_notes: '' });
+  const [assignTaskLoading, setAssignTaskLoading] = useState(false);
+  const [assignTaskSuccess, setAssignTaskSuccess] = useState(false);
+  const [assignTaskError, setAssignTaskError] = useState('');
   const [staffMessages, setStaffMessages] = useState<StaffMessage[]>([]);
   const [messagesTab, setMessagesTab] = useState<'yacht' | 'staff'>('yacht');
   const [selectedDayAppointments, setSelectedDayAppointments] = useState<{date: Date, bookings: (YachtBooking | Appointment)[]} | null>(null);
@@ -5223,6 +5229,63 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       setEditingAppointment(null);
     } catch (err: any) {
       alert(`Failed to delete appointment: ${err.message}`);
+    }
+  };
+
+  const openAssignTaskPanel = async (appointmentId: string, appointmentDate: string) => {
+    setAssignTaskAppointmentId(appointmentId);
+    setAssignTaskForm({ assigned_to: '', task_date: appointmentDate, admin_notes: '' });
+    setAssignTaskSuccess(false);
+    setAssignTaskError('');
+    if (assignTaskStaffList.length === 0) {
+      const { data } = await supabase
+        .from('user_profiles')
+        .select('user_id, first_name, last_name')
+        .in('role', ['staff', 'mechanic', 'master'])
+        .eq('is_active', true)
+        .order('last_name');
+      setAssignTaskStaffList(data || []);
+    }
+  };
+
+  const handleAssignAppointmentTask = async (appointment: Appointment) => {
+    if (!assignTaskForm.assigned_to || !assignTaskForm.task_date) return;
+    setAssignTaskLoading(true);
+    setAssignTaskError('');
+    try {
+      const aptAny = appointment as any;
+      const title = aptAny.appointment_type === 'staff'
+        ? `Staff Meeting: ${appointment.owner_name || (appointment as any).name}`
+        : `Appointment: ${appointment.owner_name || (appointment as any).name}`;
+
+      const { error } = await supabase.from('daily_tasks').insert({
+        title,
+        assigned_to: assignTaskForm.assigned_to,
+        assigned_by: user!.id,
+        admin_notes: assignTaskForm.admin_notes.trim() || (appointment.problem_description || ''),
+        staff_notes: '',
+        time_spent_minutes: 0,
+        is_completed: false,
+        task_date: assignTaskForm.task_date,
+        appointment_id: appointment.id,
+        task_type: 'appointment',
+        company_id: userProfile?.company_id,
+      });
+
+      if (error) throw error;
+
+      await supabase
+        .from('appointments')
+        .update({ assigned_to: assignTaskForm.assigned_to })
+        .eq('id', appointment.id);
+
+      setAssignTaskSuccess(true);
+      setAssignTaskAppointmentId(null);
+      setTimeout(() => setAssignTaskSuccess(false), 3000);
+    } catch (err: any) {
+      setAssignTaskError(err.message || 'Failed to assign task');
+    } finally {
+      setAssignTaskLoading(false);
     }
   };
 
@@ -15046,6 +15109,89 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 required={(editingAppointment as any).appointment_type !== 'staff'}
                               />
                             </div>
+
+                            {isMasterRole(effectiveRole) && (
+                              <div className="border border-slate-600 rounded-xl overflow-hidden">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (assignTaskAppointmentId === editingAppointment.id) {
+                                      setAssignTaskAppointmentId(null);
+                                    } else {
+                                      openAssignTaskPanel(editingAppointment.id, editAppointmentForm.date || new Date().toISOString().split('T')[0]);
+                                    }
+                                  }}
+                                  className="w-full flex items-center justify-between px-4 py-3 bg-teal-700/30 hover:bg-teal-700/50 text-teal-300 font-medium text-sm transition-colors"
+                                >
+                                  <span className="flex items-center gap-2">
+                                    <ClipboardList className="w-4 h-4" />
+                                    Assign to Staff (Daily Task)
+                                  </span>
+                                  {assignTaskAppointmentId === editingAppointment.id ? (
+                                    <ChevronUp className="w-4 h-4" />
+                                  ) : (
+                                    <ChevronDown className="w-4 h-4" />
+                                  )}
+                                </button>
+                                {assignTaskAppointmentId === editingAppointment.id && (
+                                  <div className="p-4 bg-slate-900/50 space-y-3">
+                                    {assignTaskSuccess && (
+                                      <div className="text-sm text-green-400 bg-green-500/10 border border-green-500/30 rounded-lg px-3 py-2">
+                                        Task assigned successfully. It will appear in Daily Tasks.
+                                      </div>
+                                    )}
+                                    {assignTaskError && (
+                                      <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
+                                        {assignTaskError}
+                                      </div>
+                                    )}
+                                    <div>
+                                      <label className="block text-xs font-medium text-slate-400 mb-1">Assign To *</label>
+                                      <select
+                                        value={assignTaskForm.assigned_to}
+                                        onChange={(e) => setAssignTaskForm(f => ({ ...f, assigned_to: e.target.value }))}
+                                        className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-sm text-white focus:outline-none focus:border-teal-500"
+                                      >
+                                        <option value="">Select staff member...</option>
+                                        {assignTaskStaffList.map(s => (
+                                          <option key={s.user_id} value={s.user_id}>
+                                            {[s.first_name, s.last_name].filter(Boolean).join(' ') || 'Unknown'}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                    <div>
+                                      <label className="block text-xs font-medium text-slate-400 mb-1">Task Date *</label>
+                                      <input
+                                        type="date"
+                                        value={assignTaskForm.task_date}
+                                        onChange={(e) => setAssignTaskForm(f => ({ ...f, task_date: e.target.value }))}
+                                        className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-sm text-white focus:outline-none focus:border-teal-500"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block text-xs font-medium text-slate-400 mb-1">Notes for Staff <span className="text-slate-500">(Optional)</span></label>
+                                      <textarea
+                                        value={assignTaskForm.admin_notes}
+                                        onChange={(e) => setAssignTaskForm(f => ({ ...f, admin_notes: e.target.value }))}
+                                        rows={2}
+                                        placeholder="Additional instructions for the staff member..."
+                                        className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-sm text-white focus:outline-none focus:border-teal-500 resize-none"
+                                      />
+                                    </div>
+                                    <button
+                                      type="button"
+                                      disabled={assignTaskLoading || !assignTaskForm.assigned_to || !assignTaskForm.task_date}
+                                      onClick={() => handleAssignAppointmentTask(editingAppointment)}
+                                      className="w-full py-2 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-medium text-sm rounded-lg transition-colors"
+                                    >
+                                      {assignTaskLoading ? 'Assigning...' : 'Assign Task'}
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
                             {editAppointmentError && (
                               <div className="bg-red-500/10 border border-red-500 text-red-500 px-4 py-3 rounded-lg text-sm">
                                 {editAppointmentError}

@@ -34,12 +34,15 @@ interface DailyTask {
   is_completed: boolean;
   completed_at: string | null;
   task_date: string;
+  task_type: string;
+  appointment_id: string | null;
   created_at: string;
   assigned_to_profile?: { first_name: string | null; last_name: string | null };
   assigned_by_profile?: { first_name: string | null; last_name: string | null };
   yachts?: { name: string } | null;
   customers?: { first_name: string | null; last_name: string | null; business_name: string | null; customer_type: string } | null;
   daily_task_parts?: DailyTaskPart[];
+  appointments?: { name: string | null; date: string | null; time: string | null; problem_description: string | null; appointment_type: string | null } | null;
 }
 
 interface DailyTaskPart {
@@ -144,7 +147,8 @@ export function DailyTasksView() {
         assigned_by_profile:user_profiles!daily_tasks_assigned_by_fkey(first_name, last_name),
         yachts(name),
         customers(first_name, last_name, business_name, customer_type),
-        daily_task_parts(id, task_id, part_name, quantity, notes, added_by)
+        daily_task_parts(id, task_id, part_name, quantity, notes, added_by),
+        appointments(name, date, time, problem_description, appointment_type)
       `)
       .eq('is_completed', false)
       .order('task_date', { ascending: true })
@@ -353,6 +357,15 @@ export function DailyTasksView() {
     return task.task_date < today && !task.is_completed;
   };
 
+  const formatAppointmentTime = (time: string | null) => {
+    if (!time) return '';
+    const [h, m] = time.split(':');
+    const hour = parseInt(h);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const display = hour % 12 || 12;
+    return `${display}:${m} ${ampm}`;
+  };
+
   const formatTimeSpent = (minutes: number) => {
     if (!minutes) return null;
     const h = Math.floor(minutes / 60);
@@ -467,6 +480,13 @@ export function DailyTasksView() {
                           {assigneeName}
                         </span>
                       )}
+                      {task.task_type === 'appointment' && task.appointments && (
+                        <span className="flex items-center gap-1 text-xs font-medium px-2 py-0.5 bg-teal-500/20 text-teal-300 rounded-full border border-teal-500/30">
+                          <Calendar className="w-3 h-3" />
+                          {task.appointments.appointment_type === 'staff' ? 'Staff Meeting' : 'Appointment'}
+                          {task.appointments.time ? ` @ ${formatAppointmentTime(task.appointments.time)}` : ''}
+                        </span>
+                      )}
                       {task.yachts && (
                         <span className="flex items-center gap-1 text-xs text-blue-300">
                           <Ship className="w-3 h-3" />
@@ -498,6 +518,28 @@ export function DailyTasksView() {
                       <span><span className="font-medium text-slate-100">Assigned by:</span> {assignerName}</span>
                       <span><span className="font-medium text-slate-100">Date:</span> {formatTaskDate(task.task_date)}</span>
                     </div>
+
+                    {task.task_type === 'appointment' && task.appointments && (
+                      <div className="bg-teal-900/30 border border-teal-600/40 rounded-lg p-3">
+                        <p className="text-xs font-semibold text-teal-300 uppercase tracking-wide mb-2">
+                          {task.appointments.appointment_type === 'staff' ? 'Staff Meeting Details' : 'Appointment Details'}
+                        </p>
+                        <div className="space-y-1 text-sm text-teal-100">
+                          {task.appointments.name && (
+                            <p><span className="text-teal-400 font-medium">Customer:</span> {task.appointments.name}</p>
+                          )}
+                          {task.appointments.date && (
+                            <p><span className="text-teal-400 font-medium">Date:</span> {new Date(task.appointments.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                          )}
+                          {task.appointments.time && (
+                            <p><span className="text-teal-400 font-medium">Time:</span> {formatAppointmentTime(task.appointments.time)}</p>
+                          )}
+                          {task.appointments.problem_description && (
+                            <p><span className="text-teal-400 font-medium">Description:</span> {task.appointments.problem_description}</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
                     {task.admin_notes && (
                       <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
