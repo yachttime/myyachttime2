@@ -2520,7 +2520,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           *,
           yachts:yacht_id (name),
           yacht_invoices!repair_request_id (*),
-          estimating_invoices:estimating_invoice_id (id, invoice_number, total_amount, invoice_date, payment_status, payment_link, payment_email_sent_at, payment_email_delivered_at, payment_email_opened_at, payment_link_created_at, paid_at, balance_due, deposit_applied, amount_paid),
+          estimating_invoices:estimating_invoice_id (id, invoice_number, total_amount, invoice_date, payment_status, payment_link, final_payment_link_url, payment_email_sent_at, payment_email_delivered_at, payment_email_opened_at, payment_email_clicked_at, payment_link_created_at, paid_at, balance_due, deposit_applied, amount_paid),
           customers:customer_id (id, customer_type, first_name, last_name, business_name, email, phone),
           customer_vessels:vessel_id (id, vessel_name, manufacturer, model, year)
         `)
@@ -12780,7 +12780,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                             <CheckCircle className="w-3 h-3" />
                                             Paid
                                           </span>
-                                        ) : estimatingInvoice.payment_link_clicked_at ? (
+                                        ) : estimatingInvoice.payment_email_clicked_at ? (
                                           <span className="ml-auto bg-teal-500/20 text-teal-400 px-3 py-1 rounded-full text-xs font-semibold">
                                             Viewed
                                           </span>
@@ -12816,16 +12816,16 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                             Paid on: {new Date(estimatingInvoice.paid_at).toLocaleDateString()}
                                           </p>
                                         )}
-                                        {estimatingInvoice.payment_link_url && (
+                                        {(estimatingInvoice.final_payment_link_url || estimatingInvoice.payment_link) && (
                                           <div className="mt-2 flex items-center gap-2">
                                             <input
                                               type="text"
                                               readOnly
-                                              value={estimatingInvoice.payment_link_url}
+                                              value={estimatingInvoice.final_payment_link_url || estimatingInvoice.payment_link}
                                               className="flex-1 bg-slate-900/50 border border-slate-700 rounded px-3 py-2 text-xs text-slate-300"
                                             />
                                             <button
-                                              onClick={() => copyToClipboard(estimatingInvoice.payment_link_url)}
+                                              onClick={() => copyToClipboard(estimatingInvoice.final_payment_link_url || estimatingInvoice.payment_link)}
                                               className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-2 rounded text-xs font-semibold transition-all"
                                             >
                                               Copy
