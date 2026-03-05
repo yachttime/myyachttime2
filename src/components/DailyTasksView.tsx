@@ -682,8 +682,8 @@ export function DailyTasksView() {
       )}
 
       {showCreateModal && createPortal(
-        <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-[9999] p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg flex flex-col my-8">
+        <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-[9999] p-2 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg flex flex-col my-4 sm:my-8 mx-2 sm:mx-0">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
               <h3 className="text-lg font-semibold text-gray-900">Create Daily Task</h3>
               <button
