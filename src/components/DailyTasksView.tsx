@@ -96,8 +96,8 @@ export function DailyTasksView() {
   const { getEffectiveRole } = useRoleImpersonation();
 
   const effectiveRole = getEffectiveRole(userProfile?.role);
-  const canSeeAllTasks = isMasterRole(effectiveRole) || isManagerRole(effectiveRole) || effectiveRole === 'staff';
-  const canManage = isMasterRole(effectiveRole) || isManagerRole(effectiveRole);
+  const canSeeAllTasks = isMasterRole(effectiveRole) || effectiveRole === 'staff';
+  const canManage = isMasterRole(effectiveRole);
 
   const [tasks, setTasks] = useState<DailyTask[]>([]);
   const [loading, setLoading] = useState(true);
