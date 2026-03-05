@@ -128,6 +128,7 @@ export function DailyTasksView() {
 
   const [staffNotesEdit, setStaffNotesEdit] = useState<Record<string, string>>({});
   const [timeSpentEdit, setTimeSpentEdit] = useState<Record<string, string>>({});
+  const [taskDateEdit, setTaskDateEdit] = useState<Record<string, string>>({});
 
   const [addingPartForTask, setAddingPartForTask] = useState<string | null>(null);
   const [newPart, setNewPart] = useState<NewPartForm>({ part_name: '', quantity: '', notes: '' });
@@ -272,10 +273,12 @@ export function DailyTasksView() {
     const hoursStr = timeSpentEdit[taskId] ?? '0';
     const hours = parseFloat(hoursStr) || 0;
     const minutes = Math.round(hours * 60);
+    const task = tasks.find((t) => t.id === taskId);
+    const dateVal = taskDateEdit[taskId] ?? task?.task_date;
 
     const { error: updateError } = await supabase
       .from('daily_tasks')
-      .update({ staff_notes: notes, time_spent_minutes: minutes })
+      .update({ staff_notes: notes, time_spent_minutes: minutes, ...(dateVal ? { task_date: dateVal } : {}) })
       .eq('id', taskId);
 
     if (updateError) setError('Failed to save updates.');
@@ -524,7 +527,19 @@ export function DailyTasksView() {
                         </span>
                       )}
                       <span><span className="font-medium text-slate-100">Assigned by:</span> {assignerName}</span>
-                      <span><span className="font-medium text-slate-100">Date:</span> {formatTaskDate(task.task_date)}</span>
+                      <span className="flex items-center gap-2">
+                        <span className="font-medium text-slate-100">Date:</span>
+                        {canManage ? (
+                          <input
+                            type="date"
+                            value={taskDateEdit[task.id] ?? task.task_date}
+                            onChange={(e) => setTaskDateEdit((p) => ({ ...p, [task.id]: e.target.value }))}
+                            className="bg-slate-700 border border-slate-500 rounded px-2 py-0.5 text-sm text-slate-100 focus:outline-none focus:border-blue-400"
+                          />
+                        ) : (
+                          formatTaskDate(task.task_date)
+                        )}
+                      </span>
                     </div>
 
                     {task.task_type === 'appointment' && task.appointments && (
