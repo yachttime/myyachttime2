@@ -99,8 +99,8 @@ export function DailyTasksView() {
   const { getEffectiveRole } = useRoleImpersonation();
 
   const effectiveRole = getEffectiveRole(userProfile?.role);
-  const canSeeAllTasks = isMasterRole(effectiveRole) || effectiveRole === 'staff';
-  const canManage = isMasterRole(effectiveRole);
+  const canSeeAllTasks = isManagerRole(effectiveRole) || effectiveRole === 'staff' || effectiveRole === 'mechanic';
+  const canManage = isManagerRole(effectiveRole);
 
   const [tasks, setTasks] = useState<DailyTask[]>([]);
   const [loading, setLoading] = useState(true);
@@ -219,7 +219,7 @@ export function DailyTasksView() {
   };
 
   const handleCreateTask = async () => {
-    if (!newTask.title.trim() || !newTask.assigned_to) return;
+    if (!newTask.title.trim()) return;
     setCreatingTask(true);
     setError(null);
 
@@ -227,7 +227,7 @@ export function DailyTasksView() {
       .from('daily_tasks')
       .insert({
         title: newTask.title.trim(),
-        assigned_to: newTask.assigned_to,
+        assigned_to: newTask.assigned_to || null,
         assigned_by: user!.id,
         yacht_id: newTask.yacht_id || null,
         customer_id: newTask.customer_id || null,
@@ -428,7 +428,9 @@ export function DailyTasksView() {
           {tasks.map((task) => {
             const overdue = isOverdue(task);
             const isExpanded = expandedTaskId === task.id;
-            const assigneeName = [task.assigned_to_profile?.first_name, task.assigned_to_profile?.last_name].filter(Boolean).join(' ') || 'Unknown';
+            const assigneeName = task.assigned_to
+              ? ([task.assigned_to_profile?.first_name, task.assigned_to_profile?.last_name].filter(Boolean).join(' ') || 'Unknown')
+              : 'Unassigned';
             const assignerName = [task.assigned_by_profile?.first_name, task.assigned_by_profile?.last_name].filter(Boolean).join(' ') || 'Unknown';
             const timeFormatted = formatTimeSpent(task.time_spent_minutes);
 
@@ -475,7 +477,7 @@ export function DailyTasksView() {
 
                     <div className="flex flex-wrap items-center gap-3 mt-1.5">
                       {canManage && (
-                        <span className="flex items-center gap-1 text-xs text-slate-300">
+                        <span className={`flex items-center gap-1 text-xs ${task.assigned_to ? 'text-slate-300' : 'text-orange-400 font-medium'}`}>
                           <User className="w-3 h-3" />
                           {assigneeName}
                         </span>
@@ -513,7 +515,10 @@ export function DailyTasksView() {
                   <div className="border-t border-slate-600 p-4 space-y-4" onClick={(e) => e.stopPropagation()}>
                     <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-slate-300">
                       {canManage && (
-                        <span><span className="font-medium text-slate-100">Assigned to:</span> {assigneeName}</span>
+                        <span>
+                          <span className="font-medium text-slate-100">Assigned to:</span>{' '}
+                          <span className={task.assigned_to ? '' : 'text-orange-400 font-medium'}>{assigneeName}</span>
+                        </span>
                       )}
                       <span><span className="font-medium text-slate-100">Assigned by:</span> {assignerName}</span>
                       <span><span className="font-medium text-slate-100">Date:</span> {formatTaskDate(task.task_date)}</span>
@@ -755,13 +760,16 @@ export function DailyTasksView() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Assign To *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Assign To
+                  <span className="text-gray-400 font-normal ml-1">(optional — assign later if unknown)</span>
+                </label>
                 <select
                   value={newTask.assigned_to}
                   onChange={(e) => setNewTask((p) => ({ ...p, assigned_to: e.target.value }))}
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
                 >
-                  <option value="">Select staff member...</option>
+                  <option value="">Unassigned</option>
                   {staffOptions.map((s) => (
                     <option key={s.user_id} value={s.user_id}>
                       {[s.first_name, s.last_name].filter(Boolean).join(' ') || 'Unknown'}
@@ -942,7 +950,7 @@ export function DailyTasksView() {
               </button>
               <button
                 onClick={handleCreateTask}
-                disabled={creatingTask || !newTask.title.trim() || !newTask.assigned_to}
+                disabled={creatingTask || !newTask.title.trim()}
                 className="px-4 py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
               >
                 {creatingTask ? 'Creating...' : 'Create Task'}
