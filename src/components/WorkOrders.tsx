@@ -1925,7 +1925,8 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
 
       if (createError) throw createError;
 
-      showSuccess(`Created ${data.entries_created} time entries successfully!`);
+      const skippedMsg = data.entries_skipped > 0 ? ` (${data.entries_skipped} already existed and were skipped)` : '';
+      showSuccess(`Created ${data.entries_created} time entries successfully!${skippedMsg}`);
       setShowTimeEntryPreview(false);
       setTimeEntryPreview([]);
       setSelectedWorkOrderForTime(null);
@@ -2009,8 +2010,8 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {Object.entries(
-                    timeEntryPreview.reduce((acc: any, entry: any) => {
+                  {(() => {
+                    const grouped = timeEntryPreview.reduce((acc: any, entry: any) => {
                       if (!acc[entry.task_id]) {
                         acc[entry.task_id] = {
                           task_name: entry.task_name,
@@ -2021,30 +2022,51 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                       }
                       acc[entry.task_id].employees.push({
                         name: entry.employee_name,
-                        hours: entry.employee_hours
+                        hours: entry.employee_hours,
+                        already_has_entry: entry.already_has_entry,
+                        is_paid: entry.is_paid
                       });
                       return acc;
-                    }, {})
-                  ).map(([taskId, task]: [string, any]) => (
-                    <div key={taskId} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <h4 className="font-semibold text-gray-900">{task.task_name}</h4>
-                          <p className="text-sm text-gray-600">
-                            Total: {task.total_hours} hours ÷ {task.employee_count} employee{task.employee_count !== 1 ? 's' : ''} = {(task.total_hours / task.employee_count).toFixed(2)} hours each
-                          </p>
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        {task.employees.map((emp: any, idx: number) => (
-                          <div key={idx} className="flex justify-between items-center bg-white p-3 rounded border border-gray-200">
-                            <span className="text-sm font-medium text-gray-900">{emp.name}</span>
-                            <span className="text-sm text-blue-600 font-semibold">{emp.hours} hours</span>
+                    }, {});
+                    const allAlreadyExist = timeEntryPreview.every((e: any) => e.already_has_entry);
+                    return (
+                      <>
+                        {allAlreadyExist && (
+                          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 text-sm text-amber-800">
+                            All time entries for this work order have already been created.
+                          </div>
+                        )}
+                        {Object.entries(grouped).map(([taskId, task]: [string, any]) => (
+                          <div key={taskId} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                            <div className="flex justify-between items-start mb-3">
+                              <div>
+                                <h4 className="font-semibold text-gray-900">{task.task_name}</h4>
+                                <p className="text-sm text-gray-600">
+                                  Total: {task.total_hours} hours ÷ {task.employee_count} employee{task.employee_count !== 1 ? 's' : ''} = {(task.total_hours / task.employee_count).toFixed(2)} hours each
+                                </p>
+                              </div>
+                            </div>
+                            <div className="space-y-2">
+                              {task.employees.map((emp: any, idx: number) => (
+                                <div key={idx} className={`flex justify-between items-center p-3 rounded border ${emp.already_has_entry ? 'bg-gray-100 border-gray-300' : 'bg-white border-gray-200'}`}>
+                                  <div className="flex items-center gap-2">
+                                    <span className={`text-sm font-medium ${emp.already_has_entry ? 'text-gray-500' : 'text-gray-900'}`}>{emp.name}</span>
+                                    {emp.is_paid && (
+                                      <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-semibold">Paid</span>
+                                    )}
+                                    {emp.already_has_entry && !emp.is_paid && (
+                                      <span className="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full font-semibold">Entry Exists</span>
+                                    )}
+                                  </div>
+                                  <span className={`text-sm font-semibold ${emp.already_has_entry ? 'text-gray-400' : 'text-blue-600'}`}>{emp.hours} hours</span>
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         ))}
-                      </div>
-                    </div>
-                  ))}
+                      </>
+                    );
+                  })()}
                 </div>
               )}
             </div>
@@ -2063,8 +2085,8 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
               {timeEntryPreview.length > 0 && (
                 <button
                   onClick={handleCreateTimeEntries}
-                  disabled={isSubmitting}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50"
+                  disabled={isSubmitting || timeEntryPreview.every((e: any) => e.already_has_entry)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Clock className="w-4 h-4" />
                   {isSubmitting ? 'Creating...' : 'Create Time Entries'}
