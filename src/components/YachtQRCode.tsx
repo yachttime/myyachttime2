@@ -2,6 +2,157 @@ import { useEffect, useRef, useState } from 'react';
 import { X, Download, Printer } from 'lucide-react';
 import QRCode from 'qrcode';
 
+export async function printAllQRCodesAvery5168(yachts: { id: string; name: string }[]) {
+  if (yachts.length === 0) return;
+
+  let baseUrl = (import.meta as any).env?.VITE_APP_URL || window.location.origin;
+  if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
+    baseUrl = `https://${baseUrl}`;
+  }
+  baseUrl = baseUrl.replace(/\/$/, '');
+
+  const qrDataUrls: { name: string; dataUrl: string }[] = await Promise.all(
+    yachts.map(async (yacht) => {
+      const canvas = document.createElement('canvas');
+      const url = `${baseUrl}?yacht=${yacht.id}`;
+      await QRCode.toCanvas(canvas, url, {
+        width: 300,
+        margin: 1,
+        color: { dark: '#000000', light: '#FFFFFF' },
+      });
+      return { name: yacht.name, dataUrl: canvas.toDataURL('image/png') };
+    })
+  );
+
+  const labelW = 3.5;
+  const labelH = 5;
+  const cols = 2;
+  const rows = 2;
+  const marginTop = 0.5;
+  const marginLeft = 0.19;
+  const gapH = 0.19;
+
+  const labelsHtml = qrDataUrls.map((item) => `
+    <div class="label">
+      <div class="label-inner">
+        <div class="yacht-title">${item.name}</div>
+        <div class="qr-wrap">
+          <img src="${item.dataUrl}" alt="QR Code" />
+        </div>
+        <div class="label-sub">Scan to access My Yacht Time</div>
+        <div class="label-brand">My Yacht Time</div>
+      </div>
+    </div>
+  `).join('');
+
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'absolute';
+  iframe.style.width = '0';
+  iframe.style.height = '0';
+  iframe.style.border = 'none';
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentWindow?.document;
+  if (!doc) return;
+
+  doc.open();
+  doc.write(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>Yacht QR Codes - Avery 5168</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          @page {
+            size: 8.5in 11in;
+            margin: 0;
+          }
+          body {
+            width: 8.5in;
+            font-family: Arial, sans-serif;
+            background: white;
+          }
+          .sheet {
+            width: 8.5in;
+            padding-top: ${marginTop}in;
+            padding-left: ${marginLeft}in;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0 ${gapH}in;
+          }
+          .label {
+            width: ${labelW}in;
+            height: ${labelH}in;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            page-break-inside: avoid;
+          }
+          .label-inner {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 0.25in 0.2in;
+            text-align: center;
+            gap: 0.15in;
+          }
+          .yacht-title {
+            font-size: 22pt;
+            font-weight: bold;
+            color: #0f172a;
+            line-height: 1.2;
+            word-break: break-word;
+          }
+          .qr-wrap {
+            border: 3px solid #0891b2;
+            border-radius: 10px;
+            padding: 10px;
+            background: white;
+          }
+          .qr-wrap img {
+            display: block;
+            width: 2.1in;
+            height: 2.1in;
+          }
+          .label-sub {
+            font-size: 10pt;
+            color: #475569;
+            line-height: 1.4;
+          }
+          .label-brand {
+            font-size: 12pt;
+            font-weight: bold;
+            color: #0891b2;
+          }
+          @media print {
+            body { background: white; }
+            .sheet {
+              padding-top: ${marginTop}in;
+              padding-left: ${marginLeft}in;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="sheet">
+          ${labelsHtml}
+        </div>
+      </body>
+    </html>
+  `);
+  doc.close();
+
+  setTimeout(() => {
+    iframe.contentWindow?.focus();
+    iframe.contentWindow?.print();
+    setTimeout(() => document.body.removeChild(iframe), 500);
+  }, 400);
+}
+
 interface YachtQRCodeProps {
   yachtId: string;
   yachtName: string;

@@ -18,7 +18,7 @@ import { PrintableUserList } from './PrintableUserList';
 import { PrintableOwnerTrips } from './PrintableOwnerTrips';
 import { PrintableYachtsList } from './PrintableYachtsList';
 import { EmailComposeModal } from './EmailComposeModal';
-import { YachtQRCode } from './YachtQRCode';
+import { YachtQRCode, printAllQRCodesAvery5168 } from './YachtQRCode';
 import { StaffCalendar } from './StaffCalendar';
 import { TimeClock } from './TimeClock';
 import { EstimatingDashboard } from './EstimatingDashboard';
@@ -678,6 +678,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [agreementSummaries, setAgreementSummaries] = useState<Record<string, { status: string; season_year: number } | null>>({});
   const [agreementYachtId, setAgreementYachtId] = useState<string | null>(null);
   const [qrCodeYacht, setQrCodeYacht] = useState<{ id: string; name: string } | null>(null);
+  const [printingAllQR, setPrintingAllQR] = useState(false);
   const [showAgreementForm, setShowAgreementForm] = useState(false);
   const [showAgreementViewer, setShowAgreementViewer] = useState(false);
   const [selectedAgreement, setSelectedAgreement] = useState<VesselManagementAgreement | null>(null);
@@ -8876,13 +8877,33 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     </div>
                     <div className="flex items-center gap-3">
                       {allYachts.filter(y => y.is_active).length > 0 && (
-                        <button
-                          onClick={() => setShowYachtsPrintView(true)}
-                          className="bg-cyan-600 hover:bg-cyan-700 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 shadow-lg flex items-center gap-2"
-                        >
-                          <Printer className="w-5 h-5" />
-                          Print Active Yachts
-                        </button>
+                        <>
+                          <button
+                            onClick={() => setShowYachtsPrintView(true)}
+                            className="bg-cyan-600 hover:bg-cyan-700 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 shadow-lg flex items-center gap-2"
+                          >
+                            <Printer className="w-5 h-5" />
+                            Print Active Yachts
+                          </button>
+                          <button
+                            onClick={async () => {
+                              setPrintingAllQR(true);
+                              try {
+                                const activeYachts = allYachts
+                                  .filter(y => y.is_active)
+                                  .map(y => ({ id: y.id, name: y.name }));
+                                await printAllQRCodesAvery5168(activeYachts);
+                              } finally {
+                                setPrintingAllQR(false);
+                              }
+                            }}
+                            disabled={printingAllQR}
+                            className="bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 shadow-lg flex items-center gap-2"
+                          >
+                            <QrCode className="w-5 h-5" />
+                            {printingAllQR ? 'Generating...' : 'Print All QR Codes'}
+                          </button>
+                        </>
                       )}
                       <button
                         onClick={() => setShowYachtForm(!showYachtForm)}
