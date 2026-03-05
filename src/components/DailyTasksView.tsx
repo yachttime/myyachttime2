@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ClipboardList,
   Plus,
@@ -680,8 +681,8 @@ export function DailyTasksView() {
         </div>
       )}
 
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-50 p-4 overflow-y-auto">
+      {showCreateModal && createPortal(
+        <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-[9999] p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg flex flex-col my-8">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
               <h3 className="text-lg font-semibold text-gray-900">Create Daily Task</h3>
@@ -906,7 +907,7 @@ export function DailyTasksView() {
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
     </div>
   );
 }
