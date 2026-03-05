@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Receipt, Search, Printer, Mail, DollarSign, Eye, CheckCircle, Clock, XCircle, ExternalLink, Archive, RotateCcw, RefreshCw, X, Copy, CreditCard, AlertCircle, MousePointer, Download, FileText, BarChart2 } from 'lucide-react';
+import { Receipt, Search, Printer, Mail, DollarSign, Eye, CheckCircle, Clock, XCircle, ExternalLink, Archive, RotateCcw, RefreshCw, X, Copy, CreditCard, AlertCircle, MousePointer, Download, FileText, BarChart2, Users, ChevronDown } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -102,6 +102,11 @@ export function Invoices({ userId }: InvoicesProps) {
   const [regenerateLoading, setRegenerateLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [emailPrompt, setEmailPrompt] = useState<{ invoice: Invoice; email: string; emailOnly?: boolean } | null>(null);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailModalInvoice, setEmailModalInvoice] = useState<Invoice | null>(null);
+  const [billingManagers, setBillingManagers] = useState<{ email: string; name: string }[]>([]);
+  const [billingManagersLoading, setBillingManagersLoading] = useState(false);
+  const [sendingEmailModal, setSendingEmailModal] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
   const [checkPaymentModal, setCheckPaymentModal] = useState(false);
   const [checkPaymentLoading, setCheckPaymentLoading] = useState(false);
@@ -959,27 +964,48 @@ export function Invoices({ userId }: InvoicesProps) {
     }
   }
 
-  async function handleEmailPaymentLink() {
-    if (!selectedInvoice) return;
-    if (!selectedInvoice.customer_email) {
-      setEmailPrompt({ invoice: selectedInvoice, email: '', emailOnly: true });
-      return;
+  async function openEmailModal(invoice: Invoice) {
+    setEmailModalInvoice(invoice);
+    setBillingManagers([]);
+    setShowEmailModal(true);
+
+    if (invoice.yacht_id) {
+      setBillingManagersLoading(true);
+      try {
+        const { data: managers } = await supabase
+          .from('user_profiles')
+          .select('first_name, last_name, email, notification_email')
+          .eq('yacht_id', invoice.yacht_id)
+          .eq('can_approve_billing', true)
+          .eq('is_active', true);
+
+        if (managers) {
+          const mapped = managers
+            .map((m: any) => ({
+              email: m.notification_email || m.email || '',
+              name: `${m.first_name || ''} ${m.last_name || ''}`.trim(),
+            }))
+            .filter((m: any) => m.email);
+          setBillingManagers(mapped);
+        }
+      } catch (e) {
+        console.error('Failed to load billing managers:', e);
+      } finally {
+        setBillingManagersLoading(false);
+      }
     }
+  }
 
-    const confirmed = await confirm({
-      title: 'Email Payment Link',
-      message: `Send payment link to ${selectedInvoice.customer_email}?`,
-      confirmText: 'Send Email',
-      variant: 'info'
-    });
+  async function handleSendEmailModal() {
+    if (!emailModalInvoice) return;
+    if (billingManagers.length === 0) return;
 
-    if (!confirmed) return;
-
+    setSendingEmailModal(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        throw new Error('Not authenticated');
-      }
+      if (!session?.access_token) throw new Error('Not authenticated');
+
+      const [primary, ...additional] = billingManagers;
 
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-estimating-invoice-payment-email`,
@@ -990,8 +1016,10 @@ export function Invoices({ userId }: InvoicesProps) {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            invoiceId: selectedInvoice.id,
-            recipientEmail: selectedInvoice.customer_email
+            invoiceId: emailModalInvoice.id,
+            recipientEmail: primary.email,
+            recipientName: primary.name || undefined,
+            additionalRecipients: additional.map(r => ({ email: r.email, name: r.name || undefined })),
           })
         }
       );
@@ -1001,14 +1029,26 @@ export function Invoices({ userId }: InvoicesProps) {
         throw new Error(errorData.error || 'Failed to send email');
       }
 
-      showToast('Payment link email sent successfully!', 'success');
+      showToast(`Payment link email sent to ${billingManagers.length} manager${billingManagers.length !== 1 ? 's' : ''}!`, 'success');
+      setShowEmailModal(false);
+      setEmailModalInvoice(null);
+      setBillingManagers([]);
       await fetchInvoices();
-      const { data: fresh } = await supabase.from('estimating_invoices').select('*, work_orders!estimating_invoices_work_order_id_fkey(work_order_number), yachts!estimating_invoices_yacht_id_fkey(name)').eq('id', selectedInvoice.id).maybeSingle();
-      if (fresh) setSelectedInvoice({ ...fresh, work_order_number: fresh.work_orders?.work_order_number, yacht_name: fresh.yachts?.name });
+      if (selectedInvoice?.id === emailModalInvoice.id) {
+        const { data: fresh } = await supabase.from('estimating_invoices').select('*, work_orders!estimating_invoices_work_order_id_fkey(work_order_number), yachts!estimating_invoices_yacht_id_fkey(name)').eq('id', emailModalInvoice.id).maybeSingle();
+        if (fresh) setSelectedInvoice({ ...fresh, work_order_number: fresh.work_orders?.work_order_number, yacht_name: fresh.yachts?.name });
+      }
     } catch (error: any) {
       console.error('Error sending email:', error);
       showToast(error.message || 'Failed to send payment link email', 'error');
+    } finally {
+      setSendingEmailModal(false);
     }
+  }
+
+  async function handleEmailPaymentLink() {
+    if (!selectedInvoice) return;
+    openEmailModal(selectedInvoice);
   }
 
   async function handleRecordCheckPayment() {
@@ -1750,6 +1790,115 @@ export function Invoices({ userId }: InvoicesProps) {
           </div>
         </div>
       )}
+      {showEmailModal && emailModalInvoice && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[60] p-4">
+          <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between p-6 border-b border-slate-700">
+              <div className="flex items-center gap-3">
+                <div className="bg-blue-500/20 p-2 rounded-lg">
+                  <Mail className="w-5 h-5 text-blue-400" />
+                </div>
+                <h3 className="text-lg font-bold text-white">Send Payment Link via Email</h3>
+              </div>
+              <button onClick={() => { setShowEmailModal(false); setEmailModalInvoice(null); setBillingManagers([]); }} className="text-slate-400 hover:text-white transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700">
+                <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Invoice</p>
+                <p className="font-semibold text-white">{emailModalInvoice.invoice_number}</p>
+                <p className="text-green-400 font-bold text-lg">${(emailModalInvoice.balance_due ?? emailModalInvoice.total_amount).toFixed(2)}</p>
+                {emailModalInvoice.yacht_name && (
+                  <p className="text-slate-400 text-sm mt-1">{emailModalInvoice.yacht_name}</p>
+                )}
+              </div>
+
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Users className="w-4 h-4 text-slate-400" />
+                  <p className="text-sm font-medium text-slate-300">
+                    Billing Approval Managers
+                    {!billingManagersLoading && billingManagers.length > 0 && (
+                      <span className="ml-2 text-slate-500">({billingManagers.length})</span>
+                    )}
+                  </p>
+                </div>
+
+                {billingManagersLoading ? (
+                  <div className="flex items-center gap-2 text-slate-400 text-sm py-2">
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Loading billing managers...
+                  </div>
+                ) : billingManagers.length === 0 ? (
+                  <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4">
+                    <p className="text-amber-400 text-sm font-medium mb-1">No billing managers found</p>
+                    <p className="text-amber-300/70 text-xs">
+                      {emailModalInvoice.yacht_id
+                        ? 'No users with Billing Approval permission are assigned to this yacht. Go to User Management to set this up.'
+                        : 'This invoice has no yacht assigned. Billing managers are loaded from the yacht\'s user cards.'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {billingManagers.map((m, i) => (
+                      <div key={i} className="flex items-center justify-between bg-slate-900/50 border border-slate-700 rounded-lg px-4 py-3">
+                        <div>
+                          <p className="text-sm font-medium text-white">{m.name || m.email}</p>
+                          <p className="text-xs text-slate-400">{m.email}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setBillingManagers(prev => prev.filter((_, idx) => idx !== i))}
+                          className="text-slate-500 hover:text-red-400 transition-colors"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                    <p className="text-xs text-slate-500 mt-1">Email will be sent to all listed billing managers</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
+                <p className="text-xs text-blue-300">
+                  A professional email with the payment link and the invoice PDF attached will be sent to all listed billing managers.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-slate-700 flex gap-3">
+              <button
+                onClick={() => { setShowEmailModal(false); setEmailModalInvoice(null); setBillingManagers([]); }}
+                disabled={sendingEmailModal}
+                className="flex-1 px-4 py-3 bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-lg transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSendEmailModal}
+                disabled={sendingEmailModal || billingManagersLoading || billingManagers.length === 0}
+                className="flex-1 px-4 py-3 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {sendingEmailModal ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="w-4 h-4" />
+                    {billingManagers.length > 1 ? `Send to ${billingManagers.length} Managers` : 'Send Email'}
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {emailPrompt && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[60] p-4">
           <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 max-w-md w-full shadow-xl">

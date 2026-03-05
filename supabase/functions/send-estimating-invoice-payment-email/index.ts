@@ -11,6 +11,7 @@ interface EmailRequest {
   invoiceId: string;
   recipientEmail: string;
   recipientName?: string;
+  additionalRecipients?: { email: string; name?: string }[];
 }
 
 interface WorkOrderTask {
@@ -244,7 +245,7 @@ Deno.serve(async (req: Request) => {
       throw new Error('Unauthorized');
     }
 
-    const { invoiceId, recipientEmail, recipientName }: EmailRequest = await req.json();
+    const { invoiceId, recipientEmail, recipientName, additionalRecipients }: EmailRequest = await req.json();
 
     if (!invoiceId || !recipientEmail) {
       throw new Error('Invoice ID and recipient email are required');
@@ -402,9 +403,18 @@ Deno.serve(async (req: Request) => {
 
     let fromEmail = (Deno.env.get('RESEND_FROM_EMAIL') || 'onboarding@resend.dev').trim();
 
+    const allRecipients = [recipientEmail];
+    if (additionalRecipients && additionalRecipients.length > 0) {
+      for (const r of additionalRecipients) {
+        if (r.email && !allRecipients.includes(r.email)) {
+          allRecipients.push(r.email);
+        }
+      }
+    }
+
     const emailPayload: any = {
       from: fromEmail,
-      to: [recipientEmail],
+      to: allRecipients,
       subject,
       html: htmlContent,
       attachments: [
