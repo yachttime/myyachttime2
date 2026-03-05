@@ -878,7 +878,7 @@ export function DailyTasksView() {
                   <div className="bg-white border border-blue-100 rounded-lg px-3 py-2 text-xs text-gray-400 italic">Staff notes / updates...</div>
                   <div className="bg-white border border-blue-100 rounded-lg px-3 py-2 text-xs text-gray-400 italic">Time spent (hrs)...</div>
                 </div>
-                <p className="text-xs text-blue-500 mt-1.5">Staff tap the task card to add their notes, log time, and add any additional parts needed.</p>
+                <p className="text-xs text-blue-500 mt-1.5">Staff tap the task card to add their notes and log time spent.</p>
               </div>
             </div>
 
