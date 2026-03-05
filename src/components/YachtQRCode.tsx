@@ -24,26 +24,30 @@ export async function printAllQRCodesAvery5168(yachts: { id: string; name: strin
     })
   );
 
-  const labelW = 3.5;
-  const labelH = 5;
-  const cols = 2;
-  const rows = 2;
   const marginTop = 0.5;
   const marginLeft = 0.19;
   const gapH = 0.19;
 
-  const labelsHtml = qrDataUrls.map((item) => `
-    <div class="label">
-      <div class="label-inner">
-        <div class="yacht-title">${item.name}</div>
-        <div class="qr-wrap">
-          <img src="${item.dataUrl}" alt="QR Code" />
-        </div>
-        <div class="label-sub">Scan to access My Yacht Time</div>
-        <div class="label-brand">My Yacht Time</div>
+  const sheets: string[] = [];
+  for (let i = 0; i < qrDataUrls.length; i += 4) {
+    const group = qrDataUrls.slice(i, i + 4);
+    const cells = group.map((item) => `
+      <div class="label">
+        <table class="label-table" cellpadding="0" cellspacing="0">
+          <tr><td class="label-td">
+            <div class="yacht-title">${item.name}</div>
+            <div class="qr-wrap">
+              <img src="${item.dataUrl}" alt="QR Code" />
+            </div>
+            <div class="label-sub">Scan to access My Yacht Time</div>
+            <div class="label-brand">My Yacht Time</div>
+          </td></tr>
+        </table>
       </div>
-    </div>
-  `).join('');
+    `).join('');
+    sheets.push(`<div class="sheet">${cells}</div>`);
+  }
+  const allSheetsHtml = sheets.join('');
 
   const iframe = document.createElement('iframe');
   iframe.style.position = 'absolute';
@@ -74,31 +78,32 @@ export async function printAllQRCodesAvery5168(yachts: { id: string; name: strin
           }
           .sheet {
             width: 8.5in;
+            height: 11in;
             padding-top: ${marginTop}in;
             padding-left: ${marginLeft}in;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0 ${gapH}in;
+            display: grid;
+            grid-template-columns: 3.5in 3.5in;
+            grid-template-rows: 5in 5in;
+            column-gap: ${gapH}in;
+            row-gap: 0;
+            page-break-after: always;
           }
           .label {
-            width: ${labelW}in;
-            height: ${labelH}in;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            width: 3.5in;
+            height: 5in;
             overflow: hidden;
-            page-break-inside: avoid;
           }
-          .label-inner {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 0.25in 0.2in;
+          .label-table {
+            width: 3.5in;
+            height: 5in;
+            border-collapse: collapse;
+          }
+          .label-td {
+            width: 3.5in;
+            height: 5in;
+            vertical-align: middle;
             text-align: center;
-            gap: 0.15in;
+            padding: 0.2in 0.2in;
           }
           .yacht-title {
             font-size: 22pt;
@@ -106,12 +111,15 @@ export async function printAllQRCodesAvery5168(yachts: { id: string; name: strin
             color: #0f172a;
             line-height: 1.2;
             word-break: break-word;
+            margin-bottom: 0.12in;
           }
           .qr-wrap {
+            display: inline-block;
             border: 3px solid #0891b2;
             border-radius: 10px;
-            padding: 10px;
+            padding: 8px;
             background: white;
+            margin-bottom: 0.12in;
           }
           .qr-wrap img {
             display: block;
@@ -122,25 +130,17 @@ export async function printAllQRCodesAvery5168(yachts: { id: string; name: strin
             font-size: 10pt;
             color: #475569;
             line-height: 1.4;
+            margin-bottom: 0.06in;
           }
           .label-brand {
             font-size: 12pt;
             font-weight: bold;
             color: #0891b2;
           }
-          @media print {
-            body { background: white; }
-            .sheet {
-              padding-top: ${marginTop}in;
-              padding-left: ${marginLeft}in;
-            }
-          }
         </style>
       </head>
       <body>
-        <div class="sheet">
-          ${labelsHtml}
-        </div>
+        ${allSheetsHtml}
       </body>
     </html>
   `);
