@@ -448,7 +448,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [repairError, setRepairError] = useState('');
   const [repairRequests, setRepairRequests] = useState<RepairRequest[]>([]);
   const [activeRepairTab, setActiveRepairTab] = useState<'active' | 'paid' | 'archived'>('active');
-  const [collapsedRepairGroups, setCollapsedRepairGroups] = useState<Set<string>>(new Set());
+  const [expandedRepairGroups, setExpandedRepairGroups] = useState<Set<string>>(new Set());
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [approvalAction, setApprovalAction] = useState<{ requestId: string; status: 'approved' | 'rejected' } | null>(null);
   const [approvalNotes, setApprovalNotes] = useState('');
@@ -782,6 +782,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   useEffect(() => {
     if (activeTab === 'admin' && adminView === 'repairs') {
       loadRepairRequests();
+    } else {
+      setExpandedRepairGroups(new Set());
     }
     if (activeTab === 'admin' && adminView === 'yachts') {
       loadAgreementSummaries();
@@ -12175,9 +12177,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           }, {});
 
                           return Object.entries(groupedByYacht).map(([groupKey, group]: [string, any]) => {
-                            const isCollapsed = collapsedRepairGroups.has(groupKey);
+                            const isCollapsed = !expandedRepairGroups.has(groupKey);
                             const toggleGroup = () => {
-                              setCollapsedRepairGroups(prev => {
+                              setExpandedRepairGroups(prev => {
                                 const next = new Set(prev);
                                 if (next.has(groupKey)) next.delete(groupKey);
                                 else next.add(groupKey);
