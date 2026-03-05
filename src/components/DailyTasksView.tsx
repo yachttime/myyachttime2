@@ -420,8 +420,8 @@ export function DailyTasksView() {
             return (
               <div
                 key={task.id}
-                className={`bg-white rounded-xl border transition-all ${
-                  overdue ? 'border-orange-300 shadow-sm' : 'border-gray-200'
+                className={`bg-slate-700 rounded-xl border transition-all ${
+                  overdue ? 'border-orange-400 shadow-sm' : 'border-slate-600'
                 }`}
               >
                 <div
@@ -434,52 +434,52 @@ export function DailyTasksView() {
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
-                      <p className="font-medium text-gray-900 text-sm">{task.title}</p>
+                      <p className="font-medium text-white text-sm">{task.title}</p>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         {overdue && (
-                          <span className="text-xs font-medium px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full">
+                          <span className="text-xs font-medium px-2 py-0.5 bg-orange-500 text-white rounded-full">
                             Overdue
                           </span>
                         )}
                         {timeFormatted && (
-                          <span className="flex items-center gap-1 text-xs text-gray-500">
+                          <span className="flex items-center gap-1 text-xs text-slate-300">
                             <Clock className="w-3 h-3" />
                             {timeFormatted}
                           </span>
                         )}
                         {!isExpanded && !canManage && (
-                          <span className="text-xs text-amber-600 font-medium">Tap to update</span>
+                          <span className="text-xs text-amber-400 font-medium">Tap to update</span>
                         )}
                         {isExpanded ? (
-                          <ChevronUp className="w-4 h-4 text-gray-400" />
+                          <ChevronUp className="w-4 h-4 text-slate-300" />
                         ) : (
-                          <ChevronDown className="w-4 h-4 text-gray-400" />
+                          <ChevronDown className="w-4 h-4 text-slate-300" />
                         )}
                       </div>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-3 mt-1.5">
                       {canManage && (
-                        <span className="flex items-center gap-1 text-xs text-gray-500">
+                        <span className="flex items-center gap-1 text-xs text-slate-300">
                           <User className="w-3 h-3" />
                           {assigneeName}
                         </span>
                       )}
                       {task.yachts && (
-                        <span className="flex items-center gap-1 text-xs text-blue-600">
+                        <span className="flex items-center gap-1 text-xs text-blue-300">
                           <Ship className="w-3 h-3" />
                           {task.yachts.name}
                         </span>
                       )}
                       {task.customers && (
-                        <span className="flex items-center gap-1 text-xs text-green-600">
+                        <span className="flex items-center gap-1 text-xs text-green-300">
                           <User className="w-3 h-3" />
                           {task.customers.customer_type === 'business'
                             ? task.customers.business_name
                             : [task.customers.first_name, task.customers.last_name].filter(Boolean).join(' ')}
                         </span>
                       )}
-                      <span className="flex items-center gap-1 text-xs text-gray-400">
+                      <span className="flex items-center gap-1 text-xs text-slate-400">
                         <Calendar className="w-3 h-3" />
                         {formatTaskDate(task.task_date)}
                       </span>
@@ -488,13 +488,13 @@ export function DailyTasksView() {
                 </div>
 
                 {isExpanded && (
-                  <div className="border-t border-gray-100 p-4 space-y-4" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-gray-600">
+                  <div className="border-t border-slate-600 p-4 space-y-4" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-slate-300">
                       {canManage && (
-                        <span><span className="font-medium text-gray-700">Assigned to:</span> {assigneeName}</span>
+                        <span><span className="font-medium text-slate-100">Assigned to:</span> {assigneeName}</span>
                       )}
-                      <span><span className="font-medium text-gray-700">Assigned by:</span> {assignerName}</span>
-                      <span><span className="font-medium text-gray-700">Date:</span> {formatTaskDate(task.task_date)}</span>
+                      <span><span className="font-medium text-slate-100">Assigned by:</span> {assignerName}</span>
+                      <span><span className="font-medium text-slate-100">Date:</span> {formatTaskDate(task.task_date)}</span>
                     </div>
 
                     {task.admin_notes && (
@@ -512,7 +512,7 @@ export function DailyTasksView() {
                           onChange={(e) => setStaffNotesEdit((prev) => ({ ...prev, [task.id]: e.target.value }))}
                           rows={4}
                           placeholder="Add your notes, progress updates, observations, or anything the manager should know..."
-                          className="w-full border border-blue-200 rounded-lg p-2.5 text-sm resize-none bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                          className="w-full border border-blue-300 rounded-lg p-2.5 text-sm text-gray-800 bg-white resize-none focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
                         />
                       </div>
 
@@ -527,7 +527,7 @@ export function DailyTasksView() {
                             value={timeSpentEdit[task.id] ?? ''}
                             onChange={(e) => setTimeSpentEdit((prev) => ({ ...prev, [task.id]: e.target.value }))}
                             placeholder="0.0"
-                            className="w-full border border-green-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent"
+                            className="w-full border border-green-200 rounded-lg px-3 py-2 text-sm text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent"
                           />
                           <span className="text-sm text-green-700 font-medium whitespace-nowrap">hrs</span>
                         </div>
@@ -539,16 +539,16 @@ export function DailyTasksView() {
                       </div>
                     </div>
 
-                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                    <div className="bg-slate-600 border border-slate-500 rounded-lg p-3">
                       <div className="flex items-center justify-between mb-2">
                         <div>
-                          <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Parts Needed</p>
-                          <p className="text-xs text-gray-500 mt-0.5">List any parts or materials required for this task</p>
+                          <p className="text-xs font-semibold text-slate-200 uppercase tracking-wide">Parts Needed</p>
+                          <p className="text-xs text-slate-300 mt-0.5">List any parts or materials required for this task</p>
                         </div>
                         {addingPartForTask !== task.id && (
                           <button
                             onClick={() => { setAddingPartForTask(task.id); setNewPart({ part_name: '', quantity: '', notes: '' }); }}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 text-gray-700 hover:bg-gray-100 rounded-lg text-xs font-medium transition-colors"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-500 border border-slate-400 text-slate-100 hover:bg-slate-400 rounded-lg text-xs font-medium transition-colors"
                           >
                             <Plus className="w-3 h-3" />
                             Add Part
@@ -557,30 +557,30 @@ export function DailyTasksView() {
                       </div>
 
                       {(task.daily_task_parts ?? []).length === 0 && addingPartForTask !== task.id && (
-                        <p className="text-xs text-gray-400 italic">No parts added yet. Click "Add Part" if parts are needed.</p>
+                        <p className="text-xs text-slate-400 italic">No parts added yet. Click "Add Part" if parts are needed.</p>
                       )}
 
                       {(task.daily_task_parts ?? []).length > 0 && (
                         <div className="space-y-2 mb-3">
-                          <div className="grid grid-cols-12 gap-2 px-1 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                          <div className="grid grid-cols-12 gap-2 px-1 text-xs font-semibold text-slate-300 uppercase tracking-wide">
                             <span className="col-span-5">Part</span>
                             <span className="col-span-2">Qty</span>
                             <span className="col-span-4">Notes</span>
                             <span className="col-span-1" />
                           </div>
                           {(task.daily_task_parts ?? []).map((part) => (
-                            <div key={part.id} className="grid grid-cols-12 gap-2 items-center bg-white border border-gray-200 rounded-lg px-2.5 py-2">
+                            <div key={part.id} className="grid grid-cols-12 gap-2 items-center bg-slate-500 border border-slate-400 rounded-lg px-2.5 py-2">
                               <div className="col-span-5 flex items-center gap-1.5 min-w-0">
-                                <Package className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                                <p className="text-sm font-medium text-gray-800 truncate">{part.part_name}</p>
+                                <Package className="w-3.5 h-3.5 text-slate-300 flex-shrink-0" />
+                                <p className="text-sm font-medium text-white truncate">{part.part_name}</p>
                               </div>
-                              <p className="col-span-2 text-sm text-gray-600">{part.quantity || '—'}</p>
-                              <p className="col-span-4 text-xs text-gray-500 truncate">{part.notes || '—'}</p>
+                              <p className="col-span-2 text-sm text-slate-200">{part.quantity || '—'}</p>
+                              <p className="col-span-4 text-xs text-slate-300 truncate">{part.notes || '—'}</p>
                               <div className="col-span-1 flex justify-end">
                                 <button
                                   onClick={() => handleDeletePart(part.id)}
                                   disabled={deletingPartId === part.id}
-                                  className="text-gray-400 hover:text-red-500 transition-colors"
+                                  className="text-slate-300 hover:text-red-400 transition-colors"
                                 >
                                   {deletingPartId === part.id ? (
                                     <div className="w-3.5 h-3.5 animate-spin rounded-full border-b-2 border-red-400" />
@@ -595,13 +595,13 @@ export function DailyTasksView() {
                       )}
 
                       {addingPartForTask === task.id && (
-                        <div className="border border-gray-300 rounded-lg p-3 space-y-2 bg-white mt-2">
+                        <div className="border border-slate-400 rounded-lg p-3 space-y-2 bg-slate-500 mt-2">
                           <input
                             type="text"
                             value={newPart.part_name}
                             onChange={(e) => setNewPart((p) => ({ ...p, part_name: e.target.value }))}
                             placeholder="Part name or description *"
-                            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                            className="w-full border border-slate-400 rounded-lg px-3 py-2 text-sm text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
                           />
                           <div className="flex gap-2">
                             <input
@@ -609,14 +609,14 @@ export function DailyTasksView() {
                               value={newPart.quantity}
                               onChange={(e) => setNewPart((p) => ({ ...p, quantity: e.target.value }))}
                               placeholder="Quantity"
-                              className="w-28 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                              className="w-28 border border-slate-400 rounded-lg px-3 py-2 text-sm text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
                             />
                             <input
                               type="text"
                               value={newPart.notes}
                               onChange={(e) => setNewPart((p) => ({ ...p, notes: e.target.value }))}
                               placeholder="Notes (optional)"
-                              className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                              className="flex-1 border border-slate-400 rounded-lg px-3 py-2 text-sm text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
                             />
                           </div>
                           <div className="flex gap-2">
@@ -629,7 +629,7 @@ export function DailyTasksView() {
                             </button>
                             <button
                               onClick={() => setAddingPartForTask(null)}
-                              className="px-3 py-1.5 border border-gray-200 text-gray-600 hover:bg-gray-100 rounded-lg text-xs font-medium transition-colors"
+                              className="px-3 py-1.5 border border-slate-400 text-slate-100 hover:bg-slate-400 rounded-lg text-xs font-medium transition-colors"
                             >
                               Cancel
                             </button>
@@ -638,7 +638,7 @@ export function DailyTasksView() {
                       )}
                     </div>
 
-                    <div className="flex items-center justify-between pt-2 border-t border-gray-100 gap-3 flex-wrap">
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-600 gap-3 flex-wrap">
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleSaveStaffUpdates(task.id)}
