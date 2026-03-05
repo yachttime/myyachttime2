@@ -482,6 +482,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [selectedInvoiceForEmail, setSelectedInvoiceForEmail] = useState<YachtInvoice | null>(null);
   const [emailRecipient, setEmailRecipient] = useState('');
   const [emailRecipientName, setEmailRecipientName] = useState('');
+  const [invoiceBillingManagers, setInvoiceBillingManagers] = useState<{ email: string; name: string; source: string }[]>([]);
+  const [invoiceBillingManagersLoading, setInvoiceBillingManagersLoading] = useState(false);
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [selectedRepairForDeposit, setSelectedRepairForDeposit] = useState<RepairRequest | null>(null);
   const [depositForm, setDepositForm] = useState({
@@ -3726,15 +3728,68 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     });
   };
 
-  const handleOpenEmailModal = (invoice: YachtInvoice) => {
+  const handleOpenEmailModal = async (invoice: YachtInvoice) => {
     setSelectedInvoiceForEmail(invoice);
     setEmailRecipient('');
     setEmailRecipientName('');
+    setInvoiceBillingManagers([]);
     setShowEmailModal(true);
+
+    if (invoice.yacht_id) {
+      setInvoiceBillingManagersLoading(true);
+      try {
+        const found: { email: string; name: string; source: string }[] = [];
+        const seenEmails = new Set<string>();
+
+        const { data: profiles } = await supabase
+          .from('user_profiles')
+          .select('first_name, last_name, email, notification_email')
+          .eq('yacht_id', invoice.yacht_id)
+          .eq('can_approve_billing', true);
+
+        for (const p of profiles || []) {
+          const email = p.notification_email || p.email;
+          if (email && !seenEmails.has(email.toLowerCase())) {
+            seenEmails.add(email.toLowerCase());
+            const name = [p.first_name, p.last_name].filter(Boolean).join(' ');
+            found.push({ email, name, source: 'user' });
+          }
+        }
+
+        const { data: agreements } = await supabase
+          .from('vessel_management_agreements')
+          .select('manager_billing_approval_email, manager_billing_approval_name')
+          .eq('yacht_id', invoice.yacht_id)
+          .eq('status', 'approved')
+          .limit(1);
+
+        for (const a of agreements || []) {
+          if (a.manager_billing_approval_email && !seenEmails.has(a.manager_billing_approval_email.toLowerCase())) {
+            seenEmails.add(a.manager_billing_approval_email.toLowerCase());
+            found.push({
+              email: a.manager_billing_approval_email,
+              name: a.manager_billing_approval_name || '',
+              source: 'agreement'
+            });
+          }
+        }
+
+        setInvoiceBillingManagers(found);
+        if (found.length === 1) {
+          setEmailRecipient(found[0].email);
+          setEmailRecipientName(found[0].name);
+        }
+      } catch (error) {
+        console.error('Error fetching billing managers for invoice:', error);
+      } finally {
+        setInvoiceBillingManagersLoading(false);
+      }
+    }
   };
 
   const handleSendPaymentEmail = async () => {
-    if (!selectedInvoiceForEmail || !emailRecipient) return;
+    const hasManagers = invoiceBillingManagers.length > 0;
+    if (!selectedInvoiceForEmail || (!hasManagers && !emailRecipient)) return;
 
     setSendingEmail(true);
     try {
@@ -3743,6 +3798,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       if (!session?.access_token) {
         throw new Error('Not authenticated. Please sign in again.');
       }
+
+      const recipients = hasManagers
+        ? invoiceBillingManagers
+        : [{ email: emailRecipient, name: emailRecipientName }];
 
       const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-payment-link-email`;
 
@@ -3754,8 +3813,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         },
         body: JSON.stringify({
           invoiceId: selectedInvoiceForEmail.id,
-          recipientEmail: emailRecipient,
-          recipientName: emailRecipientName || undefined
+          recipientEmail: recipients[0].email,
+          recipientName: recipients[0].name || undefined,
+          additionalRecipients: recipients.slice(1).map(r => ({ email: r.email, name: r.name || undefined })),
         })
       });
 
@@ -3780,6 +3840,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           setSelectedInvoiceForEmail(null);
           setEmailRecipient('');
           setEmailRecipientName('');
+          setInvoiceBillingManagers([]);
           showError('Email service not configured. Please copy the payment link and send it manually');
           return;
         }
@@ -3790,11 +3851,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       setSelectedInvoiceForEmail(null);
       setEmailRecipient('');
       setEmailRecipientName('');
+      setInvoiceBillingManagers([]);
 
       await loadChatMessages();
       await loadRepairRequests();
 
-      showSuccess('Payment link email sent successfully!');
+      const sentCount = recipients.length;
+      showSuccess(sentCount > 1 ? `Payment link email sent to ${sentCount} billing managers!` : 'Payment link email sent successfully!');
     } catch (error: any) {
       console.error('Error sending payment email:', error);
       showError(`Error sending email: ${error.message || 'Unknown error occurred'}`);
@@ -16745,39 +16808,76 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               </div>
             </div>
 
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
               <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700">
                 <p className="text-sm text-slate-400 mb-1">Invoice</p>
                 <p className="text-white font-semibold">{selectedInvoiceForEmail.repair_title}</p>
                 <p className="text-emerald-400 text-lg font-bold mt-1">{selectedInvoiceForEmail.invoice_amount}</p>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Recipient Email <span className="text-red-400">*</span>
-                </label>
-                <input
-                  type="email"
-                  value={emailRecipient}
-                  onChange={(e) => setEmailRecipient(e.target.value)}
-                  placeholder="manager@example.com"
-                  className="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
-                  required
-                />
-              </div>
+              {invoiceBillingManagersLoading ? (
+                <div className="flex items-center gap-2 text-slate-400 text-sm py-2">
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  Looking up billing managers...
+                </div>
+              ) : invoiceBillingManagers.length > 0 ? (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Users className="w-4 h-4 text-blue-400" />
+                    <label className="text-sm font-medium text-slate-300">
+                      Billing Approval Managers ({invoiceBillingManagers.length})
+                    </label>
+                  </div>
+                  <div className="space-y-2">
+                    {invoiceBillingManagers.map((mgr, idx) => (
+                      <div key={idx} className="flex items-center justify-between bg-slate-900/50 border border-blue-500/30 rounded-lg px-4 py-3">
+                        <div className="min-w-0">
+                          {mgr.name && <p className="text-sm text-white font-medium truncate">{mgr.name}</p>}
+                          <p className="text-sm text-blue-300 truncate">{mgr.email}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setInvoiceBillingManagers(prev => prev.filter((_, i) => i !== idx))}
+                          className="text-slate-500 hover:text-red-400 transition-colors flex-shrink-0 ml-3"
+                          title="Remove recipient"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">Email will be sent to all listed billing managers</p>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      Recipient Email <span className="text-red-400">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      value={emailRecipient}
+                      onChange={(e) => setEmailRecipient(e.target.value)}
+                      placeholder="manager@example.com"
+                      className="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                      required
+                    />
+                  </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Recipient Name (Optional)
-                </label>
-                <input
-                  type="text"
-                  value={emailRecipientName}
-                  onChange={(e) => setEmailRecipientName(e.target.value)}
-                  placeholder="John Doe"
-                  className="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
-                />
-              </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      Recipient Name (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={emailRecipientName}
+                      onChange={(e) => setEmailRecipientName(e.target.value)}
+                      placeholder="John Doe"
+                      className="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                    />
+                  </div>
+                </>
+              )}
 
               <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
                 <p className="text-xs text-blue-300">
@@ -16788,7 +16888,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
             <div className="p-6 border-t border-slate-700 flex gap-3">
               <button
-                onClick={() => setShowEmailModal(false)}
+                onClick={() => { setShowEmailModal(false); setInvoiceBillingManagers([]); }}
                 disabled={sendingEmail}
                 className="flex-1 px-6 bg-slate-700 hover:bg-slate-600 text-white font-semibold py-3 rounded-lg transition-colors disabled:opacity-50"
               >
@@ -16796,7 +16896,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               </button>
               <button
                 onClick={handleSendPaymentEmail}
-                disabled={sendingEmail || !emailRecipient}
+                disabled={sendingEmail || invoiceBillingManagersLoading || (invoiceBillingManagers.length === 0 && !emailRecipient)}
                 className="flex-1 px-6 bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {sendingEmail ? (
@@ -16807,7 +16907,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                 ) : (
                   <>
                     <Mail className="w-4 h-4" />
-                    Send Email
+                    {invoiceBillingManagers.length > 1 ? `Send to ${invoiceBillingManagers.length} Managers` : 'Send Email'}
                   </>
                 )}
               </button>

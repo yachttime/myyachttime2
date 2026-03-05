@@ -11,6 +11,7 @@ interface EmailRequest {
   recipientEmail: string;
   recipientName?: string;
   recaptchaToken?: string;
+  additionalRecipients?: { email: string; name?: string }[];
 }
 
 Deno.serve(async (req: Request) => {
@@ -38,7 +39,7 @@ Deno.serve(async (req: Request) => {
       throw new Error('Unauthorized');
     }
 
-    const { invoiceId, recipientEmail, recipientName, recaptchaToken }: EmailRequest = await req.json();
+    const { invoiceId, recipientEmail, recipientName, recaptchaToken, additionalRecipients }: EmailRequest = await req.json();
 
     if (!invoiceId || !recipientEmail) {
       throw new Error('Invoice ID and recipient email are required');
@@ -258,9 +259,18 @@ Deno.serve(async (req: Request) => {
         }
       }
 
+      const allRecipientEmails = [recipientEmail];
+      if (additionalRecipients && additionalRecipients.length > 0) {
+        for (const r of additionalRecipients) {
+          if (r.email && r.email !== recipientEmail) {
+            allRecipientEmails.push(r.email);
+          }
+        }
+      }
+
       const emailPayload: any = {
         from: fromEmail,
-        to: [recipientEmail],
+        to: allRecipientEmails,
         subject: subject,
         html: htmlContent,
         tags: [
