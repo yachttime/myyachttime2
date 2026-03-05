@@ -14,6 +14,7 @@ interface EmailRequest {
   attachmentBase64?: string;
   attachmentFilename?: string;
   attachmentContentType?: string;
+  additionalRecipients?: { email: string; name?: string }[];
 }
 
 Deno.serve(async (req: Request) => {
@@ -41,7 +42,7 @@ Deno.serve(async (req: Request) => {
       throw new Error('Unauthorized');
     }
 
-    const { repairRequestId, recipientEmail, recipientName, recaptchaToken, attachmentBase64, attachmentFilename, attachmentContentType }: EmailRequest = await req.json();
+    const { repairRequestId, recipientEmail, recipientName, recaptchaToken, attachmentBase64, attachmentFilename, attachmentContentType, additionalRecipients }: EmailRequest = await req.json();
 
     if (!repairRequestId || !recipientEmail) {
       throw new Error('Repair request ID and recipient email are required');
@@ -205,9 +206,18 @@ Deno.serve(async (req: Request) => {
         }
       }
 
+      const allRecipientEmails = [recipientEmail];
+      if (additionalRecipients && additionalRecipients.length > 0) {
+        for (const r of additionalRecipients) {
+          if (r.email && r.email !== recipientEmail) {
+            allRecipientEmails.push(r.email);
+          }
+        }
+      }
+
       const emailPayload: any = {
         from: fromEmail,
-        to: [recipientEmail],
+        to: allRecipientEmails,
         subject: subject,
         html: htmlContent,
         tags: [
@@ -248,7 +258,7 @@ Deno.serve(async (req: Request) => {
       }
 
       const emailData = await response.json();
-      console.log('Email sent successfully:', emailData.id);
+      console.log(`Email sent successfully to ${allRecipientEmails.length} recipient(s):`, emailData.id);
 
       // Update repair request with email tracking info
       await supabase

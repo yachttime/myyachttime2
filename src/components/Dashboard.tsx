@@ -495,6 +495,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [depositEmailRecipient, setDepositEmailRecipient] = useState('');
   const [depositEmailRecipientName, setDepositEmailRecipientName] = useState('');
   const [depositEmailAttachment, setDepositEmailAttachment] = useState<File | null>(null);
+  const [depositBillingManagers, setDepositBillingManagers] = useState<{ email: string; name: string; source: string }[]>([]);
+  const [depositBillingManagersLoading, setDepositBillingManagersLoading] = useState(false);
   const [depositLoading, setDepositLoading] = useState(false);
   const [depositLinkLoading, setDepositLinkLoading] = useState<{ [repairRequestId: string]: boolean }>({});
   const [emailStatusLoading, setEmailStatusLoading] = useState<{ [repairRequestId: string]: boolean }>({});
@@ -3871,16 +3873,69 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     }
   };
 
-  const handleOpenDepositEmailModal = (repairRequest: RepairRequest) => {
+  const handleOpenDepositEmailModal = async (repairRequest: RepairRequest) => {
     setSelectedRepairForDepositEmail(repairRequest);
     setDepositEmailRecipient('');
     setDepositEmailRecipientName('');
     setDepositEmailAttachment(null);
+    setDepositBillingManagers([]);
     setShowDepositEmailModal(true);
+
+    if (repairRequest.yacht_id) {
+      setDepositBillingManagersLoading(true);
+      try {
+        const found: { email: string; name: string; source: string }[] = [];
+        const seenEmails = new Set<string>();
+
+        const { data: profiles } = await supabase
+          .from('user_profiles')
+          .select('first_name, last_name, email, notification_email')
+          .eq('yacht_id', repairRequest.yacht_id)
+          .eq('can_approve_billing', true);
+
+        for (const p of profiles || []) {
+          const email = p.notification_email || p.email;
+          if (email && !seenEmails.has(email.toLowerCase())) {
+            seenEmails.add(email.toLowerCase());
+            const name = [p.first_name, p.last_name].filter(Boolean).join(' ');
+            found.push({ email, name, source: 'user' });
+          }
+        }
+
+        const { data: agreements } = await supabase
+          .from('vessel_management_agreements')
+          .select('manager_billing_approval_email, manager_billing_approval_name')
+          .eq('yacht_id', repairRequest.yacht_id)
+          .eq('status', 'approved')
+          .limit(1);
+
+        for (const a of agreements || []) {
+          if (a.manager_billing_approval_email && !seenEmails.has(a.manager_billing_approval_email.toLowerCase())) {
+            seenEmails.add(a.manager_billing_approval_email.toLowerCase());
+            found.push({
+              email: a.manager_billing_approval_email,
+              name: a.manager_billing_approval_name || '',
+              source: 'agreement'
+            });
+          }
+        }
+
+        setDepositBillingManagers(found);
+        if (found.length === 1) {
+          setDepositEmailRecipient(found[0].email);
+          setDepositEmailRecipientName(found[0].name);
+        }
+      } catch (error) {
+        console.error('Error fetching billing managers:', error);
+      } finally {
+        setDepositBillingManagersLoading(false);
+      }
+    }
   };
 
   const handleSendDepositEmail = async () => {
-    if (!selectedRepairForDepositEmail || !depositEmailRecipient) return;
+    const hasManagers = depositBillingManagers.length > 0;
+    if (!selectedRepairForDepositEmail || (!hasManagers && !depositEmailRecipient)) return;
 
     setSendingEmail(true);
     try {
@@ -3909,6 +3964,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         attachmentContentType = depositEmailAttachment.type || 'application/octet-stream';
       }
 
+      const recipients = hasManagers
+        ? depositBillingManagers
+        : [{ email: depositEmailRecipient, name: depositEmailRecipientName }];
+
       const sendApiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-deposit-request-email`;
       const sendResponse = await fetch(sendApiUrl, {
         method: 'POST',
@@ -3918,8 +3977,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         },
         body: JSON.stringify({
           repairRequestId: selectedRepairForDepositEmail.id,
-          recipientEmail: depositEmailRecipient,
-          recipientName: depositEmailRecipientName || undefined,
+          recipientEmail: recipients[0].email,
+          recipientName: recipients[0].name || undefined,
+          additionalRecipients: recipients.slice(1).map(r => ({ email: r.email, name: r.name || undefined })),
           attachmentBase64,
           attachmentFilename,
           attachmentContentType,
@@ -3934,6 +3994,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           setDepositEmailRecipient('');
           setDepositEmailRecipientName('');
           setDepositEmailAttachment(null);
+          setDepositBillingManagers([]);
           showError('Email service not configured. Please copy the deposit link and send it manually');
           return;
         }
@@ -3945,9 +4006,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       setDepositEmailRecipient('');
       setDepositEmailRecipientName('');
       setDepositEmailAttachment(null);
+      setDepositBillingManagers([]);
 
       await loadRepairRequests();
-      showSuccess('Deposit request email sent successfully!');
+      const sentCount = recipients.length;
+      showSuccess(sentCount > 1 ? `Deposit request email sent to ${sentCount} billing managers!` : 'Deposit request email sent successfully!');
     } catch (error: any) {
       console.error('Error sending deposit request:', error);
       showError(`Error: ${error.message || 'Failed to send deposit request'}`);
@@ -16771,7 +16834,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               </div>
             </div>
 
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
               <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700">
                 <p className="text-sm text-slate-400 mb-1">Repair Request</p>
                 <p className="text-white font-semibold">{selectedRepairForDepositEmail.title}</p>
@@ -16782,32 +16845,69 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                 )}
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Recipient Email <span className="text-red-400">*</span>
-                </label>
-                <input
-                  type="email"
-                  value={depositEmailRecipient}
-                  onChange={(e) => setDepositEmailRecipient(e.target.value)}
-                  placeholder="customer@example.com"
-                  className="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
-                  required
-                />
-              </div>
+              {depositBillingManagersLoading ? (
+                <div className="flex items-center gap-2 text-slate-400 text-sm py-2">
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  Looking up billing managers...
+                </div>
+              ) : depositBillingManagers.length > 0 ? (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Users className="w-4 h-4 text-cyan-400" />
+                    <label className="text-sm font-medium text-slate-300">
+                      Billing Approval Managers ({depositBillingManagers.length})
+                    </label>
+                  </div>
+                  <div className="space-y-2">
+                    {depositBillingManagers.map((mgr, idx) => (
+                      <div key={idx} className="flex items-center justify-between bg-slate-900/50 border border-cyan-500/30 rounded-lg px-4 py-3">
+                        <div className="min-w-0">
+                          {mgr.name && <p className="text-sm text-white font-medium truncate">{mgr.name}</p>}
+                          <p className="text-sm text-cyan-300 truncate">{mgr.email}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setDepositBillingManagers(prev => prev.filter((_, i) => i !== idx))}
+                          className="text-slate-500 hover:text-red-400 transition-colors flex-shrink-0 ml-3"
+                          title="Remove recipient"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">Email will be sent to all listed billing managers</p>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      Recipient Email <span className="text-red-400">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      value={depositEmailRecipient}
+                      onChange={(e) => setDepositEmailRecipient(e.target.value)}
+                      placeholder="customer@example.com"
+                      className="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
+                      required
+                    />
+                  </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Recipient Name (Optional)
-                </label>
-                <input
-                  type="text"
-                  value={depositEmailRecipientName}
-                  onChange={(e) => setDepositEmailRecipientName(e.target.value)}
-                  placeholder="John Doe"
-                  className="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
-                />
-              </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      Recipient Name (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={depositEmailRecipientName}
+                      onChange={(e) => setDepositEmailRecipientName(e.target.value)}
+                      placeholder="John Doe"
+                      className="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
+                    />
+                  </div>
+                </>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
@@ -16862,7 +16962,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
             <div className="p-6 border-t border-slate-700 flex gap-3">
               <button
-                onClick={() => { setShowDepositEmailModal(false); setDepositEmailAttachment(null); }}
+                onClick={() => { setShowDepositEmailModal(false); setDepositEmailAttachment(null); setDepositBillingManagers([]); }}
                 disabled={sendingEmail}
                 className="flex-1 px-6 bg-slate-700 hover:bg-slate-600 text-white font-semibold py-3 rounded-lg transition-colors disabled:opacity-50"
               >
@@ -16870,7 +16970,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               </button>
               <button
                 onClick={handleSendDepositEmail}
-                disabled={sendingEmail || !depositEmailRecipient}
+                disabled={sendingEmail || depositBillingManagersLoading || (depositBillingManagers.length === 0 && !depositEmailRecipient)}
                 className="flex-1 px-6 bg-cyan-500 hover:bg-cyan-600 text-white font-semibold py-3 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {sendingEmail ? (
@@ -16881,7 +16981,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                 ) : (
                   <>
                     <Mail className="w-4 h-4" />
-                    Send Email
+                    {depositBillingManagers.length > 1 ? `Send to ${depositBillingManagers.length} Managers` : 'Send Email'}
                   </>
                 )}
               </button>
