@@ -448,6 +448,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [repairError, setRepairError] = useState('');
   const [repairRequests, setRepairRequests] = useState<RepairRequest[]>([]);
   const [activeRepairTab, setActiveRepairTab] = useState<'active' | 'paid' | 'archived'>('active');
+  const [collapsedRepairGroups, setCollapsedRepairGroups] = useState<Set<string>>(new Set());
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [approvalAction, setApprovalAction] = useState<{ requestId: string; status: 'approved' | 'rejected' } | null>(null);
   const [approvalNotes, setApprovalNotes] = useState('');
@@ -12089,18 +12090,55 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             return acc;
                           }, {});
 
-                          return Object.entries(groupedByYacht).map(([groupKey, group]: [string, any]) => (
-                            <div key={groupKey} className="space-y-4">
-                              <div className="bg-slate-700/30 backdrop-blur-sm rounded-xl px-4 py-3 border border-slate-600">
-                                <h4 className="text-lg font-bold text-orange-400">{group.label}</h4>
-                                <p className="text-slate-400 text-sm">{group.requests.length} request{group.requests.length !== 1 ? 's' : ''}</p>
-                              </div>
+                          return Object.entries(groupedByYacht).map(([groupKey, group]: [string, any]) => {
+                            const isCollapsed = collapsedRepairGroups.has(groupKey);
+                            const toggleGroup = () => {
+                              setCollapsedRepairGroups(prev => {
+                                const next = new Set(prev);
+                                if (next.has(groupKey)) next.delete(groupKey);
+                                else next.add(groupKey);
+                                return next;
+                              });
+                            };
+                            const pendingCount = group.requests.filter((r: any) => r.status === 'pending').length;
+                            const approvedCount = group.requests.filter((r: any) => r.status === 'approved').length;
+                            const completedCount = group.requests.filter((r: any) => r.status === 'completed').length;
 
-                              <div className="space-y-4">
+                            return (
+                            <div key={groupKey} className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 overflow-hidden">
+                              <button
+                                onClick={toggleGroup}
+                                className="w-full flex items-center justify-between px-6 py-4 hover:bg-slate-700/30 transition-colors text-left"
+                              >
+                                <div className="flex items-center gap-4">
+                                  <div className="bg-orange-500/20 p-2 rounded-lg">
+                                    <Anchor className="w-5 h-5 text-orange-400" />
+                                  </div>
+                                  <div>
+                                    <h4 className="text-lg font-bold text-orange-400">{group.label}</h4>
+                                    <div className="flex items-center gap-3 mt-0.5">
+                                      <span className="text-slate-400 text-sm">{group.requests.length} request{group.requests.length !== 1 ? 's' : ''}</span>
+                                      {pendingCount > 0 && (
+                                        <span className="bg-yellow-500/20 text-yellow-400 text-xs px-2 py-0.5 rounded-full font-medium">{pendingCount} pending</span>
+                                      )}
+                                      {approvedCount > 0 && (
+                                        <span className="bg-green-500/20 text-green-400 text-xs px-2 py-0.5 rounded-full font-medium">{approvedCount} approved</span>
+                                      )}
+                                      {completedCount > 0 && (
+                                        <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded-full font-medium">{completedCount} completed</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                                <ChevronDown className={`w-5 h-5 text-slate-400 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
+                              </button>
+
+                              {!isCollapsed && (
+                              <div className="border-t border-slate-700 p-4 space-y-4">
                                 {group.requests.map((request: any) => {
                           const invoice = repairInvoices[request.id];
                           return (
-                            <div key={request.id} className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700">
+                            <div key={request.id} className="bg-slate-900/50 backdrop-blur-sm rounded-xl p-6 border border-slate-700/50">
                               <div className="flex items-start justify-between mb-4">
                                 <div className="flex-1">
                                   <div className="flex items-center gap-3 mb-2 flex-wrap">
@@ -12954,8 +12992,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           );
                                 })}
                               </div>
+                              )}
                             </div>
-                          ));
+                            );
+                          });
                         })()}
                       </div>
                     )}
