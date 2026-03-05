@@ -678,7 +678,19 @@ export function Invoices({ userId }: InvoicesProps) {
 
   async function handleRequestPayment(invoice: Invoice) {
     if (!invoice.customer_email) {
-      setEmailPrompt({ invoice, email: '' });
+      let prefillEmail = '';
+      if (invoice.yacht_id) {
+        const { data: ownerProfile } = await supabase
+          .from('user_profiles')
+          .select('email_address')
+          .eq('yacht_id', invoice.yacht_id)
+          .eq('role', 'owner')
+          .maybeSingle();
+        if (ownerProfile?.email_address) {
+          prefillEmail = ownerProfile.email_address;
+        }
+      }
+      setEmailPrompt({ invoice, email: prefillEmail });
       return;
     }
     await generatePaymentLink(invoice, invoice.customer_email);
