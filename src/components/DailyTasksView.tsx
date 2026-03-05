@@ -501,6 +501,9 @@ export function DailyTasksView() {
                           {task.customers.customer_type === 'business'
                             ? task.customers.business_name
                             : [task.customers.first_name, task.customers.last_name].filter(Boolean).join(' ')}
+                          {task.yachts && (
+                            <span className="text-blue-300 ml-0.5">— {task.yachts.name}</span>
+                          )}
                         </span>
                       )}
                       <span className="flex items-center gap-1 text-xs text-slate-400">
