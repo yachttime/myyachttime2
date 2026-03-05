@@ -455,61 +455,67 @@ export function DailyTasksView() {
                 </div>
 
                 {isExpanded && (
-                  <div className="border-t border-gray-100 p-4 space-y-5" onClick={(e) => e.stopPropagation()}>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
+                  <div className="border-t border-gray-100 p-4 space-y-4" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-gray-600">
                       {canManage && (
-                        <div>
-                          <span className="font-medium text-gray-700">Assigned to:</span> {assigneeName}
-                        </div>
+                        <span><span className="font-medium text-gray-700">Assigned to:</span> {assigneeName}</span>
                       )}
-                      <div>
-                        <span className="font-medium text-gray-700">Assigned by:</span> {assignerName}
-                      </div>
-                      <div>
-                        <span className="font-medium text-gray-700">Task date:</span> {formatTaskDate(task.task_date)}
-                      </div>
+                      <span><span className="font-medium text-gray-700">Assigned by:</span> {assignerName}</span>
+                      <span><span className="font-medium text-gray-700">Date:</span> {formatTaskDate(task.task_date)}</span>
                     </div>
 
                     {task.admin_notes && (
-                      <div>
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Assignment Notes</p>
-                        <div className="bg-amber-50 border border-amber-100 rounded-lg p-3 text-sm text-gray-800 whitespace-pre-wrap">
-                          {task.admin_notes}
-                        </div>
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                        <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-1">Assignment Notes</p>
+                        <p className="text-sm text-gray-800 whitespace-pre-wrap">{task.admin_notes}</p>
                       </div>
                     )}
 
-                    <div>
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">My Notes</p>
-                      <textarea
-                        value={staffNotesEdit[task.id] ?? task.staff_notes}
-                        onChange={(e) => setStaffNotesEdit((prev) => ({ ...prev, [task.id]: e.target.value }))}
-                        rows={3}
-                        placeholder="Add your notes, updates, or observations here..."
-                        className="w-full border border-gray-200 rounded-lg p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
-                      />
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="md:col-span-2 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-2">Staff Notes</p>
+                        <textarea
+                          value={staffNotesEdit[task.id] ?? task.staff_notes}
+                          onChange={(e) => setStaffNotesEdit((prev) => ({ ...prev, [task.id]: e.target.value }))}
+                          rows={4}
+                          placeholder="Add your notes, progress updates, observations, or anything the manager should know..."
+                          className="w-full border border-blue-200 rounded-lg p-2.5 text-sm resize-none bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                        />
+                      </div>
+
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                        <p className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-2">Time Spent</p>
+                        <p className="text-xs text-green-600 mb-2">Enter total hours worked on this task</p>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.25"
+                            value={timeSpentEdit[task.id] ?? ''}
+                            onChange={(e) => setTimeSpentEdit((prev) => ({ ...prev, [task.id]: e.target.value }))}
+                            placeholder="0.0"
+                            className="w-full border border-green-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent"
+                          />
+                          <span className="text-sm text-green-700 font-medium whitespace-nowrap">hrs</span>
+                        </div>
+                        {task.time_spent_minutes > 0 && (
+                          <p className="text-xs text-green-600 mt-1.5">
+                            Saved: {formatTimeSpent(task.time_spent_minutes)}
+                          </p>
+                        )}
+                      </div>
                     </div>
 
-                    <div>
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Time Spent (hours)</p>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.25"
-                        value={timeSpentEdit[task.id] ?? ''}
-                        onChange={(e) => setTimeSpentEdit((prev) => ({ ...prev, [task.id]: e.target.value }))}
-                        placeholder="e.g. 1.5"
-                        className="w-36 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
-                      />
-                    </div>
-
-                    <div>
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
                       <div className="flex items-center justify-between mb-2">
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Parts Needed</p>
+                        <div>
+                          <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Parts Needed</p>
+                          <p className="text-xs text-gray-500 mt-0.5">List any parts or materials required for this task</p>
+                        </div>
                         {addingPartForTask !== task.id && (
                           <button
                             onClick={() => { setAddingPartForTask(task.id); setNewPart({ part_name: '', quantity: '', notes: '' }); }}
-                            className="flex items-center gap-1 text-xs text-amber-600 hover:text-amber-700 font-medium"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 text-gray-700 hover:bg-gray-100 rounded-lg text-xs font-medium transition-colors"
                           >
                             <Plus className="w-3 h-3" />
                             Add Part
@@ -517,34 +523,46 @@ export function DailyTasksView() {
                         )}
                       </div>
 
+                      {(task.daily_task_parts ?? []).length === 0 && addingPartForTask !== task.id && (
+                        <p className="text-xs text-gray-400 italic">No parts added yet. Click "Add Part" if parts are needed.</p>
+                      )}
+
                       {(task.daily_task_parts ?? []).length > 0 && (
                         <div className="space-y-2 mb-3">
+                          <div className="grid grid-cols-12 gap-2 px-1 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                            <span className="col-span-5">Part</span>
+                            <span className="col-span-2">Qty</span>
+                            <span className="col-span-4">Notes</span>
+                            <span className="col-span-1" />
+                          </div>
                           {(task.daily_task_parts ?? []).map((part) => (
-                            <div key={part.id} className="flex items-start gap-2 bg-gray-50 rounded-lg p-2.5">
-                              <Package className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-gray-800">{part.part_name}</p>
-                                {part.quantity && <p className="text-xs text-gray-500">Qty: {part.quantity}</p>}
-                                {part.notes && <p className="text-xs text-gray-500">{part.notes}</p>}
+                            <div key={part.id} className="grid grid-cols-12 gap-2 items-center bg-white border border-gray-200 rounded-lg px-2.5 py-2">
+                              <div className="col-span-5 flex items-center gap-1.5 min-w-0">
+                                <Package className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                                <p className="text-sm font-medium text-gray-800 truncate">{part.part_name}</p>
                               </div>
-                              <button
-                                onClick={() => handleDeletePart(part.id)}
-                                disabled={deletingPartId === part.id}
-                                className="text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
-                              >
-                                {deletingPartId === part.id ? (
-                                  <div className="w-4 h-4 animate-spin rounded-full border-b-2 border-red-400" />
-                                ) : (
-                                  <X className="w-4 h-4" />
-                                )}
-                              </button>
+                              <p className="col-span-2 text-sm text-gray-600">{part.quantity || '—'}</p>
+                              <p className="col-span-4 text-xs text-gray-500 truncate">{part.notes || '—'}</p>
+                              <div className="col-span-1 flex justify-end">
+                                <button
+                                  onClick={() => handleDeletePart(part.id)}
+                                  disabled={deletingPartId === part.id}
+                                  className="text-gray-400 hover:text-red-500 transition-colors"
+                                >
+                                  {deletingPartId === part.id ? (
+                                    <div className="w-3.5 h-3.5 animate-spin rounded-full border-b-2 border-red-400" />
+                                  ) : (
+                                    <X className="w-3.5 h-3.5" />
+                                  )}
+                                </button>
+                              </div>
                             </div>
                           ))}
                         </div>
                       )}
 
                       {addingPartForTask === task.id && (
-                        <div className="border border-gray-200 rounded-lg p-3 space-y-2 bg-gray-50">
+                        <div className="border border-gray-300 rounded-lg p-3 space-y-2 bg-white mt-2">
                           <input
                             type="text"
                             value={newPart.part_name}
@@ -574,7 +592,7 @@ export function DailyTasksView() {
                               disabled={savingPart || !newPart.part_name.trim()}
                               className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white rounded-lg text-xs font-medium transition-colors"
                             >
-                              {savingPart ? 'Adding...' : 'Add'}
+                              {savingPart ? 'Adding...' : 'Add Part'}
                             </button>
                             <button
                               onClick={() => setAddingPartForTask(null)}
@@ -594,7 +612,7 @@ export function DailyTasksView() {
                           disabled={savingTaskId === task.id}
                           className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
                         >
-                          {savingTaskId === task.id ? 'Saving...' : 'Save Notes'}
+                          {savingTaskId === task.id ? 'Saving...' : 'Save Updates'}
                         </button>
                         <button
                           onClick={() => handleMarkComplete(task.id)}
