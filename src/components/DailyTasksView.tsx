@@ -659,7 +659,7 @@ export function DailyTasksView() {
                 <select
                   value={newTask.assigned_to}
                   onChange={(e) => setNewTask((p) => ({ ...p, assigned_to: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
                 >
                   <option value="">Select staff member...</option>
                   {staffOptions.map((s) => (
@@ -676,7 +676,7 @@ export function DailyTasksView() {
                   <select
                     value={newTask.yacht_id}
                     onChange={(e) => setNewTask((p) => ({ ...p, yacht_id: e.target.value }))}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
                   >
                     <option value="">None</option>
                     {yachtOptions.map((y) => (
@@ -690,7 +690,7 @@ export function DailyTasksView() {
                   <select
                     value={newTask.customer_id}
                     onChange={(e) => setNewTask((p) => ({ ...p, customer_id: e.target.value }))}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
                   >
                     <option value="">None</option>
                     {customerOptions.map((c) => (
