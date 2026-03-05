@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Anchor, Calendar, CheckCircle, AlertCircle, BookOpen, LogOut, Wrench, Send, Play, Shield, ClipboardCheck, Ship, CalendarPlus, FileUp, MessageCircle, Mail, CreditCard as Edit2, Trash2, ChevronLeft, ChevronRight, ChevronDown, History, UserCheck, FileText, Upload, Download, X, Users, Save, RefreshCw, Clock, Thermometer, Camera, Receipt, Pencil, Lock, CreditCard, Eye, EyeOff, MousePointer, Ligature as FileSignature, Folder, Menu, Phone, Printer, Plus, QrCode, CircleUser as UserCircle2, DollarSign, Archive, Building2, MessageSquare, ShieldAlert } from 'lucide-react';
+import { Anchor, Calendar, CheckCircle, AlertCircle, BookOpen, LogOut, Wrench, Send, Play, Shield, ClipboardCheck, Ship, CalendarPlus, FileUp, MessageCircle, Mail, CreditCard as Edit2, Trash2, ChevronLeft, ChevronRight, ChevronDown, History, UserCheck, FileText, Upload, Download, X, Users, Save, RefreshCw, Clock, Thermometer, Camera, Receipt, Pencil, Lock, CreditCard, Eye, EyeOff, MousePointer, Ligature as FileSignature, Folder, Menu, Phone, Printer, Plus, QrCode, CircleUser as UserCircle2, DollarSign, Archive, Building2, MessageSquare, ShieldAlert, Paperclip } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCompany } from '../contexts/CompanyContext';
 import { useRoleImpersonation } from '../contexts/RoleImpersonationContext';
@@ -494,6 +494,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [selectedRepairForDepositEmail, setSelectedRepairForDepositEmail] = useState<RepairRequest | null>(null);
   const [depositEmailRecipient, setDepositEmailRecipient] = useState('');
   const [depositEmailRecipientName, setDepositEmailRecipientName] = useState('');
+  const [depositEmailAttachment, setDepositEmailAttachment] = useState<File | null>(null);
   const [depositLoading, setDepositLoading] = useState(false);
   const [depositLinkLoading, setDepositLinkLoading] = useState<{ [repairRequestId: string]: boolean }>({});
   const [emailStatusLoading, setEmailStatusLoading] = useState<{ [repairRequestId: string]: boolean }>({});
@@ -3874,6 +3875,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     setSelectedRepairForDepositEmail(repairRequest);
     setDepositEmailRecipient('');
     setDepositEmailRecipientName('');
+    setDepositEmailAttachment(null);
     setShowDepositEmailModal(true);
   };
 
@@ -3891,6 +3893,22 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         throw new Error('Not authenticated');
       }
 
+      let attachmentBase64: string | undefined;
+      let attachmentFilename: string | undefined;
+      let attachmentContentType: string | undefined;
+
+      if (depositEmailAttachment) {
+        const buffer = await depositEmailAttachment.arrayBuffer();
+        const bytes = new Uint8Array(buffer);
+        let binary = '';
+        for (let i = 0; i < bytes.byteLength; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        attachmentBase64 = btoa(binary);
+        attachmentFilename = depositEmailAttachment.name;
+        attachmentContentType = depositEmailAttachment.type || 'application/octet-stream';
+      }
+
       const sendApiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-deposit-request-email`;
       const sendResponse = await fetch(sendApiUrl, {
         method: 'POST',
@@ -3901,7 +3919,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         body: JSON.stringify({
           repairRequestId: selectedRepairForDepositEmail.id,
           recipientEmail: depositEmailRecipient,
-          recipientName: depositEmailRecipientName || undefined
+          recipientName: depositEmailRecipientName || undefined,
+          attachmentBase64,
+          attachmentFilename,
+          attachmentContentType,
         })
       });
 
@@ -3912,6 +3933,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           setSelectedRepairForDepositEmail(null);
           setDepositEmailRecipient('');
           setDepositEmailRecipientName('');
+          setDepositEmailAttachment(null);
           showError('Email service not configured. Please copy the deposit link and send it manually');
           return;
         }
@@ -3922,6 +3944,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       setSelectedRepairForDepositEmail(null);
       setDepositEmailRecipient('');
       setDepositEmailRecipientName('');
+      setDepositEmailAttachment(null);
 
       await loadRepairRequests();
       showSuccess('Deposit request email sent successfully!');
@@ -16786,6 +16809,50 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                 />
               </div>
 
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Attach File (Optional)
+                </label>
+                <div className="relative">
+                  {depositEmailAttachment ? (
+                    <div className="flex items-center justify-between bg-slate-900/50 border border-cyan-500/50 rounded-lg px-4 py-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Paperclip className="w-4 h-4 text-cyan-400 flex-shrink-0" />
+                        <span className="text-sm text-white truncate">{depositEmailAttachment.name}</span>
+                        <span className="text-xs text-slate-400 flex-shrink-0">
+                          ({(depositEmailAttachment.size / 1024).toFixed(0)} KB)
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setDepositEmailAttachment(null)}
+                        className="text-slate-400 hover:text-red-400 transition-colors flex-shrink-0 ml-2"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="flex items-center gap-3 bg-slate-900/50 border border-dashed border-slate-600 hover:border-cyan-500/50 rounded-lg px-4 py-3 cursor-pointer transition-colors group">
+                      <Paperclip className="w-4 h-4 text-slate-500 group-hover:text-cyan-400 transition-colors flex-shrink-0" />
+                      <span className="text-sm text-slate-500 group-hover:text-slate-300 transition-colors">
+                        Attach final estimate or document...
+                      </span>
+                      <input
+                        type="file"
+                        accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] || null;
+                          setDepositEmailAttachment(file);
+                          e.target.value = '';
+                        }}
+                      />
+                    </label>
+                  )}
+                </div>
+                <p className="text-xs text-slate-500 mt-1">PDF, Word, Excel, or image files accepted</p>
+              </div>
+
               <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-lg p-3">
                 <p className="text-xs text-cyan-300">
                   A professional email will be sent with the deposit payment link, repair details, and instructions for completing the payment via Stripe.
@@ -16795,7 +16862,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
             <div className="p-6 border-t border-slate-700 flex gap-3">
               <button
-                onClick={() => setShowDepositEmailModal(false)}
+                onClick={() => { setShowDepositEmailModal(false); setDepositEmailAttachment(null); }}
                 disabled={sendingEmail}
                 className="flex-1 px-6 bg-slate-700 hover:bg-slate-600 text-white font-semibold py-3 rounded-lg transition-colors disabled:opacity-50"
               >

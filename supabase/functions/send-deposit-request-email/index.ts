@@ -11,6 +11,9 @@ interface EmailRequest {
   recipientEmail: string;
   recipientName?: string;
   recaptchaToken?: string;
+  attachmentBase64?: string;
+  attachmentFilename?: string;
+  attachmentContentType?: string;
 }
 
 Deno.serve(async (req: Request) => {
@@ -38,7 +41,7 @@ Deno.serve(async (req: Request) => {
       throw new Error('Unauthorized');
     }
 
-    const { repairRequestId, recipientEmail, recipientName, recaptchaToken }: EmailRequest = await req.json();
+    const { repairRequestId, recipientEmail, recipientName, recaptchaToken, attachmentBase64, attachmentFilename, attachmentContentType }: EmailRequest = await req.json();
 
     if (!repairRequestId || !recipientEmail) {
       throw new Error('Repair request ID and recipient email are required');
@@ -217,6 +220,16 @@ Deno.serve(async (req: Request) => {
 
       if (ccEmails.length > 0) {
         emailPayload.cc = ccEmails;
+      }
+
+      if (attachmentBase64 && attachmentFilename) {
+        emailPayload.attachments = [
+          {
+            filename: attachmentFilename,
+            content: attachmentBase64,
+            content_type: attachmentContentType || 'application/octet-stream',
+          },
+        ];
       }
 
       const response = await fetch('https://api.resend.com/emails', {
