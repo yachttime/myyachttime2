@@ -24,27 +24,50 @@ export async function printAllQRCodesAvery5168(yachts: { id: string; name: strin
     })
   );
 
+  const labelW = 3.5;
+  const labelH = 5;
   const marginTop = 0.5;
   const marginLeft = 0.19;
-  const gapH = 0.19;
+  const colGap = 0.19;
+
+  const labelPositions = [
+    { left: marginLeft,                        top: marginTop },
+    { left: marginLeft + labelW + colGap,      top: marginTop },
+    { left: marginLeft,                        top: marginTop + labelH },
+    { left: marginLeft + labelW + colGap,      top: marginTop + labelH },
+  ];
 
   const sheets: string[] = [];
   for (let i = 0; i < qrDataUrls.length; i += 4) {
     const group = qrDataUrls.slice(i, i + 4);
-    const cells = group.map((item) => `
-      <div class="label">
-        <table class="label-table" cellpadding="0" cellspacing="0">
-          <tr><td class="label-td">
+    const cells = group.map((item, idx) => {
+      const pos = labelPositions[idx];
+      return `
+        <div style="
+          position: absolute;
+          left: ${pos.left}in;
+          top: ${pos.top}in;
+          width: ${labelW}in;
+          height: ${labelH}in;
+          display: table;
+          overflow: hidden;
+        ">
+          <div style="
+            display: table-cell;
+            vertical-align: middle;
+            text-align: center;
+            padding: 0.2in 0.2in;
+          ">
             <div class="yacht-title">${item.name}</div>
             <div class="qr-wrap">
               <img src="${item.dataUrl}" alt="QR Code" />
             </div>
             <div class="label-sub">Scan to access My Yacht Time</div>
             <div class="label-brand">My Yacht Time</div>
-          </td></tr>
-        </table>
-      </div>
-    `).join('');
+          </div>
+        </div>
+      `;
+    }).join('');
     sheets.push(`<div class="sheet">${cells}</div>`);
   }
   const allSheetsHtml = sheets.join('');
@@ -77,33 +100,10 @@ export async function printAllQRCodesAvery5168(yachts: { id: string; name: strin
             background: white;
           }
           .sheet {
+            position: relative;
             width: 8.5in;
             height: 11in;
-            padding-top: ${marginTop}in;
-            padding-left: ${marginLeft}in;
-            display: grid;
-            grid-template-columns: 3.5in 3.5in;
-            grid-template-rows: 5in 5in;
-            column-gap: ${gapH}in;
-            row-gap: 0;
             page-break-after: always;
-          }
-          .label {
-            width: 3.5in;
-            height: 5in;
-            overflow: hidden;
-          }
-          .label-table {
-            width: 3.5in;
-            height: 5in;
-            border-collapse: collapse;
-          }
-          .label-td {
-            width: 3.5in;
-            height: 5in;
-            vertical-align: middle;
-            text-align: center;
-            padding: 0.2in 0.2in;
           }
           .yacht-title {
             font-size: 22pt;
