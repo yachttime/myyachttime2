@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { supabase } from '../lib/supabase';
-import { Plus, Wrench, AlertCircle, Edit2, Trash2, Check, X, ChevronDown, ChevronUp, Printer, CheckCircle, Clock, FileText, DollarSign, Mail, ExternalLink, RefreshCw, Eye, MousePointer, Download, Archive, RotateCcw, Package } from 'lucide-react';
+import { Plus, Wrench, AlertCircle, CreditCard as Edit2, Trash2, Check, X, ChevronDown, ChevronUp, Printer, CheckCircle, Clock, FileText, DollarSign, Mail, ExternalLink, RefreshCw, Eye, MousePointer, Download, Archive, RotateCcw, Package } from 'lucide-react';
 import { generateWorkOrderPDF } from '../utils/pdfGenerator';
 import { useNotification } from '../contexts/NotificationContext';
 import { useAuth } from '../contexts/AuthContext';
