@@ -27,14 +27,16 @@ export async function printAllQRCodesAvery5168(yachts: { id: string; name: strin
   const labelW = 3.5;
   const labelH = 5;
   const marginTop = 0.5;
+  const rowGap = 0;
+  const row2Top = marginTop + labelH + rowGap;
   const col1Left = 0.44;
-  const col2Left = 0.94;
+  const col2Left = 4.38;
 
   const labelPositions = [
     { left: col1Left,  top: marginTop },
     { left: col2Left,  top: marginTop },
-    { left: col1Left,  top: marginTop + labelH },
-    { left: col2Left,  top: marginTop + labelH },
+    { left: col1Left,  top: row2Top },
+    { left: col2Left,  top: row2Top },
   ];
 
   const sheets: string[] = [];
