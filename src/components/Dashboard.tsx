@@ -3401,8 +3401,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
   const handleAddInvoiceToCompletedRepair = async (request: RepairRequest) => {
     setSelectedRepairForInvoice(request);
+    const estimatingInvoice = repairEstimatingInvoices[request.id];
+    let autoAmount = request.final_invoice_amount || request.estimated_repair_cost || '';
+    if (estimatingInvoice?.total_amount != null) {
+      autoAmount = `$${Number(estimatingInvoice.total_amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
     setInvoiceForm({
-      final_invoice_amount: request.final_invoice_amount || request.estimated_repair_cost || '',
+      final_invoice_amount: autoAmount,
       invoice_file: null,
       payment_method_type: 'card'
     });
@@ -13374,7 +13379,15 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                         </div>
 
                         <div className="p-6 space-y-6">
-                          {selectedRepairForInvoice.estimated_repair_cost && !isEditingInvoice && (
+                          {!isEditingInvoice && repairEstimatingInvoices[selectedRepairForInvoice.id] && (
+                            <div className="bg-emerald-500/10 border border-emerald-500/30 p-4 rounded-lg">
+                              <p className="text-sm text-emerald-400 font-medium">Invoice Auto-Populated from Estimating System</p>
+                              <p className="text-xs text-slate-400 mt-1">
+                                Invoice {repairEstimatingInvoices[selectedRepairForInvoice.id].invoice_number} — Total: ${Number(repairEstimatingInvoices[selectedRepairForInvoice.id].total_amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </p>
+                            </div>
+                          )}
+                          {selectedRepairForInvoice.estimated_repair_cost && !isEditingInvoice && !repairEstimatingInvoices[selectedRepairForInvoice.id] && (
                             <div className="bg-slate-900/50 p-4 rounded-lg">
                               <p className="text-sm text-slate-400">Estimated Repair Cost</p>
                               <p className="text-lg font-semibold">{selectedRepairForInvoice.estimated_repair_cost}</p>
