@@ -706,7 +706,7 @@ export function DailyTasksView() {
                   value={newTask.title}
                   onChange={(e) => setNewTask((p) => ({ ...p, title: e.target.value }))}
                   placeholder="e.g. Oil change on slip 12 boat"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
                 />
               </div>
 
@@ -732,7 +732,7 @@ export function DailyTasksView() {
                   type="date"
                   value={newTask.task_date}
                   onChange={(e) => setNewTask((p) => ({ ...p, task_date: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
                 />
               </div>
 
@@ -773,7 +773,7 @@ export function DailyTasksView() {
                   onChange={(e) => setNewTask((p) => ({ ...p, admin_notes: e.target.value }))}
                   rows={3}
                   placeholder="Describe what needs to be done, any specific instructions, special requirements..."
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 bg-white resize-none focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
                 />
               </div>
 
