@@ -1781,6 +1781,20 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
     }
   };
 
+  const updateSentEmployeesForWorkOrder = (workOrderId: string, updatedTasks: typeof tasks) => {
+    const sentSet = new Set<string>();
+    updatedTasks.forEach(task => {
+      const hasAnySent = task.lineItems.some(li => li.line_type === 'labor' && li.time_entry_sent_at);
+      if (hasAnySent) {
+        (task.assignedEmployees || []).forEach(empId => {
+          const emp = employees.find(e => e.user_id === empId);
+          if (emp) sentSet.add(`${emp.first_name} ${emp.last_name}`.trim());
+        });
+      }
+    });
+    setWorkOrderSentEmployees(prev => ({ ...prev, [workOrderId]: sentSet }));
+  };
+
   const [sendingTaskLaborToTimeClock, setSendingTaskLaborToTimeClock] = useState<Record<number, boolean>>({});
   const [taskLaborEmployeeOverride, setTaskLaborEmployeeOverride] = useState<Record<number, string>>({});
 
@@ -1843,6 +1857,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
       const updatedTasks = [...tasks];
       updatedTasks[taskIndex] = { ...task, lineItems: updatedItems };
       setTasks(updatedTasks);
+      if (editingId) updateSentEmployeesForWorkOrder(editingId, updatedTasks);
 
       const totalHours = unsentLaborLines.reduce((sum, i) => sum + i.quantity, 0);
       const hoursEach = (totalHours / empCount).toFixed(1);
@@ -1884,6 +1899,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
         time_entry_id: data.time_entry_id
       };
       setTasks(updatedTasks);
+      if (editingId) updateSentEmployeesForWorkOrder(editingId, updatedTasks);
       showSuccess(`Sent ${item.quantity} hours to time clock for ${employees.find(e => e.user_id === item.assigned_employee_id)?.first_name || 'employee'}`);
     } catch (err: any) {
       console.error('Error sending labor to time clock:', err);
