@@ -98,6 +98,19 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
   const [showCrossSearch, setShowCrossSearch] = useState(false);
   const [crossSearchLoading, setCrossSearchLoading] = useState(false);
 
+  interface PartLookupResult {
+    source: 'Mercury' | 'Wholesale';
+    part_number: string;
+    description: string;
+    unit_cost: number;
+    unit_price: number;
+    barcode: string;
+  }
+  const [partLookupResults, setPartLookupResults] = useState<PartLookupResult[]>([]);
+  const [showPartLookup, setShowPartLookup] = useState(false);
+  const [partLookupLoading, setPartLookupLoading] = useState(false);
+  const partNumberInputRef = useRef<HTMLInputElement>(null);
+
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [adjustmentData, setAdjustmentData] = useState({
     transaction_type: 'adjustment' as 'add' | 'remove' | 'adjustment',
@@ -217,6 +230,87 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
       clearTimeout(timer);
     };
   }, [searchTerm]);
+
+  useEffect(() => {
+    if (!showForm) {
+      setPartLookupResults([]);
+      setShowPartLookup(false);
+      return;
+    }
+    let cancelled = false;
+    const term = formData.part_number.trim();
+    if (!term || term.length < 2) {
+      setPartLookupResults([]);
+      setShowPartLookup(false);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      if (cancelled) return;
+      setPartLookupLoading(true);
+      const results: PartLookupResult[] = [];
+
+      const [mercuryRes, wholesaleRes] = await Promise.all([
+        supabase
+          .from('mercury_marine_parts')
+          .select('part_number, description, dealer_price, msrp, upc_code')
+          .eq('is_active', true)
+          .or(`part_number.ilike.${term}%,part_number.ilike.%${term}%`)
+          .limit(8)
+          .order('part_number'),
+        supabase
+          .from('marine_wholesale_parts')
+          .select('sku, mfg_part_number, description, cost, list_price')
+          .eq('is_active', true)
+          .or(`sku.ilike.${term}%,mfg_part_number.ilike.${term}%,sku.ilike.%${term}%,mfg_part_number.ilike.%${term}%`)
+          .limit(8)
+          .order('sku'),
+      ]);
+
+      if (!cancelled) {
+        for (const p of (mercuryRes.data || [])) {
+          results.push({
+            source: 'Mercury',
+            part_number: p.part_number,
+            description: p.description || '',
+            unit_cost: Number(p.dealer_price) || 0,
+            unit_price: Number(p.msrp) || Number(p.dealer_price) || 0,
+            barcode: p.upc_code || '',
+          });
+        }
+        for (const p of (wholesaleRes.data || [])) {
+          results.push({
+            source: 'Wholesale',
+            part_number: p.sku,
+            description: p.description || '',
+            unit_cost: Number(p.cost) || 0,
+            unit_price: Number(p.list_price) || 0,
+            barcode: '',
+          });
+        }
+        setPartLookupResults(results);
+        setShowPartLookup(results.length > 0);
+        setPartLookupLoading(false);
+      }
+    }, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [formData.part_number, showForm]);
+
+  const applyPartLookup = (result: PartLookupResult) => {
+    setFormData(prev => ({
+      ...prev,
+      part_number: result.part_number,
+      name: result.description ? result.description.substring(0, 80) : prev.name,
+      description: result.description || prev.description,
+      unit_cost: result.unit_cost > 0 ? result.unit_cost.toFixed(2) : prev.unit_cost,
+      unit_price: result.unit_price > 0 ? result.unit_price.toFixed(2) : prev.unit_price,
+      barcode: result.barcode || prev.barcode,
+    }));
+    setShowPartLookup(false);
+    setPartLookupResults([]);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -720,15 +814,56 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
           </div>
           <form onSubmit={handleSubmit} className="space-y-4 p-6">
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Part Number *</label>
+              <div className="relative">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Part Number *
+                  {partLookupLoading && (
+                    <span className="ml-2 text-xs text-blue-500 font-normal">Searching...</span>
+                  )}
+                </label>
                 <input
+                  ref={partNumberInputRef}
                   type="text"
                   required
                   value={formData.part_number}
                   onChange={(e) => setFormData({ ...formData, part_number: e.target.value })}
+                  onBlur={() => setTimeout(() => setShowPartLookup(false), 200)}
+                  onFocus={() => partLookupResults.length > 0 && setShowPartLookup(true)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
+                  placeholder="Enter part number to search databases"
+                  autoComplete="off"
                 />
+                {showPartLookup && partLookupResults.length > 0 && (
+                  <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-gray-300 rounded-lg shadow-xl max-h-64 overflow-y-auto">
+                    <div className="px-3 py-2 text-xs font-semibold text-gray-500 bg-gray-50 border-b border-gray-200 sticky top-0">
+                      Select to auto-fill from database
+                    </div>
+                    {partLookupResults.map((result, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onMouseDown={() => applyPartLookup(result)}
+                        className="w-full text-left px-3 py-2.5 hover:bg-blue-50 border-b border-gray-100 last:border-0 transition-colors"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className={`shrink-0 text-xs font-semibold px-1.5 py-0.5 rounded ${result.source === 'Mercury' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
+                              {result.source}
+                            </span>
+                            <span className="font-mono text-sm font-semibold text-gray-900 shrink-0">{result.part_number}</span>
+                          </div>
+                          <div className="flex items-center gap-3 shrink-0 text-xs text-gray-600">
+                            {result.unit_cost > 0 && <span>Cost: ${result.unit_cost.toFixed(2)}</span>}
+                            {result.unit_price > 0 && <span className="font-semibold text-gray-800">Price: ${result.unit_price.toFixed(2)}</span>}
+                          </div>
+                        </div>
+                        {result.description && (
+                          <p className="text-xs text-gray-500 mt-0.5 truncate">{result.description}</p>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
