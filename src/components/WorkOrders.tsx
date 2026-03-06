@@ -2679,32 +2679,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                                                   <span className="text-gray-400 ml-1">· {new Date(item.time_entry_sent_at).toLocaleDateString()}</span>
                                                 </div>
                                               ) : (
-                                                <>
-                                                  <select
-                                                    value={item.assigned_employee_id || ''}
-                                                    onChange={(e) => handleAssignLaborEmployee(taskIndex, lineIndex, e.target.value)}
-                                                    className="text-xs px-2 py-1 border border-gray-300 rounded bg-white text-gray-900 focus:ring-1 focus:ring-blue-500"
-                                                  >
-                                                    <option value="">Assign employee...</option>
-                                                    {employees.map(emp => (
-                                                      <option key={emp.user_id} value={emp.user_id}>
-                                                        {emp.first_name} {emp.last_name}
-                                                      </option>
-                                                    ))}
-                                                  </select>
-                                                  {item.assigned_employee_id && (
-                                                    <button
-                                                      type="button"
-                                                      disabled={!item.id || sendingLaborToTimeClock[item.id!]}
-                                                      onClick={() => handleSendLaborToTimeClock(taskIndex, lineIndex)}
-                                                      className="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1"
-                                                      title={!item.id ? 'Save the work order first' : 'Send these hours to the time clock'}
-                                                    >
-                                                      <Clock className="w-3 h-3" />
-                                                      {sendingLaborToTimeClock[item.id!] ? 'Sending...' : 'Send to Time Clock'}
-                                                    </button>
-                                                  )}
-                                                </>
+                                                <span className="text-xs text-gray-400 italic">Use &quot;Send Labor Hours to Time Clock&quot; above</span>
                                               )}
                                             </div>
                                           )}
