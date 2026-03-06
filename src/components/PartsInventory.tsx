@@ -363,6 +363,21 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
 
         if (updateError) throw updateError;
       } else {
+        const { data: existing } = await supabase
+          .from('parts_inventory')
+          .select('id, is_active')
+          .eq('part_number', formData.part_number.trim())
+          .maybeSingle();
+
+        if (existing) {
+          if (existing.is_active) {
+            setError(`Part number "${formData.part_number}" already exists in your inventory. Use the edit button to update it.`);
+          } else {
+            setError(`Part number "${formData.part_number}" already exists but is inactive. Re-activate it from the Inactive filter view.`);
+          }
+          return;
+        }
+
         const { error: insertError } = await supabase
           .from('parts_inventory')
           .insert({
