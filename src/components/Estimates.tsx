@@ -1187,6 +1187,10 @@ export function Estimates({ userId }: EstimatesProps) {
   };
 
   const handleCancel = () => {
+    if (editingId) {
+      resetForm();
+      return;
+    }
     const hasDraft = tasks.length > 0 || formData.yacht_id || formData.customer_name;
 
     if (hasDraft) {
