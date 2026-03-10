@@ -7,24 +7,25 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-interface RepairApprovalNotification {
+interface RepairStatusNotification {
   repairRequestId: string;
   repairTitle: string;
   yachtName: string;
-  approverName: string;
+  actorName: string;
+  eventType: 'approved' | 'rejected' | 'paid';
   estimatedCost?: string;
+  finalAmount?: string;
+  rejectionReason?: string;
 }
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders,
-    });
+    return new Response(null, { status: 200, headers: corsHeaders });
   }
 
   try {
-    const { repairRequestId, repairTitle, yachtName, approverName, estimatedCost }: RepairApprovalNotification = await req.json();
+    const payload: RepairStatusNotification = await req.json();
+    const { repairRequestId, repairTitle, yachtName, actorName, eventType, estimatedCost, finalAmount, rejectionReason } = payload;
 
     if (!repairRequestId) {
       throw new Error('Repair request ID is required');
@@ -34,241 +35,248 @@ Deno.serve(async (req: Request) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get all staff and master users
     const { data: staffUsers, error: staffError } = await supabase
       .from('user_profiles')
-      .select('user_id, first_name, last_name, email, notification_email, email_notifications_enabled, role')
-      .in('role', ['staff', 'master', 'mechanic'])
+      .select('user_id, first_name, last_name, email, phone, notification_email, notification_phone, email_notifications_enabled, sms_notifications_enabled, role')
+      .in('role', ['staff', 'master'])
       .eq('is_active', true);
 
-    if (staffError) {
-      console.error('Error fetching staff users:', staffError);
-      throw staffError;
-    }
+    if (staffError) throw staffError;
 
     if (!staffUsers || staffUsers.length === 0) {
-      console.log('No staff/master users found to notify');
       return new Response(
-        JSON.stringify({
-          success: true,
-          message: 'No staff/master users to notify',
-          emailsSent: 0
-        }),
-        {
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          },
-        }
+        JSON.stringify({ success: true, message: 'No staff/master users to notify', emailsSent: 0, smsSent: 0 }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    console.log(`Found ${staffUsers.length} staff/master users to notify`);
 
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
-
-    if (!resendApiKey) {
-      console.log('RESEND_API_KEY not configured - emails will not be sent');
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'Email service not configured',
-          message: 'RESEND_API_KEY not set in environment variables'
-        }),
-        {
-          status: 503,
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-    }
-
-    let fromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'onboarding@resend.dev';
-    fromEmail = fromEmail.trim();
-
-    // Validate the from email format
-    const emailFormatRegex = /^(?:[a-zA-Z0-9\s]+ <)?[^\s@]+@[^\s@]+\.[^\s@]+>?$/;
-    if (!emailFormatRegex.test(fromEmail)) {
-      console.error('Invalid RESEND_FROM_EMAIL format:', fromEmail);
-      throw new Error(`Invalid from email format: "${fromEmail}". Expected format: "email@example.com" or "Name <email@example.com>"`);
-    }
-
-    const subject = `✅ Repair Approved: ${repairTitle}`;
+    const twilioAccountSid = Deno.env.get('TWILIO_ACCOUNT_SID');
+    const twilioAuthToken = Deno.env.get('TWILIO_AUTH_TOKEN');
+    const twilioPhone = Deno.env.get('TWILIO_PHONE_NUMBER');
     const siteUrl = Deno.env.get('SITE_URL') || 'https://yourdomain.com';
+    let fromEmail = (Deno.env.get('RESEND_FROM_EMAIL') || 'onboarding@resend.dev').trim();
 
-    // Prepare list of email recipients
-    const emailRecipients: Array<{email: string, name: string}> = [];
+    const emailRecipients: Array<{ email: string; name: string }> = [];
+    const smsRecipients: Array<{ phone: string; name: string }> = [];
 
     for (const user of staffUsers) {
       const userName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Team Member';
 
-      // Check if user has email notifications enabled
       if (user.email_notifications_enabled) {
         const emailAddress = user.notification_email || user.email;
-        if (emailAddress) {
-          // Validate email format
-          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-          if (emailRegex.test(emailAddress)) {
-            emailRecipients.push({ email: emailAddress, name: userName });
-          }
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (emailAddress && emailRegex.test(emailAddress)) {
+          emailRecipients.push({ email: emailAddress, name: userName });
+        }
+      }
+
+      if (user.sms_notifications_enabled) {
+        const phoneNumber = user.notification_phone || user.phone;
+        if (phoneNumber) {
+          smsRecipients.push({ phone: phoneNumber, name: userName });
         }
       }
     }
 
-    if (emailRecipients.length === 0) {
-      console.log('No valid email recipients found');
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: 'No email recipients with notifications enabled',
-          emailsSent: 0
-        }),
-        {
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-    }
+    const eventConfig = {
+      approved: {
+        subject: `Repair Approved: ${repairTitle}`,
+        headerColor: '#10b981',
+        headerColorEnd: '#059669',
+        headerTitle: 'Repair Request Approved',
+        headerSubtitle: 'Ready to Proceed',
+        statusBoxColor: '#d1fae5',
+        statusBoxBorder: '#10b981',
+        statusText: 'A repair request has been approved and is ready to proceed.',
+        detailsTitle: 'Approval Details',
+        detailsTitleColor: '#10b981',
+        actorLabel: 'Approved By',
+        smsText: `APPROVED: Repair "${repairTitle}" for ${yachtName} was approved by ${actorName}.`,
+        actionText: 'The repair work can now proceed. Please coordinate with the team to schedule and complete the work.',
+      },
+      rejected: {
+        subject: `Repair Rejected: ${repairTitle}`,
+        headerColor: '#ef4444',
+        headerColorEnd: '#dc2626',
+        headerTitle: 'Repair Request Rejected',
+        headerSubtitle: 'Action Required',
+        statusBoxColor: '#fee2e2',
+        statusBoxBorder: '#ef4444',
+        statusText: 'A repair request has been rejected.',
+        detailsTitle: 'Rejection Details',
+        detailsTitleColor: '#ef4444',
+        actorLabel: 'Rejected By',
+        smsText: `REJECTED: Repair "${repairTitle}" for ${yachtName} was rejected by ${actorName}.`,
+        actionText: 'Please review the rejection reason and follow up with the owner as needed.',
+      },
+      paid: {
+        subject: `Repair Invoice Paid: ${repairTitle}`,
+        headerColor: '#3b82f6',
+        headerColorEnd: '#2563eb',
+        headerTitle: 'Repair Invoice Paid',
+        headerSubtitle: 'Payment Received',
+        statusBoxColor: '#dbeafe',
+        statusBoxBorder: '#3b82f6',
+        statusText: 'A repair invoice has been paid in full.',
+        detailsTitle: 'Payment Details',
+        detailsTitleColor: '#3b82f6',
+        actorLabel: 'Recorded By',
+        smsText: `PAID: Invoice for repair "${repairTitle}" on ${yachtName} has been paid.`,
+        actionText: 'The repair request has been fully settled. No further action is required.',
+      },
+    };
 
-    console.log(`Sending approval notification to ${emailRecipients.length} recipients`);
+    const cfg = eventConfig[eventType];
 
-    // Send email to each recipient
-    const emailResults = [];
-    for (const recipient of emailRecipients) {
-      const htmlContent = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
-            .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
-            .success-box { background: #d1fae5; border-left: 4px solid #10b981; padding: 20px; border-radius: 8px; margin: 20px 0; }
-            .details { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }
-            .view-button { display: inline-block; background: #10b981; color: white; padding: 14px 40px; text-decoration: none; border-radius: 6px; font-weight: bold; margin: 20px 0; font-size: 16px; }
-            .footer { text-align: center; color: #666; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1 style="margin: 0;">✅ Repair Request Approved</h1>
-              <p style="margin: 10px 0 0 0;">Ready to Proceed</p>
-            </div>
-            <div class="content">
-              <p>Hello ${recipient.name},</p>
+    let emailsSent = 0;
+    let smsSent = 0;
 
-              <div class="success-box">
-                <p style="margin: 0; font-weight: bold;">A repair request has been approved and is ready to proceed.</p>
+    if (resendApiKey && emailRecipients.length > 0) {
+      const emailFormatRegex = /^(?:[a-zA-Z0-9\s]+ <)?[^\s@]+@[^\s@]+\.[^\s@]+>?$/;
+      if (!emailFormatRegex.test(fromEmail)) {
+        fromEmail = 'onboarding@resend.dev';
+      }
+
+      for (const recipient of emailRecipients) {
+        const amountLine = eventType === 'paid' && finalAmount
+          ? `<p><strong>Amount Paid:</strong> $${finalAmount}</p>`
+          : eventType === 'approved' && estimatedCost
+          ? `<p><strong>Estimated Cost:</strong> $${estimatedCost}</p>`
+          : '';
+
+        const rejectionLine = eventType === 'rejected' && rejectionReason
+          ? `<p><strong>Reason:</strong> ${rejectionReason}</p>`
+          : '';
+
+        const htmlContent = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <style>
+              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+              .header { background: linear-gradient(135deg, ${cfg.headerColor} 0%, ${cfg.headerColorEnd} 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+              .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
+              .status-box { background: ${cfg.statusBoxColor}; border-left: 4px solid ${cfg.statusBoxBorder}; padding: 20px; border-radius: 8px; margin: 20px 0; }
+              .details { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }
+              .view-button { display: inline-block; background: ${cfg.headerColor}; color: white; padding: 14px 40px; text-decoration: none; border-radius: 6px; font-weight: bold; margin: 20px 0; font-size: 16px; }
+              .footer { text-align: center; color: #666; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <h1 style="margin: 0;">${cfg.headerTitle}</h1>
+                <p style="margin: 10px 0 0 0;">${cfg.headerSubtitle}</p>
               </div>
-
-              <div class="details">
-                <h3 style="margin-top: 0; color: #10b981;">Approval Details</h3>
-                <p><strong>Yacht:</strong> ${yachtName}</p>
-                <p><strong>Repair:</strong> ${repairTitle}</p>
-                <p><strong>Approved By:</strong> ${approverName}</p>
-                ${estimatedCost ? `<p><strong>Estimated Cost:</strong> $${estimatedCost}</p>` : ''}
-                <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+              <div class="content">
+                <p>Hello ${recipient.name},</p>
+                <div class="status-box">
+                  <p style="margin: 0; font-weight: bold;">${cfg.statusText}</p>
+                </div>
+                <div class="details">
+                  <h3 style="margin-top: 0; color: ${cfg.detailsTitleColor};">${cfg.detailsTitle}</h3>
+                  <p><strong>Yacht:</strong> ${yachtName}</p>
+                  <p><strong>Repair:</strong> ${repairTitle}</p>
+                  <p><strong>${cfg.actorLabel}:</strong> ${actorName}</p>
+                  ${amountLine}
+                  ${rejectionLine}
+                  <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+                </div>
+                <p style="text-align: center; margin: 25px 0;">
+                  <a href="${siteUrl}" class="view-button" style="color: white;">View in System</a>
+                </p>
+                <p style="margin-top: 30px;">${cfg.actionText}</p>
+                <p>Best regards,<br>Yacht Management System</p>
               </div>
-
-              <p style="text-align: center; margin: 25px 0;">
-                <a href="${siteUrl}" class="view-button" style="color: white;">View in System</a>
-              </p>
-
-              <p style="margin-top: 30px;">The repair work can now proceed. Please coordinate with the team to schedule and complete the work.</p>
-
-              <p>Best regards,<br>
-              Yacht Management System</p>
+              <div class="footer">
+                <p>This is an automated notification. Please do not reply to this email.</p>
+                <p>&copy; ${new Date().getFullYear()} Yacht Management System</p>
+              </div>
             </div>
-            <div class="footer">
-              <p>This is an automated notification. Please do not reply to this email.</p>
-              <p>&copy; ${new Date().getFullYear()} Yacht Management System</p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `;
+          </body>
+          </html>
+        `;
 
-      try {
-        const emailPayload = {
-          from: fromEmail,
-          to: [recipient.email],
-          subject: subject,
-          html: htmlContent,
-          tags: [
-            {
-              name: 'category',
-              value: 'repair-approval',
+        try {
+          const emailResponse = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${resendApiKey}`,
+              'Content-Type': 'application/json',
             },
-          ],
-        };
+            body: JSON.stringify({
+              from: fromEmail,
+              to: [recipient.email],
+              subject: cfg.subject,
+              html: htmlContent,
+              tags: [{ name: 'category', value: `repair-${eventType}` }],
+            }),
+          });
 
-        const emailResponse = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${resendApiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(emailPayload),
-        });
-
-        if (!emailResponse.ok) {
-          const errorText = await emailResponse.text();
-          console.error('Resend API error for', recipient.email, ':', errorText);
-          emailResults.push({ email: recipient.email, success: false, error: errorText });
-        } else {
-          const emailData = await emailResponse.json();
-          console.log('Approval email sent successfully to:', recipient.email, 'ID:', emailData.id);
-          emailResults.push({ email: recipient.email, success: true, emailId: emailData.id });
+          if (emailResponse.ok) {
+            emailsSent++;
+            console.log(`Email sent to ${recipient.email} for repair ${eventType}`);
+          } else {
+            const errText = await emailResponse.text();
+            console.error(`Email failed for ${recipient.email}:`, errText);
+          }
+        } catch (err) {
+          console.error(`Email error for ${recipient.email}:`, err);
         }
-      } catch (error) {
-        console.error('Error sending email to:', recipient.email, error);
-        emailResults.push({
-          email: recipient.email,
-          success: false,
-          error: error instanceof Error ? error.message : 'Unknown error'
-        });
       }
     }
 
-    const successCount = emailResults.filter(r => r.success).length;
-    const failCount = emailResults.length - successCount;
+    if (twilioAccountSid && twilioAuthToken && twilioPhone && smsRecipients.length > 0) {
+      const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json`;
+      const twilioAuth = btoa(`${twilioAccountSid}:${twilioAuthToken}`);
+
+      for (const recipient of smsRecipients) {
+        try {
+          const formData = new URLSearchParams({
+            To: recipient.phone,
+            From: twilioPhone,
+            Body: cfg.smsText,
+          });
+
+          const smsResponse = await fetch(twilioUrl, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Basic ${twilioAuth}`,
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: formData.toString(),
+          });
+
+          if (smsResponse.ok) {
+            smsSent++;
+            console.log(`SMS sent to ${recipient.phone} for repair ${eventType}`);
+          } else {
+            const errText = await smsResponse.text();
+            console.error(`SMS failed for ${recipient.phone}:`, errText);
+          }
+        } catch (err) {
+          console.error(`SMS error for ${recipient.phone}:`, err);
+        }
+      }
+    }
 
     return new Response(
       JSON.stringify({
-        success: successCount > 0,
-        message: `Sent ${successCount} of ${emailResults.length} approval notifications`,
-        successCount,
-        failCount,
-        results: emailResults
+        success: true,
+        message: `Sent ${emailsSent} email(s) and ${smsSent} SMS for repair ${eventType}`,
+        emailsSent,
+        smsSent,
       }),
-      {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error: any) {
     console.error('Error in send-repair-approval-notification:', error);
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: error.message
-      }),
-      {
-        status: 400,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-      }
+      JSON.stringify({ success: false, error: error.message }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
