@@ -209,10 +209,10 @@ export function DailyTasksView() {
   }, [loadTasks]);
 
   useEffect(() => {
-    if (canManage && (showCreateModal || expandedTaskId)) {
+    if (showCreateModal || expandedTaskId) {
       loadDropdownOptions();
     }
-  }, [canManage, showCreateModal, expandedTaskId]);
+  }, [showCreateModal, expandedTaskId]);
 
   const loadDropdownOptions = async () => {
     const [staffRes, yachtRes, customerRes] = await Promise.all([
@@ -349,15 +349,11 @@ export function DailyTasksView() {
     const { error: updateError } = await supabase
       .from('daily_tasks')
       .update({ assigned_to: newAssignee || null })
-      .eq('id', taskId);
+      .eq('id', taskId)
+      .select('id');
     if (updateError) {
-      setError('Failed to assign task.');
+      setError(`Failed to assign task: ${updateError.message}`);
     } else {
-      setAssignedToEdit((p) => {
-        const next = { ...p };
-        delete next[taskId];
-        return next;
-      });
       await loadTasks();
     }
     setAssigningTaskId(null);
@@ -495,7 +491,12 @@ export function DailyTasksView() {
               >
                 <div
                   className="flex items-start gap-3 p-4 cursor-pointer select-none"
-                  onClick={() => setExpandedTaskId(isExpanded ? null : task.id)}
+                  onClick={() => {
+                    if (!isExpanded) {
+                      setAssignedToEdit((p) => ({ ...p, [task.id]: task.assigned_to || '' }));
+                    }
+                    setExpandedTaskId(isExpanded ? null : task.id);
+                  }}
                 >
                   <div className="mt-0.5 flex-shrink-0">
                     <Circle className="w-5 h-5 text-gray-300" />
@@ -611,7 +612,7 @@ export function DailyTasksView() {
                         </select>
                         <button
                           onClick={() => handleAssignTask(task.id)}
-                          disabled={assigningTaskId === task.id || (assignedToEdit[task.id] === undefined && !task.assigned_to) || assignedToEdit[task.id] === (task.assigned_to || '')}
+                          disabled={assigningTaskId === task.id || (assignedToEdit[task.id] ?? (task.assigned_to || '')) === (task.assigned_to || '')}
                           className="px-3 py-1 bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-white rounded-lg text-xs font-medium transition-colors whitespace-nowrap flex-shrink-0"
                         >
                           {assigningTaskId === task.id ? 'Saving...' : 'Assign'}
