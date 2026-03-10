@@ -129,6 +129,8 @@ export function DailyTasksView() {
   const [staffNotesEdit, setStaffNotesEdit] = useState<Record<string, string>>({});
   const [timeSpentEdit, setTimeSpentEdit] = useState<Record<string, string>>({});
   const [taskDateEdit, setTaskDateEdit] = useState<Record<string, string>>({});
+  const [assignedToEdit, setAssignedToEdit] = useState<Record<string, string>>({});
+  const [assigningTaskId, setAssigningTaskId] = useState<string | null>(null);
 
   const [addingPartForTask, setAddingPartForTask] = useState<string | null>(null);
   const [newPart, setNewPart] = useState<NewPartForm>({ part_name: '', quantity: '', notes: '' });
@@ -185,10 +187,10 @@ export function DailyTasksView() {
   }, [loadTasks]);
 
   useEffect(() => {
-    if (canManage && showCreateModal) {
+    if (canManage && (showCreateModal || expandedTaskId)) {
       loadDropdownOptions();
     }
-  }, [canManage, showCreateModal]);
+  }, [canManage, showCreateModal, expandedTaskId]);
 
   const loadDropdownOptions = async () => {
     const [staffRes, yachtRes, customerRes] = await Promise.all([
@@ -317,6 +319,18 @@ export function DailyTasksView() {
     if (deleteError) setError('Failed to delete task.');
     else await loadTasks();
     setDeletingTaskId(null);
+  };
+
+  const handleAssignTask = async (taskId: string) => {
+    setAssigningTaskId(taskId);
+    const newAssignee = assignedToEdit[taskId] ?? '';
+    const { error: updateError } = await supabase
+      .from('daily_tasks')
+      .update({ assigned_to: newAssignee || null })
+      .eq('id', taskId);
+    if (updateError) setError('Failed to assign task.');
+    else await loadTasks();
+    setAssigningTaskId(null);
   };
 
   const handleAddPart = async (taskId: string) => {
@@ -543,6 +557,32 @@ export function DailyTasksView() {
                         )}
                       </span>
                     </div>
+
+                    {canManage && (
+                      <div className="flex items-center gap-2 bg-slate-600/50 border border-slate-500 rounded-lg px-3 py-2">
+                        <User className="w-4 h-4 text-slate-300 flex-shrink-0" />
+                        <span className="text-sm text-slate-300 font-medium whitespace-nowrap">Assign to:</span>
+                        <select
+                          value={assignedToEdit[task.id] ?? (task.assigned_to || '')}
+                          onChange={(e) => setAssignedToEdit((p) => ({ ...p, [task.id]: e.target.value }))}
+                          className="flex-1 bg-slate-700 border border-slate-500 rounded-lg px-2 py-1 text-sm text-slate-100 focus:outline-none focus:border-amber-400 min-w-0"
+                        >
+                          <option value="">Unassigned</option>
+                          {staffOptions.map((s) => (
+                            <option key={s.user_id} value={s.user_id}>
+                              {[s.first_name, s.last_name].filter(Boolean).join(' ') || 'Unknown'}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={() => handleAssignTask(task.id)}
+                          disabled={assigningTaskId === task.id || (assignedToEdit[task.id] === undefined && !task.assigned_to) || assignedToEdit[task.id] === (task.assigned_to || '')}
+                          className="px-3 py-1 bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-white rounded-lg text-xs font-medium transition-colors whitespace-nowrap flex-shrink-0"
+                        >
+                          {assigningTaskId === task.id ? 'Saving...' : 'Assign'}
+                        </button>
+                      </div>
+                    )}
 
                     {task.task_type === 'appointment' && task.appointments && (
                       <div className="bg-teal-900/30 border border-teal-600/40 rounded-lg p-3">
