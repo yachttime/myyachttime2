@@ -346,13 +346,16 @@ export function DailyTasksView() {
   const handleAssignTask = async (taskId: string) => {
     setAssigningTaskId(taskId);
     const newAssignee = assignedToEdit[taskId] ?? '';
-    const { error: updateError } = await supabase
+    const updatePayload: Record<string, string | null> = { assigned_to: newAssignee || null };
+    const { error: updateError, data: updatedRows } = await supabase
       .from('daily_tasks')
-      .update({ assigned_to: newAssignee || null })
+      .update(updatePayload)
       .eq('id', taskId)
-      .select('id');
+      .select('id, assigned_to');
     if (updateError) {
       setError(`Failed to assign task: ${updateError.message}`);
+    } else if (!updatedRows || updatedRows.length === 0) {
+      setError('Assignment not saved — you may not have permission to update this task.');
     } else {
       await loadTasks();
     }
