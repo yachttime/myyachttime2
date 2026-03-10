@@ -209,6 +209,10 @@ export function DailyTasksView() {
   }, [loadTasks]);
 
   useEffect(() => {
+    if (canManage) loadDropdownOptions();
+  }, [canManage]);
+
+  useEffect(() => {
     if (showCreateModal || expandedTaskId) {
       loadDropdownOptions();
     }
@@ -495,8 +499,12 @@ export function DailyTasksView() {
                 <div
                   className="flex items-start gap-3 p-4 cursor-pointer select-none"
                   onClick={() => {
-                    if (!isExpanded) {
-                      setAssignedToEdit((p) => ({ ...p, [task.id]: task.assigned_to || '' }));
+                    if (isExpanded) {
+                      setAssignedToEdit((p) => {
+                        const next = { ...p };
+                        delete next[task.id];
+                        return next;
+                      });
                     }
                     setExpandedTaskId(isExpanded ? null : task.id);
                   }}
@@ -602,8 +610,12 @@ export function DailyTasksView() {
                         <User className="w-4 h-4 text-slate-300 flex-shrink-0" />
                         <span className="text-sm text-slate-300 font-medium whitespace-nowrap">Assign to:</span>
                         <select
-                          value={assignedToEdit[task.id] ?? (task.assigned_to || '')}
-                          onChange={(e) => setAssignedToEdit((p) => ({ ...p, [task.id]: e.target.value }))}
+                          value={assignedToEdit[task.id] !== undefined ? assignedToEdit[task.id] : (task.assigned_to || '')}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setAssignedToEdit((p) => ({ ...p, [task.id]: val }));
+                          }}
+                          autoComplete="off"
                           className="flex-1 bg-slate-700 border border-slate-500 rounded-lg px-2 py-1 text-sm text-slate-100 focus:outline-none focus:border-amber-400 min-w-0"
                         >
                           <option value="">Unassigned</option>
@@ -615,7 +627,11 @@ export function DailyTasksView() {
                         </select>
                         <button
                           onClick={() => handleAssignTask(task.id)}
-                          disabled={assigningTaskId === task.id || (assignedToEdit[task.id] ?? (task.assigned_to || '')) === (task.assigned_to || '')}
+                          disabled={
+                            assigningTaskId === task.id ||
+                            assignedToEdit[task.id] === undefined ||
+                            assignedToEdit[task.id] === (task.assigned_to || '')
+                          }
                           className="px-3 py-1 bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-white rounded-lg text-xs font-medium transition-colors whitespace-nowrap flex-shrink-0"
                         >
                           {assigningTaskId === task.id ? 'Saving...' : 'Assign'}
