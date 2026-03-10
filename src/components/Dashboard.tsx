@@ -2165,12 +2165,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       if (!agreements) {
         agreements = await loadVesselAgreements(yachtId) || [];
       }
-      const existingDraft = agreements.find(a => a.status === 'draft');
       const hasSubmitted = agreements.some(a => a.status === 'pending_approval' || a.status === 'approved');
-      if (isManagerRole(effectiveRole) && existingDraft) {
-        setSelectedAgreement(existingDraft);
-        setShowAgreementForm(true);
-      } else if (isManagerRole(effectiveRole) && !hasSubmitted) {
+      if (isManagerRole(effectiveRole) && !hasSubmitted && agreements.length === 0) {
         setSelectedAgreement(null);
         setShowAgreementForm(true);
       }
