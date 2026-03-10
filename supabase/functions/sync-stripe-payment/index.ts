@@ -10,7 +10,9 @@ interface SyncRequest {
   invoice_id?: string;
   estimating_invoice_id?: string;
   repair_request_id?: string;
+  workOrderId?: string;
   is_deposit?: boolean;
+  type?: string;
 }
 
 Deno.serve(async (req: Request) => {
@@ -32,7 +34,7 @@ Deno.serve(async (req: Request) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const body = await req.json();
-    const { invoice_id, estimating_invoice_id, repair_request_id, is_deposit, payment_intent_id } = body as SyncRequest & { payment_intent_id?: string };
+    const { invoice_id, estimating_invoice_id, repair_request_id, workOrderId, is_deposit, type, payment_intent_id } = body as SyncRequest & { payment_intent_id?: string };
 
     // Handle manual payment intent sync (when we have the payment intent ID directly)
     if (payment_intent_id && (is_deposit || invoice_id)) {
@@ -157,6 +159,111 @@ Deno.serve(async (req: Request) => {
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
+    }
+
+    // Handle work order deposit sync
+    if (workOrderId && type === 'work_order_deposit') {
+      const { data: workOrder, error: woFetchError } = await supabase
+        .from('work_orders')
+        .select('*, yachts(name)')
+        .eq('id', workOrderId)
+        .single();
+
+      if (woFetchError || !workOrder) {
+        throw new Error('Work order not found');
+      }
+
+      if (workOrder.deposit_payment_status === 'paid') {
+        return new Response(
+          JSON.stringify({ success: true, status: 'paid', message: 'Deposit already marked as paid' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const paymentLinkId = workOrder.deposit_stripe_checkout_session_id;
+      if (!paymentLinkId) {
+        return new Response(
+          JSON.stringify({ success: false, message: 'No Stripe payment link ID found for this work order' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const sessionsResponse = await fetch(
+        `https://api.stripe.com/v1/checkout/sessions?payment_link=${paymentLinkId}&limit=100`,
+        { headers: { 'Authorization': `Bearer ${stripeSecretKey}` } }
+      );
+
+      if (!sessionsResponse.ok) {
+        throw new Error('Failed to fetch checkout sessions from Stripe');
+      }
+
+      const sessions = await sessionsResponse.json();
+      console.log(`Found ${sessions.data.length} checkout sessions for work order payment link`);
+
+      const paidSessions = sessions.data.filter((s: any) => s.payment_status === 'paid');
+      console.log(`Found ${paidSessions.length} paid sessions`);
+
+      if (paidSessions.length === 0) {
+        return new Response(
+          JSON.stringify({ success: true, status: 'pending', message: 'No completed payment found in Stripe yet' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (paidSessions.length > 1) {
+        console.warn(`DUPLICATE PAYMENTS DETECTED: ${paidSessions.length} payments found for work order ${workOrderId}`);
+      }
+
+      const paidSession = paidSessions[0];
+      const paymentIntentIdFromSession = paidSession.payment_intent;
+      let paymentMethod = paidSession.payment_method_types?.[0] || 'card';
+
+      if (paymentIntentIdFromSession) {
+        try {
+          const piResponse = await fetch(
+            `https://api.stripe.com/v1/payment_intents/${paymentIntentIdFromSession}`,
+            { headers: { 'Authorization': `Bearer ${stripeSecretKey}` } }
+          );
+          if (piResponse.ok) {
+            const piData = await piResponse.json();
+            paymentMethod = piData.charges?.data?.[0]?.payment_method_details?.type || paymentMethod;
+          }
+        } catch (err) {
+          console.error('Error fetching payment intent:', err);
+        }
+      }
+
+      const { error: updateError } = await supabase
+        .from('work_orders')
+        .update({
+          deposit_payment_status: 'paid',
+          deposit_paid_at: new Date().toISOString(),
+          deposit_stripe_payment_intent_id: paymentIntentIdFromSession || null,
+          deposit_payment_method_type: paymentMethod,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', workOrderId);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      await supabase.from('admin_notifications').insert({
+        message: `Work order deposit payment received - $${parseFloat(workOrder.deposit_amount).toFixed(2)}`,
+        yacht_id: workOrder.yacht_id || null,
+        reference_id: workOrderId,
+        created_at: new Date().toISOString(),
+      });
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          status: 'paid',
+          message: 'Work order deposit synced and marked as paid',
+          payment_intent_id: paymentIntentIdFromSession,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Handle deposit sync
