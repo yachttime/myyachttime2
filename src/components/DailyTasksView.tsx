@@ -328,8 +328,16 @@ export function DailyTasksView() {
       .from('daily_tasks')
       .update({ assigned_to: newAssignee || null })
       .eq('id', taskId);
-    if (updateError) setError('Failed to assign task.');
-    else await loadTasks();
+    if (updateError) {
+      setError('Failed to assign task.');
+    } else {
+      setAssignedToEdit((p) => {
+        const next = { ...p };
+        delete next[taskId];
+        return next;
+      });
+      await loadTasks();
+    }
     setAssigningTaskId(null);
   };
 
