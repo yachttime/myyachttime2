@@ -17561,9 +17561,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700">
                 <p className="text-sm text-slate-400 mb-1">Repair Request</p>
                 <p className="text-white font-semibold">{selectedRepairForEstimateEmail.title}</p>
-                {selectedRepairForEstimateEmail.estimated_repair_cost && (
+                {selectedRepairForEstimateEmail.estimated_repair_cost && !isNaN(parseFloat(String(selectedRepairForEstimateEmail.estimated_repair_cost))) && (
                   <p className="text-orange-400 text-lg font-bold mt-1">
-                    ${parseFloat(selectedRepairForEstimateEmail.estimated_repair_cost).toFixed(2)}
+                    ${parseFloat(String(selectedRepairForEstimateEmail.estimated_repair_cost)).toFixed(2)}
                   </p>
                 )}
               </div>
