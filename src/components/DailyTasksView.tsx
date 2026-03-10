@@ -103,8 +103,11 @@ export function DailyTasksView() {
   const canManage = isManagerRole(effectiveRole);
 
   const [tasks, setTasks] = useState<DailyTask[]>([]);
+  const [completedTasks, setCompletedTasks] = useState<DailyTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
+  const [expandedCompletedId, setExpandedCompletedId] = useState<string | null>(null);
+  const [showCompletedSection, setShowCompletedSection] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [staffOptions, setStaffOptions] = useState<StaffOption[]>([]);
   const [yachtOptions, setYachtOptions] = useState<YachtOption[]>([]);
@@ -137,38 +140,52 @@ export function DailyTasksView() {
   const [savingPart, setSavingPart] = useState(false);
   const [deletingPartId, setDeletingPartId] = useState<string | null>(null);
 
+  const taskSelectFragment = `
+    *,
+    assigned_to_profile:user_profiles!daily_tasks_assigned_to_fkey(first_name, last_name),
+    assigned_by_profile:user_profiles!daily_tasks_assigned_by_fkey(first_name, last_name),
+    yachts(name),
+    customers(first_name, last_name, business_name, customer_type, customer_vessels(vessel_name)),
+    daily_task_parts(id, task_id, part_name, quantity, notes, added_by),
+    appointments(name, date, time, problem_description, appointment_type)
+  `;
+
   const loadTasks = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     setError(null);
 
-    const query = supabase
+    const activeQuery = supabase
       .from('daily_tasks')
-      .select(`
-        *,
-        assigned_to_profile:user_profiles!daily_tasks_assigned_to_fkey(first_name, last_name),
-        assigned_by_profile:user_profiles!daily_tasks_assigned_by_fkey(first_name, last_name),
-        yachts(name),
-        customers(first_name, last_name, business_name, customer_type, customer_vessels(vessel_name)),
-        daily_task_parts(id, task_id, part_name, quantity, notes, added_by),
-        appointments(name, date, time, problem_description, appointment_type)
-      `)
+      .select(taskSelectFragment)
       .eq('is_completed', false)
       .order('task_date', { ascending: true })
       .order('created_at', { ascending: false });
 
     if (!canSeeAllTasks) {
-      query.eq('assigned_to', user.id);
+      activeQuery.eq('assigned_to', user.id);
     }
 
-    const { data, error: fetchError } = await query;
-    if (fetchError) {
+    const completedQuery = supabase
+      .from('daily_tasks')
+      .select(taskSelectFragment)
+      .eq('is_completed', true)
+      .order('completed_at', { ascending: false })
+      .limit(50);
+
+    if (!canSeeAllTasks) {
+      completedQuery.eq('assigned_to', user.id);
+    }
+
+    const [activeRes, completedRes] = await Promise.all([activeQuery, completedQuery]);
+
+    if (activeRes.error) {
       setError('Failed to load tasks.');
     } else {
-      setTasks(data || []);
+      setTasks(activeRes.data || []);
       const initial: Record<string, string> = {};
       const initialTime: Record<string, string> = {};
-      (data || []).forEach((t: DailyTask) => {
+      (activeRes.data || []).forEach((t: DailyTask) => {
         initial[t.id] = t.staff_notes || '';
         initialTime[t.id] = t.time_spent_minutes > 0
           ? String(Math.floor(t.time_spent_minutes / 60) * 60 === t.time_spent_minutes
@@ -179,6 +196,11 @@ export function DailyTasksView() {
       setStaffNotesEdit(initial);
       setTimeSpentEdit(initialTime);
     }
+
+    if (!completedRes.error) {
+      setCompletedTasks(completedRes.data || []);
+    }
+
     setLoading(false);
   }, [user, canManage]);
 
@@ -398,6 +420,11 @@ export function DailyTasksView() {
     if (h === 0) return `${m}m`;
     if (m === 0) return `${h}h`;
     return `${h}h ${m}m`;
+  };
+
+  const formatCompletedAt = (iso: string | null) => {
+    if (!iso) return '';
+    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
   };
 
   if (loading) {
@@ -794,6 +821,171 @@ export function DailyTasksView() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {completedTasks.length > 0 && (
+        <div className="mt-6">
+          <button
+            onClick={() => setShowCompletedSection((v) => !v)}
+            className="flex items-center gap-2 w-full px-4 py-3 bg-slate-700 hover:bg-slate-600 border border-slate-600 rounded-xl text-sm font-medium text-slate-200 transition-colors"
+          >
+            <CheckCircle2 className="w-4 h-4 text-green-400" />
+            <span>Completed Tasks</span>
+            <span className="ml-1 px-2 py-0.5 bg-green-500/20 text-green-300 rounded-full text-xs font-semibold border border-green-500/30">
+              {completedTasks.length}
+            </span>
+            <span className="ml-auto">
+              {showCompletedSection ? (
+                <ChevronUp className="w-4 h-4 text-slate-400" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-slate-400" />
+              )}
+            </span>
+          </button>
+
+          {showCompletedSection && (
+            <div className="mt-3 space-y-2">
+              {completedTasks.map((task) => {
+                const isExpanded = expandedCompletedId === task.id;
+                const assigneeName = task.assigned_to
+                  ? ([task.assigned_to_profile?.first_name, task.assigned_to_profile?.last_name].filter(Boolean).join(' ') || 'Unknown')
+                  : 'Unassigned';
+                const assignerName = [task.assigned_by_profile?.first_name, task.assigned_by_profile?.last_name].filter(Boolean).join(' ') || 'Unknown';
+                const timeFormatted = formatTimeSpent(task.time_spent_minutes);
+
+                return (
+                  <div key={task.id} className="bg-slate-700/60 rounded-xl border border-slate-600/60">
+                    <div
+                      className="flex items-start gap-3 p-4 cursor-pointer select-none"
+                      onClick={() => setExpandedCompletedId(isExpanded ? null : task.id)}
+                    >
+                      <div className="mt-0.5 flex-shrink-0">
+                        <CheckCircle2 className="w-5 h-5 text-green-400" />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="font-medium text-slate-300 text-sm line-through">{task.title}</p>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {timeFormatted && (
+                              <span className="flex items-center gap-1 text-xs text-slate-400">
+                                <Clock className="w-3 h-3" />
+                                {timeFormatted}
+                              </span>
+                            )}
+                            {isExpanded ? (
+                              <ChevronUp className="w-4 h-4 text-slate-400" />
+                            ) : (
+                              <ChevronDown className="w-4 h-4 text-slate-400" />
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-3 mt-1.5">
+                          {canManage && (
+                            <span className="flex items-center gap-1 text-xs text-slate-400">
+                              <User className="w-3 h-3" />
+                              {assigneeName}
+                            </span>
+                          )}
+                          {task.yachts && (
+                            <span className="flex items-center gap-1 text-xs text-blue-400/70">
+                              <Ship className="w-3 h-3" />
+                              {task.yachts.name}
+                            </span>
+                          )}
+                          {task.completed_at && (
+                            <span className="flex items-center gap-1 text-xs text-green-400/80">
+                              <CheckCircle2 className="w-3 h-3" />
+                              {formatCompletedAt(task.completed_at)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {isExpanded && (
+                      <div className="border-t border-slate-600/60 p-4 space-y-4" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-slate-400">
+                          {canManage && (
+                            <span>
+                              <span className="font-medium text-slate-300">Assigned to:</span> {assigneeName}
+                            </span>
+                          )}
+                          <span><span className="font-medium text-slate-300">Assigned by:</span> {assignerName}</span>
+                          <span><span className="font-medium text-slate-300">Task date:</span> {formatTaskDate(task.task_date)}</span>
+                          {task.completed_at && (
+                            <span><span className="font-medium text-slate-300">Completed:</span> {formatCompletedAt(task.completed_at)}</span>
+                          )}
+                        </div>
+
+                        {task.admin_notes && (
+                          <div className="bg-amber-900/20 border border-amber-700/30 rounded-lg p-3">
+                            <p className="text-xs font-semibold text-amber-400 uppercase tracking-wide mb-1">Assignment Notes</p>
+                            <p className="text-sm text-slate-300 whitespace-pre-wrap">{task.admin_notes}</p>
+                          </div>
+                        )}
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="md:col-span-2 bg-blue-900/20 border border-blue-700/30 rounded-lg p-3">
+                            <p className="text-xs font-semibold text-blue-400 uppercase tracking-wide mb-2">Staff Notes</p>
+                            {task.staff_notes ? (
+                              <p className="text-sm text-slate-300 whitespace-pre-wrap">{task.staff_notes}</p>
+                            ) : (
+                              <p className="text-sm text-slate-500 italic">No notes entered.</p>
+                            )}
+                          </div>
+
+                          <div className="bg-green-900/20 border border-green-700/30 rounded-lg p-3">
+                            <p className="text-xs font-semibold text-green-400 uppercase tracking-wide mb-2">Time Spent</p>
+                            {task.time_spent_minutes > 0 ? (
+                              <p className="text-2xl font-bold text-green-300">{formatTimeSpent(task.time_spent_minutes)}</p>
+                            ) : (
+                              <p className="text-sm text-slate-500 italic">No time logged.</p>
+                            )}
+                          </div>
+                        </div>
+
+                        {(task.daily_task_parts ?? []).length > 0 && (
+                          <div className="bg-slate-600/40 border border-slate-500/50 rounded-lg p-3">
+                            <p className="text-xs font-semibold text-slate-300 uppercase tracking-wide mb-2">Parts Used</p>
+                            <div className="space-y-1.5">
+                              {(task.daily_task_parts ?? []).map((part) => (
+                                <div key={part.id} className="flex items-center gap-2 bg-slate-600/50 rounded-lg px-2.5 py-2">
+                                  <Package className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                                  <span className="text-sm text-slate-200 font-medium">{part.part_name}</span>
+                                  {part.quantity && <span className="text-xs text-slate-400 ml-1">Qty: {part.quantity}</span>}
+                                  {part.notes && <span className="text-xs text-slate-400 ml-1">— {part.notes}</span>}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {canManage && (
+                          <div className="flex justify-end pt-1 border-t border-slate-600/60">
+                            <button
+                              onClick={() => handleDeleteTask(task.id)}
+                              disabled={deletingTaskId === task.id}
+                              className="flex items-center gap-1.5 px-3 py-2 text-red-500 hover:bg-red-500/10 rounded-lg text-sm font-medium transition-colors border border-red-500/30"
+                            >
+                              {deletingTaskId === task.id ? (
+                                <div className="w-4 h-4 animate-spin rounded-full border-b-2 border-red-500" />
+                              ) : (
+                                <Trash2 className="w-4 h-4" />
+                              )}
+                              Delete
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
