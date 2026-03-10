@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ClipboardList,
@@ -146,8 +146,6 @@ export function DailyTasksView() {
   const [printStaffFilter, setPrintStaffFilter] = useState<string>('all');
   const [printTasks, setPrintTasks] = useState<DailyTask[]>([]);
   const [loadingPrint, setLoadingPrint] = useState(false);
-  const printRef = useRef<HTMLDivElement>(null);
-
   const taskSelectFragment = `
     *,
     assigned_to_profile:user_profiles!daily_tasks_assigned_to_fkey(first_name, last_name),
@@ -442,37 +440,80 @@ export function DailyTasksView() {
     loadPrintTasks(d);
   };
 
+  const buildPrintHTML = (tasks: DailyTask[], date: string, staffFilter: string) => {
+    const filtered = staffFilter === 'all' ? tasks : tasks.filter((t) => t.assigned_to === staffFilter);
+    const grouped: Record<string, DailyTask[]> = {};
+    filtered.forEach((t) => {
+      const key = t.assigned_to || 'unassigned';
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(t);
+    });
+    const today = new Date().toISOString().split('T')[0];
+    const dateLabel = new Date(date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+
+    let html = `<h1 style="font-size:22px;font-weight:700;margin-bottom:2px;">Daily Tasks</h1>
+<p style="font-size:13px;color:#555;margin-bottom:24px;">${dateLabel}</p>`;
+
+    for (const [staffId, staffTasks] of Object.entries(grouped)) {
+      const profile = staffTasks[0]?.assigned_to_profile;
+      const name = staffId === 'unassigned' ? 'Unassigned' : ([profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || 'Unknown');
+      html += `<div style="margin-bottom:32px;">
+  <div style="font-size:16px;font-weight:700;padding:8px 12px;background:#1e293b;color:#fff;border-radius:6px;margin-bottom:12px;">${name}</div>`;
+      staffTasks.forEach((t, i) => {
+        const isCompleted = t.is_completed;
+        const isOverdue = !isCompleted && t.task_date < today;
+        const statusColor = isCompleted ? '#166534' : isOverdue ? '#991b1b' : '#854d0e';
+        const statusBg = isCompleted ? '#dcfce7' : isOverdue ? '#fee2e2' : '#fef9c3';
+        const statusBorder = isCompleted ? '#86efac' : isOverdue ? '#fca5a5' : '#fde047';
+        const statusLabel = isCompleted ? 'Completed' : isOverdue ? 'Overdue' : 'Open';
+        const customerName = t.customers
+          ? (t.customers.customer_type === 'business'
+            ? t.customers.business_name
+            : [t.customers.first_name, t.customers.last_name].filter(Boolean).join(' '))
+          : null;
+        html += `<div style="border:1.5px solid #d1d5db;border-radius:8px;padding:12px 14px;margin-bottom:10px;page-break-inside:avoid;background:#fff;">
+    <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:6px;">
+      <span style="display:inline-block;min-width:16px;height:16px;border:2px solid #374151;border-radius:3px;margin-top:1px;flex-shrink:0;"></span>
+      <span style="font-size:14px;font-weight:700;flex:1;">${t.title}</span>
+      <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:${statusBg};color:${statusColor};border:1px solid ${statusBorder};white-space:nowrap;">${statusLabel}</span>
+    </div>`;
+        if (t.yachts || customerName || t.appointments) {
+          html += `<div style="display:flex;flex-wrap:wrap;gap:16px;font-size:11px;color:#555;margin-left:26px;margin-bottom:4px;">`;
+          if (t.yachts) html += `<span><strong style="color:#374151;">Vessel:</strong> ${t.yachts.name}</span>`;
+          if (customerName) html += `<span><strong style="color:#374151;">Customer:</strong> ${customerName}</span>`;
+          if (t.appointments) html += `<span><strong style="color:#374151;">Appointment:</strong> ${t.appointments.name}</span>`;
+          html += `</div>`;
+        }
+        if (t.admin_notes) {
+          html += `<div style="margin-top:6px;margin-left:26px;font-size:11px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:4px;padding:6px 8px;white-space:pre-wrap;"><strong>Notes:</strong> ${t.admin_notes}</div>`;
+        }
+        if ((t.daily_task_parts ?? []).length > 0) {
+          html += `<div style="margin-top:8px;margin-left:26px;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#6b7280;margin-bottom:4px;">Parts</div>`;
+          (t.daily_task_parts ?? []).forEach((p) => {
+            html += `<div style="display:flex;gap:8px;font-size:11px;padding:3px 0;border-bottom:1px solid #f0f0f0;">
+        <span>${p.part_name}</span>${p.quantity ? `<span style="color:#555;">Qty: ${p.quantity}</span>` : ''}${p.notes ? `<span style="color:#888;">— ${p.notes}</span>` : ''}
+      </div>`;
+          });
+          html += `</div>`;
+        }
+        html += `</div>`;
+      });
+      html += `</div>`;
+    }
+    return html;
+  };
+
   const handlePrint = () => {
-    const content = printRef.current;
-    if (!content) return;
+    const html = buildPrintHTML(printTasks, printDate, printStaffFilter);
     const win = window.open('', '_blank');
     if (!win) return;
     win.document.write(`<!DOCTYPE html><html><head><title>Daily Tasks</title>
       <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: Arial, sans-serif; font-size: 12px; color: #1a1a1a; background: #fff; padding: 24px; }
-        h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
-        .subtitle { font-size: 12px; color: #555; margin-bottom: 20px; }
-        .staff-section { margin-bottom: 28px; page-break-inside: avoid; }
-        .staff-name { font-size: 15px; font-weight: 700; padding: 6px 10px; background: #1e293b; color: #fff; border-radius: 6px; margin-bottom: 10px; }
-        .task { border: 1px solid #d1d5db; border-radius: 6px; padding: 10px 12px; margin-bottom: 8px; page-break-inside: avoid; }
-        .task-title { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
-        .task-meta { font-size: 11px; color: #555; display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 4px; }
-        .task-meta span { display: flex; align-items: center; gap: 3px; }
-        .label { font-weight: 600; color: #374151; }
-        .notes { margin-top: 6px; font-size: 11px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 4px; padding: 6px 8px; white-space: pre-wrap; }
-        .parts { margin-top: 6px; }
-        .parts-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; margin-bottom: 4px; }
-        .part-row { display: flex; gap: 8px; font-size: 11px; padding: 2px 0; border-bottom: 1px solid #f0f0f0; }
-        .status-badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px; }
-        .status-open { background: #fef9c3; color: #854d0e; border: 1px solid #fde047; }
-        .status-done { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
-        .status-overdue { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
-        .checkbox { display: inline-block; width: 14px; height: 14px; border: 2px solid #374151; border-radius: 3px; margin-right: 6px; vertical-align: middle; }
-        @media print { body { padding: 12px; } }
-      </style></head><body>`);
-    win.document.write(content.innerHTML);
-    win.document.write('</body></html>');
+        body { font-family: Arial, sans-serif; font-size: 12px; color: #1a1a1a; background: #fff; padding: 28px; }
+        @media print { body { padding: 16px; } }
+      </style></head><body>${html}</body></html>`);
     win.document.close();
     win.focus();
     setTimeout(() => { win.print(); win.close(); }, 400);
@@ -1385,7 +1426,7 @@ export function DailyTasksView() {
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-5">
+            <div className="flex-1 overflow-y-auto p-5 bg-gray-50">
               {loadingPrint ? (
                 <div className="flex items-center justify-center py-8">
                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-slate-500" />
@@ -1402,65 +1443,79 @@ export function DailyTasksView() {
                   grouped[key].push(t);
                 });
 
-                const dateLabel = new Date(printDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-
                 if (Object.keys(grouped).length === 0) {
                   return <p className="text-center text-gray-400 py-8">No tasks found for this date.</p>;
                 }
 
+                const today = new Date().toISOString().split('T')[0];
+
                 return (
-                  <div ref={printRef}>
-                    <h1>Daily Tasks</h1>
-                    <p className="subtitle">{dateLabel}</p>
+                  <div className="space-y-6">
                     {Object.entries(grouped).map(([staffId, staffTasks]) => {
                       const profile = staffTasks[0]?.assigned_to_profile;
                       const name = staffId === 'unassigned'
                         ? 'Unassigned'
                         : ([profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || 'Unknown');
                       return (
-                        <div key={staffId} className="staff-section">
-                          <div className="staff-name">{name}</div>
-                          {staffTasks.map((t) => {
-                            const today = new Date().toISOString().split('T')[0];
-                            const statusClass = t.is_completed ? 'status-done' : t.task_date < today ? 'status-overdue' : 'status-open';
-                            const statusLabel = t.is_completed ? 'Completed' : t.task_date < today ? 'Overdue' : 'Open';
-                            return (
-                              <div key={t.id} className="task">
-                                <div className="task-title">
-                                  <span className="checkbox" />
-                                  {t.title}
-                                  <span className={`status-badge ${statusClass}`} style={{ marginLeft: 8 }}>{statusLabel}</span>
-                                </div>
-                                <div className="task-meta">
-                                  {t.yachts && <span><span className="label">Vessel:</span> {t.yachts.name}</span>}
-                                  {t.customers && (
-                                    <span>
-                                      <span className="label">Customer:</span>{' '}
-                                      {t.customers.customer_type === 'business'
-                                        ? t.customers.business_name
-                                        : [t.customers.first_name, t.customers.last_name].filter(Boolean).join(' ')}
-                                    </span>
-                                  )}
-                                  {t.appointments && <span><span className="label">Appointment:</span> {t.appointments.name}</span>}
-                                </div>
-                                {t.admin_notes && (
-                                  <div className="notes"><span className="label">Notes: </span>{t.admin_notes}</div>
-                                )}
-                                {(t.daily_task_parts ?? []).length > 0 && (
-                                  <div className="parts">
-                                    <div className="parts-title">Parts</div>
-                                    {(t.daily_task_parts ?? []).map((p) => (
-                                      <div key={p.id} className="part-row">
-                                        <span>{p.part_name}</span>
-                                        {p.quantity && <span>Qty: {p.quantity}</span>}
-                                        {p.notes && <span>— {p.notes}</span>}
+                        <div key={staffId} className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+                          <div className="px-4 py-3 bg-slate-800 text-white">
+                            <h3 className="font-bold text-base">{name}</h3>
+                            <p className="text-slate-300 text-xs mt-0.5">{staffTasks.length} task{staffTasks.length !== 1 ? 's' : ''}</p>
+                          </div>
+                          <div className="divide-y divide-gray-100">
+                            {staffTasks.map((t) => {
+                              const isCompleted = t.is_completed;
+                              const isOverdue = !isCompleted && t.task_date < today;
+                              const statusLabel = isCompleted ? 'Completed' : isOverdue ? 'Overdue' : 'Open';
+                              const statusCls = isCompleted
+                                ? 'bg-green-100 text-green-800 border border-green-300'
+                                : isOverdue
+                                ? 'bg-red-100 text-red-800 border border-red-300'
+                                : 'bg-yellow-100 text-yellow-800 border border-yellow-300';
+                              const customerName = t.customers
+                                ? (t.customers.customer_type === 'business'
+                                  ? t.customers.business_name
+                                  : [t.customers.first_name, t.customers.last_name].filter(Boolean).join(' '))
+                                : null;
+                              return (
+                                <div key={t.id} className="p-4">
+                                  <div className="flex items-start gap-3">
+                                    <div className="w-4 h-4 border-2 border-gray-400 rounded mt-0.5 flex-shrink-0" />
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-start justify-between gap-2">
+                                        <span className="font-semibold text-gray-900 text-sm">{t.title}</span>
+                                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${statusCls}`}>{statusLabel}</span>
                                       </div>
-                                    ))}
+                                      {(t.yachts || customerName || t.appointments) && (
+                                        <div className="flex flex-wrap gap-3 mt-1.5 text-xs text-gray-500">
+                                          {t.yachts && <span><span className="font-semibold text-gray-700">Vessel:</span> {t.yachts.name}</span>}
+                                          {customerName && <span><span className="font-semibold text-gray-700">Customer:</span> {customerName}</span>}
+                                          {t.appointments && <span><span className="font-semibold text-gray-700">Appt:</span> {t.appointments.name}</span>}
+                                        </div>
+                                      )}
+                                      {t.admin_notes && (
+                                        <div className="mt-2 text-xs bg-gray-50 border border-gray-200 rounded p-2 text-gray-700">
+                                          <span className="font-semibold">Notes: </span>{t.admin_notes}
+                                        </div>
+                                      )}
+                                      {(t.daily_task_parts ?? []).length > 0 && (
+                                        <div className="mt-2">
+                                          <p className="text-xs font-bold uppercase tracking-wide text-gray-400 mb-1">Parts</p>
+                                          {(t.daily_task_parts ?? []).map((p) => (
+                                            <div key={p.id} className="flex gap-3 text-xs text-gray-600 py-1 border-b border-gray-100 last:border-0">
+                                              <span className="font-medium">{p.part_name}</span>
+                                              {p.quantity && <span className="text-gray-500">Qty: {p.quantity}</span>}
+                                              {p.notes && <span className="text-gray-400">— {p.notes}</span>}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
-                                )}
-                              </div>
-                            );
-                          })}
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
                       );
                     })}
