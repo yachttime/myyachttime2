@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ClipboardList,
@@ -15,6 +15,7 @@ import {
   X,
   Calendar,
   AlertCircle,
+  Printer,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -139,6 +140,13 @@ export function DailyTasksView() {
   const [newPart, setNewPart] = useState<NewPartForm>({ part_name: '', quantity: '', notes: '' });
   const [savingPart, setSavingPart] = useState(false);
   const [deletingPartId, setDeletingPartId] = useState<string | null>(null);
+
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [printDate, setPrintDate] = useState(new Date().toISOString().split('T')[0]);
+  const [printStaffFilter, setPrintStaffFilter] = useState<string>('all');
+  const [printTasks, setPrintTasks] = useState<DailyTask[]>([]);
+  const [loadingPrint, setLoadingPrint] = useState(false);
+  const printRef = useRef<HTMLDivElement>(null);
 
   const taskSelectFragment = `
     *,
@@ -412,6 +420,64 @@ export function DailyTasksView() {
     setDeletingPartId(null);
   };
 
+  const loadPrintTasks = async (date: string) => {
+    setLoadingPrint(true);
+    const { data } = await supabase
+      .from('daily_tasks')
+      .select(taskSelectFragment)
+      .eq('task_date', date)
+      .order('created_at', { ascending: true });
+    setPrintTasks(data || []);
+    setLoadingPrint(false);
+  };
+
+  const handleOpenPrint = () => {
+    setShowPrintModal(true);
+    loadPrintTasks(printDate);
+    if (staffOptions.length === 0) loadDropdownOptions();
+  };
+
+  const handlePrintDateChange = (d: string) => {
+    setPrintDate(d);
+    loadPrintTasks(d);
+  };
+
+  const handlePrint = () => {
+    const content = printRef.current;
+    if (!content) return;
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.write(`<!DOCTYPE html><html><head><title>Daily Tasks</title>
+      <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, sans-serif; font-size: 12px; color: #1a1a1a; background: #fff; padding: 24px; }
+        h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+        .subtitle { font-size: 12px; color: #555; margin-bottom: 20px; }
+        .staff-section { margin-bottom: 28px; page-break-inside: avoid; }
+        .staff-name { font-size: 15px; font-weight: 700; padding: 6px 10px; background: #1e293b; color: #fff; border-radius: 6px; margin-bottom: 10px; }
+        .task { border: 1px solid #d1d5db; border-radius: 6px; padding: 10px 12px; margin-bottom: 8px; page-break-inside: avoid; }
+        .task-title { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+        .task-meta { font-size: 11px; color: #555; display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 4px; }
+        .task-meta span { display: flex; align-items: center; gap: 3px; }
+        .label { font-weight: 600; color: #374151; }
+        .notes { margin-top: 6px; font-size: 11px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 4px; padding: 6px 8px; white-space: pre-wrap; }
+        .parts { margin-top: 6px; }
+        .parts-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; margin-bottom: 4px; }
+        .part-row { display: flex; gap: 8px; font-size: 11px; padding: 2px 0; border-bottom: 1px solid #f0f0f0; }
+        .status-badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px; }
+        .status-open { background: #fef9c3; color: #854d0e; border: 1px solid #fde047; }
+        .status-done { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+        .status-overdue { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+        .checkbox { display: inline-block; width: 14px; height: 14px; border: 2px solid #374151; border-radius: 3px; margin-right: 6px; vertical-align: middle; }
+        @media print { body { padding: 12px; } }
+      </style></head><body>`);
+    win.document.write(content.innerHTML);
+    win.document.write('</body></html>');
+    win.document.close();
+    win.focus();
+    setTimeout(() => { win.print(); win.close(); }, 400);
+  };
+
   const formatTaskDate = (dateStr: string) => {
     const today = new Date().toISOString().split('T')[0];
     const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
@@ -468,13 +534,22 @@ export function DailyTasksView() {
           </p>
         </div>
         {canManage && (
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-medium text-sm transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            New Task
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleOpenPrint}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-600 hover:bg-slate-500 text-white rounded-lg font-medium text-sm transition-colors"
+            >
+              <Printer className="w-4 h-4" />
+              Print Tasks
+            </button>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-medium text-sm transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              New Task
+            </button>
+          </div>
         )}
       </div>
 
@@ -1264,6 +1339,150 @@ export function DailyTasksView() {
                 className="px-4 py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
               >
                 {creatingTask ? 'Creating...' : 'Create Task'}
+              </button>
+            </div>
+          </div>
+        </div>
+      , document.body)}
+
+      {showPrintModal && createPortal(
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between p-5 border-b border-gray-200">
+              <div className="flex items-center gap-2">
+                <Printer className="w-5 h-5 text-slate-600" />
+                <h2 className="text-lg font-semibold text-gray-900">Print Daily Tasks</h2>
+              </div>
+              <button onClick={() => setShowPrintModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 border-b border-gray-100 flex flex-wrap gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Date</label>
+                <input
+                  type="date"
+                  value={printDate}
+                  onChange={(e) => handlePrintDateChange(e.target.value)}
+                  className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-slate-400"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Staff Member</label>
+                <select
+                  value={printStaffFilter}
+                  onChange={(e) => setPrintStaffFilter(e.target.value)}
+                  className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-slate-400"
+                >
+                  <option value="all">All Staff</option>
+                  {staffOptions.map((s) => (
+                    <option key={s.user_id} value={s.user_id}>
+                      {[s.first_name, s.last_name].filter(Boolean).join(' ')}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-5">
+              {loadingPrint ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-slate-500" />
+                </div>
+              ) : (() => {
+                const filtered = printStaffFilter === 'all'
+                  ? printTasks
+                  : printTasks.filter((t) => t.assigned_to === printStaffFilter);
+
+                const grouped: Record<string, DailyTask[]> = {};
+                filtered.forEach((t) => {
+                  const key = t.assigned_to || 'unassigned';
+                  if (!grouped[key]) grouped[key] = [];
+                  grouped[key].push(t);
+                });
+
+                const dateLabel = new Date(printDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+
+                if (Object.keys(grouped).length === 0) {
+                  return <p className="text-center text-gray-400 py-8">No tasks found for this date.</p>;
+                }
+
+                return (
+                  <div ref={printRef}>
+                    <h1>Daily Tasks</h1>
+                    <p className="subtitle">{dateLabel}</p>
+                    {Object.entries(grouped).map(([staffId, staffTasks]) => {
+                      const profile = staffTasks[0]?.assigned_to_profile;
+                      const name = staffId === 'unassigned'
+                        ? 'Unassigned'
+                        : ([profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || 'Unknown');
+                      return (
+                        <div key={staffId} className="staff-section">
+                          <div className="staff-name">{name}</div>
+                          {staffTasks.map((t) => {
+                            const today = new Date().toISOString().split('T')[0];
+                            const statusClass = t.is_completed ? 'status-done' : t.task_date < today ? 'status-overdue' : 'status-open';
+                            const statusLabel = t.is_completed ? 'Completed' : t.task_date < today ? 'Overdue' : 'Open';
+                            return (
+                              <div key={t.id} className="task">
+                                <div className="task-title">
+                                  <span className="checkbox" />
+                                  {t.title}
+                                  <span className={`status-badge ${statusClass}`} style={{ marginLeft: 8 }}>{statusLabel}</span>
+                                </div>
+                                <div className="task-meta">
+                                  {t.yachts && <span><span className="label">Vessel:</span> {t.yachts.name}</span>}
+                                  {t.customers && (
+                                    <span>
+                                      <span className="label">Customer:</span>{' '}
+                                      {t.customers.customer_type === 'business'
+                                        ? t.customers.business_name
+                                        : [t.customers.first_name, t.customers.last_name].filter(Boolean).join(' ')}
+                                    </span>
+                                  )}
+                                  {t.appointments && <span><span className="label">Appointment:</span> {t.appointments.name}</span>}
+                                </div>
+                                {t.admin_notes && (
+                                  <div className="notes"><span className="label">Notes: </span>{t.admin_notes}</div>
+                                )}
+                                {(t.daily_task_parts ?? []).length > 0 && (
+                                  <div className="parts">
+                                    <div className="parts-title">Parts</div>
+                                    {(t.daily_task_parts ?? []).map((p) => (
+                                      <div key={p.id} className="part-row">
+                                        <span>{p.part_name}</span>
+                                        {p.quantity && <span>Qty: {p.quantity}</span>}
+                                        {p.notes && <span>— {p.notes}</span>}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
+
+            <div className="flex justify-end gap-3 p-5 border-t border-gray-200">
+              <button
+                onClick={() => setShowPrintModal(false)}
+                className="px-4 py-2 border border-gray-200 text-gray-600 hover:bg-gray-50 rounded-lg text-sm font-medium transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePrint}
+                disabled={loadingPrint || printTasks.length === 0}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                <Printer className="w-4 h-4" />
+                Print
               </button>
             </div>
           </div>
