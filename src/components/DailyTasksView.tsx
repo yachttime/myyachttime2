@@ -40,7 +40,7 @@ interface DailyTask {
   created_at: string;
   assigned_to_profile?: { first_name: string | null; last_name: string | null };
   assigned_by_profile?: { first_name: string | null; last_name: string | null };
-  yachts?: { name: string; marina_slip: string | null } | null;
+  yachts?: { name: string; slip_location: string | null } | null;
   customers?: { first_name: string | null; last_name: string | null; business_name: string | null; customer_type: string; customer_vessels?: { vessel_name: string | null }[] } | null;
   daily_task_parts?: DailyTaskPart[];
   appointments?: { name: string | null; date: string | null; time: string | null; problem_description: string | null; appointment_type: string | null } | null;
@@ -150,7 +150,7 @@ export function DailyTasksView() {
     *,
     assigned_to_profile:user_profiles!daily_tasks_assigned_to_fkey(first_name, last_name),
     assigned_by_profile:user_profiles!daily_tasks_assigned_by_fkey(first_name, last_name),
-    yachts(name, marina_slip),
+    yachts(name, slip_location),
     customers(first_name, last_name, business_name, customer_type, customer_vessels(vessel_name)),
     daily_task_parts(id, task_id, part_name, quantity, notes, added_by),
     appointments(name, date, time, problem_description, appointment_type)
@@ -479,7 +479,7 @@ export function DailyTasksView() {
     </div>`;
         const customerVesselName = t.customers?.customer_vessels?.[0]?.vessel_name ?? null;
         const vesselDisplay = t.yachts
-          ? t.yachts.name + (t.yachts.marina_slip ? ` — Slip: ${t.yachts.marina_slip}` : '')
+          ? t.yachts.name + (t.yachts.slip_location ? ` — Slip: ${t.yachts.slip_location}` : '')
           : customerVesselName ?? null;
         if (vesselDisplay || customerName || t.appointments) {
           html += `<div style="display:flex;flex-wrap:wrap;gap:12px;font-size:12px;margin-left:26px;margin-bottom:4px;">`;
@@ -1509,7 +1509,7 @@ export function DailyTasksView() {
                                       {(() => {
                                         const cvName = t.customers?.customer_vessels?.[0]?.vessel_name ?? null;
                                         const vesselDisplay = t.yachts
-                                          ? t.yachts.name + (t.yachts.marina_slip ? ` — Slip: ${t.yachts.marina_slip}` : '')
+                                          ? t.yachts.name + (t.yachts.slip_location ? ` — Slip: ${t.yachts.slip_location}` : '')
                                           : cvName ?? null;
                                         return (vesselDisplay || customerName || t.appointments) ? (
                                           <div className="flex flex-wrap gap-2 mt-1.5">
