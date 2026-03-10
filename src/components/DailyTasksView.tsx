@@ -314,6 +314,24 @@ export function DailyTasksView() {
     setSavingTaskId(null);
   };
 
+  const handleMarkIncomplete = async (taskId: string) => {
+    setSavingTaskId(taskId);
+    const { error: updateError } = await supabase
+      .from('daily_tasks')
+      .update({
+        is_completed: false,
+        completed_at: null,
+      })
+      .eq('id', taskId);
+
+    if (updateError) setError('Failed to reopen task.');
+    else {
+      setExpandedCompletedId(null);
+      await loadTasks();
+    }
+    setSavingTaskId(null);
+  };
+
   const handleMarkComplete = async (taskId: string) => {
     setSavingTaskId(taskId);
     const notes = staffNotesEdit[taskId] ?? '';
@@ -984,7 +1002,19 @@ export function DailyTasksView() {
                         )}
 
                         {canManage && (
-                          <div className="flex justify-end pt-1 border-t border-slate-600/60">
+                          <div className="flex justify-between pt-1 border-t border-slate-600/60">
+                            <button
+                              onClick={() => handleMarkIncomplete(task.id)}
+                              disabled={savingTaskId === task.id}
+                              className="flex items-center gap-1.5 px-3 py-2 text-amber-400 hover:bg-amber-500/10 rounded-lg text-sm font-medium transition-colors border border-amber-500/30"
+                            >
+                              {savingTaskId === task.id ? (
+                                <div className="w-4 h-4 animate-spin rounded-full border-b-2 border-amber-400" />
+                              ) : (
+                                <Circle className="w-4 h-4" />
+                              )}
+                              Mark Incomplete
+                            </button>
                             <button
                               onClick={() => handleDeleteTask(task.id)}
                               disabled={deletingTaskId === task.id}
