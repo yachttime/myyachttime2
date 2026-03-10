@@ -40,7 +40,7 @@ interface DailyTask {
   created_at: string;
   assigned_to_profile?: { first_name: string | null; last_name: string | null };
   assigned_by_profile?: { first_name: string | null; last_name: string | null };
-  yachts?: { name: string } | null;
+  yachts?: { name: string; marina_slip: string | null } | null;
   customers?: { first_name: string | null; last_name: string | null; business_name: string | null; customer_type: string; customer_vessels?: { vessel_name: string | null }[] } | null;
   daily_task_parts?: DailyTaskPart[];
   appointments?: { name: string | null; date: string | null; time: string | null; problem_description: string | null; appointment_type: string | null } | null;
@@ -150,7 +150,7 @@ export function DailyTasksView() {
     *,
     assigned_to_profile:user_profiles!daily_tasks_assigned_to_fkey(first_name, last_name),
     assigned_by_profile:user_profiles!daily_tasks_assigned_by_fkey(first_name, last_name),
-    yachts(name),
+    yachts(name, marina_slip),
     customers(first_name, last_name, business_name, customer_type, customer_vessels(vessel_name)),
     daily_task_parts(id, task_id, part_name, quantity, notes, added_by),
     appointments(name, date, time, problem_description, appointment_type)
@@ -477,11 +477,15 @@ export function DailyTasksView() {
       <span style="font-size:14px;font-weight:700;flex:1;">${t.title}</span>
       <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:${statusBg};color:${statusColor};border:1px solid ${statusBorder};white-space:nowrap;">${statusLabel}</span>
     </div>`;
-        if (t.yachts || customerName || t.appointments) {
-          html += `<div style="display:flex;flex-wrap:wrap;gap:16px;font-size:11px;color:#555;margin-left:26px;margin-bottom:4px;">`;
-          if (t.yachts) html += `<span><strong style="color:#374151;">Vessel:</strong> ${t.yachts.name}</span>`;
-          if (customerName) html += `<span><strong style="color:#374151;">Customer:</strong> ${customerName}</span>`;
-          if (t.appointments) html += `<span><strong style="color:#374151;">Appointment:</strong> ${t.appointments.name}</span>`;
+        const customerVesselName = t.customers?.customer_vessels?.[0]?.vessel_name ?? null;
+        const vesselDisplay = t.yachts
+          ? t.yachts.name + (t.yachts.marina_slip ? ` — Slip: ${t.yachts.marina_slip}` : '')
+          : customerVesselName ?? null;
+        if (vesselDisplay || customerName || t.appointments) {
+          html += `<div style="display:flex;flex-wrap:wrap;gap:12px;font-size:12px;margin-left:26px;margin-bottom:4px;">`;
+          if (vesselDisplay) html += `<span style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:5px;padding:2px 8px;color:#1d4ed8;font-weight:700;">&#9875; ${vesselDisplay}</span>`;
+          if (customerName) html += `<span style="color:#555;"><strong style="color:#374151;">Customer:</strong> ${customerName}</span>`;
+          if (t.appointments) html += `<span style="color:#555;"><strong style="color:#374151;">Appointment:</strong> ${t.appointments.name}</span>`;
           html += `</div>`;
         }
         if (t.admin_notes) {
@@ -1502,13 +1506,23 @@ export function DailyTasksView() {
                                         <span className="font-semibold text-gray-900 text-sm">{t.title}</span>
                                         <span className={`text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${statusCls}`}>{statusLabel}</span>
                                       </div>
-                                      {(t.yachts || customerName || t.appointments) && (
-                                        <div className="flex flex-wrap gap-3 mt-1.5 text-xs text-gray-500">
-                                          {t.yachts && <span><span className="font-semibold text-gray-700">Vessel:</span> {t.yachts.name}</span>}
-                                          {customerName && <span><span className="font-semibold text-gray-700">Customer:</span> {customerName}</span>}
-                                          {t.appointments && <span><span className="font-semibold text-gray-700">Appt:</span> {t.appointments.name}</span>}
-                                        </div>
-                                      )}
+                                      {(() => {
+                                        const cvName = t.customers?.customer_vessels?.[0]?.vessel_name ?? null;
+                                        const vesselDisplay = t.yachts
+                                          ? t.yachts.name + (t.yachts.marina_slip ? ` — Slip: ${t.yachts.marina_slip}` : '')
+                                          : cvName ?? null;
+                                        return (vesselDisplay || customerName || t.appointments) ? (
+                                          <div className="flex flex-wrap gap-2 mt-1.5">
+                                            {vesselDisplay && (
+                                              <span className="inline-flex items-center gap-1 bg-blue-50 border border-blue-200 text-blue-700 font-bold text-xs px-2 py-0.5 rounded">
+                                                &#9875; {vesselDisplay}
+                                              </span>
+                                            )}
+                                            {customerName && <span className="text-xs text-gray-500"><span className="font-semibold text-gray-700">Customer:</span> {customerName}</span>}
+                                            {t.appointments && <span className="text-xs text-gray-500"><span className="font-semibold text-gray-700">Appt:</span> {t.appointments.name}</span>}
+                                          </div>
+                                        ) : null;
+                                      })()}
                                       {t.admin_notes && (
                                         <div className="mt-2 text-xs bg-gray-50 border border-gray-200 rounded p-2 text-gray-700">
                                           <span className="font-semibold">Notes: </span>{t.admin_notes}
