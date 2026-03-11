@@ -12198,6 +12198,19 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             const pendingCount = group.requests.filter((r: any) => r.status === 'pending').length;
                             const approvedCount = group.requests.filter((r: any) => r.status === 'approved').length;
                             const completedCount = group.requests.filter((r: any) => r.status === 'completed').length;
+                            const relevantRequests = group.requests.filter((r: any) => ['pending', 'approved', 'completed'].includes(r.status));
+                            const totalEstimated = relevantRequests.reduce((sum: number, r: any) => sum + (r.estimated_repair_cost ? parseFloat(r.estimated_repair_cost) : 0), 0);
+                            const totalInvoiced = relevantRequests.reduce((sum: number, r: any) => {
+                              const inv = repairInvoices[r.id];
+                              const estInv = repairEstimatingInvoices[r.id];
+                              if (inv?.invoice_amount) return sum + parseFloat(inv.invoice_amount);
+                              if (estInv?.total_amount) return sum + parseFloat(estInv.total_amount);
+                              if (r.final_invoice_amount) return sum + parseFloat(r.final_invoice_amount);
+                              return sum;
+                            }, 0);
+                            const totalDeposit = relevantRequests.reduce((sum: number, r: any) => sum + (r.deposit_amount ? parseFloat(r.deposit_amount) : 0), 0);
+                            const depositPaidCount = relevantRequests.filter((r: any) => r.deposit_payment_status === 'paid').length;
+                            const paidCount = relevantRequests.filter((r: any) => repairInvoices[r.id]?.payment_status === 'paid' || repairEstimatingInvoices[r.id]?.payment_status === 'paid').length;
 
                             return (
                             <div key={groupKey} className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 overflow-hidden">
@@ -12205,13 +12218,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 onClick={toggleGroup}
                                 className="w-full flex items-center justify-between px-6 py-4 hover:bg-slate-700/30 transition-colors text-left"
                               >
-                                <div className="flex items-center gap-4">
-                                  <div className="bg-orange-500/20 p-2 rounded-lg">
+                                <div className="flex items-center gap-4 flex-1 min-w-0">
+                                  <div className="bg-orange-500/20 p-2 rounded-lg shrink-0">
                                     <Anchor className="w-5 h-5 text-orange-400" />
                                   </div>
-                                  <div>
+                                  <div className="flex-1 min-w-0">
                                     <h4 className="text-lg font-bold text-orange-400">{group.label}</h4>
-                                    <div className="flex items-center gap-3 mt-0.5">
+                                    <div className="flex items-center flex-wrap gap-2 mt-0.5">
                                       <span className="text-slate-400 text-sm">{group.requests.length} request{group.requests.length !== 1 ? 's' : ''}</span>
                                       {pendingCount > 0 && (
                                         <span className="bg-yellow-500/20 text-yellow-400 text-xs px-2 py-0.5 rounded-full font-medium">{pendingCount} pending</span>
@@ -12222,10 +12235,29 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                       {completedCount > 0 && (
                                         <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded-full font-medium">{completedCount} completed</span>
                                       )}
+                                      {totalInvoiced > 0 && (
+                                        <span className="bg-emerald-500/20 text-emerald-400 text-xs px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
+                                          <DollarSign className="w-3 h-3" />
+                                          ${totalInvoiced.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                          {paidCount > 0 && <span className="text-green-300">· {paidCount} paid</span>}
+                                        </span>
+                                      )}
+                                      {totalEstimated > 0 && totalInvoiced === 0 && (
+                                        <span className="bg-slate-600/40 text-slate-300 text-xs px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
+                                          <DollarSign className="w-3 h-3" />
+                                          Est. ${totalEstimated.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </span>
+                                      )}
+                                      {totalDeposit > 0 && (
+                                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex items-center gap-1 ${depositPaidCount === relevantRequests.filter((r: any) => r.deposit_amount).length ? 'bg-green-500/20 text-green-400' : 'bg-cyan-500/20 text-cyan-400'}`}>
+                                          Deposit ${totalDeposit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                          {depositPaidCount > 0 && <CheckCircle className="w-3 h-3" />}
+                                        </span>
+                                      )}
                                     </div>
                                   </div>
                                 </div>
-                                <ChevronDown className={`w-5 h-5 text-slate-400 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
+                                <ChevronDown className={`w-5 h-5 text-slate-400 transition-transform duration-200 shrink-0 ml-2 ${isCollapsed ? '-rotate-90' : ''}`} />
                               </button>
 
                               {!isCollapsed && (
