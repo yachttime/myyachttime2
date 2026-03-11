@@ -142,7 +142,6 @@ export function DailyTasksView() {
   const [deletingPartId, setDeletingPartId] = useState<string | null>(null);
 
   const [showPrintModal, setShowPrintModal] = useState(false);
-  const [printDate, setPrintDate] = useState(new Date().toISOString().split('T')[0]);
   const [printStaffFilter, setPrintStaffFilter] = useState<string>('all');
   const [printTasks, setPrintTasks] = useState<DailyTask[]>([]);
   const [loadingPrint, setLoadingPrint] = useState(false);
@@ -418,12 +417,13 @@ export function DailyTasksView() {
     setDeletingPartId(null);
   };
 
-  const loadPrintTasks = async (date: string) => {
+  const loadPrintTasks = async () => {
     setLoadingPrint(true);
     const { data } = await supabase
       .from('daily_tasks')
       .select(taskSelectFragment)
-      .eq('task_date', date)
+      .eq('is_completed', false)
+      .order('task_date', { ascending: true })
       .order('created_at', { ascending: true });
     setPrintTasks(data || []);
     setLoadingPrint(false);
@@ -431,16 +431,11 @@ export function DailyTasksView() {
 
   const handleOpenPrint = () => {
     setShowPrintModal(true);
-    loadPrintTasks(printDate);
+    loadPrintTasks();
     if (staffOptions.length === 0) loadDropdownOptions();
   };
 
-  const handlePrintDateChange = (d: string) => {
-    setPrintDate(d);
-    loadPrintTasks(d);
-  };
-
-  const buildPrintHTML = (tasks: DailyTask[], date: string, staffFilter: string) => {
+  const buildPrintHTML = (tasks: DailyTask[], staffFilter: string) => {
     const filtered = staffFilter === 'all' ? tasks : tasks.filter((t) => t.assigned_to === staffFilter);
     const grouped: Record<string, DailyTask[]> = {};
     filtered.forEach((t) => {
@@ -449,10 +444,10 @@ export function DailyTasksView() {
       grouped[key].push(t);
     });
     const today = new Date().toISOString().split('T')[0];
-    const dateLabel = new Date(date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+    const printedOn = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
 
-    let html = `<h1 style="font-size:22px;font-weight:700;margin-bottom:2px;">Daily Tasks</h1>
-<p style="font-size:13px;color:#555;margin-bottom:24px;">${dateLabel}</p>`;
+    let html = `<h1 style="font-size:22px;font-weight:700;margin-bottom:2px;">Open Daily Tasks</h1>
+<p style="font-size:13px;color:#555;margin-bottom:24px;">Printed: ${printedOn}</p>`;
 
     for (const [staffId, staffTasks] of Object.entries(grouped)) {
       const profile = staffTasks[0]?.assigned_to_profile;
@@ -509,7 +504,7 @@ export function DailyTasksView() {
   };
 
   const handlePrint = () => {
-    const html = buildPrintHTML(printTasks, printDate, printStaffFilter);
+    const html = buildPrintHTML(printTasks, printStaffFilter);
     const fullHtml = `<!DOCTYPE html><html><head><title>Daily Tasks</title>
       <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1412,7 +1407,7 @@ export function DailyTasksView() {
             <div className="flex items-center justify-between p-5 border-b border-gray-200">
               <div className="flex items-center gap-2">
                 <Printer className="w-5 h-5 text-slate-600" />
-                <h2 className="text-lg font-semibold text-gray-900">Print Daily Tasks</h2>
+                <h2 className="text-lg font-semibold text-gray-900">Print Open Tasks</h2>
               </div>
               <button onClick={() => setShowPrintModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
                 <X className="w-5 h-5" />
@@ -1420,15 +1415,6 @@ export function DailyTasksView() {
             </div>
 
             <div className="p-5 border-b border-gray-100 flex flex-wrap gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Date</label>
-                <input
-                  type="date"
-                  value={printDate}
-                  onChange={(e) => handlePrintDateChange(e.target.value)}
-                  className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-slate-400"
-                />
-              </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Staff Member</label>
                 <select
@@ -1464,7 +1450,7 @@ export function DailyTasksView() {
                 });
 
                 if (Object.keys(grouped).length === 0) {
-                  return <p className="text-center text-gray-400 py-8">No tasks found for this date.</p>;
+                  return <p className="text-center text-gray-400 py-8">No open tasks found.</p>;
                 }
 
                 const today = new Date().toISOString().split('T')[0];
