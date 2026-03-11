@@ -12553,6 +12553,60 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                     </div>
                                   )}
 
+                                  {(['completed', 'approved', 'pending'].includes(request.status)) && (request.estimated_repair_cost || request.final_invoice_amount || request.deposit_amount) && (
+                                    <div className="mt-3 bg-gradient-to-r from-slate-700/40 to-slate-800/40 border border-slate-600/50 rounded-lg p-4">
+                                      <div className="flex items-center gap-2 mb-3">
+                                        <DollarSign className="w-4 h-4 text-slate-300" />
+                                        <h5 className="text-sm font-semibold text-slate-300">Payment Information</h5>
+                                      </div>
+                                      <div className="space-y-2">
+                                        {request.estimated_repair_cost && (
+                                          <div className="flex items-center justify-between">
+                                            <span className="text-xs text-slate-400">Estimated Cost</span>
+                                            <span className="text-sm font-medium text-slate-200">${parseFloat(request.estimated_repair_cost).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                          </div>
+                                        )}
+                                        {request.final_invoice_amount && (
+                                          <div className="flex items-center justify-between">
+                                            <span className="text-xs text-slate-400">Final Invoice</span>
+                                            <span className="text-sm font-semibold text-emerald-400">${parseFloat(request.final_invoice_amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                          </div>
+                                        )}
+                                        {request.deposit_amount && (
+                                          <div className="flex items-center justify-between">
+                                            <span className="text-xs text-slate-400">Deposit</span>
+                                            <div className="flex items-center gap-2">
+                                              <span className="text-sm font-medium text-slate-200">${parseFloat(request.deposit_amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                              {request.deposit_payment_status === 'paid' && (
+                                                <span className="bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full text-xs font-semibold flex items-center gap-1">
+                                                  <CheckCircle className="w-3 h-3" />
+                                                  Paid
+                                                </span>
+                                              )}
+                                              {request.deposit_payment_status === 'pending' && (
+                                                <span className="bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded-full text-xs font-semibold">
+                                                  Pending
+                                                </span>
+                                              )}
+                                            </div>
+                                          </div>
+                                        )}
+                                        {request.billed_at && (
+                                          <div className="flex items-center justify-between pt-2 border-t border-slate-600/50 mt-2">
+                                            <span className="text-xs text-slate-400">Billed</span>
+                                            <span className="text-xs text-slate-300">{new Date(request.billed_at).toLocaleDateString()}</span>
+                                          </div>
+                                        )}
+                                        {request.deposit_paid_at && request.deposit_payment_status === 'paid' && (
+                                          <div className="flex items-center justify-between">
+                                            <span className="text-xs text-slate-400">Deposit Paid</span>
+                                            <span className="text-xs text-green-400">{new Date(request.deposit_paid_at).toLocaleDateString()}</span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+
                                   {invoice && (
                                     <div className="mt-4 bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/30 rounded-lg p-4">
                                       <div className="flex items-center gap-2 mb-3">
