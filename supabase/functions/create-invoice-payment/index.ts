@@ -236,11 +236,14 @@ Deno.serve(withErrorHandling(async (req: Request) => {
 
     const paymentLinkData = await paymentLinkResponse.json();
 
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
     await supabase
       .from('yacht_invoices')
       .update({
         stripe_checkout_session_id: paymentLinkData.id,
         payment_link_url: paymentLinkData.url,
+        payment_link_expires_at: expiresAt,
         updated_at: new Date().toISOString(),
       })
       .eq('id', invoiceId);
@@ -249,6 +252,7 @@ Deno.serve(withErrorHandling(async (req: Request) => {
       success: true,
       checkoutUrl: paymentLinkData.url,
       sessionId: paymentLinkData.id,
+      expiresAt: expiresAt,
     });
   } catch (error) {
     console.error('Error creating payment:', error);
