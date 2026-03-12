@@ -182,6 +182,17 @@ async function buildInvoicePDF(invoice: any, tasks: WorkOrderTask[], lineItems: 
     doc.moveTo(margin, rowY).lineTo(pageWidth - margin, rowY).strokeColor('#e5e7eb').lineWidth(1).stroke();
     rowY += 16;
 
+    // Estimate the height needed for the totals block so we can page-break if needed
+    let totalsRowCount = 2; // subtotal + tax
+    if (Number(invoice.deposit_applied) > 0) totalsRowCount++;
+    if (Number(invoice.amount_paid) > 0) totalsRowCount++;
+    const estimatedTotalsHeight = totalsRowCount * 14 + 4 + 34 + (invoice.notes ? 60 : 0);
+
+    if (rowY + estimatedTotalsHeight > doc.page.height - margin) {
+      doc.addPage();
+      rowY = margin;
+    }
+
     // Totals block
     const totalsLabelX = pageWidth - margin - 230;
     const totalsValueX = pageWidth - margin - 80;
@@ -216,6 +227,10 @@ async function buildInvoicePDF(invoice: any, tasks: WorkOrderTask[], lineItems: 
 
     // Notes
     if (invoice.notes) {
+      if (rowY + 60 > doc.page.height - margin) {
+        doc.addPage();
+        rowY = margin;
+      }
       doc.font('Helvetica-Bold').fontSize(9).fillColor('#333333').text('Notes:', margin, rowY);
       rowY += 13;
       doc.font('Helvetica').fontSize(9).text(invoice.notes, margin, rowY, { width: contentWidth });
