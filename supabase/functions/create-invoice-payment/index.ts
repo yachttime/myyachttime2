@@ -35,7 +35,6 @@ Deno.serve(withErrorHandling(async (req: Request) => {
 
     const { invoiceId, recaptchaToken } = body;
 
-    // Verify reCAPTCHA token (anti-fraud compliance requirement)
     if (recaptchaToken) {
       const verifyUrl = `${supabaseUrl}/functions/v1/verify-recaptcha`;
       const verifyResponse = await fetch(verifyUrl, {
@@ -53,7 +52,6 @@ Deno.serve(withErrorHandling(async (req: Request) => {
       console.log('reCAPTCHA verified successfully for invoice payment');
     }
 
-    // Fetch invoice details
     const { data: invoice, error: invoiceError } = await supabase
       .from('yacht_invoices')
       .select('*, yachts(name), payment_method_type')
@@ -64,7 +62,6 @@ Deno.serve(withErrorHandling(async (req: Request) => {
       throw new Error('Invoice not found');
     }
 
-    // Check if user has access to this invoice
     const { data: profile } = await supabase
       .from('user_profiles')
       .select('role, yacht_id')
@@ -80,79 +77,28 @@ Deno.serve(withErrorHandling(async (req: Request) => {
       throw new Error('Unauthorized to access this invoice');
     }
 
-    // Check if already paid
     if (invoice.payment_status === 'paid') {
       throw new Error('Invoice is already paid');
     }
 
-    // If there's an existing checkout session, check if any payment has been completed
+    // Deactivate any existing payment link before creating a new one
     if (invoice.stripe_checkout_session_id) {
       try {
-        const sessionResponse = await fetch(
-          `https://api.stripe.com/v1/checkout/sessions/${invoice.stripe_checkout_session_id}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${stripeSecretKey}`,
-            },
-          }
-        );
-
-        if (sessionResponse.ok) {
-          const session = await sessionResponse.json();
-
-          if (session.payment_status === 'paid') {
-            // Payment already completed! Update the database and reject new payment attempt
-            const paymentIntentId = session.payment_intent;
-            let paymentMethod = session.payment_method_types?.[0] || 'card';
-
-            // Fetch payment intent details for more info
-            if (paymentIntentId) {
-              try {
-                const piResponse = await fetch(
-                  `https://api.stripe.com/v1/payment_intents/${paymentIntentId}`,
-                  {
-                    headers: {
-                      'Authorization': `Bearer ${stripeSecretKey}`,
-                    },
-                  }
-                );
-                if (piResponse.ok) {
-                  const piData = await piResponse.json();
-                  paymentMethod = piData.charges?.data?.[0]?.payment_method_details?.type || paymentMethod;
-                }
-              } catch (error) {
-                console.error('Error fetching payment intent:', error);
-              }
-            }
-
-            // Update invoice as paid
-            await supabase
-              .from('yacht_invoices')
-              .update({
-                payment_status: 'paid',
-                paid_at: new Date().toISOString(),
-                stripe_payment_intent_id: paymentIntentId || null,
-                payment_method: paymentMethod,
-                updated_at: new Date().toISOString(),
-              })
-              .eq('id', invoiceId);
-
-            throw new Error('Invoice has already been paid. Please refresh the page.');
-          }
-        }
-      } catch (error) {
-        // If the error is our "already paid" message, re-throw it
-        if (error instanceof Error && error.message.includes('already been paid')) {
-          throw error;
-        }
-        console.error('Error checking existing checkout session:', error);
-        // Continue - if we can't check, we'll create new session
+        await fetch(`https://api.stripe.com/v1/payment_links/${invoice.stripe_checkout_session_id}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${stripeSecretKey}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: new URLSearchParams({ 'active': 'false' }).toString(),
+        });
+      } catch (err) {
+        console.error('Error deactivating old payment link:', err);
       }
     }
 
     let amount = invoice.invoice_amount_numeric;
 
-    // If numeric amount is not set, try to parse from invoice_amount string
     if (!amount || amount <= 0) {
       if (invoice.invoice_amount) {
         const parsed = parseFloat(invoice.invoice_amount.replace(/[^0-9.-]+/g, ''));
@@ -177,44 +123,83 @@ Deno.serve(withErrorHandling(async (req: Request) => {
       throw new Error(`Invalid invoice amount in cents: ${amountInCents}`);
     }
 
-    // Determine payment method types based on invoice setting
     const paymentMethodType = invoice.payment_method_type || 'card';
-    const paymentMethods: string[] = [];
 
-    if (paymentMethodType === 'card') {
-      paymentMethods.push('card');
-    } else if (paymentMethodType === 'ach') {
-      paymentMethods.push('us_bank_account');
-    } else if (paymentMethodType === 'both') {
-      paymentMethods.push('card', 'us_bank_account');
+    // Create Stripe Product
+    const productParams = new URLSearchParams({
+      'name': `Invoice: ${invoice.repair_title}`,
+      'description': `${invoice.yachts?.name || 'Yacht'} - Invoice #${invoiceId.substring(0, 8)}`,
+    });
+
+    const productResponse = await fetch('https://api.stripe.com/v1/products', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${stripeSecretKey}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: productParams.toString(),
+    });
+
+    if (!productResponse.ok) {
+      const errorText = await productResponse.text();
+      console.error('Stripe Product creation error:', errorText);
+      throw new Error('Failed to create Stripe product');
     }
 
-    // Build Stripe checkout session parameters
-    // Set expiration to 24 hours from now (maximum allowed by Stripe for Checkout Sessions)
-    const expirationTimestamp = Math.floor(Date.now() / 1000) + (24 * 60 * 60);
+    const productData = await productResponse.json();
 
+    // Create Stripe Price
+    const priceParams = new URLSearchParams({
+      'product': productData.id,
+      'currency': 'usd',
+      'unit_amount': amountInCents.toString(),
+    });
+
+    const priceResponse = await fetch('https://api.stripe.com/v1/prices', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${stripeSecretKey}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: priceParams.toString(),
+    });
+
+    if (!priceResponse.ok) {
+      const errorText = await priceResponse.text();
+      console.error('Stripe Price creation error:', errorText);
+      throw new Error('Failed to create Stripe price');
+    }
+
+    const priceData = await priceResponse.json();
+
+    const appUrl = Deno.env.get('SITE_URL') ||
+                   req.headers.get('origin') ||
+                   req.headers.get('referer')?.split('/').slice(0, 3).join('/') ||
+                   'https://azmarineservices.com';
+
+    // Create Payment Link (no expiration, limited to 1 payment)
     const params: Record<string, string> = {
-      'line_items[0][price_data][currency]': 'usd',
-      'line_items[0][price_data][product_data][name]': `Invoice: ${invoice.repair_title}`,
-      'line_items[0][price_data][product_data][description]': `${invoice.yachts?.name || 'Yacht'} - Invoice #${invoiceId.substring(0, 8)}`,
-      'line_items[0][price_data][unit_amount]': amountInCents.toString(),
+      'line_items[0][price]': priceData.id,
       'line_items[0][quantity]': '1',
-      'mode': 'payment',
-      'expires_at': expirationTimestamp.toString(),
-      'success_url': `${req.headers.get('origin') || supabaseUrl}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-      'cancel_url': `${req.headers.get('origin') || supabaseUrl}/payment-cancelled`,
+      'restrictions[completed_sessions][limit]': '1',
+      'after_completion[type]': 'redirect',
+      'after_completion[redirect][url]': `${appUrl}/payment-success`,
       'metadata[invoice_id]': invoiceId,
-      'metadata[yacht_id]': invoice.yacht_id,
+      'metadata[yacht_id]': invoice.yacht_id || '',
+      'metadata[payment_type]': 'yacht_invoice',
       'metadata[user_id]': user.id,
     };
 
-    // Add payment method types
-    paymentMethods.forEach((method, index) => {
-      params[`payment_method_types[${index}]`] = method;
-    });
+    if (paymentMethodType === 'card') {
+      params['payment_method_types[0]'] = 'card';
+    } else if (paymentMethodType === 'ach') {
+      params['payment_method_types[0]'] = 'us_bank_account';
+    } else if (paymentMethodType === 'both') {
+      params['payment_method_types[0]'] = 'card';
+      params['payment_method_types[1]'] = 'us_bank_account';
+    }
 
-    // Create Stripe Checkout Session
-    const session = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+    const paymentLinkResponse = await fetch('https://api.stripe.com/v1/payment_links', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${stripeSecretKey}`,
@@ -223,25 +208,24 @@ Deno.serve(withErrorHandling(async (req: Request) => {
       body: new URLSearchParams(params).toString(),
     });
 
-    if (!session.ok) {
-      const errorText = await session.text();
+    if (!paymentLinkResponse.ok) {
+      const errorText = await paymentLinkResponse.text();
       console.error('Stripe API error:', {
-        status: session.status,
-        statusText: session.statusText,
+        status: paymentLinkResponse.status,
+        statusText: paymentLinkResponse.statusText,
         error: errorText,
         invoiceId: invoiceId,
         amount: amount,
         amountInCents: amountInCents
       });
 
-      let errorMessage = 'Failed to create payment session';
+      let errorMessage = 'Failed to create payment link';
       try {
         const errorJson = JSON.parse(errorText);
         if (errorJson.error && errorJson.error.message) {
           errorMessage = `Stripe error: ${errorJson.error.message}`;
         }
       } catch (e) {
-        // If we can't parse as JSON, use the text
         if (errorText.includes('No such')) {
           errorMessage = 'Stripe configuration error. Please check your Stripe API key.';
         }
@@ -250,22 +234,21 @@ Deno.serve(withErrorHandling(async (req: Request) => {
       throw new Error(errorMessage);
     }
 
-    const sessionData = await session.json();
+    const paymentLinkData = await paymentLinkResponse.json();
 
-    // Update invoice with checkout session ID and payment link
     await supabase
       .from('yacht_invoices')
       .update({
-        stripe_checkout_session_id: sessionData.id,
-        payment_link_url: sessionData.url,
+        stripe_checkout_session_id: paymentLinkData.id,
+        payment_link_url: paymentLinkData.url,
         updated_at: new Date().toISOString(),
       })
       .eq('id', invoiceId);
 
     return successResponse({
       success: true,
-      checkoutUrl: sessionData.url,
-      sessionId: sessionData.id,
+      checkoutUrl: paymentLinkData.url,
+      sessionId: paymentLinkData.id,
     });
   } catch (error) {
     console.error('Error creating payment:', error);
