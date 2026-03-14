@@ -11374,6 +11374,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                       allUsers.forEach(user => {
                                         if (user.is_active === false) return;
                                         if (user.role === 'owner' || user.role === 'manager') {
+                                          const userYacht = allYachts.find(y => y.id === user.yacht_id);
+                                          if (userYacht && userYacht.is_active === false) return;
                                           const yachtName = user.yachts?.name || 'Unassigned';
                                           if (yachtName === 'Unassigned') {
                                             usersWithoutYacht.push(user);
@@ -15813,7 +15815,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               className="px-4 py-2 bg-slate-700 text-white rounded-lg border border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
                               <option value="all">All Yachts</option>
-                              {allYachts.map((yacht) => (
+                              {allYachts.filter(y => y.is_active !== false).map((yacht) => (
                                 <option key={yacht.id} value={yacht.id}>
                                   {yacht.name}
                                 </option>
@@ -16456,8 +16458,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                             const yachtGroups: { [key: string]: typeof yachtAssignedUsers } = {};
 
-                            // Initialize yacht groups with all active yachts (so they show even without users)
-                            allYachts.forEach(yacht => {
+                            // Initialize yacht groups with only active yachts (so they show even without users)
+                            allYachts.filter(yacht => yacht.is_active !== false).forEach(yacht => {
                               yachtGroups[yacht.name] = [];
                             });
 
