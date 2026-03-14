@@ -5,6 +5,7 @@ import { withErrorHandling, successResponse } from '../_shared/response.ts';
 interface InvoicePaymentRequest {
   invoiceId: string;
   recaptchaToken?: string;
+  paymentMethodType?: 'card' | 'ach' | 'both';
 }
 
 Deno.serve(withErrorHandling(async (req: Request) => {
@@ -33,7 +34,7 @@ Deno.serve(withErrorHandling(async (req: Request) => {
     validateRequired(body, ['invoiceId']);
     validateUUID(body.invoiceId, 'invoiceId');
 
-    const { invoiceId, recaptchaToken } = body;
+    const { invoiceId, recaptchaToken, paymentMethodType: requestedPaymentMethod } = body;
 
     if (recaptchaToken) {
       const verifyUrl = `${supabaseUrl}/functions/v1/verify-recaptcha`;
@@ -101,7 +102,7 @@ Deno.serve(withErrorHandling(async (req: Request) => {
       }
     }
 
-    const paymentMethodType = invoice.final_payment_method_type || 'card';
+    const paymentMethodType = requestedPaymentMethod || invoice.final_payment_method_type || 'card';
     const amountInCents = Math.round(balanceDue * 100);
 
     const yachtName = invoice.yachts?.name;

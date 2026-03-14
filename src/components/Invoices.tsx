@@ -114,6 +114,8 @@ export function Invoices({ userId }: InvoicesProps) {
   const [qbBankAccounts, setQbBankAccounts] = useState<{ qbo_account_id: string; account_name: string; account_number: string | null }[]>([]);
   const { confirm, ConfirmDialog } = useConfirm();
   const [showTaxReport, setShowTaxReport] = useState(false);
+  const [paymentMethodModal, setPaymentMethodModal] = useState<{ invoice: Invoice; email: string; mode: 'generate' | 'regenerate' } | null>(null);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'card' | 'ach' | 'both'>('card');
 
   const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToast({ message, type });
@@ -694,19 +696,11 @@ export function Invoices({ userId }: InvoicesProps) {
       setEmailPrompt({ invoice, email: prefillEmail });
       return;
     }
-    await generatePaymentLink(invoice, invoice.customer_email);
+    setSelectedPaymentMethod(invoice.final_payment_method_type as 'card' | 'ach' | 'both' || 'card');
+    setPaymentMethodModal({ invoice, email: invoice.customer_email, mode: 'generate' });
   }
 
-  async function generatePaymentLink(invoice: Invoice, recipientEmail: string) {
-    const confirmed = await confirm({
-      title: 'Generate Payment Link',
-      message: `Send payment request for invoice ${invoice.invoice_number} to ${recipientEmail}?`,
-      confirmText: 'Generate & Send',
-      variant: 'info'
-    });
-
-    if (!confirmed) return;
-
+  async function generatePaymentLink(invoice: Invoice, recipientEmail: string, paymentMethodType: 'card' | 'ach' | 'both' = 'card') {
     setPaymentLoading(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -724,7 +718,8 @@ export function Invoices({ userId }: InvoicesProps) {
           },
           body: JSON.stringify({
             invoiceId: invoice.id,
-            recipientEmail
+            recipientEmail,
+            paymentMethodType
           })
         }
       );
@@ -830,15 +825,12 @@ export function Invoices({ userId }: InvoicesProps) {
 
   async function handleRegeneratePaymentLink() {
     if (!selectedInvoice) return;
+    setSelectedPaymentMethod(selectedInvoice.final_payment_method_type as 'card' | 'ach' | 'both' || 'card');
+    setPaymentMethodModal({ invoice: selectedInvoice, email: selectedInvoice.final_payment_email_recipient || selectedInvoice.customer_email || '', mode: 'regenerate' });
+  }
 
-    const confirmed = await confirm({
-      title: 'Regenerate Payment Link',
-      message: 'This will delete the expired payment link and create a new one. Continue?',
-      confirmText: 'Regenerate',
-      variant: 'warning'
-    });
-
-    if (!confirmed) return;
+  async function executeRegeneratePaymentLink(paymentMethodType: 'card' | 'ach' | 'both') {
+    if (!selectedInvoice) return;
 
     setRegenerateLoading(true);
     try {
@@ -872,7 +864,8 @@ export function Invoices({ userId }: InvoicesProps) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          invoiceId: selectedInvoice.id
+          invoiceId: selectedInvoice.id,
+          paymentMethodType
         })
       });
 
@@ -1932,7 +1925,8 @@ export function Invoices({ userId }: InvoicesProps) {
                   if (emailOnly) {
                     handleEmailPaymentLinkWithEmail(invoice, email);
                   } else {
-                    generatePaymentLink(invoice, email);
+                    setSelectedPaymentMethod(invoice.final_payment_method_type as 'card' | 'ach' | 'both' || 'card');
+                    setPaymentMethodModal({ invoice, email, mode: 'generate' });
                   }
                 }
               }}
@@ -1953,14 +1947,100 @@ export function Invoices({ userId }: InvoicesProps) {
                   if (emailOnly) {
                     handleEmailPaymentLinkWithEmail(invoice, email);
                   } else {
-                    generatePaymentLink(invoice, email);
+                    setSelectedPaymentMethod(invoice.final_payment_method_type as 'card' | 'ach' | 'both' || 'card');
+                    setPaymentMethodModal({ invoice, email, mode: 'generate' });
                   }
                 }}
                 disabled={!emailPrompt.email}
                 className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm disabled:opacity-50"
               >
-                {emailPrompt.emailOnly ? 'Send Email' : 'Generate & Send'}
+                {emailPrompt.emailOnly ? 'Send Email' : 'Next: Payment Method'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {paymentMethodModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[70] p-4">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between p-5 border-b border-slate-700">
+              <div className="flex items-center gap-2">
+                <CreditCard className="w-5 h-5 text-emerald-400" />
+                <h3 className="text-lg font-semibold text-white">
+                  {paymentMethodModal.mode === 'regenerate' ? 'Regenerate Payment Link' : 'Generate Payment Link'}
+                </h3>
+              </div>
+              <button onClick={() => setPaymentMethodModal(null)} className="text-slate-400 hover:text-slate-200">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="p-3 bg-slate-900/50 rounded-lg text-sm">
+                <p className="text-slate-300 font-medium">{paymentMethodModal.invoice.invoice_number} — {paymentMethodModal.invoice.customer_name}</p>
+                <p className="text-slate-400 text-xs mt-0.5">
+                  Balance due: ${((paymentMethodModal.invoice.balance_due ?? paymentMethodModal.invoice.total_amount) || 0).toFixed(2)}
+                </p>
+                {paymentMethodModal.email && (
+                  <p className="text-slate-400 text-xs mt-0.5">Sending to: {paymentMethodModal.email}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">How can the customer pay?</label>
+                <div className="space-y-2">
+                  {[
+                    { value: 'card', label: 'Credit / Debit Card Only', sub: 'Standard processing fees apply' },
+                    { value: 'ach', label: 'ACH Bank Transfer Only', sub: 'Lower fees, 3–5 business day settlement' },
+                    { value: 'both', label: 'Card and ACH (customer chooses)', sub: 'Customer selects their preferred method' },
+                  ].map(opt => (
+                    <label
+                      key={opt.value}
+                      className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                        selectedPaymentMethod === opt.value
+                          ? 'border-emerald-500 bg-emerald-900/20'
+                          : 'border-slate-600 bg-slate-900/30 hover:border-slate-500'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        value={opt.value}
+                        checked={selectedPaymentMethod === opt.value}
+                        onChange={() => setSelectedPaymentMethod(opt.value as 'card' | 'ach' | 'both')}
+                        className="mt-0.5 accent-emerald-500"
+                      />
+                      <div>
+                        <p className="text-sm font-medium text-slate-200">{opt.label}</p>
+                        <p className="text-xs text-slate-400 mt-0.5">{opt.sub}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-1">
+                <button
+                  onClick={() => setPaymentMethodModal(null)}
+                  className="px-4 py-2 text-slate-300 bg-slate-700 rounded-lg hover:bg-slate-600 transition-colors text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    const { invoice, email, mode } = paymentMethodModal;
+                    setPaymentMethodModal(null);
+                    if (mode === 'generate') {
+                      generatePaymentLink(invoice, email, selectedPaymentMethod);
+                    } else {
+                      executeRegeneratePaymentLink(selectedPaymentMethod);
+                    }
+                  }}
+                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium"
+                >
+                  {paymentMethodModal.mode === 'regenerate' ? 'Regenerate & Send' : 'Generate & Send'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
