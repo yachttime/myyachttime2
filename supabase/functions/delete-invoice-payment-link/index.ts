@@ -6,10 +6,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
 };
 
-interface DeletePaymentLinkRequest {
-  invoiceId: string;
-}
-
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, {
@@ -39,67 +35,120 @@ Deno.serve(async (req: Request) => {
       throw new Error('Unauthorized');
     }
 
-    const { invoiceId }: DeletePaymentLinkRequest = await req.json();
-
-    if (!invoiceId) {
-      throw new Error('Invoice ID is required');
-    }
-
-    const { data: invoice, error: invoiceError } = await supabase
-      .from('yacht_invoices')
-      .select('*, yachts(name)')
-      .eq('id', invoiceId)
-      .single();
-
-    if (invoiceError || !invoice) {
-      throw new Error('Invoice not found');
-    }
+    const body = await req.json();
+    const estimatingInvoiceId: string | undefined = body.estimatingInvoiceId;
+    const invoiceId: string | undefined = body.invoiceId;
 
     const { data: profile } = await supabase
       .from('user_profiles')
       .select('role, yacht_id')
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
 
-    const hasAccess = profile?.role === 'master' ||
-                      profile?.role === 'staff' ||
-                      profile?.role === 'mechanic' ||
-                      (profile?.role === 'manager' && profile?.yacht_id === invoice.yacht_id);
+    const isStaff = profile?.role === 'master' ||
+                    profile?.role === 'staff' ||
+                    profile?.role === 'mechanic';
 
-    if (!hasAccess) {
-      throw new Error('Unauthorized to access this invoice');
-    }
+    if (estimatingInvoiceId) {
+      const { data: invoice, error: invoiceError } = await supabase
+        .from('estimating_invoices')
+        .select('id, yacht_id, payment_status, final_payment_stripe_checkout_session_id')
+        .eq('id', estimatingInvoiceId)
+        .maybeSingle();
 
-    if (invoice.payment_status === 'paid') {
-      throw new Error('Cannot delete payment link for paid invoice');
-    }
-
-    if (invoice.stripe_checkout_session_id) {
-      const expireResponse = await fetch(
-        `https://api.stripe.com/v1/checkout/sessions/${invoice.stripe_checkout_session_id}/expire`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${stripeSecretKey}`,
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-        }
-      );
-
-      if (!expireResponse.ok) {
-        const errorText = await expireResponse.text();
-        console.error('Stripe API error:', errorText);
+      if (invoiceError || !invoice) {
+        throw new Error('Invoice not found');
       }
-    }
 
-    await supabase
-      .from('yacht_invoices')
-      .update({
-        stripe_checkout_session_id: null,
-        payment_link_url: null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', invoiceId);
+      const hasAccess = isStaff ||
+        (profile?.role === 'manager' && profile?.yacht_id === invoice.yacht_id);
+
+      if (!hasAccess) {
+        throw new Error('Unauthorized to access this invoice');
+      }
+
+      if (invoice.payment_status === 'paid') {
+        throw new Error('Cannot delete payment link for paid invoice');
+      }
+
+      if (invoice.final_payment_stripe_checkout_session_id) {
+        try {
+          await fetch(
+            `https://api.stripe.com/v1/payment_links/${invoice.final_payment_stripe_checkout_session_id}`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${stripeSecretKey}`,
+                'Content-Type': 'application/x-www-form-urlencoded',
+              },
+              body: new URLSearchParams({ 'active': 'false' }).toString(),
+            }
+          );
+        } catch (err) {
+          console.error('Error deactivating Stripe payment link:', err);
+        }
+      }
+
+      await supabase
+        .from('estimating_invoices')
+        .update({
+          final_payment_stripe_checkout_session_id: null,
+          final_payment_link_url: null,
+          final_payment_link_expires_at: null,
+        })
+        .eq('id', estimatingInvoiceId);
+
+    } else if (invoiceId) {
+      const { data: invoice, error: invoiceError } = await supabase
+        .from('yacht_invoices')
+        .select('*, yachts(name)')
+        .eq('id', invoiceId)
+        .maybeSingle();
+
+      if (invoiceError || !invoice) {
+        throw new Error('Invoice not found');
+      }
+
+      const hasAccess = isStaff ||
+        (profile?.role === 'manager' && profile?.yacht_id === invoice.yacht_id);
+
+      if (!hasAccess) {
+        throw new Error('Unauthorized to access this invoice');
+      }
+
+      if (invoice.payment_status === 'paid') {
+        throw new Error('Cannot delete payment link for paid invoice');
+      }
+
+      if (invoice.stripe_checkout_session_id) {
+        try {
+          await fetch(
+            `https://api.stripe.com/v1/checkout/sessions/${invoice.stripe_checkout_session_id}/expire`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${stripeSecretKey}`,
+                'Content-Type': 'application/x-www-form-urlencoded',
+              },
+            }
+          );
+        } catch (err) {
+          console.error('Error expiring Stripe checkout session:', err);
+        }
+      }
+
+      await supabase
+        .from('yacht_invoices')
+        .update({
+          stripe_checkout_session_id: null,
+          payment_link_url: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', invoiceId);
+
+    } else {
+      throw new Error('Invoice ID is required');
+    }
 
     return new Response(
       JSON.stringify({
