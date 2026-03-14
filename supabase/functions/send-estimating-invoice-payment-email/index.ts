@@ -473,6 +473,7 @@ Deno.serve(async (req: Request) => {
       .update({
         final_payment_email_sent_at: new Date().toISOString(),
         final_payment_email_recipient: recipientEmail,
+        final_payment_email_all_recipients: allRecipients,
         final_payment_resend_email_id: emailData.id,
         customer_email: recipientEmail,
         final_payment_email_delivered_at: null,

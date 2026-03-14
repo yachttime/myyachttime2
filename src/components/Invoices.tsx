@@ -52,6 +52,7 @@ interface Invoice {
   final_payment_link_expires_at: string | null;
   final_payment_email_sent_at: string | null;
   final_payment_email_recipient: string | null;
+  final_payment_email_all_recipients: string[] | null;
   final_payment_email_delivered_at: string | null;
   final_payment_email_opened_at: string | null;
   final_payment_email_clicked_at: string | null;
@@ -1615,7 +1616,16 @@ export function Invoices({ userId }: InvoicesProps) {
                           <div className="mt-3 pt-3 border-t border-green-200">
                             <p className="text-xs font-semibold text-gray-700 mb-2">Email Engagement</p>
                             <div className="space-y-1">
-                              {emailRecipient && (
+                              {selectedInvoice.final_payment_email_all_recipients && selectedInvoice.final_payment_email_all_recipients.length > 0 ? (
+                                <div className="flex flex-col gap-1 mb-2">
+                                  {selectedInvoice.final_payment_email_all_recipients.map((addr, i) => (
+                                    <div key={i} className="flex items-center gap-2 text-xs text-blue-600">
+                                      <Mail className="w-3 h-3 flex-shrink-0" />
+                                      <span className="font-medium">To: {addr}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : emailRecipient && (
                                 <div className="flex items-center gap-2 text-xs text-blue-600 mb-2">
                                   <Mail className="w-3 h-3" />
                                   <span className="font-medium">To: {emailRecipient}</span>
