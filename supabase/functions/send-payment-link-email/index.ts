@@ -351,6 +351,7 @@ Deno.serve(async (req: Request) => {
           payment_email_sent_at: new Date().toISOString(),
           resend_email_id: emailData.id,
           payment_email_recipient: recipientEmail,
+          payment_email_all_recipients: allRecipientEmails,
         })
         .eq('id', invoiceId);
 

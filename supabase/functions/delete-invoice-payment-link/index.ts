@@ -155,6 +155,7 @@ Deno.serve(async (req: Request) => {
           payment_email_sent_at: null,
           resend_email_id: null,
           payment_email_recipient: null,
+          payment_email_all_recipients: null,
           payment_email_delivered_at: null,
           payment_email_opened_at: null,
           payment_link_clicked_at: null,

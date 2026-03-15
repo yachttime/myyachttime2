@@ -37,6 +37,7 @@ interface Invoice {
   payment_link_created_at: string | null;
   payment_email_sent_at: string | null;
   payment_email_recipient: string | null;
+  payment_email_all_recipients: string[] | null;
   payment_email_delivered_at: string | null;
   payment_email_opened_at: string | null;
   payment_email_clicked_at: string | null;
@@ -1616,21 +1617,29 @@ export function Invoices({ userId }: InvoicesProps) {
                           <div className="mt-3 pt-3 border-t border-green-200">
                             <p className="text-xs font-semibold text-gray-700 mb-2">Email Engagement</p>
                             <div className="space-y-1">
-                              {selectedInvoice.final_payment_email_all_recipients && selectedInvoice.final_payment_email_all_recipients.length > 0 ? (
-                                <div className="flex flex-col gap-1 mb-2">
-                                  {selectedInvoice.final_payment_email_all_recipients.map((addr, i) => (
-                                    <div key={i} className="flex items-center gap-2 text-xs text-blue-600">
-                                      <Mail className="w-3 h-3 flex-shrink-0" />
-                                      <span className="font-medium">To: {addr}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : emailRecipient && (
-                                <div className="flex items-center gap-2 text-xs text-blue-600 mb-2">
-                                  <Mail className="w-3 h-3" />
-                                  <span className="font-medium">To: {emailRecipient}</span>
-                                </div>
-                              )}
+                              {(() => {
+                                const allRecipients =
+                                  selectedInvoice.final_payment_email_all_recipients?.length
+                                    ? selectedInvoice.final_payment_email_all_recipients
+                                    : selectedInvoice.payment_email_all_recipients?.length
+                                    ? selectedInvoice.payment_email_all_recipients
+                                    : null;
+                                return allRecipients ? (
+                                  <div className="flex flex-col gap-1 mb-2">
+                                    {allRecipients.map((addr, i) => (
+                                      <div key={i} className="flex items-center gap-2 text-xs text-blue-600">
+                                        <Mail className="w-3 h-3 flex-shrink-0" />
+                                        <span className="font-medium">To: {addr}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : emailRecipient ? (
+                                  <div className="flex items-center gap-2 text-xs text-blue-600 mb-2">
+                                    <Mail className="w-3 h-3" />
+                                    <span className="font-medium">To: {emailRecipient}</span>
+                                  </div>
+                                ) : null;
+                              })()}
                               <div className="flex items-center gap-2 text-xs text-gray-500">
                                 <Mail className="w-3 h-3 text-blue-500" />
                                 <span>Sent: {new Date(emailSentAt).toLocaleDateString()} at {new Date(emailSentAt).toLocaleTimeString()}</span>
