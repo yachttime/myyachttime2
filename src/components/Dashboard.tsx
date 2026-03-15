@@ -479,6 +479,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [isAddingInvoiceToCompleted, setIsAddingInvoiceToCompleted] = useState(false);
   const [paymentLinkLoading, setPaymentLinkLoading] = useState<{ [invoiceId: string]: boolean }>({});
   const [deletePaymentLinkLoading, setDeletePaymentLinkLoading] = useState<{ [invoiceId: string]: boolean }>({});
+  const [regenerateMethodModal, setRegenerateMethodModal] = useState<YachtInvoice | null>(null);
+  const [regenerateSelectedMethod, setRegenerateSelectedMethod] = useState<'card' | 'ach' | 'both'>('card');
   const [syncPaymentLoading, setSyncPaymentLoading] = useState<{ [invoiceId: string]: boolean }>({});
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [selectedInvoiceForEmail, setSelectedInvoiceForEmail] = useState<YachtInvoice | null>(null);
@@ -3684,12 +3686,14 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   };
 
 
-  const handleRegeneratePaymentLink = async (invoice: YachtInvoice) => {
+  const handleRegeneratePaymentLink = (invoice: YachtInvoice) => {
     if (!invoice.id) return;
+    setRegenerateSelectedMethod((invoice.payment_method_type as 'card' | 'ach' | 'both') || 'card');
+    setRegenerateMethodModal(invoice);
+  };
 
-    const confirmed = confirm('This will delete the expired payment link and create a new one. Continue?');
-    if (!confirmed) return;
-
+  const executeRegeneratePaymentLink = async (invoice: YachtInvoice, paymentMethodType: 'card' | 'ach' | 'both') => {
+    setRegenerateMethodModal(null);
     setPaymentLinkLoading({ ...paymentLinkLoading, [invoice.id]: true });
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -3701,9 +3705,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           'Authorization': `Bearer ${session?.access_token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          invoiceId: invoice.id
-        })
+        body: JSON.stringify({ invoiceId: invoice.id })
       });
 
       const deleteResult = await deleteResponse.json();
@@ -3718,9 +3720,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           'Authorization': `Bearer ${session?.access_token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          invoiceId: invoice.id
-        })
+        body: JSON.stringify({ invoiceId: invoice.id, paymentMethodType })
       });
 
       const createResult = await createResponse.json();
@@ -17272,6 +17272,50 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                   className="px-6 bg-slate-700 hover:bg-slate-600 text-white font-semibold py-3 rounded-lg transition-colors"
                 >
                   Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {regenerateMethodModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 rounded-xl shadow-2xl w-full max-w-sm border border-slate-700">
+            <div className="p-6 border-b border-slate-700">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-bold text-white">Regenerate Payment Link</h3>
+                <button onClick={() => setRegenerateMethodModal(null)} className="text-slate-400 hover:text-white transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <p className="text-slate-400 text-sm mt-1">Select the payment method for the new link.</p>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Payment Method</label>
+                <select
+                  value={regenerateSelectedMethod}
+                  onChange={(e) => setRegenerateSelectedMethod(e.target.value as 'card' | 'ach' | 'both')}
+                  className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm"
+                >
+                  <option value="card">Credit / Debit Card</option>
+                  <option value="ach">ACH Bank Transfer</option>
+                  <option value="both">Card + ACH (both options)</option>
+                </select>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setRegenerateMethodModal(null)}
+                  className="flex-1 bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => executeRegeneratePaymentLink(regenerateMethodModal, regenerateSelectedMethod)}
+                  className="flex-1 bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+                >
+                  Regenerate
                 </button>
               </div>
             </div>
