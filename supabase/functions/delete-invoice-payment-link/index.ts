@@ -95,6 +95,15 @@ Deno.serve(async (req: Request) => {
           final_payment_stripe_checkout_session_id: null,
           final_payment_link_url: null,
           final_payment_link_expires_at: null,
+          final_payment_email_sent_at: null,
+          final_payment_resend_email_id: null,
+          final_payment_email_recipient: null,
+          final_payment_email_delivered_at: null,
+          final_payment_email_opened_at: null,
+          final_payment_email_clicked_at: null,
+          final_payment_email_bounced_at: null,
+          email_open_count: 0,
+          email_click_count: 0,
         })
         .eq('id', estimatingInvoiceId);
 
@@ -142,6 +151,16 @@ Deno.serve(async (req: Request) => {
         .update({
           stripe_checkout_session_id: null,
           payment_link_url: null,
+          payment_link_expires_at: null,
+          payment_email_sent_at: null,
+          resend_email_id: null,
+          payment_email_recipient: null,
+          payment_email_delivered_at: null,
+          payment_email_opened_at: null,
+          payment_link_clicked_at: null,
+          payment_email_bounced_at: null,
+          email_open_count: 0,
+          email_click_count: 0,
           updated_at: new Date().toISOString(),
         })
         .eq('id', invoiceId);
