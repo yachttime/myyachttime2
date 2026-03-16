@@ -132,17 +132,18 @@ Deno.serve(async (req: Request) => {
       if (invoice.stripe_checkout_session_id) {
         try {
           await fetch(
-            `https://api.stripe.com/v1/checkout/sessions/${invoice.stripe_checkout_session_id}/expire`,
+            `https://api.stripe.com/v1/payment_links/${invoice.stripe_checkout_session_id}`,
             {
               method: 'POST',
               headers: {
                 'Authorization': `Bearer ${stripeSecretKey}`,
                 'Content-Type': 'application/x-www-form-urlencoded',
               },
+              body: new URLSearchParams({ 'active': 'false' }).toString(),
             }
           );
         } catch (err) {
-          console.error('Error expiring Stripe checkout session:', err);
+          console.error('Error deactivating Stripe payment link:', err);
         }
       }
 
