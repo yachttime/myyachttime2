@@ -164,6 +164,8 @@ Deno.serve(withErrorHandling(async (req: Request) => {
       'metadata[work_order_id]': workOrderId,
       'metadata[payment_type]': 'work_order_deposit',
       'metadata[user_id]': user.id,
+      'saved_payment_method_options[allow_redisplay_filters][0]': 'unspecified',
+      'custom_text[submit][message]': `You are authorizing a deposit of $${(amountInCents / 100).toFixed(2)} for Work Order ${workOrder.work_order_number || workOrderId.substring(0, 8)}. Please confirm this is correct before proceeding.`,
     };
 
     if (paymentMethodType === 'card') {

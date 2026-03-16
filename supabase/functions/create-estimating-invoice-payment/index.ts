@@ -167,6 +167,8 @@ Deno.serve(withErrorHandling(async (req: Request) => {
       'line_items[0][price]': priceData.id,
       'line_items[0][quantity]': '1',
       'restrictions[completed_sessions][limit]': '1',
+      'saved_payment_method_options[allow_redisplay_filters][0]': 'unspecified',
+      'custom_text[submit][message]': `You are authorizing a payment of $${(amountInCents / 100).toFixed(2)} for Invoice ${invoice.invoice_number || invoiceId.substring(0, 8)}. Please confirm this is correct before proceeding.`,
       'after_completion[type]': 'redirect',
       'after_completion[redirect][url]': `${appUrl}/estimating?payment=success&type=invoice`,
       'metadata[invoice_id]': invoiceId,

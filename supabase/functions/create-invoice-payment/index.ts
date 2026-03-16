@@ -189,6 +189,8 @@ Deno.serve(withErrorHandling(async (req: Request) => {
       'metadata[yacht_id]': invoice.yacht_id || '',
       'metadata[payment_type]': 'yacht_invoice',
       'metadata[user_id]': user.id,
+      'saved_payment_method_options[allow_redisplay_filters][0]': 'unspecified',
+      'custom_text[submit][message]': `You are authorizing a payment of $${(amountInCents / 100).toFixed(2)} for ${invoice.repair_title || 'invoice'}. Please confirm this is correct before proceeding.`,
     };
 
     if (paymentMethodType === 'card') {
