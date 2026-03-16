@@ -540,6 +540,14 @@ Deno.serve(async (req: Request) => {
           });
         }
 
+        // Check if this exact payment intent was already processed
+        if (existingInvoice?.final_payment_stripe_payment_intent_id &&
+            existingInvoice.final_payment_stripe_payment_intent_id === session.payment_intent) {
+          return new Response(JSON.stringify({ received: true, warning: 'Payment intent already processed' }), {
+            status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
         let paymentMethod = session.payment_method_types?.[0] || 'card';
         const paymentIntentId = session.payment_intent;
         const amountPaid = (session.amount_total || 0) / 100;
