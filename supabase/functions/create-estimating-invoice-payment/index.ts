@@ -128,7 +128,7 @@ Deno.serve(withErrorHandling(async (req: Request) => {
     if (!productResponse.ok) {
       const errorText = await productResponse.text();
       console.error('Stripe Product creation error:', errorText);
-      throw new Error('Failed to create Stripe product');
+      throw new Error(`Failed to create Stripe product: ${errorText}`);
     }
 
     const productData = await productResponse.json();
@@ -152,7 +152,7 @@ Deno.serve(withErrorHandling(async (req: Request) => {
     if (!priceResponse.ok) {
       const errorText = await priceResponse.text();
       console.error('Stripe Price creation error:', errorText);
-      throw new Error('Failed to create Stripe price');
+      throw new Error(`Failed to create Stripe price: ${errorText}`);
     }
 
     const priceData = await priceResponse.json();

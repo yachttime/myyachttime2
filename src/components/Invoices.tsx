@@ -727,31 +727,17 @@ export function Invoices({ userId }: InvoicesProps) {
       );
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create payment link');
+        let errorMessage = 'Failed to create payment link';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch {
+          errorMessage = `Failed to create payment link (HTTP ${response.status})`;
+        }
+        throw new Error(errorMessage);
       }
 
       await supabase.from('estimating_invoices').update({ customer_email: recipientEmail }).eq('id', invoice.id);
-
-      const emailResponse = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-estimating-invoice-payment-email`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ invoiceId: invoice.id, recipientEmail })
-        }
-      );
-
-      if (!emailResponse.ok) {
-        const emailErr = await emailResponse.json();
-        console.error('Email send failed:', emailErr);
-        showToast('Payment link created but email failed to send. Use "Email Payment Link" to retry.', 'info');
-      } else {
-        showToast('Payment link generated and emailed successfully!', 'success');
-      }
 
       if (activeTab === 'active') {
         await fetchInvoices();
@@ -763,9 +749,34 @@ export function Invoices({ userId }: InvoicesProps) {
         const { data: fresh } = await supabase.from('estimating_invoices').select('*, work_orders!estimating_invoices_work_order_id_fkey(work_order_number), yachts!estimating_invoices_yacht_id_fkey(name)').eq('id', invoice.id).maybeSingle();
         if (fresh) setSelectedInvoice({ ...fresh, work_order_number: fresh.work_orders?.work_order_number, yacht_name: fresh.yachts?.name });
       }
+
+      showToast('Payment link generated! Sending email...', 'success');
+
+      fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-estimating-invoice-payment-email`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ invoiceId: invoice.id, recipientEmail })
+        }
+      ).then(async (emailResponse) => {
+        if (!emailResponse.ok) {
+          const emailErr = await emailResponse.json().catch(() => ({}));
+          console.error('Email send failed:', emailErr);
+          showToast('Payment link created but email failed to send. Use "Email Payment Link" to retry.', 'info');
+        } else {
+          showToast('Payment email sent successfully!', 'success');
+        }
+      }).catch((emailErr) => {
+        console.error('Email send error:', emailErr);
+        showToast('Payment link created but email failed to send. Use "Email Payment Link" to retry.', 'info');
+      });
     } catch (error: any) {
       console.error('Error requesting payment:', error);
-      showToast(error.message || 'Failed to send payment request. Please try again.', 'error');
+      showToast(error.message || 'Failed to create payment link. Please try again.', 'error');
     } finally {
       setPaymentLoading(false);
     }
