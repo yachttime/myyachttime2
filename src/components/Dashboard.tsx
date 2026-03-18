@@ -636,6 +636,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [isCreatingNewUser, setIsCreatingNewUser] = useState(false);
   const [userSearchTerm, setUserSearchTerm] = useState('');
   const [selectedUserGroup, setSelectedUserGroup] = useState<string | null>(null);
+  const [expandedEmailId, setExpandedEmailId] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [userEditForm, setUserEditForm] = useState({
     first_name: '',
@@ -16613,59 +16614,161 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                           Email History ({groupEmails.length})
                                         </h4>
                                         <div className="space-y-3">
-                                          {groupEmails.map((msg: any) => (
-                                            <div key={msg.id} className="bg-slate-800/50 rounded-xl border border-slate-700 p-4">
-                                              <div className="flex items-start justify-between gap-4 mb-3">
-                                                <div className="flex-1 min-w-0">
-                                                  <p className="text-white font-semibold truncate">{msg.email_subject}</p>
-                                                  <p className="text-xs text-slate-400 mt-0.5">
-                                                    {new Date(msg.email_sent_at || msg.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                                                    {' '}at{' '}
-                                                    {new Date(msg.email_sent_at || msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                    {msg.email_recipients?.length > 0 && ` · ${msg.email_recipients.length} recipient${msg.email_recipients.length !== 1 ? 's' : ''}`}
-                                                    {msg.user_profiles && ` · Sent by ${msg.user_profiles.first_name} ${msg.user_profiles.last_name}`}
-                                                  </p>
-                                                </div>
-                                                <div className="flex flex-wrap gap-1.5 shrink-0">
-                                                  <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full">
-                                                    Sent
-                                                  </span>
-                                                  {msg.email_delivered_at && (
-                                                    <span className="text-xs bg-teal-500/20 text-teal-400 px-2 py-0.5 rounded-full flex items-center gap-1">
-                                                      <CheckCircle className="w-3 h-3" />
-                                                      Delivered
-                                                    </span>
-                                                  )}
-                                                  {msg.email_opened_at && (
-                                                    <span className="text-xs bg-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded-full flex items-center gap-1">
-                                                      <Eye className="w-3 h-3" />
-                                                      Opened{msg.email_open_count > 1 ? ` (${msg.email_open_count}x)` : ''}
-                                                    </span>
-                                                  )}
-                                                  {msg.email_clicked_at && (
-                                                    <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full flex items-center gap-1">
-                                                      <MousePointer className="w-3 h-3" />
-                                                      Clicked{msg.email_click_count > 1 ? ` (${msg.email_click_count}x)` : ''}
-                                                    </span>
-                                                  )}
-                                                  {msg.email_bounced_at && (
-                                                    <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full flex items-center gap-1">
-                                                      <AlertCircle className="w-3 h-3" />
-                                                      Bounced
-                                                    </span>
-                                                  )}
-                                                  {!msg.email_delivered_at && !msg.email_bounced_at && (
-                                                    <span className="text-xs bg-slate-600/50 text-slate-400 px-2 py-0.5 rounded-full">
-                                                      Pending
-                                                    </span>
-                                                  )}
-                                                </div>
+                                          {groupEmails.map((msg: any) => {
+                                            const isExpanded = expandedEmailId === msg.id;
+                                            const fmtTs = (ts: string) =>
+                                              new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
+                                              ' at ' +
+                                              new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                            return (
+                                              <div key={msg.id} className="bg-slate-800/50 rounded-xl border border-slate-700 overflow-hidden">
+                                                <button
+                                                  onClick={() => setExpandedEmailId(isExpanded ? null : msg.id)}
+                                                  className="w-full text-left p-4 hover:bg-slate-700/30 transition-colors"
+                                                >
+                                                  <div className="flex items-start justify-between gap-4">
+                                                    <div className="flex-1 min-w-0">
+                                                      <p className="text-white font-semibold truncate">{msg.email_subject}</p>
+                                                      <p className="text-xs text-slate-400 mt-0.5">
+                                                        {fmtTs(msg.email_sent_at || msg.created_at)}
+                                                        {msg.email_recipients?.length > 0 && ` · ${msg.email_recipients.length} recipient${msg.email_recipients.length !== 1 ? 's' : ''}`}
+                                                        {msg.user_profiles && ` · Sent by ${msg.user_profiles.first_name} ${msg.user_profiles.last_name}`}
+                                                      </p>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 shrink-0">
+                                                      <div className="flex flex-wrap gap-1.5">
+                                                        {msg.email_bounced_at ? (
+                                                          <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                                            <AlertCircle className="w-3 h-3" />
+                                                            Bounced
+                                                          </span>
+                                                        ) : msg.email_clicked_at ? (
+                                                          <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                                            <MousePointer className="w-3 h-3" />
+                                                            Clicked{msg.email_click_count > 1 ? ` (${msg.email_click_count}x)` : ''}
+                                                          </span>
+                                                        ) : msg.email_opened_at ? (
+                                                          <span className="text-xs bg-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                                            <Eye className="w-3 h-3" />
+                                                            Opened{msg.email_open_count > 1 ? ` (${msg.email_open_count}x)` : ''}
+                                                          </span>
+                                                        ) : msg.email_delivered_at ? (
+                                                          <span className="text-xs bg-teal-500/20 text-teal-400 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                                            <CheckCircle className="w-3 h-3" />
+                                                            Delivered
+                                                          </span>
+                                                        ) : (
+                                                          <span className="text-xs bg-slate-600/50 text-slate-400 px-2 py-0.5 rounded-full">
+                                                            Pending
+                                                          </span>
+                                                        )}
+                                                      </div>
+                                                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                                                    </div>
+                                                  </div>
+                                                </button>
+
+                                                {isExpanded && (
+                                                  <div className="border-t border-slate-700 p-4 space-y-4">
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                      <div>
+                                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Delivery Timeline</p>
+                                                        <div className="space-y-2">
+                                                          <div className="flex items-center gap-3">
+                                                            <div className="w-2 h-2 rounded-full bg-blue-400 shrink-0" />
+                                                            <div>
+                                                              <p className="text-xs font-medium text-blue-400">Sent</p>
+                                                              <p className="text-xs text-slate-500">{fmtTs(msg.email_sent_at || msg.created_at)}</p>
+                                                            </div>
+                                                          </div>
+                                                          <div className="flex items-center gap-3">
+                                                            <div className={`w-2 h-2 rounded-full shrink-0 ${msg.email_delivered_at ? 'bg-teal-400' : 'bg-slate-600'}`} />
+                                                            <div>
+                                                              <p className={`text-xs font-medium ${msg.email_delivered_at ? 'text-teal-400' : 'text-slate-600'}`}>Delivered</p>
+                                                              {msg.email_delivered_at
+                                                                ? <p className="text-xs text-slate-500">{fmtTs(msg.email_delivered_at)}</p>
+                                                                : <p className="text-xs text-slate-600">Not yet confirmed</p>
+                                                              }
+                                                            </div>
+                                                          </div>
+                                                          <div className="flex items-center gap-3">
+                                                            <div className={`w-2 h-2 rounded-full shrink-0 ${msg.email_opened_at ? 'bg-cyan-400' : 'bg-slate-600'}`} />
+                                                            <div>
+                                                              <p className={`text-xs font-medium ${msg.email_opened_at ? 'text-cyan-400' : 'text-slate-600'}`}>
+                                                                Opened{msg.email_open_count > 1 ? ` (${msg.email_open_count} times)` : ''}
+                                                              </p>
+                                                              {msg.email_opened_at
+                                                                ? <p className="text-xs text-slate-500">{fmtTs(msg.email_opened_at)}</p>
+                                                                : <p className="text-xs text-slate-600">Not opened yet</p>
+                                                              }
+                                                            </div>
+                                                          </div>
+                                                          <div className="flex items-center gap-3">
+                                                            <div className={`w-2 h-2 rounded-full shrink-0 ${msg.email_clicked_at ? 'bg-emerald-400' : 'bg-slate-600'}`} />
+                                                            <div>
+                                                              <p className={`text-xs font-medium ${msg.email_clicked_at ? 'text-emerald-400' : 'text-slate-600'}`}>
+                                                                Link Clicked{msg.email_click_count > 1 ? ` (${msg.email_click_count} times)` : ''}
+                                                              </p>
+                                                              {msg.email_clicked_at
+                                                                ? <p className="text-xs text-slate-500">{fmtTs(msg.email_clicked_at)}</p>
+                                                                : <p className="text-xs text-slate-600">No clicks yet</p>
+                                                              }
+                                                            </div>
+                                                          </div>
+                                                          {msg.email_bounced_at && (
+                                                            <div className="flex items-center gap-3">
+                                                              <div className="w-2 h-2 rounded-full bg-red-400 shrink-0" />
+                                                              <div>
+                                                                <p className="text-xs font-medium text-red-400">Bounced</p>
+                                                                <p className="text-xs text-slate-500">{fmtTs(msg.email_bounced_at)}</p>
+                                                              </div>
+                                                            </div>
+                                                          )}
+                                                        </div>
+                                                      </div>
+
+                                                      <div>
+                                                        {msg.email_recipients?.length > 0 && (
+                                                          <>
+                                                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Recipients</p>
+                                                            <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
+                                                              {msg.email_recipients.map((r: any, i: number) => (
+                                                                <div key={i} className="flex items-center gap-2">
+                                                                  <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center shrink-0">
+                                                                    <span className="text-xs text-slate-400">{(r.name || r.email || '?')[0].toUpperCase()}</span>
+                                                                  </div>
+                                                                  <div className="min-w-0">
+                                                                    {r.name && r.name !== r.email && (
+                                                                      <p className="text-xs text-white truncate">{r.name}</p>
+                                                                    )}
+                                                                    <p className="text-xs text-slate-400 truncate">{r.email || r}</p>
+                                                                  </div>
+                                                                </div>
+                                                              ))}
+                                                            </div>
+                                                            {msg.email_cc_recipients?.length > 0 && (
+                                                              <div className="mt-2 pt-2 border-t border-slate-700/50">
+                                                                <p className="text-xs text-slate-500 mb-1">CC: {msg.email_cc_recipients.join(', ')}</p>
+                                                              </div>
+                                                            )}
+                                                          </>
+                                                        )}
+                                                      </div>
+                                                    </div>
+
+                                                    {msg.email_body && (
+                                                      <div>
+                                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Message</p>
+                                                        <div className="bg-slate-900/50 rounded-lg p-3 text-sm text-slate-300 whitespace-pre-wrap max-h-40 overflow-y-auto">
+                                                          {msg.email_body}
+                                                        </div>
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                )}
                                               </div>
-                                              {msg.email_body && (
-                                                <p className="text-sm text-slate-400 line-clamp-2 whitespace-pre-wrap">{msg.email_body}</p>
-                                              )}
-                                            </div>
-                                          ))}
+                                            );
+                                          })}
                                         </div>
                                       </div>
                                     );
