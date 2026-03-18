@@ -168,9 +168,6 @@ export const VesselManagementAgreementForm = ({
         throw new Error('All billing approval contact fields are required');
       }
 
-      if (!formData.boat_wifi_name?.trim() || !formData.boat_wifi_password?.trim()) {
-        throw new Error('WiFi information is required');
-      }
 
       if (!formData.agreed_arrival_time?.trim() || !formData.agreed_departure_time?.trim()) {
         throw new Error('Arrival and departure times are required');
@@ -512,25 +509,23 @@ export const VesselManagementAgreementForm = ({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">WiFi Name *</label>
+            <label className="block text-sm font-medium text-slate-300 mb-2">WiFi Name</label>
             <input
               type="text"
               value={formData.boat_wifi_name}
               onChange={(e) => setFormData({ ...formData, boat_wifi_name: e.target.value })}
               className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
               disabled={loading}
-              required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">WiFi Password *</label>
+            <label className="block text-sm font-medium text-slate-300 mb-2">WiFi Password</label>
             <input
               type="text"
               value={formData.boat_wifi_password}
               onChange={(e) => setFormData({ ...formData, boat_wifi_password: e.target.value })}
               className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
               disabled={loading}
-              required
             />
           </div>
         </div>
