@@ -257,7 +257,6 @@ Deno.serve(withErrorHandling(async (req: Request) => {
       'metadata[payment_type]': 'deposit',
       'metadata[yacht_id]': repairRequest.yacht_id || '',
       'metadata[user_id]': user.id,
-      'saved_payment_method_options[allow_redisplay_filters][0]': 'unspecified',
       'custom_text[submit][message]': `You are authorizing a deposit of $${(amountInCents / 100).toFixed(2)} for ${repairRequest.title || 'repair request'}. Please confirm this is correct before proceeding.`,
     };
 
