@@ -1154,15 +1154,18 @@ export function Estimates({ userId }: EstimatesProps) {
             company_id: estimate.company_id || userCompanyId
           }));
 
-          console.log('Inserting line items:', lineItemsToInsert);
-
-          const { error: lineItemsError } = await supabase
+          const { data: insertedItems, error: lineItemsError } = await supabase
             .from('estimate_line_items')
-            .insert(lineItemsToInsert);
+            .insert(lineItemsToInsert)
+            .select('id');
 
           if (lineItemsError) {
             console.error('Error inserting line items:', lineItemsError);
             throw lineItemsError;
+          }
+
+          if (!insertedItems || insertedItems.length !== lineItemsToInsert.length) {
+            throw new Error(`Failed to save line items for task "${task.task_name}". Please check your account permissions and try again.`);
           }
         }
       }
