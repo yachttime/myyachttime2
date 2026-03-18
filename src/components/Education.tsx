@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Anchor, ArrowLeft, Play, Upload, Edit2, X, Save, Trash2, Folder } from 'lucide-react';
+import { Anchor, ArrowLeft, Play, Upload, CreditCard as Edit2, X, Save, Trash2, Folder, AlertTriangle } from 'lucide-react';
 import { supabase, EducationVideo, canManageYacht } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useConfirm } from '../hooks/useConfirm';
@@ -28,6 +28,7 @@ export const Education = ({ onBack }: EducationProps) => {
   const [bulkEditForms, setBulkEditForms] = useState<{ [key: string]: any }>({});
   const [addingNewVideo, setAddingNewVideo] = useState(false);
   const [newVideoForm, setNewVideoForm] = useState({ order_index: 0, category: '', title: '', description: '', thumbnail_url: '', video_url: '' });
+  const [brokenVideos, setBrokenVideos] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadVideos();
@@ -1167,6 +1168,7 @@ export const Education = ({ onBack }: EducationProps) => {
                         error: error
                       });
                       setVideoError(errorMessage);
+                      setBrokenVideos(prev => new Set([...prev, selectedVideo.id]));
                     }}
                     onLoadStart={() => {
                       console.log('Video loading started:', selectedVideo.video_url);
@@ -1264,12 +1266,32 @@ export const Education = ({ onBack }: EducationProps) => {
               <p className="text-slate-400">Click any video to watch</p>
             </div>
 
+            {canManageYacht(userProfile?.role) && brokenVideos.size > 0 && categoryVideos.some(v => brokenVideos.has(v.id)) && (
+              <div className="mb-4 bg-red-500/10 border border-red-500/40 rounded-xl p-4 flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-red-400 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-red-400 font-semibold text-sm">Video load failures detected</p>
+                  <ul className="mt-1 space-y-0.5">
+                    {categoryVideos.filter(v => brokenVideos.has(v.id)).map(v => (
+                      <li key={v.id} className="text-red-300 text-xs">{v.title}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {categoryVideos.map((video) => (
                 <div
                   key={video.id}
-                  className="relative group bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:shadow-xl hover:shadow-amber-500/20"
+                  className={`relative group bg-slate-800/50 backdrop-blur-sm rounded-2xl border transition-all duration-300 hover:shadow-xl ${brokenVideos.has(video.id) ? 'border-red-500/60 hover:border-red-400' : 'border-slate-700 hover:border-amber-500 hover:shadow-amber-500/20'}`}
                 >
+                  {brokenVideos.has(video.id) && (
+                    <div className="absolute top-2 left-2 z-10 bg-red-500 text-white px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1">
+                      <AlertTriangle className="w-3 h-3" />
+                      Failed to load
+                    </div>
+                  )}
                   {canManageYacht(userProfile?.role) && (
                     <button
                       onClick={(e) => {
@@ -1296,21 +1318,24 @@ export const Education = ({ onBack }: EducationProps) => {
                           />
                           <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent pointer-events-none"></div>
                           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <div className="bg-amber-500 rounded-full p-4 group-hover:scale-110 transition-transform duration-300 shadow-2xl">
-                              <Play className="w-6 h-6 text-slate-900 fill-slate-900" />
+                            <div className={`rounded-full p-4 group-hover:scale-110 transition-transform duration-300 shadow-2xl ${brokenVideos.has(video.id) ? 'bg-red-500' : 'bg-amber-500'}`}>
+                              {brokenVideos.has(video.id) ? <AlertTriangle className="w-6 h-6 text-white" /> : <Play className="w-6 h-6 text-slate-900 fill-slate-900" />}
                             </div>
                           </div>
                         </>
                       ) : (
                         <div className="flex items-center justify-center h-full">
-                          <Play className="w-16 h-16 text-amber-500" />
+                          {brokenVideos.has(video.id) ? <AlertTriangle className="w-16 h-16 text-red-500" /> : <Play className="w-16 h-16 text-amber-500" />}
                         </div>
                       )}
                     </div>
                     <div className="p-4">
-                      <h4 className="text-lg font-bold mb-1 group-hover:text-amber-500 transition-colors">
+                      <h4 className={`text-lg font-bold mb-1 transition-colors ${brokenVideos.has(video.id) ? 'text-red-400' : 'group-hover:text-amber-500'}`}>
                         {video.title}
                       </h4>
+                      {brokenVideos.has(video.id) && (
+                        <p className="text-red-400 text-xs mb-1">This video could not be loaded. Please contact support.</p>
+                      )}
                       <p className="text-slate-400 text-sm line-clamp-2">{video.description}</p>
                     </div>
                   </div>
