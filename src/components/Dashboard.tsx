@@ -4040,12 +4040,18 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         if (found.length === 1) {
           setDepositEmailRecipient(found[0].email);
           setDepositEmailRecipientName(found[0].name);
+        } else if (found.length === 0 && repairRequest.customer_email) {
+          setDepositEmailRecipient(repairRequest.customer_email);
+          setDepositEmailRecipientName(repairRequest.customer_name || '');
         }
       } catch (error) {
         console.error('Error fetching billing managers:', error);
       } finally {
         setDepositBillingManagersLoading(false);
       }
+    } else if (repairRequest.customer_email) {
+      setDepositEmailRecipient(repairRequest.customer_email);
+      setDepositEmailRecipientName(repairRequest.customer_name || '');
     }
   };
 
