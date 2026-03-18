@@ -138,70 +138,113 @@ Deno.serve(withErrorHandling(async (req: Request) => {
       </html>
     `;
 
-    const emailPayload: any = {
-      from: fromEmail,
-      to: recipients,
-      subject: subject,
-      html: htmlContent,
-      tags: [
-        {
-          name: 'category',
-          value: 'bulk-message',
-        },
-      ],
-    };
+    const attachmentPayload = attachments && attachments.length > 0
+      ? attachments.map(att => ({
+          filename: att.filename,
+          content: att.content,
+          content_type: att.contentType,
+        }))
+      : undefined;
 
-    if (cc_recipients && cc_recipients.length > 0) {
-      emailPayload.cc = cc_recipients;
-    }
+    const tags = [{ name: 'category', value: 'bulk-message' }];
 
-    if (attachments && attachments.length > 0) {
-      emailPayload.attachments = attachments.map(att => ({
-        filename: att.filename,
-        content: att.content,
-        content_type: att.contentType,
-      }));
-    }
+    let resendEmailIds: string[] = [];
+    let primaryEmailId: string | null = null;
 
     console.log('Sending bulk email to:', recipients.length, 'recipients');
 
-    const emailResponse = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${resendApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(emailPayload),
-    });
+    if (recipients.length === 1) {
+      const emailPayload: any = {
+        from: fromEmail,
+        to: recipients,
+        subject,
+        html: htmlContent,
+        tags,
+      };
+      if (cc_recipients && cc_recipients.length > 0) emailPayload.cc = cc_recipients;
+      if (attachmentPayload) emailPayload.attachments = attachmentPayload;
 
-    if (!emailResponse.ok) {
-      const errorText = await emailResponse.text();
-      console.error('Resend API error:', errorText);
-      let errorMessage = 'Failed to send email via Resend';
-      try {
-        const errorData = JSON.parse(errorText);
-        if (errorData.message) {
-          errorMessage = `Resend Error: ${errorData.message}`;
+      const emailResponse = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${resendApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(emailPayload),
+      });
 
-          if (errorData.message.includes('You can only send testing emails to your own email address')) {
-            errorMessage += '\n\nTo fix this:\n1. Go to resend.com/domains and verify your domain\n2. In Supabase Edge Functions, add RESEND_FROM_EMAIL secret (e.g., "Yacht Mgmt <noreply@yourdomain.com>")\n3. Or for testing, only send emails to your verified address';
+      if (!emailResponse.ok) {
+        const errorText = await emailResponse.text();
+        console.error('Resend API error:', errorText);
+        let errorMessage = 'Failed to send email via Resend';
+        try {
+          const errorData = JSON.parse(errorText);
+          if (errorData.message) {
+            errorMessage = `Resend Error: ${errorData.message}`;
+            if (errorData.message.includes('You can only send testing emails to your own email address')) {
+              errorMessage += '\n\nTo fix this:\n1. Go to resend.com/domains and verify your domain\n2. In Supabase Edge Functions, add RESEND_FROM_EMAIL secret\n3. Or for testing, only send emails to your verified address';
+            }
           }
+        } catch {
+          errorMessage = `Resend Error (${emailResponse.status}): ${errorText}`;
         }
-      } catch {
-        errorMessage = `Resend Error (${emailResponse.status}): ${errorText}`;
+        throw new Error(errorMessage);
       }
-      throw new Error(errorMessage);
+
+      const emailData = await emailResponse.json();
+      primaryEmailId = emailData.id;
+      resendEmailIds = [emailData.id];
+      console.log('Single email sent successfully:', emailData.id);
+    } else {
+      const batchPayload = recipients.map(recipient => {
+        const item: any = {
+          from: fromEmail,
+          to: [recipient],
+          subject,
+          html: htmlContent,
+          tags,
+        };
+        if (cc_recipients && cc_recipients.length > 0) item.cc = cc_recipients;
+        if (attachmentPayload) item.attachments = attachmentPayload;
+        return item;
+      });
+
+      const batchResponse = await fetch('https://api.resend.com/emails/batch', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${resendApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(batchPayload),
+      });
+
+      if (!batchResponse.ok) {
+        const errorText = await batchResponse.text();
+        console.error('Resend batch API error:', errorText);
+        let errorMessage = 'Failed to send email via Resend';
+        try {
+          const errorData = JSON.parse(errorText);
+          if (errorData.message) {
+            errorMessage = `Resend Error: ${errorData.message}`;
+            if (errorData.message.includes('You can only send testing emails to your own email address')) {
+              errorMessage += '\n\nTo fix this:\n1. Go to resend.com/domains and verify your domain\n2. In Supabase Edge Functions, add RESEND_FROM_EMAIL secret\n3. Or for testing, only send emails to your verified address';
+            }
+          }
+        } catch {
+          errorMessage = `Resend Error (${batchResponse.status}): ${errorText}`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const batchData = await batchResponse.json();
+      console.log('Batch email sent successfully:', batchData);
+
+      const sentEmails: Array<{ id: string }> = Array.isArray(batchData) ? batchData : (batchData.data || []);
+      resendEmailIds = sentEmails.map((e: { id: string }) => e.id).filter(Boolean);
+      primaryEmailId = resendEmailIds[0] || null;
     }
 
-    const emailData = await emailResponse.json();
-    console.log('Email sent successfully:', emailData);
-
-    // Log email in staff_messages for tracking and audit trail
-    const recipientsArray = recipients.map((email, index) => {
-      const recipient = typeof email === 'string' ? email : email;
-      const name = recipient;
-      return { email: recipient, name };
-    });
+    const recipientsArray = recipients.map(email => ({ email, name: email }));
 
     console.log('Creating staff message for tracking...');
 
@@ -221,7 +264,8 @@ Deno.serve(withErrorHandling(async (req: Request) => {
         email_cc_recipients: cc_recipients || [],
         yacht_name: yacht_name || null,
         email_sent_at: new Date().toISOString(),
-        resend_email_id: emailData.id,
+        resend_email_id: primaryEmailId,
+        resend_email_ids: resendEmailIds.length > 0 ? resendEmailIds : null,
         company_id: profile.company_id || null,
       })
       .select()
@@ -233,11 +277,9 @@ Deno.serve(withErrorHandling(async (req: Request) => {
       console.log('Staff message created successfully:', staffMessageData);
     }
 
-    // If yacht_name is provided, also save to admin_notifications so it appears in Yacht Messages section
     if (yacht_name) {
       console.log('Saving message to yacht messages for yacht:', yacht_name);
 
-      // Get yacht_id from yacht name
       const { data: yachtData, error: yachtError } = await supabase
         .from('yachts')
         .select('id')
@@ -269,7 +311,7 @@ Deno.serve(withErrorHandling(async (req: Request) => {
     return successResponse({
       success: true,
       message: `Email sent successfully to ${recipients.length} recipient${recipients.length > 1 ? 's' : ''}`,
-      emailId: emailData.id,
+      emailId: primaryEmailId,
     });
   } catch (error) {
     console.error('Error sending bulk email:', error);

@@ -141,12 +141,26 @@ Deno.serve(async (req: Request) => {
       .eq('final_payment_resend_email_id', event.data.email_id)
       .maybeSingle();
 
-    // Try to find the email in staff_messages
-    const { data: staffMessage } = await supabase
+    // Try to find the email in staff_messages (by single ID or batch ID array)
+    let staffMessage = null;
+    const { data: staffMessageSingle } = await supabase
       .from('staff_messages')
       .select('*')
       .eq('resend_email_id', event.data.email_id)
       .maybeSingle();
+
+    if (staffMessageSingle) {
+      staffMessage = staffMessageSingle;
+    } else {
+      const { data: staffMessageBatch } = await supabase
+        .from('staff_messages')
+        .select('*')
+        .contains('resend_email_ids', [event.data.email_id])
+        .maybeSingle();
+      if (staffMessageBatch) {
+        staffMessage = staffMessageBatch;
+      }
+    }
 
     if (!invoice && !repairRequest && !repairNotification && !depositRequest && !estimatingInvoice && !staffMessage) {
       console.log('No record found for email_id:', event.data.email_id);
