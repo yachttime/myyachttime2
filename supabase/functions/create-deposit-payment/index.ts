@@ -262,24 +262,33 @@ Deno.serve(withErrorHandling(async (req: Request) => {
     };
 
     // Add payment methods based on payment_method_type
+    // Note: us_bank_account (ACH) is not supported as an explicit payment_method_types on Payment Links
+    // For ACH or both, we omit the restriction so Stripe uses account-level enabled methods
     if (paymentMethodType === 'card') {
       params['payment_method_types[0]'] = 'card';
-    } else if (paymentMethodType === 'ach') {
-      params['payment_method_types[0]'] = 'us_bank_account';
-    } else if (paymentMethodType === 'both') {
-      params['payment_method_types[0]'] = 'card';
-      params['payment_method_types[1]'] = 'us_bank_account';
     }
+    // For 'ach' and 'both', leave payment_method_types unset to use Stripe account defaults
 
-    // Create Stripe Payment Link
-    const paymentLink = await fetch('https://api.stripe.com/v1/payment_links', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${stripeSecretKey}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams(params).toString(),
-    });
+    const createPaymentLink = async (linkParams: Record<string, string>): Promise<Response> => {
+      return fetch('https://api.stripe.com/v1/payment_links', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${stripeSecretKey}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams(linkParams).toString(),
+      });
+    };
+
+    let paymentLink = await createPaymentLink(params);
+
+    // If it failed and we had explicit payment_method_types, retry without them
+    if (!paymentLink.ok && params['payment_method_types[0]']) {
+      const retryParams = { ...params };
+      delete retryParams['payment_method_types[0]'];
+      delete retryParams['payment_method_types[1]'];
+      paymentLink = await createPaymentLink(retryParams);
+    }
 
     if (!paymentLink.ok) {
       const errorText = await paymentLink.text();
