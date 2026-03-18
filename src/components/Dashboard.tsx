@@ -109,6 +109,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [yachtOwnersEmailData, setYachtOwnersEmailData] = useState<{ yacht: any; owners: Array<{ email: string; name: string }> } | null>(null);
   const [showManagementEmailModal, setShowManagementEmailModal] = useState(false);
   const [managementEmailData, setManagementEmailData] = useState<{ yachtName: string; recipients: Array<{ email: string; name: string }> } | null>(null);
+  const [signInVideo, setSignInVideo] = useState<{ title: string; video_url: string } | null>(null);
+  const [showIntroVideoEmailModal, setShowIntroVideoEmailModal] = useState(false);
+  const [introVideoEmailData, setIntroVideoEmailData] = useState<{ yachtName: string; recipients: Array<{ email: string; name: string }>; video: { title: string; video_url: string } | null } | null>(null);
 
   const convertTo12Hour = (time24: string): string => {
     if (!time24) return '';
@@ -1443,6 +1446,41 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
     setManagementEmailData({ yachtName, recipients });
     setShowManagementEmailModal(true);
+  };
+
+  const sendIntroVideoToOwners = async (yachtName: string, users: any[]) => {
+    const ownerRoles = ['owner', 'manager'];
+    const owners = users.filter(u => ownerRoles.includes(u.role));
+
+    const recipients = owners
+      .map(u => ({
+        email: u.notification_email || u.email,
+        name: u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email,
+      }))
+      .filter(r => r.email && r.email.trim() !== '');
+
+    if (recipients.length === 0) {
+      showError('No owners with valid email addresses found for this yacht');
+      return;
+    }
+
+    let video = signInVideo;
+    if (!video) {
+      const { data: videoData } = await supabase
+        .from('education_videos')
+        .select('title, video_url')
+        .eq('category', 'SignIn')
+        .order('order_index', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (videoData) {
+        setSignInVideo(videoData);
+        video = videoData;
+      }
+    }
+
+    setIntroVideoEmailData({ yachtName, recipients, video });
+    setShowIntroVideoEmailModal(true);
   };
 
   const handleUserEdit = (user: any) => {
@@ -16892,6 +16930,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                           <Mail className="w-4 h-4" />
                                           Email Management Team
                                         </button>
+                                        <button
+                                          onClick={() => sendIntroVideoToOwners(yachtName, users)}
+                                          className="col-span-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
+                                        >
+                                          <Mail className="w-4 h-4" />
+                                          Send Intro Video
+                                        </button>
                                       </div>
                                     </div>
                                   </div>
@@ -18672,6 +18717,24 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         ccRecipients={[]}
         yachtName={managementEmailData?.yachtName || ''}
         allowRecipientSelection={true}
+      />
+
+      {/* Intro Video Email Modal */}
+      <EmailComposeModal
+        isOpen={showIntroVideoEmailModal}
+        onClose={() => {
+          setShowIntroVideoEmailModal(false);
+          setIntroVideoEmailData(null);
+        }}
+        recipients={introVideoEmailData?.recipients || []}
+        ccRecipients={[]}
+        yachtName={introVideoEmailData?.yachtName || ''}
+        allowRecipientSelection={true}
+        defaultSubject="Welcome to My Yacht Time - How to Sign In"
+        defaultMessage={introVideoEmailData?.video
+          ? `Hello,\n\nWelcome to My Yacht Time! We've put together a short video to help you get started and show you how to sign in to the platform.\n\nWatch the video here:\n${introVideoEmailData.video.video_url}\n\nIf you have any questions, please don't hesitate to reach out.\n\nThank you!`
+          : `Hello,\n\nWelcome to My Yacht Time! Please reach out to us for help getting started.\n\nThank you!`
+        }
       />
       <ConfirmDialog />
       </main>

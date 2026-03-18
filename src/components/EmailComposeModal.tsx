@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Mail, Loader2, Send, Paperclip, FileIcon } from 'lucide-react';
+import { X, Mail, Loader2, Send, Paperclip, File as FileIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useConfirm } from '../hooks/useConfirm';
 
@@ -10,6 +10,8 @@ interface EmailComposeModalProps {
   ccRecipients?: string[];
   yachtName?: string;
   allowRecipientSelection?: boolean;
+  defaultSubject?: string;
+  defaultMessage?: string;
 }
 
 interface Attachment {
@@ -19,7 +21,7 @@ interface Attachment {
   size: number;
 }
 
-export function EmailComposeModal({ isOpen, onClose, recipients, ccRecipients = [], yachtName, allowRecipientSelection = false }: EmailComposeModalProps) {
+export function EmailComposeModal({ isOpen, onClose, recipients, ccRecipients = [], yachtName, allowRecipientSelection = false, defaultSubject = '', defaultMessage = '' }: EmailComposeModalProps) {
   const { confirm, ConfirmDialog } = useConfirm();
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
@@ -29,12 +31,14 @@ export function EmailComposeModal({ isOpen, onClose, recipients, ccRecipients = 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (isOpen && recipients.length > 0) {
-      if (allowRecipientSelection) {
+    if (isOpen) {
+      if (allowRecipientSelection && recipients.length > 0) {
         setSelectedRecipients(new Set(recipients.map(r => r.email)));
       }
+      if (defaultSubject) setSubject(defaultSubject);
+      if (defaultMessage) setMessage(defaultMessage);
     }
-  }, [isOpen, recipients, allowRecipientSelection]);
+  }, [isOpen, recipients, allowRecipientSelection, defaultSubject, defaultMessage]);
 
   if (!isOpen) return null;
 
