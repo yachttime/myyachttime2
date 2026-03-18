@@ -261,15 +261,20 @@ Deno.serve(withErrorHandling(async (req: Request) => {
       'custom_text[submit][message]': `You are authorizing a deposit of $${(amountInCents / 100).toFixed(2)} for ${repairRequest.title || 'repair request'}. Please confirm this is correct before proceeding.`,
     };
 
-    // Add payment methods based on payment_method_type
-    // Note: us_bank_account (ACH) is not supported as an explicit payment_method_types on Payment Links
-    // For ACH or both, we omit the restriction so Stripe uses account-level enabled methods
+    // Configure payment methods for the payment link
+    // Stripe Payment Links do NOT support passing us_bank_account via payment_method_types directly.
+    // Instead, we use payment_method_configuration to enable/disable specific methods.
+    // When omitted, Stripe uses all methods enabled on your account dashboard.
+    //
+    // For card-only: restrict to card
+    // For ach-only or both: omit payment_method_types so Stripe uses account defaults (card + ACH if enabled)
     if (paymentMethodType === 'card') {
       params['payment_method_types[0]'] = 'card';
     }
-    // For 'ach' and 'both', leave payment_method_types unset to use Stripe account defaults
+    // For 'ach' and 'both': leave payment_method_types unset — Stripe will present
+    // all payment methods enabled on your account (card, ACH bank transfer, etc.)
 
-    const createPaymentLink = async (linkParams: Record<string, string>): Promise<Response> => {
+    const attemptCreatePaymentLink = async (linkParams: Record<string, string>): Promise<Response> => {
       return fetch('https://api.stripe.com/v1/payment_links', {
         method: 'POST',
         headers: {
@@ -280,14 +285,14 @@ Deno.serve(withErrorHandling(async (req: Request) => {
       });
     };
 
-    let paymentLink = await createPaymentLink(params);
+    let paymentLink = await attemptCreatePaymentLink(params);
 
-    // If it failed and we had explicit payment_method_types, retry without them
-    if (!paymentLink.ok && params['payment_method_types[0]']) {
+    // If card-only restriction caused an error, retry without it as fallback
+    if (!paymentLink.ok && params['payment_method_types[0]'] === 'card') {
+      console.log('Card-only payment link failed, retrying without payment_method_types restriction');
       const retryParams = { ...params };
       delete retryParams['payment_method_types[0]'];
-      delete retryParams['payment_method_types[1]'];
-      paymentLink = await createPaymentLink(retryParams);
+      paymentLink = await attemptCreatePaymentLink(retryParams);
     }
 
     if (!paymentLink.ok) {
