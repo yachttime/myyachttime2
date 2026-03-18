@@ -452,27 +452,40 @@ export function Estimates({ userId }: EstimatesProps) {
     }
   };
 
-  const handleYachtChange = (yachtId: string) => {
+  const handleYachtChange = async (yachtId: string) => {
     const selectedYacht = yachts.find(y => y.id === yachtId);
     const marinaName = selectedYacht?.marina_name || '';
 
-    const repairManager = managers.find(
+    let repairManager = managers.find(
       m => m.yacht_id === yachtId && m.can_approve_repairs === true
     );
+
+    if (!repairManager && yachtId) {
+      const { data: managerData } = await supabase
+        .from('user_profiles')
+        .select('id, yacht_id, first_name, last_name, can_approve_repairs, email, phone')
+        .eq('yacht_id', yachtId)
+        .eq('role', 'manager')
+        .eq('can_approve_repairs', true)
+        .eq('is_active', true)
+        .maybeSingle();
+      if (managerData) repairManager = managerData;
+    }
+
     const managerName = repairManager
       ? `${repairManager.first_name} ${repairManager.last_name}`.trim()
       : '';
     const managerEmail = repairManager?.email || '';
     const managerPhone = repairManager?.phone || '';
 
-    setFormData({
-      ...formData,
+    setFormData(prev => ({
+      ...prev,
       yacht_id: yachtId,
       marina_name: marinaName,
       manager_name: managerName,
       manager_email: managerEmail,
       manager_phone: managerPhone
-    });
+    }));
   };
 
   const handleAddTask = () => {
