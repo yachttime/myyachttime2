@@ -12198,12 +12198,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             let groupKey: string;
                             let groupLabel: string;
 
-                            if (request.customer_id && request.customers) {
+                            if ((request.customer_id && request.customers) || request.is_retail_customer) {
                               groupKey = 'walk-in-customers';
                               groupLabel = 'Walk-In Customers';
-                            } else if (request.is_retail_customer) {
-                              groupKey = 'walk-in-customers-legacy';
-                              groupLabel = 'Walk-In Customers (Legacy)';
                             } else {
                               groupKey = request.yacht_id || 'unknown';
                               groupLabel = request.yachts?.name || 'Unknown Yacht';
@@ -12372,7 +12369,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                     <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 mb-2">
                                       <div className="flex items-center gap-2 mb-1">
                                         <span className="bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded text-xs font-semibold">
-                                          WALK-IN CUSTOMER (Legacy)
+                                          WALK-IN CUSTOMER
                                         </span>
                                       </div>
                                       <p className="text-slate-300 text-sm font-medium">{request.customer_name}</p>
