@@ -201,13 +201,30 @@ export const VesselManagementAgreementForm = ({
         owner_signature_ip: 'client',
       };
 
-      let agreementId = savedAgreementId;
+      let resolvedId = savedAgreementId;
 
-      if (savedAgreementId) {
+      if (!resolvedId) {
+        const { data: existingDraft } = await supabase
+          .from('vessel_management_agreements')
+          .select('id')
+          .eq('yacht_id', yacht.id)
+          .eq('status', 'draft')
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (existingDraft?.id) {
+          resolvedId = existingDraft.id;
+        }
+      }
+
+      let agreementId = resolvedId;
+
+      if (resolvedId) {
         const { error: updateError } = await supabase
           .from('vessel_management_agreements')
           .update(agreementData)
-          .eq('id', savedAgreementId);
+          .eq('id', resolvedId);
 
         if (updateError) throw updateError;
       } else {
