@@ -681,25 +681,30 @@ export function Invoices({ userId }: InvoicesProps) {
   }
 
   async function handleRequestPayment(invoice: Invoice) {
-    if (!invoice.customer_email) {
-      let prefillEmail = '';
-      if (invoice.yacht_id) {
-        const { data: profiles } = await supabase
-          .from('user_profiles')
-          .select('email, role')
-          .eq('yacht_id', invoice.yacht_id)
-          .in('role', ['manager', 'owner']);
-        if (profiles && profiles.length > 0) {
-          const manager = profiles.find((p: any) => p.role === 'manager');
-          const owner = profiles.find((p: any) => p.role === 'owner');
-          prefillEmail = (manager?.email || owner?.email) ?? '';
+    try {
+      if (!invoice.customer_email) {
+        let prefillEmail = '';
+        if (invoice.yacht_id) {
+          const { data: profiles } = await supabase
+            .from('user_profiles')
+            .select('email, role')
+            .eq('yacht_id', invoice.yacht_id)
+            .in('role', ['manager', 'owner']);
+          if (profiles && profiles.length > 0) {
+            const manager = profiles.find((p: any) => p.role === 'manager');
+            const owner = profiles.find((p: any) => p.role === 'owner');
+            prefillEmail = (manager?.email || owner?.email) ?? '';
+          }
         }
+        setEmailPrompt({ invoice, email: prefillEmail });
+        return;
       }
-      setEmailPrompt({ invoice, email: prefillEmail });
-      return;
+      setSelectedPaymentMethod(invoice.final_payment_method_type as 'card' | 'ach' | 'both' || 'card');
+      setPaymentMethodModal({ invoice, email: invoice.customer_email ?? '', mode: 'generate' });
+    } catch (error: any) {
+      console.error('Error in handleRequestPayment:', error);
+      showToast(error.message || 'Failed to open payment dialog', 'error');
     }
-    setSelectedPaymentMethod(invoice.final_payment_method_type as 'card' | 'ach' | 'both' || 'card');
-    setPaymentMethodModal({ invoice, email: invoice.customer_email, mode: 'generate' });
   }
 
   async function generatePaymentLink(invoice: Invoice, recipientEmail: string, paymentMethodType: 'card' | 'ach' | 'both' = 'card') {
