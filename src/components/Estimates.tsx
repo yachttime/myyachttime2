@@ -1112,28 +1112,29 @@ export function Estimates({ userId }: EstimatesProps) {
       }
 
       // Insert tasks and their line items
+      const taskCompanyId = estimate.company_id || userCompanyId;
       for (let i = 0; i < tasks.length; i++) {
         const task = tasks[i];
+        const taskId = crypto.randomUUID();
 
-        const { data: estimateTask, error: taskError } = await supabase
+        const { error: taskError } = await supabase
           .from('estimate_tasks')
           .insert({
+            id: taskId,
             estimate_id: estimate.id,
             task_name: task.task_name,
             task_overview: task.task_overview,
             task_order: i,
             apply_surcharge: task.apply_surcharge,
-            company_id: estimate.company_id || userCompanyId
-          })
-          .select()
-          .single();
+            company_id: taskCompanyId
+          });
 
-        if (taskError) throw taskError;
+        if (taskError) throw new Error(`Failed to save task "${task.task_name}": ${taskError.message}`);
 
         if (task.lineItems.length > 0) {
           const lineItemsToInsert = task.lineItems.map((item: any, index) => ({
             estimate_id: estimate.id,
-            task_id: estimateTask.id,
+            task_id: taskId,
             line_type: item.line_type,
             description: item.description,
             quantity: item.quantity,
@@ -1151,21 +1152,15 @@ export function Estimates({ userId }: EstimatesProps) {
             work_details: item.work_details || null,
             package_header: item.package_header || null,
             line_order: index,
-            company_id: estimate.company_id || userCompanyId
+            company_id: taskCompanyId
           }));
 
-          const { data: insertedItems, error: lineItemsError } = await supabase
+          const { error: lineItemsError } = await supabase
             .from('estimate_line_items')
-            .insert(lineItemsToInsert)
-            .select('id');
+            .insert(lineItemsToInsert);
 
           if (lineItemsError) {
-            console.error('Error inserting line items:', lineItemsError);
-            throw lineItemsError;
-          }
-
-          if (!insertedItems || insertedItems.length !== lineItemsToInsert.length) {
-            throw new Error(`Failed to save line items for task "${task.task_name}". Please check your account permissions and try again.`);
+            throw new Error(`Failed to save line items for task "${task.task_name}": ${lineItemsError.message}`);
           }
         }
       }
@@ -1543,6 +1538,23 @@ export function Estimates({ userId }: EstimatesProps) {
       setError(null);
       setLoading(true);
 
+      const { count: taskCount } = await supabase
+        .from('estimate_tasks')
+        .select('*', { count: 'exact', head: true })
+        .eq('estimate_id', estimateToApprove);
+
+      const { count: lineItemCount } = await supabase
+        .from('estimate_line_items')
+        .select('*', { count: 'exact', head: true })
+        .eq('estimate_id', estimateToApprove);
+
+      if (!taskCount || taskCount === 0) {
+        throw new Error('This estimate has no tasks. Please open and re-save the estimate before approving.');
+      }
+      if (!lineItemCount || lineItemCount === 0) {
+        throw new Error('This estimate has no line items. Please open and re-save the estimate before approving.');
+      }
+
       const { data, error } = await supabase
         .rpc('approve_estimate', {
           p_estimate_id: estimateToApprove,
@@ -1754,6 +1766,10 @@ export function Estimates({ userId }: EstimatesProps) {
 
       if (tasksError) throw tasksError;
 
+      if (!tasksData || tasksData.length === 0) {
+        throw new Error('This estimate has no tasks. Please save the estimate with tasks and line items before sending to admin.');
+      }
+
       const tasksWithLineItems = await Promise.all(
         (tasksData || []).map(async (task) => {
           const { data: lineItemsData, error: lineItemsError } = await supabase
@@ -1767,6 +1783,11 @@ export function Estimates({ userId }: EstimatesProps) {
           return { ...task, lineItems: lineItemsData };
         })
       );
+
+      const totalLineItems = tasksWithLineItems.reduce((sum, t) => sum + (t.lineItems?.length || 0), 0);
+      if (totalLineItems === 0) {
+        throw new Error('This estimate has no line items. Please save the estimate with line items before sending to admin.');
+      }
 
       const yachtName = estimateData.yachts?.name || null;
       const yachtMake = estimateData.yachts?.manufacturer || null;
