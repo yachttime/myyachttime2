@@ -12598,20 +12598,20 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                         {request.estimated_repair_cost && (
                                           <div className="flex items-center justify-between">
                                             <span className="text-xs text-slate-400">Estimated Cost</span>
-                                            <span className="text-sm font-medium text-slate-200">${parseFloat(request.estimated_repair_cost).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                            <span className="text-sm font-medium text-slate-200">${parseFloat(String(request.estimated_repair_cost).replace(/[^0-9.-]+/g, '')).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                           </div>
                                         )}
                                         {request.final_invoice_amount && (
                                           <div className="flex items-center justify-between">
                                             <span className="text-xs text-slate-400">Final Invoice</span>
-                                            <span className="text-sm font-semibold text-emerald-400">${parseFloat(request.final_invoice_amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                            <span className="text-sm font-semibold text-emerald-400">${parseFloat(String(request.final_invoice_amount).replace(/[^0-9.-]+/g, '')).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                           </div>
                                         )}
                                         {request.deposit_amount && (
                                           <div className="flex items-center justify-between">
                                             <span className="text-xs text-slate-400">Deposit</span>
                                             <div className="flex items-center gap-2">
-                                              <span className="text-sm font-medium text-slate-200">${parseFloat(request.deposit_amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                              <span className="text-sm font-medium text-slate-200">${parseFloat(String(request.deposit_amount).replace(/[^0-9.-]+/g, '')).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                               {request.deposit_payment_status === 'paid' && (
                                                 <span className="bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full text-xs font-semibold flex items-center gap-1">
                                                   <CheckCircle className="w-3 h-3" />
@@ -12642,7 +12642,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                     </div>
                                   )}
 
-                                  {invoice && (
+                                  {invoice && !estimatingInvoice && (
                                     <div className="mt-4 bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/30 rounded-lg p-4">
                                       <div className="flex items-center gap-2 mb-3">
                                         <Receipt className="w-5 h-5 text-emerald-400" />
