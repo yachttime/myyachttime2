@@ -173,7 +173,7 @@ export const SignIn = () => {
         }
 
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: window.location.origin,
+          redirectTo: `${window.location.origin}${window.location.pathname}`,
         });
 
         if (error) {

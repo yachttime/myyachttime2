@@ -44,34 +44,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const checkPasswordRecovery = async () => {
-      const hashParams = new URLSearchParams(window.location.hash.substring(1));
-      const accessToken = hashParams.get('access_token');
-      const type = hashParams.get('type');
-
-      if (accessToken && type === 'recovery') {
-        const { data: { session } } = await supabase.auth.getSession();
-
-        if (session?.user) {
-          await supabase
-            .from('user_profiles')
-            .update({ must_change_password: true })
-            .eq('user_id', session.user.id);
-
-          window.history.replaceState(null, '', window.location.pathname);
-        }
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        loadUserProfile(session.user.id);
+      } else {
+        setLoading(false);
       }
-    };
-
-    checkPasswordRecovery().then(() => {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          loadUserProfile(session.user.id);
-        } else {
-          setLoading(false);
-        }
-      });
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -93,9 +72,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             .from('user_profiles')
             .update({ must_change_password: true })
             .eq('user_id', session.user.id);
+          setUser(session.user);
+          await loadUserProfile(session.user.id);
+          return;
         }
 
-        if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'PASSWORD_RECOVERY') {
+        if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
           setUser(session?.user ?? null);
           if (session?.user) {
             await loadUserProfile(session.user.id);
