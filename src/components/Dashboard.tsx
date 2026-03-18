@@ -1470,7 +1470,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         .from('education_videos')
         .select('title, video_url')
         .eq('category', 'SignIn')
-        .order('order_index', { ascending: true })
+        .ilike('title', '%introduction%')
         .limit(1)
         .maybeSingle();
       if (videoData) {
