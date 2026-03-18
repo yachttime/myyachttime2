@@ -2168,8 +2168,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       if (!agreements) {
         agreements = await loadVesselAgreements(yachtId) || [];
       }
-      const hasSubmitted = agreements.some(a => a.status === 'pending_approval' || a.status === 'approved');
-      if (isManagerRole(effectiveRole) && !hasSubmitted && agreements.length === 0) {
+      if (isManagerRole(effectiveRole) && agreements.length === 0) {
         setSelectedAgreement(null);
         setShowAgreementForm(true);
       }
@@ -2208,6 +2207,17 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       agreement.status === 'pending_approval' ||
       agreement.status === 'approved'
     );
+  };
+
+  const hasAnyAgreement = (yachtId: string) => {
+    const agreements = vesselAgreements[yachtId];
+    return !!(agreements && agreements.length > 0);
+  };
+
+  const getDraftAgreement = (yachtId: string) => {
+    const agreements = vesselAgreements[yachtId];
+    if (!agreements) return null;
+    return agreements.find(a => a.status === 'draft') || null;
   };
 
   const shouldShowAgreementsButton = (yachtId: string) => {
@@ -10004,17 +10014,32 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           <div className="mt-4 pt-4 border-t border-slate-700">
                             <div className="flex items-center justify-between mb-3">
                               <h4 className="text-sm font-semibold text-slate-300">Vessel Management Agreements</h4>
-                              {(canAccessAllYachts(effectiveRole) || (isManagerRole(effectiveRole) && !hasSubmittedAgreement(yacht.id))) && (
-                                <button
-                                  onClick={() => {
-                                    setSelectedAgreement(null);
-                                    setShowAgreementForm(true);
-                                  }}
-                                  className="text-xs px-3 py-1 bg-cyan-600 hover:bg-cyan-700 text-white rounded transition-colors flex items-center gap-1"
-                                >
-                                  <FileSignature className="w-3 h-3" />
-                                  New Agreement
-                                </button>
+                              {(canAccessAllYachts(effectiveRole) || isManagerRole(effectiveRole)) && (
+                                hasAnyAgreement(yacht.id) ? (
+                                  getDraftAgreement(yacht.id) ? (
+                                    <button
+                                      onClick={() => {
+                                        setSelectedAgreement(getDraftAgreement(yacht.id));
+                                        setShowAgreementForm(true);
+                                      }}
+                                      className="text-xs px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded transition-colors flex items-center gap-1"
+                                    >
+                                      <FileSignature className="w-3 h-3" />
+                                      Edit Draft
+                                    </button>
+                                  ) : null
+                                ) : (
+                                  <button
+                                    onClick={() => {
+                                      setSelectedAgreement(null);
+                                      setShowAgreementForm(true);
+                                    }}
+                                    className="text-xs px-3 py-1 bg-cyan-600 hover:bg-cyan-700 text-white rounded transition-colors flex items-center gap-1"
+                                  >
+                                    <FileSignature className="w-3 h-3" />
+                                    New Agreement
+                                  </button>
+                                )
                               )}
                             </div>
 
