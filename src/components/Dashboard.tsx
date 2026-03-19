@@ -606,6 +606,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     notes: ''
   });
   const [yachtInvoices, setYachtInvoices] = useState<Record<string, YachtInvoice[]>>({});
+  const [yachtEstimatingInvoices, setYachtEstimatingInvoices] = useState<Record<string, any[]>>({});
   const [invoiceYachtId, setInvoiceYachtId] = useState<string | null>(null);
   const [selectedInvoiceYear, setSelectedInvoiceYear] = useState<number>(new Date().getFullYear());
   const [yachtBudgets, setYachtBudgets] = useState<Record<string, YachtBudget | null>>({});
@@ -2110,17 +2111,30 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
   const loadYachtInvoices = async (yachtId: string) => {
     try {
-      const { data, error } = await supabase
-        .from('yacht_invoices')
-        .select('*')
-        .eq('yacht_id', yachtId)
-        .order('invoice_date', { ascending: false });
+      const [yiResult, eiResult] = await Promise.all([
+        supabase
+          .from('yacht_invoices')
+          .select('*')
+          .eq('yacht_id', yachtId)
+          .order('invoice_date', { ascending: false }),
+        supabase
+          .from('estimating_invoices')
+          .select('*')
+          .eq('yacht_id', yachtId)
+          .eq('archived', false)
+          .order('invoice_date', { ascending: false })
+      ]);
 
-      if (error) throw error;
+      if (yiResult.error) throw yiResult.error;
 
       setYachtInvoices(prev => ({
         ...prev,
-        [yachtId]: data || []
+        [yachtId]: yiResult.data || []
+      }));
+
+      setYachtEstimatingInvoices(prev => ({
+        ...prev,
+        [yachtId]: eiResult.data || []
       }));
     } catch (error) {
       console.error('Error loading yacht invoices:', error);
@@ -10355,7 +10369,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   {(() => {
                                     const currentYear = new Date().getFullYear();
                                     const invoices = yachtInvoices[yacht.id] || [];
+                                    const estInvoices = yachtEstimatingInvoices[yacht.id] || [];
                                     const years = new Set(invoices.map(inv => inv.invoice_year));
+                                    estInvoices.forEach(inv => {
+                                      const y = inv.invoice_date ? new Date(inv.invoice_date).getFullYear() : currentYear;
+                                      years.add(y);
+                                    });
                                     if (!years.has(currentYear)) years.add(currentYear);
                                     return Array.from(years).sort((a, b) => b - a).map(year => (
                                       <option key={year} value={year}>{year}</option>
@@ -10369,9 +10388,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               const invoices = (yachtInvoices[yacht.id] || []).filter(
                                 inv => inv.invoice_year === selectedInvoiceYear
                               );
-                              const total = invoices.reduce((sum, inv) => {
-                                return sum + (inv.invoice_amount_numeric || 0);
-                              }, 0);
+                              const estInvoices = (yachtEstimatingInvoices[yacht.id] || []).filter(inv => {
+                                const y = inv.invoice_date ? new Date(inv.invoice_date).getFullYear() : new Date().getFullYear();
+                                return y === selectedInvoiceYear;
+                              });
+                              const total = invoices.reduce((sum, inv) => sum + (inv.invoice_amount_numeric || 0), 0)
+                                + estInvoices.reduce((sum, inv) => sum + (inv.total_amount ? Number(inv.total_amount) : 0), 0);
                               const budgetKey = `${yacht.id}-${selectedInvoiceYear}`;
                               const currentBudget = yachtBudgets[budgetKey];
                               const budgetAmount = currentBudget?.budget_amount || 0;
@@ -10745,100 +10767,107 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                       <Receipt className="w-8 h-8 text-emerald-400/50" />
                                     </div>
                                     <p className="text-xs text-emerald-400/70 mt-2">
-                                      {invoices.length} invoice{invoices.length !== 1 ? 's' : ''}
+                                      {invoices.length + estInvoices.length} invoice{invoices.length + estInvoices.length !== 1 ? 's' : ''}
                                     </p>
                                   </div>
 
                                   <div className="space-y-2 max-h-64 overflow-y-auto">
-                                    {invoices.length > 0 ? (
-                                      invoices.map((invoice) => (
-                                        <div key={invoice.id} className="bg-slate-900/50 rounded-lg p-3 text-xs">
-                                          <div className="flex items-start justify-between gap-2">
-                                            <div className="flex-1">
-                                              <div className="flex items-center gap-2 mb-1">
-                                                <Receipt className="w-3 h-3 text-emerald-400" />
-                                                <span className="text-slate-300 font-medium">{invoice.repair_title}</span>
-                                                {invoice.payment_status === 'paid' && (
-                                                  <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded text-xs font-medium">
-                                                    Paid
-                                                  </span>
+                                    {(invoices.length + estInvoices.length) > 0 ? (
+                                      <>
+                                        {invoices.map((invoice) => (
+                                          <div key={invoice.id} className="bg-slate-900/50 rounded-lg p-3 text-xs">
+                                            <div className="flex items-start justify-between gap-2">
+                                              <div className="flex-1">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                  <Receipt className="w-3 h-3 text-emerald-400" />
+                                                  <span className="text-slate-300 font-medium">{invoice.repair_title}</span>
+                                                  {invoice.payment_status === 'paid' && (
+                                                    <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded text-xs font-medium">Paid</span>
+                                                  )}
+                                                  {invoice.payment_status === 'pending' && !invoice.payment_email_sent_at && (
+                                                    <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 rounded text-xs font-medium">Need to Bill Customer</span>
+                                                  )}
+                                                  {invoice.payment_status === 'pending' && invoice.payment_link_clicked_at && (
+                                                    <span className="px-2 py-0.5 bg-cyan-500/20 text-cyan-400 rounded text-xs font-medium">Viewed Invoice</span>
+                                                  )}
+                                                  {invoice.payment_status === 'pending' && !invoice.payment_link_clicked_at && invoice.payment_email_opened_at && (
+                                                    <span className="px-2 py-0.5 bg-cyan-500/20 text-cyan-400 rounded text-xs font-medium">Opened Email</span>
+                                                  )}
+                                                  {invoice.payment_status === 'pending' && invoice.payment_email_sent_at && !invoice.payment_email_opened_at && !invoice.payment_link_clicked_at && (
+                                                    <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded text-xs font-medium">Email Sent</span>
+                                                  )}
+                                                  {invoice.payment_status === 'failed' && (
+                                                    <span className="px-2 py-0.5 bg-red-500/20 text-red-400 rounded text-xs font-medium">Failed</span>
+                                                  )}
+                                                </div>
+                                                <div className="text-emerald-400 font-semibold mb-2">{invoice.invoice_amount}</div>
+                                                <div className="text-slate-500 flex items-center gap-2">
+                                                  <span>{new Date(invoice.invoice_date).toLocaleDateString()}</span>
+                                                  {invoice.paid_at && (
+                                                    <span className="text-emerald-400">• Paid {new Date(invoice.paid_at).toLocaleDateString()}</span>
+                                                  )}
+                                                </div>
+                                              </div>
+                                              <div className="flex flex-col gap-1">
+                                                {invoice.invoice_file_url && (
+                                                  <a href={invoice.invoice_file_url} target="_blank" rel="noopener noreferrer"
+                                                    className="px-2 py-1 bg-emerald-500/20 text-emerald-500 rounded hover:bg-emerald-500/30 transition-colors flex items-center gap-1 whitespace-nowrap">
+                                                    <Download className="w-3 h-3" /><span>PDF</span>
+                                                  </a>
                                                 )}
-                                                {invoice.payment_status === 'pending' && !invoice.payment_email_sent_at && (
-                                                  <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 rounded text-xs font-medium">
-                                                    Need to Bill Customer
-                                                  </span>
+                                                {invoice.payment_status !== 'paid' && isStaffRole(effectiveRole) && (
+                                                  <button onClick={() => handleOpenEmailModal(invoice)}
+                                                    className="px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded hover:bg-emerald-500/30 transition-colors flex items-center gap-1 whitespace-nowrap">
+                                                    <Mail className="w-3 h-3" /><span>Send Payment Link</span>
+                                                  </button>
                                                 )}
-                                                {invoice.payment_status === 'pending' && invoice.payment_link_clicked_at && (
-                                                  <span className="px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded text-xs font-medium">
-                                                    Viewed Invoice
-                                                  </span>
-                                                )}
-                                                {invoice.payment_status === 'pending' && !invoice.payment_link_clicked_at && invoice.payment_email_opened_at && (
-                                                  <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-400 rounded text-xs font-medium">
-                                                    Opened Email
-                                                  </span>
-                                                )}
-                                                {invoice.payment_status === 'pending' && !invoice.payment_email_opened_at && invoice.payment_email_delivered_at && (
-                                                  <span className="px-2 py-0.5 bg-cyan-500/20 text-cyan-400 rounded text-xs font-medium">
-                                                    Email Delivered
-                                                  </span>
-                                                )}
-                                                {invoice.payment_status === 'pending' && invoice.payment_email_sent_at && !invoice.payment_email_delivered_at && !invoice.payment_email_opened_at && !invoice.payment_link_clicked_at && (
-                                                  <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded text-xs font-medium">
-                                                    Email Sent
-                                                  </span>
-                                                )}
-                                                {invoice.payment_status === 'failed' && (
-                                                  <span className="px-2 py-0.5 bg-red-500/20 text-red-400 rounded text-xs font-medium">
-                                                    Failed
-                                                  </span>
+                                                {invoice.payment_status !== 'paid' && (
+                                                  <button onClick={() => handlePayInvoice(invoice.id)} disabled={paymentProcessing[invoice.id]}
+                                                    className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded hover:bg-blue-500/30 transition-colors flex items-center gap-1 whitespace-nowrap disabled:opacity-50">
+                                                    <CreditCard className="w-3 h-3" /><span>{paymentProcessing[invoice.id] ? 'Processing...' : 'Pay Now'}</span>
+                                                  </button>
                                                 )}
                                               </div>
-                                              <div className="text-emerald-400 font-semibold mb-2">
-                                                {invoice.invoice_amount}
-                                              </div>
-                                              <div className="text-slate-500 flex items-center gap-2">
-                                                <span>{new Date(invoice.invoice_date).toLocaleDateString()}</span>
-                                                {invoice.paid_at && (
-                                                  <span className="text-emerald-400">• Paid {new Date(invoice.paid_at).toLocaleDateString()}</span>
-                                                )}
-                                              </div>
-                                            </div>
-                                            <div className="flex flex-col gap-1">
-                                              {invoice.invoice_file_url && (
-                                                <a
-                                                  href={invoice.invoice_file_url}
-                                                  target="_blank"
-                                                  rel="noopener noreferrer"
-                                                  className="px-2 py-1 bg-emerald-500/20 text-emerald-500 rounded hover:bg-emerald-500/30 transition-colors flex items-center gap-1 whitespace-nowrap"
-                                                >
-                                                  <Download className="w-3 h-3" />
-                                                  <span>PDF</span>
-                                                </a>
-                                              )}
-                                              {invoice.payment_status !== 'paid' && isStaffRole(effectiveRole) && (
-                                                <button
-                                                  onClick={() => handleOpenEmailModal(invoice)}
-                                                  className="px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded hover:bg-emerald-500/30 transition-colors flex items-center gap-1 whitespace-nowrap"
-                                                >
-                                                  <Mail className="w-3 h-3" />
-                                                  <span>Send Payment Link</span>
-                                                </button>
-                                              )}
-                                              {invoice.payment_status !== 'paid' && (
-                                                <button
-                                                  onClick={() => handlePayInvoice(invoice.id)}
-                                                  disabled={paymentProcessing[invoice.id]}
-                                                  className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded hover:bg-blue-500/30 transition-colors flex items-center gap-1 whitespace-nowrap disabled:opacity-50"
-                                                >
-                                                  <CreditCard className="w-3 h-3" />
-                                                  <span>{paymentProcessing[invoice.id] ? 'Processing...' : 'Pay Now'}</span>
-                                                </button>
-                                              )}
                                             </div>
                                           </div>
-                                        </div>
-                                      ))
+                                        ))}
+                                        {estInvoices.map((inv) => {
+                                          const isPaid = inv.payment_status === 'paid';
+                                          const balanceDue = inv.balance_due !== null ? Number(inv.balance_due) : Number(inv.total_amount);
+                                          const depositApplied = inv.deposit_applied ? Number(inv.deposit_applied) : 0;
+                                          return (
+                                            <div key={`est-${inv.id}`} className="bg-slate-900/50 rounded-lg p-3 text-xs">
+                                              <div className="flex items-start justify-between gap-2">
+                                                <div className="flex-1">
+                                                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                                    <Receipt className="w-3 h-3 text-cyan-400" />
+                                                    <span className="text-slate-300 font-medium">{inv.invoice_number}{inv.work_title ? ` — ${inv.work_title}` : ''}</span>
+                                                    {isPaid ? (
+                                                      <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded text-xs font-medium">Paid</span>
+                                                    ) : (
+                                                      <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 rounded text-xs font-medium">Unpaid</span>
+                                                    )}
+                                                  </div>
+                                                  <div className="text-emerald-400 font-semibold mb-1">
+                                                    ${Number(inv.total_amount).toFixed(2)}
+                                                    {depositApplied > 0 && (
+                                                      <span className="text-slate-400 font-normal ml-2">
+                                                        (Balance: ${balanceDue.toFixed(2)} after ${depositApplied.toFixed(2)} deposit)
+                                                      </span>
+                                                    )}
+                                                  </div>
+                                                  <div className="text-slate-500 flex items-center gap-2">
+                                                    <span>{new Date(inv.invoice_date).toLocaleDateString()}</span>
+                                                    {inv.final_payment_paid_at && (
+                                                      <span className="text-emerald-400">• Paid {new Date(inv.final_payment_paid_at).toLocaleDateString()}</span>
+                                                    )}
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+                                      </>
                                     ) : (
                                       <div className="text-slate-500 text-xs text-center py-4">
                                         No invoices for {selectedInvoiceYear}
