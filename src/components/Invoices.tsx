@@ -900,7 +900,7 @@ export function Invoices({ userId }: InvoicesProps) {
       });
 
       const createResult = await createResponse.json();
-      if (!createResult.success) {
+      if (!createResponse.ok) {
         throw new Error(createResult.error || 'Failed to create new payment link');
       }
 
