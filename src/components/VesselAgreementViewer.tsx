@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, FileSignature, CheckCircle, AlertCircle, Printer } from 'lucide-react';
+import { X, Ligature as FileSignature, CheckCircle, AlertCircle, Printer } from 'lucide-react';
 import { VesselManagementAgreement, UserProfile, supabase, canManageYacht, isOwnerRole } from '../lib/supabase';
 import { PrintableVesselAgreement } from './PrintableVesselAgreement';
 import { useConfirm } from '../hooks/useConfirm';
@@ -150,7 +150,7 @@ export function VesselAgreementViewer({ agreement, userProfile, userId, onClose,
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-slate-500">Annual Management Fee:</span>
-                <span className="text-white font-semibold">$8,000.00</span>
+                <span className="text-white font-semibold">${(agreement.annual_fee ?? 8000).toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Season Trips:</span>
@@ -164,10 +164,14 @@ export function VesselAgreementViewer({ agreement, userProfile, userId, onClose,
                 <span className="text-slate-500">Per Trip Fee:</span>
                 <span className="text-white">${(agreement.per_trip_fee || 350).toFixed(2)}</span>
               </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Total Trip Fees:</span>
+                <span className="text-white">${((agreement.total_trip_cost ?? ((agreement.season_trips || 0) + (agreement.off_season_trips || 0)) * (agreement.per_trip_fee || 350))).toFixed(2)}</span>
+              </div>
               <div className="flex justify-between border-t border-slate-700 pt-2">
                 <span className="text-white font-bold">Grand Total:</span>
                 <span className="text-emerald-400 font-bold">
-                  ${(8000 + ((agreement.season_trips || 0) + (agreement.off_season_trips || 0)) * (agreement.per_trip_fee || 350)).toFixed(2)}
+                  ${(agreement.grand_total ?? ((agreement.annual_fee ?? 8000) + ((agreement.season_trips || 0) + (agreement.off_season_trips || 0)) * (agreement.per_trip_fee || 350))).toFixed(2)}
                 </span>
               </div>
             </div>

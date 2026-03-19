@@ -72,10 +72,10 @@ Deno.serve(async (req: Request) => {
       throw new Error('Invalid email address');
     }
 
-    // Fetch invoice details
+    // Fetch invoice details (include vessel_management_agreement_id for financial terms)
     const { data: invoice, error: invoiceError } = await supabase
       .from('yacht_invoices')
-      .select('*, yachts(name)')
+      .select('*, yachts(name), vessel_management_agreement_id')
       .eq('id', invoiceId)
       .single();
 
@@ -160,6 +160,61 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    // If invoice is linked to a vessel management agreement, fetch financial terms
+    let agreementTermsHtml = '';
+    if (invoice.vessel_management_agreement_id) {
+      const { data: agreement } = await supabase
+        .from('vessel_management_agreements')
+        .select('annual_fee, season_trips, off_season_trips, per_trip_fee, total_trip_cost, grand_total, season_name, start_date, end_date')
+        .eq('id', invoice.vessel_management_agreement_id)
+        .maybeSingle();
+
+      if (agreement) {
+        const annualFee = agreement.annual_fee ?? 8000;
+        const seasonTrips = agreement.season_trips ?? 0;
+        const offSeasonTrips = agreement.off_season_trips ?? 0;
+        const perTripFee = agreement.per_trip_fee ?? 350;
+        const totalTripCost = agreement.total_trip_cost ?? (seasonTrips + offSeasonTrips) * perTripFee;
+        const grandTotal = agreement.grand_total ?? annualFee + totalTripCost;
+        const periodText = agreement.start_date && agreement.end_date
+          ? `${new Date(agreement.start_date).toLocaleDateString()} – ${new Date(agreement.end_date).toLocaleDateString()}`
+          : '';
+
+        agreementTermsHtml = `
+          <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #0284c7;">
+            <h3 style="margin-top: 0; color: #0284c7;">Financial Terms – ${agreement.season_name || 'Vessel Management Agreement'}</h3>
+            ${periodText ? `<p style="color: #555; font-size: 13px; margin-bottom: 12px;">Agreement Period: ${periodText}</p>` : ''}
+            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+              <tr style="border-bottom: 1px solid #e5e7eb;">
+                <td style="padding: 8px 4px; color: #555;">Annual Management Fee</td>
+                <td style="padding: 8px 4px; text-align: right; font-weight: 600;">$${annualFee.toFixed(2)}</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #e5e7eb;">
+                <td style="padding: 8px 4px; color: #555;">Season Trips</td>
+                <td style="padding: 8px 4px; text-align: right;">${seasonTrips}</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #e5e7eb;">
+                <td style="padding: 8px 4px; color: #555;">Off-Season Trips</td>
+                <td style="padding: 8px 4px; text-align: right;">${offSeasonTrips}</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #e5e7eb;">
+                <td style="padding: 8px 4px; color: #555;">Per Trip Fee</td>
+                <td style="padding: 8px 4px; text-align: right;">$${perTripFee.toFixed(2)}</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #e5e7eb;">
+                <td style="padding: 8px 4px; color: #555;">Total Trip Fees (${seasonTrips + offSeasonTrips} trips × $${perTripFee.toFixed(2)})</td>
+                <td style="padding: 8px 4px; text-align: right; font-weight: 600;">$${totalTripCost.toFixed(2)}</td>
+              </tr>
+              <tr style="background: #f0fdf4;">
+                <td style="padding: 10px 4px; font-weight: 700; font-size: 15px;">Grand Total Due</td>
+                <td style="padding: 10px 4px; text-align: right; font-weight: 700; font-size: 15px; color: #059669;">$${grandTotal.toFixed(2)}</td>
+              </tr>
+            </table>
+            <p style="font-size: 12px; color: #888; margin-top: 10px; margin-bottom: 0;">This is a one-time annual fee. Repairs and maintenance are billed separately.</p>
+          </div>`;
+      }
+    }
+
     // Build email HTML content (after we know if attachment exists)
     const yachtName = invoice.yachts?.name || (isRetailCustomer ? 'your vessel' : 'Your Yacht');
     const subject = `Payment Request: ${invoice.repair_title}`;
@@ -198,6 +253,8 @@ Deno.serve(async (req: Request) => {
               <p><strong>Amount:</strong> ${invoice.invoice_amount || '$0.00'}</p>
               <p><strong>Invoice Date:</strong> ${new Date(invoice.invoice_date || invoice.created_at).toLocaleDateString()}</p>
             </div>
+
+            ${agreementTermsHtml}
 
             <p>Please click the button below to securely pay this invoice via Stripe:</p>
 

@@ -10177,7 +10177,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                   alert('You must sign the agreement before approving it. Please click "View" and sign the agreement with your AZ Marine signature.');
                                                   return;
                                                 }
-                                                if (!await confirm({ message: 'Approve this vessel management agreement? This will finalize the contract.', variant: 'info' })) return;
+                                                if (!await confirm({ message: 'Approve this vessel management agreement? This will finalize the contract and create an invoice for the grand total.', variant: 'info' })) return;
                                                 try {
                                                   const now = new Date().toISOString();
                                                   const { error } = await supabase
@@ -10191,6 +10191,21 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                     .eq('id', agreement.id);
 
                                                   if (error) throw error;
+
+                                                  const grandTotal = agreement.grand_total ?? 8000;
+                                                  const invoiceYear = new Date().getFullYear();
+                                                  await supabase.from('yacht_invoices').insert({
+                                                    yacht_id: yacht.id,
+                                                    vessel_management_agreement_id: agreement.id,
+                                                    invoice_amount: `$${grandTotal.toFixed(2)}`,
+                                                    invoice_amount_numeric: grandTotal,
+                                                    repair_title: `Vessel Management Agreement – ${agreement.season_name}`,
+                                                    invoice_year: invoiceYear,
+                                                    invoice_date: now,
+                                                    completed_by: user?.id,
+                                                    payment_status: 'pending',
+                                                    company_id: userProfile?.company_id,
+                                                  });
 
                                                   setVesselAgreements(prev => ({
                                                     ...prev,
@@ -10211,7 +10226,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                       : userProfile?.email || 'Unknown'
                                                   );
 
-                                                  setTimeout(() => { loadVesselAgreements(yacht.id); loadAgreementSummaries(); }, 500);
+                                                  setTimeout(() => { loadVesselAgreements(yacht.id); loadAgreementSummaries(); loadYachtInvoices(yacht.id); }, 500);
                                                 } catch (err: any) {
                                                   alert(`Failed to approve agreement: ${err.message}`);
                                                   await loadVesselAgreements(yacht.id);
