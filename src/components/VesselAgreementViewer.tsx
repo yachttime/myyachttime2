@@ -166,12 +166,12 @@ export function VesselAgreementViewer({ agreement, userProfile, userId, onClose,
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Total Trip Fees:</span>
-                <span className="text-white">${((agreement.total_trip_cost ?? ((agreement.season_trips || 0) + (agreement.off_season_trips || 0)) * (agreement.per_trip_fee || 350))).toFixed(2)}</span>
+                <span className="text-white">${(((agreement.season_trips || 0) + (agreement.off_season_trips || 0)) * (agreement.per_trip_fee || 350)).toFixed(2)}</span>
               </div>
               <div className="flex justify-between border-t border-slate-700 pt-2">
                 <span className="text-white font-bold">Grand Total:</span>
                 <span className="text-emerald-400 font-bold">
-                  ${(agreement.grand_total ?? ((agreement.annual_fee ?? 8000) + ((agreement.season_trips || 0) + (agreement.off_season_trips || 0)) * (agreement.per_trip_fee || 350))).toFixed(2)}
+                  ${((agreement.annual_fee ?? 8000) + ((agreement.season_trips || 0) + (agreement.off_season_trips || 0)) * (agreement.per_trip_fee || 350)).toFixed(2)}
                 </span>
               </div>
             </div>
