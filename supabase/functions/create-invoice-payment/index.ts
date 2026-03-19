@@ -8,6 +8,8 @@ interface InvoicePaymentRequest {
   paymentMethodType?: 'card' | 'ach' | 'both';
 }
 
+const CREDIT_CARD_FEE_RATE = 0.03;
+
 Deno.serve(withErrorHandling(async (req: Request) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -118,13 +120,19 @@ Deno.serve(withErrorHandling(async (req: Request) => {
       throw new Error(`Invalid invoice amount. Please ensure the invoice has a valid amount set. Amount: ${invoice.invoice_amount}`);
     }
 
-    const amountInCents = Math.round(amount * 100);
+    const paymentMethodType = requestedPaymentMethod || invoice.payment_method_type || 'card';
+
+    // Apply 3% credit card processing fee only for card-only payments
+    const creditCardFee = paymentMethodType === 'card'
+      ? Math.round(amount * CREDIT_CARD_FEE_RATE * 100) / 100
+      : null;
+
+    const chargeAmount = creditCardFee !== null ? amount + creditCardFee : amount;
+    const amountInCents = Math.round(chargeAmount * 100);
 
     if (amountInCents <= 0) {
       throw new Error(`Invalid invoice amount in cents: ${amountInCents}`);
     }
-
-    const paymentMethodType = requestedPaymentMethod || invoice.payment_method_type || 'card';
 
     // Create Stripe Product
     const productParams = new URLSearchParams({
@@ -248,6 +256,7 @@ Deno.serve(withErrorHandling(async (req: Request) => {
         payment_link_url: paymentLinkData.url,
         payment_link_expires_at: expiresAt,
         updated_at: new Date().toISOString(),
+        credit_card_fee: creditCardFee,
       })
       .eq('id', invoiceId);
 
@@ -256,6 +265,8 @@ Deno.serve(withErrorHandling(async (req: Request) => {
       checkoutUrl: paymentLinkData.url,
       sessionId: paymentLinkData.id,
       expiresAt: expiresAt,
+      creditCardFee: creditCardFee,
+      chargeAmount: chargeAmount,
     });
   } catch (error) {
     console.error('Error creating payment:', error);

@@ -64,6 +64,7 @@ interface Invoice {
   final_payment_stripe_checkout_session_id: string | null;
   final_payment_stripe_payment_intent_id: string | null;
   final_payment_resend_email_id: string | null;
+  credit_card_fee: number | null;
 }
 
 interface WorkOrderTask {
@@ -648,12 +649,23 @@ export function Invoices({ userId }: InvoicesProps) {
         yPos += 0.2;
       }
 
+      if (invoice.credit_card_fee && invoice.credit_card_fee > 0) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.text('Credit Card Processing Fee (3%):', totalsX, yPos);
+        doc.text(`$${invoice.credit_card_fee.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
+        yPos += 0.2;
+      }
+
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(12);
       const finalLabel = (invoice.deposit_applied && invoice.deposit_applied > 0) ? 'Balance Due:' : 'Total:';
-      const finalAmount = (invoice.balance_due !== null && invoice.balance_due !== invoice.total_amount)
+      const baseAmount = (invoice.balance_due !== null && invoice.balance_due !== invoice.total_amount)
         ? invoice.balance_due
         : invoice.total_amount;
+      const finalAmount = (invoice.credit_card_fee && invoice.credit_card_fee > 0)
+        ? baseAmount + invoice.credit_card_fee
+        : baseAmount;
 
       doc.text(finalLabel, totalsX, yPos);
       doc.text(`$${finalAmount.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
@@ -1361,6 +1373,11 @@ export function Invoices({ userId }: InvoicesProps) {
                           Balance: ${invoice.balance_due.toFixed(2)}
                         </div>
                       )}
+                      {invoice.credit_card_fee && invoice.credit_card_fee > 0 && (
+                        <div className="text-xs text-amber-600">
+                          +${invoice.credit_card_fee.toFixed(2)} CC fee
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(invoice.payment_status)}`}>
@@ -1541,16 +1558,27 @@ export function Invoices({ userId }: InvoicesProps) {
                       <span className="text-green-600">-${selectedInvoice.deposit_applied.toFixed(2)}</span>
                     </div>
                   )}
+                  {selectedInvoice.credit_card_fee && selectedInvoice.credit_card_fee > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-amber-600">Credit Card Processing Fee (3%)</span>
+                      <span className="text-amber-600">+${selectedInvoice.credit_card_fee.toFixed(2)}</span>
+                    </div>
+                  )}
                   <div className="border-t border-gray-200 pt-2 mt-2">
                     <div className="flex justify-between">
                       <span className="text-lg font-bold text-gray-900">
                         {selectedInvoice.deposit_applied && selectedInvoice.deposit_applied > 0 ? 'Balance Due:' : 'Total:'}
                       </span>
                       <span className="text-lg font-bold text-gray-900">
-                        ${(selectedInvoice.balance_due !== null && selectedInvoice.balance_due !== selectedInvoice.total_amount
-                          ? selectedInvoice.balance_due
-                          : selectedInvoice.total_amount
-                        ).toFixed(2)}
+                        ${(() => {
+                          const base = selectedInvoice.balance_due !== null && selectedInvoice.balance_due !== selectedInvoice.total_amount
+                            ? selectedInvoice.balance_due
+                            : selectedInvoice.total_amount;
+                          return (selectedInvoice.credit_card_fee && selectedInvoice.credit_card_fee > 0
+                            ? base + selectedInvoice.credit_card_fee
+                            : base
+                          ).toFixed(2);
+                        })()}
                       </span>
                     </div>
                   </div>
@@ -2025,9 +2053,9 @@ export function Invoices({ userId }: InvoicesProps) {
                 <label className="block text-sm font-medium text-slate-300 mb-2">How can the customer pay?</label>
                 <div className="space-y-2">
                   {[
-                    { value: 'card', label: 'Credit / Debit Card Only', sub: 'Standard processing fees apply' },
-                    { value: 'ach', label: 'ACH Bank Transfer Only', sub: 'Lower fees, 3–5 business day settlement' },
-                    { value: 'both', label: 'Card and ACH (customer chooses)', sub: 'Customer selects their preferred method' },
+                    { value: 'card', label: 'Credit / Debit Card Only', sub: '3% credit card processing fee will be added to the total' },
+                    { value: 'ach', label: 'ACH Bank Transfer Only', sub: 'No processing fee — 3–5 business day settlement' },
+                    { value: 'both', label: 'Card and ACH (customer chooses)', sub: 'No processing fee added — customer selects their preferred method' },
                   ].map(opt => (
                     <label
                       key={opt.value}
@@ -2052,6 +2080,27 @@ export function Invoices({ userId }: InvoicesProps) {
                     </label>
                   ))}
                 </div>
+                {selectedPaymentMethod === 'card' && (() => {
+                  const balanceDue = paymentMethodModal.invoice.balance_due ?? paymentMethodModal.invoice.total_amount ?? 0;
+                  const fee = Math.round(balanceDue * 0.03 * 100) / 100;
+                  const total = balanceDue + fee;
+                  return (
+                    <div className="mt-3 p-3 bg-amber-900/20 border border-amber-700/40 rounded-lg text-xs space-y-1">
+                      <div className="flex justify-between text-slate-300">
+                        <span>Balance due</span>
+                        <span>${balanceDue.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-amber-400">
+                        <span>Credit card processing fee (3%)</span>
+                        <span>+${fee.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-white font-semibold border-t border-amber-700/40 pt-1 mt-1">
+                        <span>Customer will be charged</span>
+                        <span>${total.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               <div className="flex justify-end gap-3 pt-1">

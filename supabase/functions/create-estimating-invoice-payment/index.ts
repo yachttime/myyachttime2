@@ -8,6 +8,8 @@ interface InvoicePaymentRequest {
   paymentMethodType?: 'card' | 'ach' | 'both';
 }
 
+const CREDIT_CARD_FEE_RATE = 0.03;
+
 Deno.serve(withErrorHandling(async (req: Request) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -103,7 +105,14 @@ Deno.serve(withErrorHandling(async (req: Request) => {
     }
 
     const paymentMethodType = requestedPaymentMethod || invoice.final_payment_method_type || 'card';
-    const amountInCents = Math.round(balanceDue * 100);
+
+    // Apply 3% credit card processing fee only for card-only payments
+    const creditCardFee = paymentMethodType === 'card'
+      ? Math.round(balanceDue * CREDIT_CARD_FEE_RATE * 100) / 100
+      : null;
+
+    const chargeAmount = creditCardFee !== null ? balanceDue + creditCardFee : balanceDue;
+    const amountInCents = Math.round(chargeAmount * 100);
 
     const yachtName = invoice.yachts?.name;
     const workOrderNumber = invoice.work_orders?.work_order_number;
@@ -205,14 +214,17 @@ Deno.serve(withErrorHandling(async (req: Request) => {
 
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
+    const updateData: Record<string, unknown> = {
+      final_payment_stripe_checkout_session_id: paymentLink.id,
+      final_payment_link_url: paymentLink.url,
+      final_payment_link_expires_at: expiresAt,
+      final_payment_method_type: paymentMethodType,
+      credit_card_fee: creditCardFee,
+    };
+
     const { error: updateError } = await supabase
       .from('estimating_invoices')
-      .update({
-        final_payment_stripe_checkout_session_id: paymentLink.id,
-        final_payment_link_url: paymentLink.url,
-        final_payment_link_expires_at: expiresAt,
-        final_payment_method_type: paymentMethodType,
-      })
+      .update(updateData)
       .eq('id', invoiceId);
 
     if (updateError) {
@@ -224,6 +236,8 @@ Deno.serve(withErrorHandling(async (req: Request) => {
       sessionId: paymentLink.id,
       expiresAt: expiresAt,
       balanceDue: balanceDue,
+      creditCardFee: creditCardFee,
+      chargeAmount: chargeAmount,
     });
   } catch (error) {
     console.error('Error in create-estimating-invoice-payment:', error);
