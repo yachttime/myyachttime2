@@ -3379,14 +3379,14 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                             placeholder="Recipient email"
                             value={depositEmailRecipient}
                             onChange={(e) => setDepositEmailRecipient(e.target.value)}
-                            className="flex-1 bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                            className="flex-1 bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400"
                           />
                           <input
                             type="text"
                             placeholder="Recipient name (optional)"
                             value={depositEmailRecipientName}
                             onChange={(e) => setDepositEmailRecipientName(e.target.value)}
-                            className="flex-1 bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                            className="flex-1 bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400"
                           />
                           <button
                             onClick={() => handleSendDepositEmail(editingWorkOrder)}
