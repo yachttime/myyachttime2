@@ -515,7 +515,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    console.log('Successfully processed event:', event.type, 'for invoice:', invoice.id);
+    console.log('Successfully processed event:', event.type, 'for email:', event.data.email_id);
 
     return new Response(
       JSON.stringify({ received: true }),
