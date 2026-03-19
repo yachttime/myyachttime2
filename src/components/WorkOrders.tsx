@@ -1516,7 +1516,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
         throw new Error('Not authenticated');
       }
 
-      const sendApiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-deposit-request-email`;
+      const sendApiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-work-order-deposit-email`;
       const sendResponse = await fetch(sendApiUrl, {
         method: 'POST',
         headers: {
@@ -1526,7 +1526,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
         body: JSON.stringify({
           workOrderId: workOrder.id,
           recipientEmail: recipientEmail,
-          recipientName: depositEmailRecipientName || workOrder.customer_name || recipientEmail
+          recipientName: depositEmailRecipientName || workOrder.manager_name || workOrder.customer_name || recipientEmail
         })
       });
 
