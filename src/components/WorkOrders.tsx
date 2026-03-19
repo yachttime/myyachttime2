@@ -1281,6 +1281,11 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
       const allTaskIndexes = loadedTasks.map((_, index) => index);
       setExpandedTasks(new Set(allTaskIndexes));
 
+      const autoEmail = workOrder.deposit_email_recipient || workOrder.manager_email || resolvedEmail || '';
+      const autoName = workOrder.manager_name || workOrder.customer_name || '';
+      setDepositEmailRecipient(autoEmail);
+      setDepositEmailRecipientName(autoName);
+
       setEditingId(workOrderId);
       setShowForm(true);
       setLoading(false);
