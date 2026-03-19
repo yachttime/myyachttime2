@@ -9,6 +9,7 @@ import { TaxSurchargeReport } from './TaxSurchargeReport';
 
 interface InvoicesProps {
   userId: string;
+  initialInvoiceId?: string;
 }
 
 interface Invoice {
@@ -88,7 +89,7 @@ interface WorkOrderLineItem {
   work_details: string | null;
 }
 
-export function Invoices({ userId }: InvoicesProps) {
+export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -128,6 +129,15 @@ export function Invoices({ userId }: InvoicesProps) {
     fetchInvoices();
     fetchQbBankAccounts();
   }, []);
+
+  useEffect(() => {
+    if (initialInvoiceId && invoices.length > 0) {
+      const target = invoices.find(inv => inv.id === initialInvoiceId);
+      if (target) {
+        handleViewInvoice(target);
+      }
+    }
+  }, [initialInvoiceId, invoices]);
 
   async function fetchQbBankAccounts() {
     const { data } = await supabase

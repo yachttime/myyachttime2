@@ -16,6 +16,7 @@ import { supabase } from '../lib/supabase';
 
 interface EstimatingDashboardProps {
   userId: string;
+  initialInvoiceId?: string;
 }
 
 type TabType = 'dashboard' | 'estimates' | 'workorders' | 'invoices' | 'purchaseorders' | 'parts' | 'settings';
@@ -35,8 +36,8 @@ interface DashboardStats {
   activeJobs: number;
 }
 
-export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
-  const [activeTab, setActiveTab] = useState<TabType>('dashboard');
+export function EstimatingDashboard({ userId, initialInvoiceId }: EstimatingDashboardProps) {
+  const [activeTab, setActiveTab] = useState<TabType>(initialInvoiceId ? 'invoices' : 'dashboard');
   const [stats, setStats] = useState<DashboardStats>({
     totalEstimates: 0,
     totalEstimatesAmount: 0,
@@ -352,7 +353,7 @@ export function EstimatingDashboard({ userId }: EstimatingDashboardProps) {
         )}
 
         {activeTab === 'invoices' && (
-          <Invoices userId={userId} />
+          <Invoices userId={userId} initialInvoiceId={initialInvoiceId} />
         )}
 
         {activeTab === 'purchaseorders' && (

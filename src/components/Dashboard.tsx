@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Anchor, Calendar, CheckCircle, AlertCircle, BookOpen, LogOut, Wrench, Send, Play, Shield, ClipboardCheck, ClipboardList, Ship, CalendarPlus, FileUp, MessageCircle, Mail, CreditCard as Edit2, Trash2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, History, UserCheck, FileText, Upload, Download, X, Users, Save, RefreshCw, Clock, Thermometer, Camera, Receipt, Pencil, Lock, CreditCard, Eye, EyeOff, MousePointer, Ligature as FileSignature, Folder, Menu, Phone, Printer, Plus, QrCode, CircleUser as UserCircle2, DollarSign, Archive, Building2, MessageSquare, ShieldAlert, Paperclip } from 'lucide-react';
+import { Anchor, Calendar, CheckCircle, AlertCircle, BookOpen, LogOut, Wrench, Send, Play, Shield, ClipboardCheck, ClipboardList, Ship, CalendarPlus, FileUp, MessageCircle, Mail, CreditCard as Edit2, Trash2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, History, UserCheck, FileText, Upload, Download, X, Users, Save, RefreshCw, Clock, Thermometer, Camera, Receipt, Pencil, Lock, CreditCard, Eye, EyeOff, MousePointer, Ligature as FileSignature, Folder, Menu, Phone, Printer, Plus, QrCode, CircleUser as UserCircle2, DollarSign, Archive, Building2, MessageSquare, ShieldAlert, Paperclip, ExternalLink } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCompany } from '../contexts/CompanyContext';
 import { useRoleImpersonation } from '../contexts/RoleImpersonationContext';
@@ -607,6 +607,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   });
   const [yachtInvoices, setYachtInvoices] = useState<Record<string, YachtInvoice[]>>({});
   const [yachtEstimatingInvoices, setYachtEstimatingInvoices] = useState<Record<string, any[]>>({});
+  const [pendingEstimatingInvoiceId, setPendingEstimatingInvoiceId] = useState<string | undefined>(undefined);
   const [invoiceYachtId, setInvoiceYachtId] = useState<string | null>(null);
   const [selectedInvoiceYear, setSelectedInvoiceYear] = useState<number>(new Date().getFullYear());
   const [yachtBudgets, setYachtBudgets] = useState<Record<string, YachtBudget | null>>({});
@@ -7306,7 +7307,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
           {activeTab === 'estimating' && (
             <div className="bg-slate-800/50 rounded-2xl border border-slate-700 overflow-hidden">
-              <EstimatingDashboard userId={user?.id || ''} />
+              <EstimatingDashboard
+                userId={user?.id || ''}
+                initialInvoiceId={pendingEstimatingInvoiceId}
+                key={pendingEstimatingInvoiceId || 'estimating'}
+              />
             </div>
           )}
 
@@ -10862,6 +10867,18 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                       <span className="text-emerald-400">• Paid {new Date(inv.final_payment_paid_at).toLocaleDateString()}</span>
                                                     )}
                                                   </div>
+                                                </div>
+                                                <div className="flex flex-col gap-1 shrink-0">
+                                                  <button
+                                                    onClick={() => {
+                                                      setPendingEstimatingInvoiceId(inv.id);
+                                                      setActiveTabPersisted('estimating');
+                                                    }}
+                                                    className="px-2 py-1 bg-cyan-500/20 text-cyan-400 rounded hover:bg-cyan-500/30 transition-colors flex items-center gap-1 whitespace-nowrap"
+                                                  >
+                                                    <ExternalLink className="w-3 h-3" />
+                                                    <span>Open</span>
+                                                  </button>
                                                 </div>
                                               </div>
                                             </div>
