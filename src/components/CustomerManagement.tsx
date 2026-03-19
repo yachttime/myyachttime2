@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useRoleImpersonation } from '../contexts/RoleImpersonationContext';
-import { Users, Plus, X, Ship, FileText, Wrench, DollarSign, Search, Edit2, Trash2, Calendar, Pencil } from 'lucide-react';
+import { Users, Plus, X, Ship, FileText, Wrench, DollarSign, Search, CreditCard as Edit2, Trash2, Calendar, Pencil } from 'lucide-react';
 
 interface Customer {
   id: string;
@@ -231,6 +231,7 @@ export default function CustomerManagement() {
         .insert({
           ...newCustomer,
           created_by: user?.id,
+          company_id: userProfile?.company_id || null,
         })
         .select()
         .single();
@@ -307,6 +308,7 @@ export default function CustomerManagement() {
           engine_model: newVessel.engine_model || null,
           fuel_type: newVessel.fuel_type || null,
           notes: newVessel.notes || null,
+          company_id: userProfile?.company_id || null,
         })
         .select()
         .single();
@@ -325,6 +327,7 @@ export default function CustomerManagement() {
             serial_number: e.serial_number.trim(),
             season_start_hours: e.season_start_hours ? parseFloat(e.season_start_hours) : null,
             sort_order: i,
+            company_id: userProfile?.company_id || null,
           }))
         );
       }
@@ -337,6 +340,7 @@ export default function CustomerManagement() {
             serial_number: g.serial_number.trim(),
             season_start_hours: g.season_start_hours ? parseFloat(g.season_start_hours) : null,
             sort_order: i,
+            company_id: userProfile?.company_id || null,
           }))
         );
       }
@@ -477,7 +481,8 @@ export default function CustomerManagement() {
         customer_phone: meetingForm.phone || null,
         notes: meetingForm.notes || null,
         yacht_name: null,
-        created_by: user.id
+        created_by: user.id,
+        company_id: userProfile?.company_id || null,
       };
 
       const { error } = await supabase

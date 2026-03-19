@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, Edit2, Trash2, X, Package, Wrench, Box, Search } from 'lucide-react';
+import { Plus, CreditCard as Edit2, Trash2, X, Package, Wrench, Box, Search } from 'lucide-react';
 import { useConfirm } from '../hooks/useConfirm';
 
 interface EstimatePackage {
@@ -306,9 +306,14 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
         closeModal();
         fetchData();
       } else {
+        const { data: profileData } = await supabase
+          .from('user_profiles')
+          .select('company_id')
+          .eq('user_id', userId)
+          .maybeSingle();
         const { data, error } = await supabase
           .from('estimate_packages')
-          .insert({ ...formData, created_by: userId })
+          .insert({ ...formData, created_by: userId, company_id: profileData?.company_id || null })
           .select()
           .single();
         if (error) throw error;

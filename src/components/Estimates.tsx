@@ -373,6 +373,11 @@ export function Estimates({ userId }: EstimatesProps) {
     if (!isBusiness && !newCustomerForm.first_name.trim() && !newCustomerForm.last_name.trim()) return;
     setSavingNewCustomer(true);
     try {
+      const { data: profileData } = await supabase
+        .from('user_profiles')
+        .select('company_id')
+        .eq('user_id', userId)
+        .maybeSingle();
       const { data, error } = await supabase
         .from('customers')
         .insert({
@@ -382,7 +387,8 @@ export function Estimates({ userId }: EstimatesProps) {
           business_name: isBusiness ? newCustomerForm.business_name.trim() : null,
           email: newCustomerForm.email.trim() || null,
           phone: newCustomerForm.phone.trim() || null,
-          is_active: true
+          is_active: true,
+          company_id: profileData?.company_id || null
         })
         .select('id, customer_type, first_name, last_name, business_name, email, phone')
         .single();
@@ -428,6 +434,11 @@ export function Estimates({ userId }: EstimatesProps) {
     if (!newVesselForm.vessel_name.trim() || !selectedCustomerId) return;
     setSavingNewVessel(true);
     try {
+      const { data: profileData } = await supabase
+        .from('user_profiles')
+        .select('company_id')
+        .eq('user_id', userId)
+        .maybeSingle();
       const { data, error } = await supabase
         .from('customer_vessels')
         .insert({
@@ -436,7 +447,8 @@ export function Estimates({ userId }: EstimatesProps) {
           manufacturer: newVesselForm.manufacturer.trim() || null,
           model: newVesselForm.model.trim() || null,
           year: newVesselForm.year ? parseInt(newVesselForm.year) : null,
-          is_active: true
+          is_active: true,
+          company_id: profileData?.company_id || null
         })
         .select('id, vessel_name, manufacturer, model, year')
         .single();
