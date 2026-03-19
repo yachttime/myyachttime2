@@ -10816,6 +10816,15 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                   <span>PDF</span>
                                                 </a>
                                               )}
+                                              {invoice.payment_status !== 'paid' && isStaffRole(effectiveRole) && (
+                                                <button
+                                                  onClick={() => handleOpenEmailModal(invoice)}
+                                                  className="px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded hover:bg-emerald-500/30 transition-colors flex items-center gap-1 whitespace-nowrap"
+                                                >
+                                                  <Mail className="w-3 h-3" />
+                                                  <span>Send Payment Link</span>
+                                                </button>
+                                              )}
                                               {invoice.payment_status !== 'paid' && (
                                                 <button
                                                   onClick={() => handlePayInvoice(invoice.id)}
