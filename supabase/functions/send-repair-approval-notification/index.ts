@@ -11,6 +11,7 @@ interface RepairStatusNotification {
   repairRequestId: string;
   repairTitle: string;
   yachtName: string;
+  customerName?: string;
   actorName: string;
   eventType: 'approved' | 'rejected' | 'paid';
   estimatedCost?: string;
@@ -25,7 +26,7 @@ Deno.serve(async (req: Request) => {
 
   try {
     const payload: RepairStatusNotification = await req.json();
-    const { repairRequestId, repairTitle, yachtName, actorName, eventType, estimatedCost, finalAmount, rejectionReason } = payload;
+    const { repairRequestId, repairTitle, yachtName, customerName, actorName, eventType, estimatedCost, finalAmount, rejectionReason } = payload;
 
     if (!repairRequestId) {
       throw new Error('Repair request ID is required');
@@ -178,6 +179,7 @@ Deno.serve(async (req: Request) => {
                 </div>
                 <div class="details">
                   <h3 style="margin-top: 0; color: ${cfg.detailsTitleColor};">${cfg.detailsTitle}</h3>
+                  ${customerName ? `<p><strong>Customer:</strong> ${customerName}</p>` : ''}
                   <p><strong>Yacht:</strong> ${yachtName}</p>
                   <p><strong>Repair:</strong> ${repairTitle}</p>
                   <p><strong>${cfg.actorLabel}:</strong> ${actorName}</p>
