@@ -485,6 +485,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [regenerateMethodModal, setRegenerateMethodModal] = useState<YachtInvoice | null>(null);
   const [regenerateSelectedMethod, setRegenerateSelectedMethod] = useState<'card' | 'ach' | 'both'>('card');
   const [syncPaymentLoading, setSyncPaymentLoading] = useState<{ [invoiceId: string]: boolean }>({});
+  const [syncAllRepairLoading, setSyncAllRepairLoading] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [selectedInvoiceForEmail, setSelectedInvoiceForEmail] = useState<YachtInvoice | null>(null);
   const [emailRecipient, setEmailRecipient] = useState('');
@@ -3707,6 +3708,75 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       showError(`Error: ${error.message || 'Failed to sync deposit payment status'}`);
     } finally {
       setDepositLinkLoading({ ...depositLinkLoading, [request.id]: false });
+    }
+  };
+
+  const handleSyncAllRepairPayments = async () => {
+    setSyncAllRepairLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error('Not authenticated');
+
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-stripe-payment`;
+      let synced = 0;
+
+      const unpaidRequests = repairRequests.filter(r => !r.archived && (
+        (repairInvoices[r.id] && repairInvoices[r.id]?.payment_status !== 'paid') ||
+        (repairEstimatingInvoices[r.id] && repairEstimatingInvoices[r.id]?.payment_status !== 'paid') ||
+        (r.deposit_amount && r.deposit_payment_status !== 'paid')
+      ));
+
+      for (const request of unpaidRequests) {
+        const inv = repairInvoices[request.id];
+        const estInv = repairEstimatingInvoices[request.id];
+
+        if (inv && inv.payment_status !== 'paid') {
+          try {
+            const res = await fetch(apiUrl, {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ invoice_id: inv.id })
+            });
+            const result = await res.json();
+            if (result.success) synced++;
+          } catch {}
+        } else if (estInv && estInv.payment_status !== 'paid') {
+          try {
+            const res = await fetch(apiUrl, {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ estimating_invoice_id: estInv.id })
+            });
+            const result = await res.json();
+            if (result.success) synced++;
+          } catch {}
+        }
+
+        if (request.deposit_amount && request.deposit_payment_status !== 'paid') {
+          try {
+            const res = await fetch(apiUrl, {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ repair_request_id: request.id, is_deposit: true })
+            });
+            const result = await res.json();
+            if (result.success) synced++;
+          } catch {}
+        }
+      }
+
+      await loadRepairRequests();
+      if (synced > 0) {
+        showSuccess(`${synced} payment${synced !== 1 ? 's' : ''} updated successfully`);
+      } else if (unpaidRequests.length === 0) {
+        showSuccess('No pending payments to sync');
+      } else {
+        showSuccess('No new payments found');
+      }
+    } catch (error: any) {
+      showError(error.message || 'Failed to sync payments');
+    } finally {
+      setSyncAllRepairLoading(false);
     }
   };
 
@@ -12241,7 +12311,15 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                   <div className="mt-8">
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="text-xl font-semibold">Repair Requests</h3>
-                      <div className="flex gap-2">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={handleSyncAllRepairPayments}
+                          disabled={syncAllRepairLoading}
+                          className="flex items-center gap-2 px-3 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <RefreshCw className={`w-3.5 h-3.5 ${syncAllRepairLoading ? 'animate-spin' : ''}`} />
+                          {syncAllRepairLoading ? 'Syncing...' : 'Sync All Payments'}
+                        </button>
                         <button
                           onClick={() => setActiveRepairTab('active')}
                           className={`px-4 py-2 rounded-lg font-semibold transition-all ${
