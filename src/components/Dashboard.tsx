@@ -13133,8 +13133,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                             Email Sent
                                           </span>
                                         ) : (
-                                          <span className="ml-auto bg-yellow-500/20 text-yellow-400 px-3 py-1 rounded-full text-xs font-semibold">
-                                            Awaiting Payment
+                                          <span className="ml-auto bg-rose-500/20 text-rose-400 px-3 py-1 rounded-full text-xs font-semibold">
+                                            Not Sent
                                           </span>
                                         )}
                                       </div>
