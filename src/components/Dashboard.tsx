@@ -12349,7 +12349,17 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             }, 0);
                             const totalDeposit = relevantRequests.reduce((sum: number, r: any) => sum + (r.deposit_amount ? parseFloat(r.deposit_amount) : 0), 0);
                             const depositPaidCount = relevantRequests.filter((r: any) => r.deposit_payment_status === 'paid').length;
+                            const depositsWithAmount = relevantRequests.filter((r: any) => r.deposit_amount).length;
+                            const depositPendingCount = relevantRequests.filter((r: any) => r.deposit_amount && r.deposit_payment_status !== 'paid').length;
                             const paidCount = relevantRequests.filter((r: any) => repairInvoices[r.id]?.payment_status === 'paid' || repairEstimatingInvoices[r.id]?.payment_status === 'paid').length;
+                            const invoiceSentCount = relevantRequests.filter((r: any) => {
+                              const inv = repairInvoices[r.id];
+                              const estInv = repairEstimatingInvoices[r.id];
+                              return (inv?.payment_email_sent_at || estInv?.payment_email_sent_at || estInv?.final_payment_link_url);
+                            }).length;
+                            const invoicedCount = relevantRequests.filter((r: any) => repairInvoices[r.id] || repairEstimatingInvoices[r.id] || r.final_invoice_amount).length;
+                            const unpaidInvoicedCount = invoicedCount - paidCount;
+                            const allDepositsPaid = depositsWithAmount > 0 && depositPaidCount === depositsWithAmount;
 
                             return (
                             <div key={groupKey} className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 overflow-hidden">
@@ -12374,23 +12384,49 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                       {completedCount > 0 && (
                                         <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded-full font-medium">{completedCount} completed</span>
                                       )}
-                                      {totalInvoiced > 0 && (
-                                        <span className="bg-emerald-500/20 text-emerald-400 text-xs px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
-                                          <DollarSign className="w-3 h-3" />
-                                          ${totalInvoiced.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                          {paidCount > 0 && <span className="text-green-300">· {paidCount} paid</span>}
-                                        </span>
-                                      )}
+
                                       {totalEstimated > 0 && totalInvoiced === 0 && (
                                         <span className="bg-slate-600/40 text-slate-300 text-xs px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
                                           <DollarSign className="w-3 h-3" />
                                           Est. ${totalEstimated.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                         </span>
                                       )}
-                                      {totalDeposit > 0 && (
-                                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex items-center gap-1 ${depositPaidCount === relevantRequests.filter((r: any) => r.deposit_amount).length ? 'bg-green-500/20 text-green-400' : 'bg-cyan-500/20 text-cyan-400'}`}>
-                                          Deposit ${totalDeposit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                          {depositPaidCount > 0 && <CheckCircle className="w-3 h-3" />}
+
+                                      {totalDeposit > 0 && allDepositsPaid && (
+                                        <span className="bg-emerald-500/20 text-emerald-400 text-xs px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
+                                          <CheckCircle className="w-3 h-3" />
+                                          Deposit Paid ${totalDeposit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </span>
+                                      )}
+                                      {totalDeposit > 0 && !allDepositsPaid && depositPaidCount > 0 && (
+                                        <span className="bg-cyan-500/20 text-cyan-400 text-xs px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
+                                          <Clock className="w-3 h-3" />
+                                          Deposit {depositPaidCount}/{depositsWithAmount} Paid
+                                        </span>
+                                      )}
+                                      {totalDeposit > 0 && depositPendingCount > 0 && depositPaidCount === 0 && (
+                                        <span className="bg-amber-500/20 text-amber-400 text-xs px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
+                                          <Clock className="w-3 h-3" />
+                                          Deposit Pending ${totalDeposit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </span>
+                                      )}
+
+                                      {paidCount > 0 && (
+                                        <span className="bg-emerald-500/20 text-emerald-400 text-xs px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
+                                          <CheckCircle className="w-3 h-3" />
+                                          {paidCount === invoicedCount ? 'Paid' : `${paidCount} Paid`} ${totalInvoiced.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </span>
+                                      )}
+                                      {unpaidInvoicedCount > 0 && invoiceSentCount > 0 && (
+                                        <span className="bg-amber-500/20 text-amber-400 text-xs px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
+                                          <Clock className="w-3 h-3" />
+                                          Awaiting Payment ${totalInvoiced.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </span>
+                                      )}
+                                      {unpaidInvoicedCount > 0 && invoiceSentCount === 0 && totalInvoiced > 0 && (
+                                        <span className="bg-rose-500/20 text-rose-400 text-xs px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
+                                          <AlertCircle className="w-3 h-3" />
+                                          Invoice Not Sent ${totalInvoiced.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                         </span>
                                       )}
                                     </div>
