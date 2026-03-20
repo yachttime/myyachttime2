@@ -12420,9 +12420,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             const totalInvoiced = relevantRequests.reduce((sum: number, r: any) => {
                               const inv = repairInvoices[r.id];
                               const estInv = repairEstimatingInvoices[r.id];
-                              if (inv?.invoice_amount) return sum + parseFloat(inv.invoice_amount);
-                              if (estInv?.total_amount) return sum + parseFloat(estInv.total_amount);
-                              if (r.final_invoice_amount) return sum + parseFloat(r.final_invoice_amount);
+                              const invAmt = inv?.invoice_amount ? parseFloat(inv.invoice_amount) : NaN;
+                              const estAmt = estInv?.total_amount ? parseFloat(estInv.total_amount) : NaN;
+                              const finalAmt = r.final_invoice_amount ? parseFloat(r.final_invoice_amount) : NaN;
+                              if (!isNaN(invAmt) && invAmt > 0) return sum + invAmt;
+                              if (!isNaN(estAmt) && estAmt > 0) return sum + estAmt;
+                              if (!isNaN(finalAmt) && finalAmt > 0) return sum + finalAmt;
                               return sum;
                             }, 0);
                             const totalDeposit = relevantRequests.reduce((sum: number, r: any) => sum + (r.deposit_amount ? parseFloat(r.deposit_amount) : 0), 0);
@@ -12435,7 +12438,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               const estInv = repairEstimatingInvoices[r.id];
                               return (inv?.payment_email_sent_at || estInv?.payment_email_sent_at || estInv?.final_payment_link_url);
                             }).length;
-                            const invoicedCount = relevantRequests.filter((r: any) => repairInvoices[r.id] || repairEstimatingInvoices[r.id] || r.final_invoice_amount).length;
+                            const invoicedCount = relevantRequests.filter((r: any) => {
+                              const inv = repairInvoices[r.id];
+                              const estInv = repairEstimatingInvoices[r.id];
+                              return (inv?.invoice_amount && parseFloat(inv.invoice_amount) > 0) ||
+                                     (estInv?.total_amount && parseFloat(estInv.total_amount) > 0) ||
+                                     (r.final_invoice_amount && parseFloat(r.final_invoice_amount) > 0);
+                            }).length;
                             const unpaidInvoicedCount = invoicedCount - paidCount;
                             const allDepositsPaid = depositsWithAmount > 0 && depositPaidCount === depositsWithAmount;
 
