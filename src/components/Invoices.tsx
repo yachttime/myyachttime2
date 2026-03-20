@@ -103,6 +103,8 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
   const [workOrderLineItems, setWorkOrderLineItems] = useState<WorkOrderLineItem[]>([]);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [syncPaymentLoading, setSyncPaymentLoading] = useState(false);
+  const [syncAllLoading, setSyncAllLoading] = useState(false);
+  const [syncAllResult, setSyncAllResult] = useState<{ synced: number; total: number } | null>(null);
   const [regenerateLoading, setRegenerateLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [emailPrompt, setEmailPrompt] = useState<{ invoice: Invoice; email: string; emailOnly?: boolean } | null>(null);
@@ -863,6 +865,52 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
     }
   }
 
+  async function handleSyncAllPayments() {
+    setSyncAllLoading(true);
+    setSyncAllResult(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error('Not authenticated');
+
+      const unpaidWithStripe = invoices.filter(
+        inv => inv.payment_status !== 'paid' && (inv.final_payment_stripe_payment_intent_id || inv.final_payment_stripe_checkout_session_id || inv.stripe_payment_intent_id)
+      );
+
+      let synced = 0;
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-stripe-payment`;
+
+      for (const inv of unpaidWithStripe) {
+        try {
+          const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ estimating_invoice_id: inv.id })
+          });
+          const result = await response.json();
+          if (result.success) synced++;
+        } catch {
+        }
+      }
+
+      setSyncAllResult({ synced, total: unpaidWithStripe.length });
+      await fetchInvoices();
+      if (synced > 0) {
+        showToast(`${synced} payment${synced !== 1 ? 's' : ''} updated successfully`, 'success');
+      } else if (unpaidWithStripe.length === 0) {
+        showToast('No unpaid invoices with payment links to sync', 'info');
+      } else {
+        showToast('No new payments found', 'info');
+      }
+    } catch (error: any) {
+      showToast(error.message || 'Failed to sync payments', 'error');
+    } finally {
+      setSyncAllLoading(false);
+    }
+  }
+
   async function handleRegeneratePaymentLink() {
     if (!selectedInvoice) return;
     setSelectedPaymentMethod(selectedInvoice.final_payment_method_type as 'card' | 'ach' | 'both' || 'card');
@@ -1210,13 +1258,23 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Invoices</h1>
           <p className="text-gray-600">Manage and track customer invoices</p>
         </div>
-        <button
-          onClick={() => setShowTaxReport(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
-        >
-          <BarChart2 className="w-4 h-4" />
-          Tax &amp; Surcharge Report
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleSyncAllPayments}
+            disabled={syncAllLoading}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <RefreshCw className={`w-4 h-4 ${syncAllLoading ? 'animate-spin' : ''}`} />
+            {syncAllLoading ? 'Syncing...' : 'Sync All Payments'}
+          </button>
+          <button
+            onClick={() => setShowTaxReport(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+          >
+            <BarChart2 className="w-4 h-4" />
+            Tax &amp; Surcharge Report
+          </button>
+        </div>
       </div>
 
       <div className="mb-6">
