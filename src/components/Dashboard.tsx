@@ -12877,6 +12877,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                   Paid
                                                 </span>
                                               )}
+                                              {request.deposit_payment_status === 'processing' && (
+                                                <span className="bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded-full text-xs font-semibold flex items-center gap-1">
+                                                  <RefreshCw className="w-3 h-3" />
+                                                  Processing
+                                                </span>
+                                              )}
                                               {request.deposit_payment_status === 'pending' && (
                                                 <span className="bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded-full text-xs font-semibold">
                                                   Pending
@@ -13197,6 +13203,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                 Awaiting Payment
                                               </span>
                                             )}
+                                            {request.deposit_payment_status === 'processing' && (
+                                              <span className="ml-auto bg-orange-500/20 text-orange-400 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
+                                                <RefreshCw className="w-3 h-3" />
+                                                Processing
+                                              </span>
+                                            )}
                                             {request.deposit_payment_status === 'paid' && (
                                               <span className="ml-auto bg-green-500/20 text-green-400 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
                                                 <CheckCircle className="w-3 h-3" />
@@ -13413,6 +13425,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                           {request.deposit_payment_status === 'paid' && (
                                             <span className="bg-green-500/30 px-2 py-0.5 rounded text-xs">
                                               ✓ Paid
+                                            </span>
+                                          )}
+                                          {request.deposit_payment_status === 'processing' && (
+                                            <span className="bg-orange-500/30 px-2 py-0.5 rounded text-xs">
+                                              Processing
                                             </span>
                                           )}
                                           {request.deposit_amount && request.deposit_payment_status === 'pending' && !request.deposit_email_sent_at && (

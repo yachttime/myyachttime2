@@ -314,6 +314,8 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
     switch (status) {
       case 'paid':
         return 'bg-green-100 text-green-800';
+      case 'processing':
+        return 'bg-orange-100 text-orange-800';
       case 'partial':
         return 'bg-yellow-100 text-yellow-800';
       case 'unpaid':
@@ -329,6 +331,8 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
     switch (status) {
       case 'paid':
         return <CheckCircle className="w-4 h-4" />;
+      case 'processing':
+        return <RefreshCw className="w-4 h-4" />;
       case 'partial':
         return <Clock className="w-4 h-4" />;
       case 'unpaid':
@@ -1694,6 +1698,12 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                         {selectedInvoice.payment_status !== 'paid' && emailSentAt && !emailDeliveredAt && !emailOpenedAt && !emailClickedAt && (
                           <span className="ml-auto bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-semibold">
                             Email Sent
+                          </span>
+                        )}
+                        {selectedInvoice.payment_status === 'processing' && (
+                          <span className="ml-auto bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
+                            <RefreshCw className="w-3 h-3" />
+                            Processing
                           </span>
                         )}
                         {selectedInvoice.payment_status === 'paid' && (

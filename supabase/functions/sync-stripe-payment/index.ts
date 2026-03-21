@@ -309,7 +309,11 @@ Deno.serve(async (req: Request) => {
 
           // Find ALL paid sessions (in case of double payment)
           const paidSessions = sessions.data.filter((s: any) => s.payment_status === 'paid');
-          console.log(`Found ${paidSessions.length} paid sessions`);
+          // Also find sessions where payment is processing (ACH/bank transfers)
+          const processingSessions = sessions.data.filter((s: any) =>
+            s.payment_status === 'unpaid' && s.status === 'complete'
+          );
+          console.log(`Found ${paidSessions.length} paid sessions, ${processingSessions.length} processing sessions`);
 
           if (paidSessions.length > 0) {
             // Use the first paid session for updating the database
@@ -317,23 +321,15 @@ Deno.serve(async (req: Request) => {
             const paymentIntentId = paidSession.payment_intent;
             let paymentMethod = paidSession.payment_method_types?.[0] || 'card';
 
-            // Log all payment intents if there are multiple
             if (paidSessions.length > 1) {
               console.warn(`⚠️ DUPLICATE PAYMENTS DETECTED: ${paidSessions.length} payments found`);
-              const allPaymentIntents = paidSessions.map((s: any) => s.payment_intent);
-              console.warn('Payment Intent IDs:', allPaymentIntents);
             }
 
-            // Fetch payment intent details for more info
             if (paymentIntentId) {
               try {
                 const piResponse = await fetch(
                   `https://api.stripe.com/v1/payment_intents/${paymentIntentId}`,
-                  {
-                    headers: {
-                      'Authorization': `Bearer ${stripeSecretKey}`,
-                    },
-                  }
+                  { headers: { 'Authorization': `Bearer ${stripeSecretKey}` } }
                 );
                 if (piResponse.ok) {
                   const piData = await piResponse.json();
@@ -344,7 +340,6 @@ Deno.serve(async (req: Request) => {
               }
             }
 
-            // Update repair request as paid
             const { error: updateError } = await supabase
               .from('repair_requests')
               .update({
@@ -356,11 +351,8 @@ Deno.serve(async (req: Request) => {
               })
               .eq('id', repair_request_id);
 
-            if (updateError) {
-              throw updateError;
-            }
+            if (updateError) throw updateError;
 
-            // Create notification for staff
             await supabase.from('admin_notifications').insert({
               message: `Deposit payment received for ${repairRequest.title} - $${parseFloat(repairRequest.deposit_amount).toFixed(2)}`,
               yacht_id: repairRequest.yacht_id || null,
@@ -368,7 +360,6 @@ Deno.serve(async (req: Request) => {
               created_at: new Date().toISOString(),
             });
 
-            // Add message to owner chat if yacht-related
             if (repairRequest.yacht_id) {
               await supabase.from('owner_chat_messages').insert({
                 yacht_id: repairRequest.yacht_id,
@@ -379,11 +370,47 @@ Deno.serve(async (req: Request) => {
             }
 
             return new Response(
-              JSON.stringify({
-                success: true,
-                message: 'Deposit synced and marked as paid',
-                payment_intent_id: paymentIntentId
-              }),
+              JSON.stringify({ success: true, message: 'Deposit synced and marked as paid', payment_intent_id: paymentIntentId }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+
+          // Payment is processing (e.g. ACH bank transfer submitted but not yet settled)
+          if (processingSessions.length > 0) {
+            const processingSession = processingSessions[0];
+            const paymentIntentId = processingSession.payment_intent;
+
+            let paymentMethod = processingSession.payment_method_types?.[0] || 'us_bank_account';
+            if (paymentIntentId) {
+              try {
+                const piResponse = await fetch(
+                  `https://api.stripe.com/v1/payment_intents/${paymentIntentId}`,
+                  { headers: { 'Authorization': `Bearer ${stripeSecretKey}` } }
+                );
+                if (piResponse.ok) {
+                  const piData = await piResponse.json();
+                  // If Stripe PI status is processing, confirm that
+                  if (piData.status === 'processing') {
+                    paymentMethod = piData.payment_method_types?.[0] || paymentMethod;
+                  }
+                }
+              } catch (err) {
+                console.error('Error fetching payment intent for processing check:', err);
+              }
+            }
+
+            await supabase
+              .from('repair_requests')
+              .update({
+                deposit_payment_status: 'processing',
+                deposit_stripe_payment_intent_id: paymentIntentId || null,
+                deposit_payment_method_type: paymentMethod,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', repair_request_id);
+
+            return new Response(
+              JSON.stringify({ success: true, status: 'processing', message: 'Payment is processing (bank transfer submitted, awaiting settlement)' }),
               { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             );
           }
@@ -498,10 +525,32 @@ Deno.serve(async (req: Request) => {
 
       const sessions = await sessionsResponse.json();
       const paidSessions = sessions.data.filter((s: any) => s.payment_status === 'paid');
+      const processingSessions = sessions.data.filter((s: any) =>
+        s.payment_status === 'unpaid' && s.status === 'complete'
+      );
 
-      if (paidSessions.length === 0) {
+      if (paidSessions.length === 0 && processingSessions.length === 0) {
         return new Response(
           JSON.stringify({ success: false, message: 'No completed payment found in Stripe yet' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Handle processing (ACH pending settlement)
+      if (paidSessions.length === 0 && processingSessions.length > 0) {
+        const processingSession = processingSessions[0];
+        const paymentIntentId = processingSession.payment_intent;
+        await supabase
+          .from('estimating_invoices')
+          .update({
+            payment_status: 'processing',
+            stripe_payment_intent_id: paymentIntentId || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', estimating_invoice_id);
+
+        return new Response(
+          JSON.stringify({ success: true, status: 'processing', message: 'Payment is processing (bank transfer submitted, awaiting settlement)' }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -737,6 +786,22 @@ Deno.serve(async (req: Request) => {
             message: 'Invoice synced and marked as paid',
             payment_intent_id: paymentIntentId
           }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } else if (session.status === 'complete' && session.payment_status === 'unpaid') {
+        // ACH / bank transfer submitted but not yet settled
+        const paymentIntentId = session.payment_intent;
+        await supabase
+          .from('yacht_invoices')
+          .update({
+            payment_status: 'processing',
+            stripe_payment_intent_id: paymentIntentId || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', invoice_id);
+
+        return new Response(
+          JSON.stringify({ success: true, status: 'processing', message: 'Payment is processing (bank transfer submitted, awaiting settlement)' }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } else {
