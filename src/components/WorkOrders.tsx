@@ -232,7 +232,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
         .select('work_order_id')
         .not('work_order_id', 'is', null);
 
-      const [workOrdersResult, invoicesResult, yachtsResult, employeesResult, laborResult, partsResult, settingsResult, mercuryResult, marineWholesaleResult, packagesResult] = await Promise.all([
+      const [workOrdersResult, invoicesResult, yachtsResult, employeesResult, laborResult, partsResult, settingsResult, marineWholesaleResult, packagesResult] = await Promise.all([
         workOrdersQuery,
         invoicesQuery,
         supabase
@@ -260,11 +260,6 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
           .from('estimate_settings')
           .select('*')
           .maybeSingle(),
-        supabase
-          .from('mercury_marine_parts')
-          .select('id, part_number, description, msrp, dealer_price, is_active')
-          .eq('is_active', true)
-          .order('part_number'),
         supabase
           .from('marine_wholesale_parts')
           .select('id, sku, mfg_part_number, description, list_price, cost, is_active')
@@ -367,7 +362,6 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
       }
       setLaborCodes(laborResult.data || []);
       setParts(partsResult.data || []);
-      setMercuryParts(mercuryResult.data || []);
       setMarineWholesaleParts(marineWholesaleResult.data || []);
       setPackages(packagesResult.data || []);
 
@@ -802,12 +796,13 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
         }
       }
       if (src === 'mercury' || src === 'all') {
-        const merc = mercuryParts
-          .filter(p =>
-            p.part_number.toLowerCase().includes(q) ||
-            p.description.toLowerCase().includes(q)
-          )
-          .map(p => ({ ...p, _source: 'mercury', _source_label: 'Mercury Marine', _display_number: p.part_number, _display_name: p.description, _price: p.msrp }));
+        const { data: mercData } = await supabase
+          .from('mercury_marine_parts')
+          .select('id, part_number, description, msrp, dealer_price, is_active')
+          .or(`part_number.ilike.%${searchValue}%,description.ilike.%${searchValue}%`)
+          .eq('is_active', true)
+          .limit(50);
+        const merc = (mercData || []).map(p => ({ ...p, _source: 'mercury', _source_label: 'Mercury Marine', _display_number: p.part_number, _display_name: p.description, _price: p.msrp }));
         filtered = filtered.concat(merc);
       }
       if (src === 'marine_wholesale' || src === 'all') {
