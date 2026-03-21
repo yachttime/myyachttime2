@@ -12420,9 +12420,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             const totalInvoiced = relevantRequests.reduce((sum: number, r: any) => {
                               const inv = repairInvoices[r.id];
                               const estInv = repairEstimatingInvoices[r.id];
-                              const invAmt = inv?.invoice_amount ? parseFloat(inv.invoice_amount) : NaN;
-                              const estAmt = estInv?.total_amount ? parseFloat(estInv.total_amount) : NaN;
-                              const finalAmt = r.final_invoice_amount ? parseFloat(r.final_invoice_amount) : NaN;
+                              const invAmt = inv?.invoice_amount ? parseFloat(String(inv.invoice_amount).replace(/[$,]/g, '')) : NaN;
+                              const estAmt = estInv?.total_amount ? parseFloat(String(estInv.total_amount).replace(/[$,]/g, '')) : NaN;
+                              const finalAmt = r.final_invoice_amount ? parseFloat(String(r.final_invoice_amount).replace(/[$,]/g, '')) : NaN;
                               if (!isNaN(invAmt) && invAmt > 0) return sum + invAmt;
                               if (!isNaN(estAmt) && estAmt > 0) return sum + estAmt;
                               if (!isNaN(finalAmt) && finalAmt > 0) return sum + finalAmt;
@@ -12441,9 +12441,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             const invoicedCount = relevantRequests.filter((r: any) => {
                               const inv = repairInvoices[r.id];
                               const estInv = repairEstimatingInvoices[r.id];
-                              return (inv?.invoice_amount && parseFloat(inv.invoice_amount) > 0) ||
-                                     (estInv?.total_amount && parseFloat(estInv.total_amount) > 0) ||
-                                     (r.final_invoice_amount && parseFloat(r.final_invoice_amount) > 0);
+                              return (inv?.invoice_amount && parseFloat(String(inv.invoice_amount).replace(/[$,]/g, '')) > 0) ||
+                                     (estInv?.total_amount && parseFloat(String(estInv.total_amount).replace(/[$,]/g, '')) > 0) ||
+                                     (r.final_invoice_amount && parseFloat(String(r.final_invoice_amount).replace(/[$,]/g, '')) > 0);
                             }).length;
                             const unpaidInvoicedCount = invoicedCount - paidCount;
                             const allDepositsPaid = depositsWithAmount > 0 && depositPaidCount === depositsWithAmount;
