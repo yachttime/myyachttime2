@@ -391,8 +391,65 @@ Deno.serve(async (req: Request) => {
           console.error('Failed to fetch checkout sessions:', sessionsResponse.status, await sessionsResponse.text());
         }
 
+        // Fallback: search recent payment intents by amount for this deposit
+        console.log('No checkout sessions found via payment_link filter, trying payment intents search...');
+        try {
+          const amountInCents = Math.round(parseFloat(repairRequest.deposit_amount) * 100);
+          const piSearchResponse = await fetch(
+            `https://api.stripe.com/v1/payment_intents?limit=100`,
+            { headers: { 'Authorization': `Bearer ${stripeSecretKey}` } }
+          );
+
+          if (piSearchResponse.ok) {
+            const piList = await piSearchResponse.json();
+            const matchingPI = piList.data.find((pi: any) =>
+              pi.status === 'succeeded' && pi.amount === amountInCents
+            );
+
+            if (matchingPI) {
+              console.log('Found matching payment intent via fallback search:', matchingPI.id);
+              const paymentMethod = matchingPI.charges?.data?.[0]?.payment_method_details?.type || 'card';
+              const paidAt = matchingPI.created ? new Date(matchingPI.created * 1000).toISOString() : new Date().toISOString();
+
+              await supabase
+                .from('repair_requests')
+                .update({
+                  deposit_payment_status: 'paid',
+                  deposit_paid_at: paidAt,
+                  deposit_stripe_payment_intent_id: matchingPI.id,
+                  deposit_payment_method_type: paymentMethod,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('id', repair_request_id);
+
+              await supabase.from('admin_notifications').insert({
+                message: `Deposit payment received for ${repairRequest.title} - $${parseFloat(repairRequest.deposit_amount).toFixed(2)}`,
+                yacht_id: repairRequest.yacht_id || null,
+                reference_id: repair_request_id,
+                created_at: new Date().toISOString(),
+              });
+
+              if (repairRequest.yacht_id) {
+                await supabase.from('owner_chat_messages').insert({
+                  yacht_id: repairRequest.yacht_id,
+                  sender_role: 'staff',
+                  message: `Deposit payment confirmed for ${repairRequest.title} - $${parseFloat(repairRequest.deposit_amount).toFixed(2)}. Work will begin shortly!`,
+                  created_at: new Date().toISOString(),
+                });
+              }
+
+              return new Response(
+                JSON.stringify({ success: true, message: 'Deposit synced and marked as paid (matched by amount)', payment_intent_id: matchingPI.id }),
+                { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              );
+            }
+          }
+        } catch (fallbackErr) {
+          console.error('Fallback payment intent search failed:', fallbackErr);
+        }
+
         return new Response(
-          JSON.stringify({ success: false, message: 'No paid checkout session found for this deposit link' }),
+          JSON.stringify({ success: false, message: 'No paid checkout session found for this deposit link. Please use "Sync with Payment Intent ID" if you have the Stripe payment intent ID.' }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
