@@ -14,6 +14,7 @@ interface ReportRow {
   payment_status: string;
   tax_amount: number;
   tax_rate: number;
+  subtotal: number;
   shop_supplies_amount: number;
   park_fees_amount: number;
   surcharge_amount: number;
@@ -63,7 +64,7 @@ export function TaxSurchargeReport({ onClose }: Props) {
 
       const { data, error: fetchError } = await supabase
         .from('estimating_invoices')
-        .select('id, invoice_number, customer_name, customer_email, customer_phone, invoice_date, payment_status, tax_amount, tax_rate, shop_supplies_amount, park_fees_amount, surcharge_amount, total_amount')
+        .select('id, invoice_number, customer_name, customer_email, customer_phone, invoice_date, payment_status, tax_amount, tax_rate, subtotal, shop_supplies_amount, park_fees_amount, surcharge_amount, total_amount')
         .eq('archived', false)
         .gte('invoice_date', dateFrom)
         .lte('invoice_date', dateTo)
@@ -104,6 +105,21 @@ export function TaxSurchargeReport({ onClose }: Props) {
 
   function getTotal(): number {
     return rows.reduce((sum, r) => sum + getAmount(r), 0);
+  }
+
+  function getTotalSales(): number {
+    return rows.reduce((sum, r) => sum + (r.subtotal || 0), 0);
+  }
+
+  function getTaxableAmount(): number {
+    return rows.reduce((sum, r) => {
+      if (!r.tax_rate || r.tax_rate === 0 || !r.tax_amount) return sum;
+      return sum + (r.tax_amount / r.tax_rate);
+    }, 0);
+  }
+
+  function getNonTaxableAmount(): number {
+    return getTotalSales() - getTaxableAmount();
   }
 
   function getStatusColor(status: string): string {
@@ -192,12 +208,31 @@ export function TaxSurchargeReport({ onClose }: Props) {
       }
     });
 
-    const finalY = (doc as any).lastAutoTable.finalY + 16;
+    let finalY = (doc as any).lastAutoTable.finalY + 16;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(80, 80, 80);
+    doc.text(`${rows.length} invoice${rows.length !== 1 ? 's' : ''}`, margin, finalY);
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(30, 30, 30);
+    doc.text(`Total Sales: $${getTotalSales().toFixed(2)}`, pageWidth - margin, finalY, { align: 'right' });
+
+    finalY += 16;
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(21, 128, 61);
+    doc.text(`Total Taxable Amount: $${getTaxableAmount().toFixed(2)}`, pageWidth - margin, finalY, { align: 'right' });
+
+    finalY += 16;
+    doc.setTextColor(80, 80, 80);
+    doc.text(`Total Non-Taxable Amount: $${getNonTaxableAmount().toFixed(2)}`, pageWidth - margin, finalY, { align: 'right' });
+
+    finalY += 16;
     doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(30, 30, 30);
     doc.text(`Total ${getReportLabel()} Collected: $${getTotal().toFixed(2)}`, pageWidth - margin, finalY, { align: 'right' });
-    doc.text(`${rows.length} invoice${rows.length !== 1 ? 's' : ''}`, margin, finalY);
 
     const pdfBlob = doc.output('blob');
     const pdfUrl = URL.createObjectURL(pdfBlob);
@@ -275,6 +310,21 @@ export function TaxSurchargeReport({ onClose }: Props) {
             </div>
 
             <div className="ml-auto flex items-center gap-6">
+              <div className="text-right border-r border-gray-200 pr-6">
+                <div className="text-xs text-gray-500">Total Sales</div>
+                <div className="text-lg font-bold text-gray-900">${getTotalSales().toFixed(2)}</div>
+                <div className="text-xs text-gray-400">{rows.length} invoice{rows.length !== 1 ? 's' : ''}</div>
+              </div>
+              <div className="text-right border-r border-gray-200 pr-6">
+                <div className="text-xs text-gray-500">Taxable Amount</div>
+                <div className="text-lg font-bold text-green-700">${getTaxableAmount().toFixed(2)}</div>
+                <div className="text-xs text-gray-400">Taxed @ {rows.length > 0 && rows[0].tax_rate ? (rows[0].tax_rate * 100).toFixed(2) : '0'}%</div>
+              </div>
+              <div className="text-right border-r border-gray-200 pr-6">
+                <div className="text-xs text-gray-500">Non-Taxable Amount</div>
+                <div className="text-lg font-bold text-gray-600">${getNonTaxableAmount().toFixed(2)}</div>
+                <div className="text-xs text-gray-400">Tax exempt</div>
+              </div>
               <div className="text-right">
                 <div className="text-xs text-gray-500">{rows.length} invoice{rows.length !== 1 ? 's' : ''}</div>
                 <div className="text-lg font-bold text-gray-900">${total.toFixed(2)}</div>
@@ -333,6 +383,30 @@ export function TaxSurchargeReport({ onClose }: Props) {
               </tbody>
               <tfoot className="bg-gray-50 border-t-2 border-gray-300">
                 <tr>
+                  <td colSpan={6} className="px-4 py-3 text-sm font-bold text-gray-900">
+                    Total Sales (Subtotal)
+                  </td>
+                  <td className="px-4 py-3 text-sm font-bold text-gray-900 text-right">
+                    ${getTotalSales().toFixed(2)}
+                  </td>
+                </tr>
+                <tr className="border-t border-gray-200">
+                  <td colSpan={6} className="px-4 py-3 text-sm font-semibold text-green-700">
+                    Total Taxable Amount
+                  </td>
+                  <td className="px-4 py-3 text-sm font-semibold text-green-700 text-right">
+                    ${getTaxableAmount().toFixed(2)}
+                  </td>
+                </tr>
+                <tr className="border-t border-gray-200">
+                  <td colSpan={6} className="px-4 py-3 text-sm font-semibold text-gray-600">
+                    Total Non-Taxable Amount
+                  </td>
+                  <td className="px-4 py-3 text-sm font-semibold text-gray-600 text-right">
+                    ${getNonTaxableAmount().toFixed(2)}
+                  </td>
+                </tr>
+                <tr className="border-t border-gray-200">
                   <td colSpan={6} className="px-4 py-3 text-sm font-bold text-gray-900">
                     Total {getReportLabel()} Collected
                   </td>
