@@ -348,14 +348,15 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
   }
 
   async function handleSendEmail(invoice: Invoice) {
-    if (!invoice.customer_email) {
+    const resolvedEmail = await resolveInvoiceEmail(invoice);
+    if (!resolvedEmail) {
       showToast('No email address on file for this customer', 'error');
       return;
     }
 
     const confirmed = await confirm({
       title: 'Send Invoice',
-      message: `Send invoice ${invoice.invoice_number} to ${invoice.customer_email}?`,
+      message: `Send invoice ${invoice.invoice_number} to ${resolvedEmail}?`,
       confirmText: 'Send',
       variant: 'info'
     });
@@ -708,27 +709,34 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
     }
   }
 
+  async function resolveInvoiceEmail(invoice: Invoice): Promise<string> {
+    if (invoice.customer_email) return invoice.customer_email;
+    if (invoice.yacht_id) {
+      const { data: profiles } = await supabase
+        .from('user_profiles')
+        .select('email, notification_email, role')
+        .eq('yacht_id', invoice.yacht_id)
+        .eq('is_active', true)
+        .in('role', ['manager', 'owner']);
+      if (profiles && profiles.length > 0) {
+        const manager = profiles.find((p: any) => p.role === 'manager' && (p.notification_email || p.email));
+        const owner = profiles.find((p: any) => p.role === 'owner' && (p.notification_email || p.email));
+        const found = manager || owner;
+        if (found) return (found.notification_email || found.email) ?? '';
+      }
+    }
+    return '';
+  }
+
   async function handleRequestPayment(invoice: Invoice) {
     try {
-      if (!invoice.customer_email) {
-        let prefillEmail = '';
-        if (invoice.yacht_id) {
-          const { data: profiles } = await supabase
-            .from('user_profiles')
-            .select('email, role')
-            .eq('yacht_id', invoice.yacht_id)
-            .in('role', ['manager', 'owner']);
-          if (profiles && profiles.length > 0) {
-            const manager = profiles.find((p: any) => p.role === 'manager');
-            const owner = profiles.find((p: any) => p.role === 'owner');
-            prefillEmail = (manager?.email || owner?.email) ?? '';
-          }
-        }
-        setEmailPrompt({ invoice, email: prefillEmail });
+      const resolvedEmail = await resolveInvoiceEmail(invoice);
+      if (!resolvedEmail) {
+        setEmailPrompt({ invoice, email: '' });
         return;
       }
       setSelectedPaymentMethod(invoice.final_payment_method_type as 'card' | 'ach' | 'both' || 'card');
-      setPaymentMethodModal({ invoice, email: invoice.customer_email ?? '', mode: 'generate' });
+      setPaymentMethodModal({ invoice, email: resolvedEmail, mode: 'generate' });
     } catch (error: any) {
       console.error('Error in handleRequestPayment:', error);
       showToast(error.message || 'Failed to open payment dialog', 'error');
