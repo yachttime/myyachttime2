@@ -27,6 +27,7 @@ interface LaborRow {
   customer_name: string;
   invoice_date: string;
   payment_status: string;
+  work_title: string | null;
   total_hours: number;
   total_labor_amount: number;
   employees: string[];
@@ -108,7 +109,7 @@ export function TaxSurchargeReport({ onClose }: Props) {
 
       const { data: invoices, error: invError } = await supabase
         .from('estimating_invoices')
-        .select('id, invoice_number, customer_name, invoice_date, payment_status, work_order_id')
+        .select('id, invoice_number, customer_name, invoice_date, payment_status, work_order_id, work_orders!estimating_invoices_work_order_id_fkey(work_title)')
         .eq('archived', false)
         .gte('invoice_date', dateFrom)
         .lte('invoice_date', dateTo)
@@ -199,6 +200,7 @@ export function TaxSurchargeReport({ onClose }: Props) {
           customer_name: inv.customer_name,
           invoice_date: inv.invoice_date,
           payment_status: inv.payment_status,
+          work_title: (inv as any).work_orders?.work_title || null,
           total_hours: laborByInvoice[inv.id]?.hours || 0,
           total_labor_amount: laborByInvoice[inv.id]?.amount || 0,
           employees: (inv.work_order_id && employeesByWorkOrder[inv.work_order_id]) || [],
@@ -321,6 +323,7 @@ export function TaxSurchargeReport({ onClose }: Props) {
         row.invoice_number,
         formatDate(row.invoice_date),
         row.customer_name,
+        row.work_title || '—',
         row.total_hours.toFixed(2),
         `$${row.total_labor_amount.toFixed(2)}`,
         row.employees.length > 0 ? row.employees.join(', ') : '—',
@@ -328,19 +331,20 @@ export function TaxSurchargeReport({ onClose }: Props) {
 
       autoTable(doc, {
         startY: y,
-        head: [['Invoice #', 'Date', 'Customer', 'Total Hrs', 'Labor Amount', 'Employees']],
+        head: [['Invoice #', 'Date', 'Customer', 'Work Title', 'Total Hrs', 'Labor Amount', 'Employees']],
         body: tableRows,
         margin: { left: margin, right: margin },
         styles: { fontSize: 8, cellPadding: 4, textColor: [30, 30, 30] as [number, number, number] },
         headStyles: { fillColor: [37, 99, 235] as [number, number, number], textColor: [255, 255, 255] as [number, number, number], fontStyle: 'bold' },
         alternateRowStyles: { fillColor: [248, 250, 252] as [number, number, number] },
         columnStyles: {
-          0: { cellWidth: 70 },
-          1: { cellWidth: 60 },
-          2: { cellWidth: 110 },
-          3: { cellWidth: 55, halign: 'right' as const },
-          4: { cellWidth: 75, halign: 'right' as const },
-          5: { cellWidth: 'auto' as const },
+          0: { cellWidth: 60 },
+          1: { cellWidth: 50 },
+          2: { cellWidth: 80 },
+          3: { cellWidth: 80 },
+          4: { cellWidth: 45, halign: 'right' as const },
+          5: { cellWidth: 65, halign: 'right' as const },
+          6: { cellWidth: 'auto' as const },
         }
       });
 
@@ -557,6 +561,7 @@ export function TaxSurchargeReport({ onClose }: Props) {
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Invoice #</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Date</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Customer</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Work Title</th>
                     <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Total Hrs</th>
                     <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Labor Amount</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Employees Assigned</th>
@@ -568,6 +573,7 @@ export function TaxSurchargeReport({ onClose }: Props) {
                       <td className="px-4 py-3 text-sm font-medium text-blue-700">{row.invoice_number}</td>
                       <td className="px-4 py-3 text-sm text-gray-700">{formatDate(row.invoice_date)}</td>
                       <td className="px-4 py-3 text-sm font-medium text-gray-900">{row.customer_name}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{row.work_title || <span className="text-gray-400">—</span>}</td>
                       <td className="px-4 py-3 text-sm font-semibold text-blue-700 text-right">{row.total_hours.toFixed(2)}</td>
                       <td className="px-4 py-3 text-sm font-semibold text-gray-900 text-right">${row.total_labor_amount.toFixed(2)}</td>
                       <td className="px-4 py-3 text-sm text-gray-700">
@@ -588,7 +594,7 @@ export function TaxSurchargeReport({ onClose }: Props) {
                 </tbody>
                 <tfoot className="bg-gray-50 border-t-2 border-gray-300">
                   <tr>
-                    <td colSpan={3} className="px-4 py-3 text-sm font-bold text-gray-900">
+                    <td colSpan={4} className="px-4 py-3 text-sm font-bold text-gray-900">
                       Totals ({laborRows.length} invoice{laborRows.length !== 1 ? 's' : ''})
                     </td>
                     <td className="px-4 py-3 text-sm font-bold text-blue-700 text-right">
