@@ -371,11 +371,13 @@ export function TaxSurchargeReport({ onClose }: Props) {
       doc.setFontSize(10);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(30, 30, 30);
-      doc.text(`Total Labor Hours: ${getTotalLaborHours().toFixed(2)}`, pageWidth - margin - 160, finalY);
+      doc.text(`Total Labor Hours: ${getTotalLaborHours().toFixed(2)}`, pageWidth - margin, finalY, { align: 'right' });
+
+      finalY += 14;
       doc.text(`Total Labor Amount: $${getTotalLaborAmount().toFixed(2)}`, pageWidth - margin, finalY, { align: 'right' });
 
       if (hasPdfPreset) {
-        finalY += 16;
+        finalY += 14;
         const presetTotal = laborRows.reduce((sum, r) => sum + r.total_labor_amount * (pdfPct / 100), 0);
         doc.setTextColor(146, 64, 14);
         doc.text(`Total at ${pdfPct}%: $${presetTotal.toFixed(2)}`, pageWidth - margin, finalY, { align: 'right' });
