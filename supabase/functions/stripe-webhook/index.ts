@@ -735,9 +735,28 @@ Deno.serve(async (req: Request) => {
 
       const { data: legacyInvoice } = await supabase
         .from('yacht_invoices')
-        .select('repair_title, invoice_amount, payment_email_recipient, yachts(name), repair_requests(is_retail_customer, customer_email, customer_name)')
+        .select('repair_title, invoice_amount, payment_email_recipient, repair_request_id, yachts(name), repair_requests(is_retail_customer, customer_email, customer_name, estimate_id, title)')
         .eq('id', invoiceId)
         .single();
+
+      // Update linked work order to invoiced status
+      const repairRequest = legacyInvoice?.repair_requests as any;
+      if (repairRequest?.estimate_id) {
+        await supabase
+          .from('work_orders')
+          .update({ status: 'invoiced', updated_at: new Date().toISOString() })
+          .eq('estimate_id', repairRequest.estimate_id)
+          .in('status', ['pending', 'in_process', 'waiting_for_parts', 'completed']);
+      }
+
+      // Also mark the repair request as completed if it's still approved
+      if (legacyInvoice?.repair_request_id) {
+        await supabase
+          .from('repair_requests')
+          .update({ status: 'completed', updated_at: new Date().toISOString() })
+          .eq('id', legacyInvoice.repair_request_id)
+          .eq('status', 'approved');
+      }
 
       await supabase.from('admin_notifications').insert({
         message: `Payment received for ${legacyInvoice?.repair_title || 'invoice'} - ${legacyInvoice?.invoice_amount || '$0.00'}`,
