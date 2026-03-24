@@ -58,6 +58,7 @@ interface Vessel {
   engine_make?: string;
   engine_model?: string;
   fuel_type?: string;
+  gate_code?: string;
   notes?: string;
   is_active: boolean;
   customer_vessel_engines?: VesselEngine[];
@@ -93,6 +94,7 @@ export default function CustomerManagement() {
     engine_make: '',
     engine_model: '',
     fuel_type: '',
+    gate_code: '',
     notes: '',
   });
   const [newVesselEngines, setNewVesselEngines] = useState<Array<{ label: string; model_number: string; serial_number: string; season_start_hours: string }>>([]);
@@ -145,6 +147,7 @@ export default function CustomerManagement() {
     engine_make: '',
     engine_model: '',
     fuel_type: '',
+    gate_code: '',
     notes: '',
   });
 
@@ -307,6 +310,7 @@ export default function CustomerManagement() {
           engine_make: newVessel.engine_make || null,
           engine_model: newVessel.engine_model || null,
           fuel_type: newVessel.fuel_type || null,
+          gate_code: newVessel.gate_code || null,
           notes: newVessel.notes || null,
           company_id: userProfile?.company_id || null,
         })
@@ -358,6 +362,7 @@ export default function CustomerManagement() {
         engine_make: '',
         engine_model: '',
         fuel_type: '',
+        gate_code: '',
         notes: '',
       });
       setNewVesselEngines([]);
@@ -386,6 +391,7 @@ export default function CustomerManagement() {
           engine_make: form.engine_make || null,
           engine_model: form.engine_model || null,
           fuel_type: form.fuel_type || null,
+          gate_code: form.gate_code || null,
           notes: form.notes || null,
         })
         .eq('id', vessel.id)
@@ -738,6 +744,7 @@ export default function CustomerManagement() {
                               engine_make: vessel.engine_make || '',
                               engine_model: vessel.engine_model || '',
                               fuel_type: vessel.fuel_type || '',
+                              gate_code: vessel.gate_code || '',
                               notes: vessel.notes || '',
                             });
                             setEditVesselEngines(
@@ -818,6 +825,12 @@ export default function CustomerManagement() {
                           <div>
                             <span className="text-gray-600">Fuel: </span>
                             <span className="font-medium text-gray-900 capitalize">{vessel.fuel_type}</span>
+                          </div>
+                        )}
+                        {vessel.gate_code && (
+                          <div className="col-span-2">
+                            <span className="text-gray-600">Gate Code: </span>
+                            <span className="font-medium text-gray-900">{vessel.gate_code}</span>
                           </div>
                         )}
                         {vessel.notes && (
@@ -1165,6 +1178,17 @@ export default function CustomerManagement() {
               </div>
 
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Gate Code</label>
+                <input
+                  type="text"
+                  value={newVessel.gate_code}
+                  onChange={(e) => setNewVessel({ ...newVessel, gate_code: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
+                  placeholder="Marina or storage gate code"
+                />
+              </div>
+
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
                 <textarea
                   value={newVessel.notes}
@@ -1305,6 +1329,10 @@ export default function CustomerManagement() {
                   <option value="electric">Electric</option>
                   <option value="hybrid">Hybrid</option>
                 </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Gate Code</label>
+                <input type="text" value={editVesselForm.gate_code} onChange={(e) => setEditVesselForm({ ...editVesselForm, gate_code: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500" placeholder="Marina or storage gate code" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
