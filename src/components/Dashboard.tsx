@@ -588,6 +588,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [assignTaskError, setAssignTaskError] = useState('');
   const [staffMessages, setStaffMessages] = useState<StaffMessage[]>([]);
   const [messagesTab, setMessagesTab] = useState<'yacht' | 'staff'>('yacht');
+  const [yachtPartners, setYachtPartners] = useState<{ [yachtId: string]: any[] }>({});
   const [selectedDayAppointments, setSelectedDayAppointments] = useState<{date: Date, bookings: (YachtBooking | Appointment)[]} | null>(null);
   const [showQuickAppointmentModal, setShowQuickAppointmentModal] = useState(false);
   const [quickAppointmentDate, setQuickAppointmentDate] = useState<Date | null>(null);
@@ -788,6 +789,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     loadMechanics();
     loadCustomers();
     loadStaffMessages();
+    loadYachtPartners();
     checkSmartDevices();
   }, [user, yacht, effectiveRole, effectiveYacht, impersonatedYacht, selectedCompany, isLoadingCompanies]);
 
@@ -4673,6 +4675,24 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       }
     } catch (error) {
       console.error('Error loading staff messages:', error);
+    }
+  };
+
+  const loadYachtPartners = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('yacht_partners')
+        .select('*')
+        .order('sort_order', { ascending: true });
+      if (error) throw error;
+      const grouped: { [yachtId: string]: any[] } = {};
+      (data || []).forEach((p: any) => {
+        if (!grouped[p.yacht_id]) grouped[p.yacht_id] = [];
+        grouped[p.yacht_id].push(p);
+      });
+      setYachtPartners(grouped);
+    } catch (error) {
+      console.error('Error loading yacht partners:', error);
     }
   };
 
@@ -17094,6 +17114,52 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                       </div>
                                     ))}
                                   </div>
+
+                                  {selectedUserGroup !== 'Staff' && (() => {
+                                    const selectedYachtObj = allYachts.find(y => y.name === selectedUserGroup);
+                                    const partners = selectedYachtObj ? (yachtPartners[selectedYachtObj.id] || []) : [];
+                                    if (partners.length === 0) return null;
+                                    return (
+                                      <div className="mt-8">
+                                        <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                                          <Users className="w-5 h-5 text-teal-400" />
+                                          Partner Schedule
+                                        </h4>
+                                        <div className="overflow-x-auto rounded-xl border border-slate-700">
+                                          <table className="w-full text-sm">
+                                            <thead>
+                                              <tr className="bg-slate-700/60 text-slate-300 text-xs uppercase tracking-wider">
+                                                <th className="px-4 py-3 text-left font-semibold">Partner</th>
+                                                <th className="px-4 py-3 text-left font-semibold">Week</th>
+                                                <th className="px-4 py-3 text-left font-semibold">Phone</th>
+                                                <th className="px-4 py-3 text-left font-semibold">Email</th>
+                                              </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-700/50">
+                                              {partners.map((p: any) => (
+                                                <tr key={p.id} className={`${p.partner_name === 'Available' ? 'bg-emerald-500/10' : 'bg-slate-800/30'} hover:bg-slate-700/30 transition-colors`}>
+                                                  <td className="px-4 py-3 font-medium text-white">
+                                                    {p.partner_name === 'Available'
+                                                      ? <span className="text-emerald-400">{p.partner_name}</span>
+                                                      : p.partner_name
+                                                    }
+                                                  </td>
+                                                  <td className="px-4 py-3 text-slate-300">{p.week_label}</td>
+                                                  <td className="px-4 py-3 text-slate-300">{p.phone || '—'}</td>
+                                                  <td className="px-4 py-3">
+                                                    {p.email
+                                                      ? <a href={`mailto:${p.email}`} className="text-blue-400 hover:text-blue-300 transition-colors">{p.email}</a>
+                                                      : <span className="text-slate-600">—</span>
+                                                    }
+                                                  </td>
+                                                </tr>
+                                              ))}
+                                            </tbody>
+                                          </table>
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
 
                                   {selectedUserGroup !== 'Staff' && (() => {
                                     const groupEmails = staffMessages.filter(
