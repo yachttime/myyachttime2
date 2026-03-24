@@ -120,7 +120,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
   const [qbBankAccounts, setQbBankAccounts] = useState<{ qbo_account_id: string; account_name: string; account_number: string | null }[]>([]);
   const { confirm, ConfirmDialog } = useConfirm();
   const [showTaxReport, setShowTaxReport] = useState(false);
-  const [paymentMethodModal, setPaymentMethodModal] = useState<{ invoice: Invoice; email: string; mode: 'generate' | 'regenerate' } | null>(null);
+  const [paymentMethodModal, setPaymentMethodModal] = useState<{ invoice: Invoice; email: string; mode: 'generate' | 'regenerate'; allRecipients?: string[] } | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'card' | 'ach' | 'both'>('card');
 
   const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'success') => {
@@ -735,8 +735,25 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
         setEmailPrompt({ invoice, email: '' });
         return;
       }
+
+      let allRecipients: string[] = [resolvedEmail];
+      if (invoice.yacht_id) {
+        const { data: billingMgrs } = await supabase
+          .from('user_profiles')
+          .select('email, notification_email')
+          .eq('yacht_id', invoice.yacht_id)
+          .eq('can_approve_billing', true)
+          .eq('is_active', true);
+        if (billingMgrs) {
+          const extras = billingMgrs
+            .map((m: any) => (m.notification_email || m.email || '').trim())
+            .filter((e: string) => e && e !== resolvedEmail);
+          allRecipients = [resolvedEmail, ...extras];
+        }
+      }
+
       setSelectedPaymentMethod(invoice.final_payment_method_type as 'card' | 'ach' | 'both' || 'card');
-      setPaymentMethodModal({ invoice, email: resolvedEmail, mode: 'generate' });
+      setPaymentMethodModal({ invoice, email: resolvedEmail, mode: 'generate', allRecipients });
     } catch (error: any) {
       console.error('Error in handleRequestPayment:', error);
       showToast(error.message || 'Failed to open payment dialog', 'error');
@@ -791,7 +808,24 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
         if (fresh) setSelectedInvoice({ ...fresh, work_order_number: fresh.work_orders?.work_order_number, yacht_name: fresh.yachts?.name });
       }
 
-      showToast('Payment link generated! Sending email...', 'success');
+      let additionalRecipients: { email: string; name?: string }[] = [];
+      if (invoice.yacht_id) {
+        const { data: billingMgrs } = await supabase
+          .from('user_profiles')
+          .select('first_name, last_name, email, notification_email')
+          .eq('yacht_id', invoice.yacht_id)
+          .eq('can_approve_billing', true)
+          .eq('is_active', true);
+        if (billingMgrs) {
+          const allMgrs = billingMgrs
+            .map((m: any) => ({ email: (m.notification_email || m.email || '').trim(), name: `${m.first_name || ''} ${m.last_name || ''}`.trim() }))
+            .filter((m: any) => m.email && m.email !== recipientEmail);
+          additionalRecipients = allMgrs;
+        }
+      }
+
+      const totalRecipients = 1 + additionalRecipients.length;
+      showToast(`Payment link generated! Sending email to ${totalRecipients} recipient${totalRecipients !== 1 ? 's' : ''}...`, 'success');
 
       fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-estimating-invoice-payment-email`,
@@ -801,7 +835,11 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
             'Authorization': `Bearer ${session.access_token}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ invoiceId: invoice.id, recipientEmail })
+          body: JSON.stringify({
+            invoiceId: invoice.id,
+            recipientEmail,
+            additionalRecipients: additionalRecipients.length > 0 ? additionalRecipients : undefined,
+          })
         }
       ).then(async (emailResponse) => {
         if (!emailResponse.ok) {
@@ -809,7 +847,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
           console.error('Email send failed:', emailErr);
           showToast('Payment link created but email failed to send. Use "Email Payment Link" to retry.', 'info');
         } else {
-          showToast('Payment email sent successfully!', 'success');
+          showToast(`Payment email sent to ${totalRecipients} recipient${totalRecipients !== 1 ? 's' : ''}!`, 'success');
         }
       }).catch((emailErr) => {
         console.error('Email send error:', emailErr);
@@ -2130,9 +2168,16 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                 <p className="text-slate-400 text-xs mt-0.5">
                   Balance due: ${((paymentMethodModal.invoice.balance_due ?? paymentMethodModal.invoice.total_amount) || 0).toFixed(2)}
                 </p>
-                {paymentMethodModal.email && (
+                {paymentMethodModal.allRecipients && paymentMethodModal.allRecipients.length > 0 ? (
+                  <div className="mt-1">
+                    <p className="text-slate-400 text-xs">Sending to {paymentMethodModal.allRecipients.length} recipient{paymentMethodModal.allRecipients.length !== 1 ? 's' : ''}:</p>
+                    {paymentMethodModal.allRecipients.map((r, i) => (
+                      <p key={i} className="text-slate-400 text-xs ml-2">• {r}</p>
+                    ))}
+                  </div>
+                ) : paymentMethodModal.email ? (
                   <p className="text-slate-400 text-xs mt-0.5">Sending to: {paymentMethodModal.email}</p>
-                )}
+                ) : null}
               </div>
 
               <div>
