@@ -1226,7 +1226,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
         .from('estimating_payments')
         .insert({
           company_id: profile.company_id,
-          payment_type: 'invoice',
+          payment_type: 'invoice_payment',
           invoice_id: selectedInvoice.id,
           work_order_id: selectedInvoice.work_order_id,
           yacht_id: selectedInvoice.yacht_id,
