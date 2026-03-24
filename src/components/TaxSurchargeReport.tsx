@@ -137,67 +137,37 @@ export function TaxSurchargeReport({ onClose }: Props) {
       let employeesByWorkOrder: Record<string, string[]> = {};
 
       if (workOrderIds.length > 0) {
-        const { data: timeEntries } = await supabase
-          .from('work_order_time_entries')
-          .select('work_order_id, user_id')
-          .in('work_order_id', workOrderIds);
+        const { data: laborLineItems } = await supabase
+          .from('work_order_line_items')
+          .select('work_order_id, assigned_employee_id')
+          .in('work_order_id', workOrderIds)
+          .eq('line_type', 'labor')
+          .not('assigned_employee_id', 'is', null);
 
-        const userIds = [...new Set((timeEntries || []).map(t => t.user_id).filter(Boolean))];
+        const employeeIds = [...new Set((laborLineItems || []).map(li => li.assigned_employee_id).filter(Boolean))];
 
         let userMap: Record<string, string> = {};
-        if (userIds.length > 0) {
+        if (employeeIds.length > 0) {
           const { data: users } = await supabase
             .from('user_profiles')
             .select('user_id, first_name, last_name')
-            .in('user_id', userIds);
+            .in('user_id', employeeIds);
 
           (users || []).forEach(u => {
-            userMap[u.user_id] = `${u.last_name || ''}, ${u.first_name || ''}`.trim().replace(/^,\s*/, '');
+            userMap[u.user_id] = `${u.first_name || ''} ${u.last_name || ''}`.trim();
           });
         }
 
-        (timeEntries || []).forEach(te => {
-          if (!te.work_order_id || !te.user_id) return;
-          if (!employeesByWorkOrder[te.work_order_id]) {
-            employeesByWorkOrder[te.work_order_id] = [];
+        (laborLineItems || []).forEach(li => {
+          if (!li.work_order_id || !li.assigned_employee_id) return;
+          if (!employeesByWorkOrder[li.work_order_id]) {
+            employeesByWorkOrder[li.work_order_id] = [];
           }
-          const name = userMap[te.user_id];
-          if (name && !employeesByWorkOrder[te.work_order_id].includes(name)) {
-            employeesByWorkOrder[te.work_order_id].push(name);
+          const name = userMap[li.assigned_employee_id];
+          if (name && !employeesByWorkOrder[li.work_order_id].includes(name)) {
+            employeesByWorkOrder[li.work_order_id].push(name);
           }
         });
-
-        const workOrdersWithNoTimeEntries = workOrderIds.filter(
-          woId => !employeesByWorkOrder[woId] || employeesByWorkOrder[woId].length === 0
-        );
-
-        if (workOrdersWithNoTimeEntries.length > 0) {
-          const { data: workOrders } = await supabase
-            .from('work_orders')
-            .select('id, assigned_user_id')
-            .in('id', workOrdersWithNoTimeEntries)
-            .not('assigned_user_id', 'is', null);
-
-          const assignedUserIds = [...new Set((workOrders || []).map(wo => wo.assigned_user_id).filter(Boolean))];
-
-          if (assignedUserIds.length > 0) {
-            const { data: assignedUsers } = await supabase
-              .from('user_profiles')
-              .select('user_id, first_name, last_name')
-              .in('user_id', assignedUserIds);
-
-            const assignedUserMap: Record<string, string> = {};
-            (assignedUsers || []).forEach(u => {
-              assignedUserMap[u.user_id] = `${u.last_name || ''}, ${u.first_name || ''}`.trim().replace(/^,\s*/, '');
-            });
-
-            (workOrders || []).forEach(wo => {
-              if (wo.assigned_user_id && assignedUserMap[wo.assigned_user_id]) {
-                employeesByWorkOrder[wo.id] = [assignedUserMap[wo.assigned_user_id]];
-              }
-            });
-          }
-        }
       }
 
       const laborByInvoice: Record<string, { hours: number; amount: number }> = {};
