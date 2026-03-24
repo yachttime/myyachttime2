@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { supabase } from '../lib/supabase';
-import { Plus, Wrench, AlertCircle, CreditCard as Edit2, Trash2, Check, X, ChevronDown, ChevronUp, Printer, CheckCircle, Clock, FileText, DollarSign, Mail, ExternalLink, RefreshCw, Eye, MousePointer, Download, Archive, RotateCcw, Package } from 'lucide-react';
+import { Plus, Wrench, AlertCircle, CreditCard as Edit2, Trash2, Check, X, ChevronDown, ChevronUp, Printer, CheckCircle, Clock, FileText, DollarSign, Mail, ExternalLink, RefreshCw, Eye, MousePointer, Download, Archive, RotateCcw, Package, ClipboardList } from 'lucide-react';
 import { generateWorkOrderPDF } from '../utils/pdfGenerator';
 import { useNotification } from '../contexts/NotificationContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -82,7 +82,7 @@ interface WorkOrdersProps {
 }
 
 export function WorkOrders({ userId }: WorkOrdersProps) {
-  const { showSuccess } = useNotification();
+  const { showSuccess, showError } = useNotification();
   const { userProfile } = useAuth();
   const { confirm, ConfirmDialog } = useConfirm();
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
@@ -177,6 +177,8 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
   const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [workOrderToArchive, setWorkOrderToArchive] = useState<string | null>(null);
+  const [sendingToAdmin, setSendingToAdmin] = useState(false);
+  const [workOrderRepairRequestIds, setWorkOrderRepairRequestIds] = useState<Record<string, string>>({});
 
   useEffect(() => {
     loadData();
@@ -1909,6 +1911,167 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
     }
   };
 
+  const handleSendWorkOrderToAdmin = async (workOrderId: string) => {
+    try {
+      setSendingToAdmin(true);
+      setError(null);
+
+      const { data: workOrderData, error: workOrderError } = await supabase
+        .from('work_orders')
+        .select('*, yachts(name, manufacturer, model, company_id)')
+        .eq('id', workOrderId)
+        .single();
+
+      if (workOrderError) throw workOrderError;
+
+      const { data: companyInfo } = await supabase
+        .from('company_info')
+        .select('*')
+        .limit(1)
+        .maybeSingle();
+
+      const { data: tasksData, error: tasksError } = await supabase
+        .from('work_order_tasks')
+        .select('*')
+        .eq('work_order_id', workOrderId)
+        .order('task_order');
+
+      if (tasksError) throw tasksError;
+
+      if (!tasksData || tasksData.length === 0) {
+        throw new Error('This work order has no tasks. Please add tasks and line items before sending to admin.');
+      }
+
+      const tasksWithLineItems = await Promise.all(
+        (tasksData || []).map(async (task) => {
+          const { data: lineItemsData, error: lineItemsError } = await supabase
+            .from('work_order_line_items')
+            .select('*')
+            .eq('task_id', task.id)
+            .order('line_order');
+
+          if (lineItemsError) throw lineItemsError;
+          return { ...task, lineItems: lineItemsData || [] };
+        })
+      );
+
+      const totalLineItems = tasksWithLineItems.reduce((sum, t) => sum + (t.lineItems?.length || 0), 0);
+      if (totalLineItems === 0) {
+        throw new Error('This work order has no line items. Please add line items before sending to admin.');
+      }
+
+      const yachtName = workOrderData.yachts?.name || null;
+
+      const workOrderWithEstimates = {
+        ...workOrderData,
+        estimates: {
+          subtotal: workOrderData.subtotal || 0,
+          sales_tax_rate: workOrderData.sales_tax_rate || 0,
+          sales_tax_amount: workOrderData.sales_tax_amount || 0,
+          shop_supplies_rate: workOrderData.shop_supplies_rate || 0,
+          shop_supplies_amount: workOrderData.shop_supplies_amount || 0,
+          park_fees_rate: workOrderData.park_fees_rate || 0,
+          park_fees_amount: workOrderData.park_fees_amount || 0,
+          surcharge_rate: workOrderData.surcharge_rate || 0,
+          surcharge_amount: workOrderData.surcharge_amount || 0,
+          total_amount: workOrderData.total_amount || 0,
+          notes: workOrderData.notes,
+          customer_notes: workOrderData.customer_notes
+        },
+        deposits: []
+      };
+
+      const pdf = await generateWorkOrderPDF(workOrderWithEstimates, tasksWithLineItems, yachtName, companyInfo);
+
+      const pdfBlob = pdf.output('blob');
+      const fileName = `workorder_${workOrderData.work_order_number}.pdf`;
+      const filePath = `estimates/${workOrderId}/${fileName}`;
+      const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
+
+      const { error: uploadError } = await supabase.storage
+        .from('estimate-pdfs')
+        .upload(filePath, pdfFile, { upsert: true, cacheControl: '3600' });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('estimate-pdfs')
+        .getPublicUrl(filePath);
+
+      const totalFormatted = `$${(workOrderData.total_amount || 0).toFixed(2)}`;
+      const customerDisplay = workOrderData.customer_name || yachtName || 'Unknown';
+      const description = `Work Order ${workOrderData.work_order_number} for ${customerDisplay}. Total: ${totalFormatted}. Sent to admin from the work order system.`;
+
+      const resolvedCompanyId = workOrderData.company_id || workOrderData.yachts?.company_id || null;
+
+      const insertPayload: Record<string, any> = {
+        submitted_by: userId,
+        company_id: resolvedCompanyId,
+        title: `Work Order ${workOrderData.work_order_number}`,
+        description,
+        file_url: publicUrl,
+        file_name: fileName,
+        estimate_pdf_url: publicUrl,
+        estimate_pdf_name: fileName,
+        status: 'pending',
+        is_retail_customer: workOrderData.is_retail_customer,
+        customer_name: workOrderData.customer_name || null,
+        customer_email: workOrderData.customer_email || null,
+        customer_phone: workOrderData.customer_phone || null,
+        estimated_repair_cost: totalFormatted
+      };
+
+      if (!workOrderData.is_retail_customer && workOrderData.yacht_id) {
+        insertPayload.yacht_id = workOrderData.yacht_id;
+      }
+
+      const { data: newRR, error: rrError } = await supabase
+        .from('repair_requests')
+        .insert(insertPayload)
+        .select('id')
+        .single();
+
+      if (rrError) throw rrError;
+
+      await supabase.from('admin_notifications').insert({
+        user_id: userId,
+        yacht_id: workOrderData.yacht_id || null,
+        notification_type: 'repair_request',
+        reference_id: newRR.id,
+        message: `New repair request created from Work Order ${workOrderData.work_order_number} for ${customerDisplay}. Total: ${totalFormatted}.`,
+        company_id: resolvedCompanyId
+      });
+
+      if (!workOrderData.is_retail_customer && workOrderData.manager_email) {
+        const managerName = workOrderData.manager_name || workOrderData.manager_email;
+        await supabase.from('repair_requests').update({ notification_recipients: workOrderData.manager_email }).eq('id', newRR.id);
+
+        const { data: { session } } = await supabase.auth.getSession();
+        const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-repair-estimate-email`;
+        await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session?.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            repairRequestId: newRR.id,
+            recipientEmail: workOrderData.manager_email,
+            recipientName: managerName
+          })
+        });
+      }
+
+      setWorkOrderRepairRequestIds(prev => ({ ...prev, [workOrderId]: newRR.id }));
+      showSuccess(`Repair request created from Work Order ${workOrderData.work_order_number}`);
+    } catch (err: any) {
+      console.error('Error sending work order to admin:', err);
+      showError('Failed to create repair request: ' + (err.message || 'Unknown error'));
+    } finally {
+      setSendingToAdmin(false);
+    }
+  };
+
   const handlePreviewTimeEntries = async (workOrderId: string) => {
     try {
       setError(null);
@@ -2154,6 +2317,26 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                   <Printer className="w-4 h-4" />
                   Print Work Order
                 </button>
+                {workOrderRepairRequestIds[currentWorkOrder.id] ? (
+                  <button
+                    type="button"
+                    disabled
+                    className="px-4 py-2 bg-emerald-600 text-white rounded-lg flex items-center gap-2 text-sm font-medium opacity-80 cursor-default"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    Sent to Admin
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => handleSendWorkOrderToAdmin(currentWorkOrder.id)}
+                    disabled={sendingToAdmin}
+                    className="px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 text-sm font-medium"
+                  >
+                    <ClipboardList className="w-4 h-4" />
+                    {sendingToAdmin ? 'Sending...' : 'Send to Admin'}
+                  </button>
+                )}
                 {currentWorkOrder.status !== 'completed' && (
                   <button
                     type="button"
