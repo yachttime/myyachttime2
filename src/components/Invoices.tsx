@@ -305,7 +305,9 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       invoice.work_order_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       invoice.yacht_name?.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesStatus = statusFilter === 'all' || invoice.payment_status === statusFilter;
+    const isNotBilled = invoice.payment_status === 'unpaid' && !invoice.final_payment_link_url && !invoice.payment_link;
+    const matchesStatus = statusFilter === 'all' ||
+      (statusFilter === 'not_billed' ? isNotBilled : invoice.payment_status === statusFilter && !(statusFilter === 'unpaid' && isNotBilled));
 
     return matchesSearch && matchesStatus;
   });
@@ -1380,6 +1382,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
             >
               <option value="all">All Statuses</option>
+              <option value="not_billed">Not Billed</option>
               <option value="unpaid">Unpaid</option>
               <option value="partial">Partially Paid</option>
               <option value="paid">Paid</option>
@@ -1498,10 +1501,17 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(invoice.payment_status)}`}>
-                        {getStatusIcon(invoice.payment_status)}
-                        {invoice.payment_status.charAt(0).toUpperCase() + invoice.payment_status.slice(1)}
-                      </span>
+                      {invoice.payment_status === 'unpaid' && !invoice.final_payment_link_url && !invoice.payment_link ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                          <Clock className="w-4 h-4" />
+                          Not Billed
+                        </span>
+                      ) : (
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(invoice.payment_status)}`}>
+                          {getStatusIcon(invoice.payment_status)}
+                          {invoice.payment_status.charAt(0).toUpperCase() + invoice.payment_status.slice(1)}
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center">
                       <div className="flex items-center justify-center gap-2">
