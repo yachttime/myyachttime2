@@ -2583,7 +2583,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           *,
           yachts:yacht_id (name),
           yacht_invoices!repair_request_id (*),
-          estimating_invoices:estimating_invoice_id (id, invoice_number, total_amount, invoice_date, payment_status, payment_link, final_payment_link_url, payment_email_sent_at, payment_email_delivered_at, payment_email_opened_at, payment_email_clicked_at, payment_link_created_at, paid_at, balance_due, deposit_applied, amount_paid),
+          estimating_invoices:estimating_invoice_id (id, invoice_number, total_amount, invoice_date, payment_status, payment_link, final_payment_link_url, payment_email_sent_at, payment_email_delivered_at, payment_email_opened_at, payment_email_clicked_at, payment_link_created_at, paid_at, balance_due, deposit_applied, amount_paid, final_payment_email_sent_at, final_payment_email_delivered_at, final_payment_email_opened_at, final_payment_email_clicked_at),
           customers:customer_id (id, customer_type, first_name, last_name, business_name, email, phone),
           customer_vessels:vessel_id (id, vessel_name, manufacturer, model, year)
         `)
@@ -13130,11 +13130,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                             <CheckCircle className="w-3 h-3" />
                                             Paid
                                           </span>
-                                        ) : estimatingInvoice.payment_email_clicked_at ? (
+                                        ) : (estimatingInvoice.final_payment_email_clicked_at || estimatingInvoice.payment_email_clicked_at) ? (
                                           <span className="ml-auto bg-teal-500/20 text-teal-400 px-3 py-1 rounded-full text-xs font-semibold">
                                             Viewed
                                           </span>
-                                        ) : estimatingInvoice.payment_email_sent_at ? (
+                                        ) : (estimatingInvoice.final_payment_email_sent_at || estimatingInvoice.payment_email_sent_at) ? (
                                           <span className="ml-auto bg-blue-500/20 text-blue-400 px-3 py-1 rounded-full text-xs font-semibold">
                                             Email Sent
                                           </span>
