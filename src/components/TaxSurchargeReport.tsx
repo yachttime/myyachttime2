@@ -21,14 +21,26 @@ interface ReportRow {
   total_amount: number;
 }
 
+interface LaborRow {
+  invoice_id: string;
+  invoice_number: string;
+  customer_name: string;
+  invoice_date: string;
+  payment_status: string;
+  total_hours: number;
+  total_labor_amount: number;
+  employees: string[];
+}
+
 interface Props {
   onClose: () => void;
 }
 
-type ReportType = 'tax' | 'surcharge' | 'shop_supplies' | 'park_fees';
+type ReportType = 'tax' | 'surcharge' | 'shop_supplies' | 'park_fees' | 'labor';
 
 export function TaxSurchargeReport({ onClose }: Props) {
   const [rows, setRows] = useState<ReportRow[]>([]);
+  const [laborRows, setLaborRows] = useState<LaborRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reportType, setReportType] = useState<ReportType>('tax');
@@ -46,7 +58,11 @@ export function TaxSurchargeReport({ onClose }: Props) {
   }, []);
 
   useEffect(() => {
-    loadReport();
+    if (reportType === 'labor') {
+      loadLaborReport();
+    } else {
+      loadReport();
+    }
   }, [dateFrom, dateTo, reportType]);
 
   async function loadCompanyName() {
@@ -85,12 +101,142 @@ export function TaxSurchargeReport({ onClose }: Props) {
     }
   }
 
+  async function loadLaborReport() {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const { data: invoices, error: invError } = await supabase
+        .from('estimating_invoices')
+        .select('id, invoice_number, customer_name, invoice_date, payment_status, work_order_id')
+        .eq('archived', false)
+        .gte('invoice_date', dateFrom)
+        .lte('invoice_date', dateTo)
+        .order('invoice_date', { ascending: true });
+
+      if (invError) throw invError;
+      if (!invoices || invoices.length === 0) {
+        setLaborRows([]);
+        return;
+      }
+
+      const invoiceIds = invoices.map(i => i.id);
+
+      const { data: lineItems, error: liError } = await supabase
+        .from('estimating_invoice_line_items')
+        .select('invoice_id, quantity, total_price')
+        .in('invoice_id', invoiceIds)
+        .eq('line_type', 'labor');
+
+      if (liError) throw liError;
+
+      const workOrderIds = invoices
+        .map(i => i.work_order_id)
+        .filter((id): id is string => !!id);
+
+      let employeesByWorkOrder: Record<string, string[]> = {};
+
+      if (workOrderIds.length > 0) {
+        const { data: timeEntries } = await supabase
+          .from('work_order_time_entries')
+          .select('work_order_id, user_id')
+          .in('work_order_id', workOrderIds);
+
+        const userIds = [...new Set((timeEntries || []).map(t => t.user_id).filter(Boolean))];
+
+        let userMap: Record<string, string> = {};
+        if (userIds.length > 0) {
+          const { data: users } = await supabase
+            .from('user_profiles')
+            .select('user_id, first_name, last_name')
+            .in('user_id', userIds);
+
+          (users || []).forEach(u => {
+            userMap[u.user_id] = `${u.last_name || ''}, ${u.first_name || ''}`.trim().replace(/^,\s*/, '');
+          });
+        }
+
+        (timeEntries || []).forEach(te => {
+          if (!te.work_order_id || !te.user_id) return;
+          if (!employeesByWorkOrder[te.work_order_id]) {
+            employeesByWorkOrder[te.work_order_id] = [];
+          }
+          const name = userMap[te.user_id];
+          if (name && !employeesByWorkOrder[te.work_order_id].includes(name)) {
+            employeesByWorkOrder[te.work_order_id].push(name);
+          }
+        });
+
+        const workOrdersWithNoTimeEntries = workOrderIds.filter(
+          woId => !employeesByWorkOrder[woId] || employeesByWorkOrder[woId].length === 0
+        );
+
+        if (workOrdersWithNoTimeEntries.length > 0) {
+          const { data: workOrders } = await supabase
+            .from('work_orders')
+            .select('id, assigned_user_id')
+            .in('id', workOrdersWithNoTimeEntries)
+            .not('assigned_user_id', 'is', null);
+
+          const assignedUserIds = [...new Set((workOrders || []).map(wo => wo.assigned_user_id).filter(Boolean))];
+
+          if (assignedUserIds.length > 0) {
+            const { data: assignedUsers } = await supabase
+              .from('user_profiles')
+              .select('user_id, first_name, last_name')
+              .in('user_id', assignedUserIds);
+
+            const assignedUserMap: Record<string, string> = {};
+            (assignedUsers || []).forEach(u => {
+              assignedUserMap[u.user_id] = `${u.last_name || ''}, ${u.first_name || ''}`.trim().replace(/^,\s*/, '');
+            });
+
+            (workOrders || []).forEach(wo => {
+              if (wo.assigned_user_id && assignedUserMap[wo.assigned_user_id]) {
+                employeesByWorkOrder[wo.id] = [assignedUserMap[wo.assigned_user_id]];
+              }
+            });
+          }
+        }
+      }
+
+      const laborByInvoice: Record<string, { hours: number; amount: number }> = {};
+      (lineItems || []).forEach(li => {
+        if (!laborByInvoice[li.invoice_id]) {
+          laborByInvoice[li.invoice_id] = { hours: 0, amount: 0 };
+        }
+        laborByInvoice[li.invoice_id].hours += Number(li.quantity) || 0;
+        laborByInvoice[li.invoice_id].amount += Number(li.total_price) || 0;
+      });
+
+      const result: LaborRow[] = invoices
+        .filter(inv => laborByInvoice[inv.id] && laborByInvoice[inv.id].hours > 0)
+        .map(inv => ({
+          invoice_id: inv.id,
+          invoice_number: inv.invoice_number,
+          customer_name: inv.customer_name,
+          invoice_date: inv.invoice_date,
+          payment_status: inv.payment_status,
+          total_hours: laborByInvoice[inv.id]?.hours || 0,
+          total_labor_amount: laborByInvoice[inv.id]?.amount || 0,
+          employees: (inv.work_order_id && employeesByWorkOrder[inv.work_order_id]) || [],
+        }));
+
+      setLaborRows(result);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load labor report');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   function getAmount(row: ReportRow): number {
     switch (reportType) {
       case 'tax': return row.tax_amount || 0;
       case 'surcharge': return row.surcharge_amount || 0;
       case 'shop_supplies': return row.shop_supplies_amount || 0;
       case 'park_fees': return row.park_fees_amount || 0;
+      default: return 0;
     }
   }
 
@@ -100,6 +246,7 @@ export function TaxSurchargeReport({ onClose }: Props) {
       case 'surcharge': return 'Surcharge';
       case 'shop_supplies': return 'Shop Supplies';
       case 'park_fees': return 'Park Fees';
+      case 'labor': return 'Labor';
     }
   }
 
@@ -120,6 +267,14 @@ export function TaxSurchargeReport({ onClose }: Props) {
 
   function getNonTaxableAmount(): number {
     return getTotalSales() - getTaxableAmount();
+  }
+
+  function getTotalLaborHours(): number {
+    return laborRows.reduce((sum, r) => sum + r.total_hours, 0);
+  }
+
+  function getTotalLaborAmount(): number {
+    return laborRows.reduce((sum, r) => sum + r.total_labor_amount, 0);
   }
 
   function getStatusColor(status: string): string {
@@ -179,60 +334,101 @@ export function TaxSurchargeReport({ onClose }: Props) {
 
     y += 20;
 
-    const tableRows = rows.map(row => [
-      row.invoice_number,
-      formatDate(row.invoice_date),
-      row.customer_name,
-      row.customer_phone || '',
-      row.customer_email || '',
-      row.payment_status.charAt(0).toUpperCase() + row.payment_status.slice(1),
-      `$${getAmount(row).toFixed(2)}`
-    ]);
+    if (reportType === 'labor') {
+      const tableRows = laborRows.map(row => [
+        row.invoice_number,
+        formatDate(row.invoice_date),
+        row.customer_name,
+        row.total_hours.toFixed(2),
+        `$${row.total_labor_amount.toFixed(2)}`,
+        row.employees.length > 0 ? row.employees.join(', ') : '—',
+      ]);
 
-    autoTable(doc, {
-      startY: y,
-      head: [['Invoice #', 'Date', 'Customer', 'Phone', 'Email', 'Status', getReportLabel()]],
-      body: tableRows,
-      margin: { left: margin, right: margin },
-      styles: { fontSize: 8, cellPadding: 4, textColor: [30, 30, 30] as [number, number, number] },
-      headStyles: { fillColor: [37, 99, 235] as [number, number, number], textColor: [255, 255, 255] as [number, number, number], fontStyle: 'bold' },
-      alternateRowStyles: { fillColor: [248, 250, 252] as [number, number, number] },
-      columnStyles: {
-        0: { cellWidth: 70 },
-        1: { cellWidth: 60 },
-        2: { cellWidth: 110 },
-        3: { cellWidth: 80 },
-        4: { cellWidth: 120 },
-        5: { cellWidth: 50 },
-        6: { cellWidth: 60, halign: 'right' as const }
-      }
-    });
+      autoTable(doc, {
+        startY: y,
+        head: [['Invoice #', 'Date', 'Customer', 'Total Hrs', 'Labor Amount', 'Employees']],
+        body: tableRows,
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 8, cellPadding: 4, textColor: [30, 30, 30] as [number, number, number] },
+        headStyles: { fillColor: [37, 99, 235] as [number, number, number], textColor: [255, 255, 255] as [number, number, number], fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [248, 250, 252] as [number, number, number] },
+        columnStyles: {
+          0: { cellWidth: 70 },
+          1: { cellWidth: 60 },
+          2: { cellWidth: 110 },
+          3: { cellWidth: 55, halign: 'right' as const },
+          4: { cellWidth: 75, halign: 'right' as const },
+          5: { cellWidth: 'auto' as const },
+        }
+      });
 
-    let finalY = (doc as any).lastAutoTable.finalY + 16;
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(80, 80, 80);
-    doc.text(`${rows.length} invoice${rows.length !== 1 ? 's' : ''}`, margin, finalY);
+      let finalY = (doc as any).lastAutoTable.finalY + 16;
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(80, 80, 80);
+      doc.text(`${laborRows.length} invoice${laborRows.length !== 1 ? 's' : ''}`, margin, finalY);
 
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(30, 30, 30);
-    doc.text(`Total Sales: $${getTotalSales().toFixed(2)}`, pageWidth - margin, finalY, { align: 'right' });
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(30, 30, 30);
+      doc.text(`Total Labor Hours: ${getTotalLaborHours().toFixed(2)}`, pageWidth - margin - 160, finalY);
+      doc.text(`Total Labor Amount: $${getTotalLaborAmount().toFixed(2)}`, pageWidth - margin, finalY, { align: 'right' });
+    } else {
+      const tableRows = rows.map(row => [
+        row.invoice_number,
+        formatDate(row.invoice_date),
+        row.customer_name,
+        row.customer_phone || '',
+        row.customer_email || '',
+        row.payment_status.charAt(0).toUpperCase() + row.payment_status.slice(1),
+        `$${getAmount(row).toFixed(2)}`
+      ]);
 
-    finalY += 16;
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(21, 128, 61);
-    doc.text(`Total Taxable Amount: $${getTaxableAmount().toFixed(2)}`, pageWidth - margin, finalY, { align: 'right' });
+      autoTable(doc, {
+        startY: y,
+        head: [['Invoice #', 'Date', 'Customer', 'Phone', 'Email', 'Status', getReportLabel()]],
+        body: tableRows,
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 8, cellPadding: 4, textColor: [30, 30, 30] as [number, number, number] },
+        headStyles: { fillColor: [37, 99, 235] as [number, number, number], textColor: [255, 255, 255] as [number, number, number], fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [248, 250, 252] as [number, number, number] },
+        columnStyles: {
+          0: { cellWidth: 70 },
+          1: { cellWidth: 60 },
+          2: { cellWidth: 110 },
+          3: { cellWidth: 80 },
+          4: { cellWidth: 120 },
+          5: { cellWidth: 50 },
+          6: { cellWidth: 60, halign: 'right' as const }
+        }
+      });
 
-    finalY += 16;
-    doc.setTextColor(80, 80, 80);
-    doc.text(`Total Non-Taxable Amount: $${getNonTaxableAmount().toFixed(2)}`, pageWidth - margin, finalY, { align: 'right' });
+      let finalY = (doc as any).lastAutoTable.finalY + 16;
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(80, 80, 80);
+      doc.text(`${rows.length} invoice${rows.length !== 1 ? 's' : ''}`, margin, finalY);
 
-    finalY += 16;
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(30, 30, 30);
-    doc.text(`Total ${getReportLabel()} Collected: $${getTotal().toFixed(2)}`, pageWidth - margin, finalY, { align: 'right' });
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(30, 30, 30);
+      doc.text(`Total Sales: $${getTotalSales().toFixed(2)}`, pageWidth - margin, finalY, { align: 'right' });
+
+      finalY += 16;
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(21, 128, 61);
+      doc.text(`Total Taxable Amount: $${getTaxableAmount().toFixed(2)}`, pageWidth - margin, finalY, { align: 'right' });
+
+      finalY += 16;
+      doc.setTextColor(80, 80, 80);
+      doc.text(`Total Non-Taxable Amount: $${getNonTaxableAmount().toFixed(2)}`, pageWidth - margin, finalY, { align: 'right' });
+
+      finalY += 16;
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(30, 30, 30);
+      doc.text(`Total ${getReportLabel()} Collected: $${getTotal().toFixed(2)}`, pageWidth - margin, finalY, { align: 'right' });
+    }
 
     const pdfBlob = doc.output('blob');
     const pdfUrl = URL.createObjectURL(pdfBlob);
@@ -240,6 +436,7 @@ export function TaxSurchargeReport({ onClose }: Props) {
   }
 
   const total = getTotal();
+  const isLaborReport = reportType === 'labor';
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -252,7 +449,7 @@ export function TaxSurchargeReport({ onClose }: Props) {
           <div className="flex items-center gap-3">
             <button
               onClick={handlePrint}
-              disabled={loading || rows.length === 0}
+              disabled={loading || (isLaborReport ? laborRows.length === 0 : rows.length === 0)}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
             >
               <Printer className="w-4 h-4" />
@@ -278,6 +475,7 @@ export function TaxSurchargeReport({ onClose }: Props) {
                   <option value="surcharge">Surcharge</option>
                   <option value="shop_supplies">Shop Supplies</option>
                   <option value="park_fees">Park Fees</option>
+                  <option value="labor">Labor</option>
                 </select>
                 <ChevronDown className="absolute right-2 top-2.5 w-4 h-4 text-gray-400 pointer-events-none" />
               </div>
@@ -309,28 +507,48 @@ export function TaxSurchargeReport({ onClose }: Props) {
               </div>
             </div>
 
-            <div className="ml-auto flex items-center gap-6">
-              <div className="text-right border-r border-gray-200 pr-6">
-                <div className="text-xs text-gray-500">Total Sales</div>
-                <div className="text-lg font-bold text-gray-900">${getTotalSales().toFixed(2)}</div>
-                <div className="text-xs text-gray-400">{rows.length} invoice{rows.length !== 1 ? 's' : ''}</div>
+            {isLaborReport ? (
+              <div className="ml-auto flex items-center gap-6">
+                <div className="text-right border-r border-gray-200 pr-6">
+                  <div className="text-xs text-gray-500">Invoices</div>
+                  <div className="text-lg font-bold text-gray-900">{laborRows.length}</div>
+                  <div className="text-xs text-gray-400">with labor</div>
+                </div>
+                <div className="text-right border-r border-gray-200 pr-6">
+                  <div className="text-xs text-gray-500">Total Labor Hours</div>
+                  <div className="text-lg font-bold text-blue-700">{getTotalLaborHours().toFixed(2)}</div>
+                  <div className="text-xs text-gray-400">hours billed</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xs text-gray-500">Total Labor Amount</div>
+                  <div className="text-lg font-bold text-gray-900">${getTotalLaborAmount().toFixed(2)}</div>
+                  <div className="text-xs text-gray-500">labor revenue</div>
+                </div>
               </div>
-              <div className="text-right border-r border-gray-200 pr-6">
-                <div className="text-xs text-gray-500">Taxable Amount</div>
-                <div className="text-lg font-bold text-green-700">${getTaxableAmount().toFixed(2)}</div>
-                <div className="text-xs text-gray-400">Taxed @ {rows.length > 0 && rows[0].tax_rate ? (rows[0].tax_rate * 100).toFixed(2) : '0'}%</div>
+            ) : (
+              <div className="ml-auto flex items-center gap-6">
+                <div className="text-right border-r border-gray-200 pr-6">
+                  <div className="text-xs text-gray-500">Total Sales</div>
+                  <div className="text-lg font-bold text-gray-900">${getTotalSales().toFixed(2)}</div>
+                  <div className="text-xs text-gray-400">{rows.length} invoice{rows.length !== 1 ? 's' : ''}</div>
+                </div>
+                <div className="text-right border-r border-gray-200 pr-6">
+                  <div className="text-xs text-gray-500">Taxable Amount</div>
+                  <div className="text-lg font-bold text-green-700">${getTaxableAmount().toFixed(2)}</div>
+                  <div className="text-xs text-gray-400">Taxed @ {rows.length > 0 && rows[0].tax_rate ? (rows[0].tax_rate * 100).toFixed(2) : '0'}%</div>
+                </div>
+                <div className="text-right border-r border-gray-200 pr-6">
+                  <div className="text-xs text-gray-500">Non-Taxable Amount</div>
+                  <div className="text-lg font-bold text-gray-600">${getNonTaxableAmount().toFixed(2)}</div>
+                  <div className="text-xs text-gray-400">Tax exempt</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xs text-gray-500">{rows.length} invoice{rows.length !== 1 ? 's' : ''}</div>
+                  <div className="text-lg font-bold text-gray-900">${total.toFixed(2)}</div>
+                  <div className="text-xs text-gray-500">Total {getReportLabel()}</div>
+                </div>
               </div>
-              <div className="text-right border-r border-gray-200 pr-6">
-                <div className="text-xs text-gray-500">Non-Taxable Amount</div>
-                <div className="text-lg font-bold text-gray-600">${getNonTaxableAmount().toFixed(2)}</div>
-                <div className="text-xs text-gray-400">Tax exempt</div>
-              </div>
-              <div className="text-right">
-                <div className="text-xs text-gray-500">{rows.length} invoice{rows.length !== 1 ? 's' : ''}</div>
-                <div className="text-lg font-bold text-gray-900">${total.toFixed(2)}</div>
-                <div className="text-xs text-gray-500">Total {getReportLabel()}</div>
-              </div>
-            </div>
+            )}
           </div>
         </div>
 
@@ -344,6 +562,64 @@ export function TaxSurchargeReport({ onClose }: Props) {
               <AlertCircle className="w-5 h-5 flex-shrink-0" />
               <span>{error}</span>
             </div>
+          ) : isLaborReport ? (
+            laborRows.length === 0 ? (
+              <div className="text-center py-20 text-gray-400">
+                <p className="text-lg font-medium">No labor found</p>
+                <p className="text-sm mt-1">No invoices with labor line items in this date range</p>
+              </div>
+            ) : (
+              <table className="w-full">
+                <thead className="bg-gray-50 sticky top-0">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Invoice #</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Date</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Customer</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Total Hrs</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Labor Amount</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Employees Assigned</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {laborRows.map((row) => (
+                    <tr key={row.invoice_id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm font-medium text-blue-700">{row.invoice_number}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{formatDate(row.invoice_date)}</td>
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{row.customer_name}</td>
+                      <td className="px-4 py-3 text-sm font-semibold text-blue-700 text-right">{row.total_hours.toFixed(2)}</td>
+                      <td className="px-4 py-3 text-sm font-semibold text-gray-900 text-right">${row.total_labor_amount.toFixed(2)}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">
+                        {row.employees.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {row.employees.map((emp, i) => (
+                              <span key={i} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-800">
+                                {emp}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="bg-gray-50 border-t-2 border-gray-300">
+                  <tr>
+                    <td colSpan={3} className="px-4 py-3 text-sm font-bold text-gray-900">
+                      Totals ({laborRows.length} invoice{laborRows.length !== 1 ? 's' : ''})
+                    </td>
+                    <td className="px-4 py-3 text-sm font-bold text-blue-700 text-right">
+                      {getTotalLaborHours().toFixed(2)} hrs
+                    </td>
+                    <td className="px-4 py-3 text-sm font-bold text-gray-900 text-right">
+                      ${getTotalLaborAmount().toFixed(2)}
+                    </td>
+                    <td />
+                  </tr>
+                </tfoot>
+              </table>
+            )
           ) : rows.length === 0 ? (
             <div className="text-center py-20 text-gray-400">
               <p className="text-lg font-medium">No invoices found</p>
