@@ -2584,7 +2584,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           *,
           yachts:yacht_id (name),
           yacht_invoices!repair_request_id (*),
-          estimating_invoices:estimating_invoice_id (id, invoice_number, total_amount, invoice_date, payment_status, payment_link, final_payment_link_url, payment_email_sent_at, payment_email_delivered_at, payment_email_opened_at, payment_email_clicked_at, payment_link_created_at, paid_at, balance_due, deposit_applied, amount_paid, final_payment_email_sent_at, final_payment_email_delivered_at, final_payment_email_opened_at, final_payment_email_clicked_at),
+          estimating_invoices:estimating_invoice_id (id, invoice_number, total_amount, invoice_date, payment_status, payment_link, final_payment_link_url, payment_email_sent_at, payment_email_delivered_at, payment_email_opened_at, payment_email_clicked_at, payment_link_created_at, paid_at, balance_due, deposit_applied, amount_paid, final_payment_email_sent_at, final_payment_email_delivered_at, final_payment_email_opened_at, final_payment_email_clicked_at, final_payment_email_recipient, customer_email, final_payment_method_type, final_payment_email_all_recipients, payment_email_all_recipients),
           customers:customer_id (id, customer_type, first_name, last_name, business_name, email, phone),
           customer_vessels:vessel_id (id, vessel_name, manufacturer, model, year)
         `)
@@ -3672,6 +3672,131 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       showError(`Error: ${error.message || 'Failed to sync payment status'}`);
     } finally {
       setSyncPaymentLoading({ ...syncPaymentLoading, [invoice.id]: false });
+    }
+  };
+
+  const handleGenerateEstimatingPaymentLink = async (estimatingInvoice: any) => {
+    if (!estimatingInvoice?.id) return;
+    setPaymentLinkLoading(prev => ({ ...prev, [estimatingInvoice.id]: true }));
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const recipientEmail = estimatingInvoice.final_payment_email_recipient || estimatingInvoice.customer_email || '';
+      if (!recipientEmail) {
+        showError('No email address found for this invoice. Please open it in Estimating Invoices to set an email.');
+        return;
+      }
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-estimating-invoice-payment`,
+        {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ invoiceId: estimatingInvoice.id, recipientEmail, paymentMethodType: estimatingInvoice.final_payment_method_type || 'card' })
+        }
+      );
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Failed to generate payment link');
+      fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-estimating-invoice-payment-email`,
+        {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ invoiceId: estimatingInvoice.id, recipientEmail })
+        }
+      ).catch(() => {});
+      await loadRepairRequests();
+      showSuccess('Payment link generated and email sent!');
+    } catch (error: any) {
+      showError(error.message || 'Failed to generate payment link');
+    } finally {
+      setPaymentLinkLoading(prev => ({ ...prev, [estimatingInvoice.id]: false }));
+    }
+  };
+
+  const handleSyncEstimatingPaymentStatus = async (estimatingInvoice: any) => {
+    if (!estimatingInvoice?.id) return;
+    setSyncPaymentLoading(prev => ({ ...prev, [estimatingInvoice.id]: true }));
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-stripe-payment`,
+        {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ estimating_invoice_id: estimatingInvoice.id })
+        }
+      );
+      const result = await response.json();
+      if (result.success) {
+        await loadRepairRequests();
+        showSuccess(result.message || 'Payment status synced successfully!');
+      } else {
+        showError(result.message || 'Payment not yet completed in Stripe');
+      }
+    } catch (error: any) {
+      showError(error.message || 'Failed to sync payment status');
+    } finally {
+      setSyncPaymentLoading(prev => ({ ...prev, [estimatingInvoice.id]: false }));
+    }
+  };
+
+  const handleRegenerateEstimatingPaymentLink = async (estimatingInvoice: any) => {
+    if (!estimatingInvoice?.id) return;
+    setPaymentLinkLoading(prev => ({ ...prev, [estimatingInvoice.id]: true }));
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const deleteResponse = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-invoice-payment-link`,
+        {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ estimatingInvoiceId: estimatingInvoice.id })
+        }
+      );
+      const deleteResult = await deleteResponse.json();
+      if (!deleteResult.success) throw new Error(deleteResult.error || 'Failed to delete old payment link');
+      const recipientEmail = estimatingInvoice.final_payment_email_recipient || estimatingInvoice.customer_email || '';
+      const createResponse = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-estimating-invoice-payment`,
+        {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ invoiceId: estimatingInvoice.id, recipientEmail, paymentMethodType: estimatingInvoice.final_payment_method_type || 'card' })
+        }
+      );
+      const createResult = await createResponse.json();
+      if (!createResponse.ok) throw new Error(createResult.error || 'Failed to create new payment link');
+      await loadRepairRequests();
+      showSuccess('Payment link regenerated successfully!');
+    } catch (error: any) {
+      showError(error.message || 'Failed to regenerate payment link');
+    } finally {
+      setPaymentLinkLoading(prev => ({ ...prev, [estimatingInvoice.id]: false }));
+    }
+  };
+
+  const handleDeleteEstimatingPaymentLink = async (estimatingInvoice: any) => {
+    if (!estimatingInvoice?.id) return;
+    const confirmed = confirm('Are you sure you want to delete this payment link? You can generate a new one after making changes.');
+    if (!confirmed) return;
+    setDeletePaymentLinkLoading(prev => ({ ...prev, [estimatingInvoice.id]: true }));
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-invoice-payment-link`,
+        {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ estimatingInvoiceId: estimatingInvoice.id })
+        }
+      );
+      const result = await response.json();
+      if (!result.success) throw new Error(result.error || 'Failed to delete payment link');
+      await loadRepairRequests();
+      showSuccess('Payment link deleted. You can now generate a new one.');
+    } catch (error: any) {
+      showError(error.message || 'Failed to delete payment link');
+    } finally {
+      setDeletePaymentLinkLoading(prev => ({ ...prev, [estimatingInvoice.id]: false }));
     }
   };
 
@@ -13188,20 +13313,88 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                             Paid on: {new Date(estimatingInvoice.paid_at).toLocaleDateString()}
                                           </p>
                                         )}
+                                        {(estimatingInvoice.final_payment_email_sent_at || estimatingInvoice.payment_email_sent_at) && (
+                                          <div className="mt-3 pt-3 border-t border-orange-500/20">
+                                            <p className="text-xs font-semibold text-slate-300 mb-1">Email Engagement</p>
+                                            {(estimatingInvoice.final_payment_email_all_recipients || estimatingInvoice.payment_email_all_recipients)?.map((addr: string, i: number) => (
+                                              <div key={i} className="flex items-center gap-1 text-xs text-blue-300">
+                                                <Mail className="w-3 h-3" />
+                                                <span>To: {addr}</span>
+                                              </div>
+                                            ))}
+                                            <div className="space-y-1 mt-1">
+                                              <div className="flex items-center gap-2 text-xs text-slate-400">
+                                                <Mail className="w-3 h-3 text-blue-400" />
+                                                <span>Sent: {new Date(estimatingInvoice.final_payment_email_sent_at || estimatingInvoice.payment_email_sent_at).toLocaleDateString()} at {new Date(estimatingInvoice.final_payment_email_sent_at || estimatingInvoice.payment_email_sent_at).toLocaleTimeString()}</span>
+                                              </div>
+                                              {(estimatingInvoice.final_payment_email_delivered_at || estimatingInvoice.payment_email_delivered_at) && (
+                                                <div className="flex items-center gap-2 text-xs text-green-400">
+                                                  <CheckCircle className="w-3 h-3" />
+                                                  <span>Delivered: {new Date(estimatingInvoice.final_payment_email_delivered_at || estimatingInvoice.payment_email_delivered_at).toLocaleDateString()} at {new Date(estimatingInvoice.final_payment_email_delivered_at || estimatingInvoice.payment_email_delivered_at).toLocaleTimeString()}</span>
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        )}
                                         {(estimatingInvoice.final_payment_link_url || estimatingInvoice.payment_link) && (
-                                          <div className="mt-2 flex items-center gap-2">
-                                            <input
-                                              type="text"
-                                              readOnly
-                                              value={estimatingInvoice.final_payment_link_url || estimatingInvoice.payment_link}
-                                              className="flex-1 bg-slate-900/50 border border-slate-700 rounded px-3 py-2 text-xs text-slate-300"
-                                            />
-                                            <button
-                                              onClick={() => copyToClipboard(estimatingInvoice.final_payment_link_url || estimatingInvoice.payment_link)}
-                                              className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-2 rounded text-xs font-semibold transition-all"
-                                            >
-                                              Copy
-                                            </button>
+                                          <div className="mt-2">
+                                            <p className="text-xs text-slate-400 mb-1">Payment Link:</p>
+                                            <div className="flex items-center gap-2">
+                                              <input
+                                                type="text"
+                                                readOnly
+                                                value={estimatingInvoice.final_payment_link_url || estimatingInvoice.payment_link}
+                                                className="flex-1 bg-slate-900/50 border border-slate-700 rounded px-3 py-2 text-xs text-slate-300"
+                                              />
+                                              <button
+                                                onClick={() => copyToClipboard(estimatingInvoice.final_payment_link_url || estimatingInvoice.payment_link)}
+                                                className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-2 rounded text-xs font-semibold transition-all"
+                                              >
+                                                Copy
+                                              </button>
+                                            </div>
+                                          </div>
+                                        )}
+                                        {estimatingInvoice.payment_status !== 'paid' && (
+                                          <div className="mt-3 pt-3 border-t border-orange-500/20 flex flex-wrap gap-2">
+                                            {!(estimatingInvoice.final_payment_link_url || estimatingInvoice.payment_link) && (
+                                              <button
+                                                onClick={() => handleGenerateEstimatingPaymentLink(estimatingInvoice)}
+                                                disabled={paymentLinkLoading[estimatingInvoice.id]}
+                                                className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-3 py-2 rounded text-xs font-semibold transition-all flex items-center gap-1"
+                                              >
+                                                <DollarSign className="w-3 h-3" />
+                                                {paymentLinkLoading[estimatingInvoice.id] ? 'Generating...' : 'Generate Payment Link'}
+                                              </button>
+                                            )}
+                                            {(estimatingInvoice.final_payment_link_url || estimatingInvoice.payment_link) && (
+                                              <>
+                                                <button
+                                                  onClick={() => handleSyncEstimatingPaymentStatus(estimatingInvoice)}
+                                                  disabled={syncPaymentLoading[estimatingInvoice.id]}
+                                                  className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-3 py-2 rounded text-xs font-semibold transition-all flex items-center gap-1"
+                                                >
+                                                  <RefreshCw className="w-3 h-3" />
+                                                  {syncPaymentLoading[estimatingInvoice.id] ? 'Syncing...' : 'Sync Payment'}
+                                                </button>
+                                                <button
+                                                  onClick={() => handleRegenerateEstimatingPaymentLink(estimatingInvoice)}
+                                                  disabled={paymentLinkLoading[estimatingInvoice.id]}
+                                                  className="bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white px-3 py-2 rounded text-xs font-semibold transition-all flex items-center gap-1"
+                                                >
+                                                  <RefreshCw className="w-3 h-3" />
+                                                  {paymentLinkLoading[estimatingInvoice.id] ? 'Regenerating...' : 'Regenerate Link'}
+                                                </button>
+                                                <button
+                                                  onClick={() => handleDeleteEstimatingPaymentLink(estimatingInvoice)}
+                                                  disabled={deletePaymentLinkLoading[estimatingInvoice.id]}
+                                                  className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white px-3 py-2 rounded text-xs font-semibold transition-all flex items-center gap-1"
+                                                >
+                                                  <X className="w-3 h-3" />
+                                                  {deletePaymentLinkLoading[estimatingInvoice.id] ? 'Deleting...' : 'Delete Link'}
+                                                </button>
+                                              </>
+                                            )}
                                           </div>
                                         )}
                                       </div>
