@@ -1861,7 +1861,7 @@ export function Estimates({ userId }: EstimatesProps) {
       if (!isRetail && estimateData.yacht_id) {
         insertPayload.yacht_id = estimateData.yacht_id;
       } else if (isRetail) {
-        insertPayload.customer_name = estimateData.customer_name || null;
+        insertPayload.customer_name = estimateData.customer_name || customerDisplay;
         insertPayload.customer_email = estimateData.customer_email || null;
         insertPayload.customer_phone = estimateData.customer_phone || null;
       }
