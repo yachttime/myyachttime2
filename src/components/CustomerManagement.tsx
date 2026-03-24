@@ -67,9 +67,13 @@ interface Vessel {
 
 interface CustomerHistory {
   estimates: number;
+  estimates_total: number;
   work_orders: number;
+  work_orders_total: number;
   invoices: number;
+  invoices_total: number;
   repair_requests: number;
+  repair_requests_total: number;
 }
 
 export default function CustomerManagement() {
@@ -211,17 +215,29 @@ export default function CustomerManagement() {
     try {
       const nameFilter = customerName ? `customer_id.eq.${customerId},customer_name.ilike.${customerName}` : `customer_id.eq.${customerId}`;
       const [estimates, workOrders, invoices, repairRequests] = await Promise.all([
-        supabase.from('estimates').select('id', { count: 'exact', head: true }).or(nameFilter),
-        supabase.from('work_orders').select('id', { count: 'exact', head: true }).or(nameFilter),
-        supabase.from('yacht_invoices').select('id', { count: 'exact', head: true }).eq('customer_id', customerId),
-        supabase.from('repair_requests').select('id', { count: 'exact', head: true }).or(nameFilter),
+        supabase.from('estimates').select('id, total_amount').or(nameFilter),
+        supabase.from('work_orders').select('id, total_amount').or(nameFilter),
+        supabase.from('yacht_invoices').select('id, invoice_amount_numeric').eq('customer_id', customerId),
+        supabase.from('repair_requests').select('id, final_invoice_amount').or(nameFilter),
       ]);
 
+      const sumField = (rows: any[] | null, field: string) =>
+        (rows || []).reduce((sum, r) => sum + (parseFloat(r[field]) || 0), 0);
+
+      const repairTotal = (repairRequests.data || []).reduce((sum, r) => {
+        const val = parseFloat((r.final_invoice_amount || '').replace(/[^0-9.]/g, ''));
+        return sum + (isNaN(val) ? 0 : val);
+      }, 0);
+
       setCustomerHistory({
-        estimates: estimates.count || 0,
-        work_orders: workOrders.count || 0,
-        invoices: invoices.count || 0,
-        repair_requests: repairRequests.count || 0,
+        estimates: estimates.data?.length || 0,
+        estimates_total: sumField(estimates.data, 'total_amount'),
+        work_orders: workOrders.data?.length || 0,
+        work_orders_total: sumField(workOrders.data, 'total_amount'),
+        invoices: invoices.data?.length || 0,
+        invoices_total: sumField(invoices.data, 'invoice_amount_numeric'),
+        repair_requests: repairRequests.data?.length || 0,
+        repair_requests_total: repairTotal,
       });
     } catch (error) {
       console.error('Error loading customer history:', error);
@@ -693,21 +709,33 @@ export default function CustomerManagement() {
                         <FileText className="w-6 h-6 text-blue-600 mx-auto mb-1" />
                         <p className="text-2xl font-bold text-gray-900">{customerHistory.estimates}</p>
                         <p className="text-xs text-gray-600">Estimates</p>
+                        {customerHistory.estimates_total > 0 && (
+                          <p className="text-xs font-semibold text-blue-700 mt-0.5">${customerHistory.estimates_total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                        )}
                       </div>
                       <div className="text-center">
                         <Wrench className="w-6 h-6 text-green-600 mx-auto mb-1" />
                         <p className="text-2xl font-bold text-gray-900">{customerHistory.work_orders}</p>
                         <p className="text-xs text-gray-600">Work Orders</p>
+                        {customerHistory.work_orders_total > 0 && (
+                          <p className="text-xs font-semibold text-green-700 mt-0.5">${customerHistory.work_orders_total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                        )}
                       </div>
                       <div className="text-center">
                         <DollarSign className="w-6 h-6 text-yellow-600 mx-auto mb-1" />
                         <p className="text-2xl font-bold text-gray-900">{customerHistory.invoices}</p>
                         <p className="text-xs text-gray-600">Invoices</p>
+                        {customerHistory.invoices_total > 0 && (
+                          <p className="text-xs font-semibold text-yellow-700 mt-0.5">${customerHistory.invoices_total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                        )}
                       </div>
                       <div className="text-center">
                         <Wrench className="w-6 h-6 text-red-600 mx-auto mb-1" />
                         <p className="text-2xl font-bold text-gray-900">{customerHistory.repair_requests}</p>
                         <p className="text-xs text-gray-600">Repairs</p>
+                        {customerHistory.repair_requests_total > 0 && (
+                          <p className="text-xs font-semibold text-red-700 mt-0.5">${customerHistory.repair_requests_total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                        )}
                       </div>
                     </div>
                   </div>
