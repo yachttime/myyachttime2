@@ -269,6 +269,10 @@ Deno.serve(async (req: Request) => {
               <strong>Important:</strong> For security reasons, this payment link expires in 30 days. Please complete your payment at your earliest convenience.
             </p>
 
+            <p style="background: #fee2e2; border-left: 4px solid #ef4444; padding: 12px; border-radius: 4px; font-size: 14px;">
+              <strong>Payment Due:</strong> Payment is due within 48 hours per our contract.
+            </p>
+
             ${invoiceAttachment ? '<p>The invoice PDF is attached to this email for your records.</p>' : ''}
 
             <p>If you have any questions about this invoice, please don't hesitate to contact us.</p>

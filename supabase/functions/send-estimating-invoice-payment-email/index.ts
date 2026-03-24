@@ -398,6 +398,10 @@ Deno.serve(async (req: Request) => {
             <p style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px; border-radius: 4px; font-size: 14px;">
               <strong>Important:</strong> This payment link expires in 30 days. Please complete your payment at your earliest convenience.
             </p>
+
+            <p style="background: #fee2e2; border-left: 4px solid #ef4444; padding: 12px; border-radius: 4px; font-size: 14px;">
+              <strong>Payment Due:</strong> Payment is due within 48 hours per our contract.
+            </p>
             <p>If you have any questions, please contact us.</p>
             <p>Thank you for your business.</p>
           </div>
