@@ -493,6 +493,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [invoiceBillingManagers, setInvoiceBillingManagers] = useState<{ email: string; name: string; source: string }[]>([]);
   const [invoiceBillingManagersLoading, setInvoiceBillingManagersLoading] = useState(false);
   const [invoiceEmailAttachment, setInvoiceEmailAttachment] = useState<File | null>(null);
+  const [invoiceEmailPaymentMethod, setInvoiceEmailPaymentMethod] = useState<'card' | 'ach' | 'both'>('card');
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [selectedRepairForDeposit, setSelectedRepairForDeposit] = useState<RepairRequest | null>(null);
   const [depositForm, setDepositForm] = useState({
@@ -3888,6 +3889,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     setEmailRecipientName('');
     setInvoiceBillingManagers([]);
     setInvoiceEmailAttachment(null);
+    setInvoiceEmailPaymentMethod((invoice.payment_method_type as 'card' | 'ach' | 'both') || 'card');
     setShowEmailModal(true);
 
     if (invoice.yacht_id) {
@@ -3952,6 +3954,26 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       if (!session?.access_token) {
         throw new Error('Not authenticated. Please sign in again.');
+      }
+
+      const paymentLinkResponse = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-invoice-payment`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            invoiceId: selectedInvoiceForEmail.id,
+            paymentMethodType: invoiceEmailPaymentMethod,
+          })
+        }
+      );
+
+      if (!paymentLinkResponse.ok) {
+        const errData = await paymentLinkResponse.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to generate payment link');
       }
 
       const recipients = hasManagers
@@ -17732,6 +17754,34 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                 <p className="text-sm text-slate-400 mb-1">Invoice</p>
                 <p className="text-white font-semibold">{selectedInvoiceForEmail.repair_title}</p>
                 <p className="text-emerald-400 text-lg font-bold mt-1">{selectedInvoiceForEmail.invoice_amount}</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">How can the customer pay?</label>
+                <div className="space-y-2">
+                  {([
+                    { value: 'card', label: 'Credit / Debit Card Only', sub: '3% credit card processing fee will be added to the total' },
+                    { value: 'ach', label: 'ACH Bank Transfer Only', sub: 'No processing fee — 3–5 business day settlement' },
+                    { value: 'both', label: 'Card and ACH (customer chooses)', sub: 'No processing fee added — customer selects their preferred method' },
+                  ] as const).map(opt => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setInvoiceEmailPaymentMethod(opt.value)}
+                      className={`w-full text-left px-4 py-3 rounded-lg border transition-all ${invoiceEmailPaymentMethod === opt.value ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-600 bg-slate-900/50 hover:border-slate-500'}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${invoiceEmailPaymentMethod === opt.value ? 'border-emerald-500' : 'border-slate-500'}`}>
+                          {invoiceEmailPaymentMethod === opt.value && <div className="w-2 h-2 rounded-full bg-emerald-500" />}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-white">{opt.label}</p>
+                          <p className="text-xs text-slate-400 mt-0.5">{opt.sub}</p>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {invoiceBillingManagersLoading ? (
