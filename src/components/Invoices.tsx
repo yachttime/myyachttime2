@@ -1539,7 +1539,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       </div>
 
       {showDetails && selectedInvoice && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[1000]">
           <div className="bg-white border border-gray-200 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between mb-4">
@@ -1955,7 +1955,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       )}
 
       {showArchiveModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
               Archive Invoice
@@ -1984,7 +1984,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
         </div>
       )}
       {showEmailModal && emailModalInvoice && (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[60] p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[9999] p-4">
           <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-md">
             <div className="flex items-center justify-between p-6 border-b border-slate-700">
               <div className="flex items-center gap-3">
@@ -2093,7 +2093,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       )}
 
       {emailPrompt && (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[60] p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[9999] p-4">
           <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 max-w-md w-full shadow-xl">
             <h3 className="text-lg font-semibold text-white mb-2">Enter Customer Email</h3>
             <p className="text-sm text-slate-400 mb-4">
@@ -2149,7 +2149,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       )}
 
       {paymentMethodModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[70] p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[9999] p-4">
           <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-2xl w-full max-w-md">
             <div className="flex items-center justify-between p-5 border-b border-slate-700">
               <div className="flex items-center gap-2">
@@ -2262,7 +2262,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       )}
 
       {checkPaymentModal && selectedInvoice && (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[60] p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[9999] p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
             <div className="flex items-center justify-between p-5 border-b border-gray-200">
               <div className="flex items-center gap-2">
