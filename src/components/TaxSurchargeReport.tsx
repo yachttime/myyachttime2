@@ -137,36 +137,48 @@ export function TaxSurchargeReport({ onClose }: Props) {
       let employeesByWorkOrder: Record<string, string[]> = {};
 
       if (workOrderIds.length > 0) {
-        const { data: laborLineItems } = await supabase
-          .from('work_order_line_items')
-          .select('work_order_id, assigned_employee_id')
-          .in('work_order_id', workOrderIds)
-          .eq('line_type', 'labor')
-          .not('assigned_employee_id', 'is', null);
+        const [{ data: laborLineItems }, { data: taskAssignments }] = await Promise.all([
+          supabase
+            .from('work_order_line_items')
+            .select('work_order_id, assigned_employee_id')
+            .in('work_order_id', workOrderIds)
+            .eq('line_type', 'labor')
+            .not('assigned_employee_id', 'is', null),
+          supabase
+            .from('work_order_task_assignments')
+            .select('employee_id, work_order_tasks!inner(work_order_id)')
+            .in('work_order_tasks.work_order_id', workOrderIds),
+        ]);
 
-        const employeeIds = [...new Set((laborLineItems || []).map(li => li.assigned_employee_id).filter(Boolean))];
+        const allEmployeeIds = new Set<string>();
+        (laborLineItems || []).forEach(li => li.assigned_employee_id && allEmployeeIds.add(li.assigned_employee_id));
+        (taskAssignments || []).forEach((ta: any) => ta.employee_id && allEmployeeIds.add(ta.employee_id));
 
         let userMap: Record<string, string> = {};
-        if (employeeIds.length > 0) {
+        if (allEmployeeIds.size > 0) {
           const { data: users } = await supabase
             .from('user_profiles')
             .select('user_id, first_name, last_name')
-            .in('user_id', employeeIds);
+            .in('user_id', [...allEmployeeIds]);
 
           (users || []).forEach(u => {
             userMap[u.user_id] = `${u.first_name || ''} ${u.last_name || ''}`.trim();
           });
         }
 
-        (laborLineItems || []).forEach(li => {
-          if (!li.work_order_id || !li.assigned_employee_id) return;
-          if (!employeesByWorkOrder[li.work_order_id]) {
-            employeesByWorkOrder[li.work_order_id] = [];
+        const addEmployee = (workOrderId: string, employeeId: string) => {
+          if (!workOrderId || !employeeId) return;
+          if (!employeesByWorkOrder[workOrderId]) employeesByWorkOrder[workOrderId] = [];
+          const name = userMap[employeeId];
+          if (name && !employeesByWorkOrder[workOrderId].includes(name)) {
+            employeesByWorkOrder[workOrderId].push(name);
           }
-          const name = userMap[li.assigned_employee_id];
-          if (name && !employeesByWorkOrder[li.work_order_id].includes(name)) {
-            employeesByWorkOrder[li.work_order_id].push(name);
-          }
+        };
+
+        (laborLineItems || []).forEach(li => addEmployee(li.work_order_id, li.assigned_employee_id));
+        (taskAssignments || []).forEach((ta: any) => {
+          const woId = ta.work_order_tasks?.work_order_id;
+          addEmployee(woId, ta.employee_id);
         });
       }
 
