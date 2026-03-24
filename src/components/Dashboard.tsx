@@ -33,7 +33,7 @@ interface DashboardProps {
 
 export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const { user, userProfile, yacht, signOut, refreshProfile } = useAuth();
-  const { companies, selectedCompany, isMaster, selectCompany } = useCompany();
+  const { companies, selectedCompany, isMaster, selectCompany, isLoadingCompanies } = useCompany();
   const { impersonatedRole, setImpersonatedRole, getEffectiveRole, isImpersonating } = useRoleImpersonation();
   const { impersonatedYacht, setImpersonatedYacht, getEffectiveYacht, isImpersonatingYacht } = useYachtImpersonation();
   const { showSuccess, showError } = useNotification();
@@ -774,6 +774,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   }, [user, userProfile]);
 
   useEffect(() => {
+    if (isLoadingCompanies) return;
     loadBookings();
     loadMaintenanceRequests();
     loadVideos();
@@ -788,7 +789,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     loadCustomers();
     loadStaffMessages();
     checkSmartDevices();
-  }, [user, yacht, effectiveRole, effectiveYacht, impersonatedYacht, selectedCompany]);
+  }, [user, yacht, effectiveRole, effectiveYacht, impersonatedYacht, selectedCompany, isLoadingCompanies]);
 
   useEffect(() => {
     if (activeTab === 'admin' && adminView === 'repairs') {
@@ -2573,7 +2574,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
   const loadRepairRequests = async () => {
     try {
-      if (!user || !selectedCompany?.id) {
+      const companyId = selectedCompany?.id || userProfile?.company_id;
+      if (!user || !companyId) {
         setRepairRequests([]);
         return;
       }
@@ -2584,11 +2586,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           *,
           yachts:yacht_id (name),
           yacht_invoices!repair_request_id (*),
-          estimating_invoices:estimating_invoice_id (id, invoice_number, total_amount, invoice_date, payment_status, payment_link, final_payment_link_url, payment_email_sent_at, payment_email_delivered_at, payment_email_opened_at, payment_email_clicked_at, payment_link_created_at, paid_at, balance_due, deposit_applied, amount_paid, final_payment_email_sent_at, final_payment_email_delivered_at, final_payment_email_opened_at, final_payment_email_clicked_at, final_payment_email_recipient, customer_email, final_payment_method_type, final_payment_email_all_recipients, payment_email_all_recipients),
+          estimating_invoices:estimating_invoice_id (id, invoice_number, total_amount, invoice_date, payment_status, payment_link, final_payment_link_url, payment_email_sent_at, payment_email_delivered_at, payment_email_opened_at, payment_email_clicked_at, payment_link_created_at, paid_at, balance_due, deposit_applied, amount_paid, final_payment_email_sent_at, final_payment_email_delivered_at, final_payment_email_opened_at, final_payment_email_clicked_at, final_payment_email_recipient, customer_email, final_payment_method_type, final_payment_email_all_recipients),
           customers:customer_id (id, customer_type, first_name, last_name, business_name, email, phone),
           customer_vessels:vessel_id (id, vessel_name, manufacturer, model, year)
         `)
-        .eq('company_id', selectedCompany.id)
+        .eq('company_id', companyId)
         .order('created_at', { ascending: false });
 
       // When impersonating a yacht, filter by that yacht (for all roles)
