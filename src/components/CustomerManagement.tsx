@@ -207,13 +207,14 @@ export default function CustomerManagement() {
     }
   };
 
-  const loadCustomerHistory = async (customerId: string) => {
+  const loadCustomerHistory = async (customerId: string, customerName?: string) => {
     try {
+      const nameFilter = customerName ? `customer_id.eq.${customerId},customer_name.ilike.${customerName}` : `customer_id.eq.${customerId}`;
       const [estimates, workOrders, invoices, repairRequests] = await Promise.all([
-        supabase.from('estimates').select('id', { count: 'exact', head: true }).eq('customer_id', customerId),
-        supabase.from('work_orders').select('id', { count: 'exact', head: true }).eq('customer_id', customerId),
+        supabase.from('estimates').select('id', { count: 'exact', head: true }).or(nameFilter),
+        supabase.from('work_orders').select('id', { count: 'exact', head: true }).or(nameFilter),
         supabase.from('yacht_invoices').select('id', { count: 'exact', head: true }).eq('customer_id', customerId),
-        supabase.from('repair_requests').select('id', { count: 'exact', head: true }).eq('customer_id', customerId),
+        supabase.from('repair_requests').select('id', { count: 'exact', head: true }).or(nameFilter),
       ]);
 
       setCustomerHistory({
@@ -462,7 +463,10 @@ export default function CustomerManagement() {
   const handleSelectCustomer = (customer: Customer) => {
     setSelectedCustomer(customer);
     loadCustomerVessels(customer.id);
-    loadCustomerHistory(customer.id);
+    const displayName = customer.customer_type === 'business'
+      ? customer.business_name
+      : `${customer.first_name} ${customer.last_name}`.trim();
+    loadCustomerHistory(customer.id, displayName);
   };
 
   const getCustomerDisplayName = (customer: Customer) => {
