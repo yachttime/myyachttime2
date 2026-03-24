@@ -158,7 +158,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
         .from('estimating_invoices')
         .select(`
           *,
-          work_orders!estimating_invoices_work_order_id_fkey(work_order_number, vessel_id, customer_vessels(vessel_name, manufacturer, model)),
+          work_orders!estimating_invoices_work_order_id_fkey(work_order_number, work_title, vessel_id, customer_vessels(vessel_name, manufacturer, model)),
           yachts!estimating_invoices_yacht_id_fkey(name, manufacturer, model)
         `)
         .eq('archived', false)
@@ -169,6 +169,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       const formattedInvoices = data?.map(inv => ({
         ...inv,
         work_order_number: inv.work_orders?.work_order_number,
+        work_title: inv.work_orders?.work_title,
         yacht_name: inv.yachts?.name,
         yacht_manufacturer: inv.yachts?.manufacturer,
         yacht_model: inv.yachts?.model,
@@ -192,7 +193,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
         .from('estimating_invoices')
         .select(`
           *,
-          work_orders!estimating_invoices_work_order_id_fkey(work_order_number, vessel_id, customer_vessels(vessel_name, manufacturer, model)),
+          work_orders!estimating_invoices_work_order_id_fkey(work_order_number, work_title, vessel_id, customer_vessels(vessel_name, manufacturer, model)),
           yachts!estimating_invoices_yacht_id_fkey(name, manufacturer, model)
         `)
         .eq('archived', true)
@@ -203,6 +204,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       const formattedInvoices = data?.map(inv => ({
         ...inv,
         work_order_number: inv.work_orders?.work_order_number,
+        work_title: inv.work_orders?.work_title,
         yacht_name: inv.yachts?.name,
         yacht_manufacturer: inv.yachts?.manufacturer,
         yacht_model: inv.yachts?.model,
@@ -1439,6 +1441,11 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                       {invoice.work_order_number && (
                         <div className="text-xs text-gray-500">
                           WO: {invoice.work_order_number}
+                        </div>
+                      )}
+                      {invoice.work_title && (
+                        <div className="text-xs text-blue-600 font-medium mt-0.5">
+                          {invoice.work_title}
                         </div>
                       )}
                     </td>
