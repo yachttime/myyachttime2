@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Download, Calendar, Users, Clock, Plus, Edit2, Trash2, X, Check, CheckCircle, ChevronDown, ChevronRight, Printer } from 'lucide-react';
+import { Download, Calendar, Users, Clock, Plus, CreditCard as Edit2, Trash2, X, Check, CheckCircle, ChevronDown, ChevronRight, Printer } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { TimeEntry, getPayrollPeriodsForDateRange } from '../utils/timeClockHelpers';
 import { generatePayrollReportPDF } from '../utils/pdfGenerator';
@@ -842,13 +842,27 @@ export function PayrollReportView() {
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">{period.notes || '-'}</td>
                       <td className="px-4 py-3 text-sm">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          period.is_processed
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {period.is_processed ? 'Processed' : 'Pending'}
-                        </span>
+                        {(() => {
+                          const now = new Date();
+                          now.setHours(0, 0, 0, 0);
+                          const start = new Date(period.period_start);
+                          start.setHours(0, 0, 0, 0);
+                          const end = new Date(period.period_end);
+                          end.setHours(23, 59, 59, 999);
+                          const isProcessed = period.is_processed || now > end;
+                          const isOpen = !isProcessed && now >= start && now <= end;
+                          return (
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              isProcessed
+                                ? 'bg-green-100 text-green-800'
+                                : isOpen
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : 'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {isProcessed ? 'Processed' : isOpen ? 'Open' : 'Pending'}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className="px-4 py-3 text-sm text-right space-x-2">
                         <button
