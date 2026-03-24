@@ -1841,6 +1841,8 @@ export function Estimates({ userId }: EstimatesProps) {
 
       const resolvedCompanyId = estimateData.company_id || estimateData.yachts?.company_id || null;
 
+      const isRetail = estimateData.is_retail_customer === true && !estimateData.yacht_id;
+
       const insertPayload: Record<string, any> = {
         submitted_by: userId,
         company_id: resolvedCompanyId,
@@ -1852,15 +1854,16 @@ export function Estimates({ userId }: EstimatesProps) {
         estimate_pdf_name: fileName,
         estimate_id: estimateId,
         status: 'pending',
-        is_retail_customer: estimateData.is_retail_customer,
-        customer_name: estimateData.customer_name || null,
-        customer_email: estimateData.customer_email || null,
-        customer_phone: estimateData.customer_phone || null,
+        is_retail_customer: isRetail,
         estimated_repair_cost: totalFormatted
       };
 
-      if (!estimateData.is_retail_customer && estimateData.yacht_id) {
+      if (!isRetail && estimateData.yacht_id) {
         insertPayload.yacht_id = estimateData.yacht_id;
+      } else if (isRetail) {
+        insertPayload.customer_name = estimateData.customer_name || null;
+        insertPayload.customer_email = estimateData.customer_email || null;
+        insertPayload.customer_phone = estimateData.customer_phone || null;
       }
 
       const { data: newRR, error: rrError } = await supabase
