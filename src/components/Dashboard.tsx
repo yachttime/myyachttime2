@@ -13352,7 +13352,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                     </div>
                                   )}
 
-                                  {!invoice && request.status === 'completed' && !request.is_retail_customer && canManageYacht(effectiveRole) && (
+                                  {!invoice && !request.billed_at && request.status === 'completed' && !request.is_retail_customer && canManageYacht(effectiveRole) && (
                                     <div className="mt-4">
                                       <button
                                         onClick={() => handleAddInvoiceToCompletedRepair(request)}
