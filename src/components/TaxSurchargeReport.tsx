@@ -31,6 +31,7 @@ interface LaborRow {
   total_hours: number;
   total_labor_amount: number;
   employees: string[];
+  employeeHours: Record<string, number>;
 }
 
 interface Props {
@@ -137,12 +138,13 @@ export function TaxSurchargeReport({ onClose }: Props) {
         .filter((id): id is string => !!id);
 
       let employeesByWorkOrder: Record<string, string[]> = {};
+      let employeeHoursByWorkOrder: Record<string, Record<string, number>> = {};
 
       if (workOrderIds.length > 0) {
         const [{ data: laborLineItems }, { data: taskAssignments }] = await Promise.all([
           supabase
             .from('work_order_line_items')
-            .select('work_order_id, assigned_employee_id')
+            .select('work_order_id, assigned_employee_id, quantity')
             .in('work_order_id', workOrderIds)
             .eq('line_type', 'labor')
             .not('assigned_employee_id', 'is', null),
@@ -168,19 +170,23 @@ export function TaxSurchargeReport({ onClose }: Props) {
           });
         }
 
-        const addEmployee = (workOrderId: string, employeeId: string) => {
+        const addEmployee = (workOrderId: string, employeeId: string, hours = 0) => {
           if (!workOrderId || !employeeId) return;
           if (!employeesByWorkOrder[workOrderId]) employeesByWorkOrder[workOrderId] = [];
+          if (!employeeHoursByWorkOrder[workOrderId]) employeeHoursByWorkOrder[workOrderId] = {};
           const name = userMap[employeeId];
-          if (name && !employeesByWorkOrder[workOrderId].includes(name)) {
-            employeesByWorkOrder[workOrderId].push(name);
+          if (name) {
+            if (!employeesByWorkOrder[workOrderId].includes(name)) {
+              employeesByWorkOrder[workOrderId].push(name);
+            }
+            employeeHoursByWorkOrder[workOrderId][name] = (employeeHoursByWorkOrder[workOrderId][name] || 0) + hours;
           }
         };
 
-        (laborLineItems || []).forEach(li => addEmployee(li.work_order_id, li.assigned_employee_id));
+        (laborLineItems || []).forEach(li => addEmployee(li.work_order_id, li.assigned_employee_id, Number(li.quantity) || 0));
         (taskAssignments || []).forEach((ta: any) => {
           const woId = ta.work_order_tasks?.work_order_id;
-          addEmployee(woId, ta.employee_id);
+          addEmployee(woId, ta.employee_id, 0);
         });
       }
 
@@ -205,6 +211,7 @@ export function TaxSurchargeReport({ onClose }: Props) {
           total_hours: laborByInvoice[inv.id]?.hours || 0,
           total_labor_amount: laborByInvoice[inv.id]?.amount || 0,
           employees: (inv.work_order_id && employeesByWorkOrder[inv.work_order_id]) || [],
+          employeeHours: (inv.work_order_id && employeeHoursByWorkOrder[inv.work_order_id]) || {},
         }));
 
       setLaborRows(result);
@@ -325,6 +332,12 @@ export function TaxSurchargeReport({ onClose }: Props) {
 
       const tableRows: any[] = [];
       laborRows.forEach(row => {
+        const empWithHours = row.employees.length > 0
+          ? row.employees.map(emp => {
+              const hrs = row.employeeHours[emp];
+              return hrs > 0 ? `${emp} (${hrs.toFixed(2)}h)` : emp;
+            }).join(', ')
+          : '—';
         tableRows.push([
           row.invoice_number,
           formatDate(row.invoice_date),
@@ -332,7 +345,7 @@ export function TaxSurchargeReport({ onClose }: Props) {
           row.work_title || '—',
           row.total_hours.toFixed(2),
           `$${row.total_labor_amount.toFixed(2)}`,
-          row.employees.length > 0 ? row.employees.join(', ') : '—',
+          empWithHours,
         ]);
         if (hasPdfPreset) {
           tableRows.push([
@@ -624,11 +637,17 @@ export function TaxSurchargeReport({ onClose }: Props) {
                           <td className="px-4 py-3 text-sm text-gray-700">
                             {row.employees.length > 0 ? (
                               <div className="flex flex-wrap gap-1">
-                                {row.employees.map((emp, i) => (
-                                  <span key={i} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-800">
-                                    {emp}
-                                  </span>
-                                ))}
+                                {row.employees.map((emp, i) => {
+                                  const hrs = row.employeeHours[emp];
+                                  return (
+                                    <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-800">
+                                      {emp}
+                                      {hrs > 0 && (
+                                        <span className="text-blue-500 font-normal">({hrs.toFixed(2)}h)</span>
+                                      )}
+                                    </span>
+                                  );
+                                })}
                               </div>
                             ) : (
                               <span className="text-gray-400">—</span>
