@@ -51,6 +51,7 @@ export function TaxSurchargeReport({ onClose }: Props) {
     return d.toISOString().slice(0, 10);
   });
   const [dateTo, setDateTo] = useState(() => new Date().toISOString().slice(0, 10));
+  const [presetPercent, setPresetPercent] = useState<string>('');
   const [companyName, setCompanyName] = useState('');
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -319,15 +320,28 @@ export function TaxSurchargeReport({ onClose }: Props) {
     y += 20;
 
     if (reportType === 'labor') {
-      const tableRows = laborRows.map(row => [
-        row.invoice_number,
-        formatDate(row.invoice_date),
-        row.customer_name,
-        row.work_title || '—',
-        row.total_hours.toFixed(2),
-        `$${row.total_labor_amount.toFixed(2)}`,
-        row.employees.length > 0 ? row.employees.join(', ') : '—',
-      ]);
+      const pdfPct = parseFloat(presetPercent);
+      const hasPdfPreset = !isNaN(pdfPct) && pdfPct > 0;
+
+      const tableRows: any[] = [];
+      laborRows.forEach(row => {
+        tableRows.push([
+          row.invoice_number,
+          formatDate(row.invoice_date),
+          row.customer_name,
+          row.work_title || '—',
+          row.total_hours.toFixed(2),
+          `$${row.total_labor_amount.toFixed(2)}`,
+          row.employees.length > 0 ? row.employees.join(', ') : '—',
+        ]);
+        if (hasPdfPreset) {
+          tableRows.push([
+            { content: `${pdfPct}% of labor amount`, colSpan: 5, styles: { fillColor: [254, 243, 199] as [number, number, number], textColor: [146, 64, 14] as [number, number, number], fontSize: 7, fontStyle: 'italic' as const } },
+            { content: `$${(row.total_labor_amount * (pdfPct / 100)).toFixed(2)}`, styles: { fillColor: [254, 243, 199] as [number, number, number], textColor: [146, 64, 14] as [number, number, number], fontSize: 7, fontStyle: 'bold' as const, halign: 'right' as const } },
+            { content: '', styles: { fillColor: [254, 243, 199] as [number, number, number] } },
+          ]);
+        }
+      });
 
       autoTable(doc, {
         startY: y,
@@ -359,6 +373,13 @@ export function TaxSurchargeReport({ onClose }: Props) {
       doc.setTextColor(30, 30, 30);
       doc.text(`Total Labor Hours: ${getTotalLaborHours().toFixed(2)}`, pageWidth - margin - 160, finalY);
       doc.text(`Total Labor Amount: $${getTotalLaborAmount().toFixed(2)}`, pageWidth - margin, finalY, { align: 'right' });
+
+      if (hasPdfPreset) {
+        finalY += 16;
+        const presetTotal = laborRows.reduce((sum, r) => sum + r.total_labor_amount * (pdfPct / 100), 0);
+        doc.setTextColor(146, 64, 14);
+        doc.text(`Total at ${pdfPct}%: $${presetTotal.toFixed(2)}`, pageWidth - margin, finalY, { align: 'right' });
+      }
     } else {
       const tableRows = rows.map(row => [
         row.invoice_number,
@@ -493,6 +514,23 @@ export function TaxSurchargeReport({ onClose }: Props) {
               </div>
             </div>
 
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Preset %</label>
+              <div className="relative flex items-center">
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  placeholder="e.g. 40"
+                  value={presetPercent}
+                  onChange={(e) => setPresetPercent(e.target.value)}
+                  className="w-24 pl-3 pr-7 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <span className="absolute right-2.5 text-gray-400 text-sm pointer-events-none">%</span>
+              </div>
+            </div>
+
             {isLaborReport ? (
               <div className="ml-auto flex items-center gap-6">
                 <div className="text-right border-r border-gray-200 pr-6">
@@ -568,29 +606,47 @@ export function TaxSurchargeReport({ onClose }: Props) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {laborRows.map((row) => (
-                    <tr key={row.invoice_id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm font-medium text-blue-700">{row.invoice_number}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{formatDate(row.invoice_date)}</td>
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{row.customer_name}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{row.work_title || <span className="text-gray-400">—</span>}</td>
-                      <td className="px-4 py-3 text-sm font-semibold text-blue-700 text-right">{row.total_hours.toFixed(2)}</td>
-                      <td className="px-4 py-3 text-sm font-semibold text-gray-900 text-right">${row.total_labor_amount.toFixed(2)}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">
-                        {row.employees.length > 0 ? (
-                          <div className="flex flex-wrap gap-1">
-                            {row.employees.map((emp, i) => (
-                              <span key={i} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-800">
-                                {emp}
-                              </span>
-                            ))}
-                          </div>
-                        ) : (
-                          <span className="text-gray-400">—</span>
+                  {laborRows.map((row) => {
+                    const pct = parseFloat(presetPercent);
+                    const hasPreset = !isNaN(pct) && pct > 0;
+                    const presetAmount = hasPreset ? row.total_labor_amount * (pct / 100) : 0;
+                    return (
+                      <React.Fragment key={row.invoice_id}>
+                        <tr className="hover:bg-gray-50">
+                          <td className="px-4 py-3 text-sm font-medium text-blue-700">{row.invoice_number}</td>
+                          <td className="px-4 py-3 text-sm text-gray-700">{formatDate(row.invoice_date)}</td>
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900">{row.customer_name}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{row.work_title || <span className="text-gray-400">—</span>}</td>
+                          <td className="px-4 py-3 text-sm font-semibold text-blue-700 text-right">{row.total_hours.toFixed(2)}</td>
+                          <td className="px-4 py-3 text-sm font-semibold text-gray-900 text-right">${row.total_labor_amount.toFixed(2)}</td>
+                          <td className="px-4 py-3 text-sm text-gray-700">
+                            {row.employees.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {row.employees.map((emp, i) => (
+                                  <span key={i} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-800">
+                                    {emp}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-gray-400">—</span>
+                            )}
+                          </td>
+                        </tr>
+                        {hasPreset && (
+                          <tr className="bg-amber-50 border-t border-amber-100">
+                            <td colSpan={5} className="px-4 py-1.5 text-xs text-amber-700 font-medium pl-8">
+                              {pct}% of labor amount
+                            </td>
+                            <td className="px-4 py-1.5 text-xs font-bold text-amber-700 text-right">
+                              ${presetAmount.toFixed(2)}
+                            </td>
+                            <td />
+                          </tr>
                         )}
-                      </td>
-                    </tr>
-                  ))}
+                      </React.Fragment>
+                    );
+                  })}
                 </tbody>
                 <tfoot className="bg-gray-50 border-t-2 border-gray-300">
                   <tr>
@@ -605,6 +661,22 @@ export function TaxSurchargeReport({ onClose }: Props) {
                     </td>
                     <td />
                   </tr>
+                  {(() => {
+                    const pct = parseFloat(presetPercent);
+                    if (isNaN(pct) || pct <= 0) return null;
+                    const presetTotal = laborRows.reduce((sum, r) => sum + r.total_labor_amount * (pct / 100), 0);
+                    return (
+                      <tr className="bg-amber-50 border-t border-amber-200">
+                        <td colSpan={5} className="px-4 py-2 text-sm font-bold text-amber-700">
+                          Total at {pct}%
+                        </td>
+                        <td className="px-4 py-2 text-sm font-bold text-amber-700 text-right">
+                          ${presetTotal.toFixed(2)}
+                        </td>
+                        <td />
+                      </tr>
+                    );
+                  })()}
                 </tfoot>
               </table>
             )
