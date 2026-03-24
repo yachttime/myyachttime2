@@ -16987,7 +16987,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               }
                             });
 
-                            const hasResults = filteredUsers.length > 0;
+                            const hasResults = filteredUsers.length > 0 || Object.keys(yachtGroups).length > 0;
 
                             if (selectedUserGroup) {
                               let groupUsers = selectedUserGroup === 'Staff' ? staffUsers : yachtGroups[selectedUserGroup] || [];
@@ -17033,6 +17033,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   </div>
 
                                   <div className="space-y-4">
+                                    {groupUsers.length === 0 && selectedUserGroup !== 'Staff' && (
+                                      <div className="text-center py-8 text-slate-500 text-sm">No members assigned yet.</div>
+                                    )}
                                     {groupUsers.map((user) => (
                                       <div
                                         key={user.user_id}
