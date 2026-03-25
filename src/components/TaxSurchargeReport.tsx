@@ -141,15 +141,27 @@ export function TaxSurchargeReport({ onClose }: Props) {
       let employeeHoursByWorkOrder: Record<string, Record<string, number>> = {};
 
       if (workOrderIds.length > 0) {
-        const { data: laborLineItems } = await supabase
-          .from('work_order_line_items')
-          .select('work_order_id, assigned_employee_id, quantity')
-          .in('work_order_id', workOrderIds)
-          .eq('line_type', 'labor')
-          .not('assigned_employee_id', 'is', null);
+        const [{ data: assignedLaborItems }, { data: allLaborItems }, { data: taskAssignments }] = await Promise.all([
+          supabase
+            .from('work_order_line_items')
+            .select('work_order_id, assigned_employee_id, quantity')
+            .in('work_order_id', workOrderIds)
+            .eq('line_type', 'labor')
+            .not('assigned_employee_id', 'is', null),
+          supabase
+            .from('work_order_line_items')
+            .select('work_order_id, quantity')
+            .in('work_order_id', workOrderIds)
+            .eq('line_type', 'labor'),
+          supabase
+            .from('work_order_task_assignments')
+            .select('employee_id, work_order_tasks!inner(work_order_id)')
+            .in('work_order_tasks.work_order_id', workOrderIds),
+        ]);
 
         const allEmployeeIds = new Set<string>();
-        (laborLineItems || []).forEach(li => li.assigned_employee_id && allEmployeeIds.add(li.assigned_employee_id));
+        (assignedLaborItems || []).forEach(li => li.assigned_employee_id && allEmployeeIds.add(li.assigned_employee_id));
+        (taskAssignments || []).forEach((ta: any) => ta.employee_id && allEmployeeIds.add(ta.employee_id));
 
         let userMap: Record<string, string> = {};
         if (allEmployeeIds.size > 0) {
@@ -163,7 +175,13 @@ export function TaxSurchargeReport({ onClose }: Props) {
           });
         }
 
-        (laborLineItems || []).forEach(li => {
+        const totalHoursByWorkOrder: Record<string, number> = {};
+        (allLaborItems || []).forEach(li => {
+          if (!li.work_order_id) return;
+          totalHoursByWorkOrder[li.work_order_id] = (totalHoursByWorkOrder[li.work_order_id] || 0) + (Number(li.quantity) || 0);
+        });
+
+        (assignedLaborItems || []).forEach(li => {
           const woId = li.work_order_id;
           const empId = li.assigned_employee_id;
           if (!woId || !empId) return;
@@ -173,6 +191,34 @@ export function TaxSurchargeReport({ onClose }: Props) {
           if (!employeeHoursByWorkOrder[woId]) employeeHoursByWorkOrder[woId] = {};
           if (!employeesByWorkOrder[woId].includes(name)) employeesByWorkOrder[woId].push(name);
           employeeHoursByWorkOrder[woId][name] = (employeeHoursByWorkOrder[woId][name] || 0) + (Number(li.quantity) || 0);
+        });
+
+        const taskEmpsByWorkOrder: Record<string, Set<string>> = {};
+        (taskAssignments || []).forEach((ta: any) => {
+          const woId = ta.work_order_tasks?.work_order_id;
+          const empId = ta.employee_id;
+          if (!woId || !empId) return;
+          const name = userMap[empId];
+          if (!name) return;
+          if (!taskEmpsByWorkOrder[woId]) taskEmpsByWorkOrder[woId] = new Set();
+          taskEmpsByWorkOrder[woId].add(name);
+        });
+
+        Object.entries(taskEmpsByWorkOrder).forEach(([woId, empNames]) => {
+          const alreadyHasAssigned = (employeesByWorkOrder[woId] || []).length > 0;
+          if (alreadyHasAssigned) return;
+
+          const totalHrs = totalHoursByWorkOrder[woId] || 0;
+          const empCount = empNames.size;
+          const hrsEach = empCount > 0 ? totalHrs / empCount : 0;
+
+          if (!employeesByWorkOrder[woId]) employeesByWorkOrder[woId] = [];
+          if (!employeeHoursByWorkOrder[woId]) employeeHoursByWorkOrder[woId] = {};
+
+          empNames.forEach(name => {
+            if (!employeesByWorkOrder[woId].includes(name)) employeesByWorkOrder[woId].push(name);
+            employeeHoursByWorkOrder[woId][name] = (employeeHoursByWorkOrder[woId][name] || 0) + hrsEach;
+          });
         });
       }
 
