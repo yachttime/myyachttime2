@@ -38,24 +38,22 @@ export const useAuth = () => {
   return context;
 };
 
+const detectRecoveryFromUrl = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  const hash = window.location.hash;
+  const search = window.location.search;
+  return hash.includes('type=recovery') || search.includes('type=recovery');
+};
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [yacht, setYacht] = useState<Yacht | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
-  const isPasswordRecoveryRef = useRef(false);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(detectRecoveryFromUrl);
+  const isPasswordRecoveryRef = useRef(detectRecoveryFromUrl());
 
   useEffect(() => {
-    const hash = window.location.hash;
-    const search = window.location.search;
-    const isRecoveryHash = hash.includes('type=recovery');
-    const isRecoverySearch = search.includes('type=recovery');
-    if (isRecoveryHash || isRecoverySearch) {
-      isPasswordRecoveryRef.current = true;
-      setIsPasswordRecovery(true);
-    }
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       (async () => {
         if (event === 'SIGNED_OUT') {

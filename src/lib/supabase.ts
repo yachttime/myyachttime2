@@ -12,7 +12,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    flowType: 'pkce',
+    flowType: 'implicit',
   },
   global: {
     headers: {
