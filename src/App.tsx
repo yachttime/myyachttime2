@@ -74,8 +74,8 @@ function AppContent() {
     );
   }
 
-  if (isPasswordRecovery && (loading || !user || userProfile?.must_change_password)) {
-    if (loading && !user) {
+  if (isPasswordRecovery) {
+    if (loading || !user) {
       return (
         <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white flex items-center justify-center">
           <div className="text-center">

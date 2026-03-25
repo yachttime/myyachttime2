@@ -48,21 +48,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const hash = window.location.hash;
-    const isRecoveryUrl = hash.includes('type=recovery') || hash.includes('type=signup');
-    if (isRecoveryUrl) {
+    const search = window.location.search;
+    const isRecoveryHash = hash.includes('type=recovery');
+    const isRecoverySearch = search.includes('type=recovery');
+    if (isRecoveryHash || isRecoverySearch) {
       isPasswordRecoveryRef.current = true;
       setIsPasswordRecovery(true);
     }
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (isPasswordRecoveryRef.current) return;
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        loadUserProfile(session.user.id);
-      } else {
-        setLoading(false);
-      }
-    });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       (async () => {
@@ -72,6 +64,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setYacht(null);
           isPasswordRecoveryRef.current = false;
           setIsPasswordRecovery(false);
+          setLoading(false);
           return;
         }
 
@@ -93,13 +86,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
 
         if (event === 'SIGNED_IN') {
-          if (isPasswordRecoveryRef.current) return;
+          if (isPasswordRecoveryRef.current) {
+            setUser(session?.user ?? null);
+            if (session?.user) {
+              await loadUserProfile(session.user.id);
+            } else {
+              setLoading(false);
+            }
+            return;
+          }
           setUser(session?.user ?? null);
           if (session?.user) {
             await loadUserProfile(session.user.id);
           } else {
             setUserProfile(null);
             setYacht(null);
+            setLoading(false);
           }
           return;
         }
@@ -111,6 +113,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           } else {
             setUserProfile(null);
             setYacht(null);
+            setLoading(false);
+          }
+        }
+
+        if (event === 'INITIAL_SESSION') {
+          if (isPasswordRecoveryRef.current) return;
+          setUser(session?.user ?? null);
+          if (session?.user) {
+            await loadUserProfile(session.user.id);
+          } else {
+            setLoading(false);
           }
         }
       })();
