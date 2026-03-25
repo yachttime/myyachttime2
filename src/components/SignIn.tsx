@@ -172,8 +172,9 @@ export const SignIn = () => {
           throw new Error('Please enter a valid email address');
         }
 
+        const redirectTo = `${import.meta.env.VITE_APP_URL || window.location.origin}`;
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: import.meta.env.VITE_APP_URL || window.location.origin,
+          redirectTo,
         });
 
         if (error) {
