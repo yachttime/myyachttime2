@@ -19,6 +19,7 @@ interface AuthContextType {
   userProfile: UserProfile | null;
   yacht: Yacht | null;
   loading: boolean;
+  isPasswordRecovery: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, role: 'owner' | 'manager' | 'staff', profile: SignUpProfile) => Promise<void>;
   signOut: () => Promise<void>;
@@ -46,7 +47,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const isPasswordRecoveryRef = useRef(false);
 
   useEffect(() => {
+    const hash = window.location.hash;
+    const isRecoveryUrl = hash.includes('type=recovery') || hash.includes('type=signup');
+    if (isRecoveryUrl) {
+      isPasswordRecoveryRef.current = true;
+      setIsPasswordRecovery(true);
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (isPasswordRecoveryRef.current) return;
       setUser(session?.user ?? null);
       if (session?.user) {
         loadUserProfile(session.user.id);
@@ -266,6 +275,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     userProfile,
     yacht,
     loading,
+    isPasswordRecovery,
     signIn,
     signUp,
     signOut,
