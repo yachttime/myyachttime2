@@ -367,6 +367,51 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
       setMarineWholesaleParts(marineWholesaleResult.data || []);
       setPackages(packagesResult.data || []);
 
+      if (unconvertedWorkOrders.length > 0) {
+        const workOrderIds = unconvertedWorkOrders.map(wo => wo.id);
+        const estimateIds = unconvertedWorkOrders
+          .map(wo => wo.estimate_id)
+          .filter((id): id is string => !!id);
+
+        const rrQueries: Promise<any>[] = [
+          supabase
+            .from('repair_requests')
+            .select('id, work_order_id')
+            .in('work_order_id', workOrderIds)
+        ];
+
+        if (estimateIds.length > 0) {
+          rrQueries.push(
+            supabase
+              .from('repair_requests')
+              .select('id, estimate_id')
+              .in('estimate_id', estimateIds)
+          );
+        }
+
+        const rrResults = await Promise.all(rrQueries);
+        const rrMap: Record<string, string> = {};
+
+        (rrResults[0].data || []).forEach((rr: { id: string; work_order_id: string }) => {
+          rrMap[rr.work_order_id] = rr.id;
+        });
+
+        if (rrResults[1]) {
+          const estimateToWO: Record<string, string> = {};
+          unconvertedWorkOrders.forEach(wo => {
+            if (wo.estimate_id) estimateToWO[wo.estimate_id] = wo.id;
+          });
+          (rrResults[1].data || []).forEach((rr: { id: string; estimate_id: string }) => {
+            const woId = estimateToWO[rr.estimate_id];
+            if (woId && !rrMap[woId]) rrMap[woId] = rr.id;
+          });
+        }
+
+        if (Object.keys(rrMap).length > 0) {
+          setWorkOrderRepairRequestIds(rrMap);
+        }
+      }
+
       if (settingsResult.data) {
         setFormData(prev => ({
           ...prev,
@@ -2025,26 +2070,66 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
         insertPayload.yacht_id = workOrderData.yacht_id;
       }
 
-      const { data: newRR, error: rrError } = await supabase
-        .from('repair_requests')
-        .insert(insertPayload)
-        .select('id')
-        .single();
+      let repairRequestId: string;
+      let isUpdate = false;
 
-      if (rrError) throw rrError;
+      let existingRR: { id: string } | null = null;
 
-      await supabase.from('admin_notifications').insert({
-        user_id: userId,
-        yacht_id: workOrderData.yacht_id || null,
-        notification_type: 'repair_request',
-        reference_id: newRR.id,
-        message: `New repair request created from Work Order ${workOrderData.work_order_number} for ${customerDisplay}. Total: ${totalFormatted}.`,
-        company_id: resolvedCompanyId
-      });
+      if (workOrderData.estimate_id) {
+        const { data: rrFromEstimate } = await supabase
+          .from('repair_requests')
+          .select('id')
+          .eq('estimate_id', workOrderData.estimate_id)
+          .maybeSingle();
+        existingRR = rrFromEstimate;
+      }
+
+      if (!existingRR) {
+        const { data: rrFromWorkOrder } = await supabase
+          .from('repair_requests')
+          .select('id')
+          .eq('work_order_id', workOrderId)
+          .maybeSingle();
+        existingRR = rrFromWorkOrder;
+      }
+
+      if (existingRR) {
+        const { error: updateError } = await supabase
+          .from('repair_requests')
+          .update({
+            ...insertPayload,
+            work_order_id: workOrderId,
+          })
+          .eq('id', existingRR.id);
+
+        if (updateError) throw updateError;
+        repairRequestId = existingRR.id;
+        isUpdate = true;
+      } else {
+        const { data: newRR, error: rrError } = await supabase
+          .from('repair_requests')
+          .insert({ ...insertPayload, work_order_id: workOrderId })
+          .select('id')
+          .single();
+
+        if (rrError) throw rrError;
+        repairRequestId = newRR.id;
+      }
+
+      if (!isUpdate) {
+        await supabase.from('admin_notifications').insert({
+          user_id: userId,
+          yacht_id: workOrderData.yacht_id || null,
+          notification_type: 'repair_request',
+          reference_id: repairRequestId,
+          message: `New repair request created from Work Order ${workOrderData.work_order_number} for ${customerDisplay}. Total: ${totalFormatted}.`,
+          company_id: resolvedCompanyId
+        });
+      }
 
       if (!workOrderData.is_retail_customer && workOrderData.manager_email) {
         const managerName = workOrderData.manager_name || workOrderData.manager_email;
-        await supabase.from('repair_requests').update({ notification_recipients: workOrderData.manager_email }).eq('id', newRR.id);
+        await supabase.from('repair_requests').update({ notification_recipients: workOrderData.manager_email }).eq('id', repairRequestId);
 
         const { data: { session } } = await supabase.auth.getSession();
         const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-repair-estimate-email`;
@@ -2055,15 +2140,17 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            repairRequestId: newRR.id,
+            repairRequestId,
             recipientEmail: workOrderData.manager_email,
             recipientName: managerName
           })
         });
       }
 
-      setWorkOrderRepairRequestIds(prev => ({ ...prev, [workOrderId]: newRR.id }));
-      showSuccess(`Repair request created from Work Order ${workOrderData.work_order_number}`);
+      setWorkOrderRepairRequestIds(prev => ({ ...prev, [workOrderId]: repairRequestId }));
+      showSuccess(isUpdate
+        ? `Repair request updated from Work Order ${workOrderData.work_order_number} (merged with existing estimate submission)`
+        : `Repair request created from Work Order ${workOrderData.work_order_number}`);
     } catch (err: any) {
       console.error('Error sending work order to admin:', err);
       showError('Failed to create repair request: ' + (err.message || 'Unknown error'));
