@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase, UserProfile, Yacht } from '../lib/supabase';
 
@@ -42,6 +42,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [yacht, setYacht] = useState<Yacht | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
+  const isPasswordRecoveryRef = useRef(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -59,6 +61,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setUser(null);
           setUserProfile(null);
           setYacht(null);
+          isPasswordRecoveryRef.current = false;
+          setIsPasswordRecovery(false);
           return;
         }
 
@@ -68,6 +72,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
 
         if (event === 'PASSWORD_RECOVERY' && session?.user) {
+          isPasswordRecoveryRef.current = true;
+          setIsPasswordRecovery(true);
           await supabase
             .from('user_profiles')
             .update({ must_change_password: true })
@@ -77,7 +83,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           return;
         }
 
-        if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+        if (event === 'SIGNED_IN') {
+          if (isPasswordRecoveryRef.current) return;
+          setUser(session?.user ?? null);
+          if (session?.user) {
+            await loadUserProfile(session.user.id);
+          } else {
+            setUserProfile(null);
+            setYacht(null);
+          }
+          return;
+        }
+
+        if (event === 'USER_UPDATED') {
           setUser(session?.user ?? null);
           if (session?.user) {
             await loadUserProfile(session.user.id);
@@ -229,6 +247,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
 
     if (error) throw error;
+
+    isPasswordRecoveryRef.current = false;
+    setIsPasswordRecovery(false);
 
     if (user) {
       await supabase
