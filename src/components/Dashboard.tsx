@@ -646,6 +646,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [selectedUserGroup, setSelectedUserGroup] = useState<string | null>(null);
   const [expandedEmailId, setExpandedEmailId] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [resetPasswordValue, setResetPasswordValue] = useState('');
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [resetPasswordLoading, setResetPasswordLoading] = useState(false);
+  const [resetPasswordError, setResetPasswordError] = useState('');
+  const [resetPasswordSuccess, setResetPasswordSuccess] = useState('');
   const [userEditForm, setUserEditForm] = useState({
     first_name: '',
     last_name: '',
@@ -1520,6 +1525,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     });
     setUserError('');
     setUserSuccess('');
+    setResetPasswordValue('');
+    setShowResetPassword(false);
+    setResetPasswordError('');
+    setResetPasswordSuccess('');
   };
 
   const handleUserDelete = async (userToDelete: any) => {
@@ -1780,6 +1789,50 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       setUserError(error.message || `Failed to ${isCreatingNewUser ? 'create' : 'update'} user`);
     } finally {
       setUserLoading(false);
+    }
+  };
+
+  const handleResetUserPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedUser) return;
+
+    setResetPasswordLoading(true);
+    setResetPasswordError('');
+    setResetPasswordSuccess('');
+
+    try {
+      if (!resetPasswordValue || resetPasswordValue.length < 6) {
+        throw new Error('Password must be at least 6 characters long');
+      }
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/reset-user-password`;
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          target_user_id: selectedUser.user_id,
+          new_password: resetPasswordValue,
+        })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to reset password');
+      }
+
+      setResetPasswordSuccess(`Password reset successfully. ${selectedUser.first_name} will be prompted to change it on next login.`);
+      setResetPasswordValue('');
+      setShowResetPassword(false);
+    } catch (err: any) {
+      setResetPasswordError(err.message || 'Failed to reset password');
+    } finally {
+      setResetPasswordLoading(false);
     }
   };
 
@@ -16909,6 +16962,61 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               </div>
                             )}
 
+                            {!isCreatingNewUser && userProfile?.role === 'master' && selectedUser && (
+                              <div className="mt-6 border border-slate-600 rounded-lg overflow-hidden">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setShowResetPassword(!showResetPassword);
+                                    setResetPasswordValue('');
+                                    setResetPasswordError('');
+                                    setResetPasswordSuccess('');
+                                  }}
+                                  className="w-full flex items-center justify-between px-4 py-3 bg-slate-700/50 hover:bg-slate-700 text-left transition-colors"
+                                >
+                                  <span className="text-sm font-semibold text-amber-400">Reset User Password</span>
+                                  <span className="text-xs text-slate-400">{showResetPassword ? 'Hide' : 'Set a new password for this user'}</span>
+                                </button>
+
+                                {showResetPassword && (
+                                  <div className="p-4 bg-slate-800/50">
+                                    <p className="text-xs text-slate-400 mb-3">
+                                      The user will be required to change this password the next time they log in.
+                                    </p>
+                                    <form onSubmit={handleResetUserPassword} className="flex gap-3">
+                                      <div className="relative flex-1">
+                                        <input
+                                          type={showResetPassword ? 'text' : 'password'}
+                                          value={resetPasswordValue}
+                                          onChange={(e) => setResetPasswordValue(e.target.value)}
+                                          placeholder="New password (min. 6 characters)"
+                                          className="w-full px-4 py-2.5 pr-10 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent text-sm"
+                                          minLength={6}
+                                          required
+                                        />
+                                      </div>
+                                      <button
+                                        type="submit"
+                                        disabled={resetPasswordLoading || !resetPasswordValue}
+                                        className="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm whitespace-nowrap"
+                                      >
+                                        {resetPasswordLoading ? 'Resetting...' : 'Set Password'}
+                                      </button>
+                                    </form>
+                                    {resetPasswordError && (
+                                      <p className="text-red-400 text-xs mt-2">{resetPasswordError}</p>
+                                    )}
+                                  </div>
+                                )}
+
+                                {resetPasswordSuccess && (
+                                  <div className="px-4 py-3 bg-green-900/30 border-t border-green-700/50">
+                                    <p className="text-green-400 text-xs">{resetPasswordSuccess}</p>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
                             <div className="flex gap-4 mt-6">
                               <button
                                 type="submit"
@@ -16936,6 +17044,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   setSelectedUserGroup(null);
                                   setUserError('');
                                   setUserSuccess('');
+                                  setResetPasswordValue('');
+                                  setShowResetPassword(false);
+                                  setResetPasswordError('');
+                                  setResetPasswordSuccess('');
                                 }}
                                 className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-lg transition-colors"
                               >
