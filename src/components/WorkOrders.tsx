@@ -3461,8 +3461,9 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                           </span>
                         )}
                         {editingWorkOrder.deposit_payment_status === 'pending' && editingWorkOrder.deposit_email_sent_at && (
-                          <span className="ml-auto bg-blue-500/20 text-blue-700 px-3 py-1 rounded-full text-xs font-semibold">
-                            Awaiting Payment
+                          <span className="ml-auto bg-orange-500/20 text-orange-700 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
+                            <RefreshCw className="w-3 h-3" />
+                            Processing
                           </span>
                         )}
                         {editingWorkOrder.deposit_payment_status === 'paid' && (
