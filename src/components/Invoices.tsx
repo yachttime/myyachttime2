@@ -128,6 +128,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
   const [paymentMethodModal, setPaymentMethodModal] = useState<{ invoice: Invoice; email: string; mode: 'generate' | 'regenerate'; allRecipients?: string[] } | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'card' | 'ach' | 'both'>('card');
   const [invoiceEmployees, setInvoiceEmployees] = useState<Record<string, string[]>>({});
+  const [invoiceHasUnassigned, setInvoiceHasUnassigned] = useState<Record<string, boolean>>({});
 
   const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToast({ message, type });
@@ -206,12 +207,19 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
     if (!tasks || tasks.length === 0) return;
 
     const taskIds = tasks.map(t => t.id);
-    const { data: assignments } = await supabase
-      .from('work_order_task_assignments')
-      .select('task_id, employee_id, user_profiles!work_order_task_assignments_employee_id_fkey(first_name, last_name)')
-      .in('task_id', taskIds);
+    const [assignmentsResult, lineItemsResult] = await Promise.all([
+      supabase
+        .from('work_order_task_assignments')
+        .select('task_id, employee_id, user_profiles!work_order_task_assignments_employee_id_fkey(first_name, last_name)')
+        .in('task_id', taskIds),
+      supabase
+        .from('work_order_line_items')
+        .select('task_id, line_type')
+        .in('task_id', taskIds)
+    ]);
 
-    if (!assignments) return;
+    const assignments = assignmentsResult.data || [];
+    const lineItems = lineItemsResult.data || [];
 
     const taskToWO: Record<string, string> = {};
     tasks.forEach(t => { taskToWO[t.id] = t.work_order_id; });
@@ -228,13 +236,26 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       if (!woEmpMap[woId].includes(name)) woEmpMap[woId].push(name);
     });
 
+    const assignedTaskIds = new Set(assignments.map((a: any) => a.task_id));
+    const tasksWithItemsIds = new Set(lineItems.map((li: any) => li.task_id));
+    const woUnassignedMap: Record<string, boolean> = {};
+    tasksWithItemsIds.forEach(taskId => {
+      if (!assignedTaskIds.has(taskId)) {
+        const woId = taskToWO[taskId as string];
+        if (woId) woUnassignedMap[woId] = true;
+      }
+    });
+
     const invEmpMap: Record<string, string[]> = {};
+    const invUnassignedMap: Record<string, boolean> = {};
     invoiceList.forEach(inv => {
-      if (inv.work_order_id && woEmpMap[inv.work_order_id]) {
-        invEmpMap[inv.id] = woEmpMap[inv.work_order_id];
+      if (inv.work_order_id) {
+        if (woEmpMap[inv.work_order_id]) invEmpMap[inv.id] = woEmpMap[inv.work_order_id];
+        if (woUnassignedMap[inv.work_order_id]) invUnassignedMap[inv.id] = true;
       }
     });
     setInvoiceEmployees(invEmpMap);
+    setInvoiceHasUnassigned(invUnassignedMap);
   }
 
   async function fetchArchivedInvoices() {
@@ -1509,13 +1530,18 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                       )}
                     </td>
                     <td className="px-6 py-4">
-                      {(invoiceEmployees[invoice.id] || []).length > 0 ? (
+                      {(invoiceEmployees[invoice.id] || []).length > 0 || invoiceHasUnassigned[invoice.id] ? (
                         <div className="flex flex-wrap gap-1">
                           {(invoiceEmployees[invoice.id] || []).map((name, i) => (
-                            <span key={i} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
+                            <span key={i} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-50 text-green-700 border border-green-200">
                               {name}
                             </span>
                           ))}
+                          {invoiceHasUnassigned[invoice.id] && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-50 text-orange-700 border border-orange-200">
+                              Not Assigned
+                            </span>
+                          )}
                         </div>
                       ) : (
                         <span className="text-sm text-gray-400">—</span>
