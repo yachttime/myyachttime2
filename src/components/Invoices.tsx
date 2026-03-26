@@ -66,6 +66,7 @@ interface Invoice {
   final_payment_stripe_payment_intent_id: string | null;
   final_payment_resend_email_id: string | null;
   credit_card_fee: number | null;
+  manager_name?: string | null;
 }
 
 interface WorkOrderTask {
@@ -162,7 +163,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
         .from('estimating_invoices')
         .select(`
           *,
-          work_orders!estimating_invoices_work_order_id_fkey(work_order_number, work_title, vessel_id, customer_vessels(vessel_name, manufacturer, model)),
+          work_orders!estimating_invoices_work_order_id_fkey(work_order_number, work_title, vessel_id, customer_vessels(vessel_name, manufacturer, model), estimates(manager_name)),
           yachts!estimating_invoices_yacht_id_fkey(name, manufacturer, model)
         `)
         .eq('archived', false)
@@ -179,7 +180,8 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
         yacht_model: inv.yachts?.model,
         vessel_name: inv.work_orders?.customer_vessels?.vessel_name,
         vessel_manufacturer: inv.work_orders?.customer_vessels?.manufacturer,
-        vessel_model: inv.work_orders?.customer_vessels?.model
+        vessel_model: inv.work_orders?.customer_vessels?.model,
+        manager_name: inv.work_orders?.estimates?.manager_name || null
       })) || [];
 
       setInvoices(formattedInvoices);
@@ -197,7 +199,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
         .from('estimating_invoices')
         .select(`
           *,
-          work_orders!estimating_invoices_work_order_id_fkey(work_order_number, work_title, vessel_id, customer_vessels(vessel_name, manufacturer, model)),
+          work_orders!estimating_invoices_work_order_id_fkey(work_order_number, work_title, vessel_id, customer_vessels(vessel_name, manufacturer, model), estimates(manager_name)),
           yachts!estimating_invoices_yacht_id_fkey(name, manufacturer, model)
         `)
         .eq('archived', true)
@@ -214,7 +216,8 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
         yacht_model: inv.yachts?.model,
         vessel_name: inv.work_orders?.customer_vessels?.vessel_name,
         vessel_manufacturer: inv.work_orders?.customer_vessels?.manufacturer,
-        vessel_model: inv.work_orders?.customer_vessels?.model
+        vessel_model: inv.work_orders?.customer_vessels?.model,
+        manager_name: inv.work_orders?.estimates?.manager_name || null
       })) || [];
 
       setInvoices(formattedInvoices);
@@ -1460,7 +1463,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                       )}
                     </td>
                     <td className="px-6 py-4">
-                      <div className="text-sm text-gray-900">{invoice.customer_name}</div>
+                      <div className="text-sm text-gray-900">{invoice.manager_name || invoice.customer_name}</div>
                     </td>
                     <td className="px-6 py-4">
                       {invoice.is_retail_customer ? (
