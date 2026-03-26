@@ -1,5 +1,4 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import * as bcrypt from 'npm:bcryptjs@2.4.3';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -66,15 +65,13 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const hashedPassword = await bcrypt.hash(new_password, 10);
-
-    const { error: updateAuthError } = await supabaseAdmin.rpc('update_user_password', {
+    const { error: updateError } = await supabaseAdmin.rpc('update_user_password', {
       p_user_id: target_user_id,
-      p_encrypted_password: hashedPassword,
+      p_new_password: new_password,
     });
 
-    if (updateAuthError) {
-      return new Response(JSON.stringify({ error: updateAuthError.message }), {
+    if (updateError) {
+      return new Response(JSON.stringify({ error: updateError.message }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
