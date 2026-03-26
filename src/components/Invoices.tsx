@@ -127,6 +127,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
   const [showTaxReport, setShowTaxReport] = useState(false);
   const [paymentMethodModal, setPaymentMethodModal] = useState<{ invoice: Invoice; email: string; mode: 'generate' | 'regenerate'; allRecipients?: string[] } | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'card' | 'ach' | 'both'>('card');
+  const [invoiceEmployees, setInvoiceEmployees] = useState<Record<string, string[]>>({});
 
   const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToast({ message, type });
@@ -185,11 +186,55 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       })) || [];
 
       setInvoices(formattedInvoices);
+      await fetchInvoiceEmployees(formattedInvoices.map(inv => ({ id: inv.id, work_order_id: inv.work_order_id })));
     } catch (error) {
       console.error('Error fetching invoices:', error);
     } finally {
       setLoading(false);
     }
+  }
+
+  async function fetchInvoiceEmployees(invoiceList: { id: string; work_order_id: string | null }[]) {
+    const workOrderIds = invoiceList.map(inv => inv.work_order_id).filter(Boolean) as string[];
+    if (workOrderIds.length === 0) return;
+
+    const { data: tasks } = await supabase
+      .from('work_order_tasks')
+      .select('id, work_order_id')
+      .in('work_order_id', workOrderIds);
+
+    if (!tasks || tasks.length === 0) return;
+
+    const taskIds = tasks.map(t => t.id);
+    const { data: assignments } = await supabase
+      .from('work_order_task_assignments')
+      .select('task_id, employee_id, user_profiles!work_order_task_assignments_employee_id_fkey(first_name, last_name)')
+      .in('task_id', taskIds);
+
+    if (!assignments) return;
+
+    const taskToWO: Record<string, string> = {};
+    tasks.forEach(t => { taskToWO[t.id] = t.work_order_id; });
+
+    const woEmpMap: Record<string, string[]> = {};
+    (assignments as any[]).forEach(a => {
+      const woId = taskToWO[a.task_id];
+      if (!woId) return;
+      const name = a.user_profiles
+        ? `${a.user_profiles.first_name} ${a.user_profiles.last_name}`.trim()
+        : '';
+      if (!name) return;
+      if (!woEmpMap[woId]) woEmpMap[woId] = [];
+      if (!woEmpMap[woId].includes(name)) woEmpMap[woId].push(name);
+    });
+
+    const invEmpMap: Record<string, string[]> = {};
+    invoiceList.forEach(inv => {
+      if (inv.work_order_id && woEmpMap[inv.work_order_id]) {
+        invEmpMap[inv.id] = woEmpMap[inv.work_order_id];
+      }
+    });
+    setInvoiceEmployees(invEmpMap);
   }
 
   async function fetchArchivedInvoices() {
@@ -221,6 +266,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       })) || [];
 
       setInvoices(formattedInvoices);
+      await fetchInvoiceEmployees(formattedInvoices.map(inv => ({ id: inv.id, work_order_id: inv.work_order_id })));
     } catch (error) {
       console.error('Error fetching archived invoices:', error);
     } finally {
@@ -1463,7 +1509,17 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                       )}
                     </td>
                     <td className="px-6 py-4">
-                      <div className="text-sm text-gray-900">{invoice.manager_name || invoice.customer_name}</div>
+                      {(invoiceEmployees[invoice.id] || []).length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {(invoiceEmployees[invoice.id] || []).map((name, i) => (
+                            <span key={i} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
+                              {name}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-sm text-gray-400">—</span>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       {invoice.is_retail_customer ? (
