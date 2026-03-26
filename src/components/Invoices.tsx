@@ -67,6 +67,7 @@ interface Invoice {
   final_payment_resend_email_id: string | null;
   credit_card_fee: number | null;
   manager_name?: string | null;
+  company_id?: string | null;
 }
 
 interface WorkOrderTask {
@@ -128,7 +129,13 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
   const [paymentMethodModal, setPaymentMethodModal] = useState<{ invoice: Invoice; email: string; mode: 'generate' | 'regenerate'; allRecipients?: string[] } | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'card' | 'ach' | 'both'>('card');
   const [invoiceEmployees, setInvoiceEmployees] = useState<Record<string, string[]>>({});
+  const [invoiceSentEmployees, setInvoiceSentEmployees] = useState<Record<string, Set<string>>>({});
   const [invoiceHasUnassigned, setInvoiceHasUnassigned] = useState<Record<string, boolean>>({});
+  const [assignModal, setAssignModal] = useState<{ invoiceId: string; workOrderId: string } | null>(null);
+  const [assignModalTasks, setAssignModalTasks] = useState<any[]>([]);
+  const [assignModalEmployees, setAssignModalEmployees] = useState<{ user_id: string; first_name: string; last_name: string }[]>([]);
+  const [assignModalLoading, setAssignModalLoading] = useState(false);
+  const [sendingToTimeClock, setSendingToTimeClock] = useState<Record<string, boolean>>({});
 
   const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToast({ message, type });
@@ -214,7 +221,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
         .in('task_id', taskIds),
       supabase
         .from('work_order_line_items')
-        .select('task_id, line_type')
+        .select('task_id, line_type, time_entry_sent_at, assigned_employee_id, user_profiles!work_order_line_items_assigned_employee_id_fkey(first_name, last_name)')
         .in('task_id', taskIds)
     ]);
 
@@ -236,6 +243,18 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       if (!woEmpMap[woId].includes(name)) woEmpMap[woId].push(name);
     });
 
+    const woSentMap: Record<string, Set<string>> = {};
+    (lineItems as any[]).forEach(li => {
+      if (li.line_type === 'labor' && li.time_entry_sent_at && li.user_profiles) {
+        const woId = taskToWO[li.task_id];
+        if (!woId) return;
+        const name = `${li.user_profiles.first_name} ${li.user_profiles.last_name}`.trim();
+        if (!name) return;
+        if (!woSentMap[woId]) woSentMap[woId] = new Set();
+        woSentMap[woId].add(name);
+      }
+    });
+
     const assignedTaskIds = new Set(assignments.map((a: any) => a.task_id));
     const tasksWithItemsIds = new Set(lineItems.map((li: any) => li.task_id));
     const woUnassignedMap: Record<string, boolean> = {};
@@ -247,15 +266,150 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
     });
 
     const invEmpMap: Record<string, string[]> = {};
+    const invSentMap: Record<string, Set<string>> = {};
     const invUnassignedMap: Record<string, boolean> = {};
     invoiceList.forEach(inv => {
       if (inv.work_order_id) {
         if (woEmpMap[inv.work_order_id]) invEmpMap[inv.id] = woEmpMap[inv.work_order_id];
+        if (woSentMap[inv.work_order_id]) invSentMap[inv.id] = woSentMap[inv.work_order_id];
         if (woUnassignedMap[inv.work_order_id]) invUnassignedMap[inv.id] = true;
       }
     });
     setInvoiceEmployees(invEmpMap);
+    setInvoiceSentEmployees(invSentMap);
     setInvoiceHasUnassigned(invUnassignedMap);
+  }
+
+  async function openAssignModal(invoiceId: string, workOrderId: string) {
+    setAssignModal({ invoiceId, workOrderId });
+    setAssignModalLoading(true);
+    try {
+      const [tasksResult, employeesResult] = await Promise.all([
+        supabase
+          .from('work_order_tasks')
+          .select('id, task_name, task_order')
+          .eq('work_order_id', workOrderId)
+          .order('task_order'),
+        supabase
+          .from('user_profiles')
+          .select('user_id, first_name, last_name')
+          .in('role', ['staff', 'mechanic'])
+          .eq('is_active', true)
+          .order('first_name')
+      ]);
+
+      const taskList = tasksResult.data || [];
+      const taskIds = taskList.map(t => t.id);
+
+      const [lineItemsResult, assignmentsResult] = await Promise.all([
+        supabase
+          .from('work_order_line_items')
+          .select('id, task_id, line_type, description, quantity, unit_price, assigned_employee_id, time_entry_sent_at, user_profiles!work_order_line_items_assigned_employee_id_fkey(first_name, last_name)')
+          .in('task_id', taskIds)
+          .order('line_order'),
+        supabase
+          .from('work_order_task_assignments')
+          .select('task_id, employee_id, user_profiles!work_order_task_assignments_employee_id_fkey(first_name, last_name)')
+          .in('task_id', taskIds)
+      ]);
+
+      const lineItems = lineItemsResult.data || [];
+      const assignments = assignmentsResult.data || [];
+
+      const assignmentsByTask: Record<string, { employee_id: string; name: string }[]> = {};
+      (assignments as any[]).forEach(a => {
+        if (!assignmentsByTask[a.task_id]) assignmentsByTask[a.task_id] = [];
+        const name = a.user_profiles ? `${a.user_profiles.first_name} ${a.user_profiles.last_name}`.trim() : '';
+        assignmentsByTask[a.task_id].push({ employee_id: a.employee_id, name });
+      });
+
+      const enrichedTasks = taskList.map(task => ({
+        ...task,
+        assignments: assignmentsByTask[task.id] || [],
+        laborItems: (lineItems as any[]).filter(li => li.task_id === task.id && li.line_type === 'labor')
+      }));
+
+      setAssignModalTasks(enrichedTasks);
+      setAssignModalEmployees(employeesResult.data || []);
+    } finally {
+      setAssignModalLoading(false);
+    }
+  }
+
+  async function handleAssignEmployee(taskId: string, employeeId: string, invoiceId: string, workOrderId: string) {
+    const { data: existing } = await supabase
+      .from('work_order_task_assignments')
+      .select('id')
+      .eq('task_id', taskId)
+      .eq('employee_id', employeeId)
+      .maybeSingle();
+
+    if (!existing) {
+      const { data: { user } } = await supabase.auth.getUser();
+      await supabase.from('work_order_task_assignments').insert({
+        task_id: taskId,
+        employee_id: employeeId,
+        assigned_by: user?.id,
+        company_id: invoices.find(inv => inv.id === invoiceId)?.company_id
+      });
+    }
+
+    await openAssignModal(invoiceId, workOrderId);
+    await fetchInvoiceEmployees(invoices.map(inv => ({ id: inv.id, work_order_id: inv.work_order_id })));
+  }
+
+  async function handleRemoveAssignment(taskId: string, employeeId: string, invoiceId: string, workOrderId: string) {
+    await supabase
+      .from('work_order_task_assignments')
+      .delete()
+      .eq('task_id', taskId)
+      .eq('employee_id', employeeId);
+
+    await openAssignModal(invoiceId, workOrderId);
+    await fetchInvoiceEmployees(invoices.map(inv => ({ id: inv.id, work_order_id: inv.work_order_id })));
+  }
+
+  async function handlePushToTimeClock(lineItemId: string, invoiceId: string, workOrderId: string, taskAssignments: { employee_id: string }[]) {
+    setSendingToTimeClock(prev => ({ ...prev, [lineItemId]: true }));
+    try {
+      const workDate = new Date().toISOString().split('T')[0];
+      if (taskAssignments.length > 1) {
+        const empCount = taskAssignments.length;
+        const { data: liData } = await supabase.from('work_order_line_items').select('quantity').eq('id', lineItemId).maybeSingle();
+        const hours = liData?.quantity || 0;
+        const hoursEach = hours / empCount;
+        for (let i = 0; i < empCount; i++) {
+          const { data, error: rpcError } = await supabase.rpc('send_assigned_labor_to_time_clock', {
+            p_line_item_id: lineItemId,
+            p_work_date: workDate,
+            p_created_by: userId,
+            p_hours_override: hoursEach,
+            p_employee_override: taskAssignments[i].employee_id,
+            p_mark_sent: i === empCount - 1
+          });
+          if (rpcError) throw rpcError;
+          if (!data.success) throw new Error(data.error || 'Failed');
+        }
+      } else {
+        const employeeOverride = taskAssignments[0]?.employee_id;
+        const { data, error: rpcError } = await supabase.rpc('send_assigned_labor_to_time_clock', {
+          p_line_item_id: lineItemId,
+          p_work_date: workDate,
+          p_created_by: userId,
+          ...(employeeOverride ? { p_employee_override: employeeOverride } : {})
+        });
+        if (rpcError) throw rpcError;
+        if (!data.success) throw new Error(data.error || 'Failed to send hours');
+      }
+
+      showToast('Hours pushed to time clock successfully');
+      await openAssignModal(invoiceId, workOrderId);
+      await fetchInvoiceEmployees(invoices.map(inv => ({ id: inv.id, work_order_id: inv.work_order_id })));
+    } catch (err: any) {
+      showToast(err.message || 'Failed to push hours to time clock', 'error');
+    } finally {
+      setSendingToTimeClock(prev => ({ ...prev, [lineItemId]: false }));
+    }
   }
 
   async function fetchArchivedInvoices() {
@@ -1387,6 +1541,121 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       )}
       <ConfirmDialog />
 
+      {assignModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900">Assign Employees & Push Hours</h2>
+              <button onClick={() => setAssignModal(null)} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-500">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1 p-6">
+              {assignModalLoading ? (
+                <div className="flex items-center justify-center py-12 text-gray-500">Loading...</div>
+              ) : assignModalTasks.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">No tasks found for this work order</div>
+              ) : (
+                <div className="space-y-6">
+                  {assignModalTasks.map(task => (
+                    <div key={task.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                      <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                        <span className="font-medium text-gray-900 text-sm">{task.task_name || 'Unnamed Task'}</span>
+                      </div>
+                      <div className="p-4 space-y-4">
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Assigned Employees</p>
+                          <div className="flex flex-wrap gap-2 mb-2">
+                            {task.assignments.length === 0 ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-50 text-orange-700 border border-orange-200">Not Assigned</span>
+                            ) : (
+                              task.assignments.map((a: any) => (
+                                <span key={a.employee_id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-green-50 text-green-700 border border-green-200">
+                                  {a.name}
+                                  <button
+                                    onClick={() => handleRemoveAssignment(task.id, a.employee_id, assignModal.invoiceId, assignModal.workOrderId)}
+                                    className="ml-0.5 hover:text-red-600"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </span>
+                              ))
+                            )}
+                          </div>
+                          <select
+                            onChange={e => {
+                              if (e.target.value) {
+                                handleAssignEmployee(task.id, e.target.value, assignModal.invoiceId, assignModal.workOrderId);
+                                e.target.value = '';
+                              }
+                            }}
+                            className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          >
+                            <option value="">+ Add employee...</option>
+                            {assignModalEmployees
+                              .filter(emp => !task.assignments.some((a: any) => a.employee_id === emp.user_id))
+                              .map(emp => (
+                                <option key={emp.user_id} value={emp.user_id}>
+                                  {emp.first_name} {emp.last_name}
+                                </option>
+                              ))}
+                          </select>
+                        </div>
+
+                        {task.laborItems.length > 0 && (
+                          <div>
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Labor Lines</p>
+                            <div className="space-y-2">
+                              {task.laborItems.map((li: any) => (
+                                <div key={li.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+                                  <div className="text-sm text-gray-700">
+                                    <span className="font-medium">{li.quantity} hrs</span>
+                                    {li.description && <span className="text-gray-500 ml-2">— {li.description}</span>}
+                                    {li.user_profiles && (
+                                      <span className={`ml-2 text-xs px-1.5 py-0.5 rounded ${li.time_entry_sent_at ? 'bg-blue-50 text-blue-700' : 'bg-green-50 text-green-700'}`}>
+                                        {li.user_profiles.first_name} {li.user_profiles.last_name}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {li.time_entry_sent_at ? (
+                                    <span className="inline-flex items-center gap-1 text-xs text-blue-600 font-medium">
+                                      <CheckCircle className="w-3.5 h-3.5" />
+                                      Pushed
+                                    </span>
+                                  ) : (
+                                    <button
+                                      onClick={() => handlePushToTimeClock(li.id, assignModal.invoiceId, assignModal.workOrderId, task.assignments)}
+                                      disabled={sendingToTimeClock[li.id] || (task.assignments.length === 0 && !li.assigned_employee_id)}
+                                      title={task.assignments.length === 0 && !li.assigned_employee_id ? 'Assign an employee first' : 'Push to time clock'}
+                                      className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                      <Clock className="w-3.5 h-3.5" />
+                                      {sendingToTimeClock[li.id] ? 'Pushing...' : 'Push to Time Clock'}
+                                    </button>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end">
+              <button
+                onClick={() => setAssignModal(null)}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="mb-6 flex items-start justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Invoices</h1>
@@ -1530,22 +1799,34 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                       )}
                     </td>
                     <td className="px-6 py-4">
-                      {(invoiceEmployees[invoice.id] || []).length > 0 || invoiceHasUnassigned[invoice.id] ? (
+                      <div className="flex flex-col gap-1">
                         <div className="flex flex-wrap gap-1">
-                          {(invoiceEmployees[invoice.id] || []).map((name, i) => (
-                            <span key={i} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-50 text-green-700 border border-green-200">
-                              {name}
-                            </span>
-                          ))}
+                          {(invoiceEmployees[invoice.id] || []).map((name, i) => {
+                            const sent = invoiceSentEmployees[invoice.id]?.has(name);
+                            return (
+                              <span key={i} className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${sent ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-green-50 text-green-700 border border-green-200'}`}>
+                                {name}
+                              </span>
+                            );
+                          })}
                           {invoiceHasUnassigned[invoice.id] && (
                             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-50 text-orange-700 border border-orange-200">
                               Not Assigned
                             </span>
                           )}
+                          {(invoiceEmployees[invoice.id] || []).length === 0 && !invoiceHasUnassigned[invoice.id] && (
+                            <span className="text-sm text-gray-400">—</span>
+                          )}
                         </div>
-                      ) : (
-                        <span className="text-sm text-gray-400">—</span>
-                      )}
+                        {invoice.work_order_id && (invoiceHasUnassigned[invoice.id] || (invoiceEmployees[invoice.id] || []).some(name => !invoiceSentEmployees[invoice.id]?.has(name))) && (
+                          <button
+                            onClick={() => openAssignModal(invoice.id, invoice.work_order_id!)}
+                            className="text-xs text-blue-600 hover:text-blue-800 underline text-left"
+                          >
+                            Assign / Push Hours
+                          </button>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4">
                       {invoice.is_retail_customer ? (
