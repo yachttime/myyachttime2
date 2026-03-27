@@ -13806,7 +13806,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                         </button>
                                       </div>
                                     )}
-                                    {request.status === 'rejected' && request.estimated_repair_cost && (
+                                    {request.status === 'rejected' && (
                                       <div className="flex gap-2 ml-4 flex-wrap mt-2">
                                         <button
                                           onClick={(e) => {
@@ -13818,10 +13818,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                             setShowEstimateEmailModal(true);
                                           }}
                                           className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2"
-                                          title="Resend estimate email to customer"
+                                          title="Resend estimate to customer for approval"
                                         >
                                           <Mail className="w-4 h-4" />
-                                          Resend Estimate
+                                          Resend to Customer
                                           {request.estimate_email_sent_at && (
                                             <span className="text-xs bg-blue-400/20 px-2 py-0.5 rounded">
                                               Last sent {new Date(request.estimate_email_sent_at).toLocaleDateString()}
