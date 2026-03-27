@@ -677,7 +677,10 @@ export function PartsInventory({ userId }: PartsInventoryProps) {
     (vendor.phone && vendor.phone.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const totalInventoryValue = activeParts.reduce((sum, part) => sum + (part.quantity_on_hand * part.unit_cost), 0);
+  const totalInventoryValue = activeParts.reduce((sum, part) => {
+    const value = part.quantity_on_hand * part.unit_cost;
+    return sum + (value < 0 ? 0 : value);
+  }, 0);
 
   if (loading) {
     return <div className="p-8 text-center">Loading parts inventory...</div>;
