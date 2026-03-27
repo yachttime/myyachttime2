@@ -697,8 +697,7 @@ export function PurchaseOrders({ userId }: PurchaseOrdersProps) {
 
                               {/* Actions */}
                               <div className="p-4 border-t border-gray-100 bg-gray-50 flex items-center justify-between gap-3 flex-wrap">
-                                {!viewOnly && (
-                                  <div className="flex items-center gap-2 flex-wrap">
+                                <div className="flex items-center gap-2 flex-wrap">
                                     {po.status === 'pending' && (
                                       <button
                                         onClick={() => updateStatus(po.id, 'ordered')}
@@ -767,8 +766,7 @@ export function PurchaseOrders({ userId }: PurchaseOrdersProps) {
                                         Restore to Pending
                                       </button>
                                     )}
-                                  </div>
-                                )}
+                                </div>
                                 <button
                                   onClick={() => handlePrint(po)}
                                   className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-100"
