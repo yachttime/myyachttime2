@@ -2041,9 +2041,9 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                                         <Users className="w-3.5 h-3.5 text-gray-400" />
                                         <span className="text-sm text-gray-700">{item.employee_name}</span>
                                         {item.time_entry_sent_at ? (
-                                          <span className="inline-flex items-center gap-1 text-xs font-medium bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+                                          <span className="inline-flex items-center gap-1 text-xs font-medium bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
                                             <CheckCircle className="w-3 h-3" />
-                                            Sent to Payroll
+                                            Sent to Time Clock
                                           </span>
                                         ) : (
                                           <span className="inline-flex items-center gap-1 text-xs font-medium bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
