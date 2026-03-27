@@ -73,6 +73,7 @@ export function PayrollReportView() {
   const [assigningPayroll, setAssigningPayroll] = useState<string | null>(null);
   const [expandedPeriodId, setExpandedPeriodId] = useState<string | null>(null);
   const [periodDetailData, setPeriodDetailData] = useState<Record<string, PaidEmployeeSummary[]>>({});
+  const [periodPaidCounts, setPeriodPaidCounts] = useState<Record<string, number>>({});
   const [loadingDetail, setLoadingDetail] = useState<string | null>(null);
   const [printingPeriodId, setPrintingPeriodId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -130,6 +131,23 @@ export function PayrollReportView() {
 
     if (data) {
       setPayPeriods(data);
+
+      const counts: Record<string, number> = {};
+      await Promise.all(
+        data.map(async (period) => {
+          const { data: entries } = await supabase
+            .from('staff_time_entries')
+            .select('user_id')
+            .eq('pay_period_id', period.id);
+          if (entries) {
+            const unique = new Set(entries.map((e: any) => e.user_id));
+            counts[period.id] = unique.size;
+          } else {
+            counts[period.id] = 0;
+          }
+        })
+      );
+      setPeriodPaidCounts(counts);
     }
   };
 
@@ -344,8 +362,8 @@ export function PayrollReportView() {
           .update({ is_processed: true })
           .eq('id', activePayPeriod.id);
         setActivePayPeriod({ ...activePayPeriod, is_processed: true });
-        loadPayPeriods();
       }
+      loadPayPeriods();
     } catch (err: any) {
       console.error('Error assigning pay period:', err);
       alert(err.message || 'Failed to assign pay period');
@@ -380,8 +398,8 @@ export function PayrollReportView() {
           .update({ is_processed: false })
           .eq('id', activePayPeriod.id);
         setActivePayPeriod({ ...activePayPeriod, is_processed: false });
-        loadPayPeriods();
       }
+      loadPayPeriods();
     } catch (err: any) {
       console.error('Error unassigning pay period:', err);
     } finally {
@@ -849,17 +867,22 @@ export function PayrollReportView() {
                           start.setHours(0, 0, 0, 0);
                           const end = new Date(period.period_end);
                           end.setHours(23, 59, 59, 999);
-                          const isProcessed = period.is_processed || now > end;
-                          const isOpen = !isProcessed && now >= start && now <= end;
+                          const isProcessed = period.is_processed;
+                          const paidCount = periodPaidCounts[period.id] || 0;
+                          const isPartiallyPaid = !isProcessed && paidCount > 0;
+                          const isOpen = !isProcessed && !isPartiallyPaid && now >= start && now <= end;
                           return (
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${
                               isProcessed
                                 ? 'bg-green-100 text-green-800'
-                                : isOpen
-                                  ? 'bg-blue-100 text-blue-800'
-                                  : 'bg-yellow-100 text-yellow-800'
+                                : isPartiallyPaid
+                                  ? 'bg-orange-100 text-orange-800'
+                                  : isOpen
+                                    ? 'bg-blue-100 text-blue-800'
+                                    : 'bg-yellow-100 text-yellow-800'
                             }`}>
-                              {isProcessed ? 'Processed' : isOpen ? 'Open' : 'Pending'}
+                              {isProcessed && <CheckCircle className="w-3 h-3" />}
+                              {isProcessed ? 'Processed' : isPartiallyPaid ? `In Progress (${paidCount} paid)` : isOpen ? 'Open' : 'Pending'}
                             </span>
                           );
                         })()}
