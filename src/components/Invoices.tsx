@@ -243,15 +243,27 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       if (!woEmpMap[woId].includes(name)) woEmpMap[woId].push(name);
     });
 
+    const taskAssignmentNames: Record<string, string[]> = {};
+    (assignments as any[]).forEach(a => {
+      if (!a.user_profiles) return;
+      const name = `${a.user_profiles.first_name} ${a.user_profiles.last_name}`.trim();
+      if (!name) return;
+      if (!taskAssignmentNames[a.task_id]) taskAssignmentNames[a.task_id] = [];
+      if (!taskAssignmentNames[a.task_id].includes(name)) taskAssignmentNames[a.task_id].push(name);
+    });
+
     const woSentMap: Record<string, Set<string>> = {};
     (lineItems as any[]).forEach(li => {
-      if (li.line_type === 'labor' && li.time_entry_sent_at && li.user_profiles) {
+      if (li.line_type === 'labor' && li.time_entry_sent_at) {
         const woId = taskToWO[li.task_id];
         if (!woId) return;
-        const name = `${li.user_profiles.first_name} ${li.user_profiles.last_name}`.trim();
-        if (!name) return;
         if (!woSentMap[woId]) woSentMap[woId] = new Set();
-        woSentMap[woId].add(name);
+        if (li.user_profiles) {
+          const name = `${li.user_profiles.first_name} ${li.user_profiles.last_name}`.trim();
+          if (name) woSentMap[woId].add(name);
+        } else {
+          (taskAssignmentNames[li.task_id] || []).forEach(name => woSentMap[woId].add(name));
+        }
       }
     });
 
