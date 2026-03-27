@@ -114,21 +114,21 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // If the repair was previously rejected, reset it to pending so new tokens work
-    if (repairRequest.status === 'rejected') {
+    // If the repair was previously rejected or approved, reset it to pending so new tokens work
+    if (repairRequest.status === 'rejected' || repairRequest.status === 'approved') {
       const adminSupabase = createClient(supabaseUrl, supabaseServiceKey);
       await adminSupabase
         .from('repair_requests')
         .update({ status: 'pending' })
         .eq('id', repairRequestId);
 
-      // Delete all old tokens for this repair so the "already processed" check doesn't block
+      // Delete all old tokens so the "already processed" check doesn't block
       await adminSupabase
         .from('repair_request_approval_tokens')
         .delete()
         .eq('repair_request_id', repairRequestId);
 
-      console.log('Reset rejected repair to pending and cleared old tokens');
+      console.log('Reset repair to pending and cleared old tokens for resend');
     }
 
     let approveToken: string;

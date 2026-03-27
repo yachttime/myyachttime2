@@ -13804,6 +13804,23 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                           <CheckCircle className="w-4 h-4" />
                                           Repair Completed
                                         </button>
+                                        {(request.is_retail_customer || request.customer_id) && (request.customer_email || request.customers?.email) && (
+                                          <button
+                                            onClick={(e) => {
+                                              e.preventDefault();
+                                              e.stopPropagation();
+                                              setSelectedRepairForEstimateEmail(request);
+                                              setEstimateEmailRecipient(request.estimate_email_recipient || request.customer_email || request.customers?.email || '');
+                                              setEstimateEmailRecipientName(request.customer_name || (request.customers ? `${request.customers.first_name} ${request.customers.last_name}` : '') || '');
+                                              setShowEstimateEmailModal(true);
+                                            }}
+                                            className="bg-slate-600 hover:bg-slate-500 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2"
+                                            title="Resend estimate to customer for their approval"
+                                          >
+                                            <Mail className="w-4 h-4" />
+                                            Resend to Customer
+                                          </button>
+                                        )}
                                       </div>
                                     )}
                                     {request.status === 'rejected' && (
