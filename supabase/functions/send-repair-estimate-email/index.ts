@@ -114,67 +114,46 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Check for existing unused, unexpired tokens
-    const { data: existingTokens, error: existingTokensError } = await supabase
+    // If the repair was previously rejected, reset it to pending so new tokens work
+    if (repairRequest.status === 'rejected') {
+      const adminSupabase = createClient(supabaseUrl, supabaseServiceKey);
+      await adminSupabase
+        .from('repair_requests')
+        .update({ status: 'pending' })
+        .eq('id', repairRequestId);
+
+      // Delete all old tokens for this repair so the "already processed" check doesn't block
+      await adminSupabase
+        .from('repair_request_approval_tokens')
+        .delete()
+        .eq('repair_request_id', repairRequestId);
+
+      console.log('Reset rejected repair to pending and cleared old tokens');
+    }
+
+    let approveToken: string;
+    let denyToken: string;
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 30);
+
+    // Check for reusable unexpired tokens (only for non-rejected repairs; rejected ones were already cleared above)
+    const { data: existingTokens } = await supabase
       .from('repair_request_approval_tokens')
       .select('*')
       .eq('repair_request_id', repairRequestId)
       .is('used_at', null)
       .gt('expires_at', new Date().toISOString());
 
-    let approveToken: string;
-    let denyToken: string;
+    const existingApprove = existingTokens?.find((t: any) => t.action_type === 'approve');
+    const existingDeny = existingTokens?.find((t: any) => t.action_type === 'deny');
 
-    if (existingTokensError) {
-      console.error('Error checking existing tokens:', existingTokensError);
-    }
-
-    // Reuse existing tokens if available, otherwise create new ones
-    if (existingTokens && existingTokens.length >= 2) {
-      const approveTokenObj = existingTokens.find(t => t.action_type === 'approve');
-      const denyTokenObj = existingTokens.find(t => t.action_type === 'deny');
-
-      if (approveTokenObj && denyTokenObj) {
-        approveToken = approveTokenObj.token;
-        denyToken = denyTokenObj.token;
-        console.log('Reusing existing approval tokens');
-      } else {
-        // Create missing tokens
-        approveToken = crypto.randomUUID();
-        denyToken = crypto.randomUUID();
-        const expiresAt = new Date();
-        expiresAt.setDate(expiresAt.getDate() + 30);
-
-        const { error: tokenError } = await supabase
-          .from('repair_request_approval_tokens')
-          .insert([
-            {
-              repair_request_id: repairRequestId,
-              token: approveToken,
-              action_type: 'approve',
-              manager_email: recipientEmail,
-              expires_at: expiresAt.toISOString(),
-            },
-            {
-              repair_request_id: repairRequestId,
-              token: denyToken,
-              action_type: 'deny',
-              manager_email: recipientEmail,
-              expires_at: expiresAt.toISOString(),
-            },
-          ]);
-
-        if (tokenError) {
-          console.error('Error creating approval tokens:', tokenError);
-          throw new Error('Failed to create approval tokens');
-        }
-      }
+    if (existingApprove && existingDeny) {
+      approveToken = existingApprove.token;
+      denyToken = existingDeny.token;
+      console.log('Reusing existing approval tokens');
     } else {
-      // No existing tokens, create new ones
       approveToken = crypto.randomUUID();
       denyToken = crypto.randomUUID();
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 30);
 
       const { error: tokenError } = await supabase
         .from('repair_request_approval_tokens')
