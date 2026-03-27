@@ -11115,7 +11115,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                 {invoice.payment_status !== 'paid' && isStaffRole(effectiveRole) && (
                                                   <button onClick={() => handleOpenEmailModal(invoice)}
                                                     className="px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded hover:bg-emerald-500/30 transition-colors flex items-center gap-1 whitespace-nowrap">
-                                                    <Mail className="w-3 h-3" /><span>Send Payment Link</span>
+                                                    <Mail className="w-3 h-3" /><span>{invoice.payment_email_sent_at ? 'Resend Link' : 'Send Payment Link'}</span>
                                                   </button>
                                                 )}
                                                 {invoice.payment_status !== 'paid' && (
@@ -11133,6 +11133,56 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                 )}
                                               </div>
                                             </div>
+                                            {invoice.payment_email_sent_at && (
+                                              <div className="mt-2 pt-2 border-t border-slate-700/50 space-y-1">
+                                                {invoice.payment_email_recipient && (
+                                                  <div className="flex items-center gap-2 text-slate-400">
+                                                    <Mail className="w-3 h-3 text-blue-400 shrink-0" />
+                                                    <span>To: {invoice.payment_email_recipient}</span>
+                                                  </div>
+                                                )}
+                                                <div className="flex items-center gap-2 text-slate-400">
+                                                  <Mail className="w-3 h-3 text-blue-400 shrink-0" />
+                                                  <span>Sent: {new Date(invoice.payment_email_sent_at).toLocaleDateString()} at {new Date(invoice.payment_email_sent_at).toLocaleTimeString()}</span>
+                                                </div>
+                                                {invoice.payment_email_delivered_at && (
+                                                  <div className="flex items-center gap-2 text-emerald-400">
+                                                    <CheckCircle className="w-3 h-3 shrink-0" />
+                                                    <span>Delivered: {new Date(invoice.payment_email_delivered_at).toLocaleDateString()} at {new Date(invoice.payment_email_delivered_at).toLocaleTimeString()}</span>
+                                                  </div>
+                                                )}
+                                                {invoice.payment_email_opened_at && (
+                                                  <div className="flex items-center gap-2 text-cyan-400">
+                                                    <Eye className="w-3 h-3 shrink-0" />
+                                                    <span>Opened: {new Date(invoice.payment_email_opened_at).toLocaleDateString()} at {new Date(invoice.payment_email_opened_at).toLocaleTimeString()}</span>
+                                                    {invoice.email_open_count > 1 && (
+                                                      <span className="bg-cyan-500/20 px-1.5 py-0.5 rounded">{invoice.email_open_count}x</span>
+                                                    )}
+                                                  </div>
+                                                )}
+                                                {invoice.payment_link_clicked_at && (
+                                                  <div className="flex items-center gap-2 text-teal-400">
+                                                    <MousePointer className="w-3 h-3 shrink-0" />
+                                                    <span>Clicked: {new Date(invoice.payment_link_clicked_at).toLocaleDateString()} at {new Date(invoice.payment_link_clicked_at).toLocaleTimeString()}</span>
+                                                    {invoice.email_click_count > 1 && (
+                                                      <span className="bg-teal-500/20 px-1.5 py-0.5 rounded">{invoice.email_click_count}x</span>
+                                                    )}
+                                                  </div>
+                                                )}
+                                                {invoice.payment_email_bounced_at && (
+                                                  <div className="flex items-center gap-2 text-red-400">
+                                                    <AlertCircle className="w-3 h-3 shrink-0" />
+                                                    <span>Bounced: {new Date(invoice.payment_email_bounced_at).toLocaleDateString()} at {new Date(invoice.payment_email_bounced_at).toLocaleTimeString()}</span>
+                                                  </div>
+                                                )}
+                                                {invoice.payment_status === 'paid' && invoice.payment_confirmation_email_sent_at && (
+                                                  <div className="flex items-center gap-2 text-emerald-400 pt-1 border-t border-slate-700/50 mt-1">
+                                                    <CheckCircle className="w-3 h-3 shrink-0" />
+                                                    <span>Confirmation Sent: {new Date(invoice.payment_confirmation_email_sent_at).toLocaleDateString()}</span>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            )}
                                           </div>
                                         ))}
                                         {estInvoices.map((inv) => {
@@ -13753,6 +13803,30 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                         >
                                           <CheckCircle className="w-4 h-4" />
                                           Repair Completed
+                                        </button>
+                                      </div>
+                                    )}
+                                    {request.status === 'rejected' && request.estimated_repair_cost && (
+                                      <div className="flex gap-2 ml-4 flex-wrap mt-2">
+                                        <button
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            setSelectedRepairForEstimateEmail(request);
+                                            setEstimateEmailRecipient(request.estimate_email_recipient || request.customer_email || '');
+                                            setEstimateEmailRecipientName(request.customer_name || '');
+                                            setShowEstimateEmailModal(true);
+                                          }}
+                                          className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2"
+                                          title="Resend estimate email to customer"
+                                        >
+                                          <Mail className="w-4 h-4" />
+                                          Resend Estimate
+                                          {request.estimate_email_sent_at && (
+                                            <span className="text-xs bg-blue-400/20 px-2 py-0.5 rounded">
+                                              Last sent {new Date(request.estimate_email_sent_at).toLocaleDateString()}
+                                            </span>
+                                          )}
                                         </button>
                                       </div>
                                     )}
