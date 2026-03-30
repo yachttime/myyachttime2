@@ -123,6 +123,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
   const [checkPaymentModal, setCheckPaymentModal] = useState(false);
   const [checkPaymentLoading, setCheckPaymentLoading] = useState(false);
   const [checkForm, setCheckForm] = useState({ checkNumber: '', amount: '', depositAccount: '', notes: '' });
+  const [invoiceCheckPayments, setInvoiceCheckPayments] = useState<{ id: string; reference_number: string; amount: number; payment_date: string; notes: string | null }[]>([]);
   const [qbBankAccounts, setQbBankAccounts] = useState<{ qbo_account_id: string; account_name: string; account_number: string | null }[]>([]);
   const { confirm, ConfirmDialog } = useConfirm();
   const [showTaxReport, setShowTaxReport] = useState(false);
@@ -534,13 +535,27 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
     }
   }
 
+  async function fetchInvoiceCheckPayments(invoiceId: string) {
+    const { data } = await supabase
+      .from('estimating_payments')
+      .select('id, reference_number, amount, payment_date, notes')
+      .eq('invoice_id', invoiceId)
+      .eq('payment_method', 'check')
+      .order('payment_date', { ascending: true });
+    setInvoiceCheckPayments(data ?? []);
+  }
+
   async function handleViewInvoice(invoice: Invoice) {
     setSelectedInvoice(invoice);
     setShowDetails(true);
+    setInvoiceCheckPayments([]);
 
-    if (invoice.work_order_id) {
-      await fetchWorkOrderDetails(invoice.work_order_id);
-    } else {
+    await Promise.all([
+      invoice.work_order_id ? fetchWorkOrderDetails(invoice.work_order_id) : Promise.resolve(),
+      fetchInvoiceCheckPayments(invoice.id),
+    ]);
+
+    if (!invoice.work_order_id) {
       setWorkOrderTasks([]);
       setWorkOrderLineItems([]);
     }
@@ -1467,8 +1482,12 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
 
       if (!profile?.company_id) throw new Error('Company not found');
 
-      const balanceDue = selectedInvoice.balance_due ?? selectedInvoice.total_amount;
-      const isFullPayment = amount >= balanceDue;
+      const currentAmountPaid = selectedInvoice.amount_paid ?? 0;
+      const totalAmount = selectedInvoice.total_amount;
+      const depositApplied = selectedInvoice.deposit_applied ?? 0;
+      const newAmountPaid = currentAmountPaid + amount;
+      const newBalanceDue = Math.max(0, totalAmount - depositApplied - newAmountPaid);
+      const isFullPayment = newBalanceDue <= 0;
 
       const { error: paymentError } = await supabase
         .from('estimating_payments')
@@ -1494,13 +1513,14 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
         check_number: checkForm.checkNumber.trim(),
         check_payment_amount: amount,
         check_payment_recorded_at: new Date().toISOString(),
-        payment_method_type: 'check'
+        payment_method_type: 'check',
+        amount_paid: newAmountPaid,
+        balance_due: newBalanceDue
       };
 
       if (isFullPayment) {
         invoiceUpdates.payment_status = 'paid';
         invoiceUpdates.paid_at = new Date().toISOString();
-        invoiceUpdates.amount_paid = amount;
       }
 
       const { error: invoiceError } = await supabase
@@ -1520,11 +1540,14 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
         await fetchArchivedInvoices();
       }
 
-      const { data: fresh } = await supabase
-        .from('estimating_invoices')
-        .select('*, work_orders!estimating_invoices_work_order_id_fkey(work_order_number), yachts!estimating_invoices_yacht_id_fkey(name)')
-        .eq('id', selectedInvoice.id)
-        .maybeSingle();
+      const [{ data: fresh }] = await Promise.all([
+        supabase
+          .from('estimating_invoices')
+          .select('*, work_orders!estimating_invoices_work_order_id_fkey(work_order_number), yachts!estimating_invoices_yacht_id_fkey(name)')
+          .eq('id', selectedInvoice.id)
+          .maybeSingle(),
+        fetchInvoiceCheckPayments(selectedInvoice.id),
+      ]);
       if (fresh) setSelectedInvoice({ ...fresh, work_order_number: fresh.work_orders?.work_order_number, yacht_name: fresh.yachts?.name });
     } catch (err: any) {
       console.error('Error recording check payment:', err);
@@ -2197,15 +2220,17 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                             Paid on: {new Date(paidAt).toLocaleDateString()} at {new Date(paidAt).toLocaleTimeString()}
                           </p>
                         )}
-                        {(selectedInvoice as any).check_number && (
-                          <div className="mt-2 p-2 bg-white border border-green-200 rounded flex items-center gap-2">
-                            <FileText className="w-4 h-4 text-gray-500 flex-shrink-0" />
-                            <div>
-                              <p className="text-xs font-semibold text-gray-700">Check #{(selectedInvoice as any).check_number}</p>
-                              {(selectedInvoice as any).check_payment_amount && (
-                                <p className="text-xs text-gray-500">${parseFloat((selectedInvoice as any).check_payment_amount).toFixed(2)} recorded {(selectedInvoice as any).check_payment_recorded_at ? `on ${new Date((selectedInvoice as any).check_payment_recorded_at).toLocaleDateString()}` : ''}</p>
-                              )}
-                            </div>
+                        {invoiceCheckPayments.length > 0 && (
+                          <div className="mt-2 space-y-1">
+                            {invoiceCheckPayments.map((cp) => (
+                              <div key={cp.id} className="p-2 bg-white border border-green-200 rounded flex items-center gap-2">
+                                <FileText className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                                <div>
+                                  <p className="text-xs font-semibold text-gray-700">Check #{cp.reference_number}</p>
+                                  <p className="text-xs text-gray-500">${Number(cp.amount).toFixed(2)} recorded on {new Date(cp.payment_date).toLocaleDateString()}{cp.notes ? ` — ${cp.notes}` : ''}</p>
+                                </div>
+                              </div>
+                            ))}
                           </div>
                         )}
 
