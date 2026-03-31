@@ -1143,6 +1143,10 @@ export async function generateEstimatePDF(
     ['Subtotal:', `$${estimate.subtotal.toFixed(2)}`],
   ];
 
+  if (estimate.discount_amount > 0) {
+    summaryData.push([`Discount (${Number(estimate.discount_percentage).toFixed(1)}%):`, `-$${estimate.discount_amount.toFixed(2)}`]);
+  }
+
   if (estimate.shop_supplies_amount > 0) {
     summaryData.push([`Shop Supplies (${(estimate.shop_supplies_rate * 100).toFixed(1)}%):`, `$${estimate.shop_supplies_amount.toFixed(2)}`]);
   }
@@ -1327,6 +1331,8 @@ export async function generateWorkOrderPDF(
 ): Promise<jsPDF> {
   const estimate = workOrder.estimates || {
     subtotal: 0,
+    discount_percentage: 0,
+    discount_amount: 0,
     sales_tax_rate: 0,
     sales_tax_amount: 0,
     shop_supplies_rate: 0,
@@ -1695,6 +1701,10 @@ export async function generateWorkOrderPDF(
   const summaryData = [
     ['Subtotal:', `$${estimate.subtotal.toFixed(2)}`],
   ];
+
+  if (estimate.discount_amount > 0) {
+    summaryData.push([`Discount (${Number(estimate.discount_percentage).toFixed(1)}%):`, `-$${estimate.discount_amount.toFixed(2)}`]);
+  }
 
   if (estimate.shop_supplies_amount > 0) {
     summaryData.push([`Shop Supplies (${(estimate.shop_supplies_rate * 100).toFixed(1)}%):`, `$${estimate.shop_supplies_amount.toFixed(2)}`]);
