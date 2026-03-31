@@ -641,6 +641,20 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
     setTasks(updatedTasks);
   };
 
+  const handleUpdateLineItemPrice = (taskIndex: number, lineIndex: number, field: 'quantity' | 'unit_price', value: string) => {
+    const updatedTasks = [...tasks];
+    const item = { ...updatedTasks[taskIndex].lineItems[lineIndex] };
+    const parsed = parseFloat(value);
+    if (field === 'quantity') {
+      item.quantity = isNaN(parsed) ? 0 : parsed;
+    } else {
+      item.unit_price = isNaN(parsed) ? 0 : parsed;
+    }
+    item.total_price = item.quantity * item.unit_price;
+    updatedTasks[taskIndex].lineItems[lineIndex] = item;
+    setTasks(updatedTasks);
+  };
+
   const handleAddPackage = async () => {
     if (activeTaskIndex === null || !selectedPackageId) return;
 
@@ -2954,8 +2968,29 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                                             </div>
                                           )}
                                         </td>
-                                        <td className="px-3 py-2 text-right align-top text-gray-900">{item.quantity}</td>
-                                        <td className="px-3 py-2 text-right align-top text-gray-900">${item.unit_price.toFixed(2)}</td>
+                                        <td className="px-3 py-2 text-right align-top">
+                                          <input
+                                            type="number"
+                                            min="0"
+                                            step="1"
+                                            value={item.quantity}
+                                            onChange={(e) => handleUpdateLineItemPrice(taskIndex, lineIndex, 'quantity', e.target.value)}
+                                            className="w-16 text-right border border-transparent hover:border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded px-1 py-0.5 text-sm text-gray-900 bg-transparent focus:bg-white"
+                                          />
+                                        </td>
+                                        <td className="px-3 py-2 text-right align-top">
+                                          <div className="flex items-center justify-end gap-0.5">
+                                            <span className="text-gray-500 text-sm">$</span>
+                                            <input
+                                              type="number"
+                                              min="0"
+                                              step="0.01"
+                                              value={item.unit_price}
+                                              onChange={(e) => handleUpdateLineItemPrice(taskIndex, lineIndex, 'unit_price', e.target.value)}
+                                              className="w-24 text-right border border-transparent hover:border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded px-1 py-0.5 text-sm text-gray-900 bg-transparent focus:bg-white"
+                                            />
+                                          </div>
+                                        </td>
                                         <td className="px-3 py-2 text-right align-top text-gray-900">${item.total_price.toFixed(2)}</td>
                                         <td className="px-3 py-2 text-right align-top">
                                           <button
