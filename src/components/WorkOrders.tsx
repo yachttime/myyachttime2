@@ -2975,7 +2975,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                                             step="1"
                                             value={item.quantity}
                                             onChange={(e) => handleUpdateLineItemPrice(taskIndex, lineIndex, 'quantity', e.target.value)}
-                                            className="w-16 text-right border border-transparent hover:border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded px-1 py-0.5 text-sm text-gray-900 bg-transparent focus:bg-white"
+                                            className="w-16 text-right border border-gray-300 hover:border-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded px-1 py-0.5 text-sm text-gray-900 bg-white"
                                           />
                                         </td>
                                         <td className="px-3 py-2 text-right align-top">
@@ -2987,7 +2987,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                                               step="0.01"
                                               value={item.unit_price}
                                               onChange={(e) => handleUpdateLineItemPrice(taskIndex, lineIndex, 'unit_price', e.target.value)}
-                                              className="w-24 text-right border border-transparent hover:border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded px-1 py-0.5 text-sm text-gray-900 bg-transparent focus:bg-white"
+                                              className="w-24 text-right border border-gray-300 hover:border-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded px-1 py-0.5 text-sm text-gray-900 bg-white"
                                             />
                                           </div>
                                         </td>
