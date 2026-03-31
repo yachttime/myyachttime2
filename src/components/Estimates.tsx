@@ -27,6 +27,8 @@ interface Estimate {
   surcharge_rate: number;
   surcharge_cap: number | null;
   surcharge_amount: number;
+  discount_percentage: number | null;
+  discount_amount: number | null;
   total_amount: number;
   marina_name: string | null;
   manager_name: string | null;
@@ -106,6 +108,7 @@ export function Estimates({ userId }: EstimatesProps) {
     surcharge_cap: '',
     apply_shop_supplies: true,
     apply_park_fees: true,
+    discount_percentage: '',
     notes: '',
     customer_notes: DEFAULT_CUSTOMER_NOTES,
     deposit_required: false,
@@ -973,33 +976,54 @@ export function Estimates({ userId }: EstimatesProps) {
     }, 0);
   };
 
+  const calculateDiscount = () => {
+    const pct = parseFloat(formData.discount_percentage || '0');
+    if (!pct || pct <= 0) return 0;
+    return calculateSubtotal() * (pct / 100);
+  };
+
+  const calculateDiscountedSubtotal = () => {
+    return calculateSubtotal() - calculateDiscount();
+  };
+
+  const calculateDiscountedTaxableSubtotal = () => {
+    const subtotal = calculateSubtotal();
+    const taxableSubtotal = calculateTaxableSubtotal();
+    if (subtotal === 0) return 0;
+    const discountRatio = calculateDiscountedSubtotal() / subtotal;
+    return taxableSubtotal * discountRatio;
+  };
+
   const calculateSalesTax = () => {
-    return calculateTaxableSubtotal() * parseFloat(formData.sales_tax_rate || '0');
+    return calculateDiscountedTaxableSubtotal() * parseFloat(formData.sales_tax_rate || '0');
   };
 
   const calculateShopSupplies = () => {
     if (!formData.apply_shop_supplies) return 0;
-    return calculateSubtotal() * parseFloat(formData.shop_supplies_rate || '0');
+    return calculateDiscountedSubtotal() * parseFloat(formData.shop_supplies_rate || '0');
   };
 
   const calculateParkFees = () => {
     if (!formData.apply_park_fees) return 0;
-    return calculateSubtotal() * parseFloat(formData.park_fees_rate || '0');
+    return calculateDiscountedSubtotal() * parseFloat(formData.park_fees_rate || '0');
   };
 
   const calculateSurcharge = () => {
-    const calculated = calculateSurchargeableSubtotal() * parseFloat(formData.surcharge_rate || '0');
+    const subtotal = calculateSubtotal();
+    const discountedSurchargeable = subtotal === 0 ? 0 :
+      calculateSurchargeableSubtotal() * (calculateDiscountedSubtotal() / subtotal);
+    const calculated = discountedSurchargeable * parseFloat(formData.surcharge_rate || '0');
     const cap = formData.surcharge_cap !== '' ? parseFloat(formData.surcharge_cap) : null;
     return cap != null && calculated > cap ? cap : calculated;
   };
 
   const calculateTotal = () => {
-    const subtotal = calculateSubtotal();
+    const discountedSubtotal = calculateDiscountedSubtotal();
     const salesTax = calculateSalesTax();
     const shopSupplies = calculateShopSupplies();
     const parkFees = calculateParkFees();
     const surcharge = calculateSurcharge();
-    return subtotal + salesTax + shopSupplies + parkFees + surcharge;
+    return discountedSubtotal + salesTax + shopSupplies + parkFees + surcharge;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1030,6 +1054,8 @@ export function Estimates({ userId }: EstimatesProps) {
       const userCompanyId = userProfile?.company_id || null;
 
       const subtotal = calculateSubtotal();
+      const discountPercentage = formData.discount_percentage !== '' ? parseFloat(formData.discount_percentage) : null;
+      const discountAmount = calculateDiscount() > 0 ? calculateDiscount() : null;
       const salesTaxRate = parseFloat(formData.sales_tax_rate);
       const salesTaxAmount = calculateSalesTax();
       const shopSuppliesRate = parseFloat(formData.shop_supplies_rate);
@@ -1059,6 +1085,8 @@ export function Estimates({ userId }: EstimatesProps) {
           manager_email: formData.is_retail_customer ? null : formData.manager_email || null,
           manager_phone: formData.is_retail_customer ? null : formData.manager_phone || null,
           subtotal,
+          discount_percentage: discountPercentage,
+          discount_amount: discountAmount,
           sales_tax_rate: salesTaxRate,
           sales_tax_amount: salesTaxAmount,
           shop_supplies_rate: shopSuppliesRate,
@@ -1106,6 +1134,8 @@ export function Estimates({ userId }: EstimatesProps) {
           manager_phone: formData.is_retail_customer ? null : formData.manager_phone || null,
           status: 'draft',
           subtotal,
+          discount_percentage: discountPercentage,
+          discount_amount: discountAmount,
           sales_tax_rate: salesTaxRate,
           sales_tax_amount: salesTaxAmount,
           shop_supplies_rate: shopSuppliesRate,
@@ -1376,6 +1406,7 @@ export function Estimates({ userId }: EstimatesProps) {
         surcharge_cap: estimate.surcharge_cap != null ? estimate.surcharge_cap.toString() : '',
         apply_shop_supplies: estimate.shop_supplies_amount > 0,
         apply_park_fees: estimate.park_fees_amount > 0,
+        discount_percentage: estimate.discount_percentage != null ? estimate.discount_percentage.toString() : '',
         notes: estimate.notes || '',
         customer_notes: estimate.customer_notes || '',
         work_title: estimate.work_title || '',
@@ -1960,6 +1991,7 @@ export function Estimates({ userId }: EstimatesProps) {
               surcharge_cap: formData.surcharge_cap,
               apply_shop_supplies: true,
               apply_park_fees: true,
+              discount_percentage: '',
               notes: '',
               customer_notes: DEFAULT_CUSTOMER_NOTES,
               deposit_required: false,
@@ -3171,6 +3203,23 @@ export function Estimates({ userId }: EstimatesProps) {
                     </div>
 
                     <div className="flex items-center justify-between">
+                      <label className="text-xs font-medium text-red-700">Discount (%)</label>
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="100"
+                          placeholder="0.00"
+                          value={formData.discount_percentage}
+                          onChange={(e) => setFormData({ ...formData, discount_percentage: e.target.value })}
+                          className="w-16 px-1.5 py-0.5 text-right border border-red-300 rounded text-xs text-red-700 bg-red-50 focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                        />
+                        <span className="text-xs text-red-700">= -${calculateDiscount().toFixed(2)}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1">
                         <input
                           type="checkbox"
@@ -3226,6 +3275,12 @@ export function Estimates({ userId }: EstimatesProps) {
                         <span>Subtotal:</span>
                         <span className="font-medium">${calculateSubtotal().toFixed(2)}</span>
                       </div>
+                      {calculateDiscount() > 0 && (
+                        <div className="flex justify-between text-xs text-red-700 font-medium">
+                          <span>Discount ({formData.discount_percentage}%):</span>
+                          <span>-${calculateDiscount().toFixed(2)}</span>
+                        </div>
+                      )}
                       <div className="flex justify-between text-xs text-gray-600">
                         <span>Sales Tax:</span>
                         <span>${calculateSalesTax().toFixed(2)}</span>
