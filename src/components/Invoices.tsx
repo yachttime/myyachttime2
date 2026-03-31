@@ -1378,30 +1378,37 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
     setBillingManagers([]);
     setShowEmailModal(true);
 
-    if (invoice.yacht_id) {
-      setBillingManagersLoading(true);
-      try {
-        const { data: managers } = await supabase
+    setBillingManagersLoading(true);
+    try {
+      let managers: { email: string; name: string }[] = [];
+
+      if (invoice.yacht_id) {
+        const { data: yachtManagers } = await supabase
           .from('user_profiles')
           .select('first_name, last_name, email, notification_email')
           .eq('yacht_id', invoice.yacht_id)
           .eq('can_approve_billing', true)
           .eq('is_active', true);
 
-        if (managers) {
-          const mapped = managers
+        if (yachtManagers) {
+          managers = yachtManagers
             .map((m: any) => ({
               email: m.notification_email || m.email || '',
               name: `${m.first_name || ''} ${m.last_name || ''}`.trim(),
             }))
             .filter((m: any) => m.email);
-          setBillingManagers(mapped);
         }
-      } catch (e) {
-        console.error('Failed to load billing managers:', e);
-      } finally {
-        setBillingManagersLoading(false);
       }
+
+      if (managers.length === 0 && invoice.customer_email) {
+        managers = [{ email: invoice.customer_email, name: invoice.customer_name || '' }];
+      }
+
+      setBillingManagers(managers);
+    } catch (e) {
+      console.error('Failed to load billing managers:', e);
+    } finally {
+      setBillingManagersLoading(false);
     }
   }
 
@@ -2479,11 +2486,11 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                   </div>
                 ) : billingManagers.length === 0 ? (
                   <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4">
-                    <p className="text-amber-400 text-sm font-medium mb-1">No billing managers found</p>
+                    <p className="text-amber-400 text-sm font-medium mb-1">No recipients found</p>
                     <p className="text-amber-300/70 text-xs">
                       {emailModalInvoice.yacht_id
                         ? 'No users with Billing Approval permission are assigned to this yacht. Go to User Management to set this up.'
-                        : 'This invoice has no yacht assigned. Billing managers are loaded from the yacht\'s user cards.'}
+                        : 'No customer email is on file for this invoice. Add a customer email to send the payment link.'}
                     </p>
                   </div>
                 ) : (
