@@ -668,6 +668,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     yacht_id: '',
     role: 'owner',
     employee_type: 'hourly',
+    rate_of_pay: '',
     email_notifications_enabled: true,
     sms_notifications_enabled: false,
     notification_email: '',
@@ -1517,6 +1518,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       yacht_id: user.yacht_id || '',
       role: user.role || 'owner',
       employee_type: user.employee_type || 'hourly',
+      rate_of_pay: user.rate_of_pay != null ? String(user.rate_of_pay) : '',
       email_notifications_enabled: user.email_notifications_enabled !== undefined ? user.email_notifications_enabled : true,
       sms_notifications_enabled: user.sms_notifications_enabled !== undefined ? user.sms_notifications_enabled : false,
       notification_email: user.notification_email || '',
@@ -1603,6 +1605,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               yacht_id: userEditForm.yacht_id || null,
               role: userEditForm.role,
               employee_type: userEditForm.employee_type,
+              rate_of_pay: userEditForm.rate_of_pay !== '' ? Number(userEditForm.rate_of_pay) : null,
               email_notifications_enabled: userEditForm.email_notifications_enabled,
               sms_notifications_enabled: userEditForm.sms_notifications_enabled,
               notification_email: userEditForm.notification_email || null,
@@ -1646,6 +1649,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               yacht_id: userEditForm.yacht_id || null,
               role: userEditForm.role,
               employee_type: userEditForm.employee_type,
+              rate_of_pay: userEditForm.rate_of_pay !== '' ? Number(userEditForm.rate_of_pay) : null,
               email_notifications_enabled: userEditForm.email_notifications_enabled,
               sms_notifications_enabled: userEditForm.sms_notifications_enabled,
               notification_email: userEditForm.notification_email || null,
@@ -1755,6 +1759,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             zip_code: userEditForm.zip_code,
             yacht_id: userEditForm.yacht_id || null,
             role: userEditForm.role,
+            employee_type: userEditForm.employee_type,
+            rate_of_pay: userEditForm.rate_of_pay !== '' ? Number(userEditForm.rate_of_pay) : null,
             email_notifications_enabled: userEditForm.email_notifications_enabled,
             sms_notifications_enabled: userEditForm.sms_notifications_enabled,
             notification_email: userEditForm.notification_email || null,
@@ -17069,25 +17075,42 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               </div>
 
                               {(userEditForm.role === 'staff' || userEditForm.role === 'mechanic' || userEditForm.role === 'master') && (
-                                <div>
-                                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                                    Employee Type
-                                  </label>
-                                  <select
-                                    value={userEditForm.employee_type}
-                                    onChange={(e) => setUserEditForm({ ...userEditForm, employee_type: e.target.value })}
-                                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    required
-                                  >
-                                    <option value="hourly">Hourly</option>
-                                    <option value="salary">Salary</option>
-                                  </select>
-                                  <p className="text-xs text-slate-500 mt-1">
-                                    {userEditForm.employee_type === 'hourly'
-                                      ? 'Hourly employees track lunch breaks separately'
-                                      : 'Salary employees auto-deduct 1 hour for lunch'}
-                                  </p>
-                                </div>
+                                <>
+                                  <div>
+                                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                                      Employee Type
+                                    </label>
+                                    <select
+                                      value={userEditForm.employee_type}
+                                      onChange={(e) => setUserEditForm({ ...userEditForm, employee_type: e.target.value })}
+                                      className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                      required
+                                    >
+                                      <option value="hourly">Hourly</option>
+                                      <option value="salary">Salary</option>
+                                    </select>
+                                    <p className="text-xs text-slate-500 mt-1">
+                                      {userEditForm.employee_type === 'hourly'
+                                        ? 'Hourly employees track lunch breaks separately'
+                                        : 'Salary employees auto-deduct 1 hour for lunch'}
+                                    </p>
+                                  </div>
+
+                                  <div>
+                                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                                      Rate of Pay ($/hr)
+                                    </label>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      value={userEditForm.rate_of_pay}
+                                      onChange={(e) => setUserEditForm({ ...userEditForm, rate_of_pay: e.target.value })}
+                                      placeholder="e.g., 25.00"
+                                      className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    />
+                                  </div>
+                                </>
                               )}
 
                               <div>
