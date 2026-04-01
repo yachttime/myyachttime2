@@ -487,6 +487,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [regenerateSelectedMethod, setRegenerateSelectedMethod] = useState<'card' | 'ach' | 'both'>('card');
   const [syncPaymentLoading, setSyncPaymentLoading] = useState<{ [invoiceId: string]: boolean }>({});
   const [syncAllRepairLoading, setSyncAllRepairLoading] = useState(false);
+  const [syncAllYachtPaymentsLoading, setSyncAllYachtPaymentsLoading] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [selectedInvoiceForEmail, setSelectedInvoiceForEmail] = useState<YachtInvoice | null>(null);
   const [emailRecipient, setEmailRecipient] = useState('');
@@ -3826,6 +3827,59 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       showError(`Error: ${error.message || 'Failed to sync payment status'}`);
     } finally {
       setSyncPaymentLoading(prev => ({ ...prev, [invoice.id]: false }));
+    }
+  };
+
+  const handleSyncAllYachtPayments = async () => {
+    setSyncAllYachtPaymentsLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error('Not authenticated');
+
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-stripe-payment`;
+      let synced = 0;
+
+      const { data: unpaidInvoices } = await supabase
+        .from('yacht_invoices')
+        .select('id, yacht_id, stripe_checkout_session_id, stripe_payment_intent_id, payment_status')
+        .neq('payment_status', 'paid')
+        .or('stripe_checkout_session_id.neq.null,stripe_payment_intent_id.neq.null');
+
+      const yachtIdsToRefresh = new Set<string>();
+
+      for (const inv of (unpaidInvoices || [])) {
+        if (!inv.stripe_checkout_session_id && !inv.stripe_payment_intent_id) continue;
+        try {
+          const res = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ invoice_id: inv.id })
+          });
+          const result = await res.json();
+          if (result.success) {
+            synced++;
+            if (inv.yacht_id) yachtIdsToRefresh.add(inv.yacht_id);
+          }
+        } catch {}
+      }
+
+      if (yachtIdsToRefresh.size > 0) {
+        const ids = Array.from(yachtIdsToRefresh);
+        await Promise.all(ids.map(id => loadYachtInvoices(id)));
+        await loadUnpaidInvoiceCounts(Array.from(allYachts.map(y => y.id)));
+      }
+
+      if (synced > 0) {
+        showSuccess(`${synced} payment${synced !== 1 ? 's' : ''} updated successfully`);
+      } else if (!unpaidInvoices?.length) {
+        showSuccess('No pending payments to sync');
+      } else {
+        showSuccess('No new payments found in Stripe');
+      }
+    } catch (error: any) {
+      showError(error.message || 'Failed to sync payments');
+    } finally {
+      setSyncAllYachtPaymentsLoading(false);
     }
   };
 
@@ -9441,6 +9495,16 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             {printingAllQR ? 'Generating...' : 'Print All QR Codes'}
                           </button>
                         </>
+                      )}
+                      {isStaffRole(effectiveRole) && (
+                        <button
+                          onClick={handleSyncAllYachtPayments}
+                          disabled={syncAllYachtPaymentsLoading}
+                          className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 shadow-lg flex items-center gap-2"
+                        >
+                          <RefreshCw className={`w-5 h-5 ${syncAllYachtPaymentsLoading ? 'animate-spin' : ''}`} />
+                          {syncAllYachtPaymentsLoading ? 'Syncing...' : 'Sync All Payments'}
+                        </button>
                       )}
                       <button
                         onClick={() => setShowFleetTripDatesReport(true)}
