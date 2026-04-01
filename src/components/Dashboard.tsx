@@ -2179,7 +2179,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       const [yiResult, eiResult] = await Promise.all([
         supabase
           .from('yacht_invoices')
-          .select('*')
+          .select('*, repair_requests!repair_request_id(estimating_invoice_id)')
           .eq('yacht_id', yachtId)
           .order('invoice_date', { ascending: false }),
         supabase
@@ -2192,9 +2192,14 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       if (yiResult.error) throw yiResult.error;
 
+      const yachtInvoicesData = (yiResult.data || []).filter((yi: any) => {
+        if (!yi.repair_request_id) return true;
+        return !yi.repair_requests?.estimating_invoice_id;
+      });
+
       setYachtInvoices(prev => ({
         ...prev,
-        [yachtId]: yiResult.data || []
+        [yachtId]: yachtInvoicesData
       }));
 
       setYachtEstimatingInvoices(prev => ({
@@ -2212,7 +2217,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       const [yiResult, eiResult] = await Promise.all([
         supabase
           .from('yacht_invoices')
-          .select('yacht_id, invoice_amount_numeric, payment_status')
+          .select('yacht_id, invoice_amount_numeric, payment_status, repair_request_id, repair_requests!repair_request_id(estimating_invoice_id)')
           .in('yacht_id', yachtIds)
           .eq('payment_status', 'pending'),
         supabase
@@ -2226,6 +2231,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       const counts: Record<string, { count: number; total: number }> = {};
       for (const inv of (yiResult.data || [])) {
         if (!inv.yacht_id) continue;
+        if (inv.repair_request_id && (inv as any).repair_requests?.estimating_invoice_id) continue;
         if (!counts[inv.yacht_id]) counts[inv.yacht_id] = { count: 0, total: 0 };
         counts[inv.yacht_id].count += 1;
         counts[inv.yacht_id].total += Number(inv.invoice_amount_numeric) || 0;
