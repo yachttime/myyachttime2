@@ -2220,7 +2220,6 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           .select('yacht_id, total_amount, payment_status')
           .in('yacht_id', yachtIds)
           .eq('archived', false)
-          .eq('is_retail_customer', true)
           .neq('payment_status', 'paid')
       ]);
 
