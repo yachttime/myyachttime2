@@ -97,6 +97,7 @@ export interface UserProfile {
   trip_number?: string;
   can_approve_repairs?: boolean;
   can_approve_billing?: boolean;
+  rate_of_pay?: number | null;
   created_at: string;
   updated_at: string;
 }

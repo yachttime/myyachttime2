@@ -1378,6 +1378,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           can_approve_billing,
           must_change_password,
           employee_type,
+          rate_of_pay,
           yachts (name)
         `)
         .eq('company_id', selectedCompany.id)
