@@ -391,12 +391,23 @@ export function TaxSurchargeReport({ onClose }: Props) {
           empWithHours,
         ]);
         if (hasPdfPreset) {
+          const pdfPresetAmount = row.total_labor_amount * (pdfPct / 100);
           tableRows.push([
             { content: `${pdfPct}% of labor amount`, colSpan: 5, styles: { fillColor: [254, 243, 199] as [number, number, number], textColor: [146, 64, 14] as [number, number, number], fontSize: 7, fontStyle: 'italic' as const } },
-            { content: `$${(row.total_labor_amount * (pdfPct / 100)).toFixed(2)}`, styles: { fillColor: [254, 243, 199] as [number, number, number], textColor: [146, 64, 14] as [number, number, number], fontSize: 7, fontStyle: 'bold' as const, halign: 'right' as const } },
+            { content: `$${pdfPresetAmount.toFixed(2)}`, styles: { fillColor: [254, 243, 199] as [number, number, number], textColor: [146, 64, 14] as [number, number, number], fontSize: 7, fontStyle: 'bold' as const, halign: 'right' as const } },
             { content: '', styles: { fillColor: [254, 243, 199] as [number, number, number] } },
             { content: '', styles: { fillColor: [254, 243, 199] as [number, number, number] } },
           ]);
+          if (row.labor_cost > 0) {
+            const diff = pdfPresetAmount - row.labor_cost;
+            const isPos = diff >= 0;
+            tableRows.push([
+              { content: `Difference (% \u2212 labor cost)`, colSpan: 5, styles: { fillColor: [254, 243, 199] as [number, number, number], textColor: [120, 120, 120] as [number, number, number], fontSize: 7, fontStyle: 'italic' as const } },
+              { content: `${isPos ? '+' : ''}$${diff.toFixed(2)}`, styles: { fillColor: [254, 243, 199] as [number, number, number], textColor: isPos ? [21, 128, 61] as [number, number, number] : [185, 28, 28] as [number, number, number], fontSize: 7, fontStyle: 'bold' as const, halign: 'right' as const } },
+              { content: '', styles: { fillColor: [254, 243, 199] as [number, number, number] } },
+              { content: '', styles: { fillColor: [254, 243, 199] as [number, number, number] } },
+            ]);
+          }
         }
         tableRows.push([
           { content: 'Notes:', colSpan: 8, styles: { minCellHeight: 36, fillColor: [255, 255, 255] as [number, number, number], textColor: [180, 180, 180] as [number, number, number], fontSize: 7, fontStyle: 'italic' as const, lineColor: [210, 210, 210] as [number, number, number], lineWidth: 0.3 } },
@@ -721,15 +732,32 @@ export function TaxSurchargeReport({ onClose }: Props) {
                           </td>
                         </tr>
                         {hasPreset && (
-                          <tr className="bg-amber-50 border-t border-amber-100">
-                            <td colSpan={5} className="px-4 py-1.5 text-xs text-amber-700 font-medium pl-8">
-                              {pct}% of labor amount
-                            </td>
-                            <td className="px-4 py-1.5 text-xs font-bold text-amber-700 text-right">
-                              ${presetAmount.toFixed(2)}
-                            </td>
-                            <td colSpan={2} />
-                          </tr>
+                          <>
+                            <tr className="bg-amber-50 border-t border-amber-100">
+                              <td colSpan={5} className="px-4 py-1.5 text-xs text-amber-700 font-medium pl-8">
+                                {pct}% of labor amount
+                              </td>
+                              <td className="px-4 py-1.5 text-xs font-bold text-amber-700 text-right">
+                                ${presetAmount.toFixed(2)}
+                              </td>
+                              <td colSpan={2} />
+                            </tr>
+                            {row.labor_cost > 0 && (() => {
+                              const diff = presetAmount - row.labor_cost;
+                              const isPositive = diff >= 0;
+                              return (
+                                <tr className="bg-amber-50 border-t border-amber-100">
+                                  <td colSpan={5} className="px-4 py-1.5 text-xs font-medium pl-8 text-gray-500 italic">
+                                    Difference (% − labor cost)
+                                  </td>
+                                  <td className={`px-4 py-1.5 text-xs font-bold text-right ${isPositive ? 'text-green-700' : 'text-red-700'}`}>
+                                    {isPositive ? '+' : ''}${diff.toFixed(2)}
+                                  </td>
+                                  <td colSpan={2} />
+                                </tr>
+                              );
+                            })()}
+                          </>
                         )}
                         <tr className="border-b border-gray-200">
                           <td colSpan={8} className="h-10" />
