@@ -24,6 +24,7 @@ export function FleetTripDatesReport({ companyId, onClose }: FleetTripDatesRepor
       let yachtsQuery = supabase
         .from('yachts')
         .select('id, name, is_active')
+        .eq('is_active', true)
         .order('name');
 
       if (companyId) {
@@ -120,7 +121,6 @@ export function FleetTripDatesReport({ companyId, onClose }: FleetTripDatesRepor
               <thead>
                 <tr className="text-left text-slate-400 border-b border-slate-700">
                   <th className="pb-3 font-semibold">Yacht</th>
-                  <th className="pb-3 font-semibold">Status</th>
                   <th className="pb-3 font-semibold">First Trip</th>
                   <th className="pb-3 font-semibold">Last Trip</th>
                   <th className="pb-3 font-semibold text-center">Total Trips</th>
@@ -133,11 +133,6 @@ export function FleetTripDatesReport({ companyId, onClose }: FleetTripDatesRepor
                     className={`border-b border-slate-700/50 ${idx % 2 === 0 ? '' : 'bg-slate-700/20'}`}
                   >
                     <td className="py-3 font-medium">{row.yacht_name}</td>
-                    <td className="py-3">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${row.is_active ? 'bg-green-500/20 text-green-400' : 'bg-slate-600/40 text-slate-400'}`}>
-                        {row.is_active ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
                     <td className="py-3 text-slate-300">{fmtDate(row.first_trip)}</td>
                     <td className="py-3 text-slate-300">{fmtDate(row.last_trip)}</td>
                     <td className="py-3 text-center text-slate-300">{row.total_trips}</td>

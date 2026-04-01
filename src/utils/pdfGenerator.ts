@@ -2348,7 +2348,6 @@ export function generateFleetTripDatesReportPDF(rows: FleetTripDatesRow[]): jsPD
 
   const rptTableData = rows.map(r => [
     r.yacht_name,
-    r.is_active ? 'Active' : 'Inactive',
     fmtTripDate(r.first_trip),
     fmtTripDate(r.last_trip),
     r.total_trips.toString(),
@@ -2356,7 +2355,7 @@ export function generateFleetTripDatesReportPDF(rows: FleetTripDatesRow[]): jsPD
 
   autoTable(doc, {
     startY: rptY,
-    head: [['Yacht Name', 'Status', 'First Trip', 'Last Trip', 'Total Trips']],
+    head: [['Yacht Name', 'First Trip', 'Last Trip', 'Total Trips']],
     body: rptTableData,
     theme: 'striped',
     styles: {
@@ -2376,11 +2375,10 @@ export function generateFleetTripDatesReportPDF(rows: FleetTripDatesRow[]): jsPD
       fillColor: [248, 250, 252],
     },
     columnStyles: {
-      0: { cellWidth: 2.2 },
-      1: { cellWidth: 1.0 },
-      2: { cellWidth: 2.0 },
-      3: { cellWidth: 2.0 },
-      4: { cellWidth: 1.2, halign: 'center' },
+      0: { cellWidth: 2.5 },
+      1: { cellWidth: 2.5 },
+      2: { cellWidth: 2.5 },
+      3: { cellWidth: 1.5, halign: 'center' },
     },
     margin: { left: rptMargin, right: rptMargin },
   });
