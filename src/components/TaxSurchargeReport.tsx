@@ -386,6 +386,9 @@ export function TaxSurchargeReport({ onClose }: Props) {
             { content: '', styles: { fillColor: [254, 243, 199] as [number, number, number] } },
           ]);
         }
+        tableRows.push([
+          { content: 'Notes:', colSpan: 7, styles: { minCellHeight: 36, fillColor: [255, 255, 255] as [number, number, number], textColor: [180, 180, 180] as [number, number, number], fontSize: 7, fontStyle: 'italic' as const, lineColor: [210, 210, 210] as [number, number, number], lineWidth: 0.3 } },
+        ]);
       });
 
       autoTable(doc, {
@@ -395,7 +398,6 @@ export function TaxSurchargeReport({ onClose }: Props) {
         margin: { left: margin, right: margin },
         styles: { fontSize: 8, cellPadding: 4, textColor: [30, 30, 30] as [number, number, number] },
         headStyles: { fillColor: [37, 99, 235] as [number, number, number], textColor: [255, 255, 255] as [number, number, number], fontStyle: 'bold' },
-        alternateRowStyles: { fillColor: [248, 250, 252] as [number, number, number] },
         columnStyles: {
           0: { cellWidth: 60 },
           1: { cellWidth: 50 },
@@ -697,6 +699,9 @@ export function TaxSurchargeReport({ onClose }: Props) {
                             <td />
                           </tr>
                         )}
+                        <tr className="border-b border-gray-200">
+                          <td colSpan={7} className="h-10" />
+                        </tr>
                       </React.Fragment>
                     );
                   })}
