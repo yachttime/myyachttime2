@@ -379,6 +379,7 @@ export function TaxSurchargeReport({ onClose }: Props) {
               return hrs > 0 ? `${emp} (${hrs.toFixed(2)}h)` : emp;
             }).join(', ')
           : '—';
+        const laborCostStr = row.labor_cost > 0 ? `$${row.labor_cost.toFixed(2)}` : '—';
         tableRows.push([
           row.invoice_number,
           formatDate(row.invoice_date),
@@ -386,6 +387,7 @@ export function TaxSurchargeReport({ onClose }: Props) {
           row.work_title || '—',
           row.total_hours.toFixed(2),
           `$${row.total_labor_amount.toFixed(2)}`,
+          laborCostStr,
           empWithHours,
         ]);
         if (hasPdfPreset) {
@@ -393,28 +395,30 @@ export function TaxSurchargeReport({ onClose }: Props) {
             { content: `${pdfPct}% of labor amount`, colSpan: 5, styles: { fillColor: [254, 243, 199] as [number, number, number], textColor: [146, 64, 14] as [number, number, number], fontSize: 7, fontStyle: 'italic' as const } },
             { content: `$${(row.total_labor_amount * (pdfPct / 100)).toFixed(2)}`, styles: { fillColor: [254, 243, 199] as [number, number, number], textColor: [146, 64, 14] as [number, number, number], fontSize: 7, fontStyle: 'bold' as const, halign: 'right' as const } },
             { content: '', styles: { fillColor: [254, 243, 199] as [number, number, number] } },
+            { content: '', styles: { fillColor: [254, 243, 199] as [number, number, number] } },
           ]);
         }
         tableRows.push([
-          { content: 'Notes:', colSpan: 7, styles: { minCellHeight: 36, fillColor: [255, 255, 255] as [number, number, number], textColor: [180, 180, 180] as [number, number, number], fontSize: 7, fontStyle: 'italic' as const, lineColor: [210, 210, 210] as [number, number, number], lineWidth: 0.3 } },
+          { content: 'Notes:', colSpan: 8, styles: { minCellHeight: 36, fillColor: [255, 255, 255] as [number, number, number], textColor: [180, 180, 180] as [number, number, number], fontSize: 7, fontStyle: 'italic' as const, lineColor: [210, 210, 210] as [number, number, number], lineWidth: 0.3 } },
         ]);
       });
 
       autoTable(doc, {
         startY: y,
-        head: [['Invoice #', 'Date', 'Customer', 'Work Title', 'Total Hrs', 'Labor Amount', 'Employees']],
+        head: [['Invoice #', 'Date', 'Customer', 'Work Title', 'Total Hrs', 'Labor Amount', 'Labor Cost', 'Employees']],
         body: tableRows,
         margin: { left: margin, right: margin },
         styles: { fontSize: 8, cellPadding: 4, textColor: [30, 30, 30] as [number, number, number] },
         headStyles: { fillColor: [37, 99, 235] as [number, number, number], textColor: [255, 255, 255] as [number, number, number], fontStyle: 'bold' },
         columnStyles: {
-          0: { cellWidth: 60 },
-          1: { cellWidth: 50 },
-          2: { cellWidth: 80 },
-          3: { cellWidth: 80 },
-          4: { cellWidth: 45, halign: 'right' as const },
-          5: { cellWidth: 65, halign: 'right' as const },
-          6: { cellWidth: 'auto' as const },
+          0: { cellWidth: 55 },
+          1: { cellWidth: 48 },
+          2: { cellWidth: 70 },
+          3: { cellWidth: 70 },
+          4: { cellWidth: 40, halign: 'right' as const },
+          5: { cellWidth: 60, halign: 'right' as const },
+          6: { cellWidth: 60, halign: 'right' as const, textColor: [185, 28, 28] as [number, number, number] },
+          7: { cellWidth: 'auto' as const },
         }
       });
 
@@ -431,6 +435,14 @@ export function TaxSurchargeReport({ onClose }: Props) {
 
       finalY += 14;
       doc.text(`Total Labor Amount: $${getTotalLaborAmount().toFixed(2)}`, pageWidth - margin, finalY, { align: 'right' });
+
+      const totalLaborCost = getTotalLaborCost();
+      if (totalLaborCost > 0) {
+        finalY += 14;
+        doc.setTextColor(185, 28, 28);
+        doc.text(`Total Labor Cost: $${totalLaborCost.toFixed(2)}`, pageWidth - margin, finalY, { align: 'right' });
+        doc.setTextColor(30, 30, 30);
+      }
 
       if (hasPdfPreset) {
         finalY += 14;
