@@ -3798,6 +3798,37 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     }
   };
 
+  const handleSyncYachtCardPayment = async (invoice: YachtInvoice) => {
+    if (!invoice.id) return;
+    setSyncPaymentLoading(prev => ({ ...prev, [invoice.id]: true }));
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-stripe-payment`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ invoice_id: invoice.id })
+      });
+      const result = await response.json();
+      if (result.success) {
+        if (invoice.yacht_id) {
+          await loadYachtInvoices(invoice.yacht_id);
+          await loadUnpaidInvoiceCounts([invoice.yacht_id]);
+        }
+        showSuccess(result.message || 'Payment status synced successfully!');
+      } else {
+        showError(result.message || 'Payment not yet completed in Stripe');
+      }
+    } catch (error: any) {
+      console.error('Error syncing payment status:', error);
+      showError(`Error: ${error.message || 'Failed to sync payment status'}`);
+    } finally {
+      setSyncPaymentLoading(prev => ({ ...prev, [invoice.id]: false }));
+    }
+  };
+
   const handleGenerateEstimatingPaymentLink = async (estimatingInvoice: any) => {
     if (!estimatingInvoice?.id) return;
     setPaymentLinkLoading(prev => ({ ...prev, [estimatingInvoice.id]: true }));
@@ -11229,6 +11260,16 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                       <CreditCard className="w-3 h-3" /><span>{paymentProcessing[invoice.id] ? 'Processing...' : 'Pay Now'}</span>
                                                     </button>
                                                   )
+                                                )}
+                                                {invoice.payment_status !== 'paid' && (invoice.stripe_checkout_session_id || invoice.stripe_payment_intent_id) && isStaffRole(effectiveRole) && (
+                                                  <button
+                                                    onClick={() => handleSyncYachtCardPayment(invoice)}
+                                                    disabled={syncPaymentLoading[invoice.id]}
+                                                    className="px-2 py-1 bg-orange-500/20 text-orange-400 rounded hover:bg-orange-500/30 transition-colors flex items-center gap-1 whitespace-nowrap disabled:opacity-50"
+                                                  >
+                                                    <RefreshCw className={`w-3 h-3 ${syncPaymentLoading[invoice.id] ? 'animate-spin' : ''}`} />
+                                                    <span>{syncPaymentLoading[invoice.id] ? 'Syncing...' : 'Sync Payment'}</span>
+                                                  </button>
                                                 )}
                                               </div>
                                             </div>
