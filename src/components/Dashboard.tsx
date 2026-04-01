@@ -2210,23 +2210,30 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       const [yiResult, eiResult] = await Promise.all([
         supabase
           .from('yacht_invoices')
-          .select('yacht_id, total_amount, payment_status')
+          .select('yacht_id, invoice_amount_numeric, payment_status')
           .in('yacht_id', yachtIds)
-          .neq('payment_status', 'paid'),
+          .eq('payment_status', 'pending'),
         supabase
           .from('estimating_invoices')
           .select('yacht_id, total_amount, payment_status')
           .in('yacht_id', yachtIds)
           .eq('archived', false)
+          .eq('is_retail_customer', true)
           .neq('payment_status', 'paid')
       ]);
 
       const counts: Record<string, { count: number; total: number }> = {};
-      for (const inv of [...(yiResult.data || []), ...(eiResult.data || [])]) {
+      for (const inv of (yiResult.data || [])) {
         if (!inv.yacht_id) continue;
         if (!counts[inv.yacht_id]) counts[inv.yacht_id] = { count: 0, total: 0 };
         counts[inv.yacht_id].count += 1;
-        counts[inv.yacht_id].total += inv.total_amount || 0;
+        counts[inv.yacht_id].total += Number(inv.invoice_amount_numeric) || 0;
+      }
+      for (const inv of (eiResult.data || [])) {
+        if (!inv.yacht_id) continue;
+        if (!counts[inv.yacht_id]) counts[inv.yacht_id] = { count: 0, total: 0 };
+        counts[inv.yacht_id].count += 1;
+        counts[inv.yacht_id].total += Number(inv.total_amount) || 0;
       }
       setYachtUnpaidCounts(counts);
     } catch (error) {
