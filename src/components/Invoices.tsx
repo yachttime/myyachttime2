@@ -520,13 +520,34 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       if (tasksResult.error) throw tasksResult.error;
       if (lineItemsResult.error) throw lineItemsResult.error;
 
-      setWorkOrderTasks(tasksResult.data || []);
-      const lineItemsWithNames = (lineItemsResult.data || []).map((item: WorkOrderLineItem & { user_profiles?: { first_name: string; last_name: string } | null }) => ({
-        ...item,
-        employee_name: item.user_profiles
+      const tasks = tasksResult.data || [];
+      const taskIds = tasks.map((t: any) => t.id);
+
+      let assignmentsByTask: Record<string, string[]> = {};
+      if (taskIds.length > 0) {
+        const { data: assignmentsData } = await supabase
+          .from('work_order_task_assignments')
+          .select('task_id, user_profiles!work_order_task_assignments_employee_id_fkey(first_name, last_name)')
+          .in('task_id', taskIds);
+        (assignmentsData || []).forEach((a: any) => {
+          if (!assignmentsByTask[a.task_id]) assignmentsByTask[a.task_id] = [];
+          if (a.user_profiles) {
+            assignmentsByTask[a.task_id].push(`${a.user_profiles.first_name} ${a.user_profiles.last_name}`.trim());
+          }
+        });
+      }
+
+      setWorkOrderTasks(tasks);
+      const lineItemsWithNames = (lineItemsResult.data || []).map((item: WorkOrderLineItem & { user_profiles?: { first_name: string; last_name: string } | null }) => {
+        const lineEmployee = item.user_profiles
           ? `${item.user_profiles.first_name} ${item.user_profiles.last_name}`
-          : null
-      }));
+          : null;
+        const taskEmployees = assignmentsByTask[item.task_id] || [];
+        return {
+          ...item,
+          employee_name: lineEmployee || (taskEmployees.length > 0 ? taskEmployees.join(', ') : null)
+        };
+      });
       setWorkOrderLineItems(lineItemsWithNames);
     } catch (error) {
       console.error('Error fetching work order details:', error);
