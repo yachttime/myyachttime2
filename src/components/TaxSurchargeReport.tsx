@@ -144,13 +144,13 @@ export function TaxSurchargeReport({ onClose }: Props) {
         const [{ data: assignedLaborItems }, { data: allLaborItems }, { data: taskAssignments }] = await Promise.all([
           supabase
             .from('work_order_line_items')
-            .select('work_order_id, assigned_employee_id, quantity')
+            .select('id, work_order_id, assigned_employee_id, quantity')
             .in('work_order_id', workOrderIds)
             .eq('line_type', 'labor')
             .not('assigned_employee_id', 'is', null),
           supabase
             .from('work_order_line_items')
-            .select('work_order_id, quantity')
+            .select('id, work_order_id, quantity')
             .in('work_order_id', workOrderIds)
             .eq('line_type', 'labor'),
           supabase
@@ -181,16 +181,23 @@ export function TaxSurchargeReport({ onClose }: Props) {
           totalHoursByWorkOrder[li.work_order_id] = (totalHoursByWorkOrder[li.work_order_id] || 0) + (Number(li.quantity) || 0);
         });
 
-        (assignedLaborItems || []).forEach(li => {
+        const assignedHoursByWorkOrderAndEmp: Record<string, Record<string, number>> = {};
+        const assignedIds = new Set((assignedLaborItems || []).map((li: any) => li.id));
+
+        (assignedLaborItems || []).forEach((li: any) => {
           const woId = li.work_order_id;
           const empId = li.assigned_employee_id;
           if (!woId || !empId) return;
           const name = userMap[empId];
           if (!name) return;
-          if (!employeesByWorkOrder[woId]) employeesByWorkOrder[woId] = [];
-          if (!employeeHoursByWorkOrder[woId]) employeeHoursByWorkOrder[woId] = {};
-          if (!employeesByWorkOrder[woId].includes(name)) employeesByWorkOrder[woId].push(name);
-          employeeHoursByWorkOrder[woId][name] = (employeeHoursByWorkOrder[woId][name] || 0) + (Number(li.quantity) || 0);
+          if (!assignedHoursByWorkOrderAndEmp[woId]) assignedHoursByWorkOrderAndEmp[woId] = {};
+          assignedHoursByWorkOrderAndEmp[woId][name] = (assignedHoursByWorkOrderAndEmp[woId][name] || 0) + (Number(li.quantity) || 0);
+        });
+
+        const assignedQtyByWorkOrder: Record<string, number> = {};
+        (assignedLaborItems || []).forEach(li => {
+          if (!li.work_order_id) return;
+          assignedQtyByWorkOrder[li.work_order_id] = (assignedQtyByWorkOrder[li.work_order_id] || 0) + (Number(li.quantity) || 0);
         });
 
         const taskEmpsByWorkOrder: Record<string, Set<string>> = {};
@@ -204,21 +211,38 @@ export function TaxSurchargeReport({ onClose }: Props) {
           taskEmpsByWorkOrder[woId].add(name);
         });
 
-        Object.entries(taskEmpsByWorkOrder).forEach(([woId, empNames]) => {
-          const alreadyHasAssigned = (employeesByWorkOrder[woId] || []).length > 0;
-          if (alreadyHasAssigned) return;
+        const allWorkOrderIds = new Set([
+          ...Object.keys(assignedHoursByWorkOrderAndEmp),
+          ...Object.keys(taskEmpsByWorkOrder),
+        ]);
 
-          const totalHrs = totalHoursByWorkOrder[woId] || 0;
-          const empCount = empNames.size;
-          const hrsEach = empCount > 0 ? totalHrs / empCount : 0;
-
+        allWorkOrderIds.forEach(woId => {
           if (!employeesByWorkOrder[woId]) employeesByWorkOrder[woId] = [];
           if (!employeeHoursByWorkOrder[woId]) employeeHoursByWorkOrder[woId] = {};
 
-          empNames.forEach(name => {
+          const assignedEmps = assignedHoursByWorkOrderAndEmp[woId] || {};
+          Object.entries(assignedEmps).forEach(([name, hrs]) => {
             if (!employeesByWorkOrder[woId].includes(name)) employeesByWorkOrder[woId].push(name);
-            employeeHoursByWorkOrder[woId][name] = (employeeHoursByWorkOrder[woId][name] || 0) + hrsEach;
+            employeeHoursByWorkOrder[woId][name] = (employeeHoursByWorkOrder[woId][name] || 0) + hrs;
           });
+
+          const unassignedHrs = Math.max(0, (totalHoursByWorkOrder[woId] || 0) - (assignedQtyByWorkOrder[woId] || 0));
+          if (unassignedHrs > 0 && taskEmpsByWorkOrder[woId]) {
+            const taskEmps = [...taskEmpsByWorkOrder[woId]];
+            const hrsEach = unassignedHrs / taskEmps.length;
+            taskEmps.forEach(name => {
+              if (!employeesByWorkOrder[woId].includes(name)) employeesByWorkOrder[woId].push(name);
+              employeeHoursByWorkOrder[woId][name] = (employeeHoursByWorkOrder[woId][name] || 0) + hrsEach;
+            });
+          } else if (Object.keys(assignedEmps).length === 0 && taskEmpsByWorkOrder[woId]) {
+            const totalHrs = totalHoursByWorkOrder[woId] || 0;
+            const taskEmps = [...taskEmpsByWorkOrder[woId]];
+            const hrsEach = taskEmps.length > 0 ? totalHrs / taskEmps.length : 0;
+            taskEmps.forEach(name => {
+              if (!employeesByWorkOrder[woId].includes(name)) employeesByWorkOrder[woId].push(name);
+              employeeHoursByWorkOrder[woId][name] = (employeeHoursByWorkOrder[woId][name] || 0) + hrsEach;
+            });
+          }
         });
       }
 
