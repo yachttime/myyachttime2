@@ -17,6 +17,7 @@ import { VesselAgreementViewer } from './VesselAgreementViewer';
 import { PrintableUserList } from './PrintableUserList';
 import { PrintableOwnerTrips } from './PrintableOwnerTrips';
 import { PrintableYachtsList } from './PrintableYachtsList';
+import { FleetTripDatesReport } from './FleetTripDatesReport';
 import { EmailComposeModal } from './EmailComposeModal';
 import { YachtQRCode, printAllQRCodesAvery5168 } from './YachtQRCode';
 import { StaffCalendar } from './StaffCalendar';
@@ -716,6 +717,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [tripsToPrint, setTripsToPrint] = useState<YachtBooking[]>([]);
   const [printYachtName, setPrintYachtName] = useState('');
   const [showYachtsPrintView, setShowYachtsPrintView] = useState(false);
+  const [showFleetTripDatesReport, setShowFleetTripDatesReport] = useState(false);
 
   useEffect(() => {
     const handleQRScannedYacht = async () => {
@@ -9386,6 +9388,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           </button>
                         </>
                       )}
+                      <button
+                        onClick={() => setShowFleetTripDatesReport(true)}
+                        className="bg-slate-600 hover:bg-slate-500 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 shadow-lg flex items-center gap-2"
+                      >
+                        <Calendar className="w-5 h-5" />
+                        Trip Dates Report
+                      </button>
                       <button
                         onClick={() => setShowYachtForm(!showYachtForm)}
                         className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 shadow-lg"
@@ -18787,6 +18796,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         <PrintableYachtsList
           yachts={allYachts}
           onClose={() => setShowYachtsPrintView(false)}
+        />
+      )}
+
+      {showFleetTripDatesReport && (
+        <FleetTripDatesReport
+          companyId={userProfile?.company_id}
+          onClose={() => setShowFleetTripDatesReport(false)}
         />
       )}
 

@@ -2305,3 +2305,94 @@ export function generateActiveYachtsPDF(yachts: Yacht[]): jsPDF {
 
   return doc;
 }
+
+export interface FleetTripDatesRow {
+  yacht_name: string;
+  is_active: boolean;
+  first_trip: string | null;
+  last_trip: string | null;
+  total_trips: number;
+}
+
+export function generateFleetTripDatesReportPDF(rows: FleetTripDatesRow[]): jsPDF {
+  const doc = new jsPDF({
+    orientation: 'landscape',
+    unit: 'in',
+    format: 'letter',
+  });
+
+  const rptPageWidth = 11;
+  const rptMargin = 0.75;
+  let rptY = rptMargin;
+
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  const rptTitle = 'Fleet Trip Dates Report';
+  const rptTitleWidth = doc.getTextWidth(rptTitle);
+  doc.text(rptTitle, (rptPageWidth - rptTitleWidth) / 2, rptY);
+  rptY += 0.3;
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(100);
+  const rptDateText = `Generated: ${new Date().toLocaleString()}`;
+  const rptDateWidth = doc.getTextWidth(rptDateText);
+  doc.text(rptDateText, (rptPageWidth - rptDateWidth) / 2, rptY);
+  rptY += 0.4;
+  doc.setTextColor(0);
+
+  const fmtTripDate = (iso: string | null) => {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  const rptTableData = rows.map(r => [
+    r.yacht_name,
+    r.is_active ? 'Active' : 'Inactive',
+    fmtTripDate(r.first_trip),
+    fmtTripDate(r.last_trip),
+    r.total_trips.toString(),
+  ]);
+
+  autoTable(doc, {
+    startY: rptY,
+    head: [['Yacht Name', 'Status', 'First Trip', 'Last Trip', 'Total Trips']],
+    body: rptTableData,
+    theme: 'striped',
+    styles: {
+      fontSize: 10,
+      cellPadding: 0.1,
+      font: 'helvetica',
+      lineColor: [203, 213, 225],
+      lineWidth: 0.01,
+    },
+    headStyles: {
+      fillColor: [30, 41, 59],
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+      halign: 'left',
+    },
+    alternateRowStyles: {
+      fillColor: [248, 250, 252],
+    },
+    columnStyles: {
+      0: { cellWidth: 2.2 },
+      1: { cellWidth: 1.0 },
+      2: { cellWidth: 2.0 },
+      3: { cellWidth: 2.0 },
+      4: { cellWidth: 1.2, halign: 'center' },
+    },
+    margin: { left: rptMargin, right: rptMargin },
+  });
+
+  const rptPageCount = doc.getNumberOfPages();
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(100);
+  for (let i = 1; i <= rptPageCount; i++) {
+    doc.setPage(i);
+    doc.text(`Page ${i} of ${rptPageCount}`, rptPageWidth - rptMargin - 0.5, 8.3, { align: 'right' });
+  }
+
+  return doc;
+}
