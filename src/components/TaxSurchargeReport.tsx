@@ -143,16 +143,27 @@ export function TaxSurchargeReport({ onClose }: Props) {
       let rateByEmployeeName: Record<string, number> = {};
 
       if (workOrderIds.length > 0) {
+        const { data: workOrderTasks } = await supabase
+          .from('work_order_tasks')
+          .select('id, work_order_id')
+          .in('work_order_id', workOrderIds);
+
+        const taskIds = (workOrderTasks || []).map((t: any) => t.id);
+        const taskWorkOrderMap: Record<string, string> = {};
+        (workOrderTasks || []).forEach((t: any) => { taskWorkOrderMap[t.id] = t.work_order_id; });
+
         const [{ data: allLaborItems }, { data: taskAssignments }] = await Promise.all([
           supabase
             .from('work_order_line_items')
             .select('id, work_order_id, task_id, assigned_employee_id, quantity')
             .in('work_order_id', workOrderIds)
             .eq('line_type', 'labor'),
-          supabase
-            .from('work_order_task_assignments')
-            .select('task_id, employee_id, work_order_tasks!inner(work_order_id)')
-            .in('work_order_tasks.work_order_id', workOrderIds),
+          taskIds.length > 0
+            ? supabase
+                .from('work_order_task_assignments')
+                .select('task_id, employee_id')
+                .in('task_id', taskIds)
+            : Promise.resolve({ data: [] }),
         ]);
 
         const allEmployeeIds = new Set<string>();
