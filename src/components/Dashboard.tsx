@@ -611,7 +611,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   });
   const [yachtInvoices, setYachtInvoices] = useState<Record<string, YachtInvoice[]>>({});
   const [yachtEstimatingInvoices, setYachtEstimatingInvoices] = useState<Record<string, any[]>>({});
-  const [yachtUnpaidCounts, setYachtUnpaidCounts] = useState<Record<string, { count: number; total: number }>>({});
+  const [yachtUnpaidCounts, setYachtUnpaidCounts] = useState<Record<string, { count: number; total: number; unpaidCount: number; processingCount: number; paidCount: number; unpaidTotal: number; processingTotal: number; paidTotal: number }>>({});
   const [pendingEstimatingInvoiceId, setPendingEstimatingInvoiceId] = useState<string | undefined>(undefined);
   const [invoiceYachtId, setInvoiceYachtId] = useState<string | null>(null);
   const [selectedInvoiceYear, setSelectedInvoiceYear] = useState<number>(new Date().getFullYear());
@@ -2219,7 +2219,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           .from('yacht_invoices')
           .select('yacht_id, invoice_amount_numeric, payment_status, repair_request_id, repair_requests!repair_request_id(estimating_invoice_id)')
           .in('yacht_id', yachtIds)
-          .eq('payment_status', 'pending'),
+          .neq('payment_status', 'paid'),
         supabase
           .from('estimating_invoices')
           .select('yacht_id, total_amount, payment_status')
@@ -2228,19 +2228,37 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           .neq('payment_status', 'paid')
       ]);
 
-      const counts: Record<string, { count: number; total: number }> = {};
+      const counts: Record<string, { count: number; total: number; unpaidCount: number; processingCount: number; paidCount: number; unpaidTotal: number; processingTotal: number; paidTotal: number }> = {};
+      const initEntry = () => ({ count: 0, total: 0, unpaidCount: 0, processingCount: 0, paidCount: 0, unpaidTotal: 0, processingTotal: 0, paidTotal: 0 });
+
       for (const inv of (yiResult.data || [])) {
         if (!inv.yacht_id) continue;
         if (inv.repair_request_id && (inv as any).repair_requests?.estimating_invoice_id) continue;
-        if (!counts[inv.yacht_id]) counts[inv.yacht_id] = { count: 0, total: 0 };
+        if (!counts[inv.yacht_id]) counts[inv.yacht_id] = initEntry();
+        const amount = Number(inv.invoice_amount_numeric) || 0;
         counts[inv.yacht_id].count += 1;
-        counts[inv.yacht_id].total += Number(inv.invoice_amount_numeric) || 0;
+        counts[inv.yacht_id].total += amount;
+        if (inv.payment_status === 'pending') {
+          counts[inv.yacht_id].unpaidCount += 1;
+          counts[inv.yacht_id].unpaidTotal += amount;
+        } else if (inv.payment_status === 'processing') {
+          counts[inv.yacht_id].processingCount += 1;
+          counts[inv.yacht_id].processingTotal += amount;
+        }
       }
       for (const inv of (eiResult.data || [])) {
         if (!inv.yacht_id) continue;
-        if (!counts[inv.yacht_id]) counts[inv.yacht_id] = { count: 0, total: 0 };
+        if (!counts[inv.yacht_id]) counts[inv.yacht_id] = initEntry();
+        const amount = Number(inv.total_amount) || 0;
         counts[inv.yacht_id].count += 1;
-        counts[inv.yacht_id].total += Number(inv.total_amount) || 0;
+        counts[inv.yacht_id].total += amount;
+        if (inv.payment_status === 'unpaid') {
+          counts[inv.yacht_id].unpaidCount += 1;
+          counts[inv.yacht_id].unpaidTotal += amount;
+        } else if (inv.payment_status === 'processing') {
+          counts[inv.yacht_id].processingCount += 1;
+          counts[inv.yacht_id].processingTotal += amount;
+        }
       }
       setYachtUnpaidCounts(counts);
     } catch (error) {
@@ -9727,17 +9745,32 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               }`}>
                                 {yacht.is_active ? 'Active' : 'Inactive'}
                               </span>
-                              {yachtUnpaidCounts[yacht.id] && yachtUnpaidCounts[yacht.id].count > 0 && (
+                              {yachtUnpaidCounts[yacht.id] && yachtUnpaidCounts[yacht.id].unpaidCount > 0 && (
                                 <span className="px-2 py-0.5 rounded text-xs font-semibold bg-red-500/20 text-red-400 flex items-center gap-1">
                                   <AlertCircle className="w-3 h-3" />
-                                  {yachtUnpaidCounts[yacht.id].count} Unpaid
+                                  {yachtUnpaidCounts[yacht.id].unpaidCount} Unpaid
+                                </span>
+                              )}
+                              {yachtUnpaidCounts[yacht.id] && yachtUnpaidCounts[yacht.id].processingCount > 0 && (
+                                <span className="px-2 py-0.5 rounded text-xs font-semibold bg-orange-500/20 text-orange-400 flex items-center gap-1">
+                                  <RefreshCw className="w-3 h-3" />
+                                  {yachtUnpaidCounts[yacht.id].processingCount} Processing
                                 </span>
                               )}
                             </div>
                             {yachtUnpaidCounts[yacht.id] && yachtUnpaidCounts[yacht.id].count > 0 && (
-                              <p className="text-xs text-red-400 font-medium">
-                                ${yachtUnpaidCounts[yacht.id].total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} outstanding
-                              </p>
+                              <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+                                {yachtUnpaidCounts[yacht.id].unpaidTotal > 0 && (
+                                  <p className="text-xs text-red-400 font-medium">
+                                    ${yachtUnpaidCounts[yacht.id].unpaidTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} unpaid
+                                  </p>
+                                )}
+                                {yachtUnpaidCounts[yacht.id].processingTotal > 0 && (
+                                  <p className="text-xs text-orange-400 font-medium">
+                                    ${yachtUnpaidCounts[yacht.id].processingTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} processing
+                                  </p>
+                                )}
+                              </div>
                             )}
                             <p className="text-sm text-slate-400">Yacht History</p>
                           </div>
