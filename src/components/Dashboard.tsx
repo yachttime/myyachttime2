@@ -610,6 +610,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   });
   const [yachtInvoices, setYachtInvoices] = useState<Record<string, YachtInvoice[]>>({});
   const [yachtEstimatingInvoices, setYachtEstimatingInvoices] = useState<Record<string, any[]>>({});
+  const [yachtUnpaidCounts, setYachtUnpaidCounts] = useState<Record<string, { count: number; total: number }>>({});
   const [pendingEstimatingInvoiceId, setPendingEstimatingInvoiceId] = useState<string | undefined>(undefined);
   const [invoiceYachtId, setInvoiceYachtId] = useState<string | null>(null);
   const [selectedInvoiceYear, setSelectedInvoiceYear] = useState<number>(new Date().getFullYear());
@@ -1953,6 +1954,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         throw error;
       }
       setAllYachts(data || []);
+      if (data && data.length > 0) {
+        loadUnpaidInvoiceCounts(data.map((y: any) => y.id));
+      }
     } catch (error) {
       console.error('Error loading yachts:', error);
     }
@@ -2197,6 +2201,36 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       }));
     } catch (error) {
       console.error('Error loading yacht invoices:', error);
+    }
+  };
+
+  const loadUnpaidInvoiceCounts = async (yachtIds: string[]) => {
+    if (!yachtIds.length) return;
+    try {
+      const [yiResult, eiResult] = await Promise.all([
+        supabase
+          .from('yacht_invoices')
+          .select('yacht_id, total_amount, payment_status')
+          .in('yacht_id', yachtIds)
+          .neq('payment_status', 'paid'),
+        supabase
+          .from('estimating_invoices')
+          .select('yacht_id, total_amount, payment_status')
+          .in('yacht_id', yachtIds)
+          .eq('archived', false)
+          .neq('payment_status', 'paid')
+      ]);
+
+      const counts: Record<string, { count: number; total: number }> = {};
+      for (const inv of [...(yiResult.data || []), ...(eiResult.data || [])]) {
+        if (!inv.yacht_id) continue;
+        if (!counts[inv.yacht_id]) counts[inv.yacht_id] = { count: 0, total: 0 };
+        counts[inv.yacht_id].count += 1;
+        counts[inv.yacht_id].total += inv.total_amount || 0;
+      }
+      setYachtUnpaidCounts(counts);
+    } catch (error) {
+      console.error('Error loading unpaid invoice counts:', error);
     }
   };
 
@@ -9672,7 +9706,18 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               }`}>
                                 {yacht.is_active ? 'Active' : 'Inactive'}
                               </span>
+                              {yachtUnpaidCounts[yacht.id] && yachtUnpaidCounts[yacht.id].count > 0 && (
+                                <span className="px-2 py-0.5 rounded text-xs font-semibold bg-red-500/20 text-red-400 flex items-center gap-1">
+                                  <AlertCircle className="w-3 h-3" />
+                                  {yachtUnpaidCounts[yacht.id].count} Unpaid
+                                </span>
+                              )}
                             </div>
+                            {yachtUnpaidCounts[yacht.id] && yachtUnpaidCounts[yacht.id].count > 0 && (
+                              <p className="text-xs text-red-400 font-medium">
+                                ${yachtUnpaidCounts[yacht.id].total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} outstanding
+                              </p>
+                            )}
                             <p className="text-sm text-slate-400">Yacht History</p>
                           </div>
                           <Ship className="w-6 h-6 text-blue-500" />
