@@ -32,6 +32,7 @@ interface LaborRow {
   total_labor_amount: number;
   employees: string[];
   employeeHours: Record<string, number>;
+  labor_cost: number;
 }
 
 interface Props {
@@ -139,6 +140,7 @@ export function TaxSurchargeReport({ onClose }: Props) {
 
       let employeesByWorkOrder: Record<string, string[]> = {};
       let employeeHoursByWorkOrder: Record<string, Record<string, number>> = {};
+      let rateByEmployeeName: Record<string, number> = {};
 
       if (workOrderIds.length > 0) {
         const [{ data: allLaborItems }, { data: taskAssignments }] = await Promise.all([
@@ -161,11 +163,13 @@ export function TaxSurchargeReport({ onClose }: Props) {
         if (allEmployeeIds.size > 0) {
           const { data: users } = await supabase
             .from('user_profiles')
-            .select('user_id, first_name, last_name')
+            .select('user_id, first_name, last_name, rate_of_pay')
             .in('user_id', [...allEmployeeIds]);
 
-          (users || []).forEach(u => {
-            userMap[u.user_id] = `${u.first_name || ''} ${u.last_name || ''}`.trim();
+          (users || []).forEach((u: any) => {
+            const name = `${u.first_name || ''} ${u.last_name || ''}`.trim();
+            userMap[u.user_id] = name;
+            if (u.rate_of_pay != null) rateByEmployeeName[name] = Number(u.rate_of_pay);
           });
         }
 
@@ -227,6 +231,13 @@ export function TaxSurchargeReport({ onClose }: Props) {
           total_labor_amount: laborByInvoice[inv.id]?.amount || 0,
           employees: (inv.work_order_id && employeesByWorkOrder[inv.work_order_id]) || [],
           employeeHours: (inv.work_order_id && employeeHoursByWorkOrder[inv.work_order_id]) || {},
+          labor_cost: (() => {
+            const empHours = (inv.work_order_id && employeeHoursByWorkOrder[inv.work_order_id]) || {};
+            return Object.entries(empHours).reduce((sum, [name, hrs]) => {
+              const rate = rateByEmployeeName[name];
+              return rate != null ? sum + hrs * rate : sum;
+            }, 0);
+          })(),
         }));
 
       setLaborRows(result);
@@ -282,6 +293,10 @@ export function TaxSurchargeReport({ onClose }: Props) {
 
   function getTotalLaborAmount(): number {
     return laborRows.reduce((sum, r) => sum + r.total_labor_amount, 0);
+  }
+
+  function getTotalLaborCost(): number {
+    return laborRows.reduce((sum, r) => sum + r.labor_cost, 0);
   }
 
   function getStatusColor(status: string): string {
@@ -575,10 +590,15 @@ export function TaxSurchargeReport({ onClose }: Props) {
                   <div className="text-lg font-bold text-blue-700">{getTotalLaborHours().toFixed(2)}</div>
                   <div className="text-xs text-gray-400">hours billed</div>
                 </div>
-                <div className="text-right">
+                <div className="text-right border-r border-gray-200 pr-6">
                   <div className="text-xs text-gray-500">Total Labor Amount</div>
                   <div className="text-lg font-bold text-gray-900">${getTotalLaborAmount().toFixed(2)}</div>
                   <div className="text-xs text-gray-500">labor revenue</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xs text-gray-500">Total Labor Cost</div>
+                  <div className="text-lg font-bold text-red-700">${getTotalLaborCost().toFixed(2)}</div>
+                  <div className="text-xs text-gray-400">employee cost</div>
                 </div>
               </div>
             ) : (
@@ -634,6 +654,7 @@ export function TaxSurchargeReport({ onClose }: Props) {
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Work Title</th>
                     <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Total Hrs</th>
                     <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Labor Amount</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Labor Cost</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Employees Assigned</th>
                   </tr>
                 </thead>
@@ -651,6 +672,11 @@ export function TaxSurchargeReport({ onClose }: Props) {
                           <td className="px-4 py-3 text-sm text-gray-600">{row.work_title || <span className="text-gray-400">—</span>}</td>
                           <td className="px-4 py-3 text-sm font-semibold text-blue-700 text-right">{row.total_hours.toFixed(2)}</td>
                           <td className="px-4 py-3 text-sm font-semibold text-gray-900 text-right">${row.total_labor_amount.toFixed(2)}</td>
+                          <td className="px-4 py-3 text-sm font-semibold text-right">
+                            {row.labor_cost > 0
+                              ? <span className="text-red-700">${row.labor_cost.toFixed(2)}</span>
+                              : <span className="text-gray-400">—</span>}
+                          </td>
                           <td className="px-4 py-3 text-sm text-gray-700">
                             {row.employees.length > 0 ? (
                               <div className="flex flex-wrap gap-1">
@@ -679,11 +705,11 @@ export function TaxSurchargeReport({ onClose }: Props) {
                             <td className="px-4 py-1.5 text-xs font-bold text-amber-700 text-right">
                               ${presetAmount.toFixed(2)}
                             </td>
-                            <td />
+                            <td colSpan={2} />
                           </tr>
                         )}
                         <tr className="border-b border-gray-200">
-                          <td colSpan={7} className="h-10" />
+                          <td colSpan={8} className="h-10" />
                         </tr>
                       </React.Fragment>
                     );
@@ -700,6 +726,9 @@ export function TaxSurchargeReport({ onClose }: Props) {
                     <td className="px-4 py-3 text-sm font-bold text-gray-900 text-right">
                       ${getTotalLaborAmount().toFixed(2)}
                     </td>
+                    <td className="px-4 py-3 text-sm font-bold text-red-700 text-right">
+                      {getTotalLaborCost() > 0 ? `$${getTotalLaborCost().toFixed(2)}` : '—'}
+                    </td>
                     <td />
                   </tr>
                   {(() => {
@@ -714,7 +743,7 @@ export function TaxSurchargeReport({ onClose }: Props) {
                         <td className="px-4 py-2 text-sm font-bold text-amber-700 text-right">
                           ${presetTotal.toFixed(2)}
                         </td>
-                        <td />
+                        <td colSpan={2} />
                       </tr>
                     );
                   })()}
