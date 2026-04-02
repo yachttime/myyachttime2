@@ -114,6 +114,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
   const [invoiceToArchive, setInvoiceToArchive] = useState<string | null>(null);
   const [workOrderTasks, setWorkOrderTasks] = useState<WorkOrderTask[]>([]);
   const [workOrderLineItems, setWorkOrderLineItems] = useState<WorkOrderLineItem[]>([]);
+  const [estimatingLineItems, setEstimatingLineItems] = useState<WorkOrderLineItem[]>([]);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [syncPaymentLoading, setSyncPaymentLoading] = useState(false);
   const [syncAllLoading, setSyncAllLoading] = useState(false);
@@ -626,6 +627,37 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
     }
   }
 
+  async function fetchEstimatingLineItems(invoiceId: string) {
+    try {
+      const { data } = await supabase
+        .from('estimating_invoice_line_items')
+        .select('*')
+        .eq('invoice_id', invoiceId)
+        .order('line_order');
+      const items: WorkOrderLineItem[] = (data || []).map((item: any) => ({
+        id: item.id,
+        task_id: item.task_id || '',
+        line_type: item.line_type,
+        description: item.description,
+        quantity: parseFloat(item.quantity),
+        unit_price: parseFloat(item.unit_price),
+        total_price: parseFloat(item.total_price),
+        is_taxable: item.is_taxable,
+        line_order: item.line_order,
+        work_details: item.work_details || null,
+        assigned_employee_id: null,
+        time_entry_sent_at: null,
+        time_entry_id: null,
+        employee_name: null,
+        task_name: item.task_name || null,
+      }));
+      setEstimatingLineItems(items);
+    } catch (error) {
+      console.error('Error fetching estimating line items:', error);
+      setEstimatingLineItems([]);
+    }
+  }
+
   async function fetchInvoiceCheckPayments(invoiceId: string) {
     const { data } = await supabase
       .from('estimating_payments')
@@ -640,10 +672,12 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
     setSelectedInvoice(invoice);
     setShowDetails(true);
     setInvoiceCheckPayments([]);
+    setEstimatingLineItems([]);
 
     await Promise.all([
       invoice.work_order_id ? fetchWorkOrderDetails(invoice.work_order_id) : Promise.resolve(),
       fetchInvoiceCheckPayments(invoice.id),
+      fetchEstimatingLineItems(invoice.id),
     ]);
 
     if (!invoice.work_order_id) {
@@ -959,30 +993,50 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       yPos = Math.max(yPos, leftStartY + 0.6);
       yPos += 0.2;
 
-      // Line items table
-      if (workOrderTasks.length > 0 && workOrderLineItems.length > 0) {
+      // Line items table - prefer work order line items, fall back to estimating invoice line items
+      const hasWorkOrderItems = workOrderTasks.length > 0 && workOrderLineItems.length > 0;
+      const hasEstimatingItems = estimatingLineItems.length > 0;
+
+      if (hasWorkOrderItems || hasEstimatingItems) {
         const tableData: any[] = [];
 
-        workOrderTasks.forEach(task => {
-          const taskItems = workOrderLineItems.filter(item => item.task_id === task.id);
-          if (taskItems.length > 0) {
-            // Add task header
-            tableData.push([
-              { content: task.task_name, colSpan: 5, styles: { fontStyle: 'bold', fillColor: [240, 240, 240] } }
-            ]);
-
-            // Add line items
-            taskItems.forEach(item => {
+        if (hasWorkOrderItems) {
+          workOrderTasks.forEach(task => {
+            const taskItems = workOrderLineItems.filter(item => item.task_id === task.id);
+            if (taskItems.length > 0) {
               tableData.push([
-                item.line_type.toUpperCase(),
-                item.description + (item.work_details ? '\n' + item.work_details : ''),
-                item.quantity.toString(),
-                `$${item.unit_price.toFixed(2)}`,
-                `$${item.total_price.toFixed(2)}`
+                { content: task.task_name, colSpan: 5, styles: { fontStyle: 'bold', fillColor: [240, 240, 240] } }
               ]);
-            });
-          }
-        });
+              taskItems.forEach(item => {
+                tableData.push([
+                  item.line_type.toUpperCase(),
+                  item.description + (item.work_details ? '\n' + item.work_details : ''),
+                  item.quantity.toString(),
+                  `$${item.unit_price.toFixed(2)}`,
+                  `$${item.total_price.toFixed(2)}`
+                ]);
+              });
+            }
+          });
+        } else {
+          let lastTaskName = '';
+          estimatingLineItems.forEach((item: any) => {
+            const taskName = item.task_name || '';
+            if (taskName && taskName !== lastTaskName) {
+              tableData.push([
+                { content: taskName, colSpan: 5, styles: { fontStyle: 'bold', fillColor: [240, 240, 240] } }
+              ]);
+              lastTaskName = taskName;
+            }
+            tableData.push([
+              item.line_type.toUpperCase(),
+              item.description + (item.work_details ? '\n' + item.work_details : ''),
+              item.quantity.toString(),
+              `$${item.unit_price.toFixed(2)}`,
+              `$${item.total_price.toFixed(2)}`
+            ]);
+          });
+        }
 
         autoTable(doc, {
           startY: yPos,
