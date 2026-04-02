@@ -124,11 +124,11 @@ Deno.serve(async (req: Request) => {
     if (!decryptResponse.ok) throw new Error('Failed to decrypt QuickBooks tokens');
     const { access_token: accessToken } = await decryptResponse.json();
 
-    // Get account mappings
+    // Get account mappings (company-specific first, fall back to null company_id global mappings)
     const { data: mappings } = await supabase
       .from('quickbooks_account_mappings')
-      .select('mapping_type, qbo_account_id, internal_code_id, internal_code_type')
-      .eq('company_id', profile.company_id);
+      .select('mapping_type, qbo_account_id, internal_code_id, internal_code_type, company_id')
+      .or(`company_id.eq.${profile.company_id},company_id.is.null`);
 
     const defaultIncomeMapping = mappings?.find(m => m.mapping_type === 'income' && m.internal_code_id === null);
     const defaultPartsMapping = mappings?.find(m => m.mapping_type === 'parts' && m.internal_code_id === null);
