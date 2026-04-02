@@ -734,6 +734,131 @@ export function generateOwnerTripsPDF(trips: YachtBooking[], yachtName: string):
   return doc;
 }
 
+export function generateAllYachtTripsPDF(yachtTripsMap: { yacht: { id: string; name: string }; trips: YachtBooking[] }[]): jsPDF {
+  const doc = new jsPDF({
+    orientation: 'landscape',
+    unit: 'in',
+    format: 'letter',
+  });
+
+  const pageWidth = 11;
+  const margin = 0.75;
+
+  const convertTo12Hour = (time24: string): string => {
+    if (!time24) return '';
+    const [hours, minutes] = time24.split(':');
+    const hour = parseInt(hours, 10);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const hour12 = hour % 12 || 12;
+    return `${hour12}:${minutes} ${ampm}`;
+  };
+
+  let isFirstYacht = true;
+
+  for (const { yacht, trips } of yachtTripsMap) {
+    if (trips.length === 0) continue;
+
+    if (!isFirstYacht) {
+      doc.addPage();
+    }
+    isFirstYacht = false;
+
+    let yPos = margin;
+
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0);
+    const title = `Owner Trips - ${yacht.name}`;
+    const titleWidth = doc.getTextWidth(title);
+    doc.text(title, (pageWidth - titleWidth) / 2, yPos);
+    yPos += 0.3;
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    const dateText = `Generated: ${new Date().toLocaleString()}`;
+    const dateWidth = doc.getTextWidth(dateText);
+    doc.text(dateText, (pageWidth - dateWidth) / 2, yPos);
+    yPos += 0.4;
+
+    const sortedTrips = [...trips].sort((a, b) =>
+      new Date(a.start_date).getTime() - new Date(b.start_date).getTime()
+    );
+
+    const tableData = sortedTrips.map((trip: any) => {
+      const startDate = new Date(trip.start_date).toLocaleDateString();
+      const endDate = new Date(trip.end_date).toLocaleDateString();
+      const departureTime = trip.departure_time ? convertTo12Hour(trip.departure_time) : '';
+      const arrivalTime = trip.arrival_time ? convertTo12Hour(trip.arrival_time) : '';
+      const timeInfo = [departureTime && `Dep: ${departureTime}`, arrivalTime && `Arr: ${arrivalTime}`].filter(Boolean).join(' | ') || 'N/A';
+      const tripNumber = trip.user_profiles?.trip_number || 'N/A';
+
+      let ownerNames = 'N/A';
+      let ownerContacts = 'N/A';
+
+      if (trip.yacht_booking_owners && trip.yacht_booking_owners.length > 0) {
+        ownerNames = trip.yacht_booking_owners.map((o: any) => o.owner_name).join(', ');
+        const contacts = trip.yacht_booking_owners
+          .map((o: any) => o.owner_contact)
+          .filter((c: any) => c)
+          .join(', ');
+        ownerContacts = contacts || 'N/A';
+      } else if (trip.user_profiles) {
+        ownerNames = `${trip.user_profiles.first_name} ${trip.user_profiles.last_name}`;
+        ownerContacts = trip.user_profiles.phone || trip.user_profiles.email || 'N/A';
+      } else {
+        ownerNames = trip.owner_name || 'N/A';
+        ownerContacts = trip.owner_contact || 'N/A';
+      }
+
+      return [tripNumber, ownerNames, ownerContacts, startDate, endDate, timeInfo];
+    });
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [['Trip #', 'Owner Name', 'Contact', 'Start Date', 'End Date', 'Times']],
+      body: tableData,
+      theme: 'grid',
+      styles: {
+        fontSize: 9,
+        cellPadding: 0.08,
+        font: 'helvetica',
+        lineColor: [203, 213, 225],
+        lineWidth: 0.01
+      },
+      headStyles: {
+        fillColor: [241, 245, 249],
+        textColor: [0, 0, 0],
+        fontStyle: 'bold',
+        halign: 'left'
+      },
+      alternateRowStyles: {
+        fillColor: [249, 250, 251]
+      },
+      columnStyles: {
+        0: { cellWidth: 1.0 },
+        1: { cellWidth: 1.8 },
+        2: { cellWidth: 1.5 },
+        3: { cellWidth: 1.3 },
+        4: { cellWidth: 1.3 },
+        5: { cellWidth: 2.0 }
+      },
+      margin: { left: margin, right: margin },
+    });
+  }
+
+  const pageCount = doc.getNumberOfPages();
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(100);
+
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.text(`Page ${i} of ${pageCount}`, pageWidth - margin - 0.5, 8, { align: 'right' });
+  }
+
+  return doc;
+}
+
 interface EmployeeReport {
   user: {
     user_id: string;

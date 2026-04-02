@@ -27,6 +27,7 @@ import CustomerManagement from './CustomerManagement';
 import { CompanyManagement } from './CompanyManagement';
 import SupportTickets from './SupportTickets';
 import { uploadFileToStorage, deleteFileFromStorage, isStorageUrl, UploadProgress, isTokenExpiredError } from '../utils/fileUpload';
+import { generateAllYachtTripsPDF } from '../utils/pdfGenerator';
 
 interface DashboardProps {
   onNavigate: (page: 'maintenance' | 'education' | 'staffCalendar') => void;
@@ -710,6 +711,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [agreementYachtId, setAgreementYachtId] = useState<string | null>(null);
   const [qrCodeYacht, setQrCodeYacht] = useState<{ id: string; name: string } | null>(null);
   const [printingAllQR, setPrintingAllQR] = useState(false);
+  const [printingAllTrips, setPrintingAllTrips] = useState(false);
   const [showAgreementForm, setShowAgreementForm] = useState(false);
   const [showAgreementViewer, setShowAgreementViewer] = useState(false);
   const [selectedAgreement, setSelectedAgreement] = useState<VesselManagementAgreement | null>(null);
@@ -9534,6 +9536,51 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           >
                             <QrCode className="w-5 h-5" />
                             {printingAllQR ? 'Generating...' : 'Print All QR Codes'}
+                          </button>
+                          <button
+                            onClick={async () => {
+                              setPrintingAllTrips(true);
+                              try {
+                                const activeYachts = allYachts.filter(y => y.is_active);
+                                const results: { yacht: { id: string; name: string }; trips: YachtBooking[] }[] = [];
+                                for (const yacht of activeYachts) {
+                                  const { data } = await supabase
+                                    .from('yacht_bookings')
+                                    .select(`
+                                      *,
+                                      user_profiles(trip_number, first_name, last_name, phone, email),
+                                      yacht_booking_owners (
+                                        id,
+                                        owner_name,
+                                        owner_contact,
+                                        created_at
+                                      )
+                                    `)
+                                    .eq('yacht_id', yacht.id)
+                                    .order('start_date', { ascending: true });
+                                  const trips = (data || []) as YachtBooking[];
+                                  if (trips.length > 0) {
+                                    results.push({ yacht: { id: yacht.id, name: yacht.name }, trips });
+                                  }
+                                }
+                                if (results.length === 0) {
+                                  alert('No trips found for any active yachts.');
+                                  return;
+                                }
+                                const pdf = generateAllYachtTripsPDF(results);
+                                const fileName = `All_Yacht_Trips_${new Date().toISOString().split('T')[0]}.pdf`;
+                                pdf.save(fileName);
+                              } catch (err: any) {
+                                alert(`Failed to generate PDF: ${err.message}`);
+                              } finally {
+                                setPrintingAllTrips(false);
+                              }
+                            }}
+                            disabled={printingAllTrips}
+                            className="bg-cyan-700 hover:bg-cyan-600 disabled:opacity-50 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 shadow-lg flex items-center gap-2"
+                          >
+                            <Printer className="w-5 h-5" />
+                            {printingAllTrips ? 'Generating...' : 'Print All Trips'}
                           </button>
                         </>
                       )}
