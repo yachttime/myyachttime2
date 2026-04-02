@@ -377,9 +377,8 @@ Deno.serve(async (req: Request) => {
       let isDuplicateDocNumber = false;
       let existingTxnId: string | null = null;
       try {
-        const errData = typeof createInvoiceResult.data === 'string'
-          ? JSON.parse(createInvoiceResult.data)
-          : createInvoiceResult.data;
+        const rawErr = createInvoiceResult.errorText || '';
+        const errData = rawErr ? JSON.parse(rawErr) : null;
         if (errData?.Fault?.Error?.length > 0) {
           const firstError = errData.Fault.Error[0];
           qbErrorMessage = firstError.Detail || firstError.Message || qbErrorMessage;
@@ -388,11 +387,11 @@ Deno.serve(async (req: Request) => {
             const match = firstError.Detail?.match(/TxnId=(\d+)/);
             if (match) existingTxnId = match[1];
           }
+        } else if (rawErr) {
+          qbErrorMessage = rawErr;
         }
       } catch (_) {
-        qbErrorMessage = typeof createInvoiceResult.data === 'string'
-          ? createInvoiceResult.data
-          : 'Failed to create invoice in QuickBooks';
+        qbErrorMessage = createInvoiceResult.errorText || 'Failed to create invoice in QuickBooks';
       }
 
       // Handle duplicate doc number: link to the existing QB invoice

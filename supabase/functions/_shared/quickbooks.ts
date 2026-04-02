@@ -20,6 +20,7 @@ interface QuickBooksAPICallOptions {
 interface QuickBooksAPIResponse {
   response: Response;
   data: any;
+  errorText: string | null;
   intuitTid: string | null;
   success: boolean;
 }
@@ -158,6 +159,7 @@ export async function makeQuickBooksAPICall(
     return {
       response,
       data: responseData,
+      errorText: success ? null : errorMessage,
       intuitTid,
       success,
     };
