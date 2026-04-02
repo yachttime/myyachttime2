@@ -2972,7 +2972,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                                           <input
                                             type="number"
                                             min="0"
-                                            step="1"
+                                            step="0.5"
                                             value={item.quantity}
                                             onChange={(e) => handleUpdateLineItemPrice(taskIndex, lineIndex, 'quantity', e.target.value)}
                                             className="w-16 text-right border border-gray-300 hover:border-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded px-1 py-0.5 text-sm text-gray-900 bg-white"
