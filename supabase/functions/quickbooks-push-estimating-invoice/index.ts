@@ -42,29 +42,23 @@ Deno.serve(async (req: Request) => {
       throw new Error('Only master, staff, or manager users can push invoices to QuickBooks');
     }
 
-    // Get invoice with line items
+    // Get invoice and line items in separate queries to avoid PostgREST join duplication
     const { data: invoice, error: invoiceError } = await supabase
       .from('estimating_invoices')
-      .select(`
-        *,
-        estimating_invoice_line_items (
-          id,
-          task_name,
-          line_type,
-          description,
-          quantity,
-          unit_price,
-          total_price,
-          is_taxable,
-          labor_code_id,
-          part_id,
-          line_order
-        )
-      `)
+      .select('*')
       .eq('id', invoiceId)
       .single();
 
     if (invoiceError || !invoice) throw new Error('Invoice not found');
+
+    const { data: lineItemsData, error: lineItemsError } = await supabase
+      .from('estimating_invoice_line_items')
+      .select('id, task_name, line_type, description, quantity, unit_price, total_price, is_taxable, labor_code_id, part_id, line_order')
+      .eq('invoice_id', invoiceId)
+      .order('line_order');
+
+    if (lineItemsError) throw new Error('Failed to fetch invoice line items');
+    invoice.estimating_invoice_line_items = lineItemsData || [];
 
     if (invoice.company_id !== profile.company_id && profile.role !== 'master') {
       throw new Error('Invoice does not belong to your company');
@@ -304,6 +298,20 @@ Deno.serve(async (req: Request) => {
         Description: 'Surcharge',
         SalesItemLineDetail: {
           UnitPrice: invoice.surcharge_amount,
+          Qty: 1,
+          ItemRef: { value: servicesItemId },
+        },
+      });
+    }
+
+    // Add park fees line if applicable
+    if (invoice.park_fees_amount && invoice.park_fees_amount > 0) {
+      qbLineItems.push({
+        Amount: invoice.park_fees_amount,
+        DetailType: 'SalesItemLineDetail',
+        Description: 'Park Fees',
+        SalesItemLineDetail: {
+          UnitPrice: invoice.park_fees_amount,
           Qty: 1,
           ItemRef: { value: servicesItemId },
         },
