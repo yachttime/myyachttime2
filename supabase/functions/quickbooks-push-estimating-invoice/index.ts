@@ -371,14 +371,56 @@ Deno.serve(async (req: Request) => {
         }).eq('id', invoiceId);
         throw new Error('QuickBooks authorization has expired. Please reconnect your QuickBooks account.');
       }
-      const errText = typeof createInvoiceResult.data === 'string'
-        ? createInvoiceResult.data
-        : JSON.stringify(createInvoiceResult.data);
+
+      // Parse QB fault error for a readable message
+      let qbErrorMessage = 'Unknown error';
+      let isDuplicateDocNumber = false;
+      let existingTxnId: string | null = null;
+      try {
+        const errData = typeof createInvoiceResult.data === 'string'
+          ? JSON.parse(createInvoiceResult.data)
+          : createInvoiceResult.data;
+        if (errData?.Fault?.Error?.length > 0) {
+          const firstError = errData.Fault.Error[0];
+          qbErrorMessage = firstError.Detail || firstError.Message || qbErrorMessage;
+          if (firstError.code === '6140') {
+            isDuplicateDocNumber = true;
+            const match = firstError.Detail?.match(/TxnId=(\d+)/);
+            if (match) existingTxnId = match[1];
+          }
+        }
+      } catch (_) {
+        qbErrorMessage = typeof createInvoiceResult.data === 'string'
+          ? createInvoiceResult.data
+          : 'Failed to create invoice in QuickBooks';
+      }
+
+      // Handle duplicate doc number: link to the existing QB invoice
+      if (isDuplicateDocNumber && existingTxnId) {
+        await supabase.from('estimating_invoices').update({
+          quickbooks_export_status: 'exported',
+          quickbooks_invoice_id: existingTxnId,
+          quickbooks_export_date: new Date().toISOString(),
+          quickbooks_export_error: null,
+          quickbooks_invoice_synced_at: new Date().toISOString(),
+        }).eq('id', invoiceId);
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: `Invoice already exists in QuickBooks (ID: ${existingTxnId}). Linked successfully.`,
+            qboInvoiceId: existingTxnId,
+            encrypted_session: currentEncryptedSession,
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       await supabase.from('estimating_invoices').update({
         quickbooks_export_status: 'error',
-        quickbooks_export_error: errText.substring(0, 500),
+        quickbooks_export_error: qbErrorMessage.substring(0, 500),
       }).eq('id', invoiceId);
-      throw new Error(`Failed to create invoice in QuickBooks: ${errText}`);
+      throw new Error(`Failed to create invoice in QuickBooks: ${qbErrorMessage}`);
     }
 
     const qboInvoiceId = createInvoiceResult.data.Invoice?.Id;
