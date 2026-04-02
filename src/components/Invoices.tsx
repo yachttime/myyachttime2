@@ -68,6 +68,9 @@ interface Invoice {
   credit_card_fee: number | null;
   manager_name?: string | null;
   company_id?: string | null;
+  repair_request_id?: string | null;
+  repair_request_status?: string | null;
+  repair_request_deposit_status?: string | null;
 }
 
 interface WorkOrderTask {
@@ -174,25 +177,32 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
         .select(`
           *,
           work_orders!estimating_invoices_work_order_id_fkey(work_order_number, work_title, vessel_id, customer_vessels(vessel_name, manufacturer, model), estimates(manager_name)),
-          yachts!estimating_invoices_yacht_id_fkey(name, manufacturer, model)
+          yachts!estimating_invoices_yacht_id_fkey(name, manufacturer, model),
+          repair_requests!repair_requests_estimating_invoice_id_fkey(id, status, deposit_payment_status)
         `)
         .eq('archived', false)
         .order('invoice_date', { ascending: false });
 
       if (error) throw error;
 
-      const formattedInvoices = data?.map(inv => ({
-        ...inv,
-        work_order_number: inv.work_orders?.work_order_number,
-        work_title: inv.work_orders?.work_title,
-        yacht_name: inv.yachts?.name,
-        yacht_manufacturer: inv.yachts?.manufacturer,
-        yacht_model: inv.yachts?.model,
-        vessel_name: inv.work_orders?.customer_vessels?.vessel_name,
-        vessel_manufacturer: inv.work_orders?.customer_vessels?.manufacturer,
-        vessel_model: inv.work_orders?.customer_vessels?.model,
-        manager_name: inv.work_orders?.estimates?.manager_name || null
-      })) || [];
+      const formattedInvoices = data?.map(inv => {
+        const rr = (inv as any).repair_requests;
+        return {
+          ...inv,
+          work_order_number: inv.work_orders?.work_order_number,
+          work_title: inv.work_orders?.work_title,
+          yacht_name: inv.yachts?.name,
+          yacht_manufacturer: inv.yachts?.manufacturer,
+          yacht_model: inv.yachts?.model,
+          vessel_name: inv.work_orders?.customer_vessels?.vessel_name,
+          vessel_manufacturer: inv.work_orders?.customer_vessels?.manufacturer,
+          vessel_model: inv.work_orders?.customer_vessels?.model,
+          manager_name: inv.work_orders?.estimates?.manager_name || null,
+          repair_request_id: rr?.id || null,
+          repair_request_status: rr?.status || null,
+          repair_request_deposit_status: rr?.deposit_payment_status || null,
+        };
+      }) || [];
 
       setInvoices(formattedInvoices);
       await fetchInvoiceEmployees(formattedInvoices.map(inv => ({ id: inv.id, work_order_id: inv.work_order_id })));
@@ -1947,17 +1957,31 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {invoice.payment_status === 'unpaid' && !invoice.final_payment_link_url && !invoice.payment_link ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-                          <Clock className="w-4 h-4" />
-                          Not Billed
-                        </span>
-                      ) : (
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(invoice.payment_status)}`}>
-                          {getStatusIcon(invoice.payment_status)}
-                          {invoice.payment_status.charAt(0).toUpperCase() + invoice.payment_status.slice(1)}
-                        </span>
-                      )}
+                      <div className="flex flex-col gap-1">
+                        {invoice.payment_status === 'unpaid' && !invoice.final_payment_link_url && !invoice.payment_link ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                            <Clock className="w-4 h-4" />
+                            Not Billed
+                          </span>
+                        ) : (
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(invoice.payment_status)}`}>
+                            {getStatusIcon(invoice.payment_status)}
+                            {invoice.payment_status.charAt(0).toUpperCase() + invoice.payment_status.slice(1)}
+                          </span>
+                        )}
+                        {invoice.repair_request_id && invoice.repair_request_deposit_status === 'paid' && invoice.payment_status !== 'paid' && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-200">
+                            <CheckCircle className="w-3 h-3" />
+                            Deposit Paid
+                          </span>
+                        )}
+                        {invoice.repair_request_id && invoice.repair_request_deposit_status === 'processing' && invoice.payment_status !== 'paid' && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-50 text-orange-700 border border-orange-200">
+                            <RefreshCw className="w-3 h-3" />
+                            Deposit Processing
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center">
                       <div className="flex items-center justify-center gap-2">
