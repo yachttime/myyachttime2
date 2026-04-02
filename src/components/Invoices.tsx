@@ -1086,16 +1086,27 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
 
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(12);
-      const finalLabel = (invoice.deposit_applied && invoice.deposit_applied > 0) ? 'Balance Due:' : 'Total:';
-      const baseAmount = (invoice.balance_due !== null && invoice.balance_due !== invoice.total_amount)
-        ? invoice.balance_due
+      const grossTotal = (invoice.credit_card_fee && invoice.credit_card_fee > 0)
+        ? invoice.total_amount + invoice.credit_card_fee
         : invoice.total_amount;
-      const finalAmount = (invoice.credit_card_fee && invoice.credit_card_fee > 0)
-        ? baseAmount + invoice.credit_card_fee
-        : baseAmount;
 
-      doc.text(finalLabel, totalsX, yPos);
-      doc.text(`$${finalAmount.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
+      doc.text('Total:', totalsX, yPos);
+      doc.text(`$${grossTotal.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
+
+      if (invoice.payment_status === 'paid' || (invoice.balance_due !== null && invoice.balance_due < invoice.total_amount)) {
+        yPos += 0.2;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        const amountPaid = invoice.amount_paid ?? (invoice.total_amount - (invoice.balance_due ?? 0));
+        doc.text('Amount Paid:', totalsX, yPos);
+        doc.text(`-$${amountPaid.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
+        yPos += 0.2;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(12);
+        const remaining = Math.max(0, grossTotal - amountPaid);
+        doc.text('Balance Due:', totalsX, yPos);
+        doc.text(`$${remaining.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
+      }
 
       // Notes
       if (invoice.notes) {
