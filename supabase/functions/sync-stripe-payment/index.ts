@@ -607,6 +607,38 @@ Deno.serve(async (req: Request) => {
         });
       }
 
+      // Send payment confirmation email if we have a recipient
+      const recipientEmail = estInvoice.final_payment_email_recipient || estInvoice.customer_email;
+      if (recipientEmail && newStatus === 'paid') {
+        try {
+          const resendApiKey = Deno.env.get('RESEND_API_KEY');
+          if (resendApiKey) {
+            const additionalRecipients = estInvoice.final_payment_email_all_recipients
+              ? estInvoice.final_payment_email_all_recipients
+                  .filter((e: string) => e !== recipientEmail)
+                  .map((e: string) => ({ email: e }))
+              : [];
+
+            const emailFnUrl = `${supabaseUrl}/functions/v1/send-estimating-invoice-payment-email`;
+            await fetch(emailFnUrl, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                invoiceId: estimating_invoice_id,
+                recipientEmail,
+                recipientName: estInvoice.customer_name || 'Valued Customer',
+                additionalRecipients,
+              }),
+            });
+          }
+        } catch (emailErr) {
+          console.error('Error sending payment confirmation email:', emailErr);
+        }
+      }
+
       return new Response(
         JSON.stringify({
           success: true,
