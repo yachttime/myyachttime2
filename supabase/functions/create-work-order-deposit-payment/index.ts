@@ -158,7 +158,6 @@ Deno.serve(withErrorHandling(async (req: Request) => {
     const params: Record<string, string> = {
       'line_items[0][price]': priceData.id,
       'line_items[0][quantity]': '1',
-      'restrictions[completed_sessions][limit]': '1',
       'after_completion[type]': 'redirect',
       'after_completion[redirect][url]': `${req.headers.get('origin') || supabaseUrl}/payment-success`,
       'metadata[work_order_id]': workOrderId,
