@@ -217,7 +217,7 @@ Deno.serve(async (req: Request) => {
 
     // Group line items by task and map to QB income accounts
     for (const item of lineItems) {
-      const itemAccountId = item.line_type === 'parts'
+      const accountId = item.line_type === 'parts'
         ? (defaultPartsMapping?.qbo_account_id || incomeAccountId)
         : item.line_type === 'labor'
         ? (defaultLaborMapping?.qbo_account_id || incomeAccountId)
@@ -232,7 +232,7 @@ Deno.serve(async (req: Request) => {
         SalesItemLineDetail: {
           UnitPrice: item.unit_price || 0,
           Qty: item.quantity || 1,
-          ItemRef: { value: 'INCOME', name: 'Services' },
+          ItemRef: { value: accountId, name: description || 'Service' },
           TaxCodeRef: item.is_taxable ? { value: 'TAX' } : { value: 'NON' },
         },
       });
@@ -240,6 +240,7 @@ Deno.serve(async (req: Request) => {
 
     // Add tax line if applicable
     if (invoice.tax_amount && invoice.tax_amount > 0) {
+      const taxAccountId = taxMapping?.qbo_account_id || incomeAccountId;
       qbLineItems.push({
         Amount: invoice.tax_amount,
         DetailType: 'SalesItemLineDetail',
@@ -247,7 +248,7 @@ Deno.serve(async (req: Request) => {
         SalesItemLineDetail: {
           UnitPrice: invoice.tax_amount,
           Qty: 1,
-          ItemRef: { value: 'INCOME', name: 'Tax' },
+          ItemRef: { value: taxAccountId, name: 'Tax' },
         },
       });
     }
@@ -261,13 +262,14 @@ Deno.serve(async (req: Request) => {
         SalesItemLineDetail: {
           UnitPrice: invoice.shop_supplies_amount,
           Qty: 1,
-          ItemRef: { value: 'INCOME', name: 'Shop Supplies' },
+          ItemRef: { value: incomeAccountId, name: 'Shop Supplies' },
         },
       });
     }
 
     // Add surcharge line if applicable
     if (invoice.surcharge_amount && invoice.surcharge_amount > 0) {
+      const surchargeAccountId = surchargeMapping?.qbo_account_id || incomeAccountId;
       qbLineItems.push({
         Amount: invoice.surcharge_amount,
         DetailType: 'SalesItemLineDetail',
@@ -275,7 +277,7 @@ Deno.serve(async (req: Request) => {
         SalesItemLineDetail: {
           UnitPrice: invoice.surcharge_amount,
           Qty: 1,
-          ItemRef: { value: 'INCOME', name: 'Surcharge' },
+          ItemRef: { value: surchargeAccountId, name: 'Surcharge' },
         },
       });
     }
@@ -288,7 +290,7 @@ Deno.serve(async (req: Request) => {
         SalesItemLineDetail: {
           UnitPrice: invoice.total_amount || 0,
           Qty: 1,
-          ItemRef: { value: 'INCOME', name: 'Services' },
+          ItemRef: { value: incomeAccountId, name: 'Services' },
         },
       });
     }
