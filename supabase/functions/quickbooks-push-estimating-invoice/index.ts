@@ -265,7 +265,7 @@ Deno.serve(async (req: Request) => {
 
     for (const item of lineItems) {
       const description = [item.task_name, item.description].filter(Boolean).join(' - ');
-      const itemId = item.line_type === 'parts' ? partsItemId
+      const itemId = (item.line_type === 'parts' || item.line_type === 'part') ? partsItemId
         : item.line_type === 'labor' ? laborItemId
         : servicesItemId;
 
@@ -278,20 +278,6 @@ Deno.serve(async (req: Request) => {
           Qty: item.quantity || 1,
           ItemRef: { value: itemId },
           TaxCodeRef: item.is_taxable ? { value: 'TAX' } : { value: 'NON' },
-        },
-      });
-    }
-
-    // Add tax line if applicable
-    if (invoice.tax_amount && invoice.tax_amount > 0) {
-      qbLineItems.push({
-        Amount: invoice.tax_amount,
-        DetailType: 'SalesItemLineDetail',
-        Description: `Sales Tax (${invoice.tax_rate}%)`,
-        SalesItemLineDetail: {
-          UnitPrice: invoice.tax_amount,
-          Qty: 1,
-          ItemRef: { value: servicesItemId },
         },
       });
     }
