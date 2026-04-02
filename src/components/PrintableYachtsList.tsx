@@ -4,13 +4,14 @@ import { generateActiveYachtsPDF } from '../utils/pdfGenerator';
 
 interface PrintableYachtsListProps {
   yachts: Yacht[];
+  agreementPaymentMap?: Record<string, string>;
   onClose: () => void;
 }
 
-export function PrintableYachtsList({ yachts, onClose }: PrintableYachtsListProps) {
+export function PrintableYachtsList({ yachts, agreementPaymentMap = {}, onClose }: PrintableYachtsListProps) {
   const handlePreview = () => {
     try {
-      const pdf = generateActiveYachtsPDF(yachts);
+      const pdf = generateActiveYachtsPDF(yachts, agreementPaymentMap);
       const pdfBlob = pdf.output('blob');
       const pdfUrl = URL.createObjectURL(pdfBlob);
       window.open(pdfUrl, '_blank');
@@ -22,7 +23,7 @@ export function PrintableYachtsList({ yachts, onClose }: PrintableYachtsListProp
 
   const handleDownload = () => {
     try {
-      const pdf = generateActiveYachtsPDF(yachts);
+      const pdf = generateActiveYachtsPDF(yachts, agreementPaymentMap);
       const fileName = `Active_Yachts_${new Date().toISOString().split('T')[0]}.pdf`;
       pdf.save(fileName);
     } catch (error) {

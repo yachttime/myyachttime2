@@ -2219,7 +2219,7 @@ export async function generatePayrollReportPDF(
   doc.save(fileName);
 }
 
-export function generateActiveYachtsPDF(yachts: Yacht[]): jsPDF {
+export function generateActiveYachtsPDF(yachts: Yacht[], agreementPaymentMap: Record<string, string> = {}): jsPDF {
   const doc = new jsPDF({
     orientation: 'landscape',
     unit: 'in',
@@ -2249,6 +2249,12 @@ export function generateActiveYachtsPDF(yachts: Yacht[]): jsPDF {
     .sort((a, b) => a.name.localeCompare(b.name));
 
   const tableData = sortedYachts.map((yacht: Yacht) => {
+    const rawStatus = agreementPaymentMap[yacht.id] || '';
+    let agreementLabel = 'No Invoice';
+    if (rawStatus === 'paid') agreementLabel = 'Paid';
+    else if (rawStatus === 'pending') agreementLabel = 'Unpaid';
+    else if (rawStatus === 'processing') agreementLabel = 'Processing';
+    else if (rawStatus) agreementLabel = rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1);
     return [
       yacht.name || 'N/A',
       yacht.hull_number || 'N/A',
@@ -2257,12 +2263,13 @@ export function generateActiveYachtsPDF(yachts: Yacht[]): jsPDF {
       yacht.size || 'N/A',
       yacht.marina_name || 'N/A',
       yacht.slip_location || 'N/A',
+      agreementLabel,
     ];
   });
 
   autoTable(doc, {
     startY: yPos,
-    head: [['Yacht Name', 'Hull Number', 'Manufacturer', 'Year', 'Size', 'Marina', 'Slip Location']],
+    head: [['Yacht Name', 'Hull Number', 'Manufacturer', 'Year', 'Size', 'Marina', 'Slip Location', 'Agreement']],
     body: tableData,
     theme: 'striped',
     styles: {
@@ -2282,13 +2289,31 @@ export function generateActiveYachtsPDF(yachts: Yacht[]): jsPDF {
       fillColor: [249, 250, 251]
     },
     columnStyles: {
-      0: { cellWidth: 1.5 },
-      1: { cellWidth: 1.3 },
-      2: { cellWidth: 1.3 },
-      3: { cellWidth: 0.7 },
-      4: { cellWidth: 0.8 },
-      5: { cellWidth: 1.8 },
-      6: { cellWidth: 1.2 }
+      0: { cellWidth: 1.4 },
+      1: { cellWidth: 1.2 },
+      2: { cellWidth: 1.2 },
+      3: { cellWidth: 0.6 },
+      4: { cellWidth: 0.7 },
+      5: { cellWidth: 1.6 },
+      6: { cellWidth: 1.1 },
+      7: { cellWidth: 1.0 }
+    },
+    didParseCell: (data: any) => {
+      if (data.section === 'body' && data.column.index === 7) {
+        const val = data.cell.raw as string;
+        if (val === 'Paid') {
+          data.cell.styles.textColor = [5, 150, 105];
+          data.cell.styles.fontStyle = 'bold';
+        } else if (val === 'Unpaid') {
+          data.cell.styles.textColor = [220, 38, 38];
+          data.cell.styles.fontStyle = 'bold';
+        } else if (val === 'Processing') {
+          data.cell.styles.textColor = [217, 119, 6];
+          data.cell.styles.fontStyle = 'bold';
+        } else {
+          data.cell.styles.textColor = [100, 116, 139];
+        }
+      }
     },
     margin: { left: margin, right: margin },
   });

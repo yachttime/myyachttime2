@@ -723,6 +723,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [tripsToPrint, setTripsToPrint] = useState<YachtBooking[]>([]);
   const [printYachtName, setPrintYachtName] = useState('');
   const [showYachtsPrintView, setShowYachtsPrintView] = useState(false);
+  const [agreementPaymentMap, setAgreementPaymentMap] = useState<Record<string, string>>({});
   const [showFleetTripDatesReport, setShowFleetTripDatesReport] = useState(false);
 
   useEffect(() => {
@@ -9499,7 +9500,18 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       {allYachts.filter(y => y.is_active).length > 0 && (
                         <>
                           <button
-                            onClick={() => setShowYachtsPrintView(true)}
+                            onClick={async () => {
+                              const { data } = await supabase
+                                .from('yacht_invoices')
+                                .select('yacht_id, payment_status')
+                                .ilike('repair_title', '%vessel management agreement%');
+                              const map: Record<string, string> = {};
+                              for (const row of data || []) {
+                                if (row.yacht_id) map[row.yacht_id] = row.payment_status;
+                              }
+                              setAgreementPaymentMap(map);
+                              setShowYachtsPrintView(true);
+                            }}
                             className="bg-cyan-600 hover:bg-cyan-700 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 shadow-lg flex items-center gap-2"
                           >
                             <Printer className="w-5 h-5" />
@@ -19016,6 +19028,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       {showYachtsPrintView && (
         <PrintableYachtsList
           yachts={allYachts}
+          agreementPaymentMap={agreementPaymentMap}
           onClose={() => setShowYachtsPrintView(false)}
         />
       )}
