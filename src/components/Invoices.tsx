@@ -1086,24 +1086,22 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
 
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(12);
-      const grossTotal = (invoice.credit_card_fee && invoice.credit_card_fee > 0)
-        ? invoice.total_amount + invoice.credit_card_fee
-        : invoice.total_amount;
+      const computedTotal = invoice.subtotal + invoice.tax_amount + (invoice.credit_card_fee ?? 0) - (invoice.deposit_applied ?? 0);
 
       doc.text('Total:', totalsX, yPos);
-      doc.text(`$${grossTotal.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
+      doc.text(`$${computedTotal.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
 
-      if (invoice.payment_status === 'paid' || (invoice.balance_due !== null && invoice.balance_due < invoice.total_amount)) {
+      if (invoice.payment_status === 'paid' || (invoice.amount_paid !== null && invoice.amount_paid > 0)) {
         yPos += 0.2;
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(10);
-        const amountPaid = invoice.amount_paid ?? (invoice.total_amount - (invoice.balance_due ?? 0));
+        const amountPaid = invoice.amount_paid ?? computedTotal;
         doc.text('Amount Paid:', totalsX, yPos);
         doc.text(`-$${amountPaid.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
         yPos += 0.2;
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(12);
-        const remaining = Math.max(0, grossTotal - amountPaid);
+        const remaining = Math.max(0, computedTotal - amountPaid);
         doc.text('Balance Due:', totalsX, yPos);
         doc.text(`$${remaining.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
       }
