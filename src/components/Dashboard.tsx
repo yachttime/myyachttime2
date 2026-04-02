@@ -509,6 +509,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [depositEmailRecipient, setDepositEmailRecipient] = useState('');
   const [depositEmailRecipientName, setDepositEmailRecipientName] = useState('');
   const [depositEmailAttachment, setDepositEmailAttachment] = useState<File | null>(null);
+  const [depositEmailCcEmail, setDepositEmailCcEmail] = useState('');
+  const [depositEmailIsAntilope, setDepositEmailIsAntilope] = useState(false);
+  const [invoiceEmailCcEmail, setInvoiceEmailCcEmail] = useState('');
+  const [invoiceEmailIsAntilope, setInvoiceEmailIsAntilope] = useState(false);
   const [depositBillingManagers, setDepositBillingManagers] = useState<{ email: string; name: string; source: string }[]>([]);
   const [depositBillingManagersLoading, setDepositBillingManagersLoading] = useState(false);
   const [depositLoading, setDepositLoading] = useState(false);
@@ -4223,12 +4227,22 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     });
   };
 
+  const isAntilopeMarina = (yachtId: string | null | undefined): boolean => {
+    if (!yachtId) return false;
+    const y = allYachts.find(y => y.id === yachtId);
+    if (!y?.marina_name) return false;
+    const mn = y.marina_name.toLowerCase().trim();
+    return mn.includes('antelope') || mn.includes('antilope');
+  };
+
   const handleOpenEmailModal = async (invoice: YachtInvoice) => {
     setSelectedInvoiceForEmail(invoice);
     setEmailRecipient('');
     setEmailRecipientName('');
     setInvoiceBillingManagers([]);
     setInvoiceEmailAttachment(null);
+    setInvoiceEmailCcEmail('');
+    setInvoiceEmailIsAntilope(isAntilopeMarina(invoice.yacht_id));
     setInvoiceEmailPaymentMethod((invoice.payment_method_type as 'card' | 'ach' | 'both') || 'card');
     setShowEmailModal(true);
 
@@ -4352,6 +4366,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           attachmentBase64,
           attachmentFilename,
           attachmentContentType,
+          ccEmail: invoiceEmailCcEmail.trim() || undefined,
         })
       });
 
@@ -4390,6 +4405,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       setEmailRecipientName('');
       setInvoiceBillingManagers([]);
       setInvoiceEmailAttachment(null);
+      setInvoiceEmailCcEmail('');
+      setInvoiceEmailIsAntilope(false);
 
       await loadChatMessages();
       await loadRepairRequests();
@@ -4479,6 +4496,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     setDepositEmailRecipient('');
     setDepositEmailRecipientName('');
     setDepositEmailAttachment(null);
+    setDepositEmailCcEmail('');
+    setDepositEmailIsAntilope(isAntilopeMarina(repairRequest.yacht_id));
     setDepositBillingManagers([]);
     setShowDepositEmailModal(true);
 
@@ -4590,6 +4609,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           attachmentBase64,
           attachmentFilename,
           attachmentContentType,
+          ccEmail: depositEmailCcEmail.trim() || undefined,
         })
       });
 
@@ -4614,6 +4634,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       setDepositEmailRecipientName('');
       setDepositEmailAttachment(null);
       setDepositBillingManagers([]);
+      setDepositEmailCcEmail('');
+      setDepositEmailIsAntilope(false);
 
       await loadRepairRequests();
       const sentCount = recipients.length;
@@ -18601,6 +18623,22 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                 <p className="text-xs text-slate-500 mt-1">PDF, Word, Excel, or image files accepted</p>
               </div>
 
+              {invoiceEmailIsAntilope && (
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4">
+                  <label className="block text-sm font-medium text-amber-300 mb-2">
+                    CC Antilope Management
+                  </label>
+                  <p className="text-xs text-amber-400/80 mb-2">This yacht is docked at Antilope. Enter the marina management email to CC on this email.</p>
+                  <input
+                    type="email"
+                    value={invoiceEmailCcEmail}
+                    onChange={(e) => setInvoiceEmailCcEmail(e.target.value)}
+                    placeholder="management@antilopepoint.com"
+                    className="w-full bg-slate-900/50 border border-amber-500/40 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all"
+                  />
+                </div>
+              )}
+
               <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
                 <p className="text-xs text-blue-300">
                   A professional email will be sent with the payment link, invoice details, and instructions for completing the payment.
@@ -18610,7 +18648,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
             <div className="p-6 border-t border-slate-700 flex gap-3">
               <button
-                onClick={() => { setShowEmailModal(false); setInvoiceBillingManagers([]); setInvoiceEmailAttachment(null); }}
+                onClick={() => { setShowEmailModal(false); setInvoiceBillingManagers([]); setInvoiceEmailAttachment(null); setInvoiceEmailCcEmail(''); setInvoiceEmailIsAntilope(false); }}
                 disabled={sendingEmail}
                 className="flex-1 px-6 bg-slate-700 hover:bg-slate-600 text-white font-semibold py-3 rounded-lg transition-colors disabled:opacity-50"
               >
@@ -18775,6 +18813,22 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                 <p className="text-xs text-slate-500 mt-1">PDF, Word, Excel, or image files accepted</p>
               </div>
 
+              {depositEmailIsAntilope && (
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4">
+                  <label className="block text-sm font-medium text-amber-300 mb-2">
+                    CC Antilope Management
+                  </label>
+                  <p className="text-xs text-amber-400/80 mb-2">This yacht is docked at Antilope. Enter the marina management email to CC on this email.</p>
+                  <input
+                    type="email"
+                    value={depositEmailCcEmail}
+                    onChange={(e) => setDepositEmailCcEmail(e.target.value)}
+                    placeholder="management@antilopepoint.com"
+                    className="w-full bg-slate-900/50 border border-amber-500/40 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all"
+                  />
+                </div>
+              )}
+
               <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-lg p-3">
                 <p className="text-xs text-cyan-300">
                   A professional email will be sent with the deposit payment link, repair details, and instructions for completing the payment via Stripe.
@@ -18784,7 +18838,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
             <div className="p-6 border-t border-slate-700 flex gap-3">
               <button
-                onClick={() => { setShowDepositEmailModal(false); setDepositEmailAttachment(null); setDepositBillingManagers([]); }}
+                onClick={() => { setShowDepositEmailModal(false); setDepositEmailAttachment(null); setDepositBillingManagers([]); setDepositEmailCcEmail(''); setDepositEmailIsAntilope(false); }}
                 disabled={sendingEmail}
                 className="flex-1 px-6 bg-slate-700 hover:bg-slate-600 text-white font-semibold py-3 rounded-lg transition-colors disabled:opacity-50"
               >

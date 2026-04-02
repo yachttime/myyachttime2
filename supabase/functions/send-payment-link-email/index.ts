@@ -15,6 +15,7 @@ interface EmailRequest {
   attachmentBase64?: string;
   attachmentFilename?: string;
   attachmentContentType?: string;
+  ccEmail?: string;
 }
 
 Deno.serve(async (req: Request) => {
@@ -42,7 +43,7 @@ Deno.serve(async (req: Request) => {
       throw new Error('Unauthorized');
     }
 
-    const { invoiceId, recipientEmail, recipientName, recaptchaToken, additionalRecipients, attachmentBase64, attachmentFilename, attachmentContentType }: EmailRequest = await req.json();
+    const { invoiceId, recipientEmail, recipientName, recaptchaToken, additionalRecipients, attachmentBase64, attachmentFilename, attachmentContentType, ccEmail }: EmailRequest = await req.json();
 
     if (!invoiceId || !recipientEmail) {
       throw new Error('Invoice ID and recipient email are required');
@@ -321,6 +322,10 @@ Deno.serve(async (req: Request) => {
             .map(p => p.secondary_email)
             .filter((email): email is string => !!email && email !== recipientEmail);
         }
+      }
+
+      if (ccEmail && ccEmail.trim() && !ccEmails.includes(ccEmail.trim())) {
+        ccEmails.push(ccEmail.trim());
       }
 
       const allRecipientEmails = [recipientEmail];

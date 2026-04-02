@@ -14,6 +14,7 @@ interface RepairNotificationRequest {
   yachtName: string;
   submitterName: string;
   repairRequestId: string;
+  ccEmails?: string[];
 }
 
 
@@ -26,7 +27,7 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { managerEmails, managerNames, repairTitle, yachtName, submitterName, repairRequestId }: RepairNotificationRequest = await req.json();
+    const { managerEmails, managerNames, repairTitle, yachtName, submitterName, repairRequestId, ccEmails }: RepairNotificationRequest = await req.json();
 
     if (!managerEmails || managerEmails.length === 0) {
       throw new Error('No manager emails provided');
@@ -309,6 +310,10 @@ Deno.serve(async (req: Request) => {
             { name: 'category', value: 'repair-notification' },
           ],
         };
+
+        if (ccEmails && ccEmails.length > 0) {
+          emailPayload.cc = ccEmails.filter(cc => cc !== email);
+        }
 
         // Attach estimate PDF first (most important), then repair photo
         const attachments = [];
