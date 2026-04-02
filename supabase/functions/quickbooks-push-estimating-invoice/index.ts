@@ -211,19 +211,63 @@ Deno.serve(async (req: Request) => {
 
     if (!qboCustomerId) throw new Error('Unable to determine QuickBooks customer ID');
 
+    // Fetch or create QB Service Items for parts, labor, and general services.
+    // QB invoices require SalesItemLineDetail.ItemRef to reference a valid QB Item (product/service),
+    // NOT an account ID. We maintain 3 service items: Parts, Labor, and Services.
+    const getOrCreateQBItem = async (name: string, incomeAccountRef: string): Promise<string> => {
+      const searchRes = await makeQuickBooksAPICall({
+        url: `https://quickbooks.api.intuit.com/v3/company/${connection.realm_id}/query?query=${encodeURIComponent(`SELECT * FROM Item WHERE Name = '${name}'`)}`,
+        method: 'GET',
+        accessToken,
+        requestType: 'search_item',
+        companyId: profile.company_id,
+        connectionId: connection.id,
+        supabaseUrl,
+        serviceRoleKey,
+      });
+      if (searchRes.success && searchRes.data?.QueryResponse?.Item?.length > 0) {
+        return searchRes.data.QueryResponse.Item[0].Id;
+      }
+      const createRes = await makeQuickBooksAPICall({
+        url: `https://quickbooks.api.intuit.com/v3/company/${connection.realm_id}/item`,
+        method: 'POST',
+        accessToken,
+        body: {
+          Name: name,
+          Type: 'Service',
+          IncomeAccountRef: { value: incomeAccountRef },
+        },
+        requestType: 'create_item',
+        companyId: profile.company_id,
+        connectionId: connection.id,
+        supabaseUrl,
+        serviceRoleKey,
+      });
+      if (!createRes.success) {
+        throw new Error(`Failed to create QB Item "${name}": ${JSON.stringify(createRes.data)}`);
+      }
+      return createRes.data.Item.Id;
+    };
+
+    const partsAccountId = defaultPartsMapping?.qbo_account_id || incomeAccountId;
+    const laborAccountId = defaultLaborMapping?.qbo_account_id || incomeAccountId;
+    const surchargeAccountId = surchargeMapping?.qbo_account_id || incomeAccountId;
+
+    const [partsItemId, laborItemId, servicesItemId] = await Promise.all([
+      getOrCreateQBItem('AZ Marine Parts', partsAccountId),
+      getOrCreateQBItem('AZ Marine Labor', laborAccountId),
+      getOrCreateQBItem('AZ Marine Services', incomeAccountId),
+    ]);
+
     // Build QB invoice line items from estimating invoice line items
     const lineItems = invoice.estimating_invoice_line_items || [];
     const qbLineItems: any[] = [];
 
-    // Group line items by task and map to QB income accounts
     for (const item of lineItems) {
-      const accountId = item.line_type === 'parts'
-        ? (defaultPartsMapping?.qbo_account_id || incomeAccountId)
-        : item.line_type === 'labor'
-        ? (defaultLaborMapping?.qbo_account_id || incomeAccountId)
-        : incomeAccountId;
-
       const description = [item.task_name, item.description].filter(Boolean).join(' - ');
+      const itemId = item.line_type === 'parts' ? partsItemId
+        : item.line_type === 'labor' ? laborItemId
+        : servicesItemId;
 
       qbLineItems.push({
         Amount: item.total_price || 0,
@@ -232,7 +276,7 @@ Deno.serve(async (req: Request) => {
         SalesItemLineDetail: {
           UnitPrice: item.unit_price || 0,
           Qty: item.quantity || 1,
-          ItemRef: { value: accountId, name: description || 'Service' },
+          ItemRef: { value: itemId },
           TaxCodeRef: item.is_taxable ? { value: 'TAX' } : { value: 'NON' },
         },
       });
@@ -240,7 +284,6 @@ Deno.serve(async (req: Request) => {
 
     // Add tax line if applicable
     if (invoice.tax_amount && invoice.tax_amount > 0) {
-      const taxAccountId = taxMapping?.qbo_account_id || incomeAccountId;
       qbLineItems.push({
         Amount: invoice.tax_amount,
         DetailType: 'SalesItemLineDetail',
@@ -248,7 +291,7 @@ Deno.serve(async (req: Request) => {
         SalesItemLineDetail: {
           UnitPrice: invoice.tax_amount,
           Qty: 1,
-          ItemRef: { value: taxAccountId, name: 'Tax' },
+          ItemRef: { value: servicesItemId },
         },
       });
     }
@@ -262,14 +305,13 @@ Deno.serve(async (req: Request) => {
         SalesItemLineDetail: {
           UnitPrice: invoice.shop_supplies_amount,
           Qty: 1,
-          ItemRef: { value: incomeAccountId, name: 'Shop Supplies' },
+          ItemRef: { value: servicesItemId },
         },
       });
     }
 
     // Add surcharge line if applicable
     if (invoice.surcharge_amount && invoice.surcharge_amount > 0) {
-      const surchargeAccountId = surchargeMapping?.qbo_account_id || incomeAccountId;
       qbLineItems.push({
         Amount: invoice.surcharge_amount,
         DetailType: 'SalesItemLineDetail',
@@ -277,7 +319,7 @@ Deno.serve(async (req: Request) => {
         SalesItemLineDetail: {
           UnitPrice: invoice.surcharge_amount,
           Qty: 1,
-          ItemRef: { value: surchargeAccountId, name: 'Surcharge' },
+          ItemRef: { value: servicesItemId },
         },
       });
     }
@@ -290,7 +332,7 @@ Deno.serve(async (req: Request) => {
         SalesItemLineDetail: {
           UnitPrice: invoice.total_amount || 0,
           Qty: 1,
-          ItemRef: { value: incomeAccountId, name: 'Services' },
+          ItemRef: { value: servicesItemId },
         },
       });
     }
