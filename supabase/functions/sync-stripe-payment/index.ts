@@ -643,20 +643,44 @@ Deno.serve(async (req: Request) => {
 
     // If we have a checkout session ID, check its status
     if (invoice.stripe_checkout_session_id) {
-      const sessionResponse = await fetch(
-        `https://api.stripe.com/v1/checkout/sessions/${invoice.stripe_checkout_session_id}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${stripeSecretKey}`,
-          },
+      const checkoutId = invoice.stripe_checkout_session_id;
+      const isPaymentLink = checkoutId.startsWith('plink_');
+
+      let session: any = null;
+
+      if (isPaymentLink) {
+        // It's a payment link — search checkout sessions created from this link
+        const sessionsResponse = await fetch(
+          `https://api.stripe.com/v1/checkout/sessions?payment_link=${checkoutId}&limit=100`,
+          { headers: { 'Authorization': `Bearer ${stripeSecretKey}` } }
+        );
+        if (!sessionsResponse.ok) {
+          throw new Error('Failed to fetch checkout sessions from Stripe');
         }
-      );
+        const sessionsData = await sessionsResponse.json();
+        const paidSession = sessionsData.data.find((s: any) => s.payment_status === 'paid');
+        const processingSession = sessionsData.data.find((s: any) =>
+          s.payment_status === 'unpaid' && s.status === 'complete'
+        );
+        session = paidSession || processingSession || null;
 
-      if (!sessionResponse.ok) {
-        throw new Error('Failed to fetch Stripe session');
+        if (!session) {
+          return new Response(
+            JSON.stringify({ success: false, message: 'No completed payment found in Stripe yet' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      } else {
+        // It's a direct checkout session ID
+        const sessionResponse = await fetch(
+          `https://api.stripe.com/v1/checkout/sessions/${checkoutId}`,
+          { headers: { 'Authorization': `Bearer ${stripeSecretKey}` } }
+        );
+        if (!sessionResponse.ok) {
+          throw new Error('Failed to fetch Stripe session');
+        }
+        session = await sessionResponse.json();
       }
-
-      const session = await sessionResponse.json();
 
       // Check if session is paid
       if (session.payment_status === 'paid') {
