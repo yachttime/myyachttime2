@@ -26,6 +26,10 @@ interface Invoice {
   total_amount: number;
   payment_status: string;
   quickbooks_status: string;
+  quickbooks_export_status: string | null;
+  quickbooks_invoice_id: string | null;
+  quickbooks_export_date: string | null;
+  quickbooks_export_error: string | null;
   work_order_id: string | null;
   work_order_number?: string;
   yacht_id: string | null;
@@ -140,6 +144,8 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
   const [assignModalEmployees, setAssignModalEmployees] = useState<{ user_id: string; first_name: string; last_name: string }[]>([]);
   const [assignModalLoading, setAssignModalLoading] = useState(false);
   const [sendingToTimeClock, setSendingToTimeClock] = useState<Record<string, boolean>>({});
+  const [qbExporting, setQbExporting] = useState<Record<string, boolean>>({});
+  const [qbConnection, setQbConnection] = useState<{ is_active: boolean } | null>(null);
 
   const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToast({ message, type });
@@ -148,6 +154,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
   useEffect(() => {
     fetchInvoices();
     fetchQbBankAccounts();
+    fetchQbConnection();
   }, []);
 
   useEffect(() => {
@@ -167,6 +174,59 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       .eq('active', true)
       .order('account_number');
     if (data) setQbBankAccounts(data);
+  }
+
+  async function fetchQbConnection() {
+    const { data } = await supabase
+      .from('quickbooks_connection')
+      .select('is_active')
+      .eq('is_active', true)
+      .maybeSingle();
+    setQbConnection(data);
+  }
+
+  async function handleQbExport(invoice: Invoice) {
+    const encryptedSession = localStorage.getItem('quickbooks_encrypted_session');
+    if (!encryptedSession) {
+      showToast('QuickBooks session not found. Please go to QuickBooks settings and reconnect.', 'error');
+      return;
+    }
+
+    setQbExporting(prev => ({ ...prev, [invoice.id]: true }));
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/quickbooks-push-estimating-invoice`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+          'Apikey': anonKey,
+        },
+        body: JSON.stringify({ invoiceId: invoice.id, encrypted_session: encryptedSession }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || result.error) {
+        throw new Error(result.error || 'Failed to export to QuickBooks');
+      }
+
+      if (result.encrypted_session) {
+        localStorage.setItem('quickbooks_encrypted_session', result.encrypted_session);
+      }
+
+      showToast(`Invoice ${invoice.invoice_number} exported to QuickBooks successfully`, 'success');
+      await fetchInvoices();
+    } catch (err: any) {
+      showToast(err.message || 'Failed to export to QuickBooks', 'error');
+    } finally {
+      setQbExporting(prev => ({ ...prev, [invoice.id]: false }));
+    }
   }
 
   async function fetchInvoices() {
@@ -1991,6 +2051,35 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                         >
                           Open
                         </button>
+                        {qbConnection?.is_active && invoice.quickbooks_export_status !== 'exported' && (
+                          <button
+                            onClick={() => handleQbExport(invoice)}
+                            disabled={qbExporting[invoice.id]}
+                            className="p-2 text-green-700 hover:text-green-900 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50"
+                            title={invoice.quickbooks_export_status === 'error' ? `Retry QB Export (${invoice.quickbooks_export_error || 'error'})` : 'Export to QuickBooks'}
+                          >
+                            {qbExporting[invoice.id] ? (
+                              <RefreshCw className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <FileText className="w-4 h-4" />
+                            )}
+                          </button>
+                        )}
+                        {invoice.quickbooks_export_status === 'exported' && (
+                          <span className="p-2 text-green-600" title={`Exported to QB${invoice.quickbooks_invoice_id ? ` (ID: ${invoice.quickbooks_invoice_id})` : ''}`}>
+                            <CheckCircle className="w-4 h-4" />
+                          </span>
+                        )}
+                        {invoice.quickbooks_export_status === 'error' && qbConnection?.is_active && (
+                          <button
+                            onClick={() => handleQbExport(invoice)}
+                            disabled={qbExporting[invoice.id]}
+                            className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                            title={`QB Export Error - Click to retry: ${invoice.quickbooks_export_error || 'Unknown error'}`}
+                          >
+                            <AlertCircle className="w-4 h-4" />
+                          </button>
+                        )}
                         {activeTab === 'active' ? (
                           <button
                             onClick={() => handleArchiveClick(invoice.id)}
@@ -2043,6 +2132,37 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                   <Printer className="w-4 h-4" />
                   Print Invoice
                 </button>
+                {qbConnection?.is_active && selectedInvoice.quickbooks_export_status !== 'exported' && (
+                  <button
+                    onClick={() => handleQbExport(selectedInvoice)}
+                    disabled={qbExporting[selectedInvoice.id]}
+                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center gap-2 text-sm font-medium transition-colors disabled:opacity-50"
+                  >
+                    {qbExporting[selectedInvoice.id] ? (
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <FileText className="w-4 h-4" />
+                    )}
+                    {qbExporting[selectedInvoice.id] ? 'Exporting...' : selectedInvoice.quickbooks_export_status === 'error' ? 'Retry QB Export' : 'Export to QuickBooks'}
+                  </button>
+                )}
+                {selectedInvoice.quickbooks_export_status === 'exported' && (
+                  <div className="flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 rounded-lg text-sm font-medium border border-green-200">
+                    <CheckCircle className="w-4 h-4" />
+                    Exported to QuickBooks
+                    {selectedInvoice.quickbooks_export_date && (
+                      <span className="text-green-600 font-normal">
+                        {new Date(selectedInvoice.quickbooks_export_date).toLocaleDateString()}
+                      </span>
+                    )}
+                  </div>
+                )}
+                {selectedInvoice.quickbooks_export_status === 'error' && (
+                  <div className="flex items-center gap-2 px-3 py-2 bg-red-50 text-red-700 rounded-lg text-xs border border-red-200 max-w-xs">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    <span className="truncate">QB Error: {selectedInvoice.quickbooks_export_error || 'Unknown error'}</span>
+                  </div>
+                )}
               </div>
             </div>
 
