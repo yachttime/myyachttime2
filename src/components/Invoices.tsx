@@ -1786,7 +1786,8 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       surcharge_amount: inv.surcharge_amount != null ? String(inv.surcharge_amount) : '0',
       tax_rate: inv.tax_rate != null ? String((Number(inv.tax_rate) * 100).toFixed(4)) : '0',
     });
-    const allItems = [...workOrderLineItems, ...estimatingLineItems];
+    const CHARGE_TYPES = ['shop_supplies', 'park_fees', 'surcharge'];
+    const allItems = [...workOrderLineItems, ...estimatingLineItems].filter(i => !CHARGE_TYPES.includes(i.line_type));
     setEditLineItems(allItems.map(item => ({ ...item, _deleted: false, _new: false })));
     setShowEditModal(true);
   }
@@ -1800,9 +1801,10 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       const parkFees = editForm.park_fees_amount !== '' ? parseFloat(editForm.park_fees_amount) : 0;
       const surcharge = editForm.surcharge_amount !== '' ? parseFloat(editForm.surcharge_amount) : 0;
 
-      const activeItems = editLineItems.filter(i => !i._deleted);
-      const newSubtotal = parseFloat(activeItems.reduce((sum, i) => sum + i.quantity * i.unit_price, 0).toFixed(2));
-      const taxableAmount = parseFloat(activeItems.filter(i => i.is_taxable).reduce((sum, i) => sum + i.quantity * i.unit_price, 0).toFixed(2));
+      const CHARGE_TYPES = ['shop_supplies', 'park_fees', 'surcharge'];
+      const billableItems = editLineItems.filter(i => !i._deleted && !CHARGE_TYPES.includes(i.line_type));
+      const newSubtotal = parseFloat(billableItems.reduce((sum, i) => sum + i.quantity * i.unit_price, 0).toFixed(2));
+      const taxableAmount = parseFloat(billableItems.filter(i => i.is_taxable).reduce((sum, i) => sum + i.quantity * i.unit_price, 0).toFixed(2));
       const taxAmount = parseFloat((taxableAmount * taxRateVal).toFixed(2));
       const newTotal = parseFloat((newSubtotal + taxAmount + shopSupplies + parkFees + surcharge).toFixed(2));
       const depositApplied = selectedInvoice.deposit_applied ?? 0;
@@ -1812,10 +1814,13 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       const isWorkOrderInvoice = !!selectedInvoice.work_order_id;
       const lineItemTable = isWorkOrderInvoice ? 'work_order_line_items' : 'estimating_invoice_line_items';
 
-      for (const item of editLineItems) {
+      const saveableItems = editLineItems.filter(i => !CHARGE_TYPES.includes(i.line_type));
+
+      for (const item of saveableItems) {
         const totalPrice = parseFloat((item.quantity * item.unit_price).toFixed(2));
         if (item._deleted && !item._new) {
-          await supabase.from(lineItemTable).delete().eq('id', item.id);
+          const { error: delErr } = await supabase.from(lineItemTable).delete().eq('id', item.id);
+          if (delErr) console.error('Delete line item error:', delErr);
         } else if (item._new && !item._deleted) {
           const insertData: Record<string, unknown> = {
             line_type: item.line_type,
@@ -1829,16 +1834,15 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
           };
           if (isWorkOrderInvoice) {
             insertData.work_order_id = selectedInvoice.work_order_id;
-            insertData.task_id = item.task_id;
+            insertData.task_id = item.task_id || null;
           } else {
             insertData.invoice_id = selectedInvoice.id;
-            insertData.task_id = item.task_id || null;
-            insertData.task_name = (item as any).task_name || null;
-            insertData.company_id = selectedInvoice.company_id;
+            insertData.task_name = (item as any).task_name || item.description || '';
           }
-          await supabase.from(lineItemTable).insert(insertData);
+          const { error: insErr } = await supabase.from(lineItemTable).insert(insertData);
+          if (insErr) console.error('Insert line item error:', insErr);
         } else if (!item._deleted && !item._new) {
-          await supabase.from(lineItemTable).update({
+          const { error: updErr } = await supabase.from(lineItemTable).update({
             description: item.description,
             quantity: item.quantity,
             unit_price: item.unit_price,
@@ -1846,6 +1850,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
             is_taxable: item.is_taxable,
             work_details: item.work_details || null,
           }).eq('id', item.id);
+          if (updErr) console.error('Update line item error:', updErr);
         }
       }
 
@@ -3097,11 +3102,12 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                   </div>
                 </div>
                 {(() => {
+                  const CHARGE_TYPES = ['shop_supplies', 'park_fees', 'surcharge'];
                   const taxRate = parseFloat(editForm.tax_rate) / 100 || 0;
                   const shopSup = parseFloat(editForm.shop_supplies_amount) || 0;
                   const parkFee = parseFloat(editForm.park_fees_amount) || 0;
                   const surchargeAmt = parseFloat(editForm.surcharge_amount) || 0;
-                  const activeItems = editLineItems.filter(i => !i._deleted);
+                  const activeItems = editLineItems.filter(i => !i._deleted && !CHARGE_TYPES.includes(i.line_type));
                   const subtotal = activeItems.reduce((s, i) => s + i.quantity * i.unit_price, 0);
                   const taxable = activeItems.filter(i => i.is_taxable).reduce((s, i) => s + i.quantity * i.unit_price, 0);
                   const tax = taxable * taxRate;
