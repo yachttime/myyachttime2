@@ -70,6 +70,9 @@ interface Invoice {
   final_payment_stripe_payment_intent_id: string | null;
   final_payment_resend_email_id: string | null;
   credit_card_fee: number | null;
+  shop_supplies_amount: number | null;
+  park_fees_amount: number | null;
+  surcharge_amount: number | null;
   manager_name?: string | null;
   company_id?: string | null;
   repair_request_id?: string | null;
@@ -1070,6 +1073,30 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       doc.text(`$${invoice.tax_amount.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
       yPos += 0.2;
 
+      if (invoice.shop_supplies_amount && invoice.shop_supplies_amount > 0) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.text('Shop Supplies:', totalsX, yPos);
+        doc.text(`$${invoice.shop_supplies_amount.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
+        yPos += 0.2;
+      }
+
+      if (invoice.park_fees_amount && invoice.park_fees_amount > 0) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.text('Park Fees:', totalsX, yPos);
+        doc.text(`$${invoice.park_fees_amount.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
+        yPos += 0.2;
+      }
+
+      if (invoice.surcharge_amount && invoice.surcharge_amount > 0) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.text('Surcharge:', totalsX, yPos);
+        doc.text(`$${invoice.surcharge_amount.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
+        yPos += 0.2;
+      }
+
       if (invoice.deposit_applied && invoice.deposit_applied > 0) {
         doc.text('Deposit Applied:', totalsX, yPos);
         doc.text(`-$${invoice.deposit_applied.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
@@ -1086,7 +1113,12 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
 
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(12);
-      const computedTotal = invoice.subtotal + invoice.tax_amount + (invoice.credit_card_fee ?? 0) - (invoice.deposit_applied ?? 0);
+      const computedTotal = invoice.subtotal + invoice.tax_amount
+        + (invoice.shop_supplies_amount ?? 0)
+        + (invoice.park_fees_amount ?? 0)
+        + (invoice.surcharge_amount ?? 0)
+        + (invoice.credit_card_fee ?? 0)
+        - (invoice.deposit_applied ?? 0);
 
       doc.text('Total:', totalsX, yPos);
       doc.text(`$${computedTotal.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
