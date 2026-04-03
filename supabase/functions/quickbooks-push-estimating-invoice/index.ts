@@ -271,7 +271,7 @@ Deno.serve(async (req: Request) => {
           UnitPrice: item.unit_price || 0,
           Qty: item.quantity || 1,
           ItemRef: { value: itemId },
-          TaxCodeRef: item.is_taxable ? { value: 'TAX' } : { value: 'NON' },
+          TaxCodeRef: { value: 'NON' },
         },
       });
     }
@@ -327,6 +327,22 @@ Deno.serve(async (req: Request) => {
           UnitPrice: invoice.total_amount || 0,
           Qty: 1,
           ItemRef: { value: servicesItemId },
+          TaxCodeRef: { value: 'NON' },
+        },
+      });
+    }
+
+    // Add tax as an explicit line item so QB total matches our invoice exactly
+    if (invoice.tax_amount && parseFloat(invoice.tax_amount) > 0) {
+      qbLineItems.push({
+        Amount: parseFloat(invoice.tax_amount),
+        DetailType: 'SalesItemLineDetail',
+        Description: `Sales Tax (${Math.round(parseFloat(invoice.tax_rate) * 1000) / 10}%)`,
+        SalesItemLineDetail: {
+          UnitPrice: parseFloat(invoice.tax_amount),
+          Qty: 1,
+          ItemRef: { value: servicesItemId },
+          TaxCodeRef: { value: 'NON' },
         },
       });
     }
