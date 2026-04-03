@@ -2388,6 +2388,24 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                     <span className="text-gray-500">Tax ({(selectedInvoice.tax_rate * 100).toFixed(2)}%):</span>
                     <span className="text-gray-900">${selectedInvoice.tax_amount.toFixed(2)}</span>
                   </div>
+                  {selectedInvoice.shop_supplies_amount && selectedInvoice.shop_supplies_amount > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Shop Supplies:</span>
+                      <span className="text-gray-900">${selectedInvoice.shop_supplies_amount.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {selectedInvoice.park_fees_amount && selectedInvoice.park_fees_amount > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Park Fees:</span>
+                      <span className="text-gray-900">${selectedInvoice.park_fees_amount.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {selectedInvoice.surcharge_amount && selectedInvoice.surcharge_amount > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Surcharge:</span>
+                      <span className="text-gray-900">${selectedInvoice.surcharge_amount.toFixed(2)}</span>
+                    </div>
+                  )}
                   {selectedInvoice.deposit_applied && selectedInvoice.deposit_applied > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">Deposit Applied:</span>
