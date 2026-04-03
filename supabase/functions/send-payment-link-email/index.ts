@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.57.4';
+import PDFDocument from 'npm:pdfkit@0.15.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -16,6 +17,292 @@ interface EmailRequest {
   attachmentFilename?: string;
   attachmentContentType?: string;
   ccEmail?: string;
+}
+
+interface WorkOrderTask {
+  id: string;
+  task_name: string;
+  task_order: number;
+}
+
+interface WorkOrderLineItem {
+  id: string;
+  task_id: string;
+  line_type: string;
+  description: string;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+  work_details: string | null;
+  line_order: number;
+}
+
+async function buildInvoicePDF(invoice: any, tasks: WorkOrderTask[], lineItems: WorkOrderLineItem[], companyInfo: any): Promise<Uint8Array> {
+  return new Promise((resolve, reject) => {
+    const chunks: Uint8Array[] = [];
+    const doc = new PDFDocument({ margin: 54, size: 'LETTER' });
+
+    doc.on('data', (chunk: Uint8Array) => chunks.push(chunk));
+    doc.on('end', () => {
+      const total = chunks.reduce((acc, c) => acc + c.length, 0);
+      const buf = new Uint8Array(total);
+      let offset = 0;
+      for (const c of chunks) {
+        buf.set(c, offset);
+        offset += c.length;
+      }
+      resolve(buf);
+    });
+    doc.on('error', reject);
+
+    const margin = 54;
+    const pageWidth = doc.page.width;
+    const contentWidth = pageWidth - margin * 2;
+
+    const companyName = companyInfo?.company_name || companyInfo?.name || 'AZ Marine';
+
+    // Header
+    doc.font('Helvetica-Bold').fontSize(18).text(companyName, margin, margin);
+    doc.font('Helvetica').fontSize(9);
+    const addrParts: string[] = [];
+    if (companyInfo?.address_line1) addrParts.push(companyInfo.address_line1);
+    if (companyInfo?.address_line2) addrParts.push(companyInfo.address_line2);
+    const cityStateZip = [companyInfo?.city, companyInfo?.state, companyInfo?.zip_code].filter(Boolean).join(', ');
+    if (cityStateZip) addrParts.push(cityStateZip);
+    if (companyInfo?.phone) addrParts.push(`Phone: ${companyInfo.phone}`);
+    if (companyInfo?.email) addrParts.push(`Email: ${companyInfo.email}`);
+    if (addrParts.length > 0) {
+      doc.text(addrParts.join('\n'));
+    }
+
+    // Invoice title block (right side)
+    const invoiceTitleY = margin;
+    doc.font('Helvetica-Bold').fontSize(22).fillColor('#059669')
+      .text('INVOICE', pageWidth - margin - 160, invoiceTitleY, { width: 160, align: 'right' });
+    doc.font('Helvetica').fontSize(9).fillColor('#333333')
+      .text(`Invoice #: ${invoice.invoice_number}`, pageWidth - margin - 160, invoiceTitleY + 30, { width: 160, align: 'right' });
+    const invoiceDate = invoice.invoice_date ? new Date(invoice.invoice_date).toLocaleDateString() : new Date(invoice.created_at).toLocaleDateString();
+    doc.text(`Date: ${invoiceDate}`, pageWidth - margin - 160, doc.y, { width: 160, align: 'right' });
+    if (invoice.due_date) {
+      doc.text(`Due: ${new Date(invoice.due_date).toLocaleDateString()}`, pageWidth - margin - 160, doc.y, { width: 160, align: 'right' });
+    }
+    if (invoice.yachts?.name) {
+      doc.text(`Vessel: ${invoice.yachts.name}`, pageWidth - margin - 160, doc.y, { width: 160, align: 'right' });
+    }
+
+    // Divider
+    const dividerY = Math.max(doc.y + 10, 130);
+    doc.moveTo(margin, dividerY).lineTo(pageWidth - margin, dividerY).strokeColor('#059669').lineWidth(2).stroke();
+
+    // Bill To
+    const billToY = dividerY + 14;
+    doc.font('Helvetica-Bold').fontSize(9).fillColor('#555555').text('BILL TO', margin, billToY);
+    doc.font('Helvetica').fontSize(10).fillColor('#333333').text(invoice.customer_name || '', margin, billToY + 13);
+    if (invoice.customer_email) doc.fontSize(9).text(invoice.customer_email);
+    if (invoice.customer_phone) doc.text(invoice.customer_phone);
+    if (invoice.yachts?.name) doc.text(`Vessel: ${invoice.yachts.name}`);
+
+    // Service description header if no line items
+    if (tasks.length === 0 || lineItems.length === 0) {
+      const tableTopY = doc.y + 20;
+      doc.rect(margin, tableTopY, contentWidth, 18).fill('#059669');
+      doc.font('Helvetica-Bold').fontSize(8).fillColor('white')
+        .text('SERVICE DESCRIPTION', margin + 4, tableTopY + 5, { width: contentWidth });
+      let rowY = tableTopY + 18;
+      doc.rect(margin, rowY, contentWidth, 28).fill('#fafafa');
+      doc.font('Helvetica-Bold').fontSize(9).fillColor('#333333')
+        .text(invoice.repair_title || 'Services Rendered', margin + 4, rowY + 5, { width: contentWidth - 8 });
+      if (invoice.repair_description) {
+        doc.font('Helvetica').fontSize(8).fillColor('#555555')
+          .text(invoice.repair_description, margin + 4, rowY + 17, { width: contentWidth - 8 });
+      }
+      rowY += 28;
+      doc.moveTo(margin, rowY).lineTo(pageWidth - margin, rowY).strokeColor('#e5e7eb').lineWidth(1).stroke();
+      rowY += 16;
+
+      // Totals
+      const totalsLabelX = pageWidth - margin - 230;
+      const totalsValueX = pageWidth - margin - 80;
+      const totalsWidth = 75;
+
+      const addTotalRow = (label: string, value: string, bold = false, color = '#333333') => {
+        doc.font(bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(bold ? 10 : 9).fillColor(color);
+        doc.text(label, totalsLabelX, rowY, { width: 145, align: 'right' });
+        doc.text(value, totalsValueX, rowY, { width: totalsWidth, align: 'right' });
+        rowY += bold ? 18 : 14;
+      };
+
+      addTotalRow('Subtotal:', `$${Number(invoice.subtotal || invoice.invoice_amount?.replace('$', '') || 0).toFixed(2)}`);
+      if (Number(invoice.shop_supplies_amount) > 0) {
+        addTotalRow('Shop Supplies:', `$${Number(invoice.shop_supplies_amount).toFixed(2)}`);
+      }
+      if (Number(invoice.park_fees_amount) > 0) {
+        addTotalRow('Park Fees:', `$${Number(invoice.park_fees_amount).toFixed(2)}`);
+      }
+      if (Number(invoice.surcharge_amount) > 0) {
+        addTotalRow('Surcharge:', `$${Number(invoice.surcharge_amount).toFixed(2)}`);
+      }
+      addTotalRow(`Tax (${(Number(invoice.tax_rate || 0) * 100).toFixed(2)}%):`, `$${Number(invoice.tax_amount || 0).toFixed(2)}`);
+      if (Number(invoice.deposit_applied) > 0) {
+        addTotalRow('Deposit Applied:', `-$${Number(invoice.deposit_applied).toFixed(2)}`, false, '#059669');
+      }
+      if (Number(invoice.amount_paid) > 0) {
+        addTotalRow('Amount Paid:', `-$${Number(invoice.amount_paid).toFixed(2)}`, false, '#059669');
+      }
+
+      const balanceDue = Number(invoice.balance_due ?? invoice.total_amount ?? 0);
+      const balanceLabel = (Number(invoice.deposit_applied) > 0 || Number(invoice.amount_paid) > 0) ? 'Balance Due:' : 'Total Due:';
+      rowY += 4;
+      doc.rect(totalsLabelX - 8, rowY - 4, 230 + 8, 26).fill('#059669');
+      doc.font('Helvetica-Bold').fontSize(11).fillColor('white')
+        .text(balanceLabel, totalsLabelX, rowY + 3, { width: 145, align: 'right' });
+      doc.text(`$${balanceDue.toFixed(2)}`, totalsValueX, rowY + 3, { width: totalsWidth, align: 'right' });
+
+      doc.end();
+      return;
+    }
+
+    // Line items table
+    const tableTopY = doc.y + 20;
+    const colX = {
+      type: margin,
+      desc: margin + 55,
+      qty: margin + contentWidth - 210,
+      unit: margin + contentWidth - 150,
+      total: margin + contentWidth - 70,
+    };
+    const colWidths = {
+      type: 50,
+      desc: colX.qty - colX.desc - 10,
+      qty: 55,
+      unit: 75,
+      total: 70,
+    };
+
+    // Table header
+    doc.rect(margin, tableTopY, contentWidth, 18).fill('#059669');
+    doc.font('Helvetica-Bold').fontSize(8).fillColor('white');
+    doc.text('TYPE', colX.type + 4, tableTopY + 5, { width: colWidths.type });
+    doc.text('DESCRIPTION', colX.desc, tableTopY + 5, { width: colWidths.desc });
+    doc.text('QTY', colX.qty, tableTopY + 5, { width: colWidths.qty, align: 'center' });
+    doc.text('UNIT PRICE', colX.unit, tableTopY + 5, { width: colWidths.unit, align: 'right' });
+    doc.text('TOTAL', colX.total, tableTopY + 5, { width: colWidths.total, align: 'right' });
+
+    let rowY = tableTopY + 18;
+    let rowIndex = 0;
+
+    const sortedTasks = [...tasks].sort((a, b) => a.task_order - b.task_order);
+
+    for (const task of sortedTasks) {
+      const taskItems = lineItems
+        .filter(li => li.task_id === task.id)
+        .sort((a, b) => a.line_order - b.line_order);
+
+      if (taskItems.length === 0) continue;
+
+      const taskHeaderHeight = 16;
+      doc.rect(margin, rowY, contentWidth, taskHeaderHeight).fill('#f3f4f6');
+      doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#111827')
+        .text(task.task_name, colX.type + 4, rowY + 4, { width: contentWidth - 8 });
+      rowY += taskHeaderHeight;
+
+      for (const item of taskItems) {
+        const descText = item.description + (item.work_details ? `\n${item.work_details}` : '');
+        const descHeight = doc.heightOfString(descText, { width: colWidths.desc, fontSize: 8 });
+        const rowHeight = Math.max(descHeight + 10, 18);
+
+        if (rowY + rowHeight > doc.page.height - 80) {
+          doc.addPage();
+          rowY = margin;
+        }
+
+        if (rowIndex % 2 === 0) {
+          doc.rect(margin, rowY, contentWidth, rowHeight).fill('#fafafa');
+        }
+
+        doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#374151')
+          .text(item.line_type.toUpperCase(), colX.type + 4, rowY + 5, { width: colWidths.type });
+        doc.font('Helvetica').fontSize(8).fillColor('#374151')
+          .text(descText, colX.desc, rowY + 5, { width: colWidths.desc });
+        doc.text(item.quantity.toString(), colX.qty, rowY + 5, { width: colWidths.qty, align: 'center' });
+        doc.text(`$${Number(item.unit_price).toFixed(2)}`, colX.unit, rowY + 5, { width: colWidths.unit, align: 'right' });
+        doc.text(`$${Number(item.total_price).toFixed(2)}`, colX.total, rowY + 5, { width: colWidths.total, align: 'right' });
+
+        rowY += rowHeight;
+        rowIndex++;
+      }
+    }
+
+    // Bottom border
+    doc.moveTo(margin, rowY).lineTo(pageWidth - margin, rowY).strokeColor('#e5e7eb').lineWidth(1).stroke();
+    rowY += 16;
+
+    let totalsRowCount = 2;
+    if (Number(invoice.shop_supplies_amount) > 0) totalsRowCount++;
+    if (Number(invoice.park_fees_amount) > 0) totalsRowCount++;
+    if (Number(invoice.surcharge_amount) > 0) totalsRowCount++;
+    if (Number(invoice.deposit_applied) > 0) totalsRowCount++;
+    if (Number(invoice.amount_paid) > 0) totalsRowCount++;
+    const estimatedTotalsHeight = totalsRowCount * 14 + 4 + 34 + (invoice.notes ? 60 : 0);
+
+    if (rowY + estimatedTotalsHeight > doc.page.height - margin) {
+      doc.addPage();
+      rowY = margin;
+    }
+
+    // Totals block
+    const totalsLabelX = pageWidth - margin - 230;
+    const totalsValueX = pageWidth - margin - 80;
+    const totalsWidth = 75;
+
+    const addTotalRow = (label: string, value: string, bold = false, color = '#333333') => {
+      doc.font(bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(bold ? 10 : 9).fillColor(color);
+      doc.text(label, totalsLabelX, rowY, { width: 145, align: 'right' });
+      doc.text(value, totalsValueX, rowY, { width: totalsWidth, align: 'right' });
+      rowY += bold ? 18 : 14;
+    };
+
+    addTotalRow('Subtotal:', `$${Number(invoice.subtotal || 0).toFixed(2)}`);
+    if (Number(invoice.shop_supplies_amount) > 0) {
+      addTotalRow('Shop Supplies:', `$${Number(invoice.shop_supplies_amount).toFixed(2)}`);
+    }
+    if (Number(invoice.park_fees_amount) > 0) {
+      addTotalRow('Park Fees:', `$${Number(invoice.park_fees_amount).toFixed(2)}`);
+    }
+    if (Number(invoice.surcharge_amount) > 0) {
+      addTotalRow('Surcharge:', `$${Number(invoice.surcharge_amount).toFixed(2)}`);
+    }
+    addTotalRow(`Tax (${(Number(invoice.tax_rate || 0) * 100).toFixed(2)}%):`, `$${Number(invoice.tax_amount || 0).toFixed(2)}`);
+
+    if (Number(invoice.deposit_applied) > 0) {
+      addTotalRow('Deposit Applied:', `-$${Number(invoice.deposit_applied).toFixed(2)}`, false, '#059669');
+    }
+    if (Number(invoice.amount_paid) > 0) {
+      addTotalRow('Amount Paid:', `-$${Number(invoice.amount_paid).toFixed(2)}`, false, '#059669');
+    }
+
+    const balanceDue = Number(invoice.balance_due ?? invoice.total_amount ?? 0);
+    const balanceLabel = (Number(invoice.deposit_applied) > 0 || Number(invoice.amount_paid) > 0) ? 'Balance Due:' : 'Total Due:';
+
+    rowY += 4;
+    doc.rect(totalsLabelX - 8, rowY - 4, 230 + 8, 26).fill('#059669');
+    doc.font('Helvetica-Bold').fontSize(11).fillColor('white')
+      .text(balanceLabel, totalsLabelX, rowY + 3, { width: 145, align: 'right' });
+    doc.text(`$${balanceDue.toFixed(2)}`, totalsValueX, rowY + 3, { width: totalsWidth, align: 'right' });
+    rowY += 34;
+
+    if (invoice.notes) {
+      if (rowY + 60 > doc.page.height - margin) {
+        doc.addPage();
+        rowY = margin;
+      }
+      doc.font('Helvetica-Bold').fontSize(9).fillColor('#333333').text('Notes:', margin, rowY);
+      rowY += 13;
+      doc.font('Helvetica').fontSize(9).text(invoice.notes, margin, rowY, { width: contentWidth });
+    }
+
+    doc.end();
+  });
 }
 
 Deno.serve(async (req: Request) => {
@@ -49,7 +336,6 @@ Deno.serve(async (req: Request) => {
       throw new Error('Invoice ID and recipient email are required');
     }
 
-    // Verify reCAPTCHA token (anti-fraud compliance requirement)
     if (recaptchaToken) {
       const verifyUrl = `${supabaseUrl}/functions/v1/verify-recaptcha`;
       const verifyResponse = await fetch(verifyUrl, {
@@ -63,17 +349,13 @@ Deno.serve(async (req: Request) => {
       if (!verifyResult.success) {
         throw new Error('reCAPTCHA verification failed. Please try again.');
       }
-
-      console.log('reCAPTCHA verified successfully for payment link email');
     }
 
-    // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(recipientEmail)) {
       throw new Error('Invalid email address');
     }
 
-    // Fetch invoice details (include vessel_management_agreement_id for financial terms)
     const { data: invoice, error: invoiceError } = await supabase
       .from('yacht_invoices')
       .select('*, yachts(name), vessel_management_agreement_id')
@@ -88,15 +370,12 @@ Deno.serve(async (req: Request) => {
       throw new Error('Payment link not generated yet');
     }
 
-    // Check if user has access to this invoice
     const { data: profile } = await supabase
       .from('user_profiles')
       .select('role, yacht_id')
       .eq('user_id', user.id)
       .single();
 
-    // For retail customers (no yacht_id), only staff/master/mechanic can send
-    // For yacht customers, staff/master/mechanic or the assigned manager can send
     const isRetailCustomer = !invoice.yacht_id;
     const hasAccess = profile?.role === 'master' ||
                       profile?.role === 'staff' ||
@@ -107,61 +386,44 @@ Deno.serve(async (req: Request) => {
       throw new Error('Unauthorized to send this invoice');
     }
 
-    // First, check if we have an invoice file and download it
-    let invoiceAttachment = null;
+    // Fetch company info for PDF
+    const { data: companyDetails } = await supabase
+      .from('company_info')
+      .select('*')
+      .maybeSingle();
 
-    if (invoice.invoice_file_url && invoice.invoice_file_name) {
-      try {
-        console.log('Attempting to download invoice file:', {
-          url: invoice.invoice_file_url,
-          filename: invoice.invoice_file_name
-        });
+    const mergedCompany = {
+      ...(companyDetails || {}),
+      company_name: companyDetails?.company_name || 'AZ Marine',
+    };
 
-        // Extract the file path from the full URL
-        // URL format: https://xxx.supabase.co/storage/v1/object/public/invoice-files/path/to/file.pdf
-        let filePath = invoice.invoice_file_url;
+    // Fetch line items for PDF generation
+    let tasks: WorkOrderTask[] = [];
+    let lineItems: WorkOrderLineItem[] = [];
 
-        // Remove the base URL and bucket name to get just the file path
-        if (filePath.includes('/invoice-files/')) {
-          filePath = filePath.split('/invoice-files/')[1];
-        } else if (filePath.includes('/object/public/invoice-files/')) {
-          filePath = filePath.split('/object/public/invoice-files/')[1];
-        }
-
-        console.log('Extracted file path:', filePath);
-
-        const { data: fileData, error: fileError } = await supabase.storage
-          .from('invoice-files')
-          .download(filePath);
-
-        if (fileError) {
-          console.error('Error downloading invoice file from storage:', fileError);
-        } else if (fileData) {
-          console.log('Successfully downloaded file, size:', fileData.size);
-
-          const arrayBuffer = await fileData.arrayBuffer();
-          const base64Content = btoa(
-            new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
-          );
-
-          invoiceAttachment = {
-            filename: invoice.invoice_file_name,
-            content: base64Content,
-          };
-
-          console.log('Successfully prepared attachment:', invoice.invoice_file_name);
-        }
-      } catch (error) {
-        console.error('Error processing invoice attachment:', error);
-      }
-    } else {
-      console.log('No invoice file to attach:', {
-        hasUrl: !!invoice.invoice_file_url,
-        hasFilename: !!invoice.invoice_file_name
-      });
+    if (invoice.work_order_id) {
+      const [tasksRes, lineItemsRes] = await Promise.all([
+        supabase
+          .from('work_order_tasks')
+          .select('id, task_name, task_order')
+          .eq('work_order_id', invoice.work_order_id)
+          .order('task_order'),
+        supabase
+          .from('work_order_line_items')
+          .select('id, task_id, line_type, description, quantity, unit_price, total_price, work_details, line_order')
+          .eq('work_order_id', invoice.work_order_id)
+          .order('line_order'),
+      ]);
+      tasks = tasksRes.data || [];
+      lineItems = lineItemsRes.data || [];
     }
 
-    // If invoice is linked to a vessel management agreement, fetch financial terms
+    // Build PDF from live data
+    const pdfBytes = await buildInvoicePDF(invoice, tasks, lineItems, mergedCompany);
+    const pdfBase64 = btoa(String.fromCharCode(...pdfBytes));
+    const pdfFilename = invoice.invoice_number ? `Invoice-${invoice.invoice_number}.pdf` : 'Invoice.pdf';
+
+    // If vessel management agreement is linked, fetch financial terms for email body
     let agreementTermsHtml = '';
     if (invoice.vessel_management_agreement_id) {
       const { data: agreement } = await supabase
@@ -216,9 +478,20 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Build email HTML content (after we know if attachment exists)
     const yachtName = invoice.yachts?.name || (isRetailCustomer ? 'your vessel' : 'Your Yacht');
     const subject = `Payment Request: ${invoice.repair_title}`;
+
+    // Build summary totals for email body
+    const subtotal = Number(invoice.subtotal || 0);
+    const shopSupplies = Number(invoice.shop_supplies_amount || 0);
+    const parkFees = Number(invoice.park_fees_amount || 0);
+    const surcharge = Number(invoice.surcharge_amount || 0);
+    const taxAmount = Number(invoice.tax_amount || 0);
+    const taxRate = Number(invoice.tax_rate || 0);
+    const depositApplied = Number(invoice.deposit_applied || 0);
+    const amountPaid = Number(invoice.amount_paid || 0);
+    const balanceDue = Number(invoice.balance_due ?? invoice.total_amount ?? 0);
+    const hasPaymentApplied = depositApplied > 0 || amountPaid > 0;
 
     const htmlContent = `
       <!DOCTYPE html>
@@ -231,9 +504,16 @@ Deno.serve(async (req: Request) => {
           .header { background: linear-gradient(135deg, #059669 0%, #047857 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
           .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
           .invoice-details { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #059669; }
+          .totals-table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 12px; }
+          .totals-table td { padding: 6px 4px; }
+          .totals-table .label { color: #555; }
+          .totals-table .value { text-align: right; font-weight: 600; }
+          .totals-table .credit { color: #059669; }
+          .totals-table .balance-row { background: #059669; color: white; font-weight: 700; font-size: 15px; }
+          .totals-table .balance-row td { padding: 10px 4px; }
           .button { display: inline-block; background: #059669; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; margin: 20px 0; }
-          .button:hover { background: #047857; }
           .footer { text-align: center; color: #666; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; }
+          .attachment-note { background: #ecfdf5; border-left: 4px solid #059669; padding: 12px; border-radius: 4px; font-size: 14px; margin: 16px 0; }
         </style>
       </head>
       <body>
@@ -251,11 +531,35 @@ Deno.serve(async (req: Request) => {
               <h3 style="margin-top: 0; color: #059669;">Invoice Details</h3>
               <p><strong>Service:</strong> ${invoice.repair_title}</p>
               ${invoice.repair_description ? `<p><strong>Description:</strong> ${invoice.repair_description}</p>` : ''}
-              <p><strong>Amount:</strong> ${invoice.invoice_amount || '$0.00'}</p>
               <p><strong>Invoice Date:</strong> ${new Date(invoice.invoice_date || invoice.created_at).toLocaleDateString()}</p>
+              ${invoice.due_date ? `<p><strong>Due Date:</strong> ${new Date(invoice.due_date).toLocaleDateString()}</p>` : ''}
+
+              <table class="totals-table">
+                <tr>
+                  <td class="label">Subtotal</td>
+                  <td class="value">$${subtotal.toFixed(2)}</td>
+                </tr>
+                ${shopSupplies > 0 ? `<tr><td class="label">Shop Supplies</td><td class="value">$${shopSupplies.toFixed(2)}</td></tr>` : ''}
+                ${parkFees > 0 ? `<tr><td class="label">Park Fees</td><td class="value">$${parkFees.toFixed(2)}</td></tr>` : ''}
+                ${surcharge > 0 ? `<tr><td class="label">Surcharge</td><td class="value">$${surcharge.toFixed(2)}</td></tr>` : ''}
+                <tr>
+                  <td class="label">Tax (${(taxRate * 100).toFixed(2)}%)</td>
+                  <td class="value">$${taxAmount.toFixed(2)}</td>
+                </tr>
+                ${depositApplied > 0 ? `<tr><td class="label">Deposit Applied</td><td class="value credit">-$${depositApplied.toFixed(2)}</td></tr>` : ''}
+                ${amountPaid > 0 ? `<tr><td class="label">Amount Paid</td><td class="value credit">-$${amountPaid.toFixed(2)}</td></tr>` : ''}
+                <tr class="balance-row">
+                  <td>${hasPaymentApplied ? 'Balance Due' : 'Total Due'}</td>
+                  <td style="text-align: right;">$${balanceDue.toFixed(2)}</td>
+                </tr>
+              </table>
             </div>
 
             ${agreementTermsHtml}
+
+            <div class="attachment-note">
+              <strong>A detailed PDF invoice is attached</strong> to this email for your records.
+            </div>
 
             <p>Please click the button below to securely pay this invoice via Stripe:</p>
 
@@ -274,40 +578,28 @@ Deno.serve(async (req: Request) => {
               <strong>Payment Due:</strong> Payment is due within 48 hours per our contract.
             </p>
 
-            ${invoiceAttachment ? '<p>The invoice PDF is attached to this email for your records.</p>' : ''}
-
             <p>If you have any questions about this invoice, please don't hesitate to contact us.</p>
 
             <p>Thank you for your prompt attention to this matter.</p>
           </div>
           <div class="footer">
             <p>This is an automated message. Please do not reply to this email.</p>
-            <p>&copy; ${new Date().getFullYear()} Yacht Management System</p>
+            <p>&copy; ${new Date().getFullYear()} ${mergedCompany.company_name}</p>
           </div>
         </div>
       </body>
       </html>
     `;
 
-    // Send email using Resend if API key is configured
     if (resendApiKey) {
-      // Get custom from address from environment variable, or use default test address
-      // To use a verified domain: Set RESEND_FROM_EMAIL to something like "Yacht Management <noreply@yourdomain.com>"
       let fromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'onboarding@resend.dev';
-
-      // Trim any whitespace that might cause issues
       fromEmail = fromEmail.trim();
 
-      // Validate the from email format
       const emailFormatRegex = /^(?:[a-zA-Z0-9\s]+ <)?[^\s@]+@[^\s@]+\.[^\s@]+>?$/;
       if (!emailFormatRegex.test(fromEmail)) {
-        console.error('Invalid RESEND_FROM_EMAIL format:', fromEmail);
-        throw new Error(`Invalid from email format: "${fromEmail}". Expected format: "email@example.com" or "Name <email@example.com>"`);
+        throw new Error(`Invalid from email format: "${fromEmail}".`);
       }
 
-      console.log('Using from email:', fromEmail);
-
-      // Fetch secondary email for CC if yacht is assigned
       let ccEmails: string[] = [];
       if (invoice.yacht_id) {
         const { data: ownerProfiles } = await supabase
@@ -337,36 +629,13 @@ Deno.serve(async (req: Request) => {
         }
       }
 
-      const emailPayload: any = {
-        from: fromEmail,
-        to: allRecipientEmails,
-        subject: subject,
-        html: htmlContent,
-        tags: [
-          {
-            name: 'category',
-            value: 'payment-invoice',
-          },
-          {
-            name: 'invoice_id',
-            value: invoiceId,
-          },
-        ],
-      };
+      const attachments: any[] = [
+        {
+          filename: pdfFilename,
+          content: pdfBase64,
+        },
+      ];
 
-      if (ccEmails.length > 0) {
-        emailPayload.cc = ccEmails;
-      }
-
-      // Enable click tracking to track when payment links are clicked
-      emailPayload.headers = {
-        'X-Entity-Ref-ID': invoiceId,
-      };
-
-      const attachments = [];
-      if (invoiceAttachment) {
-        attachments.push(invoiceAttachment);
-      }
       if (attachmentBase64 && attachmentFilename) {
         attachments.push({
           filename: attachmentFilename,
@@ -374,8 +643,22 @@ Deno.serve(async (req: Request) => {
           content_type: attachmentContentType || 'application/octet-stream',
         });
       }
-      if (attachments.length > 0) {
-        emailPayload.attachments = attachments;
+
+      const emailPayload: any = {
+        from: fromEmail,
+        to: allRecipientEmails,
+        subject: subject,
+        html: htmlContent,
+        attachments,
+        tags: [
+          { name: 'category', value: 'payment-invoice' },
+          { name: 'invoice_id', value: invoiceId },
+        ],
+        headers: { 'X-Entity-Ref-ID': invoiceId },
+      };
+
+      if (ccEmails.length > 0) {
+        emailPayload.cc = ccEmails;
       }
 
       const emailResponse = await fetch('https://api.resend.com/emails', {
@@ -395,10 +678,8 @@ Deno.serve(async (req: Request) => {
           const errorData = JSON.parse(errorText);
           if (errorData.message) {
             errorMessage = `Resend Error: ${errorData.message}`;
-
-            // Check if it's the test mode restriction
             if (errorData.message.includes('You can only send testing emails to your own email address')) {
-              errorMessage += '\n\nTo fix this:\n1. Go to resend.com/domains and verify your domain\n2. In Supabase Edge Functions, add RESEND_FROM_EMAIL secret (e.g., "Yacht Mgmt <noreply@yourdomain.com>")\n3. Or for testing, only send emails to your verified address';
+              errorMessage += '\n\nTo fix this:\n1. Go to resend.com/domains and verify your domain\n2. In Supabase Edge Functions, add RESEND_FROM_EMAIL secret\n3. Or for testing, only send emails to your verified address';
             }
           }
         } catch {
@@ -410,7 +691,6 @@ Deno.serve(async (req: Request) => {
       const emailData = await emailResponse.json();
       console.log('Email sent successfully:', emailData);
 
-      // Update invoice to mark that payment email was sent and store resend_email_id for tracking
       await supabase
         .from('yacht_invoices')
         .update({
@@ -421,7 +701,6 @@ Deno.serve(async (req: Request) => {
         })
         .eq('id', invoiceId);
 
-      // Log the email in owner chat (only for yacht customers, not retail)
       if (invoice.yacht_id) {
         await supabase.from('owner_chat_messages').insert({
           yacht_id: invoice.yacht_id,
@@ -430,11 +709,10 @@ Deno.serve(async (req: Request) => {
           created_at: new Date().toISOString(),
         });
 
-        // Log to yacht history
-        const yachtName = invoice.yachts?.name || 'Unknown Yacht';
+        const yachtHistoryName = invoice.yachts?.name || 'Unknown Yacht';
         await supabase.from('yacht_history_logs').insert({
           yacht_id: invoice.yacht_id,
-          yacht_name: yachtName,
+          yacht_name: yachtHistoryName,
           action: `Payment email for "${invoice.repair_title}" sent to ${recipientEmail}`,
           reference_id: invoice.id,
           reference_type: 'yacht_invoice',
@@ -458,7 +736,6 @@ Deno.serve(async (req: Request) => {
         }
       );
     } else {
-      // Resend API key not configured - return error
       return new Response(
         JSON.stringify({
           success: false,
