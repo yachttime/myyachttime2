@@ -2872,7 +2872,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                       type="text"
                       value={editForm.customer_name}
                       onChange={e => setEditForm(f => ({ ...f, customer_name: e.target.value }))}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
@@ -2881,7 +2881,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                       type="email"
                       value={editForm.customer_email}
                       onChange={e => setEditForm(f => ({ ...f, customer_email: e.target.value }))}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
@@ -2890,7 +2890,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                       type="text"
                       value={editForm.customer_phone}
                       onChange={e => setEditForm(f => ({ ...f, customer_phone: e.target.value }))}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
@@ -2899,7 +2899,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                       type="date"
                       value={editForm.invoice_date}
                       onChange={e => setEditForm(f => ({ ...f, invoice_date: e.target.value }))}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
@@ -2908,7 +2908,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                       type="date"
                       value={editForm.due_date}
                       onChange={e => setEditForm(f => ({ ...f, due_date: e.target.value }))}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                 </div>
@@ -2956,72 +2956,72 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                 <div className="space-y-2">
                   {/* Header row */}
                   {editLineItems.filter(i => !i._deleted).length > 0 && (
-                    <div className="grid grid-cols-12 gap-2 px-2 text-xs font-medium text-gray-500 uppercase tracking-wide">
-                      <div className="col-span-1">Type</div>
-                      <div className="col-span-4">Description</div>
-                      <div className="col-span-2">Work Details</div>
-                      <div className="col-span-1 text-right">Qty</div>
-                      <div className="col-span-2 text-right">Unit Price</div>
-                      <div className="col-span-1 text-center">Tax</div>
-                      <div className="col-span-1 text-right">Total</div>
-                      <div className="col-span-0"></div>
+                    <div className="flex gap-2 px-2 text-xs font-medium text-gray-500 uppercase tracking-wide">
+                      <div style={{width: 80, flexShrink: 0}}>Type</div>
+                      <div className="flex-1">Description</div>
+                      <div style={{width: 120, flexShrink: 0}}>Work Details</div>
+                      <div style={{width: 56, flexShrink: 0, textAlign: 'right'}}>Qty</div>
+                      <div style={{width: 88, flexShrink: 0, textAlign: 'right'}}>Unit Price</div>
+                      <div style={{width: 36, flexShrink: 0, textAlign: 'center'}}>Tax</div>
+                      <div style={{width: 72, flexShrink: 0, textAlign: 'right'}}>Total</div>
+                      <div style={{width: 28, flexShrink: 0}}></div>
                     </div>
                   )}
                   {editLineItems.map((item, idx) => {
                     if (item._deleted) return null;
                     const rowTotal = (item.quantity * item.unit_price).toFixed(2);
                     return (
-                      <div key={item.id} className="grid grid-cols-12 gap-2 items-center bg-gray-50 rounded-lg p-2">
-                        <div className="col-span-1">
+                      <div key={item.id} className="flex gap-2 items-center bg-gray-50 rounded-lg px-2 py-1.5">
+                        <div style={{width: 80, flexShrink: 0}}>
                           <select
                             value={item.line_type}
                             onChange={e => setEditLineItems(prev => prev.map((it, i) => i === idx ? { ...it, line_type: e.target.value } : it))}
-                            className="w-full border border-gray-300 rounded px-1 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+                            className="w-full border border-gray-300 rounded px-1 py-1 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
                           >
                             <option value="part">Part</option>
                             <option value="labor">Labor</option>
                             <option value="other">Other</option>
                           </select>
                         </div>
-                        <div className="col-span-4">
+                        <div className="flex-1 min-w-0">
                           <input
                             type="text"
-                            value={item.description}
+                            value={item.description ?? ''}
                             onChange={e => setEditLineItems(prev => prev.map((it, i) => i === idx ? { ...it, description: e.target.value } : it))}
                             placeholder="Description"
-                            className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            className="w-full border border-gray-300 rounded px-2 py-1 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
                           />
                         </div>
-                        <div className="col-span-2">
+                        <div style={{width: 120, flexShrink: 0}}>
                           <input
                             type="text"
                             value={item.work_details ?? ''}
                             onChange={e => setEditLineItems(prev => prev.map((it, i) => i === idx ? { ...it, work_details: e.target.value || null } : it))}
                             placeholder="Work details"
-                            className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            className="w-full border border-gray-300 rounded px-2 py-1 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
                           />
                         </div>
-                        <div className="col-span-1">
+                        <div style={{width: 56, flexShrink: 0}}>
                           <input
                             type="number"
                             step="0.01"
                             min="0"
                             value={item.quantity}
                             onChange={e => setEditLineItems(prev => prev.map((it, i) => i === idx ? { ...it, quantity: parseFloat(e.target.value) || 0 } : it))}
-                            className="w-full border border-gray-300 rounded px-2 py-1 text-xs text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            className="w-full border border-gray-300 rounded px-2 py-1 text-xs text-right text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
                           />
                         </div>
-                        <div className="col-span-2">
+                        <div style={{width: 88, flexShrink: 0}}>
                           <input
                             type="number"
                             step="0.01"
                             min="0"
                             value={item.unit_price}
                             onChange={e => setEditLineItems(prev => prev.map((it, i) => i === idx ? { ...it, unit_price: parseFloat(e.target.value) || 0 } : it))}
-                            className="w-full border border-gray-300 rounded px-2 py-1 text-xs text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            className="w-full border border-gray-300 rounded px-2 py-1 text-xs text-right text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
                           />
                         </div>
-                        <div className="col-span-1 flex justify-center">
+                        <div style={{width: 36, flexShrink: 0}} className="flex justify-center">
                           <input
                             type="checkbox"
                             checked={item.is_taxable}
@@ -3029,10 +3029,10 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                             className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                           />
                         </div>
-                        <div className="col-span-1 text-right text-xs font-medium text-gray-700">
+                        <div style={{width: 72, flexShrink: 0}} className="text-right text-xs font-semibold text-gray-800">
                           ${rowTotal}
                         </div>
-                        <div className="col-span-0 flex justify-end">
+                        <div style={{width: 28, flexShrink: 0}} className="flex justify-center">
                           <button
                             type="button"
                             onClick={() => setEditLineItems(prev => prev.map((it, i) => i === idx ? { ...it, _deleted: true } : it))}
@@ -3059,7 +3059,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                       min="0"
                       value={editForm.tax_rate}
                       onChange={e => setEditForm(f => ({ ...f, tax_rate: e.target.value }))}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
@@ -3070,7 +3070,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                       min="0"
                       value={editForm.shop_supplies_amount}
                       onChange={e => setEditForm(f => ({ ...f, shop_supplies_amount: e.target.value }))}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
@@ -3081,7 +3081,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                       min="0"
                       value={editForm.park_fees_amount}
                       onChange={e => setEditForm(f => ({ ...f, park_fees_amount: e.target.value }))}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
@@ -3092,7 +3092,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                       min="0"
                       value={editForm.surcharge_amount}
                       onChange={e => setEditForm(f => ({ ...f, surcharge_amount: e.target.value }))}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                 </div>
@@ -3132,7 +3132,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                   value={editForm.notes}
                   onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))}
                   rows={3}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                 />
               </div>
             </div>
