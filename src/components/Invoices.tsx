@@ -163,6 +163,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
     surcharge_amount: string;
     tax_rate: string;
   }>({ customer_name: '', customer_email: '', customer_phone: '', invoice_date: '', due_date: '', notes: '', shop_supplies_amount: '', park_fees_amount: '', surcharge_amount: '', tax_rate: '' });
+  const [editLineItems, setEditLineItems] = useState<Array<WorkOrderLineItem & { _deleted?: boolean; _new?: boolean; task_name?: string | null }>>([]);
   const [editSaving, setEditSaving] = useState(false);
 
   const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'success') => {
@@ -1766,18 +1767,27 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
 
   function handleOpenEdit() {
     if (!selectedInvoice) return;
+    const inv = selectedInvoice;
+    const toDateStr = (val: string | null | undefined) => {
+      if (!val) return '';
+      const d = new Date(val);
+      if (isNaN(d.getTime())) return val.slice(0, 10);
+      return d.toISOString().slice(0, 10);
+    };
     setEditForm({
-      customer_name: selectedInvoice.customer_name ?? '',
-      customer_email: selectedInvoice.customer_email ?? '',
-      customer_phone: selectedInvoice.customer_phone ?? '',
-      invoice_date: selectedInvoice.invoice_date ? selectedInvoice.invoice_date.slice(0, 10) : '',
-      due_date: selectedInvoice.due_date ? selectedInvoice.due_date.slice(0, 10) : '',
-      notes: selectedInvoice.notes ?? '',
-      shop_supplies_amount: selectedInvoice.shop_supplies_amount != null ? String(selectedInvoice.shop_supplies_amount) : '',
-      park_fees_amount: selectedInvoice.park_fees_amount != null ? String(selectedInvoice.park_fees_amount) : '',
-      surcharge_amount: selectedInvoice.surcharge_amount != null ? String(selectedInvoice.surcharge_amount) : '',
-      tax_rate: selectedInvoice.tax_rate != null ? String((selectedInvoice.tax_rate * 100).toFixed(4)) : '',
+      customer_name: inv.customer_name ?? '',
+      customer_email: inv.customer_email ?? '',
+      customer_phone: inv.customer_phone ?? '',
+      invoice_date: toDateStr(inv.invoice_date),
+      due_date: toDateStr(inv.due_date),
+      notes: inv.notes ?? '',
+      shop_supplies_amount: inv.shop_supplies_amount != null ? String(inv.shop_supplies_amount) : '0',
+      park_fees_amount: inv.park_fees_amount != null ? String(inv.park_fees_amount) : '0',
+      surcharge_amount: inv.surcharge_amount != null ? String(inv.surcharge_amount) : '0',
+      tax_rate: inv.tax_rate != null ? String((Number(inv.tax_rate) * 100).toFixed(4)) : '0',
     });
+    const allItems = [...workOrderLineItems, ...estimatingLineItems];
+    setEditLineItems(allItems.map(item => ({ ...item, _deleted: false, _new: false })));
     setShowEditModal(true);
   }
 
@@ -1790,19 +1800,54 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       const parkFees = editForm.park_fees_amount !== '' ? parseFloat(editForm.park_fees_amount) : 0;
       const surcharge = editForm.surcharge_amount !== '' ? parseFloat(editForm.surcharge_amount) : 0;
 
-      const taxableSubtotal = (() => {
-        const allItems = [...workOrderLineItems, ...estimatingLineItems];
-        if (allItems.length > 0) {
-          return allItems.filter(i => i.is_taxable).reduce((sum, i) => sum + i.quantity * i.unit_price, 0);
-        }
-        return selectedInvoice.subtotal;
-      })();
-
-      const taxAmount = parseFloat((taxableSubtotal * taxRateVal).toFixed(2));
-      const newTotal = parseFloat((selectedInvoice.subtotal + taxAmount + shopSupplies + parkFees + surcharge).toFixed(2));
+      const activeItems = editLineItems.filter(i => !i._deleted);
+      const newSubtotal = parseFloat(activeItems.reduce((sum, i) => sum + i.quantity * i.unit_price, 0).toFixed(2));
+      const taxableAmount = parseFloat(activeItems.filter(i => i.is_taxable).reduce((sum, i) => sum + i.quantity * i.unit_price, 0).toFixed(2));
+      const taxAmount = parseFloat((taxableAmount * taxRateVal).toFixed(2));
+      const newTotal = parseFloat((newSubtotal + taxAmount + shopSupplies + parkFees + surcharge).toFixed(2));
       const depositApplied = selectedInvoice.deposit_applied ?? 0;
       const amountPaid = selectedInvoice.amount_paid ?? 0;
       const newBalanceDue = Math.max(0, newTotal - depositApplied - amountPaid);
+
+      const isWorkOrderInvoice = !!selectedInvoice.work_order_id;
+      const lineItemTable = isWorkOrderInvoice ? 'work_order_line_items' : 'estimating_invoice_line_items';
+
+      for (const item of editLineItems) {
+        const totalPrice = parseFloat((item.quantity * item.unit_price).toFixed(2));
+        if (item._deleted && !item._new) {
+          await supabase.from(lineItemTable).delete().eq('id', item.id);
+        } else if (item._new && !item._deleted) {
+          const insertData: Record<string, unknown> = {
+            line_type: item.line_type,
+            description: item.description,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            total_price: totalPrice,
+            is_taxable: item.is_taxable,
+            line_order: item.line_order,
+            work_details: item.work_details || null,
+          };
+          if (isWorkOrderInvoice) {
+            insertData.work_order_id = selectedInvoice.work_order_id;
+            insertData.task_id = item.task_id;
+          } else {
+            insertData.invoice_id = selectedInvoice.id;
+            insertData.task_id = item.task_id || null;
+            insertData.task_name = (item as any).task_name || null;
+            insertData.company_id = selectedInvoice.company_id;
+          }
+          await supabase.from(lineItemTable).insert(insertData);
+        } else if (!item._deleted && !item._new) {
+          await supabase.from(lineItemTable).update({
+            description: item.description,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            total_price: totalPrice,
+            is_taxable: item.is_taxable,
+            work_details: item.work_details || null,
+          }).eq('id', item.id);
+        }
+      }
 
       const { error } = await supabase
         .from('estimating_invoices')
@@ -1818,6 +1863,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
           surcharge_amount: surcharge,
           tax_rate: taxRateVal,
           tax_amount: taxAmount,
+          subtotal: newSubtotal,
           total_amount: newTotal,
           balance_due: newBalanceDue,
         })
@@ -1839,7 +1885,15 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
         .select('*, work_orders!estimating_invoices_work_order_id_fkey(work_order_number), yachts!estimating_invoices_yacht_id_fkey(name)')
         .eq('id', selectedInvoice.id)
         .maybeSingle();
-      if (fresh) setSelectedInvoice({ ...fresh, work_order_number: fresh.work_orders?.work_order_number, yacht_name: fresh.yachts?.name });
+      if (fresh) {
+        const freshInvoice = { ...fresh, work_order_number: fresh.work_orders?.work_order_number, yacht_name: fresh.yachts?.name };
+        setSelectedInvoice(freshInvoice);
+        if (selectedInvoice.work_order_id) {
+          await fetchWorkOrderDetails(selectedInvoice.work_order_id);
+        } else {
+          await fetchEstimatingLineItems(selectedInvoice.id);
+        }
+      }
     } catch (err: any) {
       console.error('Error saving invoice:', err);
       showToast(err.message || 'Failed to save invoice', 'error');
@@ -2799,68 +2853,206 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
 
       {showEditModal && selectedInvoice && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
               <h3 className="text-lg font-semibold text-gray-900">Edit Invoice {selectedInvoice.invoice_number}</h3>
               <button onClick={() => setShowEditModal(false)} className="text-gray-400 hover:text-gray-600">
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-6 space-y-4">
+
+            <div className="overflow-y-auto flex-1 p-6 space-y-6">
+              {/* Customer & Dates */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name</label>
-                <input
-                  type="text"
-                  value={editForm.customer_name}
-                  onChange={e => setEditForm(f => ({ ...f, customer_name: e.target.value }))}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Customer Email</label>
-                  <input
-                    type="email"
-                    value={editForm.customer_email}
-                    onChange={e => setEditForm(f => ({ ...f, customer_email: e.target.value }))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Customer Phone</label>
-                  <input
-                    type="text"
-                    value={editForm.customer_phone}
-                    onChange={e => setEditForm(f => ({ ...f, customer_phone: e.target.value }))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Invoice Date</label>
-                  <input
-                    type="date"
-                    value={editForm.invoice_date}
-                    onChange={e => setEditForm(f => ({ ...f, invoice_date: e.target.value }))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
-                  <input
-                    type="date"
-                    value={editForm.due_date}
-                    onChange={e => setEditForm(f => ({ ...f, due_date: e.target.value }))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-              <div className="border-t border-gray-200 pt-4">
-                <h4 className="text-sm font-semibold text-gray-700 mb-3">Charges &amp; Tax</h4>
-                <div className="grid grid-cols-2 gap-4">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Customer Information</h4>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="col-span-3">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Customer Name</label>
+                    <input
+                      type="text"
+                      value={editForm.customer_name}
+                      onChange={e => setEditForm(f => ({ ...f, customer_name: e.target.value }))}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Tax Rate (%)</label>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Email</label>
+                    <input
+                      type="email"
+                      value={editForm.customer_email}
+                      onChange={e => setEditForm(f => ({ ...f, customer_email: e.target.value }))}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Phone</label>
+                    <input
+                      type="text"
+                      value={editForm.customer_phone}
+                      onChange={e => setEditForm(f => ({ ...f, customer_phone: e.target.value }))}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Invoice Date</label>
+                    <input
+                      type="date"
+                      value={editForm.invoice_date}
+                      onChange={e => setEditForm(f => ({ ...f, invoice_date: e.target.value }))}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Due Date</label>
+                    <input
+                      type="date"
+                      value={editForm.due_date}
+                      onChange={e => setEditForm(f => ({ ...f, due_date: e.target.value }))}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Line Items */}
+              <div className="border-t border-gray-200 pt-5">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Line Items</h4>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const maxOrder = editLineItems.reduce((m, i) => Math.max(m, i.line_order), 0);
+                      const firstActive = editLineItems.find(i => !i._deleted);
+                      setEditLineItems(prev => [...prev, {
+                        id: `new-${Date.now()}`,
+                        task_id: firstActive?.task_id ?? '',
+                        task_name: (firstActive as any)?.task_name ?? null,
+                        line_type: 'part',
+                        description: '',
+                        quantity: 1,
+                        unit_price: 0,
+                        total_price: 0,
+                        is_taxable: true,
+                        line_order: maxOrder + 1,
+                        work_details: null,
+                        assigned_employee_id: null,
+                        time_entry_sent_at: null,
+                        time_entry_id: null,
+                        employee_name: null,
+                        _deleted: false,
+                        _new: true,
+                      }]);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-medium transition-colors"
+                  >
+                    <span className="text-base leading-none">+</span> Add Line Item
+                  </button>
+                </div>
+
+                {editLineItems.filter(i => !i._deleted).length === 0 && (
+                  <p className="text-sm text-gray-400 text-center py-4">No line items. Click "Add Line Item" to add one.</p>
+                )}
+
+                <div className="space-y-2">
+                  {/* Header row */}
+                  {editLineItems.filter(i => !i._deleted).length > 0 && (
+                    <div className="grid grid-cols-12 gap-2 px-2 text-xs font-medium text-gray-500 uppercase tracking-wide">
+                      <div className="col-span-1">Type</div>
+                      <div className="col-span-4">Description</div>
+                      <div className="col-span-2">Work Details</div>
+                      <div className="col-span-1 text-right">Qty</div>
+                      <div className="col-span-2 text-right">Unit Price</div>
+                      <div className="col-span-1 text-center">Tax</div>
+                      <div className="col-span-1 text-right">Total</div>
+                      <div className="col-span-0"></div>
+                    </div>
+                  )}
+                  {editLineItems.map((item, idx) => {
+                    if (item._deleted) return null;
+                    const rowTotal = (item.quantity * item.unit_price).toFixed(2);
+                    return (
+                      <div key={item.id} className="grid grid-cols-12 gap-2 items-center bg-gray-50 rounded-lg p-2">
+                        <div className="col-span-1">
+                          <select
+                            value={item.line_type}
+                            onChange={e => setEditLineItems(prev => prev.map((it, i) => i === idx ? { ...it, line_type: e.target.value } : it))}
+                            className="w-full border border-gray-300 rounded px-1 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+                          >
+                            <option value="part">Part</option>
+                            <option value="labor">Labor</option>
+                            <option value="other">Other</option>
+                          </select>
+                        </div>
+                        <div className="col-span-4">
+                          <input
+                            type="text"
+                            value={item.description}
+                            onChange={e => setEditLineItems(prev => prev.map((it, i) => i === idx ? { ...it, description: e.target.value } : it))}
+                            placeholder="Description"
+                            className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div className="col-span-2">
+                          <input
+                            type="text"
+                            value={item.work_details ?? ''}
+                            onChange={e => setEditLineItems(prev => prev.map((it, i) => i === idx ? { ...it, work_details: e.target.value || null } : it))}
+                            placeholder="Work details"
+                            className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div className="col-span-1">
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={item.quantity}
+                            onChange={e => setEditLineItems(prev => prev.map((it, i) => i === idx ? { ...it, quantity: parseFloat(e.target.value) || 0 } : it))}
+                            className="w-full border border-gray-300 rounded px-2 py-1 text-xs text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div className="col-span-2">
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={item.unit_price}
+                            onChange={e => setEditLineItems(prev => prev.map((it, i) => i === idx ? { ...it, unit_price: parseFloat(e.target.value) || 0 } : it))}
+                            className="w-full border border-gray-300 rounded px-2 py-1 text-xs text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div className="col-span-1 flex justify-center">
+                          <input
+                            type="checkbox"
+                            checked={item.is_taxable}
+                            onChange={e => setEditLineItems(prev => prev.map((it, i) => i === idx ? { ...it, is_taxable: e.target.checked } : it))}
+                            className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div className="col-span-1 text-right text-xs font-medium text-gray-700">
+                          ${rowTotal}
+                        </div>
+                        <div className="col-span-0 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => setEditLineItems(prev => prev.map((it, i) => i === idx ? { ...it, _deleted: true } : it))}
+                            className="text-red-400 hover:text-red-600 p-1"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Charges & Tax */}
+              <div className="border-t border-gray-200 pt-5">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Charges &amp; Tax</h4>
+                <div className="grid grid-cols-4 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Tax Rate (%)</label>
                     <input
                       type="number"
                       step="0.01"
@@ -2871,7 +3063,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Shop Supplies ($)</label>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Shop Supplies ($)</label>
                     <input
                       type="number"
                       step="0.01"
@@ -2882,7 +3074,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Park Fees ($)</label>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Park Fees ($)</label>
                     <input
                       type="number"
                       step="0.01"
@@ -2893,7 +3085,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Surcharge ($)</label>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Surcharge ($)</label>
                     <input
                       type="number"
                       step="0.01"
@@ -2904,13 +3096,38 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                     />
                   </div>
                 </div>
-                <div className="mt-3 p-3 bg-gray-50 rounded-lg text-sm text-gray-600">
-                  Subtotal: <span className="font-medium text-gray-900">${selectedInvoice.subtotal.toFixed(2)}</span>
-                  {' '}&mdash; Total will be recalculated on save.
-                </div>
+                {(() => {
+                  const taxRate = parseFloat(editForm.tax_rate) / 100 || 0;
+                  const shopSup = parseFloat(editForm.shop_supplies_amount) || 0;
+                  const parkFee = parseFloat(editForm.park_fees_amount) || 0;
+                  const surchargeAmt = parseFloat(editForm.surcharge_amount) || 0;
+                  const activeItems = editLineItems.filter(i => !i._deleted);
+                  const subtotal = activeItems.reduce((s, i) => s + i.quantity * i.unit_price, 0);
+                  const taxable = activeItems.filter(i => i.is_taxable).reduce((s, i) => s + i.quantity * i.unit_price, 0);
+                  const tax = taxable * taxRate;
+                  const total = subtotal + tax + shopSup + parkFee + surchargeAmt;
+                  return (
+                    <div className="mt-3 bg-gray-50 rounded-lg p-3 text-sm space-y-1">
+                      <div className="flex justify-between text-gray-600">
+                        <span>Subtotal:</span><span className="font-medium text-gray-900">${subtotal.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-gray-600">
+                        <span>Tax ({editForm.tax_rate}%):</span><span className="font-medium text-gray-900">${tax.toFixed(2)}</span>
+                      </div>
+                      {shopSup > 0 && <div className="flex justify-between text-gray-600"><span>Shop Supplies:</span><span>${shopSup.toFixed(2)}</span></div>}
+                      {parkFee > 0 && <div className="flex justify-between text-gray-600"><span>Park Fees:</span><span>${parkFee.toFixed(2)}</span></div>}
+                      {surchargeAmt > 0 && <div className="flex justify-between text-gray-600"><span>Surcharge:</span><span>${surchargeAmt.toFixed(2)}</span></div>}
+                      <div className="flex justify-between font-bold text-gray-900 border-t border-gray-200 pt-1 mt-1">
+                        <span>New Total:</span><span>${total.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+
+              {/* Notes */}
+              <div className="border-t border-gray-200 pt-5">
+                <label className="block text-xs font-medium text-gray-500 mb-1 uppercase tracking-wide">Notes</label>
                 <textarea
                   value={editForm.notes}
                   onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))}
@@ -2919,7 +3136,8 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                 />
               </div>
             </div>
-            <div className="flex justify-end gap-3 px-6 pb-6">
+
+            <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200 flex-shrink-0 bg-white">
               <button
                 onClick={() => setShowEditModal(false)}
                 className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50"
