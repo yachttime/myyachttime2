@@ -206,6 +206,15 @@ async function buildInvoicePDF(invoice: any, tasks: WorkOrderTask[], lineItems: 
     };
 
     addTotalRow('Subtotal:', `$${Number(invoice.subtotal || 0).toFixed(2)}`);
+    if (Number(invoice.shop_supplies_amount) > 0) {
+      addTotalRow('Shop Supplies:', `$${Number(invoice.shop_supplies_amount).toFixed(2)}`);
+    }
+    if (Number(invoice.park_fees_amount) > 0) {
+      addTotalRow('Park Fees:', `$${Number(invoice.park_fees_amount).toFixed(2)}`);
+    }
+    if (Number(invoice.surcharge_amount) > 0) {
+      addTotalRow('Surcharge:', `$${Number(invoice.surcharge_amount).toFixed(2)}`);
+    }
     addTotalRow(`Tax (${(Number(invoice.tax_rate || 0) * 100).toFixed(2)}%):`, `$${Number(invoice.tax_amount || 0).toFixed(2)}`);
 
     if (Number(invoice.deposit_applied) > 0) {
@@ -381,6 +390,11 @@ Deno.serve(async (req: Request) => {
               ${invoice.customer_name ? `<p><strong>Customer:</strong> ${invoice.customer_name}</p>` : ''}
               <p><strong>Invoice Date:</strong> ${new Date(invoice.invoice_date || invoice.created_at).toLocaleDateString()}</p>
               ${invoice.due_date ? `<p><strong>Due Date:</strong> ${new Date(invoice.due_date).toLocaleDateString()}</p>` : ''}
+              <p><strong>Subtotal:</strong> $${Number(invoice.subtotal || 0).toFixed(2)}</p>
+              ${Number(invoice.shop_supplies_amount) > 0 ? `<p><strong>Shop Supplies:</strong> $${Number(invoice.shop_supplies_amount).toFixed(2)}</p>` : ''}
+              ${Number(invoice.park_fees_amount) > 0 ? `<p><strong>Park Fees:</strong> $${Number(invoice.park_fees_amount).toFixed(2)}</p>` : ''}
+              ${Number(invoice.surcharge_amount) > 0 ? `<p><strong>Surcharge:</strong> $${Number(invoice.surcharge_amount).toFixed(2)}</p>` : ''}
+              <p><strong>Tax (${(Number(invoice.tax_rate || 0) * 100).toFixed(2)}%):</strong> $${Number(invoice.tax_amount || 0).toFixed(2)}</p>
               <p><strong>Total Amount:</strong> $${Number(invoice.total_amount || 0).toFixed(2)}</p>
               ${Number(invoice.deposit_applied) > 0 ? `<p><strong>Deposit Applied:</strong> -$${Number(invoice.deposit_applied).toFixed(2)}</p>` : ''}
               ${Number(invoice.amount_paid) > 0 ? `<p><strong>Amount Paid:</strong> -$${Number(invoice.amount_paid).toFixed(2)}</p>` : ''}
