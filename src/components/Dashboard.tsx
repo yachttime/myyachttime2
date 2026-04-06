@@ -4278,13 +4278,18 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           .limit(1);
 
         for (const a of agreements || []) {
-          if (a.manager_billing_approval_email && !seenEmails.has(a.manager_billing_approval_email.toLowerCase())) {
-            seenEmails.add(a.manager_billing_approval_email.toLowerCase());
-            found.push({
-              email: a.manager_billing_approval_email,
-              name: a.manager_billing_approval_name || '',
-              source: 'agreement'
-            });
+          if (a.manager_billing_approval_email) {
+            const emailList = a.manager_billing_approval_email.split(',').map((e: string) => e.trim()).filter(Boolean);
+            for (const em of emailList) {
+              if (!seenEmails.has(em.toLowerCase())) {
+                seenEmails.add(em.toLowerCase());
+                found.push({
+                  email: em,
+                  name: a.manager_billing_approval_name || '',
+                  source: 'agreement'
+                });
+              }
+            }
           }
         }
 
@@ -4533,13 +4538,18 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           .limit(1);
 
         for (const a of agreements || []) {
-          if (a.manager_billing_approval_email && !seenEmails.has(a.manager_billing_approval_email.toLowerCase())) {
-            seenEmails.add(a.manager_billing_approval_email.toLowerCase());
-            found.push({
-              email: a.manager_billing_approval_email,
-              name: a.manager_billing_approval_name || '',
-              source: 'agreement'
-            });
+          if (a.manager_billing_approval_email) {
+            const emailList = a.manager_billing_approval_email.split(',').map((e: string) => e.trim()).filter(Boolean);
+            for (const em of emailList) {
+              if (!seenEmails.has(em.toLowerCase())) {
+                seenEmails.add(em.toLowerCase());
+                found.push({
+                  email: em,
+                  name: a.manager_billing_approval_name || '',
+                  source: 'agreement'
+                });
+              }
+            }
           }
         }
 
