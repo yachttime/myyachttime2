@@ -3234,13 +3234,46 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                     Loading billing managers...
                   </div>
                 ) : billingManagers.length === 0 ? (
-                  <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4">
-                    <p className="text-amber-400 text-sm font-medium mb-1">No recipients found</p>
-                    <p className="text-amber-300/70 text-xs">
-                      {emailModalInvoice.yacht_id
-                        ? 'No users with Billing Approval permission are assigned to this yacht. Go to User Management to set this up.'
-                        : 'No customer email is on file for this invoice. Add a customer email to send the payment link.'}
-                    </p>
+                  <div className="space-y-3">
+                    <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4">
+                      <p className="text-amber-400 text-sm font-medium mb-1">No recipients found</p>
+                      <p className="text-amber-300/70 text-xs">
+                        {emailModalInvoice.yacht_id
+                          ? 'No users with Billing Approval permission are assigned to this yacht. Add an email below to send manually.'
+                          : 'No customer email is on file for this invoice. Add an email below to send the payment link.'}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="email"
+                        placeholder="Add recipient email..."
+                        id="extra-recipient-input"
+                        className="flex-1 bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            const val = (e.target as HTMLInputElement).value.trim();
+                            if (val && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+                              setBillingManagers(prev => [...prev, { email: val, name: '' }]);
+                              (e.target as HTMLInputElement).value = '';
+                            }
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const input = document.getElementById('extra-recipient-input') as HTMLInputElement;
+                          const val = input?.value.trim();
+                          if (val && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+                            setBillingManagers(prev => [...prev, { email: val, name: '' }]);
+                            input.value = '';
+                          }
+                        }}
+                        className="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg transition-colors whitespace-nowrap"
+                      >
+                        Add
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -3260,6 +3293,37 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                       </div>
                     ))}
                     <p className="text-xs text-slate-500 mt-1">Email will be sent to all listed billing managers</p>
+                    <div className="flex gap-2 mt-2">
+                      <input
+                        type="email"
+                        placeholder="Add additional email..."
+                        id="extra-recipient-input"
+                        className="flex-1 bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            const val = (e.target as HTMLInputElement).value.trim();
+                            if (val && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+                              setBillingManagers(prev => [...prev, { email: val, name: '' }]);
+                              (e.target as HTMLInputElement).value = '';
+                            }
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const input = document.getElementById('extra-recipient-input') as HTMLInputElement;
+                          const val = input?.value.trim();
+                          if (val && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+                            setBillingManagers(prev => [...prev, { email: val, name: '' }]);
+                            input.value = '';
+                          }
+                        }}
+                        className="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg transition-colors whitespace-nowrap"
+                      >
+                        Add
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
