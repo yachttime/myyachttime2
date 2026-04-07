@@ -84,6 +84,10 @@ Deno.serve(withErrorHandling(async (req: Request) => {
       throw new Error('Invoice is already paid');
     }
 
+    if (invoice.payment_status === 'processing') {
+      throw new Error('A payment is already being processed for this invoice. Please wait for it to complete.');
+    }
+
     // Deactivate any existing payment link before creating a new one
     if (invoice.stripe_checkout_session_id) {
       try {
