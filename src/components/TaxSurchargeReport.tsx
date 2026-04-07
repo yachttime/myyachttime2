@@ -470,8 +470,8 @@ export function TaxSurchargeReport({ onClose }: Props) {
         row.customer_email || '',
         row.payment_status.charAt(0).toUpperCase() + row.payment_status.slice(1),
         `$${getAmount(row).toFixed(2)}`,
-        row.paid_at ? formatDate(row.paid_at) : '',
-        row.check_number || ''
+        '',
+        ''
       ]);
 
       autoTable(doc, {
@@ -841,12 +841,8 @@ export function TaxSurchargeReport({ onClose }: Props) {
                     <td className="px-4 py-3 text-sm font-semibold text-gray-900 text-right">
                       ${getAmount(row).toFixed(2)}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {row.paid_at ? formatDate(row.paid_at) : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {row.check_number || '—'}
-                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600"></td>
+                    <td className="px-4 py-3 text-sm text-gray-600"></td>
                   </tr>
                 ))}
               </tbody>
