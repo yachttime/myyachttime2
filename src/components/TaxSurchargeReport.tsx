@@ -85,7 +85,6 @@ export function TaxSurchargeReport({ onClose }: Props) {
       const { data, error: fetchError } = await supabase
         .from('estimating_invoices')
         .select('id, invoice_number, customer_name, customer_email, customer_phone, invoice_date, payment_status, tax_amount, tax_rate, subtotal, shop_supplies_amount, park_fees_amount, surcharge_amount, total_amount')
-        .eq('archived', false)
         .gte('invoice_date', dateFrom)
         .lte('invoice_date', dateTo)
         .order('invoice_date', { ascending: true });
@@ -113,7 +112,6 @@ export function TaxSurchargeReport({ onClose }: Props) {
       const { data: invoices, error: invError } = await supabase
         .from('estimating_invoices')
         .select('id, invoice_number, customer_name, invoice_date, payment_status, work_order_id, work_orders!estimating_invoices_work_order_id_fkey(work_title)')
-        .eq('archived', false)
         .gte('invoice_date', dateFrom)
         .lte('invoice_date', dateTo)
         .order('invoice_date', { ascending: true });
