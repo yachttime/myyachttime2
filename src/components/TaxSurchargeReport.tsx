@@ -471,27 +471,29 @@ export function TaxSurchargeReport({ onClose }: Props) {
         row.payment_status.charAt(0).toUpperCase() + row.payment_status.slice(1),
         `$${getAmount(row).toFixed(2)}`,
         '',
+        '',
         ''
       ]);
 
       autoTable(doc, {
         startY: y,
-        head: [['Invoice #', 'Date', 'Customer', 'Phone', 'Email', 'Status', getReportLabel(), 'Paid Date', 'Check #']],
+        head: [['Invoice #', 'Date', 'Customer', 'Phone', 'Email', 'Status', getReportLabel(), 'Paid Date', 'Check #', 'Invoice #']],
         body: tableRows,
         margin: { left: margin, right: margin },
         styles: { fontSize: 7, cellPadding: 3, textColor: [30, 30, 30] as [number, number, number] },
         headStyles: { fillColor: [37, 99, 235] as [number, number, number], textColor: [255, 255, 255] as [number, number, number], fontStyle: 'bold' },
         alternateRowStyles: { fillColor: [248, 250, 252] as [number, number, number] },
         columnStyles: {
-          0: { cellWidth: 55 },
-          1: { cellWidth: 50 },
-          2: { cellWidth: 90 },
-          3: { cellWidth: 65 },
-          4: { cellWidth: 95 },
-          5: { cellWidth: 45 },
-          6: { cellWidth: 50, halign: 'right' as const },
-          7: { cellWidth: 50 },
-          8: { cellWidth: 45 }
+          0: { cellWidth: 50 },
+          1: { cellWidth: 45 },
+          2: { cellWidth: 80 },
+          3: { cellWidth: 58 },
+          4: { cellWidth: 85 },
+          5: { cellWidth: 42 },
+          6: { cellWidth: 45, halign: 'right' as const },
+          7: { cellWidth: 42 },
+          8: { cellWidth: 38 },
+          9: { cellWidth: 38 }
         }
       });
 
@@ -744,7 +746,7 @@ export function TaxSurchargeReport({ onClose }: Props) {
                               <td className="px-4 py-1.5 text-xs font-bold text-amber-700 text-right">
                                 ${presetAmount.toFixed(2)}
                               </td>
-                              <td colSpan={2} />
+                              <td colSpan={3} />
                             </tr>
                             {row.labor_cost > 0 && (() => {
                               const diff = presetAmount - row.labor_cost;
@@ -757,7 +759,7 @@ export function TaxSurchargeReport({ onClose }: Props) {
                                   <td className={`px-4 py-1.5 text-xs font-bold text-right ${isPositive ? 'text-green-700' : 'text-red-700'}`}>
                                     {isPositive ? '+' : ''}${diff.toFixed(2)}
                                   </td>
-                                  <td colSpan={2} />
+                                  <td colSpan={3} />
                                 </tr>
                               );
                             })()}
@@ -798,7 +800,7 @@ export function TaxSurchargeReport({ onClose }: Props) {
                         <td className="px-4 py-2 text-sm font-bold text-amber-700 text-right">
                           ${presetTotal.toFixed(2)}
                         </td>
-                        <td colSpan={2} />
+                        <td colSpan={3} />
                       </tr>
                     );
                   })()}
@@ -823,6 +825,7 @@ export function TaxSurchargeReport({ onClose }: Props) {
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">{getReportLabel()}</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Paid Date</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Check #</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Invoice #</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -843,6 +846,7 @@ export function TaxSurchargeReport({ onClose }: Props) {
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600"></td>
                     <td className="px-4 py-3 text-sm text-gray-600"></td>
+                    <td className="px-4 py-3 text-sm text-gray-600"></td>
                   </tr>
                 ))}
               </tbody>
@@ -854,7 +858,7 @@ export function TaxSurchargeReport({ onClose }: Props) {
                   <td className="px-4 py-3 text-sm font-bold text-gray-900 text-right">
                     ${getTotalSales().toFixed(2)}
                   </td>
-                  <td colSpan={2} />
+                  <td colSpan={3} />
                 </tr>
                 <tr className="border-t border-gray-200">
                   <td colSpan={6} className="px-4 py-3 text-sm font-semibold text-green-700">
@@ -863,7 +867,7 @@ export function TaxSurchargeReport({ onClose }: Props) {
                   <td className="px-4 py-3 text-sm font-semibold text-green-700 text-right">
                     ${getTaxableAmount().toFixed(2)}
                   </td>
-                  <td colSpan={2} />
+                  <td colSpan={3} />
                 </tr>
                 <tr className="border-t border-gray-200">
                   <td colSpan={6} className="px-4 py-3 text-sm font-semibold text-gray-600">
@@ -872,7 +876,7 @@ export function TaxSurchargeReport({ onClose }: Props) {
                   <td className="px-4 py-3 text-sm font-semibold text-gray-600 text-right">
                     ${getNonTaxableAmount().toFixed(2)}
                   </td>
-                  <td colSpan={2} />
+                  <td colSpan={3} />
                 </tr>
                 <tr className="border-t border-gray-200">
                   <td colSpan={6} className="px-4 py-3 text-sm font-bold text-gray-900">
@@ -881,7 +885,7 @@ export function TaxSurchargeReport({ onClose }: Props) {
                   <td className="px-4 py-3 text-sm font-bold text-gray-900 text-right">
                     ${total.toFixed(2)}
                   </td>
-                  <td colSpan={2} />
+                  <td colSpan={3} />
                 </tr>
               </tfoot>
             </table>
