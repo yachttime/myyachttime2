@@ -19,6 +19,8 @@ interface ReportRow {
   park_fees_amount: number;
   surcharge_amount: number;
   total_amount: number;
+  paid_at: string | null;
+  check_number: string | null;
 }
 
 interface LaborRow {
@@ -84,7 +86,7 @@ export function TaxSurchargeReport({ onClose }: Props) {
 
       const { data, error: fetchError } = await supabase
         .from('estimating_invoices')
-        .select('id, invoice_number, customer_name, customer_email, customer_phone, invoice_date, payment_status, tax_amount, tax_rate, subtotal, shop_supplies_amount, park_fees_amount, surcharge_amount, total_amount')
+        .select('id, invoice_number, customer_name, customer_email, customer_phone, invoice_date, payment_status, tax_amount, tax_rate, subtotal, shop_supplies_amount, park_fees_amount, surcharge_amount, total_amount, paid_at, check_number')
         .gte('invoice_date', dateFrom)
         .lte('invoice_date', dateTo)
         .order('invoice_date', { ascending: true });
@@ -467,25 +469,29 @@ export function TaxSurchargeReport({ onClose }: Props) {
         row.customer_phone || '',
         row.customer_email || '',
         row.payment_status.charAt(0).toUpperCase() + row.payment_status.slice(1),
-        `$${getAmount(row).toFixed(2)}`
+        `$${getAmount(row).toFixed(2)}`,
+        row.paid_at ? formatDate(row.paid_at) : '',
+        row.check_number || ''
       ]);
 
       autoTable(doc, {
         startY: y,
-        head: [['Invoice #', 'Date', 'Customer', 'Phone', 'Email', 'Status', getReportLabel()]],
+        head: [['Invoice #', 'Date', 'Customer', 'Phone', 'Email', 'Status', getReportLabel(), 'Paid Date', 'Check #']],
         body: tableRows,
         margin: { left: margin, right: margin },
-        styles: { fontSize: 8, cellPadding: 4, textColor: [30, 30, 30] as [number, number, number] },
+        styles: { fontSize: 7, cellPadding: 3, textColor: [30, 30, 30] as [number, number, number] },
         headStyles: { fillColor: [37, 99, 235] as [number, number, number], textColor: [255, 255, 255] as [number, number, number], fontStyle: 'bold' },
         alternateRowStyles: { fillColor: [248, 250, 252] as [number, number, number] },
         columnStyles: {
-          0: { cellWidth: 70 },
-          1: { cellWidth: 60 },
-          2: { cellWidth: 110 },
-          3: { cellWidth: 80 },
-          4: { cellWidth: 120 },
-          5: { cellWidth: 50 },
-          6: { cellWidth: 60, halign: 'right' as const }
+          0: { cellWidth: 55 },
+          1: { cellWidth: 50 },
+          2: { cellWidth: 90 },
+          3: { cellWidth: 65 },
+          4: { cellWidth: 95 },
+          5: { cellWidth: 45 },
+          6: { cellWidth: 50, halign: 'right' as const },
+          7: { cellWidth: 50 },
+          8: { cellWidth: 45 }
         }
       });
 
@@ -815,6 +821,8 @@ export function TaxSurchargeReport({ onClose }: Props) {
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Email</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">{getReportLabel()}</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Paid Date</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Check #</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -833,6 +841,12 @@ export function TaxSurchargeReport({ onClose }: Props) {
                     <td className="px-4 py-3 text-sm font-semibold text-gray-900 text-right">
                       ${getAmount(row).toFixed(2)}
                     </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      {row.paid_at ? formatDate(row.paid_at) : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      {row.check_number || '—'}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -844,6 +858,7 @@ export function TaxSurchargeReport({ onClose }: Props) {
                   <td className="px-4 py-3 text-sm font-bold text-gray-900 text-right">
                     ${getTotalSales().toFixed(2)}
                   </td>
+                  <td colSpan={2} />
                 </tr>
                 <tr className="border-t border-gray-200">
                   <td colSpan={6} className="px-4 py-3 text-sm font-semibold text-green-700">
@@ -852,6 +867,7 @@ export function TaxSurchargeReport({ onClose }: Props) {
                   <td className="px-4 py-3 text-sm font-semibold text-green-700 text-right">
                     ${getTaxableAmount().toFixed(2)}
                   </td>
+                  <td colSpan={2} />
                 </tr>
                 <tr className="border-t border-gray-200">
                   <td colSpan={6} className="px-4 py-3 text-sm font-semibold text-gray-600">
@@ -860,6 +876,7 @@ export function TaxSurchargeReport({ onClose }: Props) {
                   <td className="px-4 py-3 text-sm font-semibold text-gray-600 text-right">
                     ${getNonTaxableAmount().toFixed(2)}
                   </td>
+                  <td colSpan={2} />
                 </tr>
                 <tr className="border-t border-gray-200">
                   <td colSpan={6} className="px-4 py-3 text-sm font-bold text-gray-900">
@@ -868,6 +885,7 @@ export function TaxSurchargeReport({ onClose }: Props) {
                   <td className="px-4 py-3 text-sm font-bold text-gray-900 text-right">
                     ${total.toFixed(2)}
                   </td>
+                  <td colSpan={2} />
                 </tr>
               </tfoot>
             </table>
