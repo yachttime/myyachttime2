@@ -824,6 +824,17 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     }
   }, [activeTab, adminView]);
 
+  useEffect(() => {
+    if (!effectiveRole) return;
+    const masterOnlyViews = ['appointments', 'staffappointment', 'smartdevices', 'companies'];
+    const staffOnlyViews = ['inspection', 'yachts', 'repairs', 'ownertrips', 'ownerchat', 'messages', 'ownerhandoff', 'users'];
+    if (masterOnlyViews.includes(adminView) && !isMasterRole(effectiveRole)) {
+      setAdminViewPersisted('menu');
+    } else if (staffOnlyViews.includes(adminView) && isOwnerRole(effectiveRole)) {
+      setAdminViewPersisted('menu');
+    }
+  }, [effectiveRole]);
+
   // Set up realtime subscription for yacht_invoices to track email engagement
   useEffect(() => {
     if (!user) return;
