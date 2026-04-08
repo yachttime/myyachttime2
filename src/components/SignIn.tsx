@@ -160,6 +160,15 @@ export const SignIn = () => {
     }, 2000);
   };
 
+  const sendPasswordReset = async (emailAddress: string) => {
+    const redirectTo = `${import.meta.env.VITE_APP_URL || window.location.origin}`;
+    const { error } = await supabase.auth.resetPasswordForEmail(emailAddress, { redirectTo });
+    if (error) {
+      console.error('Password reset error:', error);
+      throw new Error('Unable to send password reset email. Please contact support or verify your email address is correct.');
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -172,20 +181,39 @@ export const SignIn = () => {
           throw new Error('Please enter a valid email address');
         }
 
-        const redirectTo = `${import.meta.env.VITE_APP_URL || window.location.origin}`;
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo,
-        });
-
-        if (error) {
-          console.error('Password reset error:', error);
-          throw new Error('Unable to send password reset email. Please contact support or verify your email address is correct.');
-        }
-
+        await sendPasswordReset(email);
         setSuccess('Password reset link sent! Please check your email (including spam folder).');
         setEmail('');
       } else {
-        await signIn(email, password);
+        try {
+          await signIn(email, password);
+        } catch (signInErr: any) {
+          const isInvalidCredentials =
+            signInErr.message?.toLowerCase().includes('invalid login credentials') ||
+            signInErr.message?.toLowerCase().includes('invalid credentials') ||
+            signInErr.message?.toLowerCase().includes('email not confirmed') ||
+            signInErr.__isAuthError;
+
+          if (isInvalidCredentials && email.includes('@')) {
+            const { data: profile } = await supabase
+              .from('user_profiles')
+              .select('must_change_password, role')
+              .eq('email', email.toLowerCase().trim())
+              .maybeSingle();
+
+            if (profile?.must_change_password) {
+              await sendPasswordReset(email);
+              setSuccess(
+                'Your account requires a password setup. A password setup link has been sent to your email — please check your inbox (and spam folder) to set your password, then sign in.'
+              );
+              setPassword('');
+              setLoading(false);
+              return;
+            }
+          }
+
+          throw signInErr;
+        }
       }
     } catch (err: any) {
       console.error('Auth error:', err);
