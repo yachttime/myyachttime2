@@ -161,10 +161,18 @@ export const SignIn = () => {
   };
 
   const sendPasswordReset = async (emailAddress: string) => {
-    const redirectTo = `${import.meta.env.VITE_APP_URL || window.location.origin}`;
-    const { error } = await supabase.auth.resetPasswordForEmail(emailAddress, { redirectTo });
-    if (error) {
-      console.error('Password reset error:', error);
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://eqiecntollhgfxmmbize.supabase.co';
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    const res = await fetch(`${supabaseUrl}/functions/v1/send-password-reset`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseAnonKey}`,
+      },
+      body: JSON.stringify({ email: emailAddress }),
+    });
+    if (!res.ok) {
+      console.error('Password reset error:', await res.text());
       throw new Error('Unable to send password reset email. Please contact support or verify your email address is correct.');
     }
   };
