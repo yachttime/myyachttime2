@@ -158,6 +158,17 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // Create the auth identity record - required for email/password login
+    // admin.createUser does NOT create this automatically, causing "Database error querying schema"
+    const { error: identityError } = await supabaseAdmin.rpc('create_user_identity', {
+      p_user_id: authData.user.id,
+      p_email: requestData.email
+    });
+
+    if (identityError) {
+      console.error('Error creating identity record:', identityError);
+    }
+
     // Create user profile with the same company_id as the creating user
     const { error: profileError } = await supabaseAdmin
       .from('user_profiles')
