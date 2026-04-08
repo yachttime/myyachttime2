@@ -119,6 +119,8 @@ Deno.serve(async (req: Request) => {
       password: requestData.password,
       email_confirm: true, // Auto-confirm email
       user_metadata: {
+        email: requestData.email,
+        email_verified: true,
         first_name: requestData.first_name,
         last_name: requestData.last_name,
         phone: requestData.phone,
