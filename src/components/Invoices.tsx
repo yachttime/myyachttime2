@@ -1787,7 +1787,8 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       tax_rate: inv.tax_rate != null ? String((Number(inv.tax_rate) * 100).toFixed(4)) : '0',
     });
     const CHARGE_TYPES = ['shop_supplies', 'park_fees', 'surcharge'];
-    const allItems = [...workOrderLineItems, ...estimatingLineItems].filter(i => !CHARGE_TYPES.includes(i.line_type));
+    const sourceItems = inv.work_order_id ? workOrderLineItems : estimatingLineItems;
+    const allItems = sourceItems.filter(i => !CHARGE_TYPES.includes(i.line_type));
     setEditLineItems(allItems.map(item => ({ ...item, _deleted: false, _new: false })));
     setShowEditModal(true);
   }
