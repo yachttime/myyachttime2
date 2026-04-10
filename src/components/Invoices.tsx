@@ -140,6 +140,8 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
   const [showTaxReport, setShowTaxReport] = useState(false);
   const [paymentMethodModal, setPaymentMethodModal] = useState<{ invoice: Invoice; email: string; mode: 'generate' | 'regenerate'; allRecipients?: string[] } | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'card' | 'ach' | 'both'>('card');
+  const [editableRecipients, setEditableRecipients] = useState<string[]>([]);
+  const [newRecipientInput, setNewRecipientInput] = useState('');
   const [invoiceEmployees, setInvoiceEmployees] = useState<Record<string, string[]>>({});
   const [invoiceSentEmployees, setInvoiceSentEmployees] = useState<Record<string, Set<string>>>({});
   const [invoiceHasUnassigned, setInvoiceHasUnassigned] = useState<Record<string, boolean>>({});
@@ -1219,6 +1221,8 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       }
 
       setSelectedPaymentMethod(invoice.final_payment_method_type as 'card' | 'ach' | 'both' || 'card');
+      setEditableRecipients(allRecipients);
+      setNewRecipientInput('');
       setPaymentMethodModal({ invoice, email: resolvedEmail, mode: 'generate', allRecipients });
     } catch (error: any) {
       console.error('Error in handleRequestPayment:', error);
@@ -1226,7 +1230,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
     }
   }
 
-  async function generatePaymentLink(invoice: Invoice, recipientEmail: string, paymentMethodType: 'card' | 'ach' | 'both' = 'card') {
+  async function generatePaymentLink(invoice: Invoice, recipientEmail: string, paymentMethodType: 'card' | 'ach' | 'both' = 'card', overrideRecipients?: string[]) {
     setPaymentLoading(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -1275,7 +1279,11 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       }
 
       let additionalRecipients: { email: string; name?: string }[] = [];
-      if (invoice.yacht_id) {
+      if (overrideRecipients) {
+        additionalRecipients = overrideRecipients
+          .filter((e) => e && e !== recipientEmail)
+          .map((e) => ({ email: e }));
+      } else if (invoice.yacht_id) {
         const { data: billingMgrs } = await supabase
           .from('user_profiles')
           .select('first_name, last_name, email, notification_email')
@@ -1430,10 +1438,15 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
   async function handleRegeneratePaymentLink() {
     if (!selectedInvoice) return;
     setSelectedPaymentMethod(selectedInvoice.final_payment_method_type as 'card' | 'ach' | 'both' || 'card');
-    setPaymentMethodModal({ invoice: selectedInvoice, email: selectedInvoice.final_payment_email_recipient || selectedInvoice.customer_email || '', mode: 'regenerate' });
+    const primaryEmail = selectedInvoice.final_payment_email_recipient || selectedInvoice.customer_email || '';
+    const existingRecipients = selectedInvoice.payment_email_all_recipients as string[] | null;
+    const recipients = existingRecipients && existingRecipients.length > 0 ? existingRecipients : (primaryEmail ? [primaryEmail] : []);
+    setEditableRecipients(recipients);
+    setNewRecipientInput('');
+    setPaymentMethodModal({ invoice: selectedInvoice, email: primaryEmail, mode: 'regenerate', allRecipients: recipients });
   }
 
-  async function executeRegeneratePaymentLink(paymentMethodType: 'card' | 'ach' | 'both') {
+  async function executeRegeneratePaymentLink(paymentMethodType: 'card' | 'ach' | 'both', overrideRecipients?: string[]) {
     if (!selectedInvoice) return;
 
     setRegenerateLoading(true);
@@ -1478,7 +1491,41 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
         throw new Error(createResult.error || 'Failed to create new payment link');
       }
 
+      const primaryEmail = selectedInvoice.final_payment_email_recipient || selectedInvoice.customer_email || '';
+      const recipients = overrideRecipients ?? [];
+      const additionalRecipients = recipients
+        .filter((e) => e && e !== primaryEmail)
+        .map((e) => ({ email: e }));
+
+      const totalRecipients = primaryEmail ? 1 + additionalRecipients.length : additionalRecipients.length;
       showToast('Payment link regenerated successfully!', 'success');
+
+      if (primaryEmail) {
+        fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-estimating-invoice-payment-email`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              invoiceId: selectedInvoice.id,
+              recipientEmail: primaryEmail,
+              additionalRecipients: additionalRecipients.length > 0 ? additionalRecipients : undefined,
+            })
+          }
+        ).then(async (emailResponse) => {
+          if (!emailResponse.ok) {
+            showToast('Payment link regenerated but email failed to send. Use "Email Payment Link" to retry.', 'info');
+          } else {
+            showToast(`Payment email sent to ${totalRecipients} recipient${totalRecipients !== 1 ? 's' : ''}!`, 'success');
+          }
+        }).catch(() => {
+          showToast('Payment link regenerated but email failed to send. Use "Email Payment Link" to retry.', 'info');
+        });
+      }
+
       await fetchInvoices();
       const { data: fresh } = await supabase.from('estimating_invoices').select('*, work_orders!estimating_invoices_work_order_id_fkey(work_order_number), yachts!estimating_invoices_yacht_id_fkey(name)').eq('id', selectedInvoice.id).maybeSingle();
       if (fresh) setSelectedInvoice({ ...fresh, work_order_number: fresh.work_orders?.work_order_number, yacht_name: fresh.yachts?.name });
@@ -3442,16 +3489,58 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                 <p className="text-slate-400 text-xs mt-0.5">
                   Balance due: ${((paymentMethodModal.invoice.balance_due ?? paymentMethodModal.invoice.total_amount) || 0).toFixed(2)}
                 </p>
-                {paymentMethodModal.allRecipients && paymentMethodModal.allRecipients.length > 0 ? (
-                  <div className="mt-1">
-                    <p className="text-slate-400 text-xs">Sending to {paymentMethodModal.allRecipients.length} recipient{paymentMethodModal.allRecipients.length !== 1 ? 's' : ''}:</p>
-                    {paymentMethodModal.allRecipients.map((r, i) => (
-                      <p key={i} className="text-slate-400 text-xs ml-2">• {r}</p>
-                    ))}
+                <div className="mt-2 space-y-1">
+                  <p className="text-slate-400 text-xs font-medium">Recipients ({editableRecipients.length}):</p>
+                  {editableRecipients.map((r, i) => (
+                    <div key={i} className="flex items-center gap-1">
+                      <input
+                        type="email"
+                        value={r}
+                        onChange={(e) => {
+                          const updated = [...editableRecipients];
+                          updated[i] = e.target.value;
+                          setEditableRecipients(updated);
+                        }}
+                        className="flex-1 bg-slate-700 border border-slate-500 rounded px-2 py-1 text-xs text-slate-100 focus:outline-none focus:border-emerald-400"
+                      />
+                      {editableRecipients.length > 1 && (
+                        <button
+                          onClick={() => setEditableRecipients(editableRecipients.filter((_, idx) => idx !== i))}
+                          className="text-slate-400 hover:text-red-400 transition-colors flex-shrink-0"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <div className="flex items-center gap-1 pt-0.5">
+                    <input
+                      type="email"
+                      value={newRecipientInput}
+                      onChange={(e) => setNewRecipientInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && newRecipientInput.trim()) {
+                          setEditableRecipients([...editableRecipients, newRecipientInput.trim()]);
+                          setNewRecipientInput('');
+                        }
+                      }}
+                      placeholder="Add email..."
+                      className="flex-1 bg-slate-700 border border-dashed border-slate-500 rounded px-2 py-1 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-400"
+                    />
+                    <button
+                      onClick={() => {
+                        if (newRecipientInput.trim()) {
+                          setEditableRecipients([...editableRecipients, newRecipientInput.trim()]);
+                          setNewRecipientInput('');
+                        }
+                      }}
+                      disabled={!newRecipientInput.trim()}
+                      className="px-2 py-1 bg-emerald-700 hover:bg-emerald-600 disabled:opacity-40 text-white rounded text-xs transition-colors flex-shrink-0"
+                    >
+                      + Add
+                    </button>
                   </div>
-                ) : paymentMethodModal.email ? (
-                  <p className="text-slate-400 text-xs mt-0.5">Sending to: {paymentMethodModal.email}</p>
-                ) : null}
+                </div>
               </div>
 
               <div>
@@ -3518,11 +3607,12 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                 <button
                   onClick={() => {
                     const { invoice, email, mode } = paymentMethodModal;
+                    const recipients = [...editableRecipients];
                     setPaymentMethodModal(null);
                     if (mode === 'generate') {
-                      generatePaymentLink(invoice, email, selectedPaymentMethod);
+                      generatePaymentLink(invoice, email, selectedPaymentMethod, recipients);
                     } else {
-                      executeRegeneratePaymentLink(selectedPaymentMethod);
+                      executeRegeneratePaymentLink(selectedPaymentMethod, recipients);
                     }
                   }}
                   className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium"
