@@ -310,13 +310,33 @@ export function DailyTasksView() {
     const task = tasks.find((t) => t.id === taskId);
     const dateVal = taskDateEdit[taskId] ?? task?.task_date;
 
+    const updateData: Record<string, string | number | null> = {
+      staff_notes: notes,
+      time_spent_minutes: minutes,
+      ...(dateVal ? { task_date: dateVal } : {}),
+    };
+
+    if (assignedToEdit[taskId] !== undefined) {
+      updateData.assigned_to = assignedToEdit[taskId] || null;
+    }
+
     const { error: updateError } = await supabase
       .from('daily_tasks')
-      .update({ staff_notes: notes, time_spent_minutes: minutes, ...(dateVal ? { task_date: dateVal } : {}) })
+      .update(updateData)
       .eq('id', taskId);
 
-    if (updateError) setError('Failed to save updates.');
-    else await loadTasks();
+    if (updateError) {
+      setError('Failed to save updates.');
+    } else {
+      if (assignedToEdit[taskId] !== undefined) {
+        setAssignedToEdit((prev) => {
+          const next = { ...prev };
+          delete next[taskId];
+          return next;
+        });
+      }
+      await loadTasks();
+    }
     setSavingTaskId(null);
   };
 
