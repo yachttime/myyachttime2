@@ -141,6 +141,7 @@ export function DailyTasksView() {
   const [savingPart, setSavingPart] = useState(false);
   const [deletingPartId, setDeletingPartId] = useState<string | null>(null);
 
+  const [listStaffFilter, setListStaffFilter] = useState<string>('all');
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printStaffFilter, setPrintStaffFilter] = useState<string>('all');
   const [printTasks, setPrintTasks] = useState<DailyTask[]>([]);
@@ -591,6 +592,19 @@ export function DailyTasksView() {
         </div>
         {canManage && (
           <div className="flex items-center gap-2">
+            <select
+              value={listStaffFilter}
+              onChange={(e) => setListStaffFilter(e.target.value)}
+              className="px-3 py-2 bg-slate-700 border border-slate-600 text-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+            >
+              <option value="all">All Staff</option>
+              <option value="unassigned">Unassigned</option>
+              {staffOptions.map((s) => (
+                <option key={s.user_id} value={s.user_id}>
+                  {[s.first_name, s.last_name].filter(Boolean).join(' ')}
+                </option>
+              ))}
+            </select>
             <button
               onClick={handleOpenPrint}
               className="flex items-center gap-2 px-4 py-2 bg-slate-600 hover:bg-slate-500 text-white rounded-lg font-medium text-sm transition-colors"
@@ -629,7 +643,11 @@ export function DailyTasksView() {
         </div>
       ) : (
         <div className="space-y-3">
-          {tasks.map((task) => {
+          {tasks.filter((t) => {
+            if (!canManage || listStaffFilter === 'all') return true;
+            if (listStaffFilter === 'unassigned') return !t.assigned_to;
+            return t.assigned_to === listStaffFilter;
+          }).map((task) => {
             const overdue = isOverdue(task);
             const isExpanded = expandedTaskId === task.id;
             const assigneeName = task.assigned_to
