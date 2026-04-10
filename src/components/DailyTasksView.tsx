@@ -385,6 +385,11 @@ export function DailyTasksView() {
     } else if (!updatedRows || updatedRows.length === 0) {
       setError('Assignment not saved — you may not have permission to update this task.');
     } else {
+      setAssignedToEdit((prev) => {
+        const next = { ...prev };
+        delete next[taskId];
+        return next;
+      });
       await loadTasks();
     }
     setAssigningTaskId(null);
