@@ -282,20 +282,35 @@ export function PayrollReportView() {
       const endOfDay = new Date(new Date(period.period_end).setHours(23, 59, 59)).toISOString();
       const startOfDay = new Date(period.period_start).toISOString();
 
-      let query = supabase
-        .from('staff_time_entries')
-        .select('user_id, standard_hours, overtime_hours, total_hours, work_order_id')
-        .not('punch_out_time', 'is', null);
+      let entries: any[] = [];
+      let entriesError: any = null;
 
       if (period.is_processed) {
-        query = query.eq('pay_period_id', period.id);
+        const { data, error } = await supabase
+          .from('staff_time_entries')
+          .select('user_id, standard_hours, overtime_hours, total_hours, work_order_id')
+          .not('punch_out_time', 'is', null)
+          .eq('pay_period_id', period.id);
+        entries = data || [];
+        entriesError = error;
       } else {
-        query = query
-          .gte('punch_in_time', startOfDay)
-          .lte('punch_in_time', endOfDay);
+        const [assignedRes, unassignedRes] = await Promise.all([
+          supabase
+            .from('staff_time_entries')
+            .select('user_id, standard_hours, overtime_hours, total_hours, work_order_id')
+            .not('punch_out_time', 'is', null)
+            .eq('pay_period_id', period.id),
+          supabase
+            .from('staff_time_entries')
+            .select('user_id, standard_hours, overtime_hours, total_hours, work_order_id')
+            .not('punch_out_time', 'is', null)
+            .is('pay_period_id', null)
+            .gte('punch_in_time', startOfDay)
+            .lte('punch_in_time', endOfDay)
+        ]);
+        entries = [...(assignedRes.data || []), ...(unassignedRes.data || [])];
+        entriesError = assignedRes.error || unassignedRes.error;
       }
-
-      const { data: entries, error: entriesError } = await query;
 
       if (entriesError) console.error('Period detail fetch error:', entriesError);
 
