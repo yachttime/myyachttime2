@@ -613,42 +613,55 @@ export function PayrollReportView() {
 
     setLoading(true);
     try {
-      const [regularEntriesResult, workOrderEntriesResult] = await Promise.all([
-        supabase
-          .from('staff_time_entries')
-          .select('*')
-          .in('user_id', Array.from(selectedUsers))
-          .is('work_order_id', null)
-          .gte('punch_in_time', new Date(startDate).toISOString())
-          .lte('punch_in_time', new Date(new Date(endDate).setHours(23, 59, 59)).toISOString())
-          .not('punch_out_time', 'is', null)
-          .order('punch_in_time'),
+      const startIso = new Date(startDate).toISOString();
+      const endIso = new Date(new Date(endDate).setHours(23, 59, 59)).toISOString();
+      const userIds = Array.from(selectedUsers);
+      const periodId = activePayPeriod?.id;
 
-        supabase
-          .from('staff_time_entries')
-          .select(`
-            *,
-            work_orders!inner (
-              work_order_number,
-              customer_name,
-              yachts (
-                name
-              )
-            )
-          `)
-          .in('user_id', Array.from(selectedUsers))
-          .not('work_order_id', 'is', null)
-          .gte('punch_in_time', new Date(startDate).toISOString())
-          .lte('punch_in_time', new Date(new Date(endDate).setHours(23, 59, 59)).toISOString())
-          .not('punch_out_time', 'is', null)
-          .order('punch_in_time')
-      ]);
+      const woSelect = `*, work_orders!inner (work_order_number, customer_name, yachts (name))`;
 
-      if (regularEntriesResult.error) throw regularEntriesResult.error;
-      if (workOrderEntriesResult.error) throw workOrderEntriesResult.error;
+      let regularEntries: any[] = [];
+      let workOrderEntries: any[] = [];
 
-      const regularEntries = regularEntriesResult.data || [];
-      const workOrderEntries = workOrderEntriesResult.data || [];
+      if (periodId) {
+        const [regAssigned, regUnassigned, woAssigned, woUnassigned] = await Promise.all([
+          supabase.from('staff_time_entries').select('*')
+            .in('user_id', userIds).is('work_order_id', null)
+            .eq('pay_period_id', periodId).not('punch_out_time', 'is', null).order('punch_in_time'),
+          supabase.from('staff_time_entries').select('*')
+            .in('user_id', userIds).is('work_order_id', null)
+            .is('pay_period_id', null).gte('punch_in_time', startIso).lte('punch_in_time', endIso)
+            .not('punch_out_time', 'is', null).order('punch_in_time'),
+          supabase.from('staff_time_entries').select(woSelect)
+            .in('user_id', userIds).not('work_order_id', 'is', null)
+            .eq('pay_period_id', periodId).not('punch_out_time', 'is', null).order('punch_in_time'),
+          supabase.from('staff_time_entries').select(woSelect)
+            .in('user_id', userIds).not('work_order_id', 'is', null)
+            .is('pay_period_id', null).gte('punch_in_time', startIso).lte('punch_in_time', endIso)
+            .not('punch_out_time', 'is', null).order('punch_in_time')
+        ]);
+        if (regAssigned.error) throw regAssigned.error;
+        if (regUnassigned.error) throw regUnassigned.error;
+        if (woAssigned.error) throw woAssigned.error;
+        if (woUnassigned.error) throw woUnassigned.error;
+        regularEntries = [...(regAssigned.data || []), ...(regUnassigned.data || [])];
+        workOrderEntries = [...(woAssigned.data || []), ...(woUnassigned.data || [])];
+      } else {
+        const [regularEntriesResult, workOrderEntriesResult] = await Promise.all([
+          supabase.from('staff_time_entries').select('*')
+            .in('user_id', userIds).is('work_order_id', null)
+            .gte('punch_in_time', startIso).lte('punch_in_time', endIso)
+            .not('punch_out_time', 'is', null).order('punch_in_time'),
+          supabase.from('staff_time_entries').select(woSelect)
+            .in('user_id', userIds).not('work_order_id', 'is', null)
+            .gte('punch_in_time', startIso).lte('punch_in_time', endIso)
+            .not('punch_out_time', 'is', null).order('punch_in_time')
+        ]);
+        if (regularEntriesResult.error) throw regularEntriesResult.error;
+        if (workOrderEntriesResult.error) throw workOrderEntriesResult.error;
+        regularEntries = regularEntriesResult.data || [];
+        workOrderEntries = workOrderEntriesResult.data || [];
+      }
 
       const reports: EmployeeReport[] = [];
       allUsers.forEach(user => {
