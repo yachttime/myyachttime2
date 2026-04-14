@@ -447,7 +447,6 @@ export function PayrollReportView() {
       loadPayPeriods();
       if (expandedPeriodId === sourcePeriod.id) {
         handleTogglePeriodDetail(sourcePeriod);
-        setTimeout(() => handleTogglePeriodDetail(sourcePeriod), 100);
       }
     } catch (err: any) {
       console.error('Error reassigning entries:', err);
