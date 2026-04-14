@@ -1356,7 +1356,7 @@ export function PayrollReportView() {
                 >
                   <option value="">Select a pay period...</option>
                   {payPeriods
-                    .filter(p => p.id !== reassignModal.sourcePeriod.id)
+                    .filter(p => p.id !== reassignModal.sourcePeriod.id && !p.is_processed)
                     .map(p => (
                       <option key={p.id} value={p.id}>
                         #{p.period_number} — {new Date(p.period_start).toLocaleDateString()} to {new Date(p.period_end).toLocaleDateString()}
