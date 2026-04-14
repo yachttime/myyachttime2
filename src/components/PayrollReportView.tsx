@@ -424,14 +424,7 @@ export function PayrollReportView() {
         .eq('user_id', employee.user_id)
         .not('punch_out_time', 'is', null);
 
-      if (sourcePeriod.is_processed) {
-        query = query.eq('pay_period_id', sourcePeriod.id);
-      } else {
-        query = query
-          .gte('punch_in_time', startOfDay)
-          .lte('punch_in_time', endOfDay)
-          .is('pay_period_id', null);
-      }
+      query = query.eq('pay_period_id', sourcePeriod.id);
 
       const { error } = await query;
       if (error) throw error;
