@@ -445,15 +445,23 @@ export function PayrollReportView() {
       const startOfDay = new Date(sourcePeriod.period_start).toISOString();
       const endOfDay = new Date(new Date(sourcePeriod.period_end).setHours(23, 59, 59)).toISOString();
 
-      let query = supabase
+      const { error: error1 } = await supabase
         .from('staff_time_entries')
         .update({ pay_period_id: reassignTargetPeriodId })
         .eq('user_id', employee.user_id)
-        .not('punch_out_time', 'is', null);
+        .not('punch_out_time', 'is', null)
+        .eq('pay_period_id', sourcePeriod.id);
 
-      query = query.eq('pay_period_id', sourcePeriod.id);
+      if (error1) throw error1;
 
-      const { error } = await query;
+      const { error } = await supabase
+        .from('staff_time_entries')
+        .update({ pay_period_id: reassignTargetPeriodId })
+        .eq('user_id', employee.user_id)
+        .not('punch_out_time', 'is', null)
+        .is('pay_period_id', null)
+        .gte('punch_in_time', startOfDay)
+        .lte('punch_in_time', endOfDay);
       if (error) throw error;
 
       setPeriodDetailData(prev => {
