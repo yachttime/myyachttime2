@@ -674,10 +674,6 @@ export function PayrollReportView() {
           const userWorkOrderEntries: WorkOrderTimeEntry[] = workOrderEntries
             .filter((e: any) => e.user_id === user.user_id)
             .map((e: any) => {
-              const punchIn = new Date(e.punch_in_time);
-              const punchOut = new Date(e.punch_out_time);
-              const hours = (punchOut.getTime() - punchIn.getTime()) / (1000 * 60 * 60);
-
               return {
                 work_order_number: e.work_orders?.work_order_number || 'N/A',
                 work_order_id: e.work_order_id,
@@ -685,7 +681,7 @@ export function PayrollReportView() {
                 customer_name: e.work_orders?.customer_name,
                 punch_in_time: e.punch_in_time,
                 punch_out_time: e.punch_out_time,
-                total_hours: Math.round(hours * 100) / 100,
+                total_hours: Math.round((e.total_hours || 0) * 100) / 100,
                 notes: e.notes
               };
             });
