@@ -871,9 +871,6 @@ export function PayrollReportView() {
                           const paidCount = periodPaidCounts[period.id] || 0;
                           const isPartiallyPaid = !isProcessed && paidCount > 0;
                           const isOpen = !isProcessed && !isPartiallyPaid && now >= start && now <= end;
-                          const payDate = new Date(period.pay_date);
-                          payDate.setHours(23, 59, 59, 999);
-                          const isOverdue = !isProcessed && !isPartiallyPaid && !isOpen && now > payDate;
                           return (
                             <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${
                               isProcessed
@@ -882,12 +879,10 @@ export function PayrollReportView() {
                                   ? 'bg-orange-100 text-orange-800'
                                   : isOpen
                                     ? 'bg-blue-100 text-blue-800'
-                                    : isOverdue
-                                      ? 'bg-red-100 text-red-800'
-                                      : 'bg-yellow-100 text-yellow-800'
+                                    : 'bg-yellow-100 text-yellow-800'
                             }`}>
                               {isProcessed && <CheckCircle className="w-3 h-3" />}
-                              {isProcessed ? 'Processed' : isPartiallyPaid ? `In Progress (${paidCount} paid)` : isOpen ? 'Open' : isOverdue ? 'Overdue' : 'Pending'}
+                              {isProcessed ? 'Processed' : isPartiallyPaid ? `In Progress (${paidCount} paid)` : isOpen ? 'Open' : 'Pending'}
                             </span>
                           );
                         })()}
