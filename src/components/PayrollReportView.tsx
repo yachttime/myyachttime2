@@ -447,22 +447,14 @@ export function PayrollReportView() {
 
       const { error: error1 } = await supabase
         .from('staff_time_entries')
-        .update({ pay_period_id: reassignTargetPeriodId })
+        .update({ pay_period_id: null })
         .eq('user_id', employee.user_id)
         .not('punch_out_time', 'is', null)
-        .eq('pay_period_id', sourcePeriod.id);
-
-      if (error1) throw error1;
-
-      const { error } = await supabase
-        .from('staff_time_entries')
-        .update({ pay_period_id: reassignTargetPeriodId })
-        .eq('user_id', employee.user_id)
-        .not('punch_out_time', 'is', null)
-        .is('pay_period_id', null)
+        .eq('pay_period_id', sourcePeriod.id)
         .gte('punch_in_time', startOfDay)
         .lte('punch_in_time', endOfDay);
-      if (error) throw error;
+
+      if (error1) throw error1;
 
       setPeriodDetailData(prev => {
         const n = { ...prev };
