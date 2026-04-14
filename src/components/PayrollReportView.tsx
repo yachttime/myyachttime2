@@ -1233,9 +1233,18 @@ export function PayrollReportView() {
                   </p>
                 )}
               </div>
-              <div className="flex items-center gap-2 text-gray-600">
-                <Users className="w-5 h-5" />
-                <span className="font-medium">{employeeReports.length} Employees</span>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 text-gray-600">
+                  <Users className="w-5 h-5" />
+                  <span className="font-medium">{employeeReports.length} Employees</span>
+                </div>
+                <button
+                  onClick={() => setEmployeeReports([])}
+                  className="p-1.5 rounded-full hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-colors"
+                  title="Close report"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
             </div>
           </div>
