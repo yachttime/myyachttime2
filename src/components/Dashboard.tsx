@@ -17871,35 +17871,39 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                                         <p className="text-xs text-slate-400 truncate">{r.email || r}</p>
                                                                       </div>
                                                                     </div>
-                                                                    {track ? (
-                                                                      <div className="flex flex-wrap gap-1 ml-8">
-                                                                        {track.bounced_at ? (
-                                                                          <span className="text-xs bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded flex items-center gap-0.5">
-                                                                            <AlertCircle className="w-3 h-3" />Bounced
-                                                                          </span>
-                                                                        ) : (
-                                                                          <>
-                                                                            <span className={`text-xs px-1.5 py-0.5 rounded flex items-center gap-0.5 ${track.delivered_at ? 'bg-teal-500/20 text-teal-400' : 'bg-slate-700/50 text-slate-500'}`}>
-                                                                              <CheckCircle className="w-3 h-3" />{track.delivered_at ? 'Delivered' : 'Pending'}
+                                                                    {(() => {
+                                                                      const delivered_at = track?.delivered_at ?? (recipientTracking.length === 0 ? msg.email_delivered_at : null);
+                                                                      const opened_at = track?.opened_at ?? null;
+                                                                      const open_count = track?.open_count ?? 0;
+                                                                      const clicked_at = track?.clicked_at ?? null;
+                                                                      const click_count = track?.click_count ?? 0;
+                                                                      const bounced_at = track?.bounced_at ?? null;
+                                                                      return (
+                                                                        <div className="flex flex-wrap gap-1 ml-8">
+                                                                          {bounced_at ? (
+                                                                            <span className="text-xs bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                                                                              <AlertCircle className="w-3 h-3" />Bounced
                                                                             </span>
-                                                                            {track.opened_at && (
-                                                                              <span className="text-xs bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded flex items-center gap-0.5">
-                                                                                <Eye className="w-3 h-3" />Opened{track.open_count > 1 ? ` (${track.open_count}x)` : ''}
+                                                                          ) : (
+                                                                            <>
+                                                                              <span className={`text-xs px-1.5 py-0.5 rounded flex items-center gap-0.5 ${delivered_at ? 'bg-teal-500/20 text-teal-400' : 'bg-slate-700/50 text-slate-500'}`}>
+                                                                                <CheckCircle className="w-3 h-3" />{delivered_at ? 'Delivered' : 'Pending'}
                                                                               </span>
-                                                                            )}
-                                                                            {track.clicked_at && (
-                                                                              <span className="text-xs bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded flex items-center gap-0.5">
-                                                                                <MousePointer className="w-3 h-3" />Clicked{track.click_count > 1 ? ` (${track.click_count}x)` : ''}
-                                                                              </span>
-                                                                            )}
-                                                                          </>
-                                                                        )}
-                                                                      </div>
-                                                                    ) : (
-                                                                      <div className="flex gap-1 ml-8">
-                                                                        <span className="text-xs bg-slate-700/50 text-slate-500 px-1.5 py-0.5 rounded">Pending</span>
-                                                                      </div>
-                                                                    )}
+                                                                              {opened_at && (
+                                                                                <span className="text-xs bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                                                                                  <Eye className="w-3 h-3" />Opened{open_count > 1 ? ` (${open_count}x)` : ''}
+                                                                                </span>
+                                                                              )}
+                                                                              {clicked_at && (
+                                                                                <span className="text-xs bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                                                                                  <MousePointer className="w-3 h-3" />Clicked{click_count > 1 ? ` (${click_count}x)` : ''}
+                                                                                </span>
+                                                                              )}
+                                                                            </>
+                                                                          )}
+                                                                        </div>
+                                                                      );
+                                                                    })()}
                                                                   </div>
                                                                 );
                                                               })}
