@@ -76,6 +76,9 @@ export function PayrollReportView() {
   const [periodPaidCounts, setPeriodPaidCounts] = useState<Record<string, number>>({});
   const [loadingDetail, setLoadingDetail] = useState<string | null>(null);
   const [printingPeriodId, setPrintingPeriodId] = useState<string | null>(null);
+  const [reassignModal, setReassignModal] = useState<{ sourcePeriod: PayPeriod; employee: PaidEmployeeSummary } | null>(null);
+  const [reassignTargetPeriodId, setReassignTargetPeriodId] = useState('');
+  const [reassigning, setReassigning] = useState(false);
   const [formData, setFormData] = useState({
     period_start: '',
     period_end: '',
@@ -404,6 +407,53 @@ export function PayrollReportView() {
       console.error('Error unassigning pay period:', err);
     } finally {
       setAssigningPayroll(null);
+    }
+  };
+
+  const handleReassignEntries = async () => {
+    if (!reassignModal || !reassignTargetPeriodId) return;
+    const { sourcePeriod, employee } = reassignModal;
+    setReassigning(true);
+    try {
+      const startOfDay = new Date(sourcePeriod.period_start).toISOString();
+      const endOfDay = new Date(new Date(sourcePeriod.period_end).setHours(23, 59, 59)).toISOString();
+
+      let query = supabase
+        .from('staff_time_entries')
+        .update({ pay_period_id: reassignTargetPeriodId })
+        .eq('user_id', employee.user_id)
+        .not('punch_out_time', 'is', null);
+
+      if (sourcePeriod.is_processed) {
+        query = query.eq('pay_period_id', sourcePeriod.id);
+      } else {
+        query = query
+          .gte('punch_in_time', startOfDay)
+          .lte('punch_in_time', endOfDay)
+          .is('pay_period_id', null);
+      }
+
+      const { error } = await query;
+      if (error) throw error;
+
+      setPeriodDetailData(prev => {
+        const n = { ...prev };
+        delete n[sourcePeriod.id];
+        delete n[reassignTargetPeriodId];
+        return n;
+      });
+      setReassignModal(null);
+      setReassignTargetPeriodId('');
+      loadPayPeriods();
+      if (expandedPeriodId === sourcePeriod.id) {
+        handleTogglePeriodDetail(sourcePeriod);
+        setTimeout(() => handleTogglePeriodDetail(sourcePeriod), 100);
+      }
+    } catch (err: any) {
+      console.error('Error reassigning entries:', err);
+      alert(err.message || 'Failed to reassign entries');
+    } finally {
+      setReassigning(false);
     }
   };
 
@@ -953,7 +1003,8 @@ export function PayrollReportView() {
                                     <th className="text-right pb-2 pr-4">Standard Hrs</th>
                                     <th className="text-right pb-2 pr-4">Overtime Hrs</th>
                                     <th className="text-right pb-2 pr-4">Work Order Hrs</th>
-                                    <th className="text-right pb-2">Total Hrs</th>
+                                    <th className="text-right pb-2 pr-4">Total Hrs</th>
+                                    <th className="text-right pb-2"></th>
                                   </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-200">
@@ -968,7 +1019,16 @@ export function PayrollReportView() {
                                       <td className="py-2 pr-4 text-right">{s.standardHours.toFixed(2)}</td>
                                       <td className="py-2 pr-4 text-right text-orange-600">{s.overtimeHours.toFixed(2)}</td>
                                       <td className="py-2 pr-4 text-right text-blue-600">{s.workOrderHours.toFixed(2)}</td>
-                                      <td className="py-2 text-right font-bold">{s.grandTotal.toFixed(2)}</td>
+                                      <td className="py-2 pr-4 text-right font-bold">{s.grandTotal.toFixed(2)}</td>
+                                      <td className="py-2 text-right">
+                                        <button
+                                          onClick={() => { setReassignModal({ sourcePeriod: period, employee: s }); setReassignTargetPeriodId(''); }}
+                                          className="text-xs text-amber-600 hover:text-amber-800 font-medium whitespace-nowrap"
+                                          title="Move this employee's hours to a different pay period"
+                                        >
+                                          Reassign
+                                        </button>
+                                      </td>
                                     </tr>
                                   ))}
                                 </tbody>
@@ -984,9 +1044,10 @@ export function PayrollReportView() {
                                     <td className="pt-2 pr-4 text-right text-blue-600">
                                       {periodDetailData[period.id].reduce((s, r) => s + r.workOrderHours, 0).toFixed(2)}
                                     </td>
-                                    <td className="pt-2 text-right">
+                                    <td className="pt-2 pr-4 text-right">
                                       {periodDetailData[period.id].reduce((s, r) => s + r.grandTotal, 0).toFixed(2)}
                                     </td>
+                                    <td></td>
                                   </tr>
                                 </tfoot>
                               </table>
@@ -1266,6 +1327,64 @@ export function PayrollReportView() {
         </div>
       )}
       <ConfirmDialog />
+
+      {reassignModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-lg font-bold text-gray-900">Reassign Pay Period</h2>
+              <button
+                onClick={() => { setReassignModal(null); setReassignTargetPeriodId(''); }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
+                Moving all time entries for <strong>{reassignModal.employee.last_name}, {reassignModal.employee.first_name}</strong> ({reassignModal.employee.grandTotal.toFixed(2)} hrs) out of Pay Period #{reassignModal.sourcePeriod.period_number}.
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Move to Pay Period
+                </label>
+                <select
+                  value={reassignTargetPeriodId}
+                  onChange={(e) => setReassignTargetPeriodId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Select a pay period...</option>
+                  {payPeriods
+                    .filter(p => p.id !== reassignModal.sourcePeriod.id)
+                    .map(p => (
+                      <option key={p.id} value={p.id}>
+                        #{p.period_number} — {new Date(p.period_start).toLocaleDateString()} to {new Date(p.period_end).toLocaleDateString()}
+                      </option>
+                    ))
+                  }
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={() => { setReassignModal(null); setReassignTargetPeriodId(''); }}
+                disabled={reassigning}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleReassignEntries}
+                disabled={reassigning || !reassignTargetPeriodId}
+                className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-medium disabled:opacity-50 flex items-center gap-2"
+              >
+                {reassigning && <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>}
+                {reassigning ? 'Moving...' : 'Move Entries'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
