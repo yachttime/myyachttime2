@@ -150,6 +150,7 @@ Deno.serve(withErrorHandling(async (req: Request) => {
 
     let resendEmailIds: string[] = [];
     let primaryEmailId: string | null = null;
+    let recipientEmailIdMap: Array<{ email: string; resendEmailId: string }> = [];
 
     console.log('Sending bulk email to:', recipients.length, 'recipients');
 
@@ -194,6 +195,7 @@ Deno.serve(withErrorHandling(async (req: Request) => {
       const emailData = await emailResponse.json();
       primaryEmailId = emailData.id;
       resendEmailIds = [emailData.id];
+      recipientEmailIdMap = [{ email: recipients[0], resendEmailId: emailData.id }];
       console.log('Single email sent successfully:', emailData.id);
     } else {
       const batchPayload = recipients.map(recipient => {
@@ -242,6 +244,10 @@ Deno.serve(withErrorHandling(async (req: Request) => {
       const sentEmails: Array<{ id: string }> = Array.isArray(batchData) ? batchData : (batchData.data || []);
       resendEmailIds = sentEmails.map((e: { id: string }) => e.id).filter(Boolean);
       primaryEmailId = resendEmailIds[0] || null;
+      recipientEmailIdMap = recipients.map((email, idx) => ({
+        email,
+        resendEmailId: sentEmails[idx]?.id || '',
+      })).filter(r => r.resendEmailId);
     }
 
     const recipientsArray = recipients.map(email => ({ email, name: email }));
@@ -275,6 +281,25 @@ Deno.serve(withErrorHandling(async (req: Request) => {
       console.error('Error creating staff message:', staffMessageError);
     } else {
       console.log('Staff message created successfully:', staffMessageData);
+
+      if (staffMessageData && recipientEmailIdMap.length > 0) {
+        const trackingRows = recipientEmailIdMap.map(r => ({
+          staff_message_id: staffMessageData.id,
+          resend_email_id: r.resendEmailId,
+          recipient_email: r.email,
+          recipient_name: r.email,
+        }));
+
+        const { error: trackingError } = await supabase
+          .from('staff_message_recipient_tracking')
+          .insert(trackingRows);
+
+        if (trackingError) {
+          console.error('Error creating recipient tracking rows:', trackingError);
+        } else {
+          console.log('Recipient tracking rows created:', trackingRows.length);
+        }
+      }
     }
 
     if (yacht_name) {

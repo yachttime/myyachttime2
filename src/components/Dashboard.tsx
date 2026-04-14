@@ -653,6 +653,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [userSearchTerm, setUserSearchTerm] = useState('');
   const [selectedUserGroup, setSelectedUserGroup] = useState<string | null>(null);
   const [expandedEmailId, setExpandedEmailId] = useState<string | null>(null);
+  const [recipientTrackingMap, setRecipientTrackingMap] = useState<Record<string, any[]>>({});
   const [showPassword, setShowPassword] = useState(false);
   const [resetPasswordValue, setResetPasswordValue] = useState('');
   const [showResetPassword, setShowResetPassword] = useState(false);
@@ -17729,10 +17730,22 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                               new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
                                               ' at ' +
                                               new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                            const recipientTracking = recipientTrackingMap[msg.id] || [];
                                             return (
                                               <div key={msg.id} className="bg-slate-800/50 rounded-xl border border-slate-700 overflow-hidden">
                                                 <button
-                                                  onClick={() => setExpandedEmailId(isExpanded ? null : msg.id)}
+                                                  onClick={async () => {
+                                                    const next = isExpanded ? null : msg.id;
+                                                    setExpandedEmailId(next);
+                                                    if (next && !recipientTrackingMap[next]) {
+                                                      const { data } = await supabase
+                                                        .from('staff_message_recipient_tracking')
+                                                        .select('*')
+                                                        .eq('staff_message_id', next)
+                                                        .order('recipient_email');
+                                                      setRecipientTrackingMap(prev => ({ ...prev, [next]: data || [] }));
+                                                    }
+                                                  }}
                                                   className="w-full text-left p-4 hover:bg-slate-700/30 transition-colors"
                                                 >
                                                   <div className="flex items-start justify-between gap-4">
@@ -17839,21 +17852,57 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                       <div>
                                                         {msg.email_recipients?.length > 0 && (
                                                           <>
-                                                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Recipients</p>
-                                                            <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
-                                                              {msg.email_recipients.map((r: any, i: number) => (
-                                                                <div key={i} className="flex items-center gap-2">
-                                                                  <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center shrink-0">
-                                                                    <span className="text-xs text-slate-400">{(r.name || r.email || '?')[0].toUpperCase()}</span>
-                                                                  </div>
-                                                                  <div className="min-w-0">
-                                                                    {r.name && r.name !== r.email && (
-                                                                      <p className="text-xs text-white truncate">{r.name}</p>
+                                                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
+                                                              Recipients ({msg.email_recipients.length})
+                                                            </p>
+                                                            <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                                                              {msg.email_recipients.map((r: any, i: number) => {
+                                                                const track = recipientTracking.find((t: any) => t.recipient_email === (r.email || r));
+                                                                return (
+                                                                  <div key={i} className="bg-slate-900/50 rounded-lg p-2.5">
+                                                                    <div className="flex items-center gap-2 mb-1.5">
+                                                                      <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center shrink-0">
+                                                                        <span className="text-xs text-slate-400">{(r.name || r.email || '?')[0].toUpperCase()}</span>
+                                                                      </div>
+                                                                      <div className="min-w-0 flex-1">
+                                                                        {r.name && r.name !== r.email && (
+                                                                          <p className="text-xs text-white truncate">{r.name}</p>
+                                                                        )}
+                                                                        <p className="text-xs text-slate-400 truncate">{r.email || r}</p>
+                                                                      </div>
+                                                                    </div>
+                                                                    {track ? (
+                                                                      <div className="flex flex-wrap gap-1 ml-8">
+                                                                        {track.bounced_at ? (
+                                                                          <span className="text-xs bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                                                                            <AlertCircle className="w-3 h-3" />Bounced
+                                                                          </span>
+                                                                        ) : (
+                                                                          <>
+                                                                            <span className={`text-xs px-1.5 py-0.5 rounded flex items-center gap-0.5 ${track.delivered_at ? 'bg-teal-500/20 text-teal-400' : 'bg-slate-700/50 text-slate-500'}`}>
+                                                                              <CheckCircle className="w-3 h-3" />{track.delivered_at ? 'Delivered' : 'Pending'}
+                                                                            </span>
+                                                                            {track.opened_at && (
+                                                                              <span className="text-xs bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                                                                                <Eye className="w-3 h-3" />Opened{track.open_count > 1 ? ` (${track.open_count}x)` : ''}
+                                                                              </span>
+                                                                            )}
+                                                                            {track.clicked_at && (
+                                                                              <span className="text-xs bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                                                                                <MousePointer className="w-3 h-3" />Clicked{track.click_count > 1 ? ` (${track.click_count}x)` : ''}
+                                                                              </span>
+                                                                            )}
+                                                                          </>
+                                                                        )}
+                                                                      </div>
+                                                                    ) : (
+                                                                      <div className="flex gap-1 ml-8">
+                                                                        <span className="text-xs bg-slate-700/50 text-slate-500 px-1.5 py-0.5 rounded">Pending</span>
+                                                                      </div>
                                                                     )}
-                                                                    <p className="text-xs text-slate-400 truncate">{r.email || r}</p>
                                                                   </div>
-                                                                </div>
-                                                              ))}
+                                                                );
+                                                              })}
                                                             </div>
                                                             {msg.email_cc_recipients?.length > 0 && (
                                                               <div className="mt-2 pt-2 border-t border-slate-700/50">

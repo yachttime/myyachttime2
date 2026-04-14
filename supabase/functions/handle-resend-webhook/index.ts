@@ -453,6 +453,41 @@ Deno.serve(async (req: Request) => {
           console.log('Updated staff message:', staffMessage.id, 'with data:', staffUpdateData);
         }
       }
+
+      // Update per-recipient tracking row
+      const { data: recipientRow } = await supabase
+        .from('staff_message_recipient_tracking')
+        .select('*')
+        .eq('resend_email_id', event.data.email_id)
+        .maybeSingle();
+
+      if (recipientRow) {
+        const recipientUpdate: Record<string, any> = {};
+
+        switch (event.type) {
+          case 'email.delivered':
+            if (!recipientRow.delivered_at) recipientUpdate.delivered_at = eventTimestamp;
+            break;
+          case 'email.opened':
+            if (!recipientRow.opened_at) recipientUpdate.opened_at = eventTimestamp;
+            recipientUpdate.open_count = (recipientRow.open_count || 0) + 1;
+            break;
+          case 'email.clicked':
+            if (!recipientRow.clicked_at) recipientUpdate.clicked_at = eventTimestamp;
+            recipientUpdate.click_count = (recipientRow.click_count || 0) + 1;
+            break;
+          case 'email.bounced':
+            if (!recipientRow.bounced_at) recipientUpdate.bounced_at = eventTimestamp;
+            break;
+        }
+
+        if (Object.keys(recipientUpdate).length > 0) {
+          await supabase
+            .from('staff_message_recipient_tracking')
+            .update(recipientUpdate)
+            .eq('id', recipientRow.id);
+        }
+      }
     }
 
     // Insert engagement event for historical tracking (only for invoices)
