@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Download, Calendar, Users, Clock, Plus, CreditCard as Edit2, Trash2, X, Check, CheckCircle, ChevronDown, ChevronRight, Printer } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { TimeEntry, getPayrollPeriodsForDateRange } from '../utils/timeClockHelpers';
@@ -79,6 +79,8 @@ export function PayrollReportView() {
   const [reassignModal, setReassignModal] = useState<{ sourcePeriod: PayPeriod; employee: PaidEmployeeSummary } | null>(null);
   const [reassignTargetPeriodId, setReassignTargetPeriodId] = useState('');
   const [reassigning, setReassigning] = useState(false);
+  const [periodDropdownOpen, setPeriodDropdownOpen] = useState(false);
+  const periodDropdownRef = useRef<HTMLDivElement>(null);
   const [formData, setFormData] = useState({
     period_start: '',
     period_end: '',
@@ -93,6 +95,16 @@ export function PayrollReportView() {
     loadPayPeriods();
     setDefaultDates();
   }, [selectedYear]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (periodDropdownRef.current && !periodDropdownRef.current.contains(e.target as Node)) {
+        setPeriodDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const setDefaultDates = () => {
     const today = new Date();
@@ -1069,29 +1081,51 @@ export function PayrollReportView() {
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Pay Period
           </label>
-          <select
-            value={activePayPeriod?.id || ''}
-            onChange={(e) => {
-              const period = payPeriods.find(p => p.id === e.target.value) || null;
-              if (period) {
-                handleSelectPayPeriod(period);
-              } else {
-                setActivePayPeriod(null);
-                setStartDate('');
-                setEndDate('');
-                setEmployeeReports([]);
-                setPaidEmployeeIds(new Set());
-              }
-            }}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-          >
-            <option value="">-- Select a Pay Period --</option>
-            {payPeriods.map(p => (
-              <option key={p.id} value={p.id}>
-                #{p.period_number} — {new Date(p.period_start).toLocaleDateString()} to {new Date(p.period_end).toLocaleDateString()} (Pay: {new Date(p.pay_date).toLocaleDateString()}){p.is_processed ? ' ✓' : ''}
-              </option>
-            ))}
-          </select>
+          <div className="relative" ref={periodDropdownRef}>
+            <button
+              type="button"
+              onClick={() => setPeriodDropdownOpen(o => !o)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white text-left flex items-center justify-between"
+            >
+              <span className={activePayPeriod ? 'text-gray-900' : 'text-gray-400'}>
+                {activePayPeriod
+                  ? `#${activePayPeriod.period_number} — ${new Date(activePayPeriod.period_start).toLocaleDateString()} to ${new Date(activePayPeriod.period_end).toLocaleDateString()} (Pay: ${new Date(activePayPeriod.pay_date).toLocaleDateString()})`
+                  : '-- Select a Pay Period --'}
+              </span>
+              <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${periodDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {periodDropdownOpen && (
+              <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActivePayPeriod(null);
+                    setStartDate('');
+                    setEndDate('');
+                    setEmployeeReports([]);
+                    setPaidEmployeeIds(new Set());
+                    setPeriodDropdownOpen(false);
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-400 hover:bg-gray-50"
+                >
+                  -- Select a Pay Period --
+                </button>
+                {payPeriods.map(p => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => {
+                      handleSelectPayPeriod(p);
+                      setPeriodDropdownOpen(false);
+                    }}
+                    className={`w-full text-left px-4 py-2 text-sm hover:bg-blue-50 hover:text-blue-700 ${activePayPeriod?.id === p.id ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-900'}`}
+                  >
+                    #{p.period_number} — {new Date(p.period_start).toLocaleDateString()} to {new Date(p.period_end).toLocaleDateString()} (Pay: {new Date(p.pay_date).toLocaleDateString()}){p.is_processed ? ' ✓' : ''}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           {activePayPeriod && (
             <p className="text-xs text-gray-500 mt-1">
               {new Date(activePayPeriod.period_start).toLocaleDateString()} – {new Date(activePayPeriod.period_end).toLocaleDateString()}
