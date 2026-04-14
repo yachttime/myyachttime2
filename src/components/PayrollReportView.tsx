@@ -1020,13 +1020,15 @@ export function PayrollReportView() {
                                       <td className="py-2 pr-4 text-right text-blue-600">{s.workOrderHours.toFixed(2)}</td>
                                       <td className="py-2 pr-4 text-right font-bold">{s.grandTotal.toFixed(2)}</td>
                                       <td className="py-2 text-right">
-                                        <button
-                                          onClick={() => { setReassignModal({ sourcePeriod: period, employee: s }); setReassignTargetPeriodId(''); }}
-                                          className="text-xs text-amber-600 hover:text-amber-800 font-medium whitespace-nowrap"
-                                          title="Move this employee's hours to a different pay period"
-                                        >
-                                          Reassign
-                                        </button>
+                                        {!period.is_processed && (
+                                          <button
+                                            onClick={() => { setReassignModal({ sourcePeriod: period, employee: s }); setReassignTargetPeriodId(''); }}
+                                            className="text-xs text-amber-600 hover:text-amber-800 font-medium whitespace-nowrap"
+                                            title="Move this employee's hours to a different pay period"
+                                          >
+                                            Reassign
+                                          </button>
+                                        )}
                                       </td>
                                     </tr>
                                   ))}
