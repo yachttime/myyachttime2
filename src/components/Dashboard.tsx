@@ -2734,7 +2734,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           *,
           yachts:yacht_id (name),
           yacht_invoices!repair_request_id (*),
-          estimating_invoices:estimating_invoice_id (id, invoice_number, total_amount, invoice_date, payment_status, payment_link, final_payment_link_url, payment_email_sent_at, payment_email_delivered_at, payment_email_opened_at, payment_email_clicked_at, payment_link_created_at, paid_at, balance_due, deposit_applied, amount_paid, final_payment_email_sent_at, final_payment_email_delivered_at, final_payment_email_opened_at, final_payment_email_clicked_at, final_payment_email_recipient, customer_email, final_payment_method_type, final_payment_email_all_recipients),
+          estimating_invoices:estimating_invoice_id (id, invoice_number, total_amount, invoice_date, payment_status, payment_link, final_payment_link_url, payment_email_sent_at, payment_email_delivered_at, payment_email_opened_at, payment_email_clicked_at, payment_link_created_at, paid_at, balance_due, deposit_applied, amount_paid, final_payment_email_sent_at, final_payment_email_delivered_at, final_payment_email_opened_at, final_payment_email_clicked_at, final_payment_email_recipient, customer_email, final_payment_method_type, final_payment_email_all_recipients, yacht_id),
           customers:customer_id (id, customer_type, first_name, last_name, business_name, email, phone),
           customer_vessels:vessel_id (id, vessel_name, manufacturer, model, year)
         `)
