@@ -2190,6 +2190,7 @@ export function Estimates({ userId }: EstimatesProps) {
                         value={customerSearch}
                         onChange={(e) => { setCustomerSearch(e.target.value); setShowCustomerDropdown(true); }}
                         onFocus={() => setShowCustomerDropdown(true)}
+                        autoComplete="off"
                         className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
                       />
                     </div>
