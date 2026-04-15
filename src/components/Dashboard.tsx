@@ -14815,27 +14815,17 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               return hasExpirationDate ? new Date(selectedRepairForDeposit.deposit_link_expires_at) < new Date() : true;
                             })() ? 'Close' : 'Cancel'}
                           </button>
-                          {(() => {
-                            const hasLink = selectedRepairForDeposit.deposit_payment_link_url;
-                            const hasExpirationDate = selectedRepairForDeposit.deposit_link_expires_at;
-                            const isExpired = hasExpirationDate
-                              ? new Date(selectedRepairForDeposit.deposit_link_expires_at) < new Date()
-                              : true;
-                            const isLegacyLink = hasLink && !hasExpirationDate;
-
-                            if (!hasLink || isExpired) {
-                              return (
-                                <button
-                                  onClick={handleGenerateDepositLink}
-                                  disabled={depositLoading || !depositForm.deposit_amount}
-                                  className="flex-1 bg-cyan-500 hover:bg-cyan-600 text-white font-semibold py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  {depositLoading ? 'Creating Link...' : (isExpired || isLegacyLink) ? 'Regenerate Deposit Link' : 'Create Deposit Link'}
-                                </button>
-                              );
-                            }
-                            return null;
-                          })()}
+                          <button
+                            onClick={handleGenerateDepositLink}
+                            disabled={depositLoading || !depositForm.deposit_amount}
+                            className="flex-1 bg-cyan-500 hover:bg-cyan-600 text-white font-semibold py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {depositLoading
+                              ? 'Saving...'
+                              : selectedRepairForDeposit.deposit_payment_link_url
+                                ? 'Update Amount & Regenerate Link'
+                                : 'Create Deposit Link'}
+                          </button>
                         </div>
                       </div>
                     </div>
