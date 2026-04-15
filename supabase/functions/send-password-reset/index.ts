@@ -27,10 +27,10 @@ Deno.serve(async (req: Request) => {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    const { data: users, error: listError } = await supabaseAdmin.auth.admin.listUsers();
-    if (listError) throw listError;
+    const normalizedEmail = email.toLowerCase().trim();
 
-    const authUser = users.users.find(u => u.email?.toLowerCase() === email.toLowerCase().trim());
+    const { data: usersPage1 } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    const authUser = usersPage1?.users?.find(u => u.email?.toLowerCase() === normalizedEmail);
 
     if (!authUser) {
       return new Response(
@@ -100,7 +100,7 @@ Deno.serve(async (req: Request) => {
       },
       body: JSON.stringify({
         from: fromEmail,
-        to: [email],
+        to: [normalizedEmail],
         subject: 'Reset Your My Yacht Time Password',
         html: emailHtml,
       }),
