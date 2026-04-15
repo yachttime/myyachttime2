@@ -1178,21 +1178,19 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
   }
 
   async function resolveInvoiceEmail(invoice: Invoice): Promise<string> {
-    if (invoice.customer_email) return invoice.customer_email;
     if (invoice.yacht_id) {
-      const { data: profiles } = await supabase
+      const { data: billingProfiles } = await supabase
         .from('user_profiles')
-        .select('email, notification_email, role')
+        .select('email, notification_email')
         .eq('yacht_id', invoice.yacht_id)
         .eq('is_active', true)
-        .in('role', ['manager', 'owner']);
-      if (profiles && profiles.length > 0) {
-        const manager = profiles.find((p: any) => p.role === 'manager' && (p.notification_email || p.email));
-        const owner = profiles.find((p: any) => p.role === 'owner' && (p.notification_email || p.email));
-        const found = manager || owner;
+        .eq('can_approve_billing', true);
+      if (billingProfiles && billingProfiles.length > 0) {
+        const found = billingProfiles.find((p: any) => p.notification_email || p.email);
         if (found) return (found.notification_email || found.email) ?? '';
       }
     }
+    if (invoice.customer_email) return invoice.customer_email;
     return '';
   }
 
