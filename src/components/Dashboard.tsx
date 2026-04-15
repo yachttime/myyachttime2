@@ -3914,7 +3914,21 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     setPaymentLinkLoading(prev => ({ ...prev, [estimatingInvoice.id]: true }));
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const recipientEmail = estimatingInvoice.final_payment_email_recipient || estimatingInvoice.customer_email || '';
+      let recipientEmail = estimatingInvoice.final_payment_email_recipient || estimatingInvoice.customer_email || '';
+      if (!recipientEmail && estimatingInvoice.yacht_id) {
+        const { data: profiles } = await supabase
+          .from('user_profiles')
+          .select('email, notification_email, role')
+          .eq('yacht_id', estimatingInvoice.yacht_id)
+          .eq('is_active', true)
+          .in('role', ['manager', 'owner']);
+        if (profiles && profiles.length > 0) {
+          const manager = profiles.find((p: any) => p.role === 'manager' && (p.notification_email || p.email));
+          const owner = profiles.find((p: any) => p.role === 'owner' && (p.notification_email || p.email));
+          const found = manager || owner;
+          if (found) recipientEmail = (found.notification_email || found.email) ?? '';
+        }
+      }
       if (!recipientEmail) {
         showError('No email address found for this invoice. Please open it in Estimating Invoices to set an email.');
         return;
