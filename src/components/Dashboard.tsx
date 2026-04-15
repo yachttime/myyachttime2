@@ -4569,6 +4569,42 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     }
   };
 
+  const handleCancelDeposit = async (request: RepairRequest) => {
+    const confirmed = await confirm({
+      title: 'Cancel Deposit Request',
+      message: 'This will remove the deposit amount and payment link. You can set up a new deposit request afterward. Continue?',
+      confirmText: 'Cancel Deposit',
+      variant: 'danger'
+    });
+    if (!confirmed) return;
+
+    try {
+      const { error } = await supabase
+        .from('repair_requests')
+        .update({
+          deposit_amount: null,
+          deposit_payment_status: null,
+          deposit_payment_link_url: null,
+          deposit_payment_link_id: null,
+          deposit_email_sent_at: null,
+          deposit_email_recipient: null,
+          deposit_link_expires_at: null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', request.id);
+
+      if (error) throw error;
+      await loadRepairRequests();
+      showSuccess('Deposit request cancelled. You can now set a new deposit amount.');
+    } catch (error: any) {
+      showError(`Error cancelling deposit: ${error.message}`);
+    }
+  };
+
+  const handleEditDepositAmount = (request: RepairRequest) => {
+    handleRequestDeposit(request);
+  };
+
   const handleOpenDepositEmailModal = async (repairRequest: RepairRequest) => {
     setSelectedRepairForDepositEmail(repairRequest);
     setDepositEmailRecipient('');
@@ -14030,15 +14066,29 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                         )}
                                       </div>
 
-                                      {canManageYacht(effectiveRole) && request.deposit_payment_status === 'pending' && request.deposit_payment_link_url && (
+                                      {canManageYacht(effectiveRole) && request.deposit_payment_status === 'pending' && (
                                         <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t border-cyan-500/20">
                                           <button
+                                            onClick={() => handleEditDepositAmount(request)}
+                                            className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1"
+                                          >
+                                            <Pencil className="w-3 h-3" />
+                                            Edit Amount
+                                          </button>
+                                          <button
+                                            onClick={() => handleCancelDeposit(request)}
+                                            className="bg-red-700 hover:bg-red-800 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1"
+                                          >
+                                            <X className="w-3 h-3" />
+                                            Cancel Deposit
+                                          </button>
+                                          {request.deposit_payment_link_url && <button
                                             onClick={() => handleOpenDepositEmailModal(request)}
                                             className="bg-cyan-600 hover:bg-cyan-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1"
                                           >
                                             <Mail className="w-3 h-3" />
                                             {request.deposit_email_sent_at ? 'Resend Email' : 'Send Email'}
-                                          </button>
+                                          </button>}
                                           {request.deposit_email_sent_at && (
                                             <>
                                               <button
