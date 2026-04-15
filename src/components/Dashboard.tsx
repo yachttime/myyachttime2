@@ -484,6 +484,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [isAddingInvoiceToCompleted, setIsAddingInvoiceToCompleted] = useState(false);
   const [paymentLinkLoading, setPaymentLinkLoading] = useState<{ [invoiceId: string]: boolean }>({});
   const [deletePaymentLinkLoading, setDeletePaymentLinkLoading] = useState<{ [invoiceId: string]: boolean }>({});
+  const [sendEstimatingEmailLoading, setSendEstimatingEmailLoading] = useState<{ [invoiceId: string]: boolean }>({});
   const [regenerateMethodModal, setRegenerateMethodModal] = useState<YachtInvoice | null>(null);
   const [regenerateSelectedMethod, setRegenerateSelectedMethod] = useState<'card' | 'ach' | 'both'>('card');
   const [syncPaymentLoading, setSyncPaymentLoading] = useState<{ [invoiceId: string]: boolean }>({});
@@ -4045,6 +4046,49 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       showError(error.message || 'Failed to delete payment link');
     } finally {
       setDeletePaymentLinkLoading(prev => ({ ...prev, [estimatingInvoice.id]: false }));
+    }
+  };
+
+  const handleSendEstimatingPaymentEmail = async (estimatingInvoice: any) => {
+    if (!estimatingInvoice?.id) return;
+    setSendEstimatingEmailLoading(prev => ({ ...prev, [estimatingInvoice.id]: true }));
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      let recipientEmail = estimatingInvoice.final_payment_email_recipient || estimatingInvoice.customer_email || '';
+      if (!recipientEmail && estimatingInvoice.yacht_id) {
+        const { data: profiles } = await supabase
+          .from('user_profiles')
+          .select('email, notification_email, role')
+          .eq('yacht_id', estimatingInvoice.yacht_id)
+          .eq('is_active', true)
+          .in('role', ['manager', 'owner']);
+        if (profiles && profiles.length > 0) {
+          const manager = profiles.find((p: any) => p.role === 'manager' && (p.notification_email || p.email));
+          const owner = profiles.find((p: any) => p.role === 'owner' && (p.notification_email || p.email));
+          const found = manager || owner;
+          if (found) recipientEmail = (found.notification_email || found.email) ?? '';
+        }
+      }
+      if (!recipientEmail) {
+        showError('No email address found for this invoice. Please open it in Estimating Invoices to set an email.');
+        return;
+      }
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-estimating-invoice-payment-email`,
+        {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ invoiceId: estimatingInvoice.id, recipientEmail })
+        }
+      );
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Failed to send payment email');
+      await loadRepairRequests();
+      showSuccess(`Payment link email sent to ${recipientEmail}!`);
+    } catch (error: any) {
+      showError(error.message || 'Failed to send payment email');
+    } finally {
+      setSendEstimatingEmailLoading(prev => ({ ...prev, [estimatingInvoice.id]: false }));
     }
   };
 
@@ -13835,6 +13879,14 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                             )}
                                             {(estimatingInvoice.final_payment_link_url || estimatingInvoice.payment_link) && (
                                               <>
+                                                <button
+                                                  onClick={() => handleSendEstimatingPaymentEmail(estimatingInvoice)}
+                                                  disabled={sendEstimatingEmailLoading[estimatingInvoice.id]}
+                                                  className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-3 py-2 rounded text-xs font-semibold transition-all flex items-center gap-1"
+                                                >
+                                                  <Mail className="w-3 h-3" />
+                                                  {sendEstimatingEmailLoading[estimatingInvoice.id] ? 'Sending...' : 'Send Email'}
+                                                </button>
                                                 <button
                                                   onClick={() => handleSyncEstimatingPaymentStatus(estimatingInvoice)}
                                                   disabled={syncPaymentLoading[estimatingInvoice.id]}
