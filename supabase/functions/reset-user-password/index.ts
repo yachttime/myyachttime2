@@ -89,6 +89,66 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    const { data: targetProfile } = await supabaseAdmin
+      .from('user_profiles')
+      .select('first_name, last_name, email')
+      .eq('user_id', target_user_id)
+      .maybeSingle();
+
+    const { data: authUsers } = await supabaseAdmin.auth.admin.listUsers();
+    const authUser = authUsers?.users?.find(u => u.id === target_user_id);
+    const userEmail = targetProfile?.email || authUser?.email;
+
+    if (userEmail) {
+      const firstName = targetProfile?.first_name ?? '';
+      const lastName = targetProfile?.last_name ?? '';
+      const displayName = [firstName, lastName].filter(Boolean).join(' ') || userEmail;
+
+      const siteUrl = Deno.env.get('SITE_URL') ?? 'https://myyachttime.com';
+      const resendApiKey = Deno.env.get('RESEND_API_KEY') ?? '';
+      const fromEmail = Deno.env.get('RESEND_FROM_EMAIL') ?? 'noreply@myyachttime.com';
+
+      const emailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #1e293b; font-size: 24px; margin: 0;">My Yacht Time</h1>
+          </div>
+          <div style="background: #f8fafc; border-radius: 12px; padding: 30px;">
+            <h2 style="color: #1e293b; margin-top: 0;">Your Password Has Been Reset</h2>
+            <p style="color: #475569;">Hi ${displayName},</p>
+            <p style="color: #475569;">Your password has been reset by an administrator. Your temporary password is:</p>
+            <div style="text-align: center; margin: 24px 0;">
+              <div style="display: inline-block; background: #1e293b; color: #f1f5f9; font-family: monospace; font-size: 20px; font-weight: bold; letter-spacing: 2px; padding: 14px 28px; border-radius: 8px;">
+                ${new_password}
+              </div>
+            </div>
+            <p style="color: #475569;">Please log in using this temporary password. You will be required to set a new password immediately after logging in.</p>
+            <div style="text-align: center; margin: 28px 0;">
+              <a href="${siteUrl}"
+                 style="background: #f59e0b; color: #1e293b; text-decoration: none; padding: 14px 28px; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block;">
+                Log In Now
+              </a>
+            </div>
+            <p style="color: #64748b; font-size: 13px; margin-bottom: 0;">If you did not request this change or have any concerns, please contact your marina manager immediately.</p>
+          </div>
+        </div>
+      `;
+
+      await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${resendApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: fromEmail,
+          to: [userEmail],
+          subject: 'Your My Yacht Time Password Has Been Reset',
+          html: emailHtml,
+        }),
+      });
+    }
+
     return new Response(JSON.stringify({ success: true, message: 'Password reset successfully' }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
