@@ -179,6 +179,9 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
   const [workOrderToArchive, setWorkOrderToArchive] = useState<string | null>(null);
   const [sendingToAdmin, setSendingToAdmin] = useState(false);
   const [workOrderRepairRequestIds, setWorkOrderRepairRequestIds] = useState<Record<string, string>>({});
+  const [showSendToAdminModal, setShowSendToAdminModal] = useState(false);
+  const [sendToAdminWorkOrderId, setSendToAdminWorkOrderId] = useState<string | null>(null);
+  const [sendWithPartNumbers, setSendWithPartNumbers] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -1970,7 +1973,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
     }
   };
 
-  const handleSendWorkOrderToAdmin = async (workOrderId: string) => {
+  const handleSendWorkOrderToAdmin = async (workOrderId: string, showPartNumbers: boolean = false) => {
     try {
       setSendingToAdmin(true);
       setError(null);
@@ -2040,7 +2043,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
         deposits: []
       };
 
-      const pdf = await generateWorkOrderPDF(workOrderWithEstimates, tasksWithLineItems, yachtName, companyInfo);
+      const pdf = await generateWorkOrderPDF(workOrderWithEstimates, tasksWithLineItems, yachtName, companyInfo, showPartNumbers);
 
       const pdfBlob = pdf.output('blob');
       const fileName = `workorder_${workOrderData.work_order_number}.pdf`;
@@ -2430,7 +2433,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                 ) : (
                   <button
                     type="button"
-                    onClick={() => handleSendWorkOrderToAdmin(currentWorkOrder.id)}
+                    onClick={() => { setSendToAdminWorkOrderId(currentWorkOrder.id); setSendWithPartNumbers(false); setShowSendToAdminModal(true); }}
                     disabled={sendingToAdmin}
                     className="px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 text-sm font-medium"
                   >
@@ -4128,6 +4131,51 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
           </div>
         </div>,
         document.body
+      )}
+
+      {showSendToAdminModal && sendToAdminWorkOrderId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <ClipboardList className="w-5 h-5 text-gray-600" />
+              Send to Admin Options
+            </h3>
+            <div className="mb-6">
+              <label className="flex items-center gap-3 cursor-pointer select-none">
+                <div
+                  onClick={() => setSendWithPartNumbers(v => !v)}
+                  className={`relative inline-flex items-center w-11 h-6 rounded-full transition-colors ${sendWithPartNumbers ? 'bg-blue-600' : 'bg-gray-300'}`}
+                >
+                  <span className={`inline-block w-4 h-4 bg-white rounded-full shadow transition-transform ${sendWithPartNumbers ? 'translate-x-6' : 'translate-x-1'}`} />
+                </div>
+                <span className="text-sm font-medium text-gray-700">Include part numbers</span>
+              </label>
+              <p className="text-xs text-gray-500 mt-1 ml-14">
+                {sendWithPartNumbers ? 'Part numbers will be shown in the PDF attachment' : 'Only part names will be shown'}
+              </p>
+            </div>
+            <div className="flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={() => { setShowSendToAdminModal(false); setSendToAdminWorkOrderId(null); }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSendToAdminModal(false);
+                  handleSendWorkOrderToAdmin(sendToAdminWorkOrderId, sendWithPartNumbers);
+                }}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-700 rounded-lg hover:bg-blue-800 flex items-center gap-2"
+              >
+                <ClipboardList className="w-4 h-4" />
+                Send to Admin
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -1455,7 +1455,8 @@ export async function generateWorkOrderPDF(
   workOrder: any,
   tasks: any[],
   yachtName: string | null,
-  companyInfo?: any
+  companyInfo?: any,
+  showPartNumbers?: boolean
 ): Promise<jsPDF> {
   const estimate = workOrder.estimates || {
     subtotal: 0,
@@ -1767,7 +1768,9 @@ export async function generateWorkOrderPDF(
         if (isPackageHeader) {
           return [{ content: item.package_header || 'Package', colSpan: 4, styles: { fillColor: [220, 252, 231], textColor: [22, 101, 52], fontStyle: 'bold', fontSize: 8 } }, '', '', ''];
         }
-        let description = (item.description || '').replace(/^[A-Za-z0-9][-A-Za-z0-9]*\s+-\s+/, '');
+        let description = showPartNumbers
+          ? (item.description || '')
+          : (item.description || '').replace(/^[A-Za-z0-9][-A-Za-z0-9]*\s+-\s+/, '');
         if (item.work_details) {
           description += `\n  ${item.work_details}`;
         }
