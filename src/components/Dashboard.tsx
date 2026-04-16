@@ -15046,7 +15046,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 }
                               }}
                               placeholder="Type your message..."
-                              className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500"
+                              className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-amber-500 text-white placeholder-slate-400"
                               disabled={chatLoading}
                             />
                             <button
