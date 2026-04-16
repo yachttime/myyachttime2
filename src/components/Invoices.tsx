@@ -2228,6 +2228,11 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                           {invoice.work_title}
                         </div>
                       )}
+                      {invoice.customer_name && (
+                        <div className="text-xs text-gray-600 mt-0.5">
+                          {invoice.customer_name}
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-col gap-1">
