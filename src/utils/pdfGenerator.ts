@@ -881,7 +881,8 @@ export async function generateEstimatePDF(
   yachtName: string | null,
   companyInfo?: any,
   yachtMake?: string | null,
-  yachtModel?: string | null
+  yachtModel?: string | null,
+  showPartNumbers?: boolean
 ): Promise<jsPDF> {
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -1203,7 +1204,9 @@ export async function generateEstimatePDF(
         if (isPackageHeader) {
           return [{ content: item.package_header || 'Package', colSpan: 4, styles: { fillColor: [220, 252, 231], textColor: [22, 101, 52], fontStyle: 'bold', fontSize: 8 } }, '', '', ''];
         }
-        let description = (item.description || '').replace(/^[A-Za-z0-9][-A-Za-z0-9]*\s+-\s+/, '');
+        let description = showPartNumbers
+          ? (item.description || '')
+          : (item.description || '').replace(/^[A-Za-z0-9][-A-Za-z0-9]*\s+-\s+/, '');
         if (item.work_details) {
           description += `\n  ${item.work_details}`;
         }
@@ -1764,7 +1767,9 @@ export async function generateWorkOrderPDF(
         if (isPackageHeader) {
           return [{ content: item.package_header || 'Package', colSpan: 4, styles: { fillColor: [220, 252, 231], textColor: [22, 101, 52], fontStyle: 'bold', fontSize: 8 } }, '', '', ''];
         }
-        let description = (item.description || '').replace(/^[A-Za-z0-9][-A-Za-z0-9]*\s+-\s+/, '');
+        let description = showPartNumbers
+          ? (item.description || '')
+          : (item.description || '').replace(/^[A-Za-z0-9][-A-Za-z0-9]*\s+-\s+/, '');
         if (item.work_details) {
           description += `\n  ${item.work_details}`;
         }

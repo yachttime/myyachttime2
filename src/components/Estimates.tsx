@@ -176,6 +176,8 @@ export function Estimates({ userId }: EstimatesProps) {
   const [showNewCustomerForm, setShowNewCustomerForm] = useState(false);
   const [newCustomerForm, setNewCustomerForm] = useState({ customer_type: 'individual' as 'individual' | 'business', first_name: '', last_name: '', business_name: '', email: '', phone: '' });
   const [savingNewCustomer, setSavingNewCustomer] = useState(false);
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [printWithPartNumbers, setPrintWithPartNumbers] = useState(false);
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [customerVessels, setCustomerVessels] = useState<any[]>([]);
   const [showNewVesselForm, setShowNewVesselForm] = useState(false);
@@ -1689,9 +1691,10 @@ export function Estimates({ userId }: EstimatesProps) {
     }
   };
 
-  const handlePrintEstimate = async (estimateId: string) => {
+  const handlePrintEstimate = async (estimateId: string, showPartNumbers: boolean) => {
     try {
       setError(null);
+      setShowPrintModal(false);
 
       const { data: estimateData, error: estimateError } = await supabase
         .from('estimates')
@@ -1737,7 +1740,7 @@ export function Estimates({ userId }: EstimatesProps) {
       const yachtName = estimateData.yachts?.name || null;
       const yachtMake = estimateData.yachts?.manufacturer || null;
       const yachtModel = estimateData.yachts?.model || null;
-      const pdf = await generateEstimatePDF(estimateData, tasksWithLineItems, yachtName, companyInfo, yachtMake, yachtModel);
+      const pdf = await generateEstimatePDF(estimateData, tasksWithLineItems, yachtName, companyInfo, yachtMake, yachtModel, showPartNumbers);
 
       const pdfBlob = pdf.output('blob');
       const pdfUrl = URL.createObjectURL(pdfBlob);
@@ -2050,7 +2053,7 @@ export function Estimates({ userId }: EstimatesProps) {
             <div className="flex flex-wrap items-center gap-3 mb-4 pb-4 border-b border-gray-200">
               <button
                 type="button"
-                onClick={() => handlePrintEstimate(editingId)}
+                onClick={() => setShowPrintModal(true)}
                 className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 flex items-center gap-2 text-sm font-medium"
               >
                 <Printer className="w-4 h-4" />
@@ -3690,6 +3693,48 @@ export function Estimates({ userId }: EstimatesProps) {
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 Yes, Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPrintModal && editingId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <Printer className="w-5 h-5 text-gray-600" />
+              Print Options
+            </h3>
+            <div className="mb-6">
+              <label className="flex items-center gap-3 cursor-pointer select-none">
+                <div
+                  onClick={() => setPrintWithPartNumbers(v => !v)}
+                  className={`relative inline-flex items-center w-11 h-6 rounded-full transition-colors ${printWithPartNumbers ? 'bg-blue-600' : 'bg-gray-300'}`}
+                >
+                  <span className={`inline-block w-4 h-4 bg-white rounded-full shadow transition-transform ${printWithPartNumbers ? 'translate-x-6' : 'translate-x-1'}`} />
+                </div>
+                <span className="text-sm font-medium text-gray-700">Include part numbers</span>
+              </label>
+              <p className="text-xs text-gray-500 mt-1 ml-14">
+                {printWithPartNumbers ? 'Part numbers will be shown in the description' : 'Only part names will be shown'}
+              </p>
+            </div>
+            <div className="flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={() => setShowPrintModal(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handlePrintEstimate(editingId, printWithPartNumbers)}
+                className="px-4 py-2 text-sm font-medium text-white bg-gray-600 rounded-lg hover:bg-gray-700 flex items-center gap-2"
+              >
+                <Printer className="w-4 h-4" />
+                Print
               </button>
             </div>
           </div>
