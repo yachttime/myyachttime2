@@ -117,13 +117,14 @@ export function TimecardView({ userId, userName }: TimecardViewProps) {
 
   useEffect(() => {
     const fetchPayPeriodNumber = async () => {
-      const startStr = toDateStr(periodStart);
-      const endStr = toDateStr(periodEnd);
+      const midPoint = new Date(periodStart);
+      midPoint.setDate(midPoint.getDate() + 7);
+      const midStr = toDateStr(midPoint);
       const { data } = await supabase
         .from('pay_periods')
         .select('period_number, year')
-        .eq('period_start', startStr)
-        .eq('period_end', endStr)
+        .lte('period_start', midStr)
+        .gte('period_end', midStr)
         .maybeSingle();
       setPayPeriodNumber(data ? data.period_number : null);
     };
