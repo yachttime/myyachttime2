@@ -5,6 +5,11 @@ import { TimeEntry, getPayrollPeriodsForDateRange } from '../utils/timeClockHelp
 import { generatePayrollReportPDF } from '../utils/pdfGenerator';
 import { useConfirm } from '../hooks/useConfirm';
 
+function parseDateLocal(dateStr: string): Date {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
 interface PayPeriod {
   id: string;
   period_start: string;
@@ -928,22 +933,22 @@ export function PayrollReportView() {
                         </button>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-900">
-                        {new Date(period.period_start).toLocaleDateString()}
+                        {parseDateLocal(period.period_start).toLocaleDateString()}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-900">
-                        {new Date(period.period_end).toLocaleDateString()}
+                        {parseDateLocal(period.period_end).toLocaleDateString()}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-900 font-medium">
-                        {new Date(period.pay_date).toLocaleDateString()}
+                        {parseDateLocal(period.pay_date).toLocaleDateString()}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">{period.notes || '-'}</td>
                       <td className="px-4 py-3 text-sm">
                         {(() => {
                           const now = new Date();
                           now.setHours(0, 0, 0, 0);
-                          const start = new Date(period.period_start);
+                          const start = parseDateLocal(period.period_start);
                           start.setHours(0, 0, 0, 0);
-                          const end = new Date(period.period_end);
+                          const end = parseDateLocal(period.period_end);
                           end.setHours(23, 59, 59, 999);
                           const isProcessed = period.is_processed;
                           const paidCount = periodPaidCounts[period.id] || 0;
@@ -997,7 +1002,7 @@ export function PayrollReportView() {
                               <span className="text-sm font-semibold text-gray-800">
                                 Paid Hours — Pay Period #{period.period_number} &nbsp;
                                 <span className="text-gray-500 font-normal">
-                                  ({new Date(period.period_start).toLocaleDateString()} – {new Date(period.period_end).toLocaleDateString()}, Pay Date: {new Date(period.pay_date).toLocaleDateString()})
+                                  ({parseDateLocal(period.period_start).toLocaleDateString()} – {parseDateLocal(period.period_end).toLocaleDateString()}, Pay Date: {parseDateLocal(period.pay_date).toLocaleDateString()})
                                 </span>
                               </span>
                             </div>
