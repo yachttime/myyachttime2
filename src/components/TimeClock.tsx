@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Clock, Users, History, FileText, ClipboardList } from 'lucide-react';
+import { Clock, Users, History, FileText, ClipboardList, LayoutGrid } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useRoleImpersonation } from '../contexts/RoleImpersonationContext';
 import { supabase, isMasterRole } from '../lib/supabase';
@@ -8,12 +8,13 @@ import { TimeEntriesView } from './TimeEntriesView';
 import { TimeEntryEditor } from './TimeEntryEditor';
 import { PayrollReportView } from './PayrollReportView';
 import { DailyTasksView } from './DailyTasksView';
+import { TimecardView } from './TimecardView';
 import { TimeEntry } from '../utils/timeClockHelpers';
 
 export function TimeClock() {
   const { userProfile } = useAuth();
   const { getEffectiveRole } = useRoleImpersonation();
-  const [activeSubTab, setActiveSubTab] = useState<'punch' | 'myTime' | 'allTime' | 'payroll' | 'dailyTasks'>('punch');
+  const [activeSubTab, setActiveSubTab] = useState<'punch' | 'myTime' | 'allTime' | 'payroll' | 'dailyTasks' | 'timecard'>('punch');
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -65,6 +66,17 @@ export function TimeClock() {
           {isMaster && (
             <>
               <button
+                onClick={() => setActiveSubTab('timecard')}
+                className={`pb-4 px-2 border-b-2 font-medium text-sm flex items-center gap-2 ${
+                  activeSubTab === 'timecard'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <LayoutGrid className="w-4 h-4" />
+                Timecard
+              </button>
+              <button
                 onClick={() => setActiveSubTab('allTime')}
                 className={`pb-4 px-2 border-b-2 font-medium text-sm flex items-center gap-2 ${
                   activeSubTab === 'allTime'
@@ -102,6 +114,10 @@ export function TimeClock() {
           <TimeEntriesView key={refreshKey} />
         )}
 
+        {activeSubTab === 'timecard' && isMaster && (
+          <TimecardAllStaffView key={refreshKey} />
+        )}
+
         {activeSubTab === 'allTime' && isMaster && (
           <AllStaffTimeView key={refreshKey} onEditEntry={setEditingEntry} />
         )}
@@ -124,6 +140,66 @@ export function TimeClock() {
             setRefreshKey(prev => prev + 1);
           }}
         />
+      )}
+    </div>
+  );
+}
+
+function TimecardAllStaffView() {
+  const [selectedUserId, setSelectedUserId] = useState<string>('');
+  const [selectedUserName, setSelectedUserName] = useState<string>('');
+  const [users, setUsers] = useState<Array<{ user_id: string; first_name: string; last_name: string }>>([]);
+
+  React.useEffect(() => {
+    loadUsers();
+  }, []);
+
+  const loadUsers = async () => {
+    const { data } = await supabase
+      .from('user_profiles')
+      .select('user_id, first_name, last_name')
+      .in('role', ['staff', 'mechanic', 'master'])
+      .eq('is_active', true)
+      .order('last_name');
+
+    if (data) {
+      setUsers(data);
+      if (data.length > 0) {
+        setSelectedUserId(data[0].user_id);
+        setSelectedUserName(`${data[0].first_name} ${data[0].last_name}`);
+      }
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Select Employee</h3>
+        <div className="flex flex-wrap gap-2 mb-6">
+          {users.map((u) => (
+            <button
+              key={u.user_id}
+              onClick={() => {
+                setSelectedUserId(u.user_id);
+                setSelectedUserName(`${u.first_name} ${u.last_name}`);
+              }}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all border ${
+                selectedUserId === u.user_id
+                  ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                  : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400 hover:text-blue-600'
+              }`}
+            >
+              {u.first_name} {u.last_name}
+            </button>
+          ))}
+          {users.length === 0 && (
+            <span className="text-gray-400 text-sm">No staff members found</span>
+          )}
+        </div>
+      </div>
+
+      {selectedUserId && (
+        <TimecardView userId={selectedUserId} userName={selectedUserName} />
       )}
     </div>
   );
