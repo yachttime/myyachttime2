@@ -85,6 +85,7 @@ export function TimecardView({ userId, userName }: TimecardViewProps) {
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
   const [addingForDate, setAddingForDate] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [payPeriodNumber, setPayPeriodNumber] = useState<number | null>(null);
 
   const loadEntries = useCallback(async () => {
     if (!targetUserId) return;
@@ -113,6 +114,21 @@ export function TimecardView({ userId, userName }: TimecardViewProps) {
   useEffect(() => {
     loadEntries();
   }, [loadEntries]);
+
+  useEffect(() => {
+    const fetchPayPeriodNumber = async () => {
+      const startStr = toDateStr(periodStart);
+      const endStr = toDateStr(periodEnd);
+      const { data } = await supabase
+        .from('pay_periods')
+        .select('period_number, year')
+        .eq('period_start', startStr)
+        .eq('period_end', endStr)
+        .maybeSingle();
+      setPayPeriodNumber(data ? data.period_number : null);
+    };
+    fetchPayPeriodNumber();
+  }, [periodStart, periodEnd]);
 
   const goToPrevPeriod = () => {
     const newEnd = addDays(periodStart, -1);
@@ -219,6 +235,9 @@ export function TimecardView({ userId, userName }: TimecardViewProps) {
             <ChevronLeft className="w-4 h-4 text-gray-800" />
           </button>
           <div className="text-sm font-bold text-white min-w-[200px] text-center">
+            {payPeriodNumber !== null && (
+              <span className="text-blue-300 mr-2">Period {payPeriodNumber}</span>
+            )}
             {formatDateLabel(periodStart)} &ndash; {formatDateLabel(periodEnd)}
           </div>
           <button
