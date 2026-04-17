@@ -105,6 +105,9 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
   const [depositEmailRecipient, setDepositEmailRecipient] = useState('');
   const [depositEmailRecipientName, setDepositEmailRecipientName] = useState('');
   const [sendingDepositEmail, setSendingDepositEmail] = useState(false);
+  const [depositSurchargeCcEmail, setDepositSurchargeCcEmail] = useState('');
+  const [depositSurchargeCcNote, setDepositSurchargeCcNote] = useState('');
+  const [depositSurchargeCcEnabled, setDepositSurchargeCcEnabled] = useState(false);
   const [syncingPayment, setSyncingPayment] = useState<Record<string, boolean>>({});
   const [checkingEmailStatus, setCheckingEmailStatus] = useState<Record<string, boolean>>({});
   const [depositCheckModal, setDepositCheckModal] = useState<string | null>(null);
@@ -182,6 +185,9 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
   const [showSendToAdminModal, setShowSendToAdminModal] = useState(false);
   const [sendToAdminWorkOrderId, setSendToAdminWorkOrderId] = useState<string | null>(null);
   const [sendWithPartNumbers, setSendWithPartNumbers] = useState(false);
+  const [adminSurchargeCcEmail, setAdminSurchargeCcEmail] = useState('');
+  const [adminSurchargeCcNote, setAdminSurchargeCcNote] = useState('');
+  const [adminSurchargeCcEnabled, setAdminSurchargeCcEnabled] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -1585,7 +1591,9 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
         body: JSON.stringify({
           workOrderId: workOrder.id,
           recipientEmail: recipientEmail,
-          recipientName: depositEmailRecipientName || workOrder.manager_name || workOrder.customer_name || recipientEmail
+          recipientName: depositEmailRecipientName || workOrder.manager_name || workOrder.customer_name || recipientEmail,
+          surchargeCcEmail: depositSurchargeCcEnabled && depositSurchargeCcEmail.trim() ? depositSurchargeCcEmail.trim() : undefined,
+          surchargeCcNote: depositSurchargeCcEnabled && depositSurchargeCcNote.trim() ? depositSurchargeCcNote.trim() : undefined,
         })
       });
 
@@ -1599,6 +1607,9 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
       showSuccess('Deposit request email sent successfully!');
       setDepositEmailRecipient('');
       setDepositEmailRecipientName('');
+      setDepositSurchargeCcEmail('');
+      setDepositSurchargeCcNote('');
+      setDepositSurchargeCcEnabled(false);
     } catch (error: any) {
       console.error('Error sending deposit email:', error);
       setError(`Error: ${error.message || 'Failed to send email'}`);
@@ -1973,7 +1984,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
     }
   };
 
-  const handleSendWorkOrderToAdmin = async (workOrderId: string, showPartNumbers: boolean = false) => {
+  const handleSendWorkOrderToAdmin = async (workOrderId: string, showPartNumbers: boolean = false, surchargeCcEmailParam?: string, surchargeCcNoteParam?: string) => {
     try {
       setSendingToAdmin(true);
       setError(null);
@@ -2161,7 +2172,9 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
           body: JSON.stringify({
             repairRequestId,
             recipientEmail: workOrderData.manager_email,
-            recipientName: managerName
+            recipientName: managerName,
+            surchargeCcEmail: surchargeCcEmailParam || undefined,
+            surchargeCcNote: surchargeCcNoteParam || undefined,
           })
         });
       }
@@ -3680,30 +3693,70 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                         Record Check Instead
                       </button>
                       {!editingWorkOrder.deposit_email_sent_at ? (
-                        <div className="flex gap-2 w-full">
-                          <input
-                            type="email"
-                            placeholder="Recipient email"
-                            value={depositEmailRecipient}
-                            onChange={(e) => setDepositEmailRecipient(e.target.value)}
-                            className="flex-1 bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400"
-                          />
-                          <input
-                            type="text"
-                            placeholder="Recipient name (optional)"
-                            value={depositEmailRecipientName}
-                            onChange={(e) => setDepositEmailRecipientName(e.target.value)}
-                            className="flex-1 bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400"
-                          />
-                          <button
-                            onClick={() => handleSendDepositEmail(editingWorkOrder)}
-                            disabled={sendingDepositEmail || !depositEmailRecipient}
-                            type="button"
-                            className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 disabled:opacity-50"
-                          >
-                            <Mail className="w-3 h-3" />
-                            {sendingDepositEmail ? 'Sending...' : 'Send Email'}
-                          </button>
+                        <div className="flex flex-col gap-2 w-full">
+                          <div className="flex gap-2 w-full">
+                            <input
+                              type="email"
+                              placeholder="Recipient email"
+                              value={depositEmailRecipient}
+                              onChange={(e) => setDepositEmailRecipient(e.target.value)}
+                              className="flex-1 bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400"
+                            />
+                            <input
+                              type="text"
+                              placeholder="Recipient name (optional)"
+                              value={depositEmailRecipientName}
+                              onChange={(e) => setDepositEmailRecipientName(e.target.value)}
+                              className="flex-1 bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400"
+                            />
+                            <button
+                              onClick={() => handleSendDepositEmail(editingWorkOrder)}
+                              disabled={sendingDepositEmail || !depositEmailRecipient}
+                              type="button"
+                              className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 disabled:opacity-50"
+                            >
+                              <Mail className="w-3 h-3" />
+                              {sendingDepositEmail ? 'Sending...' : 'Send Email'}
+                            </button>
+                          </div>
+                          {(editingWorkOrder.surcharge_amount ?? 0) > 0 && (
+                            <div className="border border-amber-400/40 rounded-lg bg-amber-50 p-3">
+                              <div className="flex items-center justify-between mb-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-amber-700 text-xs font-semibold">Surcharge CC</span>
+                                  <span className="text-amber-600 text-xs bg-amber-100 px-2 py-0.5 rounded-full">
+                                    ${Number(editingWorkOrder.surcharge_amount ?? 0).toFixed(2)} surcharge
+                                  </span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setDepositSurchargeCcEnabled(v => !v)}
+                                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${depositSurchargeCcEnabled ? 'bg-amber-500' : 'bg-gray-300'}`}
+                                >
+                                  <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${depositSurchargeCcEnabled ? 'translate-x-4' : 'translate-x-1'}`} />
+                                </button>
+                              </div>
+                              {depositSurchargeCcEnabled && (
+                                <div className="space-y-1.5 mt-2">
+                                  <input
+                                    type="email"
+                                    placeholder="Surcharge department email..."
+                                    value={depositSurchargeCcEmail}
+                                    onChange={e => setDepositSurchargeCcEmail(e.target.value)}
+                                    className="w-full bg-white border border-amber-300 rounded-lg px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-amber-500"
+                                  />
+                                  <textarea
+                                    placeholder="Note to surcharge department (optional)..."
+                                    value={depositSurchargeCcNote}
+                                    onChange={e => setDepositSurchargeCcNote(e.target.value)}
+                                    rows={2}
+                                    className="w-full bg-white border border-amber-300 rounded-lg px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-amber-500 resize-none"
+                                  />
+                                  <p className="text-xs text-amber-600">This contact will be CC'd on the deposit email.</p>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <>
@@ -4136,50 +4189,97 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
         document.body
       )}
 
-      {showSendToAdminModal && sendToAdminWorkOrderId && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4 shadow-xl">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <ClipboardList className="w-5 h-5 text-gray-600" />
-              Send to Admin Options
-            </h3>
-            <div className="mb-6">
-              <label className="flex items-center gap-3 cursor-pointer select-none">
-                <div
-                  onClick={() => setSendWithPartNumbers(v => !v)}
-                  className={`relative inline-flex items-center w-11 h-6 rounded-full transition-colors ${sendWithPartNumbers ? 'bg-blue-600' : 'bg-gray-300'}`}
-                >
-                  <span className={`inline-block w-4 h-4 bg-white rounded-full shadow transition-transform ${sendWithPartNumbers ? 'translate-x-6' : 'translate-x-1'}`} />
+      {showSendToAdminModal && sendToAdminWorkOrderId && (() => {
+        const adminWo = workOrders.find(wo => wo.id === sendToAdminWorkOrderId);
+        const adminWoSurcharge = adminWo?.surcharge_amount ?? 0;
+        return (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4 shadow-xl">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <ClipboardList className="w-5 h-5 text-gray-600" />
+                Send to Admin Options
+              </h3>
+              <div className="mb-4">
+                <label className="flex items-center gap-3 cursor-pointer select-none">
+                  <div
+                    onClick={() => setSendWithPartNumbers(v => !v)}
+                    className={`relative inline-flex items-center w-11 h-6 rounded-full transition-colors ${sendWithPartNumbers ? 'bg-blue-600' : 'bg-gray-300'}`}
+                  >
+                    <span className={`inline-block w-4 h-4 bg-white rounded-full shadow transition-transform ${sendWithPartNumbers ? 'translate-x-6' : 'translate-x-1'}`} />
+                  </div>
+                  <span className="text-sm font-medium text-gray-700">Include part numbers</span>
+                </label>
+                <p className="text-xs text-gray-500 mt-1 ml-14">
+                  {sendWithPartNumbers ? 'Part numbers will be shown in the PDF attachment' : 'Only part names will be shown'}
+                </p>
+              </div>
+              {adminWoSurcharge > 0 && (
+                <div className="mb-4 border border-amber-400/40 rounded-lg bg-amber-50 p-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-amber-700 text-xs font-semibold">Surcharge CC</span>
+                      <span className="text-amber-600 text-xs bg-amber-100 px-2 py-0.5 rounded-full">
+                        ${Number(adminWoSurcharge).toFixed(2)} surcharge
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setAdminSurchargeCcEnabled(v => !v)}
+                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${adminSurchargeCcEnabled ? 'bg-amber-500' : 'bg-gray-300'}`}
+                    >
+                      <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${adminSurchargeCcEnabled ? 'translate-x-4' : 'translate-x-1'}`} />
+                    </button>
+                  </div>
+                  {adminSurchargeCcEnabled && (
+                    <div className="space-y-1.5 mt-2">
+                      <input
+                        type="email"
+                        placeholder="Surcharge department email..."
+                        value={adminSurchargeCcEmail}
+                        onChange={e => setAdminSurchargeCcEmail(e.target.value)}
+                        className="w-full bg-white border border-amber-300 rounded-lg px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-amber-500"
+                      />
+                      <textarea
+                        placeholder="Note to surcharge department (optional)..."
+                        value={adminSurchargeCcNote}
+                        onChange={e => setAdminSurchargeCcNote(e.target.value)}
+                        rows={2}
+                        className="w-full bg-white border border-amber-300 rounded-lg px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-amber-500 resize-none"
+                      />
+                      <p className="text-xs text-amber-600">This contact will be CC'd on the repair estimate email.</p>
+                    </div>
+                  )}
                 </div>
-                <span className="text-sm font-medium text-gray-700">Include part numbers</span>
-              </label>
-              <p className="text-xs text-gray-500 mt-1 ml-14">
-                {sendWithPartNumbers ? 'Part numbers will be shown in the PDF attachment' : 'Only part names will be shown'}
-              </p>
-            </div>
-            <div className="flex gap-3 justify-end">
-              <button
-                type="button"
-                onClick={() => { setShowSendToAdminModal(false); setSendToAdminWorkOrderId(null); }}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowSendToAdminModal(false);
-                  handleSendWorkOrderToAdmin(sendToAdminWorkOrderId, sendWithPartNumbers);
-                }}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-700 rounded-lg hover:bg-blue-800 flex items-center gap-2"
-              >
-                <ClipboardList className="w-4 h-4" />
-                Send to Admin
-              </button>
+              )}
+              <div className="flex gap-3 justify-end">
+                <button
+                  type="button"
+                  onClick={() => { setShowSendToAdminModal(false); setSendToAdminWorkOrderId(null); setAdminSurchargeCcEnabled(false); setAdminSurchargeCcEmail(''); setAdminSurchargeCcNote(''); }}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const ccEmail = adminSurchargeCcEnabled && adminSurchargeCcEmail.trim() ? adminSurchargeCcEmail.trim() : undefined;
+                    const ccNote = adminSurchargeCcEnabled && adminSurchargeCcNote.trim() ? adminSurchargeCcNote.trim() : undefined;
+                    setShowSendToAdminModal(false);
+                    setAdminSurchargeCcEnabled(false);
+                    setAdminSurchargeCcEmail('');
+                    setAdminSurchargeCcNote('');
+                    handleSendWorkOrderToAdmin(sendToAdminWorkOrderId, sendWithPartNumbers, ccEmail, ccNote);
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-700 rounded-lg hover:bg-blue-800 flex items-center gap-2"
+                >
+                  <ClipboardList className="w-4 h-4" />
+                  Send to Admin
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

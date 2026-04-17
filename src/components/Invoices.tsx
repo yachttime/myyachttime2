@@ -140,6 +140,9 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
   const [qbBankAccounts, setQbBankAccounts] = useState<{ qbo_account_id: string; account_name: string; account_number: string | null }[]>([]);
   const { confirm, ConfirmDialog } = useConfirm();
   const [showTaxReport, setShowTaxReport] = useState(false);
+  const [surchargeCcEmail, setSurchargeCcEmail] = useState('');
+  const [surchargeCcNote, setSurchargeCcNote] = useState('');
+  const [surchargeCcEnabled, setSurchargeCcEnabled] = useState(false);
   const [paymentMethodModal, setPaymentMethodModal] = useState<{ invoice: Invoice; email: string; mode: 'generate' | 'regenerate'; allRecipients?: string[] } | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'card' | 'ach' | 'both'>('card');
   const [editableRecipients, setEditableRecipients] = useState<string[]>([]);
@@ -1634,6 +1637,9 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
   async function openEmailModal(invoice: Invoice) {
     setEmailModalInvoice(invoice);
     setBillingManagers([]);
+    setSurchargeCcEmail('');
+    setSurchargeCcNote('');
+    setSurchargeCcEnabled(false);
     setShowEmailModal(true);
 
     setBillingManagersLoading(true);
@@ -1694,6 +1700,8 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
             recipientEmail: primary.email,
             recipientName: primary.name || undefined,
             additionalRecipients: additional.map(r => ({ email: r.email, name: r.name || undefined })),
+            surchargeCcEmail: surchargeCcEnabled && surchargeCcEmail.trim() ? surchargeCcEmail.trim() : undefined,
+            surchargeCcNote: surchargeCcEnabled && surchargeCcNote.trim() ? surchargeCcNote.trim() : undefined,
           })
         }
       );
@@ -3410,6 +3418,45 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                   </div>
                 )}
               </div>
+
+              {emailModalInvoice.surcharge_amount && emailModalInvoice.surcharge_amount > 0 && (
+                <div className="border border-amber-500/40 rounded-xl bg-amber-500/5 p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-amber-400 text-sm font-semibold">Surcharge CC</span>
+                      <span className="text-amber-300/70 text-xs bg-amber-500/20 px-2 py-0.5 rounded-full">
+                        ${emailModalInvoice.surcharge_amount.toFixed(2)} surcharge on this invoice
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSurchargeCcEnabled(v => !v)}
+                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${surchargeCcEnabled ? 'bg-amber-500' : 'bg-slate-600'}`}
+                    >
+                      <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${surchargeCcEnabled ? 'translate-x-4' : 'translate-x-1'}`} />
+                    </button>
+                  </div>
+                  {surchargeCcEnabled && (
+                    <div className="space-y-2 mt-3">
+                      <input
+                        type="email"
+                        placeholder="Surcharge department email..."
+                        value={surchargeCcEmail}
+                        onChange={e => setSurchargeCcEmail(e.target.value)}
+                        className="w-full bg-slate-900/50 border border-amber-500/30 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-400"
+                      />
+                      <textarea
+                        placeholder="Note to surcharge department (optional)..."
+                        value={surchargeCcNote}
+                        onChange={e => setSurchargeCcNote(e.target.value)}
+                        rows={2}
+                        className="w-full bg-slate-900/50 border border-amber-500/30 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-400 resize-none"
+                      />
+                      <p className="text-xs text-amber-300/60">This contact will be CC'd on the invoice email and receive a copy of the surcharge details.</p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
                 <p className="text-xs text-blue-300">

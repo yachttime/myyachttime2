@@ -12,6 +12,8 @@ interface EmailRequest {
   recipientEmail: string;
   recipientName?: string;
   additionalRecipients?: { email: string; name?: string }[];
+  surchargeCcEmail?: string;
+  surchargeCcNote?: string;
 }
 
 interface WorkOrderTask {
@@ -269,7 +271,7 @@ Deno.serve(async (req: Request) => {
       throw new Error('Unauthorized');
     }
 
-    const { invoiceId, recipientEmail, recipientName, additionalRecipients }: EmailRequest = await req.json();
+    const { invoiceId, recipientEmail, recipientName, additionalRecipients, surchargeCcEmail, surchargeCcNote }: EmailRequest = await req.json();
 
     if (!invoiceId || !recipientEmail) {
       throw new Error('Invoice ID and recipient email are required');
@@ -462,6 +464,16 @@ Deno.serve(async (req: Request) => {
       ],
       headers: { 'X-Entity-Ref-ID': invoiceId },
     };
+
+    if (surchargeCcEmail) {
+      emailPayload.cc = [surchargeCcEmail];
+      if (surchargeCcNote) {
+        emailPayload.html = htmlContent + `
+          <div style="margin-top:24px;padding:14px 18px;background:#fef3c7;border-left:4px solid #f59e0b;border-radius:4px;font-family:Arial,sans-serif;font-size:13px;color:#92400e;">
+            <strong>Note to Surcharge Department:</strong><br>${surchargeCcNote.replace(/\n/g, '<br>')}
+          </div>`;
+      }
+    }
 
     const emailResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',

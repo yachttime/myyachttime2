@@ -24,7 +24,7 @@ Deno.serve(async (req: Request) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) throw new Error('Unauthorized');
 
-    const { workOrderId, recipientEmail, recipientName } = await req.json();
+    const { workOrderId, recipientEmail, recipientName, surchargeCcEmail, surchargeCcNote } = await req.json();
 
     if (!workOrderId || !recipientEmail) {
       throw new Error('Work order ID and recipient email are required');
@@ -111,13 +111,23 @@ Deno.serve(async (req: Request) => {
     let fromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'onboarding@resend.dev';
     fromEmail = fromEmail.trim();
 
-    const emailPayload = {
+    const emailPayload: any = {
       from: fromEmail,
       to: [recipientEmail],
       subject,
       html: htmlContent,
       tags: [{ name: 'category', value: 'work-order-deposit-request' }],
     };
+
+    if (surchargeCcEmail) {
+      emailPayload.cc = [surchargeCcEmail];
+      if (surchargeCcNote) {
+        emailPayload.html = htmlContent + `
+          <div style="margin-top:24px;padding:14px 18px;background:#fef3c7;border-left:4px solid #f59e0b;border-radius:4px;font-family:Arial,sans-serif;font-size:13px;color:#92400e;">
+            <strong>Note to Surcharge Department:</strong><br>${surchargeCcNote.replace(/\n/g, '<br>')}
+          </div>`;
+      }
+    }
 
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',

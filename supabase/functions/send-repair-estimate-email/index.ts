@@ -10,6 +10,8 @@ interface EmailRequest {
   repairRequestId: string;
   recipientEmail: string;
   recipientName?: string;
+  surchargeCcEmail?: string;
+  surchargeCcNote?: string;
 }
 
 Deno.serve(async (req: Request) => {
@@ -37,7 +39,7 @@ Deno.serve(async (req: Request) => {
       throw new Error('Unauthorized');
     }
 
-    const { repairRequestId, recipientEmail, recipientName }: EmailRequest = await req.json();
+    const { repairRequestId, recipientEmail, recipientName, surchargeCcEmail, surchargeCcNote }: EmailRequest = await req.json();
 
     if (!repairRequestId || !recipientEmail) {
       throw new Error('Repair request ID and recipient email are required');
@@ -297,10 +299,19 @@ Deno.serve(async (req: Request) => {
         ],
       };
 
-      // Enable click and open tracking
       emailPayload.headers = {
         'X-Entity-Ref-ID': repairRequestId,
       };
+
+      if (surchargeCcEmail) {
+        emailPayload.cc = [surchargeCcEmail];
+        if (surchargeCcNote) {
+          emailPayload.html = htmlContent + `
+            <div style="margin-top:24px;padding:14px 18px;background:#fef3c7;border-left:4px solid #f59e0b;border-radius:4px;font-family:Arial,sans-serif;font-size:13px;color:#92400e;">
+              <strong>Note to Surcharge Department:</strong><br>${surchargeCcNote.replace(/\n/g, '<br>')}
+            </div>`;
+        }
+      }
 
       if (attachmentData) {
         emailPayload.attachments = [attachmentData];
