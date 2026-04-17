@@ -377,7 +377,37 @@ export function generateUserListPDF(users: (UserProfile & { yachts?: Yacht })[],
   return doc;
 }
 
-export function generateTripInspectionPDF(inspection: TripInspection & { yachts?: { name: string }; user_profiles?: { first_name: string; last_name: string } }): jsPDF {
+export interface InspectionPhoto {
+  photo_url: string;
+  caption?: string;
+  category: 'port_prop' | 'starboard_prop' | 'damage' | 'general';
+}
+
+const loadImageAsDataUrl = (url: string): Promise<string> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/jpeg', 0.85));
+      } else {
+        resolve('');
+      }
+    };
+    img.onerror = () => resolve('');
+    img.src = url;
+  });
+};
+
+export async function generateTripInspectionPDF(
+  inspection: TripInspection & { yachts?: { name: string }; user_profiles?: { first_name: string; last_name: string } },
+  photos?: InspectionPhoto[]
+): Promise<jsPDF> {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'in',
@@ -510,6 +540,78 @@ export function generateTripInspectionPDF(inspection: TripInspection & { yachts?
 
   addSpace(0.15);
   addText(`Issues Found: ${inspection.issues_found ? 'Yes' : 'No'}`, 11, 'bold');
+
+  if (photos && photos.length > 0) {
+    const catLabels: Record<string, string> = {
+      port_prop: 'Port Propeller',
+      starboard_prop: 'Starboard Propeller',
+      damage: 'Damage',
+      general: 'General',
+    };
+
+    const categories = ['port_prop', 'starboard_prop', 'damage', 'general'] as const;
+    const photosByCategory = categories.map(cat => ({
+      cat,
+      label: catLabels[cat],
+      items: photos.filter(p => p.category === cat),
+    })).filter(g => g.items.length > 0);
+
+    if (photosByCategory.length > 0) {
+      addSpace(0.25);
+      addLine();
+      addText('Inspection Photos', 14, 'bold');
+      addSpace(0.15);
+
+      const imgWidth = 3.2;
+      const imgHeight = 2.4;
+      const imgsPerRow = 2;
+      const hGap = 0.1;
+
+      for (const group of photosByCategory) {
+        addText(group.label, 12, 'bold');
+        addSpace(0.1);
+
+        const dataUrls = await Promise.all(group.items.map(p => loadImageAsDataUrl(p.photo_url)));
+
+        let col = 0;
+        let rowStartY = yPos;
+        for (let i = 0; i < group.items.length; i++) {
+          const dataUrl = dataUrls[i];
+          if (!dataUrl) { col++; continue; }
+
+          const xPos = margin + col * (imgWidth + hGap);
+          if (yPos + imgHeight > 10.25) {
+            doc.addPage();
+            yPos = margin;
+            rowStartY = yPos;
+          }
+
+          doc.addImage(dataUrl, 'JPEG', xPos, yPos, imgWidth, imgHeight);
+
+          const caption = group.items[i].caption?.trim();
+          if (caption) {
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(80, 80, 80);
+            doc.text(caption, xPos + imgWidth / 2, yPos + imgHeight + 0.12, { align: 'center' });
+            doc.setTextColor(0, 0, 0);
+          }
+
+          col++;
+          if (col >= imgsPerRow) {
+            col = 0;
+            yPos = rowStartY + imgHeight + 0.25;
+            rowStartY = yPos;
+          }
+        }
+
+        if (col > 0) {
+          yPos = rowStartY + imgHeight + 0.25;
+        }
+        addSpace(0.15);
+      }
+    }
+  }
 
   return doc;
 }

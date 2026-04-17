@@ -335,6 +335,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [inspectionLoading, setInspectionLoading] = useState(false);
   const [inspectionSuccess, setInspectionSuccess] = useState(false);
   const [inspectionError, setInspectionError] = useState('');
+  const [inspectionPhotos, setInspectionPhotos] = useState<Array<{
+    file: File;
+    preview: string;
+    category: 'port_prop' | 'starboard_prop' | 'damage' | 'general';
+    caption: string;
+  }>>([]);
+  const [inspectionPhotoUploading, setInspectionPhotoUploading] = useState(false);
   const [adminView, setAdminView] = useState<'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies'>(() => {
     try {
       const stored = localStorage.getItem('adminView');
@@ -5460,6 +5467,28 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     }
   };
 
+  const handleInspectionPhotoAdd = (files: FileList | null, category: 'port_prop' | 'starboard_prop' | 'damage' | 'general') => {
+    if (!files) return;
+    const newPhotos = Array.from(files).map(file => ({
+      file,
+      preview: URL.createObjectURL(file),
+      category,
+      caption: '',
+    }));
+    setInspectionPhotos(prev => [...prev, ...newPhotos]);
+  };
+
+  const handleInspectionPhotoRemove = (index: number) => {
+    setInspectionPhotos(prev => {
+      URL.revokeObjectURL(prev[index].preview);
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+
+  const handleInspectionPhotoCaptionChange = (index: number, caption: string) => {
+    setInspectionPhotos(prev => prev.map((p, i) => i === index ? { ...p, caption } : p));
+  };
+
   const handleInspectionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !selectedYachtForInspection || !selectedMechanicId) return;
@@ -5483,11 +5512,36 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       if (dbError) throw dbError;
 
+      if (inspectionPhotos.length > 0) {
+        setInspectionPhotoUploading(true);
+        const uploadResults = await Promise.allSettled(
+          inspectionPhotos.map(async (photo) => {
+            const fileExt = photo.file.name.split('.').pop() || 'jpg';
+            const filePath = `${user.id}/${insertedInspection.id}/${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
+            const photoUrl = await uploadFileToStorage('inspection-photos', filePath, photo.file);
+            await supabase.from('inspection_photos').insert({
+              inspection_id: insertedInspection.id,
+              photo_url: photoUrl,
+              caption: photo.caption,
+              category: photo.category,
+              company_id: selectedYacht.company_id,
+              created_by: user.id,
+            });
+          })
+        );
+        setInspectionPhotoUploading(false);
+        const failed = uploadResults.filter(r => r.status === 'rejected').length;
+        if (failed > 0) {
+          console.warn(`${failed} photo(s) failed to upload`);
+        }
+      }
+
       await loadAdminNotifications();
 
       setInspectionSuccess(true);
       setSelectedYachtForInspection('');
       setSelectedMechanicId('');
+      setInspectionPhotos([]);
       setInspectionForm({
         hull_condition: 'good',
         hull_notes: '',
@@ -9169,6 +9223,97 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                 </div>
 
                 <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700">
+                  <h3 className="text-lg font-semibold mb-1 flex items-center gap-2">
+                    <Camera className="w-5 h-5 text-amber-400" />
+                    Inspection Photos
+                  </h3>
+                  <p className="text-slate-400 text-sm mb-4">Upload photos from your GoPro or camera roll — props, damage, or general condition.</p>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+                    {(['port_prop', 'starboard_prop', 'damage', 'general'] as const).map((cat) => {
+                      const labels: Record<string, string> = {
+                        port_prop: 'Port Prop',
+                        starboard_prop: 'Stbd Prop',
+                        damage: 'Damage',
+                        general: 'General',
+                      };
+                      const colors: Record<string, string> = {
+                        port_prop: 'border-blue-500/50 hover:border-blue-400',
+                        starboard_prop: 'border-cyan-500/50 hover:border-cyan-400',
+                        damage: 'border-red-500/50 hover:border-red-400',
+                        general: 'border-slate-500/50 hover:border-slate-400',
+                      };
+                      return (
+                        <label key={cat} className={`flex flex-col items-center justify-center gap-1 p-3 rounded-xl border-2 border-dashed cursor-pointer transition-colors ${colors[cat]} bg-slate-900/40`}>
+                          <Camera className="w-5 h-5 text-slate-400" />
+                          <span className="text-xs font-medium text-slate-300">{labels[cat]}</span>
+                          <span className="text-xs text-slate-500">Add Photos</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            className="hidden"
+                            onChange={(e) => handleInspectionPhotoAdd(e.target.files, cat)}
+                          />
+                        </label>
+                      );
+                    })}
+                  </div>
+
+                  {inspectionPhotos.length > 0 && (
+                    <div>
+                      <p className="text-sm font-medium text-slate-300 mb-3">{inspectionPhotos.length} photo{inspectionPhotos.length !== 1 ? 's' : ''} added</p>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        {inspectionPhotos.map((photo, idx) => {
+                          const catLabels: Record<string, string> = {
+                            port_prop: 'Port Prop',
+                            starboard_prop: 'Stbd Prop',
+                            damage: 'Damage',
+                            general: 'General',
+                          };
+                          const catColors: Record<string, string> = {
+                            port_prop: 'bg-blue-500/20 text-blue-300',
+                            starboard_prop: 'bg-cyan-500/20 text-cyan-300',
+                            damage: 'bg-red-500/20 text-red-300',
+                            general: 'bg-slate-500/20 text-slate-300',
+                          };
+                          return (
+                            <div key={idx} className="relative group rounded-xl overflow-hidden border border-slate-700 bg-slate-900/60">
+                              <img
+                                src={photo.preview}
+                                alt={photo.caption || `Photo ${idx + 1}`}
+                                className="w-full h-32 object-cover"
+                              />
+                              <div className="absolute top-1.5 left-1.5">
+                                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${catColors[photo.category]}`}>
+                                  {catLabels[photo.category]}
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleInspectionPhotoRemove(idx)}
+                                className="absolute top-1.5 right-1.5 bg-red-600/80 hover:bg-red-600 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                              <div className="p-2">
+                                <input
+                                  type="text"
+                                  value={photo.caption}
+                                  onChange={(e) => handleInspectionPhotoCaptionChange(idx, e.target.value)}
+                                  placeholder="Add caption..."
+                                  className="w-full text-xs bg-slate-800 border border-slate-600 rounded px-2 py-1 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500"
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700">
                   <h3 className="text-lg font-semibold mb-4">Any Other Issues</h3>
                   <div className="space-y-6">
                     <div>
@@ -9214,11 +9359,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                 <button
                   type="submit"
-                  disabled={inspectionLoading}
+                  disabled={inspectionLoading || inspectionPhotoUploading}
                   className="w-full bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold py-4 rounded-lg transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   <ClipboardCheck className="w-5 h-5" />
-                  {inspectionLoading ? 'Submitting...' : 'Submit Inspection'}
+                  {inspectionPhotoUploading ? 'Uploading Photos...' : inspectionLoading ? 'Submitting...' : `Submit Inspection${inspectionPhotos.length > 0 ? ` (${inspectionPhotos.length} photo${inspectionPhotos.length !== 1 ? 's' : ''})` : ''}`}
                 </button>
               </form>
                 </>
