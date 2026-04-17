@@ -2052,13 +2052,15 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
 
       const { error: uploadError } = await supabase.storage
         .from('estimate-pdfs')
-        .upload(filePath, pdfFile, { upsert: true, cacheControl: '3600' });
+        .upload(filePath, pdfFile, { upsert: true, cacheControl: '0' });
 
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage
+      const { data: { publicUrl: rawPublicUrl } } = supabase.storage
         .from('estimate-pdfs')
         .getPublicUrl(filePath);
+
+      const publicUrl = `${rawPublicUrl}?t=${Date.now()}`;
 
       const totalFormatted = `$${(workOrderData.total_amount || 0).toFixed(2)}`;
       const customerDisplay = workOrderData.customer_name || yachtName || 'Unknown';
