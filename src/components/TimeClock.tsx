@@ -174,7 +174,7 @@ function TimecardAllStaffView() {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Select Employee</h3>
+        <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wide mb-3">Select Employee</h3>
         <div className="flex flex-wrap gap-2 mb-6">
           {users.map((u) => (
             <button

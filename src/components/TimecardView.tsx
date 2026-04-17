@@ -218,7 +218,7 @@ export function TimecardView({ userId, userName }: TimecardViewProps) {
           >
             <ChevronLeft className="w-4 h-4 text-gray-800" />
           </button>
-          <div className="text-sm font-bold text-gray-900 min-w-[200px] text-center">
+          <div className="text-sm font-bold text-white min-w-[200px] text-center">
             {formatDateLabel(periodStart)} &ndash; {formatDateLabel(periodEnd)}
           </div>
           <button
@@ -247,8 +247,8 @@ export function TimecardView({ userId, userName }: TimecardViewProps) {
       </div>
 
       {userName && (
-        <div className="text-sm font-semibold text-gray-800">
-          Viewing timecard for <span className="font-bold text-blue-700">{userName}</span>
+        <div className="text-sm font-semibold text-gray-300">
+          Viewing timecard for <span className="font-bold text-blue-400">{userName}</span>
         </div>
       )}
 
@@ -409,7 +409,7 @@ export function TimecardView({ userId, userName }: TimecardViewProps) {
         </table>
       </div>
 
-      <div className="flex items-center gap-4 text-xs text-gray-700 font-medium">
+      <div className="flex items-center gap-4 text-xs text-gray-300 font-medium">
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 rounded bg-blue-100 border border-blue-400"></div>
           Today
