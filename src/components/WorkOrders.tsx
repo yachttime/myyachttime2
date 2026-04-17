@@ -2424,11 +2424,12 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                 {workOrderRepairRequestIds[currentWorkOrder.id] ? (
                   <button
                     type="button"
-                    disabled
-                    className="px-4 py-2 bg-emerald-600 text-white rounded-lg flex items-center gap-2 text-sm font-medium opacity-80 cursor-default"
+                    onClick={() => { setSendToAdminWorkOrderId(currentWorkOrder.id); setSendWithPartNumbers(false); setShowSendToAdminModal(true); }}
+                    disabled={sendingToAdmin}
+                    className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 text-sm font-medium"
                   >
                     <CheckCircle className="w-4 h-4" />
-                    Sent to Admin
+                    {sendingToAdmin ? 'Sending...' : 'Sent to Admin'}
                   </button>
                 ) : (
                   <button
