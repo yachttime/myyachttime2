@@ -73,6 +73,8 @@ interface Invoice {
   shop_supplies_amount: number | null;
   park_fees_amount: number | null;
   surcharge_amount: number | null;
+  discount_percentage: number | null;
+  discount_amount: number | null;
   manager_name?: string | null;
   company_id?: string | null;
   repair_request_id?: string | null;
@@ -1086,6 +1088,14 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       doc.text(`$${invoice.subtotal.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
       yPos += 0.2;
 
+      if (invoice.discount_amount && invoice.discount_amount > 0) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.text(`Discount (${Number(invoice.discount_percentage ?? 0).toFixed(1)}%):`, totalsX, yPos);
+        doc.text(`-$${invoice.discount_amount.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
+        yPos += 0.2;
+      }
+
       doc.text(`Tax (${(invoice.tax_rate * 100).toFixed(2)}%):`, totalsX, yPos);
       doc.text(`$${invoice.tax_amount.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
       yPos += 0.2;
@@ -1130,7 +1140,9 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
 
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(12);
-      const computedTotal = invoice.subtotal + invoice.tax_amount
+      const computedTotal = invoice.subtotal
+        - (invoice.discount_amount ?? 0)
+        + invoice.tax_amount
         + (invoice.shop_supplies_amount ?? 0)
         + (invoice.park_fees_amount ?? 0)
         + (invoice.surcharge_amount ?? 0)
@@ -1850,9 +1862,14 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       const CHARGE_TYPES = ['shop_supplies', 'park_fees', 'surcharge'];
       const billableItems = editLineItems.filter(i => !i._deleted && !CHARGE_TYPES.includes(i.line_type));
       const newSubtotal = parseFloat(billableItems.reduce((sum, i) => sum + i.quantity * i.unit_price, 0).toFixed(2));
+      const discountAmt = parseFloat((selectedInvoice.discount_amount ?? 0).toFixed(2));
+      const discountedSubtotal = parseFloat(Math.max(0, newSubtotal - discountAmt).toFixed(2));
       const taxableAmount = parseFloat(billableItems.filter(i => i.is_taxable).reduce((sum, i) => sum + i.quantity * i.unit_price, 0).toFixed(2));
-      const taxAmount = parseFloat((taxableAmount * taxRateVal).toFixed(2));
-      const newTotal = parseFloat((newSubtotal + taxAmount + shopSupplies + parkFees + surcharge).toFixed(2));
+      const taxableAfterDiscount = discountedSubtotal > 0 && newSubtotal > 0
+        ? parseFloat((taxableAmount * (discountedSubtotal / newSubtotal)).toFixed(2))
+        : taxableAmount;
+      const taxAmount = parseFloat((taxableAfterDiscount * taxRateVal).toFixed(2));
+      const newTotal = parseFloat((discountedSubtotal + taxAmount + shopSupplies + parkFees + surcharge).toFixed(2));
       const depositApplied = selectedInvoice.deposit_applied ?? 0;
       const amountPaid = selectedInvoice.amount_paid ?? 0;
       const newBalanceDue = Math.max(0, newTotal - depositApplied - amountPaid);
@@ -2599,6 +2616,12 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                     <span className="text-gray-500">Subtotal:</span>
                     <span className="text-gray-900">${selectedInvoice.subtotal.toFixed(2)}</span>
                   </div>
+                  {selectedInvoice.discount_amount && selectedInvoice.discount_amount > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Discount ({Number(selectedInvoice.discount_percentage ?? 0).toFixed(1)}%):</span>
+                      <span className="text-green-600">-${selectedInvoice.discount_amount.toFixed(2)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500">Tax ({(selectedInvoice.tax_rate * 100).toFixed(2)}%):</span>
                     <span className="text-gray-900">${selectedInvoice.tax_amount.toFixed(2)}</span>
@@ -3158,16 +3181,25 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                   const shopSup = parseFloat(editForm.shop_supplies_amount) || 0;
                   const parkFee = parseFloat(editForm.park_fees_amount) || 0;
                   const surchargeAmt = parseFloat(editForm.surcharge_amount) || 0;
+                  const discountAmt = selectedInvoice?.discount_amount ?? 0;
+                  const discountPct = selectedInvoice?.discount_percentage ?? 0;
                   const activeItems = editLineItems.filter(i => !i._deleted && !CHARGE_TYPES.includes(i.line_type));
                   const subtotal = activeItems.reduce((s, i) => s + i.quantity * i.unit_price, 0);
+                  const discountedSubtotal = Math.max(0, subtotal - discountAmt);
                   const taxable = activeItems.filter(i => i.is_taxable).reduce((s, i) => s + i.quantity * i.unit_price, 0);
-                  const tax = taxable * taxRate;
-                  const total = subtotal + tax + shopSup + parkFee + surchargeAmt;
+                  const taxableAfterDiscount = discountedSubtotal > 0 && subtotal > 0 ? taxable * (discountedSubtotal / subtotal) : taxable;
+                  const tax = taxableAfterDiscount * taxRate;
+                  const total = discountedSubtotal + tax + shopSup + parkFee + surchargeAmt;
                   return (
                     <div className="mt-3 bg-gray-50 rounded-lg p-3 text-sm space-y-1">
                       <div className="flex justify-between text-gray-600">
                         <span>Subtotal:</span><span className="font-medium text-gray-900">${subtotal.toFixed(2)}</span>
                       </div>
+                      {discountAmt > 0 && (
+                        <div className="flex justify-between text-green-600">
+                          <span>Discount ({Number(discountPct).toFixed(1)}%):</span><span>-${discountAmt.toFixed(2)}</span>
+                        </div>
+                      )}
                       <div className="flex justify-between text-gray-600">
                         <span>Tax ({editForm.tax_rate}%):</span><span className="font-medium text-gray-900">${tax.toFixed(2)}</span>
                       </div>
