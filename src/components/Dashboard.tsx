@@ -6215,6 +6215,18 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         throw new Error('Update failed: you may not have permission to edit this booking, or the booking was not found.');
       }
 
+      // Also update yacht_booking_owners if the booking uses that legacy system
+      if (editingBooking.yacht_booking_owners && editingBooking.yacht_booking_owners.length > 0) {
+        const primaryOwner = editingBooking.yacht_booking_owners[0];
+        await supabase
+          .from('yacht_booking_owners')
+          .update({
+            owner_name: editBookingForm.owner_name,
+            owner_contact: editBookingForm.owner_contact,
+          })
+          .eq('id', primaryOwner.id);
+      }
+
       const yacht = allYachts.find(y => y.id === editingBooking.yacht_id);
       if (yacht) {
         const userName = userProfile?.first_name && userProfile?.last_name
