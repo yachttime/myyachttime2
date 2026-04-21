@@ -4999,10 +4999,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         .or(`company_id.eq.${selectedCompany.id},company_id.is.null`)
         .order('created_at', { ascending: false });
 
-      // Filter by yacht for managers (but not master, staff, or mechanic)
-      if (isManagerRole(effectiveRole) && effectiveYacht && !isMasterRole(effectiveRole) && !isStaffRole(effectiveRole)) {
-        messagesQuery = messagesQuery.eq('yacht_id', effectiveYacht.id);
-      }
+      // staff_messages does not have a yacht_id column - no yacht filter needed
 
       const { data, error } = await messagesQuery;
 
@@ -6199,14 +6196,6 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       const startDateTime = new Date(`${editBookingForm.start_date}T${editBookingForm.departure_time}:00`);
       const endDateTime = new Date(`${editBookingForm.end_date}T${editBookingForm.arrival_time}:00`);
 
-      console.log('handleUpdateBooking: updating booking id:', editingBooking.id);
-      console.log('handleUpdateBooking: payload:', {
-        owner_name: editBookingForm.owner_name,
-        owner_contact: editBookingForm.owner_contact,
-        start_date: startDateTime.toISOString(),
-        end_date: endDateTime.toISOString(),
-      });
-
       const { data: updatedRows, error } = await supabase
         .from('yacht_bookings')
         .update({
@@ -6217,8 +6206,6 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         })
         .eq('id', editingBooking.id)
         .select();
-
-      console.log('handleUpdateBooking: result:', { updatedRows, error });
 
       if (error) throw error;
       if (!updatedRows || updatedRows.length === 0) {
