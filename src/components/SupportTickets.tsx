@@ -650,7 +650,7 @@ export default function SupportTickets() {
                   <select
                     value={newTicket.category}
                     onChange={(e) => setNewTicket({ ...newTicket, category: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
                   >
                     {CATEGORIES.map(cat => (
                       <option key={cat.value} value={cat.value}>{cat.label}</option>
@@ -665,7 +665,7 @@ export default function SupportTickets() {
                   <select
                     value={newTicket.priority}
                     onChange={(e) => setNewTicket({ ...newTicket, priority: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
                   >
                     {PRIORITIES.map(priority => (
                       <option key={priority.value} value={priority.value}>
@@ -683,7 +683,7 @@ export default function SupportTickets() {
                     type="text"
                     value={newTicket.subject}
                     onChange={(e) => setNewTicket({ ...newTicket, subject: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900"
                     placeholder="Brief description of your issue or question"
                     required
                   />
@@ -697,7 +697,7 @@ export default function SupportTickets() {
                     value={newTicket.message}
                     onChange={(e) => setNewTicket({ ...newTicket, message: e.target.value })}
                     rows={6}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900"
                     placeholder="Please provide as much detail as possible..."
                     required
                   />
