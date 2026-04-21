@@ -594,8 +594,8 @@ export default function SupportTickets() {
                         required
                       />
                       <div className="flex items-center justify-between">
-                        <label className="flex items-center text-sm text-gray-600 cursor-pointer hover:text-gray-900">
-                          <Paperclip className="w-4 h-4 mr-1" />
+                        <label className="flex items-center text-sm text-gray-700 font-medium cursor-pointer hover:text-gray-900">
+                          <Paperclip className="w-4 h-4 mr-1 text-gray-500" />
                           Attach File
                           <input
                             type="file"
@@ -707,9 +707,9 @@ export default function SupportTickets() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Attachment (optional)
                   </label>
-                  <label className="flex items-center justify-center px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500">
-                    <Paperclip className="w-5 h-5 text-gray-400 mr-2" />
-                    <span className="text-sm text-gray-600">
+                  <label className="flex items-center justify-center px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 bg-white">
+                    <Paperclip className="w-5 h-5 text-gray-500 mr-2" />
+                    <span className="text-sm text-gray-700 font-medium">
                       {newTicket.attachment ? newTicket.attachment.name : 'Choose file to upload'}
                     </span>
                     <input
