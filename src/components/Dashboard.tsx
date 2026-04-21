@@ -6128,22 +6128,19 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     const startDate = new Date(booking.start_date);
     const endDate = new Date(booking.end_date);
 
-    // Determine owner name and contact from either yacht_booking_owners or user_profiles
     let ownerName = '';
     let ownerContact = '';
 
     if (booking.yacht_booking_owners && booking.yacht_booking_owners.length > 0) {
-      // Legacy booking with yacht_booking_owners
       ownerName = booking.yacht_booking_owners[0].owner_name || '';
       ownerContact = booking.yacht_booking_owners[0].owner_contact || '';
-    } else if (booking.user_profiles) {
-      // New booking with user_id reference
-      ownerName = `${booking.user_profiles.first_name || ''} ${booking.user_profiles.last_name || ''}`.trim();
-      ownerContact = booking.user_profiles.phone || booking.user_profiles.email || '';
     } else if (booking.owner_name) {
-      // Fallback to direct properties
+      // Prefer explicit owner_name (handles swapped bookings where user_id was cleared)
       ownerName = booking.owner_name;
       ownerContact = booking.owner_contact || '';
+    } else if (booking.user_profiles) {
+      ownerName = `${booking.user_profiles.first_name || ''} ${booking.user_profiles.last_name || ''}`.trim();
+      ownerContact = booking.user_profiles.phone || booking.user_profiles.email || '';
     }
 
     setEditBookingForm({
