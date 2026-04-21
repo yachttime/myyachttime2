@@ -109,6 +109,7 @@ interface WorkOrderLineItem {
 
 export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -258,11 +259,12 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
   async function fetchInvoices() {
     try {
       setLoading(true);
+      setFetchError(null);
       const { data, error } = await supabase
         .from('estimating_invoices')
         .select(`
           *,
-          work_orders!estimating_invoices_work_order_id_fkey(work_order_number, work_title, vessel_id, customer_vessels(vessel_name, manufacturer, model), estimates(manager_name)),
+          work_orders!estimating_invoices_work_order_id_fkey(work_order_number, work_title, vessel_id, customer_vessels(vessel_name, manufacturer, model), estimates!work_orders_estimate_id_fkey(manager_name)),
           yachts!estimating_invoices_yacht_id_fkey(name, manufacturer, model),
           repair_requests!repair_requests_estimating_invoice_id_fkey(id, status, deposit_payment_status)
         `)
@@ -292,8 +294,9 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
 
       setInvoices(formattedInvoices);
       await fetchInvoiceEmployees(formattedInvoices.map(inv => ({ id: inv.id, work_order_id: inv.work_order_id })));
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching invoices:', error);
+      setFetchError(error?.message || 'Failed to load invoices');
     } finally {
       setLoading(false);
     }
@@ -713,8 +716,8 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
 
   const filteredInvoices = invoices.filter(invoice => {
     const matchesSearch =
-      invoice.invoice_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      invoice.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      invoice.invoice_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (invoice.customer_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       invoice.work_order_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       invoice.yacht_name?.toLowerCase().includes(searchTerm.toLowerCase());
 
@@ -1982,6 +1985,23 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-gray-600">Loading invoices...</div>
+      </div>
+    );
+  }
+
+  if (fetchError) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-4">
+        <div className="bg-red-50 border border-red-200 rounded-lg px-6 py-4 text-center max-w-md">
+          <p className="text-red-700 font-medium mb-1">Failed to load invoices</p>
+          <p className="text-red-600 text-sm">{fetchError}</p>
+        </div>
+        <button
+          onClick={fetchInvoices}
+          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+        >
+          Try Again
+        </button>
       </div>
     );
   }
