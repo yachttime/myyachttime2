@@ -6194,22 +6194,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       const startDateTime = new Date(`${editBookingForm.start_date}T${editBookingForm.departure_time}:00`);
       const endDateTime = new Date(`${editBookingForm.end_date}T${editBookingForm.arrival_time}:00`);
 
-      // If the booking was linked to a user profile but the name has been changed (owner swap),
-      // clear the user_id so the booking displays the new owner_name instead of the linked profile
-      const originalName = editingBooking.user_profiles
-        ? `${editingBooking.user_profiles.first_name || ''} ${editingBooking.user_profiles.last_name || ''}`.trim()
-        : null;
-      const nameChanged = originalName !== null && editBookingForm.owner_name.trim() !== originalName;
-
       const updatePayload: Record<string, unknown> = {
         owner_name: editBookingForm.owner_name,
         owner_contact: editBookingForm.owner_contact,
         start_date: startDateTime.toISOString(),
         end_date: endDateTime.toISOString(),
       };
-      if (nameChanged) {
-        updatePayload.user_id = null;
-      }
+      // user_id intentionally kept — owner_name overrides display when set
 
       const { data: updatedRows, error } = await supabase
         .from('yacht_bookings')
