@@ -6199,7 +6199,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       const startDateTime = new Date(`${editBookingForm.start_date}T${editBookingForm.departure_time}:00`);
       const endDateTime = new Date(`${editBookingForm.end_date}T${editBookingForm.arrival_time}:00`);
 
-      const { error } = await supabase
+      const { data: updatedRows, error } = await supabase
         .from('yacht_bookings')
         .update({
           owner_name: editBookingForm.owner_name,
@@ -6207,9 +6207,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           start_date: startDateTime.toISOString(),
           end_date: endDateTime.toISOString(),
         })
-        .eq('id', editingBooking.id);
+        .eq('id', editingBooking.id)
+        .select();
 
       if (error) throw error;
+      if (!updatedRows || updatedRows.length === 0) {
+        throw new Error('Update failed: you may not have permission to edit this booking, or the booking was not found.');
+      }
 
       const yacht = allYachts.find(y => y.id === editingBooking.yacht_id);
       if (yacht) {
@@ -6233,6 +6237,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       setEditingBooking(null);
       await loadMasterCalendar();
     } catch (err: any) {
+      console.error('handleUpdateBooking error:', err);
       setEditBookingError(err.message || 'Failed to update booking');
     } finally {
       setEditBookingLoading(false);
