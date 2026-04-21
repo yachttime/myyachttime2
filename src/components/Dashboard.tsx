@@ -6111,12 +6111,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const getBookingDisplayName = (booking: any): string => {
     if (booking.yacht_booking_owners && booking.yacht_booking_owners.length > 0) {
       return booking.yacht_booking_owners.map((o: any) => o.owner_name).join(', ');
+    } else if (booking.owner_name) {
+      // owner_name takes priority over user_profiles — handles owner swaps where user_id is cleared
+      return booking.owner_name;
     } else if (booking.user_profiles) {
       const firstName = booking.user_profiles.first_name || '';
       const lastName = booking.user_profiles.last_name || '';
       return `${firstName} ${lastName}`.trim() || booking.user_profiles.email || 'Unknown';
-    } else if (booking.owner_name) {
-      return booking.owner_name;
     }
     return 'Unknown';
   };
@@ -6196,14 +6197,26 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       const startDateTime = new Date(`${editBookingForm.start_date}T${editBookingForm.departure_time}:00`);
       const endDateTime = new Date(`${editBookingForm.end_date}T${editBookingForm.arrival_time}:00`);
 
+      // If the booking was linked to a user profile but the name has been changed (owner swap),
+      // clear the user_id so the booking displays the new owner_name instead of the linked profile
+      const originalName = editingBooking.user_profiles
+        ? `${editingBooking.user_profiles.first_name || ''} ${editingBooking.user_profiles.last_name || ''}`.trim()
+        : null;
+      const nameChanged = originalName !== null && editBookingForm.owner_name.trim() !== originalName;
+
+      const updatePayload: Record<string, unknown> = {
+        owner_name: editBookingForm.owner_name,
+        owner_contact: editBookingForm.owner_contact,
+        start_date: startDateTime.toISOString(),
+        end_date: endDateTime.toISOString(),
+      };
+      if (nameChanged) {
+        updatePayload.user_id = null;
+      }
+
       const { data: updatedRows, error } = await supabase
         .from('yacht_bookings')
-        .update({
-          owner_name: editBookingForm.owner_name,
-          owner_contact: editBookingForm.owner_contact,
-          start_date: startDateTime.toISOString(),
-          end_date: endDateTime.toISOString(),
-        })
+        .update(updatePayload)
         .eq('id', editingBooking.id)
         .select();
 
