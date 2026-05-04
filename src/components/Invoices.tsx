@@ -1283,17 +1283,6 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
 
       await supabase.from('estimating_invoices').update({ customer_email: recipientEmail }).eq('id', invoice.id);
 
-      if (activeTab === 'active') {
-        await fetchInvoices();
-      } else {
-        await fetchArchivedInvoices();
-      }
-
-      if (showDetails) {
-        const { data: fresh } = await supabase.from('estimating_invoices').select('*, work_orders!estimating_invoices_work_order_id_fkey(work_order_number), yachts!estimating_invoices_yacht_id_fkey(name)').eq('id', invoice.id).maybeSingle();
-        if (fresh) setSelectedInvoice({ ...fresh, work_order_number: fresh.work_orders?.work_order_number, yacht_name: fresh.yachts?.name });
-      }
-
       let additionalRecipients: { email: string; name?: string }[] = [];
       if (overrideRecipients) {
         additionalRecipients = overrideRecipients
@@ -1317,21 +1306,22 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       const totalRecipients = 1 + additionalRecipients.length;
       showToast(`Payment link generated! Sending email to ${totalRecipients} recipient${totalRecipients !== 1 ? 's' : ''}...`, 'success');
 
-      fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-estimating-invoice-payment-email`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            invoiceId: invoice.id,
-            recipientEmail,
-            additionalRecipients: additionalRecipients.length > 0 ? additionalRecipients : undefined,
-          })
-        }
-      ).then(async (emailResponse) => {
+      try {
+        const emailResponse = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-estimating-invoice-payment-email`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              invoiceId: invoice.id,
+              recipientEmail,
+              additionalRecipients: additionalRecipients.length > 0 ? additionalRecipients : undefined,
+            })
+          }
+        );
         if (!emailResponse.ok) {
           const emailErr = await emailResponse.json().catch(() => ({}));
           console.error('Email send failed:', emailErr);
@@ -1339,10 +1329,21 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
         } else {
           showToast(`Payment email sent to ${totalRecipients} recipient${totalRecipients !== 1 ? 's' : ''}!`, 'success');
         }
-      }).catch((emailErr) => {
+      } catch (emailErr) {
         console.error('Email send error:', emailErr);
         showToast('Payment link created but email failed to send. Use "Email Payment Link" to retry.', 'info');
-      });
+      }
+
+      if (activeTab === 'active') {
+        await fetchInvoices();
+      } else {
+        await fetchArchivedInvoices();
+      }
+
+      if (showDetails) {
+        const { data: fresh } = await supabase.from('estimating_invoices').select('*, work_orders!estimating_invoices_work_order_id_fkey(work_order_number), yachts!estimating_invoices_yacht_id_fkey(name)').eq('id', invoice.id).maybeSingle();
+        if (fresh) setSelectedInvoice({ ...fresh, work_order_number: fresh.work_orders?.work_order_number, yacht_name: fresh.yachts?.name });
+      }
     } catch (error: any) {
       console.error('Error requesting payment:', error);
       showToast(error.message || 'Failed to create payment link. Please try again.', 'error');
@@ -2882,7 +2883,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                                 className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-xs font-semibold transition-all flex items-center gap-1"
                               >
                                 <Mail className="w-3 h-3" />
-                                Email
+                                Resend Email
                               </button>
                             </div>
                           </div>
