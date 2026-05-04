@@ -505,6 +505,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [invoiceBillingManagersLoading, setInvoiceBillingManagersLoading] = useState(false);
   const [invoiceEmailAttachment, setInvoiceEmailAttachment] = useState<File | null>(null);
   const [invoiceEmailPaymentMethod, setInvoiceEmailPaymentMethod] = useState<'card' | 'ach' | 'both'>('card');
+  const [yachtInvoiceCheckModal, setYachtInvoiceCheckModal] = useState<YachtInvoice | null>(null);
+  const [yachtInvoiceCheckForm, setYachtInvoiceCheckForm] = useState({ checkNumber: '', amount: '', notes: '' });
+  const [yachtInvoiceCheckLoading, setYachtInvoiceCheckLoading] = useState(false);
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [selectedRepairForDeposit, setSelectedRepairForDeposit] = useState<RepairRequest | null>(null);
   const [depositForm, setDepositForm] = useState({
@@ -3719,6 +3722,50 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       alert(`Error: ${error.message || 'Failed to update invoice'}`);
     } finally {
       setInvoiceLoading(false);
+    }
+  };
+
+  const handleRecordYachtInvoiceCheckPayment = async () => {
+    if (!yachtInvoiceCheckModal) return;
+    const invoice = yachtInvoiceCheckModal;
+    const amount = parseFloat(yachtInvoiceCheckForm.amount);
+    if (!yachtInvoiceCheckForm.checkNumber.trim()) {
+      showError('Check number is required');
+      return;
+    }
+    if (isNaN(amount) || amount <= 0) {
+      showError('Please enter a valid amount');
+      return;
+    }
+    const invoiceTotal = invoice.invoice_amount_numeric || 0;
+    if (amount > invoiceTotal + 0.01) {
+      showError('Amount cannot exceed the invoice total');
+      return;
+    }
+    setYachtInvoiceCheckLoading(true);
+    try {
+      const { error } = await supabase
+        .from('yacht_invoices')
+        .update({
+          payment_status: 'paid',
+          payment_method: 'check',
+          payment_method_type: 'check',
+          paid_at: new Date().toISOString(),
+        })
+        .eq('id', invoice.id);
+      if (error) throw error;
+      if (invoice.yacht_id) {
+        await loadYachtInvoices(invoice.yacht_id);
+        await loadUnpaidInvoiceCounts([invoice.yacht_id]);
+      }
+      setYachtInvoiceCheckModal(null);
+      setYachtInvoiceCheckForm({ checkNumber: '', amount: '', notes: '' });
+      showSuccess(`Check #${yachtInvoiceCheckForm.checkNumber} recorded — invoice marked as paid`);
+    } catch (err: any) {
+      console.error('Error recording check payment:', err);
+      showError(err.message || 'Failed to record check payment');
+    } finally {
+      setYachtInvoiceCheckLoading(false);
     }
   };
 
@@ -13940,6 +13987,16 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                               {paymentLinkLoading[invoice.id] ? 'Generating...' : 'Generate Payment Link'}
                                             </button>
                                           )}
+                                          <button
+                                            onClick={() => {
+                                              setYachtInvoiceCheckForm({ checkNumber: '', amount: (invoice.invoice_amount_numeric || 0).toFixed(2), notes: '' });
+                                              setYachtInvoiceCheckModal(invoice);
+                                            }}
+                                            className="bg-slate-600 hover:bg-slate-500 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1"
+                                          >
+                                            <FileText className="w-3 h-3" />
+                                            Record Check
+                                          </button>
                                           {invoice.payment_link_url && invoice.payment_status === 'pending' && (
                                             <>
                                               <button
@@ -20167,6 +20224,75 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         }
       />
       <ConfirmDialog />
+
+      {yachtInvoiceCheckModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between p-5 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Record Check Payment</h3>
+              <button onClick={() => setYachtInvoiceCheckModal(null)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Invoice</p>
+                <p className="text-sm font-medium text-gray-900">{yachtInvoiceCheckModal.repair_title}</p>
+                <p className="text-sm text-gray-500">{yachtInvoiceCheckModal.invoice_amount}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Check Number *</label>
+                <input
+                  type="text"
+                  value={yachtInvoiceCheckForm.checkNumber}
+                  onChange={e => setYachtInvoiceCheckForm(f => ({ ...f, checkNumber: e.target.value }))}
+                  placeholder="e.g. 1042"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Amount *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={yachtInvoiceCheckForm.amount}
+                  onChange={e => setYachtInvoiceCheckForm(f => ({ ...f, amount: e.target.value }))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                <input
+                  type="text"
+                  value={yachtInvoiceCheckForm.notes}
+                  onChange={e => setYachtInvoiceCheckForm(f => ({ ...f, notes: e.target.value }))}
+                  placeholder="Optional notes"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <p className="text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                This will mark the invoice as fully paid.
+              </p>
+            </div>
+            <div className="flex gap-3 p-5 border-t border-gray-200">
+              <button
+                onClick={() => setYachtInvoiceCheckModal(null)}
+                className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRecordYachtInvoiceCheckPayment}
+                disabled={yachtInvoiceCheckLoading || !yachtInvoiceCheckForm.checkNumber.trim() || !yachtInvoiceCheckForm.amount}
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {yachtInvoiceCheckLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                {yachtInvoiceCheckLoading ? 'Recording...' : 'Record Payment'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       </main>
     </div>
   );
