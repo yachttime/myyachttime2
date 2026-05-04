@@ -2310,10 +2310,14 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       setInvoiceYachtId(null);
     } else {
       setInvoiceYachtId(yachtId);
+      const promises: Promise<any>[] = [loadYachtBudget(yachtId, selectedInvoiceYear)];
       if (!yachtInvoices[yachtId]) {
-        await loadYachtInvoices(yachtId);
+        promises.push(loadYachtInvoices(yachtId));
       }
-      await loadYachtBudget(yachtId, selectedInvoiceYear);
+      if (!vesselAgreements[yachtId]) {
+        promises.push(loadVesselAgreements(yachtId));
+      }
+      await Promise.all(promises);
     }
   };
 
