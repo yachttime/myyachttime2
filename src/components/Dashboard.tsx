@@ -11746,6 +11746,17 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                     <span>{syncPaymentLoading[invoice.id] ? 'Syncing...' : 'Sync Payment'}</span>
                                                   </button>
                                                 )}
+                                                {invoice.payment_status !== 'paid' && isStaffRole(effectiveRole) && (
+                                                  <button
+                                                    onClick={() => {
+                                                      setYachtInvoiceCheckForm({ checkNumber: '', amount: (invoice.invoice_amount_numeric || 0).toFixed(2), notes: '' });
+                                                      setYachtInvoiceCheckModal(invoice);
+                                                    }}
+                                                    className="px-2 py-1 bg-slate-500/20 text-slate-300 rounded hover:bg-slate-500/30 transition-colors flex items-center gap-1 whitespace-nowrap"
+                                                  >
+                                                    <FileText className="w-3 h-3" /><span>Record Check</span>
+                                                  </button>
+                                                )}
                                               </div>
                                             </div>
                                             {invoice.payment_email_sent_at && (
