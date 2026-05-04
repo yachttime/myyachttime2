@@ -136,6 +136,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
   const [checkPaymentModal, setCheckPaymentModal] = useState(false);
   const [checkPaymentLoading, setCheckPaymentLoading] = useState(false);
+  const [fixDepositLoading, setFixDepositLoading] = useState(false);
   const [checkForm, setCheckForm] = useState({ checkNumber: '', amount: '', depositAccount: '', notes: '' });
   const [invoiceCheckPayments, setInvoiceCheckPayments] = useState<{ id: string; reference_number: string; amount: number; payment_date: string; notes: string | null }[]>([]);
   const [qbBankAccounts, setQbBankAccounts] = useState<{ qbo_account_id: string; account_name: string; account_number: string | null }[]>([]);
@@ -266,7 +267,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
           *,
           work_orders!estimating_invoices_work_order_id_fkey(work_order_number, work_title, vessel_id, customer_vessels(vessel_name, manufacturer, model), estimates!work_orders_estimate_id_fkey(manager_name)),
           yachts!estimating_invoices_yacht_id_fkey(name, manufacturer, model),
-          repair_requests!repair_requests_estimating_invoice_id_fkey(id, status, deposit_payment_status)
+          repair_requests!repair_requests_estimating_invoice_id_fkey(id, status, deposit_payment_status, deposit_amount, deposit_paid_at, deposit_payment_method_type)
         `)
         .eq('archived', false)
         .order('invoice_date', { ascending: false });
@@ -289,6 +290,9 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
           repair_request_id: rr?.id || null,
           repair_request_status: rr?.status || null,
           repair_request_deposit_status: rr?.deposit_payment_status || null,
+          repair_request_deposit_amount: rr?.deposit_amount || null,
+          repair_request_deposit_paid_at: rr?.deposit_paid_at || null,
+          repair_request_deposit_method: rr?.deposit_payment_method_type || null,
         };
       }) || [];
 
@@ -532,25 +536,35 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
         .select(`
           *,
           work_orders!estimating_invoices_work_order_id_fkey(work_order_number, work_title, vessel_id, customer_vessels(vessel_name, manufacturer, model), estimates(manager_name)),
-          yachts!estimating_invoices_yacht_id_fkey(name, manufacturer, model)
+          yachts!estimating_invoices_yacht_id_fkey(name, manufacturer, model),
+          repair_requests!repair_requests_estimating_invoice_id_fkey(id, status, deposit_payment_status, deposit_amount, deposit_paid_at, deposit_payment_method_type)
         `)
         .eq('archived', true)
         .order('invoice_date', { ascending: false });
 
       if (error) throw error;
 
-      const formattedInvoices = data?.map(inv => ({
-        ...inv,
-        work_order_number: inv.work_orders?.work_order_number,
-        work_title: inv.work_orders?.work_title,
-        yacht_name: inv.yachts?.name,
-        yacht_manufacturer: inv.yachts?.manufacturer,
-        yacht_model: inv.yachts?.model,
-        vessel_name: inv.work_orders?.customer_vessels?.vessel_name,
-        vessel_manufacturer: inv.work_orders?.customer_vessels?.manufacturer,
-        vessel_model: inv.work_orders?.customer_vessels?.model,
-        manager_name: inv.work_orders?.estimates?.manager_name || null
-      })) || [];
+      const formattedInvoices = data?.map(inv => {
+        const rr = (inv as any).repair_requests;
+        return {
+          ...inv,
+          work_order_number: inv.work_orders?.work_order_number,
+          work_title: inv.work_orders?.work_title,
+          yacht_name: inv.yachts?.name,
+          yacht_manufacturer: inv.yachts?.manufacturer,
+          yacht_model: inv.yachts?.model,
+          vessel_name: inv.work_orders?.customer_vessels?.vessel_name,
+          vessel_manufacturer: inv.work_orders?.customer_vessels?.manufacturer,
+          vessel_model: inv.work_orders?.customer_vessels?.model,
+          manager_name: inv.work_orders?.estimates?.manager_name || null,
+          repair_request_id: rr?.id || null,
+          repair_request_status: rr?.status || null,
+          repair_request_deposit_status: rr?.deposit_payment_status || null,
+          repair_request_deposit_amount: rr?.deposit_amount || null,
+          repair_request_deposit_paid_at: rr?.deposit_paid_at || null,
+          repair_request_deposit_method: rr?.deposit_payment_method_type || null,
+        };
+      }) || [];
 
       setInvoices(formattedInvoices);
       await fetchInvoiceEmployees(formattedInvoices.map(inv => ({ id: inv.id, work_order_id: inv.work_order_id })));
@@ -1834,6 +1848,49 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
     }
   }
 
+  async function handleFixDeposit(invoice: Invoice) {
+    const depositAmount = (invoice as any).repair_request_deposit_amount;
+    if (!depositAmount || depositAmount <= 0) return;
+    const ok = await confirm({
+      title: 'Apply Deposit from Repair Request',
+      message: `Apply the $${Number(depositAmount).toFixed(2)} deposit collected via the repair request to this invoice? This will reduce the balance due.`
+    });
+    if (!ok) return;
+    setFixDepositLoading(true);
+    try {
+      const newBalanceDue = Math.max(0, invoice.total_amount - depositAmount - (invoice.amount_paid ?? 0));
+      const { error } = await supabase
+        .from('estimating_invoices')
+        .update({
+          deposit_applied: depositAmount,
+          balance_due: newBalanceDue,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', invoice.id);
+      if (error) throw error;
+      showToast(`Deposit of $${Number(depositAmount).toFixed(2)} applied successfully`, 'success');
+      if (activeTab === 'active') await fetchInvoices(); else await fetchArchivedInvoices();
+      const { data: fresh } = await supabase.from('estimating_invoices').select('*, work_orders!estimating_invoices_work_order_id_fkey(work_order_number), yachts!estimating_invoices_yacht_id_fkey(name), repair_requests!repair_requests_estimating_invoice_id_fkey(id, status, deposit_payment_status, deposit_amount, deposit_paid_at, deposit_payment_method_type)').eq('id', invoice.id).maybeSingle();
+      if (fresh) {
+        const rr = (fresh as any).repair_requests;
+        setSelectedInvoice({
+          ...fresh,
+          work_order_number: fresh.work_orders?.work_order_number,
+          yacht_name: fresh.yachts?.name,
+          repair_request_id: rr?.id || null,
+          repair_request_deposit_status: rr?.deposit_payment_status || null,
+          repair_request_deposit_amount: rr?.deposit_amount || null,
+          repair_request_deposit_paid_at: rr?.deposit_paid_at || null,
+          repair_request_deposit_method: rr?.deposit_payment_method_type || null,
+        });
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Failed to apply deposit', 'error');
+    } finally {
+      setFixDepositLoading(false);
+    }
+  }
+
   function handleOpenEdit() {
     if (!selectedInvoice) return;
     const inv = selectedInvoice;
@@ -2705,6 +2762,44 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                   </div>
                 </div>
               </div>
+
+              {/* Repair Request Deposit Mismatch Alert */}
+              {(() => {
+                const rrDepositAmount = (selectedInvoice as any).repair_request_deposit_amount;
+                const rrDepositStatus = (selectedInvoice as any).repair_request_deposit_status;
+                const rrDepositPaidAt = (selectedInvoice as any).repair_request_deposit_paid_at;
+                const rrDepositMethod = (selectedInvoice as any).repair_request_deposit_method;
+                const invoiceDepositApplied = selectedInvoice.deposit_applied ?? 0;
+                const hasMismatch = rrDepositStatus === 'paid' && rrDepositAmount > 0 && invoiceDepositApplied === 0 && selectedInvoice.payment_status !== 'paid';
+                const hasDeposit = rrDepositStatus === 'paid' && rrDepositAmount > 0 && invoiceDepositApplied > 0;
+                if (!rrDepositAmount) return null;
+                return (
+                  <div className={`border rounded-lg p-3 mb-4 ${hasMismatch ? 'border-amber-300 bg-amber-50' : 'border-green-200 bg-green-50'}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className={`text-xs font-semibold ${hasMismatch ? 'text-amber-800' : 'text-green-800'}`}>
+                          {hasMismatch ? 'Deposit Collected via Repair Request — Not Applied' : 'Deposit from Repair Request'}
+                        </p>
+                        <p className={`text-xs mt-0.5 ${hasMismatch ? 'text-amber-700' : 'text-green-700'}`}>
+                          ${Number(rrDepositAmount).toFixed(2)} collected
+                          {rrDepositMethod ? ` via ${rrDepositMethod}` : ''}
+                          {rrDepositPaidAt ? ` on ${new Date(rrDepositPaidAt).toLocaleDateString()}` : ''}
+                          {hasDeposit ? ' · Applied to invoice' : ''}
+                        </p>
+                      </div>
+                      {hasMismatch && (
+                        <button
+                          onClick={() => handleFixDeposit(selectedInvoice)}
+                          disabled={fixDepositLoading}
+                          className="shrink-0 bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded text-xs font-semibold transition-all disabled:opacity-50"
+                        >
+                          {fixDepositLoading ? 'Applying...' : 'Apply Deposit'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Payment Collection Section */}
               <div className="border-t border-gray-200 pt-6">

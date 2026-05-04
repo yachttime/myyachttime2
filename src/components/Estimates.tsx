@@ -40,7 +40,11 @@ interface Estimate {
   deposit_percentage: number | null;
   deposit_amount: number | null;
   archived: boolean;
-  repair_requests?: { id: string; status: string }[];
+  repair_request_deposit_status: string | null;
+  repair_request_deposit_amount: number | null;
+  repair_request_deposit_paid_at: string | null;
+  repair_request_deposit_method: string | null;
+  repair_requests?: { id: string; status: string; deposit_payment_status: string | null; deposit_amount: number | null; deposit_paid_at: string | null; deposit_payment_method_type: string | null }[];
 }
 
 interface EstimateTask {
@@ -185,6 +189,7 @@ export function Estimates({ userId }: EstimatesProps) {
   const [savingNewVessel, setSavingNewVessel] = useState(false);
   const [sendingToAdmin, setSendingToAdmin] = useState(false);
   const [existingRepairRequestId, setExistingRepairRequestId] = useState<string | null>(null);
+  const [repairRequestDeposit, setRepairRequestDeposit] = useState<{ status: string | null; amount: number | null; paid_at: string | null; method: string | null } | null>(null);
 
   useEffect(() => {
     loadData().then(() => {
@@ -237,7 +242,7 @@ export function Estimates({ userId }: EstimatesProps) {
       const [estimatesResult, yachtsResult, managersResult, laborResult, partsResult, mercuryCountResult, settingsResult, packagesResult, customersResult, marineWholesaleResult] = await Promise.all([
         supabase
           .from('estimates')
-          .select('*, yachts(name, manufacturer, model, year), customer_vessels(vessel_name, manufacturer, model, year), repair_requests(id, status)')
+          .select('*, yachts(name, manufacturer, model, year), customer_vessels(vessel_name, manufacturer, model, year), repair_requests(id, status, deposit_payment_status, deposit_amount, deposit_paid_at, deposit_payment_method_type)')
           .neq('status', 'converted')
           .eq('archived', false)
           .order('created_at', { ascending: false }),
@@ -1304,6 +1309,7 @@ export function Estimates({ userId }: EstimatesProps) {
     setEditingTaskIndex(null);
     setExpandedTasks(new Set());
     setExistingRepairRequestId(null);
+    setRepairRequestDeposit(null);
     localStorage.removeItem('estimate_draft');
   };
 
@@ -1497,10 +1503,16 @@ export function Estimates({ userId }: EstimatesProps) {
       // Check if a repair request already exists for this estimate
       const { data: existingRR } = await supabase
         .from('repair_requests')
-        .select('id')
+        .select('id, deposit_payment_status, deposit_amount, deposit_paid_at, deposit_payment_method_type')
         .eq('estimate_id', estimateId)
         .maybeSingle();
       setExistingRepairRequestId(existingRR?.id || null);
+      setRepairRequestDeposit(existingRR ? {
+        status: existingRR.deposit_payment_status,
+        amount: existingRR.deposit_amount,
+        paid_at: existingRR.deposit_paid_at,
+        method: existingRR.deposit_payment_method_type,
+      } : null);
 
       setShowForm(true);
       setLoading(false);
@@ -2009,6 +2021,7 @@ export function Estimates({ userId }: EstimatesProps) {
             setExpandedTasks(new Set());
             localStorage.removeItem('estimate_draft');
             setExistingRepairRequestId(null);
+            setRepairRequestDeposit(null);
             setShowForm(true);
           }}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -2060,15 +2073,32 @@ export function Estimates({ userId }: EstimatesProps) {
                 Print Estimate
               </button>
               {existingRepairRequestId ? (
-                <button
-                  type="button"
-                  onClick={() => handleResendToAdmin(editingId, existingRepairRequestId)}
-                  disabled={sendingToAdmin}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center gap-2 text-sm font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  <CheckCircle className="w-4 h-4" />
-                  {sendingToAdmin ? 'Sending...' : 'Sent to Admin'}
-                </button>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => handleResendToAdmin(editingId, existingRepairRequestId)}
+                    disabled={sendingToAdmin}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center gap-2 text-sm font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    {sendingToAdmin ? 'Sending...' : 'Sent to Admin'}
+                  </button>
+                  {repairRequestDeposit?.status === 'paid' && repairRequestDeposit.amount ? (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-100 text-green-800 border border-green-300 rounded-lg text-xs font-semibold">
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      Deposit Paid ${Number(repairRequestDeposit.amount).toFixed(2)}
+                      {repairRequestDeposit.paid_at && (
+                        <span className="text-green-600 font-normal">
+                          · {new Date(repairRequestDeposit.paid_at).toLocaleDateString()}
+                        </span>
+                      )}
+                    </span>
+                  ) : repairRequestDeposit?.status === 'pending' ? (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-yellow-100 text-yellow-800 border border-yellow-300 rounded-lg text-xs font-semibold">
+                      Deposit Pending
+                    </span>
+                  ) : null}
+                </div>
               ) : (
                 <button
                   type="button"
@@ -3549,6 +3579,11 @@ export function Estimates({ userId }: EstimatesProps) {
                     {estimate.repair_requests && estimate.repair_requests.length > 0 && (
                       <span className="px-2 py-1 text-xs font-medium rounded-full w-fit bg-amber-100 text-amber-800">
                         sent to admin
+                      </span>
+                    )}
+                    {(estimate.repair_request_deposit_status === 'paid' || estimate.repair_requests?.some(r => r.deposit_payment_status === 'paid')) && (
+                      <span className="px-2 py-1 text-xs font-medium rounded-full w-fit bg-green-100 text-green-800">
+                        deposit paid
                       </span>
                     )}
                   </div>

@@ -182,6 +182,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
   const [workOrderToArchive, setWorkOrderToArchive] = useState<string | null>(null);
   const [sendingToAdmin, setSendingToAdmin] = useState(false);
   const [workOrderRepairRequestIds, setWorkOrderRepairRequestIds] = useState<Record<string, string>>({});
+  const [workOrderRRDepositMap, setWorkOrderRRDepositMap] = useState<Record<string, { status: string; amount: number | null; paid_at: string | null; method: string | null }>>({});
   const [showSendToAdminModal, setShowSendToAdminModal] = useState(false);
   const [sendToAdminWorkOrderId, setSendToAdminWorkOrderId] = useState<string | null>(null);
   const [sendWithPartNumbers, setSendWithPartNumbers] = useState(false);
@@ -385,7 +386,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
         const rrQueries: Promise<any>[] = [
           supabase
             .from('repair_requests')
-            .select('id, work_order_id')
+            .select('id, work_order_id, deposit_payment_status, deposit_amount, deposit_paid_at, deposit_payment_method_type')
             .in('work_order_id', workOrderIds)
         ];
 
@@ -393,16 +394,20 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
           rrQueries.push(
             supabase
               .from('repair_requests')
-              .select('id, estimate_id')
+              .select('id, estimate_id, deposit_payment_status, deposit_amount, deposit_paid_at, deposit_payment_method_type')
               .in('estimate_id', estimateIds)
           );
         }
 
         const rrResults = await Promise.all(rrQueries);
         const rrMap: Record<string, string> = {};
+        const rrDepositMap: Record<string, { status: string; amount: number | null; paid_at: string | null; method: string | null }> = {};
 
-        (rrResults[0].data || []).forEach((rr: { id: string; work_order_id: string }) => {
+        (rrResults[0].data || []).forEach((rr: any) => {
           rrMap[rr.work_order_id] = rr.id;
+          if (rr.deposit_payment_status) {
+            rrDepositMap[rr.work_order_id] = { status: rr.deposit_payment_status, amount: rr.deposit_amount, paid_at: rr.deposit_paid_at, method: rr.deposit_payment_method_type };
+          }
         });
 
         if (rrResults[1]) {
@@ -410,14 +415,22 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
           unconvertedWorkOrders.forEach(wo => {
             if (wo.estimate_id) estimateToWO[wo.estimate_id] = wo.id;
           });
-          (rrResults[1].data || []).forEach((rr: { id: string; estimate_id: string }) => {
+          (rrResults[1].data || []).forEach((rr: any) => {
             const woId = estimateToWO[rr.estimate_id];
-            if (woId && !rrMap[woId]) rrMap[woId] = rr.id;
+            if (woId) {
+              if (!rrMap[woId]) rrMap[woId] = rr.id;
+              if (!rrDepositMap[woId] && rr.deposit_payment_status) {
+                rrDepositMap[woId] = { status: rr.deposit_payment_status, amount: rr.deposit_amount, paid_at: rr.deposit_paid_at, method: rr.deposit_payment_method_type };
+              }
+            }
           });
         }
 
         if (Object.keys(rrMap).length > 0) {
           setWorkOrderRepairRequestIds(rrMap);
+        }
+        if (Object.keys(rrDepositMap).length > 0) {
+          setWorkOrderRRDepositMap(rrDepositMap);
         }
       }
 
@@ -3534,6 +3547,15 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                     <p className="text-sm text-gray-700">
                       <span className="font-semibold">Required Amount:</span> ${parseFloat(formData.deposit_amount || String(editingWorkOrder.deposit_amount) || '0').toFixed(2)}
                     </p>
+
+                    {/* Show if deposit came from a repair request */}
+                    {editingWorkOrder.deposit_payment_status === 'paid' && editingWorkOrder.deposit_paid_at && !editingWorkOrder.deposit_payment_link_url && workOrderRepairRequestIds[editingWorkOrder.id] && (
+                      <div className="flex items-center gap-1.5 text-xs text-green-700 bg-green-50 border border-green-200 rounded px-2 py-1.5">
+                        <CheckCircle className="w-3.5 h-3.5 shrink-0 text-green-600" />
+                        Deposit collected via Admin / Repair Request on {new Date(editingWorkOrder.deposit_paid_at).toLocaleDateString()}
+                        {editingWorkOrder.deposit_payment_method_type && ` · ${editingWorkOrder.deposit_payment_method_type}`}
+                      </div>
+                    )}
 
                     {workOrderDeposits.length > 0 && (
                       <div className="mt-2 space-y-1.5">

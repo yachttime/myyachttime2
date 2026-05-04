@@ -13872,6 +13872,38 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                     </div>
                                   )}
 
+                                  {/* Unified Payment Timeline */}
+                                  {(request.deposit_amount || estimatingInvoice) && (
+                                    <div className="mt-3 bg-slate-900/60 border border-slate-600/40 rounded-lg p-3">
+                                      <p className="text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wide">Payment Lifecycle</p>
+                                      <div className="flex items-center gap-1 flex-wrap">
+                                        {/* Step 1: Deposit */}
+                                        <div className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium ${request.deposit_payment_status === 'paid' ? 'bg-green-500/20 text-green-300' : request.deposit_amount ? 'bg-yellow-500/20 text-yellow-300' : 'bg-slate-700/50 text-slate-500'}`}>
+                                          {request.deposit_payment_status === 'paid' ? <CheckCircle className="w-3 h-3" /> : <DollarSign className="w-3 h-3" />}
+                                          Deposit {request.deposit_payment_status === 'paid' ? `$${Number(request.deposit_amount).toFixed(2)}` : request.deposit_amount ? 'Pending' : 'None'}
+                                        </div>
+                                        <span className="text-slate-600 text-xs">→</span>
+                                        {/* Step 2: Work Order */}
+                                        <div className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium ${request.work_order_id ? 'bg-blue-500/20 text-blue-300' : 'bg-slate-700/50 text-slate-500'}`}>
+                                          <ClipboardList className="w-3 h-3" />
+                                          Work Order {request.work_order_id ? 'Created' : 'Pending'}
+                                        </div>
+                                        <span className="text-slate-600 text-xs">→</span>
+                                        {/* Step 3: Invoice */}
+                                        <div className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium ${estimatingInvoice?.payment_status === 'paid' ? 'bg-green-500/20 text-green-300' : estimatingInvoice ? 'bg-amber-500/20 text-amber-300' : 'bg-slate-700/50 text-slate-500'}`}>
+                                          <Receipt className="w-3 h-3" />
+                                          {estimatingInvoice ? (estimatingInvoice.payment_status === 'paid' ? `Paid $${Number(estimatingInvoice.total_amount - (estimatingInvoice.deposit_applied ?? 0)).toFixed(2)}` : `Invoice $${Number(estimatingInvoice.balance_due ?? estimatingInvoice.total_amount).toFixed(2)} due`) : 'Invoice Pending'}
+                                        </div>
+                                      </div>
+                                      {estimatingInvoice && estimatingInvoice.payment_status !== 'paid' && request.deposit_payment_status === 'paid' && estimatingInvoice.deposit_applied === 0 && (
+                                        <p className="text-xs text-amber-400 mt-2 flex items-center gap-1">
+                                          <AlertCircle className="w-3 h-3 shrink-0" />
+                                          Deposit collected but not applied to invoice — open invoice to fix
+                                        </p>
+                                      )}
+                                    </div>
+                                  )}
+
                                   {invoice && !estimatingInvoice && (
                                     <div className="mt-4 bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/30 rounded-lg p-4">
                                       <div className="flex items-center gap-2 mb-3">
