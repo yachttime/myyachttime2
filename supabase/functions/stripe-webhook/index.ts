@@ -822,6 +822,89 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    // ── ACH async payment succeeded (fires after checkout.session.completed for bank transfers)
+    if (event.type === 'checkout.session.async_payment_succeeded') {
+      const session = event.data.object;
+      const invoiceId = session.metadata?.invoice_id;
+      const paymentType = session.metadata?.payment_type;
+      const yachtId = session.metadata?.yacht_id;
+
+      if (paymentType === 'estimating_invoice_payment' && invoiceId) {
+        const { data: existingInvoice } = await supabase
+          .from('estimating_invoices')
+          .select('payment_status, balance_due, amount_paid, total_amount, deposit_applied, customer_email, customer_name, invoice_number, company_id, final_payment_stripe_payment_intent_id, final_payment_stripe_checkout_session_id')
+          .eq('id', invoiceId)
+          .single();
+
+        if (existingInvoice && existingInvoice.payment_status !== 'paid') {
+          const amountPaid = (session.amount_total || 0) / 100;
+          const paymentIntentId = session.payment_intent;
+          const newAmountPaid = (existingInvoice.amount_paid || 0) + amountPaid;
+          const newBalanceDue = Math.max(0, existingInvoice.total_amount - (existingInvoice.deposit_applied || 0) - newAmountPaid);
+          const newPaymentStatus = newBalanceDue <= 0 ? 'paid' : 'partial';
+
+          await supabase.from('estimating_invoices').update({
+            amount_paid: newAmountPaid,
+            balance_due: newBalanceDue,
+            payment_status: newPaymentStatus,
+            final_payment_stripe_payment_intent_id: paymentIntentId || null,
+            final_payment_paid_at: new Date().toISOString(),
+            final_payment_method_type: 'ach',
+            updated_at: new Date().toISOString(),
+          }).eq('id', invoiceId);
+
+          if (existingInvoice.final_payment_stripe_checkout_session_id) {
+            await deactivatePaymentLink(stripeSecretKey, existingInvoice.final_payment_stripe_checkout_session_id);
+          }
+
+          await supabase.from('admin_notifications').insert({
+            message: `ACH payment received for Invoice ${existingInvoice.invoice_number} - $${amountPaid.toFixed(2)} ${newPaymentStatus === 'paid' ? '(PAID IN FULL)' : ''}`,
+            yacht_id: yachtId || null,
+            reference_id: invoiceId,
+            created_at: new Date().toISOString(),
+          });
+        }
+      }
+
+      // ACH deposit for repair request
+      if (paymentType === 'deposit' && session.metadata?.repair_request_id) {
+        const repairRequestId = session.metadata.repair_request_id;
+        const { data: existingRequest } = await supabase
+          .from('repair_requests')
+          .select('deposit_payment_status')
+          .eq('id', repairRequestId)
+          .single();
+
+        if (existingRequest && existingRequest.deposit_payment_status !== 'paid') {
+          await supabase.from('repair_requests').update({
+            deposit_payment_status: 'paid',
+            deposit_paid_at: new Date().toISOString(),
+            deposit_stripe_payment_intent_id: session.payment_intent || null,
+            updated_at: new Date().toISOString(),
+          }).eq('id', repairRequestId);
+        }
+      }
+
+      // ACH deposit for work order
+      if (paymentType === 'work_order_deposit' && session.metadata?.work_order_id) {
+        const workOrderId = session.metadata.work_order_id;
+        const { data: existingWO } = await supabase
+          .from('work_orders')
+          .select('deposit_payment_status')
+          .eq('id', workOrderId)
+          .single();
+
+        if (existingWO && existingWO.deposit_payment_status !== 'paid') {
+          await supabase.from('work_orders').update({
+            deposit_payment_status: 'paid',
+            deposit_paid_at: new Date().toISOString(),
+            deposit_stripe_payment_intent_id: session.payment_intent || null,
+            updated_at: new Date().toISOString(),
+          }).eq('id', workOrderId);
+        }
+      }
+    }
+
     // ── Backup: payment_intent.succeeded ───────────────────────────────────
     if (event.type === 'payment_intent.succeeded') {
       const paymentIntent = event.data.object;
