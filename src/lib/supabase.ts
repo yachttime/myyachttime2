@@ -371,6 +371,9 @@ export interface YachtInvoice {
   payment_confirmation_email_sent_at?: string;
   payment_confirmation_resend_id?: string;
   payment_email_recipient?: string;
+  payment_method_type?: string;
+  qbo_invoice_id?: string;
+  qbo_synced_at?: string;
   created_at: string;
   updated_at: string;
   yachts?: {

@@ -508,6 +508,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [yachtInvoiceCheckModal, setYachtInvoiceCheckModal] = useState<YachtInvoice | null>(null);
   const [yachtInvoiceCheckForm, setYachtInvoiceCheckForm] = useState({ checkNumber: '', amount: '', notes: '' });
   const [yachtInvoiceCheckLoading, setYachtInvoiceCheckLoading] = useState(false);
+  const [qbPushLoading, setQbPushLoading] = useState<{ [invoiceId: string]: boolean }>({});
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [selectedRepairForDeposit, setSelectedRepairForDeposit] = useState<RepairRequest | null>(null);
   const [depositForm, setDepositForm] = useState({
@@ -3766,6 +3767,39 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       showError(err.message || 'Failed to record check payment');
     } finally {
       setYachtInvoiceCheckLoading(false);
+    }
+  };
+
+  const handlePushYachtInvoiceToQB = async (invoice: YachtInvoice) => {
+    const encryptedSession = localStorage.getItem('quickbooks_encrypted_session');
+    if (!encryptedSession) {
+      showError('QuickBooks session not found. Please go to QuickBooks settings and reconnect.');
+      return;
+    }
+    setQbPushLoading(prev => ({ ...prev, [invoice.id]: true }));
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/quickbooks-push-invoice`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+          'Apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({ invoiceId: invoice.id, encrypted_session: encryptedSession }),
+      });
+      const result = await response.json();
+      if (!response.ok || result.error) throw new Error(result.error || 'Failed to push to QuickBooks');
+      if (result.encrypted_session) {
+        localStorage.setItem('quickbooks_encrypted_session', result.encrypted_session);
+      }
+      if (invoice.yacht_id) await loadYachtInvoices(invoice.yacht_id);
+      showSuccess('Invoice pushed to QuickBooks successfully');
+    } catch (err: any) {
+      showError(err.message || 'Failed to push to QuickBooks');
+    } finally {
+      setQbPushLoading(prev => ({ ...prev, [invoice.id]: false }));
     }
   };
 
@@ -11757,6 +11791,22 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                     <FileText className="w-3 h-3" /><span>Record Check</span>
                                                   </button>
                                                 )}
+                                                {invoice.payment_status === 'paid' && isStaffRole(effectiveRole) && (
+                                                  invoice.qbo_invoice_id ? (
+                                                    <span className="px-2 py-1 bg-green-500/20 text-green-400 rounded flex items-center gap-1 whitespace-nowrap text-xs">
+                                                      <CheckCircle className="w-3 h-3" /><span>In QB</span>
+                                                    </span>
+                                                  ) : (
+                                                    <button
+                                                      onClick={() => handlePushYachtInvoiceToQB(invoice)}
+                                                      disabled={qbPushLoading[invoice.id]}
+                                                      className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded hover:bg-blue-500/30 transition-colors flex items-center gap-1 whitespace-nowrap disabled:opacity-50"
+                                                    >
+                                                      <RefreshCw className={`w-3 h-3 ${qbPushLoading[invoice.id] ? 'animate-spin' : ''}`} />
+                                                      <span>{qbPushLoading[invoice.id] ? 'Pushing...' : 'Push to QB'}</span>
+                                                    </button>
+                                                  )
+                                                )}
                                               </div>
                                             </div>
                                             {invoice.payment_email_sent_at && (
@@ -14035,6 +14085,25 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                 {deletePaymentLinkLoading[invoice.id] ? 'Deleting...' : 'Delete Payment Link'}
                                               </button>
                                             </>
+                                          )}
+                                        </div>
+                                      )}
+                                      {invoice.payment_status === 'paid' && isStaffRole(effectiveRole) && (
+                                        <div className="mt-3 pt-3 border-t border-emerald-500/20">
+                                          {invoice.qbo_invoice_id ? (
+                                            <div className="flex items-center gap-2 text-green-400 text-xs">
+                                              <CheckCircle className="w-4 h-4" />
+                                              <span>Synced to QuickBooks{invoice.qbo_synced_at ? ` on ${new Date(invoice.qbo_synced_at).toLocaleDateString()}` : ''}</span>
+                                            </div>
+                                          ) : (
+                                            <button
+                                              onClick={() => handlePushYachtInvoiceToQB(invoice)}
+                                              disabled={qbPushLoading[invoice.id]}
+                                              className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-2 disabled:opacity-50"
+                                            >
+                                              <RefreshCw className={`w-3 h-3 ${qbPushLoading[invoice.id] ? 'animate-spin' : ''}`} />
+                                              {qbPushLoading[invoice.id] ? 'Pushing to QuickBooks...' : 'Push to QuickBooks'}
+                                            </button>
                                           )}
                                         </div>
                                       )}
