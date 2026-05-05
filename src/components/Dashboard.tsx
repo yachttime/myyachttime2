@@ -11141,30 +11141,59 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   <div key={agreement.id} className="bg-slate-900/50 rounded-lg p-3 text-xs">
                                     <div className="flex items-start justify-between gap-2">
                                       <div className="flex-1">
-                                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                          <FileSignature className="w-3 h-3 text-cyan-400" />
-                                          <span className="text-slate-300 font-medium">{agreement.season_name}</span>
-                                          <span className={`px-2 py-0.5 rounded text-xs font-semibold ${getAgreementStatusColor(agreement.status)}`}>
-                                            {getAgreementStatusLabel(agreement.status)}
-                                          </span>
-                                          {agreement.status === 'pending_approval' && !agreement.staff_signature_date && canManageYacht(effectiveRole) && (
-                                            <span className="px-2 py-0.5 bg-orange-500/20 text-orange-400 rounded text-xs font-semibold">
-                                              Needs AZ Marine Signature
-                                            </span>
-                                          )}
-                                        </div>
-                                        <div className="text-slate-500 space-y-1">
-                                          <p>Period: {agreement.start_date ? new Date(agreement.start_date).toLocaleDateString() : 'TBD'} - {agreement.end_date ? new Date(agreement.end_date).toLocaleDateString() : 'TBD'}</p>
-                                          {agreement.submitted_at && (
-                                            <p>Submitted: {new Date(agreement.submitted_at).toLocaleString()}</p>
-                                          )}
-                                          {agreement.approved_at && agreement.status === 'approved' && (
-                                            <p className="text-emerald-500">Approved: {new Date(agreement.approved_at).toLocaleString()}</p>
-                                          )}
-                                          {agreement.rejection_reason && agreement.status === 'rejected' && (
-                                            <p className="text-red-500">Reason: {agreement.rejection_reason}</p>
-                                          )}
-                                        </div>
+                                        {(() => {
+                                          const vmaInvoice = (yachtInvoices[yacht.id] || []).find((yi: any) => yi.vessel_management_agreement_id === agreement.id);
+                                          return (
+                                            <>
+                                              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                                <FileSignature className="w-3 h-3 text-cyan-400" />
+                                                <span className="text-slate-300 font-medium">{agreement.season_name}</span>
+                                                <span className={`px-2 py-0.5 rounded text-xs font-semibold ${getAgreementStatusColor(agreement.status)}`}>
+                                                  {getAgreementStatusLabel(agreement.status)}
+                                                </span>
+                                                {agreement.status === 'approved' && vmaInvoice && (
+                                                  <>
+                                                    {vmaInvoice.payment_status === 'paid' && (
+                                                      <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded text-xs font-semibold">Invoice Paid</span>
+                                                    )}
+                                                    {vmaInvoice.payment_status === 'pending' && (
+                                                      <span className="px-2 py-0.5 bg-red-500/20 text-red-400 rounded text-xs font-semibold flex items-center gap-1">
+                                                        <AlertCircle className="w-3 h-3" />
+                                                        Invoice Unpaid — ${Number(vmaInvoice.invoice_amount_numeric).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                                      </span>
+                                                    )}
+                                                    {vmaInvoice.payment_status === 'processing' && (
+                                                      <span className="px-2 py-0.5 bg-orange-500/20 text-orange-400 rounded text-xs font-semibold flex items-center gap-1">
+                                                        <RefreshCw className="w-3 h-3" />
+                                                        Payment Processing — ${Number(vmaInvoice.invoice_amount_numeric).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                                      </span>
+                                                    )}
+                                                  </>
+                                                )}
+                                                {agreement.status === 'approved' && !vmaInvoice && (
+                                                  <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 rounded text-xs font-semibold">No Invoice</span>
+                                                )}
+                                                {agreement.status === 'pending_approval' && !agreement.staff_signature_date && canManageYacht(effectiveRole) && (
+                                                  <span className="px-2 py-0.5 bg-orange-500/20 text-orange-400 rounded text-xs font-semibold">
+                                                    Needs AZ Marine Signature
+                                                  </span>
+                                                )}
+                                              </div>
+                                              <div className="text-slate-500 space-y-1">
+                                                <p>Period: {agreement.start_date ? new Date(agreement.start_date).toLocaleDateString() : 'TBD'} - {agreement.end_date ? new Date(agreement.end_date).toLocaleDateString() : 'TBD'}</p>
+                                                {agreement.submitted_at && (
+                                                  <p>Submitted: {new Date(agreement.submitted_at).toLocaleString()}</p>
+                                                )}
+                                                {agreement.approved_at && agreement.status === 'approved' && (
+                                                  <p className="text-emerald-500">Approved: {new Date(agreement.approved_at).toLocaleString()}</p>
+                                                )}
+                                                {agreement.rejection_reason && agreement.status === 'rejected' && (
+                                                  <p className="text-red-500">Reason: {agreement.rejection_reason}</p>
+                                                )}
+                                              </div>
+                                            </>
+                                          );
+                                        })()}
                                       </div>
                                       <div className="flex flex-col gap-1">
                                         {agreement.status === 'draft' && (isOwnerRole(effectiveRole) || canManageYacht(effectiveRole)) && (
@@ -11245,7 +11274,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                       : userProfile?.email || 'Unknown'
                                                   );
 
-                                                  setTimeout(() => { loadVesselAgreements(yacht.id); loadAgreementSummaries(); loadYachtInvoices(yacht.id); }, 500);
+                                                  setTimeout(() => { loadVesselAgreements(yacht.id); loadAgreementSummaries(); loadYachtInvoices(yacht.id); loadUnpaidInvoiceCounts([yacht.id]); }, 500);
                                                 } catch (err: any) {
                                                   alert(`Failed to approve agreement: ${err.message}`);
                                                   await loadVesselAgreements(yacht.id);
