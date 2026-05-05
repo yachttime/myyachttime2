@@ -135,11 +135,25 @@ Deno.serve(async (req: Request) => {
       .maybeSingle();
 
     // Try to find the email in estimating_invoices (final payment emails)
-    const { data: estimatingInvoice } = await supabase
+    // Check both the legacy single-id field and the new per-recipient ids array
+    let estimatingInvoice = null;
+    const { data: estimatingInvoiceSingle } = await supabase
       .from('estimating_invoices')
       .select('*')
       .eq('final_payment_resend_email_id', event.data.email_id)
       .maybeSingle();
+    if (estimatingInvoiceSingle) {
+      estimatingInvoice = estimatingInvoiceSingle;
+    } else {
+      const { data: estimatingInvoiceBatch } = await supabase
+        .from('estimating_invoices')
+        .select('*')
+        .contains('final_payment_resend_email_ids', [event.data.email_id])
+        .maybeSingle();
+      if (estimatingInvoiceBatch) {
+        estimatingInvoice = estimatingInvoiceBatch;
+      }
+    }
 
     // Try to find the email in staff_messages (by single ID or batch ID array)
     let staffMessage = null;
@@ -363,30 +377,72 @@ Deno.serve(async (req: Request) => {
     if (estimatingInvoice) {
       const estimatingUpdateData: Record<string, any> = {};
 
+      // Determine which recipient this event is for
+      // event.data.to is an array of recipient addresses in Resend webhooks
+      const eventRecipient: string | null = Array.isArray(event.data.to)
+        ? event.data.to[0]
+        : (event.data.to || null);
+
+      // Build updated per-recipient engagement map
+      const currentEngagement: Record<string, any> = estimatingInvoice.final_payment_recipient_engagement || {};
+      if (eventRecipient) {
+        if (!currentEngagement[eventRecipient]) {
+          currentEngagement[eventRecipient] = {};
+        }
+      }
+
       switch (event.type) {
         case 'email.delivered':
+          // Global: set first-delivery timestamp
           if (!estimatingInvoice.final_payment_email_delivered_at) {
             estimatingUpdateData.final_payment_email_delivered_at = eventTimestamp;
+          }
+          // Per-recipient
+          if (eventRecipient && !currentEngagement[eventRecipient].delivered_at) {
+            currentEngagement[eventRecipient].delivered_at = eventTimestamp;
+            estimatingUpdateData.final_payment_recipient_engagement = currentEngagement;
           }
           break;
 
         case 'email.opened':
+          // Global: set first-open timestamp
           if (!estimatingInvoice.final_payment_email_opened_at) {
             estimatingUpdateData.final_payment_email_opened_at = eventTimestamp;
           }
           estimatingUpdateData.email_open_count = (estimatingInvoice.email_open_count || 0) + 1;
+          // Per-recipient
+          if (eventRecipient) {
+            if (!currentEngagement[eventRecipient].opened_at) {
+              currentEngagement[eventRecipient].opened_at = eventTimestamp;
+            }
+            currentEngagement[eventRecipient].open_count = (currentEngagement[eventRecipient].open_count || 0) + 1;
+            estimatingUpdateData.final_payment_recipient_engagement = currentEngagement;
+          }
           break;
 
         case 'email.clicked':
+          // Global: set first-click timestamp
           if (!estimatingInvoice.final_payment_email_clicked_at) {
             estimatingUpdateData.final_payment_email_clicked_at = eventTimestamp;
           }
           estimatingUpdateData.email_click_count = (estimatingInvoice.email_click_count || 0) + 1;
+          // Per-recipient
+          if (eventRecipient) {
+            if (!currentEngagement[eventRecipient].clicked_at) {
+              currentEngagement[eventRecipient].clicked_at = eventTimestamp;
+            }
+            currentEngagement[eventRecipient].click_count = (currentEngagement[eventRecipient].click_count || 0) + 1;
+            estimatingUpdateData.final_payment_recipient_engagement = currentEngagement;
+          }
           break;
 
         case 'email.bounced':
           if (!estimatingInvoice.final_payment_email_bounced_at) {
             estimatingUpdateData.final_payment_email_bounced_at = eventTimestamp;
+          }
+          if (eventRecipient && !currentEngagement[eventRecipient].bounced_at) {
+            currentEngagement[eventRecipient].bounced_at = eventTimestamp;
+            estimatingUpdateData.final_payment_recipient_engagement = currentEngagement;
           }
           break;
       }

@@ -2885,71 +2885,122 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                           <div className="mt-3 pt-3 border-t border-green-200">
                             <p className="text-xs font-semibold text-gray-700 mb-2">Email Engagement</p>
                             <div className="space-y-1">
-                              {(() => {
-                                const allRecipients =
-                                  selectedInvoice.final_payment_email_all_recipients?.length
-                                    ? selectedInvoice.final_payment_email_all_recipients
-                                    : selectedInvoice.payment_email_all_recipients?.length
-                                    ? selectedInvoice.payment_email_all_recipients
-                                    : null;
-                                return allRecipients ? (
-                                  <div className="flex flex-col gap-1 mb-2">
-                                    {allRecipients.map((addr, i) => (
-                                      <div key={i} className="flex items-center gap-2 text-xs text-blue-600">
-                                        <Mail className="w-3 h-3 flex-shrink-0" />
-                                        <span className="font-medium">To: {addr}</span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : emailRecipient ? (
-                                  <div className="flex items-center gap-2 text-xs text-blue-600 mb-2">
-                                    <Mail className="w-3 h-3" />
-                                    <span className="font-medium">To: {emailRecipient}</span>
-                                  </div>
-                                ) : null;
-                              })()}
                               <div className="flex items-center gap-2 text-xs text-gray-500">
                                 <Mail className="w-3 h-3 text-blue-500" />
                                 <span>Sent: {new Date(emailSentAt).toLocaleDateString()} at {new Date(emailSentAt).toLocaleTimeString()}</span>
                               </div>
-                              {emailDeliveredAt && (
-                                <div className="flex items-center gap-2 text-xs text-green-600">
-                                  <CheckCircle className="w-3 h-3" />
-                                  <span>Delivered: {new Date(emailDeliveredAt).toLocaleDateString()} at {new Date(emailDeliveredAt).toLocaleTimeString()}</span>
-                                </div>
-                              )}
-                              {emailOpenedAt && (
-                                <div className="flex items-center gap-2 text-xs text-blue-600">
-                                  <Eye className="w-3 h-3" />
-                                  <span>Opened: {new Date(emailOpenedAt).toLocaleDateString()} at {new Date(emailOpenedAt).toLocaleTimeString()}</span>
-                                  {(selectedInvoice.email_open_count ?? 0) > 1 && (
-                                    <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-semibold">
-                                      {selectedInvoice.email_open_count}x
-                                    </span>
-                                  )}
-                                </div>
-                              )}
-                              {emailClickedAt && (
-                                <div className="flex items-center gap-2 text-xs text-blue-700">
-                                  <MousePointer className="w-3 h-3" />
-                                  <span>Clicked: {new Date(emailClickedAt).toLocaleDateString()} at {new Date(emailClickedAt).toLocaleTimeString()}</span>
-                                  {(selectedInvoice.email_click_count ?? 0) > 1 && (
-                                    <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-semibold">
-                                      {selectedInvoice.email_click_count}x
-                                    </span>
-                                  )}
-                                </div>
-                              )}
+                              {(() => {
+                                const allRecipients: string[] =
+                                  (selectedInvoice as any).final_payment_email_all_recipients?.length
+                                    ? (selectedInvoice as any).final_payment_email_all_recipients
+                                    : (selectedInvoice as any).payment_email_all_recipients?.length
+                                    ? (selectedInvoice as any).payment_email_all_recipients
+                                    : emailRecipient ? [emailRecipient] : [];
+
+                                const perRecipient: Record<string, any> =
+                                  (selectedInvoice as any).final_payment_recipient_engagement || {};
+                                const hasPerRecipient = Object.keys(perRecipient).length > 0;
+
+                                if (hasPerRecipient || allRecipients.length > 1) {
+                                  // Per-recipient engagement rows
+                                  return (
+                                    <div className="mt-1 space-y-2">
+                                      {allRecipients.map((addr, i) => {
+                                        const eng = perRecipient[addr] || {};
+                                        return (
+                                          <div key={i} className="bg-gray-50 border border-gray-200 rounded p-2 space-y-1">
+                                            <div className="flex items-center gap-1.5 text-xs text-blue-600 font-medium">
+                                              <Mail className="w-3 h-3 flex-shrink-0" />
+                                              {addr}
+                                            </div>
+                                            {eng.delivered_at ? (
+                                              <div className="flex items-center gap-1.5 text-xs text-green-600 pl-4">
+                                                <CheckCircle className="w-3 h-3" />
+                                                <span>Delivered: {new Date(eng.delivered_at).toLocaleDateString()} at {new Date(eng.delivered_at).toLocaleTimeString()}</span>
+                                              </div>
+                                            ) : (
+                                              <div className="flex items-center gap-1.5 text-xs text-gray-400 pl-4">
+                                                <CheckCircle className="w-3 h-3" />
+                                                <span>Not yet delivered</span>
+                                              </div>
+                                            )}
+                                            {eng.opened_at && (
+                                              <div className="flex items-center gap-1.5 text-xs text-blue-600 pl-4">
+                                                <Eye className="w-3 h-3" />
+                                                <span>Opened: {new Date(eng.opened_at).toLocaleDateString()} at {new Date(eng.opened_at).toLocaleTimeString()}</span>
+                                                {(eng.open_count ?? 0) > 1 && (
+                                                  <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-xs font-semibold">{eng.open_count}x</span>
+                                                )}
+                                              </div>
+                                            )}
+                                            {eng.clicked_at && (
+                                              <div className="flex items-center gap-1.5 text-xs text-blue-700 pl-4">
+                                                <MousePointer className="w-3 h-3" />
+                                                <span>Clicked: {new Date(eng.clicked_at).toLocaleDateString()} at {new Date(eng.clicked_at).toLocaleTimeString()}</span>
+                                                {(eng.click_count ?? 0) > 1 && (
+                                                  <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-xs font-semibold">{eng.click_count}x</span>
+                                                )}
+                                              </div>
+                                            )}
+                                            {eng.bounced_at && (
+                                              <div className="flex items-center gap-1.5 text-xs text-red-600 pl-4">
+                                                <AlertCircle className="w-3 h-3" />
+                                                <span>Bounced: {new Date(eng.bounced_at).toLocaleDateString()} at {new Date(eng.bounced_at).toLocaleTimeString()}</span>
+                                              </div>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  );
+                                }
+
+                                // Single-recipient fallback (legacy records)
+                                return (
+                                  <>
+                                    {emailRecipient && (
+                                      <div className="flex items-center gap-2 text-xs text-blue-600">
+                                        <Mail className="w-3 h-3 flex-shrink-0" />
+                                        <span className="font-medium">To: {emailRecipient}</span>
+                                      </div>
+                                    )}
+                                    {emailDeliveredAt && (
+                                      <div className="flex items-center gap-2 text-xs text-green-600">
+                                        <CheckCircle className="w-3 h-3" />
+                                        <span>Delivered: {new Date(emailDeliveredAt).toLocaleDateString()} at {new Date(emailDeliveredAt).toLocaleTimeString()}</span>
+                                      </div>
+                                    )}
+                                    {emailOpenedAt && (
+                                      <div className="flex items-center gap-2 text-xs text-blue-600">
+                                        <Eye className="w-3 h-3" />
+                                        <span>Opened: {new Date(emailOpenedAt).toLocaleDateString()} at {new Date(emailOpenedAt).toLocaleTimeString()}</span>
+                                        {(selectedInvoice.email_open_count ?? 0) > 1 && (
+                                          <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-semibold">{selectedInvoice.email_open_count}x</span>
+                                        )}
+                                      </div>
+                                    )}
+                                    {emailClickedAt && (
+                                      <div className="flex items-center gap-2 text-xs text-blue-700">
+                                        <MousePointer className="w-3 h-3" />
+                                        <span>Clicked: {new Date(emailClickedAt).toLocaleDateString()} at {new Date(emailClickedAt).toLocaleTimeString()}</span>
+                                        {(selectedInvoice.email_click_count ?? 0) > 1 && (
+                                          <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-semibold">{selectedInvoice.email_click_count}x</span>
+                                        )}
+                                      </div>
+                                    )}
+                                    {emailBouncedAt && (
+                                      <div className="flex items-center gap-2 text-xs text-red-600">
+                                        <AlertCircle className="w-3 h-3" />
+                                        <span>Bounced: {new Date(emailBouncedAt).toLocaleDateString()} at {new Date(emailBouncedAt).toLocaleTimeString()}</span>
+                                      </div>
+                                    )}
+                                  </>
+                                );
+                              })()}
                               {selectedInvoice.payment_status === 'paid' && confirmationEmailSentAt && (
                                 <div className="flex items-center gap-2 text-xs text-green-600 pt-2 border-t border-green-200 mt-2">
                                   <CheckCircle className="w-3 h-3" />
                                   <span className="font-medium">Payment Confirmation Sent: {new Date(confirmationEmailSentAt).toLocaleDateString()} at {new Date(confirmationEmailSentAt).toLocaleTimeString()}</span>
-                                </div>
-                              )}
-                              {emailBouncedAt && (
-                                <div className="flex items-center gap-2 text-xs text-red-600">
-                                  <AlertCircle className="w-3 h-3" />
-                                  <span>Bounced: {new Date(emailBouncedAt).toLocaleDateString()} at {new Date(emailBouncedAt).toLocaleTimeString()}</span>
                                 </div>
                               )}
                             </div>

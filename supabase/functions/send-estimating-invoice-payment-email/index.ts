@@ -447,56 +447,71 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    const emailPayload: any = {
-      from: fromEmail,
-      to: allRecipients,
-      subject,
-      html: htmlContent,
-      attachments: [
-        {
-          filename: `Invoice-${invoice.invoice_number}.pdf`,
-          content: pdfBase64,
-        },
-      ],
-      tags: [
-        { name: 'category', value: 'estimating-invoice-payment' },
-        { name: 'invoice_id', value: invoiceId },
-      ],
-      headers: { 'X-Entity-Ref-ID': invoiceId },
-    };
+    // Build the HTML with optional surcharge note
+    let finalHtml = htmlContent;
+    if (surchargeCcNote) {
+      finalHtml = htmlContent + `
+        <div style="margin-top:24px;padding:14px 18px;background:#fef3c7;border-left:4px solid #f59e0b;border-radius:4px;font-family:Arial,sans-serif;font-size:13px;color:#92400e;">
+          <strong>Note to Surcharge Department:</strong><br>${surchargeCcNote.replace(/\n/g, '<br>')}
+        </div>`;
+    }
 
-    if (surchargeCcEmail) {
-      emailPayload.cc = [surchargeCcEmail];
-      if (surchargeCcNote) {
-        emailPayload.html = htmlContent + `
-          <div style="margin-top:24px;padding:14px 18px;background:#fef3c7;border-left:4px solid #f59e0b;border-radius:4px;font-family:Arial,sans-serif;font-size:13px;color:#92400e;">
-            <strong>Note to Surcharge Department:</strong><br>${surchargeCcNote.replace(/\n/g, '<br>')}
-          </div>`;
+    // Send one email per recipient so each gets its own Resend email_id for engagement tracking
+    const sentEmailIds: string[] = [];
+    let firstEmailId: string | null = null;
+
+    for (const recipientAddr of allRecipients) {
+      const emailPayload: any = {
+        from: fromEmail,
+        to: [recipientAddr],
+        subject,
+        html: finalHtml,
+        attachments: [
+          {
+            filename: `Invoice-${invoice.invoice_number}.pdf`,
+            content: pdfBase64,
+          },
+        ],
+        tags: [
+          { name: 'category', value: 'estimating-invoice-payment' },
+          { name: 'invoice_id', value: invoiceId },
+        ],
+        headers: { 'X-Entity-Ref-ID': invoiceId },
+      };
+
+      // Add CC for surcharge on the primary recipient's email only
+      if (surchargeCcEmail && recipientAddr === recipientEmail) {
+        emailPayload.cc = [surchargeCcEmail];
       }
+
+      const emailResponse = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${resendApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(emailPayload),
+      });
+
+      if (!emailResponse.ok) {
+        const errorText = await emailResponse.text();
+        console.error(`Resend API error for ${recipientAddr}:`, errorText);
+        let errorMessage = 'Failed to send email';
+        try {
+          const errorData = JSON.parse(errorText);
+          if (errorData.message) errorMessage = `Email error: ${errorData.message}`;
+        } catch {}
+        throw new Error(errorMessage);
+      }
+
+      const emailData = await emailResponse.json();
+      console.log(`Email sent to ${recipientAddr}:`, emailData.id);
+      sentEmailIds.push(emailData.id);
+      if (recipientAddr === recipientEmail) firstEmailId = emailData.id;
     }
 
-    const emailResponse = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${resendApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(emailPayload),
-    });
-
-    if (!emailResponse.ok) {
-      const errorText = await emailResponse.text();
-      console.error('Resend API error:', errorText);
-      let errorMessage = 'Failed to send email';
-      try {
-        const errorData = JSON.parse(errorText);
-        if (errorData.message) errorMessage = `Email error: ${errorData.message}`;
-      } catch {}
-      throw new Error(errorMessage);
-    }
-
-    const emailData = await emailResponse.json();
-    console.log('Email sent successfully:', emailData.id);
+    // Use primary recipient's email ID as the legacy single-ID field for backwards compat
+    const primaryEmailId = firstEmailId || sentEmailIds[0] || null;
 
     await supabase
       .from('estimating_invoices')
@@ -504,7 +519,9 @@ Deno.serve(async (req: Request) => {
         final_payment_email_sent_at: new Date().toISOString(),
         final_payment_email_recipient: recipientEmail,
         final_payment_email_all_recipients: allRecipients,
-        final_payment_resend_email_id: emailData.id,
+        final_payment_resend_email_id: primaryEmailId,
+        final_payment_resend_email_ids: sentEmailIds,
+        final_payment_recipient_engagement: {},
         customer_email: recipientEmail,
         final_payment_email_delivered_at: null,
         final_payment_email_opened_at: null,
@@ -520,7 +537,7 @@ Deno.serve(async (req: Request) => {
       .eq('id', invoiceId);
 
     return new Response(
-      JSON.stringify({ success: true, message: 'Email sent successfully', emailId: emailData.id }),
+      JSON.stringify({ success: true, message: `Email sent to ${allRecipients.length} recipient(s)`, emailId: primaryEmailId, emailIds: sentEmailIds }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
