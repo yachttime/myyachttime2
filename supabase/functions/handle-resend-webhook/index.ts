@@ -127,12 +127,23 @@ Deno.serve(async (req: Request) => {
       .eq('notification_resend_email_id', event.data.email_id)
       .maybeSingle();
 
-    // Try to find the email in repair_requests (deposit emails)
-    const { data: depositRequest } = await supabase
+    // Try to find the email in repair_requests (deposit emails) — single ID then array
+    let depositRequest = null;
+    const { data: depositRequestSingle } = await supabase
       .from('repair_requests')
       .select('*')
       .eq('deposit_resend_email_id', event.data.email_id)
       .maybeSingle();
+    if (depositRequestSingle) {
+      depositRequest = depositRequestSingle;
+    } else {
+      const { data: depositRequestBatch } = await supabase
+        .from('repair_requests')
+        .select('*')
+        .contains('deposit_resend_email_ids', [event.data.email_id])
+        .maybeSingle();
+      if (depositRequestBatch) depositRequest = depositRequestBatch;
+    }
 
     // Try to find the email in estimating_invoices (final payment emails)
     // Check both the legacy single-id field and the new per-recipient ids array
@@ -333,10 +344,23 @@ Deno.serve(async (req: Request) => {
     if (depositRequest) {
       const depositUpdateData: Record<string, any> = {};
 
+      const depositEventRecipient: string | null = Array.isArray(event.data.to)
+        ? event.data.to[0]
+        : (event.data.to || null);
+
+      const currentDepositEngagement: Record<string, any> = depositRequest.deposit_recipient_engagement || {};
+      if (depositEventRecipient && !currentDepositEngagement[depositEventRecipient]) {
+        currentDepositEngagement[depositEventRecipient] = {};
+      }
+
       switch (event.type) {
         case 'email.delivered':
           if (!depositRequest.deposit_email_delivered_at) {
             depositUpdateData.deposit_email_delivered_at = eventTimestamp;
+          }
+          if (depositEventRecipient && !currentDepositEngagement[depositEventRecipient].delivered_at) {
+            currentDepositEngagement[depositEventRecipient].delivered_at = eventTimestamp;
+            depositUpdateData.deposit_recipient_engagement = currentDepositEngagement;
           }
           break;
 
@@ -344,17 +368,37 @@ Deno.serve(async (req: Request) => {
           if (!depositRequest.deposit_email_opened_at) {
             depositUpdateData.deposit_email_opened_at = eventTimestamp;
           }
+          if (depositEventRecipient) {
+            if (!currentDepositEngagement[depositEventRecipient].opened_at) {
+              currentDepositEngagement[depositEventRecipient].opened_at = eventTimestamp;
+            }
+            currentDepositEngagement[depositEventRecipient].open_count =
+              (currentDepositEngagement[depositEventRecipient].open_count || 0) + 1;
+            depositUpdateData.deposit_recipient_engagement = currentDepositEngagement;
+          }
           break;
 
         case 'email.clicked':
           if (!depositRequest.deposit_email_clicked_at) {
             depositUpdateData.deposit_email_clicked_at = eventTimestamp;
           }
+          if (depositEventRecipient) {
+            if (!currentDepositEngagement[depositEventRecipient].clicked_at) {
+              currentDepositEngagement[depositEventRecipient].clicked_at = eventTimestamp;
+            }
+            currentDepositEngagement[depositEventRecipient].click_count =
+              (currentDepositEngagement[depositEventRecipient].click_count || 0) + 1;
+            depositUpdateData.deposit_recipient_engagement = currentDepositEngagement;
+          }
           break;
 
         case 'email.bounced':
           if (!depositRequest.deposit_email_bounced_at) {
             depositUpdateData.deposit_email_bounced_at = eventTimestamp;
+          }
+          if (depositEventRecipient && !currentDepositEngagement[depositEventRecipient].bounced_at) {
+            currentDepositEngagement[depositEventRecipient].bounced_at = eventTimestamp;
+            depositUpdateData.deposit_recipient_engagement = currentDepositEngagement;
           }
           break;
       }

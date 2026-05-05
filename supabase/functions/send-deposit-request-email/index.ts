@@ -220,57 +220,63 @@ Deno.serve(async (req: Request) => {
         }
       }
 
-      const emailPayload: any = {
-        from: fromEmail,
-        to: allRecipientEmails,
-        subject: subject,
-        html: htmlContent,
-        tags: [
-          {
-            name: 'category',
-            value: 'deposit-request',
+      // Send one email per recipient so each gets its own Resend email_id for engagement tracking
+      const sentEmailIds: string[] = [];
+      let primaryEmailId: string | null = null;
+
+      for (const addr of allRecipientEmails) {
+        const emailPayload: any = {
+          from: fromEmail,
+          to: [addr],
+          subject: subject,
+          html: htmlContent,
+          tags: [{ name: 'category', value: 'deposit-request' }],
+        };
+
+        // CC only on primary recipient's email
+        if (addr === recipientEmail && ccEmails.length > 0) {
+          emailPayload.cc = ccEmails;
+        }
+
+        if (attachmentBase64 && attachmentFilename) {
+          emailPayload.attachments = [
+            {
+              filename: attachmentFilename,
+              content: attachmentBase64,
+              content_type: attachmentContentType || 'application/octet-stream',
+            },
+          ];
+        }
+
+        const response = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${resendApiKey}`,
+            'Content-Type': 'application/json',
           },
-        ],
-      };
+          body: JSON.stringify(emailPayload),
+        });
 
-      if (ccEmails.length > 0) {
-        emailPayload.cc = ccEmails;
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`Resend API error for ${addr}:`, errorText);
+          throw new Error(`Failed to send email: ${errorText}`);
+        }
+
+        const emailData = await response.json();
+        console.log(`Email sent to ${addr}:`, emailData.id);
+        sentEmailIds.push(emailData.id);
+        if (addr === recipientEmail) primaryEmailId = emailData.id;
       }
-
-      if (attachmentBase64 && attachmentFilename) {
-        emailPayload.attachments = [
-          {
-            filename: attachmentFilename,
-            content: attachmentBase64,
-            content_type: attachmentContentType || 'application/octet-stream',
-          },
-        ];
-      }
-
-      const response = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${resendApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(emailPayload),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Resend API error:', errorText);
-        throw new Error(`Failed to send email: ${errorText}`);
-      }
-
-      const emailData = await response.json();
-      console.log(`Email sent successfully to ${allRecipientEmails.length} recipient(s):`, emailData.id);
 
       // Update repair request with email tracking info
       await supabase
         .from('repair_requests')
         .update({
           deposit_email_sent_at: new Date().toISOString(),
-          deposit_resend_email_id: emailData.id,
+          deposit_resend_email_id: primaryEmailId || sentEmailIds[0] || null,
+          deposit_resend_email_ids: sentEmailIds,
+          deposit_recipient_engagement: {},
           deposit_email_recipient: recipientEmail,
         })
         .eq('id', repairRequestId);
@@ -278,8 +284,9 @@ Deno.serve(async (req: Request) => {
       return new Response(
         JSON.stringify({
           success: true,
-          message: 'Deposit request email sent successfully',
-          emailId: emailData.id,
+          message: `Deposit request email sent to ${allRecipientEmails.length} recipient(s)`,
+          emailId: primaryEmailId || sentEmailIds[0] || null,
+          emailIds: sentEmailIds,
         }),
         {
           headers: {

@@ -4648,8 +4648,73 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         throw new Error(result.error || 'Failed to generate deposit payment link');
       }
 
+      // Auto-send deposit email to billing managers after link generation
+      try {
+        const request = selectedRepairForDeposit;
+        const billingManagers: { email: string; name: string }[] = [];
+        const seenEmails = new Set<string>();
+
+        if (request.yacht_id) {
+          const { data: profiles } = await supabase
+            .from('user_profiles')
+            .select('first_name, last_name, email, notification_email')
+            .eq('yacht_id', request.yacht_id)
+            .eq('can_approve_billing', true);
+
+          for (const p of profiles || []) {
+            const email = p.notification_email || p.email;
+            if (email && !seenEmails.has(email.toLowerCase())) {
+              seenEmails.add(email.toLowerCase());
+              billingManagers.push({ email, name: [p.first_name, p.last_name].filter(Boolean).join(' ') });
+            }
+          }
+
+          const { data: agreements } = await supabase
+            .from('vessel_management_agreements')
+            .select('manager_billing_approval_email, manager_billing_approval_name')
+            .eq('yacht_id', request.yacht_id)
+            .eq('status', 'approved')
+            .limit(1);
+
+          for (const a of agreements || []) {
+            if (a.manager_billing_approval_email) {
+              for (const em of a.manager_billing_approval_email.split(',').map((e: string) => e.trim()).filter(Boolean)) {
+                if (!seenEmails.has(em.toLowerCase())) {
+                  seenEmails.add(em.toLowerCase());
+                  billingManagers.push({ email: em, name: a.manager_billing_approval_name || '' });
+                }
+              }
+            }
+          }
+        } else if (request.customer_email) {
+          billingManagers.push({ email: request.customer_email, name: request.customer_name || '' });
+        }
+
+        if (billingManagers.length > 0) {
+          const { data: { session: emailSession } } = await supabase.auth.getSession();
+          if (emailSession?.access_token) {
+            await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-deposit-request-email`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${emailSession.access_token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                repairRequestId: request.id,
+                recipientEmail: billingManagers[0].email,
+                recipientName: billingManagers[0].name || undefined,
+                additionalRecipients: billingManagers.slice(1).map(r => ({ email: r.email, name: r.name || undefined })),
+              }),
+            });
+          }
+        }
+      } catch (emailErr) {
+        console.error('Error auto-sending deposit email:', emailErr);
+        // Non-fatal — link was created, email can be resent manually
+      }
+
       await loadRepairRequests();
-      showSuccess(isRegeneration ? 'Deposit payment link regenerated successfully! Valid for 30 days.' : 'Deposit payment link generated successfully! Valid for 30 days.');
+      showSuccess(isRegeneration ? 'Deposit payment link regenerated and emailed to managers!' : 'Deposit payment link generated and emailed to managers!');
       setShowDepositModal(false);
       setSelectedRepairForDeposit(null);
       setDepositForm({ deposit_amount: '', recipient_email: '', recipient_name: '', payment_method_type: 'card' });
@@ -14420,7 +14485,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                             className="bg-cyan-600 hover:bg-cyan-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1"
                                           >
                                             <Mail className="w-3 h-3" />
-                                            {request.deposit_email_sent_at ? 'Resend Email' : 'Send Email'}
+                                            Resend Email
                                           </button>}
                                           {request.deposit_email_sent_at && (
                                             <>
