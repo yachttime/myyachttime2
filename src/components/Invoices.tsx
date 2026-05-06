@@ -1105,6 +1105,25 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
         yPos = (doc as any).lastAutoTable.finalY + 0.3;
       }
 
+      // Estimate how much vertical space the totals block needs
+      const pageHeight = 11;
+      const bottomMargin = 0.75;
+      const totalsLineCount =
+        2 + // subtotal + tax
+        (invoice.discount_amount && invoice.discount_amount > 0 ? 1 : 0) +
+        (invoice.shop_supplies_amount && invoice.shop_supplies_amount > 0 ? 1 : 0) +
+        (invoice.park_fees_amount && invoice.park_fees_amount > 0 ? 1 : 0) +
+        (invoice.surcharge_amount && invoice.surcharge_amount > 0 ? 1 : 0) +
+        (invoice.deposit_applied && invoice.deposit_applied > 0 ? 1 : 0) +
+        (invoice.credit_card_fee && invoice.credit_card_fee > 0 ? 1 : 0) +
+        (invoice.payment_status === 'paid' || (invoice.amount_paid !== null && invoice.amount_paid > 0) ? 2 : 0);
+      const totalsBlockHeight = totalsLineCount * 0.2 + 0.2 + (invoice.notes ? 0.6 : 0);
+
+      if (yPos + totalsBlockHeight > pageHeight - bottomMargin) {
+        doc.addPage();
+        yPos = margin;
+      }
+
       // Totals
       const totalsX = pageWidth - margin - 2;
       doc.setFontSize(10);
@@ -1195,12 +1214,20 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       // Notes
       if (invoice.notes) {
         yPos += 0.4;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        const noteLines = doc.splitTextToSize(invoice.notes, pageWidth - (margin * 2));
+        const notesBlockHeight = 0.2 + noteLines.length * 0.13 + 0.1;
+        if (yPos + notesBlockHeight > pageHeight - bottomMargin) {
+          doc.addPage();
+          yPos = margin;
+        }
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(10);
         doc.text('Notes:', margin, yPos);
         yPos += 0.2;
         doc.setFont('helvetica', 'normal');
-        const noteLines = doc.splitTextToSize(invoice.notes, pageWidth - (margin * 2));
+        doc.setFontSize(9);
         doc.text(noteLines, margin, yPos);
       }
 
