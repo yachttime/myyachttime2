@@ -53,7 +53,18 @@ Deno.serve(withErrorHandling(async (req: Request) => {
     const body = await parseRequestBody<BulkEmailRequest>(req);
     validateRequired(body, ['recipients', 'subject', 'message']);
 
-    const recipients = validateEmailArray(body.recipients, 'recipients');
+    // Validate recipients without the 100-address cap — large broadcasts are batched internally
+    if (!Array.isArray(body.recipients) || body.recipients.length === 0) {
+      throw new Error('recipients must be a non-empty array');
+    }
+    const emailRegexPre = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const recipients: string[] = body.recipients.map((e: any, i: number) => {
+      if (typeof e !== 'string' || !emailRegexPre.test(e)) {
+        throw new Error(`recipients[${i}] is not a valid email address`);
+      }
+      return e as string;
+    });
+
     validateStringLength(body.subject, 'subject', { min: 1, max: 500 });
     validateStringLength(body.message, 'message', { min: 1, max: 50000 });
 
