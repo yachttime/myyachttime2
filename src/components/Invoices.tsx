@@ -1105,16 +1105,27 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
         yPos = (doc as any).lastAutoTable.finalY + 0.3;
       }
 
+      // Fetch individual deposit records for this invoice so we can show per-deposit notes
+      let invoiceDeposits: { id: string; amount: number; payment_method: string; reference_number: string | null; notes: string | null; payment_date: string }[] = [];
+      if (invoice.deposit_applied && invoice.deposit_applied > 0) {
+        const depositsQuery = invoice.work_order_id
+          ? supabase.from('estimating_payments').select('id, amount, payment_method, reference_number, notes, payment_date').eq('work_order_id', invoice.work_order_id).eq('payment_type', 'deposit').order('payment_date', { ascending: true })
+          : supabase.from('estimating_payments').select('id, amount, payment_method, reference_number, notes, payment_date').eq('invoice_id', invoice.id).eq('payment_type', 'deposit').order('payment_date', { ascending: true });
+        const { data: depData } = await depositsQuery;
+        invoiceDeposits = depData || [];
+      }
+
       // Estimate how much vertical space the totals block needs
       const pageHeight = 11;
       const bottomMargin = 0.75;
+      const depositLineCount = invoiceDeposits.length > 0 ? invoiceDeposits.length : (invoice.deposit_applied && invoice.deposit_applied > 0 ? 1 : 0);
       const totalsLineCount =
         2 + // subtotal + tax
         (invoice.discount_amount && invoice.discount_amount > 0 ? 1 : 0) +
         (invoice.shop_supplies_amount && invoice.shop_supplies_amount > 0 ? 1 : 0) +
         (invoice.park_fees_amount && invoice.park_fees_amount > 0 ? 1 : 0) +
         (invoice.surcharge_amount && invoice.surcharge_amount > 0 ? 1 : 0) +
-        (invoice.deposit_applied && invoice.deposit_applied > 0 ? 1 : 0) +
+        depositLineCount +
         (invoice.credit_card_fee && invoice.credit_card_fee > 0 ? 1 : 0) +
         (invoice.payment_status === 'paid' || (invoice.amount_paid !== null && invoice.amount_paid > 0) ? 2 : 0);
       const totalsBlockHeight = totalsLineCount * 0.2 + 0.2 + (invoice.notes ? 0.6 : 0);
@@ -1168,7 +1179,24 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
         yPos += 0.2;
       }
 
-      if (invoice.deposit_applied && invoice.deposit_applied > 0) {
+      if (invoiceDeposits.length > 0) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        invoiceDeposits.forEach((dep, idx) => {
+          const depAmt = parseFloat(String(dep.amount || 0));
+          const methodLabel = dep.payment_method === 'check'
+            ? `Check #${dep.reference_number || ''}`
+            : (dep.payment_method === 'stripe' ? 'Stripe' : (dep.payment_method || ''));
+          const notesSuffix = dep.notes ? ` — ${dep.notes}` : '';
+          const label = `Deposit #${idx + 1} (${methodLabel}):${notesSuffix}`;
+          const labelLines = doc.splitTextToSize(label, totalsX - margin - 0.05);
+          doc.text(labelLines, margin, yPos);
+          doc.text(`-$${depAmt.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
+          yPos += labelLines.length > 1 ? labelLines.length * 0.14 : 0.2;
+        });
+      } else if (invoice.deposit_applied && invoice.deposit_applied > 0) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
         doc.text('Deposit Applied:', totalsX, yPos);
         doc.text(`-$${invoice.deposit_applied.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
         yPos += 0.2;
