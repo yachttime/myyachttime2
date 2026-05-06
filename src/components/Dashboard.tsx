@@ -114,6 +114,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [signInVideo, setSignInVideo] = useState<{ title: string; video_url: string } | null>(null);
   const [showIntroVideoEmailModal, setShowIntroVideoEmailModal] = useState(false);
   const [introVideoEmailData, setIntroVideoEmailData] = useState<{ yachtName: string; recipients: Array<{ email: string; name: string }>; video: { title: string; video_url: string } | null } | null>(null);
+  const [showEmailAllManagersModal, setShowEmailAllManagersModal] = useState(false);
+  const [emailAllManagersRecipients, setEmailAllManagersRecipients] = useState<Array<{ email: string; name: string }>>([]);
+  const [showEmailAllOwnersManagersModal, setShowEmailAllOwnersManagersModal] = useState(false);
+  const [emailAllOwnersManagersRecipients, setEmailAllOwnersManagersRecipients] = useState<Array<{ email: string; name: string }>>([]);
 
   const convertTo12Hour = (time24: string): string => {
     if (!time24) return '';
@@ -1495,6 +1499,54 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
     setManagementEmailData({ yachtName, recipients });
     setShowManagementEmailModal(true);
+  };
+
+  const handleEmailAllManagers = () => {
+    const activeYachtIds = new Set(allYachts.filter(y => y.is_active !== false).map(y => y.id));
+    const seen = new Set<string>();
+    const recipients: Array<{ email: string; name: string }> = [];
+    for (const u of allUsers) {
+      if (!u.yacht_id || !activeYachtIds.has(u.yacht_id)) continue;
+      if (!['manager', 'master'].includes(u.role)) continue;
+      if (!(u.is_active !== false)) continue;
+      const email = (u.notification_email || u.email || '').trim().toLowerCase();
+      if (!email || seen.has(email)) continue;
+      seen.add(email);
+      recipients.push({
+        email: u.notification_email || u.email,
+        name: u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : (u.email || ''),
+      });
+    }
+    if (recipients.length === 0) {
+      showError('No managers found for active yachts');
+      return;
+    }
+    setEmailAllManagersRecipients(recipients);
+    setShowEmailAllManagersModal(true);
+  };
+
+  const handleEmailAllOwnersAndManagers = () => {
+    const activeYachtIds = new Set(allYachts.filter(y => y.is_active !== false).map(y => y.id));
+    const seen = new Set<string>();
+    const recipients: Array<{ email: string; name: string }> = [];
+    for (const u of allUsers) {
+      if (!u.yacht_id || !activeYachtIds.has(u.yacht_id)) continue;
+      if (!['owner', 'manager', 'master'].includes(u.role)) continue;
+      if (!(u.is_active !== false)) continue;
+      const email = (u.notification_email || u.email || '').trim().toLowerCase();
+      if (!email || seen.has(email)) continue;
+      seen.add(email);
+      recipients.push({
+        email: u.notification_email || u.email,
+        name: u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : (u.email || ''),
+      });
+    }
+    if (recipients.length === 0) {
+      showError('No owners or managers found for active yachts');
+      return;
+    }
+    setEmailAllOwnersManagersRecipients(recipients);
+    setShowEmailAllOwnersManagersModal(true);
   };
 
   const sendIntroVideoToOwners = async (yachtName: string, users: any[]) => {
@@ -17326,7 +17378,25 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             <p className="text-slate-400">View and edit user profiles</p>
                           </div>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 flex-wrap justify-end">
+                          {(canAccessAllYachts(effectiveRole)) && (
+                            <>
+                              <button
+                                onClick={handleEmailAllManagers}
+                                className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition-colors text-sm"
+                              >
+                                <Mail className="w-4 h-4" />
+                                Email All Managers
+                              </button>
+                              <button
+                                onClick={handleEmailAllOwnersAndManagers}
+                                className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors text-sm"
+                              >
+                                <Mail className="w-4 h-4" />
+                                Email All Owners & Managers
+                              </button>
+                            </>
+                          )}
                           {isStaffRole(effectiveRole) && (
                             <select
                               value={printYachtFilter}
@@ -20433,6 +20503,33 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           : `Hello,\n\nWelcome to My Yacht Time! Please reach out to us for help getting started.\n\nThank you!`
         }
       />
+
+      {/* Email All Managers (All Active Yachts) */}
+      <EmailComposeModal
+        isOpen={showEmailAllManagersModal}
+        onClose={() => {
+          setShowEmailAllManagersModal(false);
+          setEmailAllManagersRecipients([]);
+        }}
+        recipients={emailAllManagersRecipients}
+        ccRecipients={[]}
+        yachtName="All Active Yachts"
+        allowRecipientSelection={true}
+      />
+
+      {/* Email All Owners & Managers (All Active Yachts) */}
+      <EmailComposeModal
+        isOpen={showEmailAllOwnersManagersModal}
+        onClose={() => {
+          setShowEmailAllOwnersManagersModal(false);
+          setEmailAllOwnersManagersRecipients([]);
+        }}
+        recipients={emailAllOwnersManagersRecipients}
+        ccRecipients={[]}
+        yachtName="All Active Yachts"
+        allowRecipientSelection={true}
+      />
+
       <ConfirmDialog />
 
       {yachtInvoiceCheckModal && (
