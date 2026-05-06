@@ -18158,6 +18158,139 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 return nameA.localeCompare(nameB);
                               });
 
+                              // Broadcast Emails detail view
+                              if (selectedUserGroup === 'Broadcast Emails') {
+                                const broadcastEmails = staffMessages.filter(
+                                  (msg: any) => msg.notification_type === 'bulk_email' && msg.yacht_name === 'All Active Yachts'
+                                );
+                                const fmtTs = (ts: string) =>
+                                  new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
+                                  ' at ' +
+                                  new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                return (
+                                  <div>
+                                    <button
+                                      onClick={() => setSelectedUserGroup(null)}
+                                      className="flex items-center gap-2 text-slate-400 hover:text-blue-500 transition-colors mb-6"
+                                    >
+                                      <span>← Back to Groups</span>
+                                    </button>
+                                    <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 overflow-hidden mb-6">
+                                      <div className="bg-gradient-to-r from-orange-500/20 to-amber-500/20 border-b border-slate-700 px-6 py-4 flex items-center gap-3">
+                                        <Mail className="w-6 h-6 text-orange-400" />
+                                        <h3 className="text-xl font-bold text-white">Broadcast Emails</h3>
+                                        <span className="ml-auto px-3 py-1 bg-orange-500/30 text-orange-300 rounded-full text-sm font-medium">
+                                          {broadcastEmails.length} sent
+                                        </span>
+                                      </div>
+                                      <div className="p-6">
+                                        {broadcastEmails.length === 0 ? (
+                                          <p className="text-slate-400 text-center py-8">No broadcast emails sent yet.</p>
+                                        ) : (
+                                          <div className="space-y-3">
+                                            {broadcastEmails.map((msg: any) => {
+                                              const isExpanded = expandedEmailId === msg.id;
+                                              const recipientTracking = recipientTrackingMap[msg.id] || [];
+                                              return (
+                                                <div key={msg.id} className="bg-slate-800/50 rounded-xl border border-slate-700 overflow-hidden">
+                                                  <button
+                                                    onClick={async () => {
+                                                      const next = isExpanded ? null : msg.id;
+                                                      setExpandedEmailId(next);
+                                                      if (next && !recipientTrackingMap[next]) {
+                                                        const { data } = await supabase
+                                                          .from('staff_message_recipient_tracking')
+                                                          .select('*')
+                                                          .eq('staff_message_id', next)
+                                                          .order('recipient_email');
+                                                        setRecipientTrackingMap(prev => ({ ...prev, [next]: data || [] }));
+                                                      }
+                                                    }}
+                                                    className="w-full text-left p-4 hover:bg-slate-700/30 transition-colors"
+                                                  >
+                                                    <div className="flex items-start justify-between gap-4">
+                                                      <div className="flex-1 min-w-0">
+                                                        <p className="text-white font-semibold truncate">{msg.email_subject}</p>
+                                                        <p className="text-xs text-slate-400 mt-0.5">
+                                                          {fmtTs(msg.email_sent_at || msg.created_at)}
+                                                          {msg.email_recipients?.length > 0 && ` · ${msg.email_recipients.length} recipient${msg.email_recipients.length !== 1 ? 's' : ''}`}
+                                                        </p>
+                                                      </div>
+                                                      <div className="flex items-center gap-2 flex-shrink-0">
+                                                        {msg.email_bounced_at && <span className="px-2 py-0.5 bg-red-500/20 text-red-400 rounded-full text-xs border border-red-500/30">Bounced</span>}
+                                                        {msg.email_clicked_at && <span className="px-2 py-0.5 bg-green-500/20 text-green-400 rounded-full text-xs border border-green-500/30">Clicked</span>}
+                                                        {!msg.email_clicked_at && msg.email_opened_at && <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded-full text-xs border border-blue-500/30">Opened</span>}
+                                                        {!msg.email_clicked_at && !msg.email_opened_at && msg.email_delivered_at && <span className="px-2 py-0.5 bg-teal-500/20 text-teal-400 rounded-full text-xs border border-teal-500/30">Delivered</span>}
+                                                        {!msg.email_delivered_at && !msg.email_bounced_at && <span className="px-2 py-0.5 bg-slate-600/50 text-slate-400 rounded-full text-xs border border-slate-600">Sent</span>}
+                                                        <span className="text-slate-500 text-xs">{isExpanded ? '▲' : '▼'}</span>
+                                                      </div>
+                                                    </div>
+                                                  </button>
+                                                  {isExpanded && (
+                                                    <div className="border-t border-slate-700 p-4 space-y-4">
+                                                      <div className="bg-slate-900/50 rounded-lg p-4">
+                                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Delivery Timeline</p>
+                                                        <div className="space-y-2 text-sm">
+                                                          {msg.email_sent_at && <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-slate-400 flex-shrink-0"/><span className="text-slate-300">Sent: {fmtTs(msg.email_sent_at)}</span></div>}
+                                                          {msg.email_delivered_at && <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-teal-400 flex-shrink-0"/><span className="text-teal-300">Delivered: {fmtTs(msg.email_delivered_at)}</span></div>}
+                                                          {msg.email_opened_at && <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0"/><span className="text-blue-300">Opened: {fmtTs(msg.email_opened_at)}{msg.email_open_count > 1 ? ` (${msg.email_open_count}×)` : ''}</span></div>}
+                                                          {msg.email_clicked_at && <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0"/><span className="text-green-300">Clicked: {fmtTs(msg.email_clicked_at)}{msg.email_click_count > 1 ? ` (${msg.email_click_count}×)` : ''}</span></div>}
+                                                          {msg.email_bounced_at && <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-red-400 flex-shrink-0"/><span className="text-red-300">Bounced: {fmtTs(msg.email_bounced_at)}</span></div>}
+                                                        </div>
+                                                      </div>
+                                                      {msg.email_body && (
+                                                        <div className="bg-slate-900/50 rounded-lg p-4">
+                                                          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Message</p>
+                                                          <p className="text-sm text-slate-300 whitespace-pre-wrap">{msg.email_body}</p>
+                                                        </div>
+                                                      )}
+                                                      {msg.email_recipients?.length > 0 && (
+                                                        <div>
+                                                          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
+                                                            Recipients ({msg.email_recipients.length})
+                                                            {recipientTracking.length > 0 && (() => {
+                                                              const delivered = recipientTracking.filter((t: any) => t.delivered_at).length;
+                                                              const opened = recipientTracking.filter((t: any) => t.opened_at).length;
+                                                              const clicked = recipientTracking.filter((t: any) => t.clicked_at).length;
+                                                              const bounced = recipientTracking.filter((t: any) => t.bounced_at).length;
+                                                              return <span className="ml-2 font-normal text-slate-500 normal-case tracking-normal">· {delivered} delivered · {opened} opened · {clicked} clicked{bounced > 0 ? ` · ${bounced} bounced` : ''}</span>;
+                                                            })()}
+                                                          </p>
+                                                          <div className="space-y-1.5 max-h-80 overflow-y-auto">
+                                                            {msg.email_recipients.map((r: any, idx: number) => {
+                                                              const track = recipientTracking.find((t: any) => t.recipient_email === r.email);
+                                                              return (
+                                                                <div key={idx} className="flex items-center gap-3 p-2.5 bg-slate-900/50 rounded-lg border border-slate-700/50">
+                                                                  <div className="flex-1 min-w-0">
+                                                                    <p className="text-sm font-medium text-white truncate">{r.name || r.email}</p>
+                                                                    <p className="text-xs text-slate-400 truncate">{r.email}</p>
+                                                                  </div>
+                                                                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                                                                    {track?.bounced_at && <span className="px-1.5 py-0.5 bg-red-500/20 text-red-400 rounded text-xs">Bounced</span>}
+                                                                    {track?.delivered_at && !track?.bounced_at && <span className="px-1.5 py-0.5 bg-teal-500/20 text-teal-400 rounded text-xs">Delivered</span>}
+                                                                    {!track?.delivered_at && !track?.bounced_at && <span className="px-1.5 py-0.5 bg-slate-600/50 text-slate-500 rounded text-xs">Sent</span>}
+                                                                    {track?.opened_at && <span className="px-1.5 py-0.5 bg-blue-500/20 text-blue-400 rounded text-xs">Opened{track.open_count > 1 ? ` ${track.open_count}×` : ''}</span>}
+                                                                    {track?.clicked_at && <span className="px-1.5 py-0.5 bg-green-500/20 text-green-400 rounded text-xs">Clicked{track.click_count > 1 ? ` ${track.click_count}×` : ''}</span>}
+                                                                  </div>
+                                                                </div>
+                                                              );
+                                                            })}
+                                                          </div>
+                                                        </div>
+                                                      )}
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              }
+
                               return (
                                 <div>
                                   <button
@@ -18640,6 +18773,35 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                     </div>
                                   </div>
                                 ))}
+
+                                {/* Broadcast Emails group card — only show when no search filter */}
+                                {canAccessAllYachts(effectiveRole) && !userSearchTerm && (() => {
+                                  const broadcastCount = staffMessages.filter(
+                                    (msg: any) => msg.notification_type === 'bulk_email' && msg.yacht_name === 'All Active Yachts'
+                                  ).length;
+                                  return (
+                                    <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 overflow-hidden hover:border-orange-500 transition-all duration-300 hover:scale-105 group">
+                                      <div className="bg-gradient-to-r from-orange-500/20 to-amber-500/20 border-b border-slate-700 px-6 py-4">
+                                        <div className="flex items-center gap-3">
+                                          <Mail className="w-6 h-6 text-orange-400" />
+                                          <h3 className="text-xl font-bold text-white">Broadcast Emails</h3>
+                                        </div>
+                                        <p className="text-slate-400 text-sm mt-2">
+                                          {broadcastCount} broadcast{broadcastCount !== 1 ? 's' : ''} sent to all yachts
+                                        </p>
+                                      </div>
+                                      <div className="p-6">
+                                        <button
+                                          onClick={() => setSelectedUserGroup('Broadcast Emails')}
+                                          className="w-full px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
+                                        >
+                                          View History
+                                          <Mail className="w-4 h-4" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
                               </div>
                             ) : (
                               <div className="text-center py-12">
