@@ -157,6 +157,11 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
   const [assignModalEmployees, setAssignModalEmployees] = useState<{ user_id: string; first_name: string; last_name: string }[]>([]);
   const [assignModalLoading, setAssignModalLoading] = useState(false);
   const [sendingToTimeClock, setSendingToTimeClock] = useState<Record<string, boolean>>({});
+  const [showPaidInvoiceEmailModal, setShowPaidInvoiceEmailModal] = useState(false);
+  const [paidInvoiceEmailTarget, setPaidInvoiceEmailTarget] = useState<Invoice | null>(null);
+  const [paidInvoiceEmailRecipient, setPaidInvoiceEmailRecipient] = useState('');
+  const [paidInvoiceEmailAdditional, setPaidInvoiceEmailAdditional] = useState('');
+  const [sendingPaidInvoiceEmail, setSendingPaidInvoiceEmail] = useState(false);
   const [qbExporting, setQbExporting] = useState<Record<string, boolean>>({});
   const [qbConnection, setQbConnection] = useState<{ is_active: boolean } | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -1751,6 +1756,59 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
     openEmailModal(selectedInvoice);
   }
 
+  function openPaidInvoiceEmailModal(invoice: Invoice) {
+    setPaidInvoiceEmailTarget(invoice);
+    setPaidInvoiceEmailRecipient(invoice.customer_email || '');
+    setPaidInvoiceEmailAdditional('');
+    setShowPaidInvoiceEmailModal(true);
+  }
+
+  async function handleSendPaidInvoiceEmail() {
+    if (!paidInvoiceEmailTarget || !paidInvoiceEmailRecipient.trim()) return;
+    setSendingPaidInvoiceEmail(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error('Not authenticated');
+
+      const additionalEmails = paidInvoiceEmailAdditional
+        .split(',')
+        .map(e => e.trim())
+        .filter(e => e.length > 0)
+        .map(email => ({ email }));
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-paid-invoice-email`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            invoiceId: paidInvoiceEmailTarget.id,
+            recipientEmail: paidInvoiceEmailRecipient.trim(),
+            recipientName: paidInvoiceEmailTarget.customer_name || undefined,
+            additionalRecipients: additionalEmails.length > 0 ? additionalEmails : undefined,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to send email');
+      }
+
+      showToast('Paid invoice emailed successfully!', 'success');
+      setShowPaidInvoiceEmailModal(false);
+      setPaidInvoiceEmailTarget(null);
+    } catch (error: any) {
+      console.error('Error sending paid invoice email:', error);
+      showToast(error.message || 'Failed to send paid invoice email', 'error');
+    } finally {
+      setSendingPaidInvoiceEmail(false);
+    }
+  }
+
   async function handleRecordCheckPayment() {
     if (!selectedInvoice) return;
     const amount = parseFloat(checkForm.amount);
@@ -2074,6 +2132,75 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
         />
       )}
       <ConfirmDialog />
+
+      {showPaidInvoiceEmailModal && paidInvoiceEmailTarget && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[9999] p-4">
+          <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between p-6 border-b border-slate-700">
+              <div className="flex items-center gap-3">
+                <div className="bg-emerald-500/20 p-2 rounded-lg">
+                  <Mail className="w-5 h-5 text-emerald-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Email Paid Invoice</h3>
+                  <p className="text-sm text-slate-400">{paidInvoiceEmailTarget.invoice_number}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => { setShowPaidInvoiceEmailModal(false); setPaidInvoiceEmailTarget(null); }}
+                className="text-slate-400 hover:text-white transition-colors"
+              >
+                <XCircle className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Primary Recipient</label>
+                <input
+                  type="email"
+                  value={paidInvoiceEmailRecipient}
+                  onChange={e => setPaidInvoiceEmailRecipient(e.target.value)}
+                  placeholder="customer@example.com"
+                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1">
+                  Additional Recipients <span className="text-slate-500 font-normal">(comma-separated, optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={paidInvoiceEmailAdditional}
+                  onChange={e => setPaidInvoiceEmailAdditional(e.target.value)}
+                  placeholder="cc1@example.com, cc2@example.com"
+                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                />
+              </div>
+              <p className="text-xs text-slate-400">A PDF copy of the paid invoice will be attached to the email.</p>
+            </div>
+            <div className="flex gap-3 p-6 pt-0">
+              <button
+                onClick={() => { setShowPaidInvoiceEmailModal(false); setPaidInvoiceEmailTarget(null); }}
+                disabled={sendingPaidInvoiceEmail}
+                className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSendPaidInvoiceEmail}
+                disabled={sendingPaidInvoiceEmail || !paidInvoiceEmailRecipient.trim()}
+                className="flex-1 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {sendingPaidInvoiceEmail ? (
+                  <><RefreshCw className="w-4 h-4 animate-spin" />Sending...</>
+                ) : (
+                  <><Mail className="w-4 h-4" />Send Invoice</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {assignModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -2544,6 +2671,13 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                 >
                   <Printer className="w-4 h-4" />
                   Print Invoice
+                </button>
+                <button
+                  onClick={() => openPaidInvoiceEmailModal(selectedInvoice)}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center gap-2 text-sm font-medium transition-colors"
+                >
+                  <Mail className="w-4 h-4" />
+                  Email Invoice
                 </button>
                 {qbConnection?.is_active && selectedInvoice.quickbooks_export_status !== 'exported' && (
                   <button
