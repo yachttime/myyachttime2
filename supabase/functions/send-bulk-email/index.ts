@@ -198,55 +198,65 @@ Deno.serve(withErrorHandling(async (req: Request) => {
       recipientEmailIdMap = [{ email: recipients[0], resendEmailId: emailData.id }];
       console.log('Single email sent successfully:', emailData.id);
     } else {
-      const batchPayload = recipients.map(recipient => {
-        const item: any = {
-          from: fromEmail,
-          to: [recipient],
-          subject,
-          html: htmlContent,
-          tags,
-        };
-        if (cc_recipients && cc_recipients.length > 0) item.cc = cc_recipients;
-        if (attachmentPayload) item.attachments = attachmentPayload;
-        return item;
-      });
+      // Resend batch API limit is 100 per call — chunk and send in multiple requests
+      const BATCH_SIZE = 100;
+      const allSentEmails: Array<{ id: string }> = [];
 
-      const batchResponse = await fetch('https://api.resend.com/emails/batch', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${resendApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(batchPayload),
-      });
+      for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
+        const chunk = recipients.slice(i, i + BATCH_SIZE);
+        const batchPayload = chunk.map(recipient => {
+          const item: any = {
+            from: fromEmail,
+            to: [recipient],
+            subject,
+            html: htmlContent,
+            tags,
+          };
+          if (cc_recipients && cc_recipients.length > 0) item.cc = cc_recipients;
+          if (attachmentPayload) item.attachments = attachmentPayload;
+          return item;
+        });
 
-      if (!batchResponse.ok) {
-        const errorText = await batchResponse.text();
-        console.error('Resend batch API error:', errorText);
-        let errorMessage = 'Failed to send email via Resend';
-        try {
-          const errorData = JSON.parse(errorText);
-          if (errorData.message) {
-            errorMessage = `Resend Error: ${errorData.message}`;
-            if (errorData.message.includes('You can only send testing emails to your own email address')) {
-              errorMessage += '\n\nTo fix this:\n1. Go to resend.com/domains and verify your domain\n2. In Supabase Edge Functions, add RESEND_FROM_EMAIL secret\n3. Or for testing, only send emails to your verified address';
+        console.log(`Sending batch ${Math.floor(i / BATCH_SIZE) + 1}: recipients ${i + 1}–${i + chunk.length}`);
+
+        const batchResponse = await fetch('https://api.resend.com/emails/batch', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${resendApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(batchPayload),
+        });
+
+        if (!batchResponse.ok) {
+          const errorText = await batchResponse.text();
+          console.error('Resend batch API error:', errorText);
+          let errorMessage = 'Failed to send email via Resend';
+          try {
+            const errorData = JSON.parse(errorText);
+            if (errorData.message) {
+              errorMessage = `Resend Error: ${errorData.message}`;
+              if (errorData.message.includes('You can only send testing emails to your own email address')) {
+                errorMessage += '\n\nTo fix this:\n1. Go to resend.com/domains and verify your domain\n2. In Supabase Edge Functions, add RESEND_FROM_EMAIL secret\n3. Or for testing, only send emails to your verified address';
+              }
             }
+          } catch {
+            errorMessage = `Resend Error (${batchResponse.status}): ${errorText}`;
           }
-        } catch {
-          errorMessage = `Resend Error (${batchResponse.status}): ${errorText}`;
+          throw new Error(errorMessage);
         }
-        throw new Error(errorMessage);
+
+        const batchData = await batchResponse.json();
+        const chunkSent: Array<{ id: string }> = Array.isArray(batchData) ? batchData : (batchData.data || []);
+        allSentEmails.push(...chunkSent);
+        console.log(`Batch ${Math.floor(i / BATCH_SIZE) + 1} sent successfully:`, chunkSent.length, 'emails');
       }
 
-      const batchData = await batchResponse.json();
-      console.log('Batch email sent successfully:', batchData);
-
-      const sentEmails: Array<{ id: string }> = Array.isArray(batchData) ? batchData : (batchData.data || []);
-      resendEmailIds = sentEmails.map((e: { id: string }) => e.id).filter(Boolean);
+      resendEmailIds = allSentEmails.map((e: { id: string }) => e.id).filter(Boolean);
       primaryEmailId = resendEmailIds[0] || null;
       recipientEmailIdMap = recipients.map((email, idx) => ({
         email,
-        resendEmailId: sentEmails[idx]?.id || '',
+        resendEmailId: allSentEmails[idx]?.id || '',
       })).filter(r => r.resendEmailId);
     }
 
