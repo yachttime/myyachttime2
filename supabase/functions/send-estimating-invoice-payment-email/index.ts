@@ -438,11 +438,42 @@ Deno.serve(async (req: Request) => {
 
     let fromEmail = (Deno.env.get('RESEND_FROM_EMAIL') || 'onboarding@resend.dev').trim();
 
-    const allRecipients = [recipientEmail];
+    // Always look up all billing managers from DB using service role (bypasses RLS/frontend state issues)
+    const allRecipients: string[] = [];
+    const recipientNames: Map<string, string> = new Map();
+
+    if (invoice.yacht_id) {
+      const adminSupabase = createClient(supabaseUrl, supabaseServiceKey);
+      const { data: billingMgrs } = await adminSupabase
+        .from('user_profiles')
+        .select('first_name, last_name, email, notification_email')
+        .eq('yacht_id', invoice.yacht_id)
+        .eq('can_approve_billing', true)
+        .eq('is_active', true);
+
+      if (billingMgrs && billingMgrs.length > 0) {
+        for (const m of billingMgrs) {
+          const email = ((m.notification_email || m.email) ?? '').trim();
+          if (email && !allRecipients.includes(email)) {
+            allRecipients.push(email);
+            recipientNames.set(email, `${m.first_name || ''} ${m.last_name || ''}`.trim());
+          }
+        }
+      }
+    }
+
+    // Ensure the requested primary recipient is always included
+    if (!allRecipients.includes(recipientEmail)) {
+      allRecipients.unshift(recipientEmail);
+      if (recipientName) recipientNames.set(recipientEmail, recipientName);
+    }
+
+    // Also include any manually added recipients from the frontend
     if (additionalRecipients && additionalRecipients.length > 0) {
       for (const r of additionalRecipients) {
         if (r.email && !allRecipients.includes(r.email)) {
           allRecipients.push(r.email);
+          if (r.name) recipientNames.set(r.email, r.name);
         }
       }
     }
