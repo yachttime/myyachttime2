@@ -1530,8 +1530,29 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
     if (!selectedInvoice) return;
     setSelectedPaymentMethod(selectedInvoice.final_payment_method_type as 'card' | 'ach' | 'both' || 'card');
     const primaryEmail = selectedInvoice.final_payment_email_recipient || selectedInvoice.customer_email || '';
-    const existingRecipients = selectedInvoice.payment_email_all_recipients as string[] | null;
-    const recipients = existingRecipients && existingRecipients.length > 0 ? existingRecipients : (primaryEmail ? [primaryEmail] : []);
+
+    let recipients: string[] = primaryEmail ? [primaryEmail] : [];
+
+    if (selectedInvoice.yacht_id) {
+      const { data: billingMgrs } = await supabase
+        .from('user_profiles')
+        .select('email, notification_email')
+        .eq('yacht_id', selectedInvoice.yacht_id)
+        .eq('can_approve_billing', true)
+        .eq('is_active', true);
+      if (billingMgrs && billingMgrs.length > 0) {
+        const allEmails = billingMgrs
+          .map((m: any) => (m.notification_email || m.email || '').trim())
+          .filter((e: string) => Boolean(e));
+        const seen = new Set<string>();
+        recipients = [...allEmails].filter((e) => {
+          if (seen.has(e)) return false;
+          seen.add(e);
+          return true;
+        });
+      }
+    }
+
     setEditableRecipients(recipients);
     setNewRecipientInput('');
     setPaymentMethodModal({ invoice: selectedInvoice, email: primaryEmail, mode: 'regenerate', allRecipients: recipients });

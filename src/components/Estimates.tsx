@@ -1779,9 +1779,20 @@ export function Estimates({ userId }: EstimatesProps) {
       if (estimateError) throw estimateError;
 
       if (!estimateData.is_retail_customer && estimateData.yacht_id) {
-        const repairManagers = managers.filter(
-          m => m.yacht_id === estimateData.yacht_id && m.can_approve_repairs && m.email
-        );
+        const { data: yachtManagers } = await supabase
+          .from('user_profiles')
+          .select('first_name, last_name, email, notification_email')
+          .eq('yacht_id', estimateData.yacht_id)
+          .eq('can_approve_repairs', true)
+          .eq('is_active', true);
+
+        const repairManagers = (yachtManagers || [])
+          .map((m: any) => ({
+            email: (m.notification_email || m.email || '').trim(),
+            name: `${m.first_name || ''} ${m.last_name || ''}`.trim(),
+          }))
+          .filter((m: any) => m.email);
+
         if (repairManagers.length === 0) {
           showError('No repair managers found for this yacht');
           return;
@@ -1799,7 +1810,7 @@ export function Estimates({ userId }: EstimatesProps) {
             body: JSON.stringify({
               repairRequestId,
               recipientEmail: manager.email,
-              recipientName: `${manager.first_name} ${manager.last_name}`.trim()
+              recipientName: manager.name
             })
           });
           if (resp.ok) sent++;
@@ -1935,11 +1946,22 @@ export function Estimates({ userId }: EstimatesProps) {
       });
 
       if (!estimateData.is_retail_customer && estimateData.yacht_id) {
-        const repairManagers = managers.filter(
-          m => m.yacht_id === estimateData.yacht_id && m.can_approve_repairs && m.email
-        );
+        const { data: yachtManagers } = await supabase
+          .from('user_profiles')
+          .select('first_name, last_name, email, notification_email')
+          .eq('yacht_id', estimateData.yacht_id)
+          .eq('can_approve_repairs', true)
+          .eq('is_active', true);
+
+        const repairManagers = (yachtManagers || [])
+          .map((m: any) => ({
+            email: (m.notification_email || m.email || '').trim(),
+            name: `${m.first_name || ''} ${m.last_name || ''}`.trim(),
+          }))
+          .filter((m: any) => m.email);
+
         if (repairManagers.length > 0) {
-          const recipientList = repairManagers.map(m => m.email).join(', ');
+          const recipientList = repairManagers.map((m: any) => m.email).join(', ');
           await supabase.from('repair_requests').update({ notification_recipients: recipientList }).eq('id', newRR.id);
 
           const { data: { session } } = await supabase.auth.getSession();
@@ -1954,7 +1976,7 @@ export function Estimates({ userId }: EstimatesProps) {
               body: JSON.stringify({
                 repairRequestId: newRR.id,
                 recipientEmail: manager.email,
-                recipientName: `${manager.first_name} ${manager.last_name}`.trim()
+                recipientName: manager.name
               })
             });
           }
