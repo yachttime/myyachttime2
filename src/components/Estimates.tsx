@@ -178,7 +178,7 @@ export function Estimates({ userId }: EstimatesProps) {
   const [yachtCustomerSearch, setYachtCustomerSearch] = useState('');
   const [showYachtCustomerDropdown, setShowYachtCustomerDropdown] = useState(false);
   const [showNewCustomerForm, setShowNewCustomerForm] = useState(false);
-  const [newCustomerForm, setNewCustomerForm] = useState({ customer_type: 'individual' as 'individual' | 'business', first_name: '', last_name: '', business_name: '', email: '', phone: '' });
+  const [newCustomerForm, setNewCustomerForm] = useState({ customer_type: 'individual' as 'individual' | 'business', first_name: '', last_name: '', business_name: '', email: '', phone: '', address_line1: '', address_line2: '', city: '', state: '', zip_code: '' });
   const [savingNewCustomer, setSavingNewCustomer] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printWithPartNumbers, setPrintWithPartNumbers] = useState(false);
@@ -397,6 +397,11 @@ export function Estimates({ userId }: EstimatesProps) {
           business_name: isBusiness ? newCustomerForm.business_name.trim() : null,
           email: newCustomerForm.email.trim() || null,
           phone: newCustomerForm.phone.trim() || null,
+          address_line1: newCustomerForm.address_line1.trim() || null,
+          address_line2: newCustomerForm.address_line2.trim() || null,
+          city: newCustomerForm.city.trim() || null,
+          state: newCustomerForm.state.trim() || null,
+          zip_code: newCustomerForm.zip_code.trim() || null,
           is_active: true,
           company_id: profileData?.company_id || null
         })
@@ -414,7 +419,7 @@ export function Estimates({ userId }: EstimatesProps) {
       setSelectedCustomerId(data.id);
       setCustomerVessels([]);
       setShowNewCustomerForm(false);
-      setNewCustomerForm({ customer_type: 'individual', first_name: '', last_name: '', business_name: '', email: '', phone: '' });
+      setNewCustomerForm({ customer_type: 'individual', first_name: '', last_name: '', business_name: '', email: '', phone: '', address_line1: '', address_line2: '', city: '', state: '', zip_code: '' });
     } catch (err) {
       showError('Failed to save customer');
     } finally {
@@ -2283,7 +2288,7 @@ export function Estimates({ userId }: EstimatesProps) {
                       <h5 className="text-sm font-semibold text-white">Quick Add Customer</h5>
                       <button
                         type="button"
-                        onClick={() => { setShowNewCustomerForm(false); setNewCustomerForm({ customer_type: 'individual', first_name: '', last_name: '', business_name: '', email: '', phone: '' }); }}
+                        onClick={() => { setShowNewCustomerForm(false); setNewCustomerForm({ customer_type: 'individual', first_name: '', last_name: '', business_name: '', email: '', phone: '', address_line1: '', address_line2: '', city: '', state: '', zip_code: '' }); }}
                         className="text-gray-400 hover:text-white transition-colors"
                       >
                         <X className="w-4 h-4" />
@@ -2293,14 +2298,14 @@ export function Estimates({ userId }: EstimatesProps) {
                     <div className="grid grid-cols-2 rounded-lg overflow-hidden border border-[#1e3560]">
                       <button
                         type="button"
-                        onClick={() => setNewCustomerForm({ ...newCustomerForm, customer_type: 'individual' })}
+                        onClick={() => setNewCustomerForm({ ...newCustomerForm, customer_type: 'individual', business_name: '' })}
                         className={`py-2 text-sm font-medium transition-colors ${newCustomerForm.customer_type === 'individual' ? 'bg-blue-600 text-white' : 'bg-[#162040] text-gray-400 hover:text-gray-200'}`}
                       >
                         Individual
                       </button>
                       <button
                         type="button"
-                        onClick={() => setNewCustomerForm({ ...newCustomerForm, customer_type: 'business' })}
+                        onClick={() => setNewCustomerForm({ ...newCustomerForm, customer_type: 'business', first_name: '', last_name: '' })}
                         className={`py-2 text-sm font-medium transition-colors ${newCustomerForm.customer_type === 'business' ? 'bg-blue-600 text-white' : 'bg-[#162040] text-gray-400 hover:text-gray-200'}`}
                       >
                         Business
@@ -2347,6 +2352,47 @@ export function Estimates({ userId }: EstimatesProps) {
                       value={newCustomerForm.phone}
                       onChange={(e) => setNewCustomerForm({ ...newCustomerForm, phone: e.target.value })}
                       placeholder="Phone"
+                      className="w-full px-3 py-2.5 rounded-lg bg-[#162040] border border-[#1e3560] text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500"
+                    />
+
+                    <input
+                      type="text"
+                      value={newCustomerForm.address_line1}
+                      onChange={(e) => setNewCustomerForm({ ...newCustomerForm, address_line1: e.target.value })}
+                      placeholder="Address"
+                      className="w-full px-3 py-2.5 rounded-lg bg-[#162040] border border-[#1e3560] text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500"
+                    />
+
+                    <input
+                      type="text"
+                      value={newCustomerForm.address_line2}
+                      onChange={(e) => setNewCustomerForm({ ...newCustomerForm, address_line2: e.target.value })}
+                      placeholder="Apt / Suite (optional)"
+                      className="w-full px-3 py-2.5 rounded-lg bg-[#162040] border border-[#1e3560] text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500"
+                    />
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <input
+                        type="text"
+                        value={newCustomerForm.city}
+                        onChange={(e) => setNewCustomerForm({ ...newCustomerForm, city: e.target.value })}
+                        placeholder="City"
+                        className="px-3 py-2.5 rounded-lg bg-[#162040] border border-[#1e3560] text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500"
+                      />
+                      <input
+                        type="text"
+                        value={newCustomerForm.state}
+                        onChange={(e) => setNewCustomerForm({ ...newCustomerForm, state: e.target.value })}
+                        placeholder="State"
+                        className="px-3 py-2.5 rounded-lg bg-[#162040] border border-[#1e3560] text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+
+                    <input
+                      type="text"
+                      value={newCustomerForm.zip_code}
+                      onChange={(e) => setNewCustomerForm({ ...newCustomerForm, zip_code: e.target.value })}
+                      placeholder="ZIP Code"
                       className="w-full px-3 py-2.5 rounded-lg bg-[#162040] border border-[#1e3560] text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500"
                     />
 
