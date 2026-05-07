@@ -2170,26 +2170,57 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
         });
       }
 
-      if (!workOrderData.is_retail_customer && workOrderData.manager_email) {
-        const managerName = workOrderData.manager_name || workOrderData.manager_email;
-        await supabase.from('repair_requests').update({ notification_recipients: workOrderData.manager_email }).eq('id', repairRequestId);
+      if (!workOrderData.is_retail_customer) {
+        // Build recipient list: all billing managers for the yacht, fallback to manager_email on work order
+        let recipients: { email: string; name: string }[] = [];
 
-        const { data: { session } } = await supabase.auth.getSession();
-        const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-repair-estimate-email`;
-        await fetch(apiUrl, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${session?.access_token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            repairRequestId,
-            recipientEmail: workOrderData.manager_email,
-            recipientName: managerName,
-            surchargeCcEmail: surchargeCcEmailParam || undefined,
-            surchargeCcNote: surchargeCcNoteParam || undefined,
-          })
-        });
+        if (workOrderData.yacht_id) {
+          const { data: billingMgrs } = await supabase
+            .from('user_profiles')
+            .select('first_name, last_name, email, notification_email')
+            .eq('yacht_id', workOrderData.yacht_id)
+            .eq('can_approve_billing', true)
+            .eq('is_active', true);
+
+          if (billingMgrs && billingMgrs.length > 0) {
+            recipients = billingMgrs
+              .map((m: any) => ({
+                email: (m.notification_email || m.email || '').trim(),
+                name: `${m.first_name || ''} ${m.last_name || ''}`.trim(),
+              }))
+              .filter((m: any) => m.email);
+          }
+        }
+
+        // Fallback to the single manager_email stored on the work order
+        if (recipients.length === 0 && workOrderData.manager_email) {
+          recipients = [{ email: workOrderData.manager_email, name: workOrderData.manager_name || workOrderData.manager_email }];
+        }
+
+        if (recipients.length > 0) {
+          const allEmails = recipients.map((r: any) => r.email).join(', ');
+          await supabase.from('repair_requests').update({ notification_recipients: allEmails }).eq('id', repairRequestId);
+
+          const { data: { session } } = await supabase.auth.getSession();
+          const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-repair-estimate-email`;
+
+          await Promise.all(recipients.map((recipient: any) =>
+            fetch(apiUrl, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${session?.access_token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                repairRequestId,
+                recipientEmail: recipient.email,
+                recipientName: recipient.name,
+                surchargeCcEmail: surchargeCcEmailParam || undefined,
+                surchargeCcNote: surchargeCcNoteParam || undefined,
+              })
+            })
+          ));
+        }
       }
 
       setWorkOrderRepairRequestIds(prev => ({ ...prev, [workOrderId]: repairRequestId }));
