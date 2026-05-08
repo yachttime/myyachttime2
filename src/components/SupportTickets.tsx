@@ -21,11 +21,13 @@ interface SupportTicket {
   created_at: string;
   updated_at: string;
   user_profiles?: {
-    full_name: string;
+    first_name: string;
+    last_name: string;
     email_address: string;
   };
   assigned_user?: {
-    full_name: string;
+    first_name: string;
+    last_name: string;
   };
 }
 
@@ -38,7 +40,8 @@ interface TicketResponse {
   is_staff_response: boolean;
   created_at: string;
   user_profiles?: {
-    full_name: string;
+    first_name: string;
+    last_name: string;
     role: string;
   };
 }
@@ -148,8 +151,8 @@ export default function SupportTickets() {
         .from('support_tickets')
         .select(`
           *,
-          user_profiles:user_id (full_name, email_address),
-          assigned_user:assigned_to (full_name)
+          user_profiles:user_id (first_name, last_name, email_address),
+          assigned_user:assigned_to (first_name, last_name)
         `)
         .order('created_at', { ascending: false });
 
@@ -174,7 +177,7 @@ export default function SupportTickets() {
         .from('support_ticket_responses')
         .select(`
           *,
-          user_profiles:user_id (full_name, role)
+          user_profiles:user_id (first_name, last_name, role)
         `)
         .eq('ticket_id', ticketId)
         .order('created_at', { ascending: true });
@@ -435,12 +438,12 @@ export default function SupportTickets() {
                       </span>
                       {isStaff && ticket.user_profiles && (
                         <span>
-                          By: {ticket.user_profiles.full_name}
+                          By: {ticket.user_profiles.first_name} {ticket.user_profiles.last_name}
                         </span>
                       )}
                       {ticket.assigned_user && (
                         <span>
-                          Assigned to: {ticket.assigned_user.full_name}
+                          Assigned to: {ticket.assigned_user.first_name} {ticket.assigned_user.last_name}
                         </span>
                       )}
                     </div>
@@ -514,7 +517,7 @@ export default function SupportTickets() {
                       <div className="flex items-start justify-between mb-2">
                         <div>
                           <span className="font-medium text-gray-900">
-                            {ticket.user_profiles?.full_name || 'You'}
+                            {ticket.user_profiles ? `${ticket.user_profiles.first_name} ${ticket.user_profiles.last_name}` : 'You'}
                           </span>
                           <span className="text-sm text-gray-500 ml-2">
                             {new Date(ticket.created_at).toLocaleString()}
@@ -551,7 +554,7 @@ export default function SupportTickets() {
                         <div className="flex items-start justify-between mb-2">
                           <div>
                             <span className="font-medium text-gray-900">
-                              {response.user_profiles?.full_name}
+                              {response.user_profiles ? `${response.user_profiles.first_name} ${response.user_profiles.last_name}` : ''}
                             </span>
                             {response.is_staff_response && (
                               <span className="ml-2 text-xs px-2 py-0.5 bg-blue-600 text-white rounded-full">
