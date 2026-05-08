@@ -190,12 +190,13 @@ Deno.serve(withErrorHandling(async (req: Request) => {
                    req.headers.get('referer')?.split('/').slice(0, 3).join('/') ||
                    'https://azmarineservices.com';
 
-    // Create Payment Link (no expiration, limited to 1 payment)
+    // Create Payment Link — restricted to exactly 1 completed session to prevent double payment
     const params: Record<string, string> = {
       'line_items[0][price]': priceData.id,
       'line_items[0][quantity]': '1',
       'after_completion[type]': 'redirect',
       'after_completion[redirect][url]': `${appUrl}/payment-success`,
+      'restrictions[completed_sessions][limit]': '1',
       'metadata[invoice_id]': invoiceId,
       'metadata[yacht_id]': invoice.yacht_id || '',
       'metadata[payment_type]': 'yacht_invoice',

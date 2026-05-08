@@ -733,6 +733,16 @@ Deno.serve(async (req: Request) => {
         updated_at: new Date().toISOString(),
       }).eq('id', invoiceId).eq('payment_status', 'pending');
 
+      // Deactivate the payment link immediately after successful payment to prevent double charges
+      const { data: paidInvoice } = await supabase
+        .from('yacht_invoices')
+        .select('stripe_checkout_session_id')
+        .eq('id', invoiceId)
+        .single();
+      if (paidInvoice?.stripe_checkout_session_id) {
+        await deactivatePaymentLink(stripeSecretKey, paidInvoice.stripe_checkout_session_id);
+      }
+
       const { data: legacyInvoice } = await supabase
         .from('yacht_invoices')
         .select('repair_title, invoice_amount, payment_email_recipient, repair_request_id, yachts(name), repair_requests(is_retail_customer, customer_email, customer_name, estimate_id, title)')

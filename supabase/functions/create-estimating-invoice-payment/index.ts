@@ -175,12 +175,13 @@ Deno.serve(withErrorHandling(async (req: Request) => {
                    req.headers.get('referer')?.split('/').slice(0, 3).join('/') ||
                    'https://azmarineservices.com';
 
-    // Create Stripe Payment Link (does not expire, we manage 30-day window ourselves)
+    // Create Stripe Payment Link — restricted to exactly 1 completed session to prevent double payment
     const params: Record<string, string> = {
       'line_items[0][price]': priceData.id,
       'line_items[0][quantity]': '1',
       'after_completion[type]': 'redirect',
       'after_completion[redirect][url]': `${appUrl}/estimating?payment=success&type=invoice`,
+      'restrictions[completed_sessions][limit]': '1',
       'metadata[invoice_id]': invoiceId,
       'metadata[payment_type]': 'estimating_invoice_payment',
       'metadata[user_id]': user.id,
