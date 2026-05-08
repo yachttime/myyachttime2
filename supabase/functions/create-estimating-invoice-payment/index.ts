@@ -179,8 +179,8 @@ Deno.serve(withErrorHandling(async (req: Request) => {
     const params: Record<string, string> = {
       'line_items[0][price]': priceData.id,
       'line_items[0][quantity]': '1',
-      'after_completion[type]': 'redirect',
-      'after_completion[redirect][url]': `${appUrl}/estimating?payment=success&type=invoice`,
+      'after_completion[type]': 'hosted_confirmation',
+      'after_completion[hosted_confirmation][custom_message]': 'Your payment has been received. Thank you! You will receive a confirmation email shortly.',
       'restrictions[completed_sessions][limit]': '1',
       'metadata[invoice_id]': invoiceId,
       'metadata[payment_type]': 'estimating_invoice_payment',
