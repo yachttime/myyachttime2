@@ -2865,6 +2865,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             .map(request => request.completed_by)
         )];
 
+        // Collect all unique submitted_by IDs
+        const submittedByIds = [...new Set(
+          data
+            .filter(request => request.submitted_by)
+            .map(request => request.submitted_by)
+        )];
+
         // Fetch all user profiles in one query
         let userProfilesMap: { [userId: string]: any } = {};
         if (completedByIds.length > 0) {
@@ -2876,6 +2883,21 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           if (profiles) {
             profiles.forEach(profile => {
               userProfilesMap[profile.user_id] = profile;
+            });
+          }
+        }
+
+        // Fetch submitter profiles (role) in one query
+        let submitterProfilesMap: { [userId: string]: any } = {};
+        if (submittedByIds.length > 0) {
+          const { data: submitterProfiles } = await supabase
+            .from('user_profiles')
+            .select('user_id, first_name, last_name, role')
+            .in('user_id', submittedByIds);
+
+          if (submitterProfiles) {
+            submitterProfiles.forEach(profile => {
+              submitterProfilesMap[profile.user_id] = profile;
             });
           }
         }
@@ -2894,9 +2916,14 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             estimatingInvoicesMap[request.id] = request.estimating_invoices;
           }
 
+          const submitterProfile = request.submitted_by ? submitterProfilesMap[request.submitted_by] : null;
+
           return {
             ...request,
-            completed_by_profile: request.completed_by ? userProfilesMap[request.completed_by] : null
+            completed_by_profile: request.completed_by ? userProfilesMap[request.completed_by] : null,
+            submitter_role: submitterProfile?.role || null,
+            first_name: submitterProfile?.first_name || null,
+            last_name: submitterProfile?.last_name || null,
           };
         });
 
