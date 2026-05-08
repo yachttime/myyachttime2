@@ -1063,7 +1063,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         (data || []).map(async (request: any) => {
           const { data: userProfileData } = await supabase
             .from('user_profiles')
-            .select('first_name, last_name')
+            .select('first_name, last_name, role')
             .eq('user_id', request.submitted_by)
             .maybeSingle();
 
@@ -1073,6 +1073,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             user_id: request.submitted_by,
             first_name: userProfileData?.first_name,
             last_name: userProfileData?.last_name,
+            submitter_role: userProfileData?.role,
             yacht_name: request.yachts?.name,
             yachts: undefined
           };
@@ -13628,7 +13629,15 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                     <Anchor className="w-5 h-5 text-orange-400" />
                                   </div>
                                   <div className="flex-1 min-w-0">
-                                    <h4 className="text-lg font-bold text-orange-400">{group.label}</h4>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <h4 className="text-lg font-bold text-orange-400">{group.label}</h4>
+                                      {group.requests.some((r: any) => r.submitter_role === 'manager' || r.submitter_role === 'owner') && (
+                                        <span className="bg-sky-500/20 text-sky-300 text-xs px-2 py-0.5 rounded-full font-medium flex items-center gap-1 border border-sky-500/30">
+                                          <User className="w-3 h-3" />
+                                          Owner Request
+                                        </span>
+                                      )}
+                                    </div>
                                     <div className="flex items-center flex-wrap gap-2 mt-0.5">
                                       <span className="text-slate-400 text-sm">{group.requests.length} request{group.requests.length !== 1 ? 's' : ''}</span>
                                       {pendingCount > 0 && (
@@ -13702,6 +13711,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 <div className="flex-1">
                                   <div className="flex items-center gap-3 mb-2 flex-wrap">
                                     <h4 className="text-lg font-semibold">{request.title}</h4>
+                                    {(request.submitter_role === 'manager' || request.submitter_role === 'owner') && (
+                                      <span className="bg-sky-500/20 text-sky-300 border border-sky-500/30 px-2 py-0.5 rounded text-xs font-semibold flex items-center gap-1">
+                                        <User className="w-3 h-3" />
+                                        {request.submitter_role === 'owner' ? 'Owner' : 'Manager'} Request
+                                        {request.first_name && ` · ${request.first_name} ${request.last_name || ''}`}
+                                      </span>
+                                    )}
                                     {request.estimate_id && (
                                       <span className="bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 px-2 py-0.5 rounded text-xs font-semibold">
                                         From Estimate
