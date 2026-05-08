@@ -12960,7 +12960,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             insertData.customer_phone = customerData.phone;
                           }
 
-                          const { data: insertedRequest, error: insertError } = await supabase.from('repair_requests').insert(insertData).select().single();
+                          console.log('Repair request insert data:', JSON.stringify(insertData));
+                          const { data: insertedRequest, error: insertError } = await supabase.from('repair_requests').insert(insertData).select().maybeSingle();
+                          console.log('Repair request insert result:', insertedRequest, insertError);
 
                           if (insertError) throw insertError;
 
