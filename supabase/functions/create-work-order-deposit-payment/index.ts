@@ -158,8 +158,9 @@ Deno.serve(withErrorHandling(async (req: Request) => {
     const params: Record<string, string> = {
       'line_items[0][price]': priceData.id,
       'line_items[0][quantity]': '1',
-      'after_completion[type]': 'redirect',
-      'after_completion[redirect][url]': `${req.headers.get('origin') || supabaseUrl}/payment-success`,
+      'after_completion[type]': 'hosted_confirmation',
+      'after_completion[hosted_confirmation][custom_message]': 'Your deposit has been received. Thank you! You will receive a confirmation email shortly.',
+      'restrictions[completed_sessions][limit]': '1',
       'metadata[work_order_id]': workOrderId,
       'metadata[payment_type]': 'work_order_deposit',
       'metadata[user_id]': user.id,
