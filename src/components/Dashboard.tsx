@@ -12860,7 +12860,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       </div>
                     </div>
                     <button
-                      onClick={() => setShowRepairForm(!showRepairForm)}
+                      onClick={() => {
+                        if (!showRepairForm && effectiveRole === 'manager' && effectiveYacht?.id) {
+                          setRepairForm(f => ({ ...f, yacht_id: effectiveYacht.id }));
+                        }
+                        setShowRepairForm(!showRepairForm);
+                      }}
                       className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 shadow-lg"
                     >
                       {showRepairForm ? 'Cancel' : '+ New Repair Request'}
@@ -12968,20 +12973,18 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 userName
                               );
 
-                              const { data: managers, error: managersError } = await supabase
-                                .from('user_profiles')
-                                .select('user_id, first_name, last_name, email')
-                                .eq('yacht_id', repairForm.yacht_id)
-                                .eq('role', 'manager');
+                              try {
+                                const { data: managers, error: managersError } = await supabase
+                                  .from('user_profiles')
+                                  .select('user_id, first_name, last_name, email')
+                                  .eq('yacht_id', repairForm.yacht_id)
+                                  .eq('role', 'manager');
 
-                              if (managersError) throw managersError;
+                                if (!managersError && managers && managers.length > 0) {
+                                  const managersWithEmail = managers.filter(m => m.email);
 
-                              if (managers && managers.length > 0) {
-                                const managersWithEmail = managers.filter(m => m.email);
-
-                                if (managersWithEmail.length > 0) {
-                                  const emailAddresses = managersWithEmail.map(m => m.email).join(', ');
-                                  try {
+                                  if (managersWithEmail.length > 0) {
+                                    const emailAddresses = managersWithEmail.map(m => m.email).join(', ');
                                     const { data: { session } } = await supabase.auth.getSession();
 
                                     const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-repair-notification`;
@@ -13011,10 +13014,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                       .from('repair_requests')
                                       .update({ notification_recipients: emailAddresses })
                                       .eq('id', insertedRequest.id);
-                                  } catch (emailError) {
-                                    console.error('Failed to send email notifications:', emailError);
                                   }
                                 }
+                              } catch (emailError) {
+                                console.error('Failed to send email notifications:', emailError);
                               }
                             }
                           }
