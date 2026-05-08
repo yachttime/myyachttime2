@@ -12875,6 +12875,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                   {showRepairForm && (
                     <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 mb-6">
                       <h3 className="text-xl font-semibold mb-4">Submit Repair Request</h3>
+                      {repairError && (
+                        <div className="bg-red-500/10 border border-red-500 text-red-500 px-4 py-3 rounded-lg text-sm mb-4">
+                          {repairError}
+                        </div>
+                      )}
                       <form onSubmit={async (e) => {
                         e.preventDefault();
                         setRepairLoading(true);
@@ -13043,7 +13048,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                           setTimeout(() => setRepairSuccess(false), 3000);
                         } catch (err: any) {
-                          setRepairError(err.message || 'Failed to submit repair request');
+                          console.error('Repair request submission error:', err);
+                          setRepairError(err.message || err.details || err.hint || 'Failed to submit repair request');
                         } finally {
                           setRepairLoading(false);
                         }
