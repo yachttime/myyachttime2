@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Anchor, Calendar, CheckCircle, AlertCircle, BookOpen, LogOut, Wrench, Send, Play, Shield, ClipboardCheck, ClipboardList, Ship, CalendarPlus, FileUp, MessageCircle, Mail, CreditCard as Edit2, Trash2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, History, UserCheck, FileText, Upload, Download, X, Users, Save, RefreshCw, Clock, Thermometer, Camera, Receipt, Pencil, Lock, CreditCard, Eye, EyeOff, MousePointer, Ligature as FileSignature, Folder, Menu, Phone, Printer, Plus, QrCode, CircleUser as UserCircle2, DollarSign, Archive, Building2, MessageSquare, ShieldAlert, Paperclip, ExternalLink } from 'lucide-react';
+import { Anchor, Calendar, CheckCircle, AlertCircle, BookOpen, LogOut, Wrench, Send, Play, Shield, ClipboardCheck, ClipboardList, Ship, CalendarPlus, FileUp, MessageCircle, Mail, CreditCard as Edit2, Trash2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, History, UserCheck, FileText, Upload, Download, X, Users, Save, RefreshCw, Clock, Thermometer, Camera, Receipt, Pencil, Lock, CreditCard, Eye, EyeOff, MousePointer, Ligature as FileSignature, Folder, Menu, Phone, Printer, Plus, QrCode, CircleUser as UserCircle2, DollarSign, Archive, Building2, MessageSquare, ShieldAlert, Paperclip, ExternalLink, User, Image } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCompany } from '../contexts/CompanyContext';
 import { useRoleImpersonation } from '../contexts/RoleImpersonationContext';
@@ -55,7 +55,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   };
 
   // Helper function to set admin view and persist to localStorage
-  const setAdminViewPersisted = (view: 'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies') => {
+  const setAdminViewPersisted = (view: 'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies' | 'maintenancerequests') => {
     setAdminView(view);
     try {
       localStorage.setItem('adminView', view);
@@ -346,7 +346,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     caption: string;
   }>>([]);
   const [inspectionPhotoUploading, setInspectionPhotoUploading] = useState(false);
-  const [adminView, setAdminView] = useState<'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies'>(() => {
+  const [adminView, setAdminView] = useState<'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies' | 'maintenancerequests'>(() => {
     try {
       const stored = localStorage.getItem('adminView');
       if (stored && ['menu', 'inspection', 'yachts', 'ownertrips', 'repairs', 'ownerchat', 'messages', 'mastercalendar', 'ownerhandoff', 'users', 'appointments', 'staffappointment', 'smartdevices', 'companies'].includes(stored)) {
@@ -463,6 +463,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [repairSuccess, setRepairSuccess] = useState(false);
   const [repairError, setRepairError] = useState('');
   const [repairRequests, setRepairRequests] = useState<RepairRequest[]>([]);
+  const [allMaintenanceRequests, setAllMaintenanceRequests] = useState<any[]>([]);
   const [activeRepairTab, setActiveRepairTab] = useState<'active' | 'paid' | 'archived'>('active');
   const [expandedRepairGroups, setExpandedRepairGroups] = useState<Set<string>>(new Set());
   const [showApprovalModal, setShowApprovalModal] = useState(false);
@@ -1081,6 +1082,30 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       setMaintenanceRequests(requestsWithUsers || []);
     } catch (error) {
       console.error('Error loading maintenance requests:', error);
+    }
+  };
+
+  const loadAllMaintenanceRequests = async () => {
+    if (!user || !selectedCompany?.id) {
+      setAllMaintenanceRequests([]);
+      return;
+    }
+    try {
+      let query = supabase
+        .from('maintenance_requests')
+        .select(`*, yachts:yacht_id (name), user_profiles:user_id (first_name, last_name, email_address)`)
+        .eq('company_id', selectedCompany.id);
+
+      if (effectiveRole === 'manager' && effectiveYacht) {
+        query = query.eq('yacht_id', effectiveYacht.id);
+      }
+
+      query = query.order('created_at', { ascending: false });
+      const { data, error } = await query;
+      if (error) throw error;
+      setAllMaintenanceRequests(data || []);
+    } catch (error) {
+      console.error('Error loading all maintenance requests:', error);
     }
   };
 
@@ -8305,6 +8330,21 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                         </div>
                         <h3 className="text-xl font-bold mb-2">Repair Requests</h3>
                         <p className="text-slate-400 text-sm">Upload files and request repair approvals</p>
+                      </button>
+                    )}
+
+                    {isStaffOrManager(effectiveRole) && (
+                      <button
+                        onClick={() => { loadAllMaintenanceRequests(); setAdminViewPersisted('maintenancerequests'); }}
+                        className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
+                      >
+                        <div className="flex items-center gap-4 mb-4">
+                          <div className="bg-amber-500/20 p-4 rounded-xl group-hover:bg-amber-500/30 transition-colors">
+                            <Wrench className="w-8 h-8 text-amber-500" />
+                          </div>
+                        </div>
+                        <h3 className="text-xl font-bold mb-2">Owner Maintenance Requests</h3>
+                        <p className="text-slate-400 text-sm">View maintenance requests submitted by yacht owners and managers</p>
                       </button>
                     )}
 
@@ -17370,6 +17410,102 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                   </button>
 
                   <SmartDeviceManagement />
+                </>
+              ) : adminView === 'maintenancerequests' ? (
+                <>
+                  <button
+                    onClick={() => setAdminViewPersisted('menu')}
+                    className="flex items-center gap-2 text-slate-400 hover:text-amber-500 transition-colors mb-4"
+                  >
+                    <span>← Back to Admin Menu</span>
+                  </button>
+
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-3">
+                      <Wrench className="w-8 h-8 text-amber-500" />
+                      <div>
+                        <h2 className="text-2xl font-bold">Owner Maintenance Requests</h2>
+                        <p className="text-slate-400">Maintenance requests submitted by yacht owners and managers</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={loadAllMaintenanceRequests}
+                      className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors text-sm"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      Refresh
+                    </button>
+                  </div>
+
+                  {allMaintenanceRequests.length === 0 ? (
+                    <div className="bg-slate-800/50 rounded-2xl p-12 border border-slate-700 text-center">
+                      <Wrench className="w-12 h-12 text-slate-600 mx-auto mb-4" />
+                      <p className="text-slate-400">No maintenance requests found.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {allMaintenanceRequests.map((req) => (
+                        <div key={req.id} className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700">
+                          <div className="flex items-start justify-between gap-4 mb-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-3 flex-wrap mb-1">
+                                <h3 className="text-lg font-semibold">{req.subject}</h3>
+                                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                                  req.status === 'completed' ? 'bg-green-500/20 text-green-400' :
+                                  req.status === 'in_progress' ? 'bg-blue-500/20 text-blue-400' :
+                                  'bg-amber-500/20 text-amber-400'
+                                }`}>{req.status}</span>
+                              </div>
+                              <div className="flex items-center gap-4 text-sm text-slate-400 flex-wrap">
+                                {req.yachts?.name && (
+                                  <span className="flex items-center gap-1">
+                                    <Anchor className="w-3.5 h-3.5" />
+                                    {req.yachts.name}
+                                  </span>
+                                )}
+                                {req.user_profiles && (
+                                  <span className="flex items-center gap-1">
+                                    <User className="w-3.5 h-3.5" />
+                                    {req.user_profiles.first_name} {req.user_profiles.last_name}
+                                  </span>
+                                )}
+                                <span>{formatDate(req.created_at)}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <p className="text-slate-300 text-sm whitespace-pre-wrap">{req.description}</p>
+                          {req.photo_url && (
+                            <div className="mt-3">
+                              <a href={req.photo_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-sm text-amber-400 hover:text-amber-300 transition-colors">
+                                <Image className="w-4 h-4" />
+                                View Photo
+                              </a>
+                            </div>
+                          )}
+                          <div className="mt-4">
+                            <select
+                              value={req.status}
+                              onChange={async (e) => {
+                                const newStatus = e.target.value;
+                                const { error } = await supabase
+                                  .from('maintenance_requests')
+                                  .update({ status: newStatus })
+                                  .eq('id', req.id);
+                                if (!error) {
+                                  setAllMaintenanceRequests(prev => prev.map(r => r.id === req.id ? { ...r, status: newStatus } : r));
+                                }
+                              }}
+                              className="bg-slate-900 border border-slate-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-amber-500"
+                            >
+                              <option value="pending">Pending</option>
+                              <option value="in_progress">In Progress</option>
+                              <option value="completed">Completed</option>
+                            </select>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </>
               ) : adminView === 'companies' ? (
                 <>
