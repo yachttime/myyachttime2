@@ -5644,14 +5644,15 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         photoUrl = urlData.publicUrl;
       }
 
-      const { error: dbError } = await supabase.from('maintenance_requests').insert({
-        user_id: user.id,
+      const { error: dbError } = await supabase.from('repair_requests').insert({
+        submitted_by: user.id,
         yacht_id: effectiveYacht.id,
-        subject: maintenanceSubject,
+        title: maintenanceSubject,
         description: maintenanceDescription,
-        priority: 'medium',
+        file_url: photoUrl,
+        file_name: photoUrl ? maintenancePhoto?.name || null : null,
         status: 'pending',
-        photo_url: photoUrl,
+        is_retail_customer: false,
         company_id: effectiveYacht.company_id,
       });
 
