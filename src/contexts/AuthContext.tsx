@@ -213,36 +213,37 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
-    if (user) {
-      try {
-        await supabase
-          .from('user_profiles')
-          .update({ last_sign_out_at: new Date().toISOString() })
-          .eq('user_id', user.id);
-      } catch (error) {
-        console.error('Error updating sign out time:', error);
-      }
-    }
-
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (error && error.message !== 'Auth session missing!' && !error.message.includes('session_id claim')) {
-        throw error;
-      }
-    } catch (error: any) {
-      if (error?.message !== 'Auth session missing!' && !error?.message?.includes('session_id claim')) {
-        throw error;
-      }
-    }
+    // Always clear local state and auth session first — DB update must never block logout
+    setUser(null);
+    setUserProfile(null);
+    setYacht(null);
 
     try {
       localStorage.removeItem('activeTab');
       localStorage.removeItem('adminView');
     } catch {}
 
-    setUser(null);
-    setUserProfile(null);
-    setYacht(null);
+    // Fire-and-forget: record sign-out time without blocking
+    if (user) {
+      supabase
+        .from('user_profiles')
+        .update({ last_sign_out_at: new Date().toISOString() })
+        .eq('user_id', user.id)
+        .then(({ error }) => {
+          if (error) console.error('Error updating sign out time:', error);
+        });
+    }
+
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error && error.message !== 'Auth session missing!' && !error.message.includes('session_id claim')) {
+        console.error('Sign out error:', error);
+      }
+    } catch (error: any) {
+      if (error?.message !== 'Auth session missing!' && !error?.message?.includes('session_id claim')) {
+        console.error('Sign out error:', error);
+      }
+    }
   };
 
   const refreshProfile = async () => {
