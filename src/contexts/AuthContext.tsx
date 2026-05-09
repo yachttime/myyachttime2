@@ -130,7 +130,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const loadUserProfile = async (userId: string) => {
+  const loadUserProfile = async (userId: string, attempt = 1) => {
+    const MAX_ATTEMPTS = 4;
+    const RETRY_DELAY_MS = 2000;
+
     try {
       const { data: profile, error: profileError } = await supabase
         .from('user_profiles')
@@ -157,12 +160,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } else {
         setYacht(null);
       }
-    } catch (error) {
-      console.error('Error loading user profile:', error);
-      setUserProfile(null);
-      setYacht(null);
-    } finally {
+
       setLoading(false);
+    } catch (error: any) {
+      const isTimeout = error?.message?.includes('timeout') ||
+        error?.message?.includes('upstream') ||
+        error?.code === '57014';
+
+      if (isTimeout && attempt < MAX_ATTEMPTS) {
+        console.warn(`Profile load timed out, retrying (${attempt}/${MAX_ATTEMPTS - 1})...`);
+        setTimeout(() => loadUserProfile(userId, attempt + 1), RETRY_DELAY_MS);
+        // Keep loading=true so the app stays on the loading screen during retry
+      } else {
+        console.error('Error loading user profile:', error);
+        setUserProfile(null);
+        setYacht(null);
+        setLoading(false);
+      }
     }
   };
 
@@ -205,10 +219,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (error) throw error;
 
     if (data.user) {
-      await supabase
+      supabase
         .from('user_profiles')
         .update({ last_sign_in_at: new Date().toISOString() })
-        .eq('user_id', data.user.id);
+        .eq('user_id', data.user.id)
+        .then(({ error }) => {
+          if (error) console.error('Error updating sign in time:', error);
+        });
     }
   };
 
