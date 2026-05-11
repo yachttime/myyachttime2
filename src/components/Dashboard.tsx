@@ -14203,9 +14203,15 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                         </div>
                                         <span className="text-slate-600 text-xs">→</span>
                                         {/* Step 3: Invoice */}
-                                        <div className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium ${estimatingInvoice?.payment_status === 'paid' ? 'bg-green-500/20 text-green-300' : estimatingInvoice ? 'bg-amber-500/20 text-amber-300' : 'bg-slate-700/50 text-slate-500'}`}>
+                                        <div className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium ${estimatingInvoice?.payment_status === 'paid' ? 'bg-green-500/20 text-green-300' : estimatingInvoice?.payment_status === 'processing' ? 'bg-blue-500/20 text-blue-300' : estimatingInvoice ? 'bg-amber-500/20 text-amber-300' : 'bg-slate-700/50 text-slate-500'}`}>
                                           <Receipt className="w-3 h-3" />
-                                          {estimatingInvoice ? (estimatingInvoice.payment_status === 'paid' ? `Paid $${Number(estimatingInvoice.total_amount - (estimatingInvoice.deposit_applied ?? 0)).toFixed(2)}` : `Invoice $${Number(estimatingInvoice.balance_due ?? estimatingInvoice.total_amount).toFixed(2)} due`) : 'Invoice Pending'}
+                                          {estimatingInvoice ? (
+                                            estimatingInvoice.payment_status === 'paid'
+                                              ? `Paid $${Number(estimatingInvoice.total_amount - (estimatingInvoice.deposit_applied ?? 0)).toFixed(2)}`
+                                              : estimatingInvoice.payment_status === 'processing'
+                                                ? `Invoice $${Number(estimatingInvoice.balance_due ?? estimatingInvoice.total_amount).toFixed(2)} Processing`
+                                                : `Invoice $${Number(estimatingInvoice.balance_due ?? estimatingInvoice.total_amount).toFixed(2)} due`
+                                          ) : 'Invoice Pending'}
                                         </div>
                                       </div>
                                       {estimatingInvoice && estimatingInvoice.payment_status !== 'paid' && request.deposit_payment_status === 'paid' && estimatingInvoice.deposit_applied === 0 && (
