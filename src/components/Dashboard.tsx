@@ -612,6 +612,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [assignTaskLoading, setAssignTaskLoading] = useState(false);
   const [assignTaskSuccess, setAssignTaskSuccess] = useState(false);
   const [assignTaskError, setAssignTaskError] = useState('');
+  const [repairToTaskRequest, setRepairToTaskRequest] = useState<RepairRequest | null>(null);
+  const [repairToTaskForm, setRepairToTaskForm] = useState({ assigned_to: '', task_date: '', admin_notes: '' });
+  const [repairToTaskLoading, setRepairToTaskLoading] = useState(false);
+  const [repairToTaskError, setRepairToTaskError] = useState('');
+  const [repairToTaskSuccess, setRepairToTaskSuccess] = useState<string | null>(null);
   const [staffMessages, setStaffMessages] = useState<StaffMessage[]>([]);
   const [messagesTab, setMessagesTab] = useState<'yacht' | 'staff'>('yacht');
   const [yachtPartners, setYachtPartners] = useState<{ [yachtId: string]: any[] }>({});
@@ -6277,6 +6282,61 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       setAssignTaskError(err.message || 'Failed to assign task');
     } finally {
       setAssignTaskLoading(false);
+    }
+  };
+
+  const openRepairToTaskModal = async (request: RepairRequest) => {
+    setRepairToTaskRequest(request);
+    setRepairToTaskForm({
+      assigned_to: '',
+      task_date: new Date().toISOString().split('T')[0],
+      admin_notes: [request.title, request.description].filter(Boolean).join('\n').trim(),
+    });
+    setRepairToTaskError('');
+    setRepairToTaskSuccess(null);
+    if (assignTaskStaffList.length === 0) {
+      const { data } = await supabase
+        .from('user_profiles')
+        .select('user_id, first_name, last_name')
+        .in('role', ['staff', 'mechanic', 'master'])
+        .eq('is_active', true)
+        .order('last_name');
+      setAssignTaskStaffList(data || []);
+    }
+  };
+
+  const handleRepairToTask = async () => {
+    if (!repairToTaskRequest || !repairToTaskForm.assigned_to || !repairToTaskForm.task_date) return;
+    setRepairToTaskLoading(true);
+    setRepairToTaskError('');
+    try {
+      const title = `Repair: ${repairToTaskRequest.title}`;
+      const { error } = await supabase.from('daily_tasks').insert({
+        title,
+        assigned_to: repairToTaskForm.assigned_to,
+        assigned_by: user!.id,
+        yacht_id: repairToTaskRequest.yacht_id || null,
+        customer_id: repairToTaskRequest.customer_id || null,
+        admin_notes: repairToTaskForm.admin_notes.trim(),
+        staff_notes: '',
+        time_spent_minutes: 0,
+        is_completed: false,
+        task_date: repairToTaskForm.task_date,
+        task_type: 'repair_request',
+        company_id: userProfile?.company_id,
+      });
+      if (error) throw error;
+      const staff = assignTaskStaffList.find(s => s.user_id === repairToTaskForm.assigned_to);
+      const staffName = staff ? `${staff.first_name || ''} ${staff.last_name || ''}`.trim() : 'staff member';
+      setRepairToTaskSuccess(`Task assigned to ${staffName}`);
+      setTimeout(() => {
+        setRepairToTaskRequest(null);
+        setRepairToTaskSuccess(null);
+      }, 2000);
+    } catch (err: any) {
+      setRepairToTaskError(err.message || 'Failed to create task');
+    } finally {
+      setRepairToTaskLoading(false);
     }
   };
 
@@ -14900,6 +14960,24 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   </div>
                                 )}
 
+                                {/* Send to Daily Task button */}
+                                {canManageYacht(effectiveRole) && request.status !== 'completed' && (
+                                  <div className="flex gap-2 ml-4 mt-2">
+                                    <button
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        openRepairToTaskModal(request);
+                                      }}
+                                      className="bg-teal-600 hover:bg-teal-500 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2"
+                                      title="Send this repair request to the daily task list"
+                                    >
+                                      <ClipboardList className="w-4 h-4" />
+                                      Send to Daily Task
+                                    </button>
+                                  </div>
+                                )}
+
                                 {/* Archive/Unarchive button for all users with yacht access */}
                                 {(canManageYacht(effectiveRole) || effectiveRole === 'owner') && (
                                   <div className="flex gap-2 ml-4 mt-2">
@@ -14938,6 +15016,104 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       </div>
                     )}
                   </div>
+
+                  {/* Send Repair Request to Daily Task Modal */}
+                  {repairToTaskRequest && (
+                    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                      <div className="bg-slate-800 rounded-2xl border border-slate-700 max-w-lg w-full">
+                        <div className="p-6 border-b border-slate-700 flex items-center justify-between">
+                          <div>
+                            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                              <ClipboardList className="w-5 h-5 text-teal-400" />
+                              Send to Daily Task
+                            </h3>
+                            <p className="text-slate-400 text-sm mt-1 truncate max-w-xs">{repairToTaskRequest.title}</p>
+                          </div>
+                          <button
+                            onClick={() => setRepairToTaskRequest(null)}
+                            className="text-slate-400 hover:text-white transition-colors"
+                          >
+                            <X className="w-5 h-5" />
+                          </button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                          {repairToTaskSuccess ? (
+                            <div className="flex items-center gap-3 bg-green-500/20 border border-green-500/30 rounded-xl p-4 text-green-300">
+                              <CheckCircle className="w-5 h-5 flex-shrink-0" />
+                              <span className="font-medium">{repairToTaskSuccess}</span>
+                            </div>
+                          ) : (
+                            <>
+                              <div>
+                                <label className="block text-sm font-medium text-slate-300 mb-1">Assign To <span className="text-red-400">*</span></label>
+                                <select
+                                  value={repairToTaskForm.assigned_to}
+                                  onChange={e => setRepairToTaskForm(f => ({ ...f, assigned_to: e.target.value }))}
+                                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500"
+                                >
+                                  <option value="">Select staff member...</option>
+                                  {assignTaskStaffList.map(s => (
+                                    <option key={s.user_id} value={s.user_id}>
+                                      {s.first_name} {s.last_name}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-slate-300 mb-1">Task Date <span className="text-red-400">*</span></label>
+                                <input
+                                  type="date"
+                                  value={repairToTaskForm.task_date}
+                                  onChange={e => setRepairToTaskForm(f => ({ ...f, task_date: e.target.value }))}
+                                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-slate-300 mb-1">Notes for Staff</label>
+                                <textarea
+                                  value={repairToTaskForm.admin_notes}
+                                  onChange={e => setRepairToTaskForm(f => ({ ...f, admin_notes: e.target.value }))}
+                                  rows={3}
+                                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500 resize-none"
+                                  placeholder="Instructions for the assigned staff member..."
+                                />
+                              </div>
+                              {repairToTaskError && (
+                                <div className="bg-red-500/20 border border-red-500/30 rounded-lg px-3 py-2 text-red-300 text-sm">
+                                  {repairToTaskError}
+                                </div>
+                              )}
+                              <div className="flex gap-3 pt-2">
+                                <button
+                                  onClick={() => setRepairToTaskRequest(null)}
+                                  className="flex-1 bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  onClick={handleRepairToTask}
+                                  disabled={repairToTaskLoading || !repairToTaskForm.assigned_to || !repairToTaskForm.task_date}
+                                  className="flex-1 bg-teal-600 hover:bg-teal-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2"
+                                >
+                                  {repairToTaskLoading ? (
+                                    <>
+                                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                      Creating...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <ClipboardList className="w-4 h-4" />
+                                      Create Task
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {showApprovalModal && approvalAction && (
                     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
