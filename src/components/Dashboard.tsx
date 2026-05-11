@@ -3402,7 +3402,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         })
         .eq('id', selectedRepairForInvoice.id);
 
-      if (updateError) throw updateError;
+      if (updateError) { console.error('RLS ERROR - repair_requests UPDATE:', updateError); throw updateError; }
 
       const invoiceYear = new Date().getFullYear();
       const invoiceAmountNumeric = parseFloat(invoiceForm.final_invoice_amount.replace(/[^0-9.-]+/g, ''));
@@ -3425,13 +3425,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       .select()
       .single();
 
-      if (invoiceInsertError) throw invoiceInsertError;
+      if (invoiceInsertError) { console.error('RLS ERROR - yacht_invoices INSERT:', invoiceInsertError); throw invoiceInsertError; }
 
       const notificationMessage = (selectedRepairForInvoice.customer_id || selectedRepairForInvoice.is_retail_customer)
         ? `Repair completed for walk-in customer: "${selectedRepairForInvoice.title}" - ${invoiceForm.final_invoice_amount}`
         : `Repair completed and invoice sent: "${selectedRepairForInvoice.title}" - ${invoiceForm.final_invoice_amount}`;
 
-      await supabase.from('admin_notifications').insert({
+      const { error: notifError } = await supabase.from('admin_notifications').insert({
         user_id: user.id,
         yacht_id: selectedRepairForInvoice.yacht_id,
         notification_type: 'repair_request',
@@ -3439,6 +3439,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         reference_id: selectedRepairForInvoice.id,
         company_id: userProfile?.company_id
       });
+      if (notifError) { console.error('RLS ERROR - admin_notifications INSERT:', notifError); throw notifError; }
 
       const userName = userProfile?.first_name && userProfile?.last_name
         ? `${userProfile.first_name} ${userProfile.last_name}`
@@ -3447,12 +3448,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       if (!selectedRepairForInvoice.is_retail_customer && selectedRepairForInvoice.yacht_id) {
         const ownerMessage = `Repair Request Completed & Invoice Sent: ${selectedRepairForInvoice.title}\n\n✓ This repair has been completed by ${userName}.\n\nFinal Invoice Amount: ${invoiceForm.final_invoice_amount}${invoiceFileName ? `\nInvoice File: ${invoiceFileName}` : ''}`;
 
-        await supabase.from('owner_chat_messages').insert({
+        const { error: chatError } = await supabase.from('owner_chat_messages').insert({
           yacht_id: selectedRepairForInvoice.yacht_id,
           user_id: user.id,
           message: ownerMessage,
           company_id: userProfile?.company_id
         });
+        if (chatError) { console.error('RLS ERROR - owner_chat_messages INSERT:', chatError); throw chatError; }
 
         const { data: managers } = await supabase
           .from('user_profiles')
