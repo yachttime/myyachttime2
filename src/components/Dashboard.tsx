@@ -6306,14 +6306,14 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   };
 
   const handleRepairToTask = async () => {
-    if (!repairToTaskRequest || !repairToTaskForm.assigned_to || !repairToTaskForm.task_date) return;
+    if (!repairToTaskRequest || !repairToTaskForm.task_date) return;
     setRepairToTaskLoading(true);
     setRepairToTaskError('');
     try {
       const title = `Repair: ${repairToTaskRequest.title}`;
       const { error } = await supabase.from('daily_tasks').insert({
         title,
-        assigned_to: repairToTaskForm.assigned_to,
+        assigned_to: repairToTaskForm.assigned_to || null,
         assigned_by: user!.id,
         yacht_id: repairToTaskRequest.yacht_id || null,
         customer_id: repairToTaskRequest.customer_id || null,
@@ -6327,8 +6327,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       });
       if (error) throw error;
       const staff = assignTaskStaffList.find(s => s.user_id === repairToTaskForm.assigned_to);
-      const staffName = staff ? `${staff.first_name || ''} ${staff.last_name || ''}`.trim() : 'staff member';
-      setRepairToTaskSuccess(`Task assigned to ${staffName}`);
+      const staffName = staff ? `${staff.first_name || ''} ${staff.last_name || ''}`.trim() : '';
+      setRepairToTaskSuccess(staffName ? `Task assigned to ${staffName}` : 'Task added to daily task list');
       setTimeout(() => {
         setRepairToTaskRequest(null);
         setRepairToTaskSuccess(null);
@@ -15045,7 +15045,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           ) : (
                             <>
                               <div>
-                                <label className="block text-sm font-medium text-slate-300 mb-1">Assign To <span className="text-red-400">*</span></label>
+                                <label className="block text-sm font-medium text-slate-300 mb-1">Assign To <span className="text-slate-500">(optional)</span></label>
                                 <select
                                   value={repairToTaskForm.assigned_to}
                                   onChange={e => setRepairToTaskForm(f => ({ ...f, assigned_to: e.target.value }))}
@@ -15092,7 +15092,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 </button>
                                 <button
                                   onClick={handleRepairToTask}
-                                  disabled={repairToTaskLoading || !repairToTaskForm.assigned_to || !repairToTaskForm.task_date}
+                                  disabled={repairToTaskLoading || !repairToTaskForm.task_date}
                                   className="flex-1 bg-teal-600 hover:bg-teal-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2"
                                 >
                                   {repairToTaskLoading ? (
