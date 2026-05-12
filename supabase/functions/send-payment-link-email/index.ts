@@ -602,7 +602,10 @@ Deno.serve(async (req: Request) => {
 
       let ccEmails: string[] = [];
       if (invoice.yacht_id) {
-        const { data: ownerProfiles } = await supabase
+        const adminSupabase = createClient(supabaseUrl, supabaseServiceKey);
+
+        // CC owner secondary emails
+        const { data: ownerProfiles } = await adminSupabase
           .from('user_profiles')
           .select('secondary_email')
           .eq('yacht_id', invoice.yacht_id)
@@ -613,6 +616,24 @@ Deno.serve(async (req: Request) => {
           ccEmails = ownerProfiles
             .map(p => p.secondary_email)
             .filter((email): email is string => !!email && email !== recipientEmail);
+        }
+
+        // Also CC billing manager secondary emails
+        const { data: billingMgrs } = await adminSupabase
+          .from('user_profiles')
+          .select('secondary_email')
+          .eq('yacht_id', invoice.yacht_id)
+          .eq('can_approve_billing', true)
+          .eq('is_active', true)
+          .not('secondary_email', 'is', null);
+
+        if (billingMgrs && billingMgrs.length > 0) {
+          for (const m of billingMgrs) {
+            const cc = (m.secondary_email ?? '').trim();
+            if (cc && cc !== recipientEmail && !ccEmails.includes(cc)) {
+              ccEmails.push(cc);
+            }
+          }
         }
       }
 

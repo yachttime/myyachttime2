@@ -441,12 +441,14 @@ Deno.serve(async (req: Request) => {
     // Always look up all billing managers from DB using service role (bypasses RLS/frontend state issues)
     const allRecipients: string[] = [];
     const recipientNames: Map<string, string> = new Map();
+    // Map from recipient email -> CC emails to include for that recipient
+    const recipientCcMap: Map<string, string[]> = new Map();
 
     if (invoice.yacht_id) {
       const adminSupabase = createClient(supabaseUrl, supabaseServiceKey);
       const { data: billingMgrs } = await adminSupabase
         .from('user_profiles')
-        .select('first_name, last_name, email, notification_email')
+        .select('first_name, last_name, email, notification_email, secondary_email')
         .eq('yacht_id', invoice.yacht_id)
         .eq('can_approve_billing', true)
         .eq('is_active', true);
@@ -457,6 +459,11 @@ Deno.serve(async (req: Request) => {
           if (email && !allRecipients.includes(email)) {
             allRecipients.push(email);
             recipientNames.set(email, `${m.first_name || ''} ${m.last_name || ''}`.trim());
+            // If this manager has a secondary (CC) email, attach it to their outgoing email
+            const cc = (m.secondary_email ?? '').trim();
+            if (cc && cc !== email) {
+              recipientCcMap.set(email, [cc]);
+            }
           }
         }
       }
@@ -510,9 +517,13 @@ Deno.serve(async (req: Request) => {
         headers: { 'X-Entity-Ref-ID': invoiceId },
       };
 
-      // Add CC for surcharge on the primary recipient's email only
-      if (surchargeCcEmail && recipientAddr === recipientEmail) {
-        emailPayload.cc = [surchargeCcEmail];
+      // Build CC list: manager's secondary_email + surcharge CC (on primary only)
+      const ccList: string[] = [...(recipientCcMap.get(recipientAddr) || [])];
+      if (surchargeCcEmail && recipientAddr === recipientEmail && !ccList.includes(surchargeCcEmail)) {
+        ccList.push(surchargeCcEmail);
+      }
+      if (ccList.length > 0) {
+        emailPayload.cc = ccList;
       }
 
       const emailResponse = await fetch('https://api.resend.com/emails', {
