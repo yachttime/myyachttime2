@@ -19763,16 +19763,57 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Payment Method</label>
-                <select
-                  value={estimatingSelectedMethod}
-                  onChange={(e) => setEstimatingSelectedMethod(e.target.value as 'card' | 'ach' | 'both')}
-                  className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm"
-                >
-                  <option value="card">Credit / Debit Card</option>
-                  <option value="ach">ACH Bank Transfer</option>
-                  <option value="both">Card + ACH (both options)</option>
-                </select>
+                <label className="block text-sm font-medium text-slate-300 mb-2">How can the customer pay?</label>
+                <div className="space-y-2">
+                  {([
+                    { value: 'card', label: 'Credit / Debit Card Only', sub: '3% credit card processing fee will be added to the total' },
+                    { value: 'ach', label: 'ACH Bank Transfer Only', sub: 'No processing fee — 3–5 business day settlement' },
+                    { value: 'both', label: 'Card and ACH (customer chooses)', sub: 'No processing fee added — customer selects their preferred method' },
+                  ] as const).map(opt => (
+                    <label
+                      key={opt.value}
+                      className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                        estimatingSelectedMethod === opt.value
+                          ? 'border-emerald-500 bg-emerald-900/20'
+                          : 'border-slate-600 bg-slate-900/30 hover:border-slate-500'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="estimatingPaymentMethod"
+                        value={opt.value}
+                        checked={estimatingSelectedMethod === opt.value}
+                        onChange={() => setEstimatingSelectedMethod(opt.value)}
+                        className="mt-0.5 accent-emerald-500"
+                      />
+                      <div>
+                        <p className="text-sm font-medium text-slate-200">{opt.label}</p>
+                        <p className="text-xs text-slate-400 mt-0.5">{opt.sub}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+                {estimatingSelectedMethod === 'card' && (() => {
+                  const balanceDue = estimatingPaymentMethodModal.invoice.balance_due ?? estimatingPaymentMethodModal.invoice.total_amount ?? 0;
+                  const fee = Math.round(balanceDue * 0.03 * 100) / 100;
+                  const total = balanceDue + fee;
+                  return (
+                    <div className="mt-3 p-3 bg-amber-900/20 border border-amber-700/40 rounded-lg text-xs space-y-1">
+                      <div className="flex justify-between text-slate-300">
+                        <span>Balance due</span>
+                        <span>${balanceDue.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-amber-400">
+                        <span>Credit card processing fee (3%)</span>
+                        <span>+${fee.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-white font-semibold border-t border-amber-700/40 pt-1 mt-1">
+                        <span>Customer will be charged</span>
+                        <span>${total.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
               {estimatingPaymentMethodModal.recipients.length > 0 && (
                 <div>
