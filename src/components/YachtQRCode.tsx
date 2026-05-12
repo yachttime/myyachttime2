@@ -28,10 +28,10 @@ export async function printAllQRCodesAvery5168(yachts: { id: string; name: strin
   // Base grid: left col=0.81in, right col=0.81+3.5+0.19=4.50in, row1 top=1.5in, row2 top=6.5in
   // Cell 1 (index 1): right col row 1 — shifted +1" to the right
   const labelPositions = [
-    { left: 0.81, top: 1.5 },
-    { left: 5.50, top: 1.5 },
-    { left: 0.81, top: 6.5 },
-    { left: 5.50, top: 6.5 },
+    { left: 0.81, top: 1.0 },
+    { left: 5.50, top: 1.0 },
+    { left: 0.81, top: 7.0 },
+    { left: 5.50, top: 7.0 },
   ];
 
   const sheets: string[] = [];
