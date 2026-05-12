@@ -152,7 +152,8 @@ export function Estimates({ userId }: EstimatesProps) {
     marine_wholesale_part_id: '',
     part_source: 'custom' as 'inventory' | 'mercury' | 'marine_wholesale' | 'custom',
     core_charge_amount: '0',
-    container_charge_amount: '0'
+    container_charge_amount: '0',
+    part_cost: ''
   });
   const [showAutoSaveIndicator, setShowAutoSaveIndicator] = useState(false);
   const [filteredParts, setFilteredParts] = useState<any[]>([]);
@@ -264,7 +265,7 @@ export function Estimates({ userId }: EstimatesProps) {
           .order('code'),
         supabase
           .from('parts_inventory')
-          .select('id, part_number, alternative_part_numbers, name, unit_price, is_taxable')
+          .select('id, part_number, alternative_part_numbers, name, unit_price, unit_cost, is_taxable')
           .eq('is_active', true)
           .order('part_number'),
         supabase
@@ -618,7 +619,8 @@ export function Estimates({ userId }: EstimatesProps) {
       marine_wholesale_part_id: '',
       part_source: 'custom',
       core_charge_amount: '0',
-      container_charge_amount: '0'
+      container_charge_amount: '0',
+      part_cost: ''
     });
     setShowLineItemForm(false);
     setActiveTaskIndex(null);
@@ -632,8 +634,17 @@ export function Estimates({ userId }: EstimatesProps) {
     setTasks(updatedTasks);
   };
 
-  const handleEditLineItem = (taskIndex: number, lineIndex: number) => {
+  const handleEditLineItem = async (taskIndex: number, lineIndex: number) => {
     const item = tasks[taskIndex].lineItems[lineIndex];
+    let partCost = '';
+    if (item.part_id && item.line_type === 'part') {
+      const { data: partData } = await supabase
+        .from('parts_inventory')
+        .select('unit_cost')
+        .eq('id', item.part_id)
+        .maybeSingle();
+      if (partData?.unit_cost != null) partCost = String(partData.unit_cost);
+    }
     setLineItemFormData({
       line_type: item.line_type,
       description: item.description,
@@ -647,7 +658,8 @@ export function Estimates({ userId }: EstimatesProps) {
       mercury_part_id: '',
       part_source: 'custom',
       core_charge_amount: '0',
-      container_charge_amount: '0'
+      container_charge_amount: '0',
+      part_cost: partCost
     });
     setEditingLineItemIndex(lineIndex);
     setActiveTaskIndex(taskIndex);
@@ -685,7 +697,8 @@ export function Estimates({ userId }: EstimatesProps) {
       mercury_part_id: '',
       part_source: 'custom',
       core_charge_amount: '0',
-      container_charge_amount: '0'
+      container_charge_amount: '0',
+      part_cost: ''
     });
     setShowLineItemForm(false);
     setActiveTaskIndex(null);
@@ -880,7 +893,7 @@ export function Estimates({ userId }: EstimatesProps) {
       mercurySearchRef.current = setTimeout(async () => {
         const { data: mercuryData } = await supabase
           .from('mercury_marine_parts')
-          .select('id, part_number, description, msrp, item_status, core_charge, container_charge, superseded_part_number, is_active')
+          .select('id, part_number, description, msrp, dealer_price, item_status, core_charge, container_charge, superseded_part_number, is_active')
           .eq('is_active', true)
           .or(`part_number.ilike.%${searchValue}%,description.ilike.%${searchValue}%`)
           .order('part_number')
@@ -891,7 +904,7 @@ export function Estimates({ userId }: EstimatesProps) {
         wholesaleSearchRef.current = setTimeout(async () => {
           const { data: wholesaleData } = await supabase
             .from('marine_wholesale_parts')
-            .select('id, sku, mfg_part_number, description, list_price')
+            .select('id, sku, mfg_part_number, description, list_price, cost')
             .eq('is_active', true)
             .or(`sku.ilike.%${searchValue}%,mfg_part_number.ilike.%${searchValue}%,description.ilike.%${searchValue}%`)
             .order('sku')
@@ -932,7 +945,8 @@ export function Estimates({ userId }: EstimatesProps) {
         is_taxable: true,
         part_source: 'mercury',
         core_charge_amount: part.core_charge?.toString() || '0',
-        container_charge_amount: part.container_charge?.toString() || '0'
+        container_charge_amount: part.container_charge?.toString() || '0',
+        part_cost: part.dealer_price?.toString() || ''
       });
     } else if (part.source === 'marine_wholesale') {
       setLineItemFormData({
@@ -946,7 +960,8 @@ export function Estimates({ userId }: EstimatesProps) {
         is_taxable: true,
         part_source: 'marine_wholesale',
         core_charge_amount: '0',
-        container_charge_amount: '0'
+        container_charge_amount: '0',
+        part_cost: part.cost?.toString() || ''
       });
     } else {
       const realId = part._real_id || part.id;
@@ -961,7 +976,8 @@ export function Estimates({ userId }: EstimatesProps) {
         is_taxable: part.is_taxable,
         part_source: 'inventory',
         core_charge_amount: '0',
-        container_charge_amount: '0'
+        container_charge_amount: '0',
+        part_cost: part.unit_cost?.toString() || ''
       });
     }
     setShowPartDropdown(false);
@@ -3147,6 +3163,18 @@ export function Estimates({ userId }: EstimatesProps) {
                                   />
                                 </div>
                               </div>
+
+                              {lineItemFormData.line_type === 'part' && lineItemFormData.part_cost !== '' && (
+                                <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
+                                  <span className="text-sm font-medium text-amber-800">Part Cost:</span>
+                                  <span className="text-sm font-semibold text-amber-900">${parseFloat(lineItemFormData.part_cost).toFixed(2)}</span>
+                                  {parseFloat(lineItemFormData.unit_price) > 0 && parseFloat(lineItemFormData.part_cost) > 0 && (
+                                    <span className="ml-auto text-xs text-amber-700">
+                                      Margin: {(((parseFloat(lineItemFormData.unit_price) - parseFloat(lineItemFormData.part_cost)) / parseFloat(lineItemFormData.unit_price)) * 100).toFixed(1)}%
+                                    </span>
+                                  )}
+                                </div>
+                              )}
 
                               <div className="flex justify-end gap-2">
                                 <button
