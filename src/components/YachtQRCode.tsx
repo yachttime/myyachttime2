@@ -75,8 +75,8 @@ export async function printAllQRCodesAvery5168(yachts: { id: string; name: strin
             width: 8.5in;
             height: 11in;
             page-break-after: always;
-            /* Avery 5168: 0.5" top, 0.31" left/right margins */
-            padding: 0.5in 0.31in 0 0.31in;
+            /* Avery 5168: shifted right 0.5", down 1" from base position */
+            padding: 1.5in 0.31in 0 0.81in;
           }
           .label-grid {
             display: grid;
