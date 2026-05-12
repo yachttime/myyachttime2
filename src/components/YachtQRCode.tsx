@@ -24,19 +24,22 @@ export async function printAllQRCodesAvery5168(yachts: { id: string; name: strin
     })
   );
 
+  // Avery 5168: 3.5" x 5" labels, 2 columns, 2 rows
+  // Left margin: 0.31", column gap: 0.19", top margin: 0.5", row gap: 0
   const labelW = 3.5;
   const labelH = 5;
+  const marginLeft = 0.31;
+  const colGap = 0.19;
   const marginTop = 0.5;
-  const rowGap = 0;
-  const row2Top = marginTop + labelH + rowGap;
-  const col1Left = 0.44;
-  const col2Left = 4.38;
+  const col1Left = marginLeft;
+  const col2Left = marginLeft + labelW + colGap;
+  const row2Top = marginTop + labelH;
 
   const labelPositions = [
-    { left: col1Left,  top: marginTop },
-    { left: col2Left,  top: marginTop },
-    { left: col1Left,  top: row2Top },
-    { left: col2Left,  top: row2Top },
+    { left: col1Left, top: marginTop },
+    { left: col2Left, top: marginTop },
+    { left: col1Left, top: row2Top },
+    { left: col2Left, top: row2Top },
   ];
 
   const sheets: string[] = [];
@@ -45,8 +48,8 @@ export async function printAllQRCodesAvery5168(yachts: { id: string; name: strin
     const cells = group.map((item, idx) => {
       const pos = labelPositions[idx];
       return `
-        <div style="position:absolute;left:${pos.left}in;top:${pos.top}in;width:${labelW}in;height:${labelH}in;overflow:hidden;display:flex;align-items:center;justify-content:center;">
-          <div style="width:100%;padding:0.2in;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;">
+        <div style="position:absolute;left:${pos.left}in;top:${pos.top}in;width:${labelW}in;height:${labelH}in;overflow:hidden;box-sizing:border-box;">
+          <div style="width:100%;height:100%;padding:0.2in;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;box-sizing:border-box;">
             <div class="yacht-title">${item.name}</div>
             <div class="qr-wrap"><img src="${item.dataUrl}" alt="QR Code" /></div>
             <div class="label-sub">Scan to access My Yacht Time</div>
