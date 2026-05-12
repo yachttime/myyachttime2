@@ -3242,6 +3242,12 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                                 <Mail className="w-3 h-3 text-blue-500" />
                                 <span>Sent: {new Date(emailSentAt).toLocaleDateString()} at {new Date(emailSentAt).toLocaleTimeString()}</span>
                               </div>
+                              {((selectedInvoice as any).final_payment_cc_emails as string[] | null)?.map((cc, i) => (
+                                <div key={i} className="flex items-center gap-2 text-xs text-gray-500">
+                                  <Mail className="w-3 h-3 text-gray-400" />
+                                  <span>CC: {cc}</span>
+                                </div>
+                              ))}
                               {(() => {
                                 const allRecipients: string[] =
                                   (selectedInvoice as any).final_payment_email_all_recipients?.length

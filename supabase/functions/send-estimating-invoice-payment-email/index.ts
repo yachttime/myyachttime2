@@ -497,6 +497,7 @@ Deno.serve(async (req: Request) => {
     // Send one email per recipient so each gets its own Resend email_id for engagement tracking
     const sentEmailIds: string[] = [];
     let firstEmailId: string | null = null;
+    const allCcEmails: string[] = [];
 
     for (const recipientAddr of allRecipients) {
       const emailPayload: any = {
@@ -524,6 +525,9 @@ Deno.serve(async (req: Request) => {
       }
       if (ccList.length > 0) {
         emailPayload.cc = ccList;
+        for (const cc of ccList) {
+          if (!allCcEmails.includes(cc)) allCcEmails.push(cc);
+        }
       }
 
       const emailResponse = await fetch('https://api.resend.com/emails', {
@@ -561,6 +565,7 @@ Deno.serve(async (req: Request) => {
         final_payment_email_sent_at: new Date().toISOString(),
         final_payment_email_recipient: recipientEmail,
         final_payment_email_all_recipients: allRecipients,
+        final_payment_cc_emails: allCcEmails.length > 0 ? allCcEmails : null,
         final_payment_resend_email_id: primaryEmailId,
         final_payment_resend_email_ids: sentEmailIds,
         final_payment_recipient_engagement: {},
