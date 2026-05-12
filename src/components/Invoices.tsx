@@ -1653,29 +1653,30 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       showToast('Payment link regenerated successfully!', 'success');
 
       if (primaryEmail) {
-        fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-estimating-invoice-payment-email`,
-          {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${session.access_token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              invoiceId: selectedInvoice.id,
-              recipientEmail: primaryEmail,
-              additionalRecipients: additionalRecipients.length > 0 ? additionalRecipients : undefined,
-            })
-          }
-        ).then(async (emailResponse) => {
+        try {
+          const emailResponse = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-estimating-invoice-payment-email`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${session.access_token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                invoiceId: selectedInvoice.id,
+                recipientEmail: primaryEmail,
+                additionalRecipients: additionalRecipients.length > 0 ? additionalRecipients : undefined,
+              })
+            }
+          );
           if (!emailResponse.ok) {
-            showToast('Payment link regenerated but email failed to send. Use "Email Payment Link" to retry.', 'info');
+            showToast('Payment link regenerated but email failed to send. Use "Send Email" to retry.', 'info');
           } else {
             showToast(`Payment email sent to ${totalRecipients} recipient${totalRecipients !== 1 ? 's' : ''}!`, 'success');
           }
-        }).catch(() => {
-          showToast('Payment link regenerated but email failed to send. Use "Email Payment Link" to retry.', 'info');
-        });
+        } catch {
+          showToast('Payment link regenerated but email failed to send. Use "Send Email" to retry.', 'info');
+        }
       }
 
       await fetchInvoices();
