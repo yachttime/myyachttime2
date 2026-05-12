@@ -30,8 +30,8 @@ export async function printAllQRCodesAvery5168(yachts: { id: string; name: strin
   const labelPositions = [
     { left: 0.81, top: 1.5 },
     { left: 4.50, top: 1.5 },
-    { left: 1.31, top: 6.5 },
-    { left: 5.00, top: 6.5 },
+    { left: 2.31, top: 6.5 },
+    { left: 6.00, top: 6.5 },
   ];
 
   const sheets: string[] = [];
