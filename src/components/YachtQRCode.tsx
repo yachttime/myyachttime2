@@ -24,41 +24,23 @@ export async function printAllQRCodesAvery5168(yachts: { id: string; name: strin
     })
   );
 
-  // Avery 5168: 3.5" x 5" labels, 2 columns, 2 rows
-  // Left margin: 0.31", column gap: 0.19", top margin: 0.5", row gap: 0
-  const labelW = 3.5;
-  const labelH = 5;
-  const marginLeft = 0.31;
-  const colGap = 0.19;
-  const marginTop = 0.5;
-  const col1Left = marginLeft;
-  const col2Left = marginLeft + labelW + colGap;
-  const row2Top = marginTop + labelH;
-
-  const labelPositions = [
-    { left: col1Left, top: marginTop },
-    { left: col2Left, top: marginTop },
-    { left: col1Left, top: row2Top },
-    { left: col2Left, top: row2Top },
-  ];
-
   const sheets: string[] = [];
   for (let i = 0; i < qrDataUrls.length; i += 4) {
     const group = qrDataUrls.slice(i, i + 4);
-    const cells = group.map((item, idx) => {
-      const pos = labelPositions[idx];
+    // Pad to 4 cells so the grid always fills correctly
+    while (group.length < 4) group.push({ name: '', dataUrl: '' });
+    const cells = group.map((item) => {
+      if (!item.dataUrl) return `<div class="label-cell"></div>`;
       return `
-        <div class="label-cell" style="left:${pos.left}in;top:${pos.top}in;">
-          <div class="label-inner">
-            <div class="yacht-title">${item.name}</div>
-            <div class="qr-wrap"><img src="${item.dataUrl}" alt="QR Code" /></div>
-            <div class="label-sub">Scan to access My Yacht Time</div>
-            <div class="label-brand">My Yacht Time</div>
-          </div>
+        <div class="label-cell">
+          <div class="yacht-title">${item.name}</div>
+          <div class="qr-wrap"><img src="${item.dataUrl}" alt="QR Code" /></div>
+          <div class="label-sub">Scan to access My Yacht Time</div>
+          <div class="label-brand">My Yacht Time</div>
         </div>
       `;
     }).join('');
-    sheets.push(`<div class="sheet">${cells}</div>`);
+    sheets.push(`<div class="sheet"><div class="label-grid">${cells}</div></div>`);
   }
   const allSheetsHtml = sheets.join('');
 
@@ -90,23 +72,29 @@ export async function printAllQRCodesAvery5168(yachts: { id: string; name: strin
             background: white;
           }
           .sheet {
-            position: relative;
             width: 8.5in;
             height: 11in;
             page-break-after: always;
+            /* Avery 5168: 0.5" top, 0.31" left/right margins */
+            padding: 0.5in 0.31in 0 0.31in;
+          }
+          .label-grid {
+            display: grid;
+            /* 2 columns of 3.5in with 0.19in gap */
+            grid-template-columns: 3.5in 3.5in;
+            grid-template-rows: 5in 5in;
+            column-gap: 0.19in;
+            row-gap: 0;
           }
           .label-cell {
-            position: absolute;
             width: 3.5in;
             height: 5in;
-            display: table;
-          }
-          .label-inner {
-            display: table-cell;
-            vertical-align: middle;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
             text-align: center;
-            width: 3.5in;
-            padding: 0.15in;
+            padding: 0.2in;
           }
           .yacht-title {
             font-size: 22pt;
@@ -114,20 +102,21 @@ export async function printAllQRCodesAvery5168(yachts: { id: string; name: strin
             color: #0f172a;
             line-height: 1.2;
             word-break: break-word;
-            margin-bottom: 0.1in;
+            margin-bottom: 0.12in;
           }
           .qr-wrap {
-            display: inline-block;
-            margin-bottom: 0.1in;
+            display: block;
             border: 3px solid #0891b2;
             border-radius: 10px;
             padding: 8px;
             background: white;
+            margin-bottom: 0.12in;
+            line-height: 0;
           }
           .qr-wrap img {
             display: block;
-            width: 2.5in;
-            height: 2.5in;
+            width: 2.4in;
+            height: 2.4in;
           }
           .label-sub {
             font-size: 10pt;
