@@ -499,7 +499,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [sendEstimatingEmailLoading, setSendEstimatingEmailLoading] = useState<{ [invoiceId: string]: boolean }>({});
   const [regenerateMethodModal, setRegenerateMethodModal] = useState<YachtInvoice | null>(null);
   const [regenerateSelectedMethod, setRegenerateSelectedMethod] = useState<'card' | 'ach' | 'both'>('card');
-  const [estimatingPaymentMethodModal, setEstimatingPaymentMethodModal] = useState<{ invoice: any; mode: 'generate' | 'regenerate' } | null>(null);
+  const [estimatingPaymentMethodModal, setEstimatingPaymentMethodModal] = useState<{ invoice: any; mode: 'generate' | 'regenerate'; recipients: string[] } | null>(null);
   const [estimatingSelectedMethod, setEstimatingSelectedMethod] = useState<'card' | 'ach' | 'both'>('card');
   const [syncPaymentLoading, setSyncPaymentLoading] = useState<{ [invoiceId: string]: boolean }>({});
   const [syncAllRepairLoading, setSyncAllRepairLoading] = useState(false);
@@ -4116,9 +4116,25 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     }
   };
 
-  const handleGenerateEstimatingPaymentLink = (estimatingInvoice: any) => {
+  const handleGenerateEstimatingPaymentLink = async (estimatingInvoice: any) => {
     setEstimatingSelectedMethod((estimatingInvoice.final_payment_method_type as 'card' | 'ach' | 'both') || 'card');
-    setEstimatingPaymentMethodModal({ invoice: estimatingInvoice, mode: 'generate' });
+    let recipients: string[] = [];
+    if (estimatingInvoice.yacht_id) {
+      const { data: mgrs } = await supabase
+        .from('user_profiles')
+        .select('email, notification_email')
+        .eq('yacht_id', estimatingInvoice.yacht_id)
+        .eq('can_approve_billing', true)
+        .eq('is_active', true);
+      if (mgrs && mgrs.length > 0) {
+        recipients = mgrs.map((m: any) => ((m.notification_email || m.email) ?? '').trim()).filter(Boolean);
+      }
+    }
+    if (recipients.length === 0) {
+      const fallback = estimatingInvoice.final_payment_email_recipient || estimatingInvoice.customer_email || '';
+      if (fallback) recipients = [fallback];
+    }
+    setEstimatingPaymentMethodModal({ invoice: estimatingInvoice, mode: 'generate', recipients });
   };
 
   const executeGenerateEstimatingPaymentLink = async (estimatingInvoice: any, paymentMethodType: 'card' | 'ach' | 'both') => {
@@ -4199,9 +4215,25 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     }
   };
 
-  const handleRegenerateEstimatingPaymentLink = (estimatingInvoice: any) => {
+  const handleRegenerateEstimatingPaymentLink = async (estimatingInvoice: any) => {
     setEstimatingSelectedMethod((estimatingInvoice.final_payment_method_type as 'card' | 'ach' | 'both') || 'card');
-    setEstimatingPaymentMethodModal({ invoice: estimatingInvoice, mode: 'regenerate' });
+    let recipients: string[] = [];
+    if (estimatingInvoice.yacht_id) {
+      const { data: mgrs } = await supabase
+        .from('user_profiles')
+        .select('email, notification_email')
+        .eq('yacht_id', estimatingInvoice.yacht_id)
+        .eq('can_approve_billing', true)
+        .eq('is_active', true);
+      if (mgrs && mgrs.length > 0) {
+        recipients = mgrs.map((m: any) => ((m.notification_email || m.email) ?? '').trim()).filter(Boolean);
+      }
+    }
+    if (recipients.length === 0) {
+      const fallback = estimatingInvoice.final_payment_email_recipient || estimatingInvoice.customer_email || '';
+      if (fallback) recipients = [fallback];
+    }
+    setEstimatingPaymentMethodModal({ invoice: estimatingInvoice, mode: 'regenerate', recipients });
   };
 
   const executeRegenerateEstimatingPaymentLink = async (estimatingInvoice: any, paymentMethodType: 'card' | 'ach' | 'both') => {
@@ -19730,6 +19762,19 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                   <option value="both">Card + ACH (both options)</option>
                 </select>
               </div>
+              {estimatingPaymentMethodModal.recipients.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Email will be sent to</label>
+                  <div className="space-y-1">
+                    {estimatingPaymentMethodModal.recipients.map((r, i) => (
+                      <div key={i} className="flex items-center gap-2 bg-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200">
+                        <Mail className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                        <span>{r}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="flex gap-3 pt-2">
                 <button
                   onClick={() => setEstimatingPaymentMethodModal(null)}
