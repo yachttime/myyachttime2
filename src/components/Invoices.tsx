@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Receipt, Search, Printer, Mail, DollarSign, Eye, CheckCircle, Clock, XCircle, ExternalLink, Archive, RotateCcw, RefreshCw, X, Copy, CreditCard, AlertCircle, MousePointer, Download, FileText, BarChart2, Users, ChevronDown, Pencil } from 'lucide-react';
+import { Receipt, Search, Printer, Mail, DollarSign, Eye, CheckCircle, Clock, XCircle, ExternalLink, Archive, RotateCcw, RefreshCw, X, Copy, CreditCard, AlertCircle, MousePointer, Download, FileText, BarChart2, Users, ChevronDown, Pencil, Link } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -164,6 +164,12 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
   const [sendingPaidInvoiceEmail, setSendingPaidInvoiceEmail] = useState(false);
   const [qbExporting, setQbExporting] = useState<Record<string, boolean>>({});
   const [qbConnection, setQbConnection] = useState<{ is_active: boolean } | null>(null);
+  const [pushToRepairModal, setPushToRepairModal] = useState<Invoice | null>(null);
+  const [repairRequests, setRepairRequests] = useState<{ id: string; title: string; customer_name: string | null; status: string; created_at: string }[]>([]);
+  const [repairRequestSearch, setRepairRequestSearch] = useState('');
+  const [repairRequestLoading, setRepairRequestLoading] = useState(false);
+  const [pushingToRepair, setPushingToRepair] = useState(false);
+  const [selectedRepairRequestId, setSelectedRepairRequestId] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editForm, setEditForm] = useState<{
     customer_name: string;
@@ -198,6 +204,40 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       }
     }
   }, [initialInvoiceId, invoices]);
+
+  async function openPushToRepairModal(invoice: Invoice) {
+    setPushToRepairModal(invoice);
+    setSelectedRepairRequestId(null);
+    setRepairRequestSearch('');
+    setRepairRequestLoading(true);
+    const { data } = await supabase
+      .from('repair_requests')
+      .select('id, title, customer_name, status, created_at')
+      .is('estimating_invoice_id', null)
+      .eq('archived', false)
+      .order('created_at', { ascending: false });
+    setRepairRequests(data || []);
+    setRepairRequestLoading(false);
+  }
+
+  async function handlePushToRepairRequest() {
+    if (!pushToRepairModal || !selectedRepairRequestId) return;
+    setPushingToRepair(true);
+    try {
+      const { error } = await supabase
+        .from('repair_requests')
+        .update({ estimating_invoice_id: pushToRepairModal.id })
+        .eq('id', selectedRepairRequestId);
+      if (error) throw error;
+      showToast(`Invoice ${pushToRepairModal.invoice_number} linked to repair request successfully`, 'success');
+      setPushToRepairModal(null);
+      await fetchInvoices();
+    } catch (err: any) {
+      showToast(err.message || 'Failed to link invoice to repair request', 'error');
+    } finally {
+      setPushingToRepair(false);
+    }
+  }
 
   async function fetchQbBankAccounts() {
     const { data } = await supabase
@@ -2209,6 +2249,99 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       )}
       <ConfirmDialog />
 
+      {pushToRepairModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[9999] p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+            <div className="flex items-center justify-between p-5 border-b border-gray-200">
+              <div className="flex items-center gap-3">
+                <div className="bg-blue-100 p-2 rounded-lg">
+                  <Link className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <h2 className="text-base font-semibold text-gray-900">Push to Repair Request</h2>
+                  <p className="text-xs text-gray-500">{pushToRepairModal.invoice_number} — ${pushToRepairModal.total_amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                </div>
+              </div>
+              <button onClick={() => setPushToRepairModal(null)} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-5">
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Search Repair Requests</label>
+                <input
+                  type="text"
+                  value={repairRequestSearch}
+                  onChange={(e) => setRepairRequestSearch(e.target.value)}
+                  placeholder="Filter by title or customer..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              {repairRequestLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <RefreshCw className="w-5 h-5 animate-spin text-gray-400" />
+                </div>
+              ) : (
+                <div className="max-h-72 overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-100">
+                  {repairRequests
+                    .filter(rr =>
+                      repairRequestSearch === '' ||
+                      rr.title?.toLowerCase().includes(repairRequestSearch.toLowerCase()) ||
+                      rr.customer_name?.toLowerCase().includes(repairRequestSearch.toLowerCase())
+                    )
+                    .map(rr => (
+                      <button
+                        key={rr.id}
+                        onClick={() => setSelectedRepairRequestId(rr.id)}
+                        className={`w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors ${selectedRepairRequestId === rr.id ? 'bg-blue-50 border-l-2 border-blue-500' : ''}`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate">{rr.title}</p>
+                            {rr.customer_name && <p className="text-xs text-gray-500">{rr.customer_name}</p>}
+                          </div>
+                          <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium ${
+                            rr.status === 'approved' ? 'bg-green-100 text-green-700' :
+                            rr.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                            rr.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
+                            'bg-gray-100 text-gray-600'
+                          }`}>
+                            {rr.status.replace('_', ' ')}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-400 mt-0.5">{new Date(rr.created_at).toLocaleDateString()}</p>
+                      </button>
+                    ))}
+                  {repairRequests.filter(rr =>
+                    repairRequestSearch === '' ||
+                    rr.title?.toLowerCase().includes(repairRequestSearch.toLowerCase()) ||
+                    rr.customer_name?.toLowerCase().includes(repairRequestSearch.toLowerCase())
+                  ).length === 0 && (
+                    <p className="text-sm text-gray-500 text-center py-6">No unlinked repair requests found</p>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end gap-3 px-5 pb-5">
+              <button
+                onClick={() => setPushToRepairModal(null)}
+                className="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePushToRepairRequest}
+                disabled={!selectedRepairRequestId || pushingToRepair}
+                className="px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {pushingToRepair ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Link className="w-4 h-4" />}
+                Link to Repair Request
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showPaidInvoiceEmailModal && paidInvoiceEmailTarget && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[9999] p-4">
           <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-md">
@@ -2687,6 +2820,15 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                             title={`QB Export Error - Click to retry: ${invoice.quickbooks_export_error || 'Unknown error'}`}
                           >
                             <AlertCircle className="w-4 h-4" />
+                          </button>
+                        )}
+                        {activeTab === 'active' && !invoice.repair_request_id && (
+                          <button
+                            onClick={() => openPushToRepairModal(invoice)}
+                            className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Push to repair request"
+                          >
+                            <Link className="w-4 h-4" />
                           </button>
                         )}
                         {activeTab === 'active' ? (
