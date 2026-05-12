@@ -14352,56 +14352,116 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                           <div className="mt-3 pt-3 border-t border-emerald-500/20">
                                             <p className="text-xs font-semibold text-slate-300 mb-2">Email Engagement</p>
                                             <div className="space-y-1">
-                                              {invoice.payment_email_recipient && (
-                                                <div className="flex items-center gap-2 text-xs text-blue-300 mb-2">
-                                                  <Mail className="w-3 h-3" />
-                                                  <span className="font-medium">To: {invoice.payment_email_recipient}</span>
-                                                </div>
-                                              )}
-                                              {invoice.payment_email_sent_at && (
-                                                <div className="flex items-center gap-2 text-xs text-slate-400">
-                                                  <Mail className="w-3 h-3 text-blue-400" />
-                                                  <span>Sent: {new Date(invoice.payment_email_sent_at).toLocaleDateString()} at {new Date(invoice.payment_email_sent_at).toLocaleTimeString()}</span>
-                                                </div>
-                                              )}
-                                              {invoice.payment_email_delivered_at && (
-                                                <div className="flex items-center gap-2 text-xs text-emerald-400">
-                                                  <CheckCircle className="w-3 h-3" />
-                                                  <span>Delivered: {new Date(invoice.payment_email_delivered_at).toLocaleDateString()} at {new Date(invoice.payment_email_delivered_at).toLocaleTimeString()}</span>
-                                                </div>
-                                              )}
-                                              {invoice.payment_email_opened_at && (
-                                                <div className="flex items-center gap-2 text-xs text-cyan-400">
-                                                  <Eye className="w-3 h-3" />
-                                                  <span>Opened: {new Date(invoice.payment_email_opened_at).toLocaleDateString()} at {new Date(invoice.payment_email_opened_at).toLocaleTimeString()}</span>
-                                                  {invoice.email_open_count > 1 && (
-                                                    <span className="bg-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded text-xs">
-                                                      {invoice.email_open_count}x
-                                                    </span>
-                                                  )}
-                                                </div>
-                                              )}
-                                              {invoice.payment_link_clicked_at && (
-                                                <div className="flex items-center gap-2 text-xs text-teal-400">
-                                                  <MousePointer className="w-3 h-3" />
-                                                  <span>Clicked: {new Date(invoice.payment_link_clicked_at).toLocaleDateString()} at {new Date(invoice.payment_link_clicked_at).toLocaleTimeString()}</span>
-                                                  {invoice.email_click_count > 1 && (
-                                                    <span className="bg-teal-500/20 text-teal-400 px-2 py-0.5 rounded text-xs">
-                                                      {invoice.email_click_count}x
-                                                    </span>
-                                                  )}
-                                                </div>
-                                              )}
+                                              <div className="flex items-center gap-2 text-xs text-slate-400">
+                                                <Mail className="w-3 h-3 text-blue-400" />
+                                                <span>Sent: {new Date(invoice.payment_email_sent_at).toLocaleDateString()} at {new Date(invoice.payment_email_sent_at).toLocaleTimeString()}</span>
+                                              </div>
+                                              {(() => {
+                                                const allRecipients: string[] = (invoice as any).payment_email_all_recipients?.length
+                                                  ? (invoice as any).payment_email_all_recipients
+                                                  : invoice.payment_email_recipient ? [invoice.payment_email_recipient] : [];
+                                                const perRecipient: Record<string, any> = (invoice as any).payment_recipient_engagement || {};
+                                                const hasPerRecipient = Object.keys(perRecipient).length > 0;
+
+                                                if (hasPerRecipient || allRecipients.length > 1) {
+                                                  return (
+                                                    <div className="mt-1 space-y-2">
+                                                      {allRecipients.map((addr: string, i: number) => {
+                                                        const eng = perRecipient[addr] || {};
+                                                        return (
+                                                          <div key={i} className="bg-slate-800/60 border border-slate-600/40 rounded p-2 space-y-1">
+                                                            <div className="flex items-center gap-1.5 text-xs text-blue-300 font-medium">
+                                                              <Mail className="w-3 h-3 flex-shrink-0" />
+                                                              {addr}
+                                                            </div>
+                                                            {eng.delivered_at ? (
+                                                              <div className="flex items-center gap-1.5 text-xs text-emerald-400 pl-4">
+                                                                <CheckCircle className="w-3 h-3" />
+                                                                <span>Delivered: {new Date(eng.delivered_at).toLocaleDateString()} at {new Date(eng.delivered_at).toLocaleTimeString()}</span>
+                                                              </div>
+                                                            ) : (
+                                                              <div className="flex items-center gap-1.5 text-xs text-slate-500 pl-4">
+                                                                <CheckCircle className="w-3 h-3" />
+                                                                <span>Not yet delivered</span>
+                                                              </div>
+                                                            )}
+                                                            {eng.opened_at && (
+                                                              <div className="flex items-center gap-1.5 text-xs text-cyan-400 pl-4">
+                                                                <Eye className="w-3 h-3" />
+                                                                <span>Opened: {new Date(eng.opened_at).toLocaleDateString()} at {new Date(eng.opened_at).toLocaleTimeString()}</span>
+                                                                {(eng.open_count ?? 0) > 1 && (
+                                                                  <span className="bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded text-xs font-semibold">{eng.open_count}x</span>
+                                                                )}
+                                                              </div>
+                                                            )}
+                                                            {eng.clicked_at && (
+                                                              <div className="flex items-center gap-1.5 text-xs text-teal-400 pl-4">
+                                                                <MousePointer className="w-3 h-3" />
+                                                                <span>Clicked: {new Date(eng.clicked_at).toLocaleDateString()} at {new Date(eng.clicked_at).toLocaleTimeString()}</span>
+                                                                {(eng.click_count ?? 0) > 1 && (
+                                                                  <span className="bg-teal-500/20 text-teal-400 px-1.5 py-0.5 rounded text-xs font-semibold">{eng.click_count}x</span>
+                                                                )}
+                                                              </div>
+                                                            )}
+                                                            {eng.bounced_at && (
+                                                              <div className="flex items-center gap-1.5 text-xs text-red-400 pl-4">
+                                                                <AlertCircle className="w-3 h-3" />
+                                                                <span>Bounced: {new Date(eng.bounced_at).toLocaleDateString()} at {new Date(eng.bounced_at).toLocaleTimeString()}</span>
+                                                              </div>
+                                                            )}
+                                                          </div>
+                                                        );
+                                                      })}
+                                                    </div>
+                                                  );
+                                                }
+
+                                                // Single-recipient fallback
+                                                return (
+                                                  <>
+                                                    {invoice.payment_email_recipient && (
+                                                      <div className="flex items-center gap-2 text-xs text-blue-300 mb-2">
+                                                        <Mail className="w-3 h-3" />
+                                                        <span className="font-medium">To: {invoice.payment_email_recipient}</span>
+                                                      </div>
+                                                    )}
+                                                    {invoice.payment_email_delivered_at && (
+                                                      <div className="flex items-center gap-2 text-xs text-emerald-400">
+                                                        <CheckCircle className="w-3 h-3" />
+                                                        <span>Delivered: {new Date(invoice.payment_email_delivered_at).toLocaleDateString()} at {new Date(invoice.payment_email_delivered_at).toLocaleTimeString()}</span>
+                                                      </div>
+                                                    )}
+                                                    {invoice.payment_email_opened_at && (
+                                                      <div className="flex items-center gap-2 text-xs text-cyan-400">
+                                                        <Eye className="w-3 h-3" />
+                                                        <span>Opened: {new Date(invoice.payment_email_opened_at).toLocaleDateString()} at {new Date(invoice.payment_email_opened_at).toLocaleTimeString()}</span>
+                                                        {invoice.email_open_count > 1 && (
+                                                          <span className="bg-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded text-xs">{invoice.email_open_count}x</span>
+                                                        )}
+                                                      </div>
+                                                    )}
+                                                    {invoice.payment_link_clicked_at && (
+                                                      <div className="flex items-center gap-2 text-xs text-teal-400">
+                                                        <MousePointer className="w-3 h-3" />
+                                                        <span>Clicked: {new Date(invoice.payment_link_clicked_at).toLocaleDateString()} at {new Date(invoice.payment_link_clicked_at).toLocaleTimeString()}</span>
+                                                        {invoice.email_click_count > 1 && (
+                                                          <span className="bg-teal-500/20 text-teal-400 px-2 py-0.5 rounded text-xs">{invoice.email_click_count}x</span>
+                                                        )}
+                                                      </div>
+                                                    )}
+                                                    {invoice.payment_email_bounced_at && (
+                                                      <div className="flex items-center gap-2 text-xs text-red-400">
+                                                        <AlertCircle className="w-3 h-3" />
+                                                        <span>Bounced: {new Date(invoice.payment_email_bounced_at).toLocaleDateString()} at {new Date(invoice.payment_email_bounced_at).toLocaleTimeString()}</span>
+                                                      </div>
+                                                    )}
+                                                  </>
+                                                );
+                                              })()}
                                               {invoice.payment_status === 'paid' && invoice.payment_confirmation_email_sent_at && (
                                                 <div className="flex items-center gap-2 text-xs text-emerald-400 pt-2 border-t border-emerald-500/20 mt-2">
                                                   <CheckCircle className="w-3 h-3" />
                                                   <span className="font-medium">Payment Confirmation Sent: {new Date(invoice.payment_confirmation_email_sent_at).toLocaleDateString()} at {new Date(invoice.payment_confirmation_email_sent_at).toLocaleTimeString()}</span>
-                                                </div>
-                                              )}
-                                              {invoice.payment_email_bounced_at && (
-                                                <div className="flex items-center gap-2 text-xs text-red-400">
-                                                  <AlertCircle className="w-3 h-3" />
-                                                  <span>Bounced: {new Date(invoice.payment_email_bounced_at).toLocaleDateString()} at {new Date(invoice.payment_email_bounced_at).toLocaleTimeString()}</span>
                                                 </div>
                                               )}
                                             </div>

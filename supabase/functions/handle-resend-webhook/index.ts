@@ -106,12 +106,23 @@ Deno.serve(async (req: Request) => {
 
     console.log('Processing Resend webhook event:', event.type, 'for email:', event.data.email_id);
 
-    // Try to find the email in yacht_invoices
-    const { data: invoice } = await supabase
+    // Try to find the email in yacht_invoices (single ID or batch IDs array)
+    let invoice = null;
+    const { data: invoiceSingle } = await supabase
       .from('yacht_invoices')
       .select('*')
       .eq('resend_email_id', event.data.email_id)
       .maybeSingle();
+    if (invoiceSingle) {
+      invoice = invoiceSingle;
+    } else {
+      const { data: invoiceBatch } = await supabase
+        .from('yacht_invoices')
+        .select('*')
+        .contains('payment_resend_email_ids', [event.data.email_id])
+        .maybeSingle();
+      if (invoiceBatch) invoice = invoiceBatch;
+    }
 
     // Try to find the email in repair_requests (estimate emails)
     const { data: repairRequest } = await supabase
@@ -203,10 +214,23 @@ Deno.serve(async (req: Request) => {
 
     // Handle yacht_invoices tracking
     if (invoice) {
+      const invoiceEventRecipient: string | null = Array.isArray(event.data.to)
+        ? event.data.to[0]
+        : (event.data.to || null);
+
+      const currentInvoiceEngagement: Record<string, any> = invoice.payment_recipient_engagement || {};
+      if (invoiceEventRecipient && !currentInvoiceEngagement[invoiceEventRecipient]) {
+        currentInvoiceEngagement[invoiceEventRecipient] = {};
+      }
+
       switch (event.type) {
         case 'email.delivered':
           if (!invoice.payment_email_delivered_at) {
             updateData.payment_email_delivered_at = eventTimestamp;
+          }
+          if (invoiceEventRecipient && !currentInvoiceEngagement[invoiceEventRecipient].delivered_at) {
+            currentInvoiceEngagement[invoiceEventRecipient].delivered_at = eventTimestamp;
+            updateData.payment_recipient_engagement = currentInvoiceEngagement;
           }
           break;
 
@@ -215,6 +239,14 @@ Deno.serve(async (req: Request) => {
             updateData.payment_email_opened_at = eventTimestamp;
           }
           updateData.email_open_count = (invoice.email_open_count || 0) + 1;
+          if (invoiceEventRecipient) {
+            if (!currentInvoiceEngagement[invoiceEventRecipient].opened_at) {
+              currentInvoiceEngagement[invoiceEventRecipient].opened_at = eventTimestamp;
+            }
+            currentInvoiceEngagement[invoiceEventRecipient].open_count =
+              (currentInvoiceEngagement[invoiceEventRecipient].open_count || 0) + 1;
+            updateData.payment_recipient_engagement = currentInvoiceEngagement;
+          }
           break;
 
         case 'email.clicked':
@@ -222,11 +254,23 @@ Deno.serve(async (req: Request) => {
             updateData.payment_link_clicked_at = eventTimestamp;
           }
           updateData.email_click_count = (invoice.email_click_count || 0) + 1;
+          if (invoiceEventRecipient) {
+            if (!currentInvoiceEngagement[invoiceEventRecipient].clicked_at) {
+              currentInvoiceEngagement[invoiceEventRecipient].clicked_at = eventTimestamp;
+            }
+            currentInvoiceEngagement[invoiceEventRecipient].click_count =
+              (currentInvoiceEngagement[invoiceEventRecipient].click_count || 0) + 1;
+            updateData.payment_recipient_engagement = currentInvoiceEngagement;
+          }
           break;
 
         case 'email.bounced':
           if (!invoice.payment_email_bounced_at) {
             updateData.payment_email_bounced_at = eventTimestamp;
+          }
+          if (invoiceEventRecipient && !currentInvoiceEngagement[invoiceEventRecipient].bounced_at) {
+            currentInvoiceEngagement[invoiceEventRecipient].bounced_at = eventTimestamp;
+            updateData.payment_recipient_engagement = currentInvoiceEngagement;
           }
           break;
 

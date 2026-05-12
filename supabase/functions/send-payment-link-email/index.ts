@@ -717,8 +717,10 @@ Deno.serve(async (req: Request) => {
         .update({
           payment_email_sent_at: new Date().toISOString(),
           resend_email_id: emailData.id,
+          payment_resend_email_ids: [emailData.id],
           payment_email_recipient: recipientEmail,
           payment_email_all_recipients: allRecipientEmails,
+          payment_recipient_engagement: {},
         })
         .eq('id', invoiceId);
 
