@@ -24,15 +24,25 @@ export async function printAllQRCodesAvery5168(yachts: { id: string; name: strin
     })
   );
 
+  // Per-cell absolute positions (left, top) in inches
+  // Row 1: top=1.5in, left col=0.81in, right col=0.81+3.5+0.19=4.5in
+  // Row 2: top=1.5+5=6.5in, left col=1.31in (+1" extra), right col=1.31+3.5+0.19=5.0in
+  const labelPositions = [
+    { left: 0.81, top: 1.5 },
+    { left: 4.50, top: 1.5 },
+    { left: 1.31, top: 6.5 },
+    { left: 5.00, top: 6.5 },
+  ];
+
   const sheets: string[] = [];
   for (let i = 0; i < qrDataUrls.length; i += 4) {
     const group = qrDataUrls.slice(i, i + 4);
-    // Pad to 4 cells so the grid always fills correctly
     while (group.length < 4) group.push({ name: '', dataUrl: '' });
-    const cells = group.map((item) => {
-      if (!item.dataUrl) return `<div class="label-cell"></div>`;
+    const cells = group.map((item, idx) => {
+      const pos = labelPositions[idx];
+      if (!item.dataUrl) return `<div style="position:absolute;left:${pos.left}in;top:${pos.top}in;width:3.5in;height:5in;"></div>`;
       return `
-        <div class="label-cell">
+        <div style="position:absolute;left:${pos.left}in;top:${pos.top}in;width:3.5in;height:5in;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0.2in;">
           <div class="yacht-title">${item.name}</div>
           <div class="qr-wrap"><img src="${item.dataUrl}" alt="QR Code" /></div>
           <div class="label-sub">Scan to access My Yacht Time</div>
@@ -40,7 +50,7 @@ export async function printAllQRCodesAvery5168(yachts: { id: string; name: strin
         </div>
       `;
     }).join('');
-    sheets.push(`<div class="sheet"><div class="label-grid">${cells}</div></div>`);
+    sheets.push(`<div class="sheet">${cells}</div>`);
   }
   const allSheetsHtml = sheets.join('');
 
@@ -72,29 +82,10 @@ export async function printAllQRCodesAvery5168(yachts: { id: string; name: strin
             background: white;
           }
           .sheet {
+            position: relative;
             width: 8.5in;
             height: 11in;
             page-break-after: always;
-            /* Avery 5168: shifted right 0.5", down 1" from base position */
-            padding: 1.5in 0.31in 0 0.81in;
-          }
-          .label-grid {
-            display: grid;
-            /* 2 columns of 3.5in with 0.19in gap */
-            grid-template-columns: 3.5in 3.5in;
-            grid-template-rows: 5in 5in;
-            column-gap: 0.19in;
-            row-gap: 0;
-          }
-          .label-cell {
-            width: 3.5in;
-            height: 5in;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            padding: 0.2in;
           }
           .yacht-title {
             font-size: 22pt;
