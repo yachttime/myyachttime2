@@ -48,8 +48,8 @@ export async function printAllQRCodesAvery5168(yachts: { id: string; name: strin
     const cells = group.map((item, idx) => {
       const pos = labelPositions[idx];
       return `
-        <div style="position:absolute;left:${pos.left}in;top:${pos.top}in;width:${labelW}in;height:${labelH}in;overflow:hidden;box-sizing:border-box;">
-          <div style="width:100%;height:100%;padding:0.2in;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;box-sizing:border-box;">
+        <div class="label-cell" style="left:${pos.left}in;top:${pos.top}in;">
+          <div class="label-inner">
             <div class="yacht-title">${item.name}</div>
             <div class="qr-wrap"><img src="${item.dataUrl}" alt="QR Code" /></div>
             <div class="label-sub">Scan to access My Yacht Time</div>
@@ -95,27 +95,39 @@ export async function printAllQRCodesAvery5168(yachts: { id: string; name: strin
             height: 11in;
             page-break-after: always;
           }
+          .label-cell {
+            position: absolute;
+            width: 3.5in;
+            height: 5in;
+            display: table;
+          }
+          .label-inner {
+            display: table-cell;
+            vertical-align: middle;
+            text-align: center;
+            width: 3.5in;
+            padding: 0.15in;
+          }
           .yacht-title {
             font-size: 22pt;
             font-weight: bold;
             color: #0f172a;
             line-height: 1.2;
             word-break: break-word;
-            margin-bottom: 0.12in;
+            margin-bottom: 0.1in;
           }
           .qr-wrap {
-            display: block;
-            margin: 0 auto 0.12in;
+            display: inline-block;
+            margin-bottom: 0.1in;
             border: 3px solid #0891b2;
             border-radius: 10px;
             padding: 8px;
             background: white;
-            width: fit-content;
           }
           .qr-wrap img {
             display: block;
-            width: 2.1in;
-            height: 2.1in;
+            width: 2.5in;
+            height: 2.5in;
           }
           .label-sub {
             font-size: 10pt;
