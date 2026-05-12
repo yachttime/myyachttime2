@@ -24,14 +24,25 @@ export async function printAllQRCodesAvery5168(yachts: { id: string; name: strin
     })
   );
 
+  // Absolute positions for each of the 4 label slots (left, top in inches)
+  // Base grid: left col=0.81in, right col=0.81+3.5+0.19=4.50in, row1 top=1.5in, row2 top=6.5in
+  // Cell 1 (index 1): right col row 1 — shifted +1" to the right
+  const labelPositions = [
+    { left: 0.81, top: 1.5 },
+    { left: 5.50, top: 1.5 },
+    { left: 0.81, top: 6.5 },
+    { left: 4.50, top: 6.5 },
+  ];
+
   const sheets: string[] = [];
   for (let i = 0; i < qrDataUrls.length; i += 4) {
     const group = qrDataUrls.slice(i, i + 4);
     while (group.length < 4) group.push({ name: '', dataUrl: '' });
-    const cells = group.map((item) => {
-      if (!item.dataUrl) return `<div class="label-cell"></div>`;
+    const cells = group.map((item, idx) => {
+      const pos = labelPositions[idx];
+      if (!item.dataUrl) return `<div style="position:absolute;left:${pos.left}in;top:${pos.top}in;width:3.5in;height:5in;"></div>`;
       return `
-        <div class="label-cell">
+        <div class="label-cell" style="position:absolute;left:${pos.left}in;top:${pos.top}in;">
           <div class="yacht-title">${item.name}</div>
           <div class="qr-wrap"><img src="${item.dataUrl}" alt="QR Code" /></div>
           <div class="label-sub">Scan to access My Yacht Time</div>
@@ -39,7 +50,7 @@ export async function printAllQRCodesAvery5168(yachts: { id: string; name: strin
         </div>
       `;
     }).join('');
-    sheets.push(`<div class="sheet"><div class="label-grid">${cells}</div></div>`);
+    sheets.push(`<div class="sheet">${cells}</div>`);
   }
   const allSheetsHtml = sheets.join('');
 
@@ -71,18 +82,10 @@ export async function printAllQRCodesAvery5168(yachts: { id: string; name: strin
             background: white;
           }
           .sheet {
+            position: relative;
             width: 8.5in;
             height: 11in;
             page-break-after: always;
-            /* Avery 5168: shifted right 0.5", down 1" from base position */
-            padding: 1.5in 0.31in 0 0.81in;
-          }
-          .label-grid {
-            display: grid;
-            grid-template-columns: 3.5in 3.5in;
-            grid-template-rows: 5in 5in;
-            column-gap: 0.19in;
-            row-gap: 0;
           }
           .label-cell {
             width: 3.5in;
