@@ -14574,6 +14574,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                 <span>To: {addr}</span>
                                               </div>
                                             ))}
+                                            {estimatingInvoice.final_payment_cc_emails?.map((addr: string, i: number) => (
+                                              <div key={`cc-${i}`} className="flex items-center gap-1 text-xs text-slate-400">
+                                                <Mail className="w-3 h-3" />
+                                                <span>CC: {addr}</span>
+                                              </div>
+                                            ))}
                                             <div className="space-y-1 mt-1">
                                               <div className="flex items-center gap-2 text-xs text-slate-400">
                                                 <Mail className="w-3 h-3 text-blue-400" />
