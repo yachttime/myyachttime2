@@ -4274,8 +4274,16 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       );
       const createResult = await createResponse.json();
       if (!createResponse.ok) throw new Error(createResult.error || 'Failed to create new payment link');
+      fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-estimating-invoice-payment-email`,
+        {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ invoiceId: estimatingInvoice.id, recipientEmail })
+        }
+      ).catch(() => {});
       await loadRepairRequests();
-      showSuccess('Payment link regenerated successfully!');
+      showSuccess('Payment link regenerated and email sent!');
     } catch (error: any) {
       showError(error.message || 'Failed to regenerate payment link');
     } finally {
