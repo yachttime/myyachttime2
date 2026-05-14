@@ -68,8 +68,9 @@ function formatDateLabel(date: Date): string {
 }
 
 export function TimecardView({ userId, userName }: TimecardViewProps) {
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
   const targetUserId = userId || user?.id;
+  const isMaster = userProfile?.role === 'master';
 
   const [periodStart, setPeriodStart] = useState<Date>(() => {
     const { start } = getPayPeriodBounds(new Date());
@@ -341,25 +342,29 @@ export function TimecardView({ userId, userName }: TimecardViewProps) {
                                 Edited
                               </span>
                             )}
-                            <button
-                              onClick={() => handleEditEntry(day.entry!)}
-                              className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-blue-100 text-blue-700 transition-all ml-auto"
-                              title="Edit this entry"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
+                            {isMaster && (
+                              <button
+                                onClick={() => handleEditEntry(day.entry!)}
+                                className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-blue-100 text-blue-700 transition-all ml-auto"
+                                title="Edit this entry"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </div>
                         ) : (
                           <div className="flex items-center gap-2">
                             <span className="text-gray-400 text-xs font-medium">&ndash;</span>
-                            <button
-                              onClick={() => handleAddEntry(day.dateStr)}
-                              className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-green-100 text-green-700 transition-all ml-auto flex items-center gap-1 text-[11px] font-semibold"
-                              title="Add time entry"
-                            >
-                              <Plus className="w-3 h-3" />
-                              Add
-                            </button>
+                            {isMaster && (
+                              <button
+                                onClick={() => handleAddEntry(day.dateStr)}
+                                className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-green-100 text-green-700 transition-all ml-auto flex items-center gap-1 text-[11px] font-semibold"
+                                title="Add time entry"
+                              >
+                                <Plus className="w-3 h-3" />
+                                Add
+                              </button>
+                            )}
                           </div>
                         )}
                       </td>
