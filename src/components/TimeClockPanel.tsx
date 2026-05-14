@@ -313,7 +313,8 @@ export function TimeClockPanel() {
               weekday: 'long',
               year: 'numeric',
               month: 'long',
-              day: 'numeric'
+              day: 'numeric',
+              timeZone: 'America/Phoenix'
             })}
           </p>
         </div>

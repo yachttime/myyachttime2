@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Lock, Plus, Edit2, Trash2, RefreshCw, AlertCircle, CheckCircle, X, Save, Key, Globe, Battery, WifiOff, Clock, Eye, EyeOff, Activity, Wifi } from 'lucide-react';
+import { Lock, Plus, CreditCard as Edit2, Trash2, RefreshCw, AlertCircle, CheckCircle, X, Save, Key, Globe, Battery, WifiOff, Clock, Eye, EyeOff, Activity, Wifi } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useConfirm } from '../hooks/useConfirm';
 
@@ -578,6 +578,7 @@ export const SmartDeviceManagement = () => {
       year: 'numeric',
       hour: 'numeric',
       minute: '2-digit',
+      timeZone: 'America/Phoenix',
     });
   };
 
@@ -1271,7 +1272,7 @@ export const SmartDeviceManagement = () => {
                     </div>
                     <div>
                       <span className="text-slate-400">Active Time:</span>
-                      <p className="text-xs mt-1">{diagnosticResults.result.deviceInfo.result.active_time ? new Date(diagnosticResults.result.deviceInfo.result.active_time * 1000).toLocaleString() : 'N/A'}</p>
+                      <p className="text-xs mt-1">{diagnosticResults.result.deviceInfo.result.active_time ? new Date(diagnosticResults.result.deviceInfo.result.active_time * 1000).toLocaleString('en-US', { timeZone: 'America/Phoenix' }) : 'N/A'}</p>
                     </div>
                   </div>
                 </div>
@@ -1314,7 +1315,7 @@ export const SmartDeviceManagement = () => {
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-slate-400">Tested:</span>
-                      <span className="text-xs">{new Date(diagnosticResults.result.diagnostics.timestamp).toLocaleString()}</span>
+                      <span className="text-xs">{new Date(diagnosticResults.result.diagnostics.timestamp).toLocaleString('en-US', { timeZone: 'America/Phoenix' })}</span>
                     </div>
                   </div>
                 </div>

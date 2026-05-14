@@ -77,7 +77,7 @@ export function FleetTripDatesReport({ companyId, onClose }: FleetTripDatesRepor
 
   const fmtDate = (iso: string | null) => {
     if (!iso) return '—';
-    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'America/Phoenix' });
   };
 
   const handlePreview = () => {

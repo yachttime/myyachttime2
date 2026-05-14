@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Building2, Plus, Edit2, Eye, Users, DollarSign, Search, CheckCircle, XCircle, Upload, MapPin, User } from 'lucide-react';
+import { Building2, Plus, CreditCard as Edit2, Eye, Users, DollarSign, Search, CheckCircle, XCircle, Upload, MapPin, User } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useCompany } from '../contexts/CompanyContext';
 import { useNotification } from '../contexts/NotificationContext';
@@ -587,7 +587,7 @@ export function CompanyManagement() {
                       <span className="text-xs text-slate-400">Created</span>
                     </div>
                     <p className="text-sm font-semibold">
-                      {new Date(company.created_at).toLocaleDateString()}
+                      {new Date(company.created_at).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}
                     </p>
                   </div>
                 </div>
@@ -1119,7 +1119,7 @@ export function CompanyManagement() {
                     </div>
                     <div>
                       <span className="text-slate-400 text-sm">Created:</span>
-                      <p className="font-semibold">{new Date(selectedCompany.created_at).toLocaleString()}</p>
+                      <p className="font-semibold">{new Date(selectedCompany.created_at).toLocaleString('en-US', { timeZone: 'America/Phoenix' })}</p>
                     </div>
                   </div>
                 </div>

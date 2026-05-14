@@ -470,7 +470,7 @@ export function DailyTasksView() {
       grouped[key].push(t);
     });
     const today = new Date().toISOString().split('T')[0];
-    const printedOn = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+    const printedOn = new Date().toLocaleDateString('en-US', { timeZone: 'America/Phoenix', weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
 
     let html = `<h1 style="font-size:22px;font-weight:700;margin-bottom:2px;">Open Daily Tasks</h1>
 <p style="font-size:13px;color:#555;margin-bottom:24px;">Printed: ${printedOn}</p>`;
@@ -565,7 +565,7 @@ export function DailyTasksView() {
     const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
     if (dateStr === today) return 'Today';
     if (dateStr === yesterday) return 'Yesterday';
-    return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { timeZone: 'America/Phoenix', month: 'short', day: 'numeric', year: 'numeric' });
   };
 
   const isOverdue = (task: DailyTask) => {
@@ -593,7 +593,7 @@ export function DailyTasksView() {
 
   const formatCompletedAt = (iso: string | null) => {
     if (!iso) return '';
-    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+    return new Date(iso).toLocaleDateString('en-US', { timeZone: 'America/Phoenix', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
   };
 
   if (loading) {
@@ -841,7 +841,7 @@ export function DailyTasksView() {
                             <p><span className="text-teal-400 font-medium">Customer:</span> {task.appointments.name}</p>
                           )}
                           {task.appointments.date && (
-                            <p><span className="text-teal-400 font-medium">Date:</span> {new Date(task.appointments.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                            <p><span className="text-teal-400 font-medium">Date:</span> {new Date(task.appointments.date + 'T00:00:00').toLocaleDateString('en-US', { timeZone: 'America/Phoenix', weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</p>
                           )}
                           {task.appointments.time && (
                             <p><span className="text-teal-400 font-medium">Time:</span> {formatAppointmentTime(task.appointments.time)}</p>

@@ -277,14 +277,14 @@ export function PrintableVesselAgreement({ agreement, onClose }: PrintableVessel
 
         <div className="mb-6 text-sm">
           <p className="mb-2">
-            <strong>Effective Date:</strong> {new Date(agreement.start_date).toLocaleDateString()}
+            <strong>Effective Date:</strong> {new Date(agreement.start_date).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}
           </p>
           <p className="mb-2">
-            <strong>Term:</strong> {new Date(agreement.start_date).toLocaleDateString()} through {new Date(agreement.end_date).toLocaleDateString()}
+            <strong>Term:</strong> {new Date(agreement.start_date).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })} through {new Date(agreement.end_date).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}
           </p>
           {agreement.approved_at && (
             <p className="mb-2">
-              <strong>Agreement Executed:</strong> {new Date(agreement.approved_at).toLocaleDateString()}
+              <strong>Agreement Executed:</strong> {new Date(agreement.approved_at).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}
             </p>
           )}
         </div>
@@ -469,8 +469,8 @@ export function PrintableVesselAgreement({ agreement, onClose }: PrintableVessel
               {agreement.owner_signature_date ? (
                 <div className="border-2 border-black rounded p-4">
                   <p className="font-bold text-lg mb-2">{agreement.owner_signature_name}</p>
-                  <p className="text-sm">Date Signed: {new Date(agreement.owner_signature_date).toLocaleDateString()}</p>
-                  <p className="text-sm">Time: {new Date(agreement.owner_signature_date).toLocaleTimeString()}</p>
+                  <p className="text-sm">Date Signed: {new Date(agreement.owner_signature_date).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}</p>
+                  <p className="text-sm">Time: {new Date(agreement.owner_signature_date).toLocaleTimeString('en-US', { timeZone: 'America/Phoenix', hour: 'numeric', minute: '2-digit' })}</p>
                 </div>
               ) : (
                 <div className="border-2 border-gray-300 rounded p-4 bg-gray-50">
@@ -484,8 +484,8 @@ export function PrintableVesselAgreement({ agreement, onClose }: PrintableVessel
               {agreement.staff_signature_date ? (
                 <div className="border-2 border-black rounded p-4">
                   <p className="font-bold text-lg mb-2">{agreement.staff_signature_name}</p>
-                  <p className="text-sm">Date Signed: {new Date(agreement.staff_signature_date).toLocaleDateString()}</p>
-                  <p className="text-sm">Time: {new Date(agreement.staff_signature_date).toLocaleTimeString()}</p>
+                  <p className="text-sm">Date Signed: {new Date(agreement.staff_signature_date).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}</p>
+                  <p className="text-sm">Time: {new Date(agreement.staff_signature_date).toLocaleTimeString('en-US', { timeZone: 'America/Phoenix', hour: 'numeric', minute: '2-digit' })}</p>
                 </div>
               ) : (
                 <div className="border-2 border-gray-300 rounded p-4 bg-gray-50">
@@ -498,14 +498,14 @@ export function PrintableVesselAgreement({ agreement, onClose }: PrintableVessel
           {agreement.status === 'approved' && agreement.approved_at && (
             <div className="bg-emerald-50 border-2 border-emerald-600 rounded p-4 text-center">
               <p className="font-bold text-emerald-800 text-lg mb-1">AGREEMENT APPROVED AND EXECUTED</p>
-              <p className="text-emerald-700">Date: {new Date(agreement.approved_at).toLocaleDateString()} at {new Date(agreement.approved_at).toLocaleTimeString()}</p>
+              <p className="text-emerald-700">Date: {new Date(agreement.approved_at).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })} at {new Date(agreement.approved_at).toLocaleTimeString('en-US', { timeZone: 'America/Phoenix', hour: 'numeric', minute: '2-digit' })}</p>
             </div>
           )}
         </div>
 
         <div className="text-xs text-gray-600 border-t pt-4 mt-8">
           <p>Agreement ID: {agreement.id}</p>
-          <p>Generated: {new Date().toLocaleString()}</p>
+          <p>Generated: {new Date().toLocaleString('en-US', { timeZone: 'America/Phoenix' })}</p>
         </div>
       </div>
       </div>

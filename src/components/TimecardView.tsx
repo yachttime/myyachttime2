@@ -64,7 +64,7 @@ function formatHours(h: number): string {
 }
 
 function formatDateLabel(date: Date): string {
-  return date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' });
+  return date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric', timeZone: 'America/Phoenix' });
 }
 
 export function TimecardView({ userId, userName }: TimecardViewProps) {
@@ -318,7 +318,7 @@ export function TimecardView({ userId, userName }: TimecardViewProps) {
                         {day.label}
                       </td>
                       <td className="px-3 py-2.5 text-gray-800 text-xs font-semibold">
-                        {day.date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })}
+                        {day.date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', timeZone: 'America/Phoenix' })}
                       </td>
                       <td className="px-3 py-2.5">
                         {day.entry ? (
@@ -481,7 +481,7 @@ function AddEntryModal({ dateStr, userId, onClose, onSave }: AddEntryModalProps)
   const [loading, setLoading] = useState(false);
 
   const displayDate = new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', {
-    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
+    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'America/Phoenix'
   });
 
   const handleSave = async () => {

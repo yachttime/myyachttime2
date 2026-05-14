@@ -2132,7 +2132,7 @@ export function Estimates({ userId }: EstimatesProps) {
                       Deposit Paid ${Number(repairRequestDeposit.amount).toFixed(2)}
                       {repairRequestDeposit.paid_at && (
                         <span className="text-green-600 font-normal">
-                          · {new Date(repairRequestDeposit.paid_at).toLocaleDateString()}
+                          · {new Date(repairRequestDeposit.paid_at).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}
                         </span>
                       )}
                     </span>
@@ -3688,7 +3688,7 @@ export function Estimates({ userId }: EstimatesProps) {
                   ${estimate.total_amount.toFixed(2)}
                 </td>
                 <td className="px-6 py-4 text-right text-sm text-gray-700">
-                  {new Date(estimate.created_at).toLocaleDateString()}
+                  {new Date(estimate.created_at).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}
                 </td>
                 <td className="px-6 py-4 text-center">
                   {activeTab === 'active' ? (

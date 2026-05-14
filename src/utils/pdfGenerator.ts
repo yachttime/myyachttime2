@@ -2,6 +2,11 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { VesselManagementAgreement, UserProfile, Yacht, TripInspection, OwnerHandoffInspection, YachtBooking } from '../lib/supabase';
 
+const PHX = 'America/Phoenix';
+const phxDate = (d: Date | string) => new Date(d).toLocaleDateString('en-US', { timeZone: PHX });
+const phxTime = (d: Date | string) => new Date(d).toLocaleTimeString('en-US', { timeZone: PHX, hour: 'numeric', minute: '2-digit' });
+const phxDateTime = (d: Date | string) => new Date(d).toLocaleString('en-US', { timeZone: PHX });
+
 export function generateVesselAgreementPDF(agreement: VesselManagementAgreement): jsPDF {
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -66,10 +71,10 @@ export function generateVesselAgreementPDF(agreement: VesselManagementAgreement)
   addText(agreement.season_name, 12, 'normal', 'center');
   addSpace(0.3);
 
-  addText(`Effective Date: ${new Date(agreement.start_date).toLocaleDateString()}`, 10, 'bold');
-  addText(`Term: ${new Date(agreement.start_date).toLocaleDateString()} through ${new Date(agreement.end_date).toLocaleDateString()}`, 10);
+  addText(`Effective Date: ${phxDate(agreement.start_date)}`, 10, 'bold');
+  addText(`Term: ${phxDate(agreement.start_date)} through ${phxDate(agreement.end_date)}`, 10);
   if (agreement.approved_at) {
-    addText(`Agreement Executed: ${new Date(agreement.approved_at).toLocaleDateString()}`, 10);
+    addText(`Agreement Executed: ${phxDate(agreement.approved_at)}`, 10);
   }
   addSpace(0.25);
 
@@ -244,8 +249,8 @@ export function generateVesselAgreementPDF(agreement: VesselManagementAgreement)
     doc.rect(margin, yPos, 3, 0.8);
     yPos += 0.15;
     addText(agreement.owner_signature_name, 11, 'bold');
-    addText(`Date Signed: ${new Date(agreement.owner_signature_date).toLocaleDateString()}`, 9);
-    addText(`Time: ${new Date(agreement.owner_signature_date).toLocaleTimeString()}`, 9);
+    addText(`Date Signed: ${phxDate(agreement.owner_signature_date)}`, 9);
+    addText(`Time: ${phxTime(agreement.owner_signature_date)}`, 9);
   } else {
     addText('Not yet signed', 9);
   }
@@ -258,8 +263,8 @@ export function generateVesselAgreementPDF(agreement: VesselManagementAgreement)
     doc.rect(margin, yPos, 3, 0.8);
     yPos += 0.15;
     addText(agreement.staff_signature_name, 11, 'bold');
-    addText(`Date Signed: ${new Date(agreement.staff_signature_date).toLocaleDateString()}`, 9);
-    addText(`Time: ${new Date(agreement.staff_signature_date).toLocaleTimeString()}`, 9);
+    addText(`Date Signed: ${phxDate(agreement.staff_signature_date)}`, 9);
+    addText(`Time: ${phxTime(agreement.staff_signature_date)}`, 9);
   } else {
     addText('Not yet signed', 9);
   }
@@ -272,7 +277,7 @@ export function generateVesselAgreementPDF(agreement: VesselManagementAgreement)
     doc.rect(margin, yPos, contentWidth, 0.6, 'FD');
     yPos += 0.2;
     addText('AGREEMENT APPROVED AND EXECUTED', 11, 'bold', 'center');
-    addText(`Date: ${new Date(agreement.approved_at).toLocaleDateString()} at ${new Date(agreement.approved_at).toLocaleTimeString()}`, 9, 'normal', 'center');
+    addText(`Date: ${phxDate(agreement.approved_at)} at ${phxTime(agreement.approved_at)}`, 9, 'normal', 'center');
     yPos += 0.1;
   }
 
@@ -281,7 +286,7 @@ export function generateVesselAgreementPDF(agreement: VesselManagementAgreement)
   doc.setTextColor(100);
   const footerY = 10.5;
   doc.text(`Agreement ID: ${agreement.id}`, margin, footerY);
-  doc.text(`Generated: ${new Date().toLocaleString()}`, margin, footerY + 0.15);
+  doc.text(`Generated: ${phxDateTime(new Date())}`, margin, footerY + 0.15);
 
   return doc;
 }
@@ -305,7 +310,7 @@ export function generateUserListPDF(users: (UserProfile & { yachts?: Yacht })[],
 
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  const dateText = `Generated: ${new Date().toLocaleString()}`;
+  const dateText = `Generated: ${phxDateTime(new Date())}`;
   const dateWidth = doc.getTextWidth(dateText);
   doc.text(dateText, (pageWidth - dateWidth) / 2, yPos);
   yPos += 0.4;
@@ -476,7 +481,7 @@ export async function generateTripInspectionPDF(
   addText(`Yacht: ${inspection.yachts?.name || 'Unknown'}`, 10, 'bold');
   addText(`Inspector: ${inspection.user_profiles?.first_name || ''} ${inspection.user_profiles?.last_name || ''}`, 10);
   addText(`Inspection Type: ${inspection.inspection_type?.replace('_', '-') || 'N/A'}`, 10);
-  addText(`Date: ${new Date(inspection.inspection_date).toLocaleString()}`, 10);
+  addText(`Date: ${phxDateTime(inspection.inspection_date)}`, 10);
   addSpace(0.25);
   addLine();
 
@@ -678,7 +683,7 @@ export function generateOwnerHandoffPDF(handoff: OwnerHandoffInspection & { yach
   addText(`Yacht: ${handoff.yachts?.name || 'Unknown'}`, 10, 'bold');
   addText(`Staff Member: ${handoff.user_profiles?.first_name || ''} ${handoff.user_profiles?.last_name || ''}`, 10);
   addText(`Inspection Type: Owner Handoff`, 10);
-  addText(`Date: ${new Date(handoff.inspection_date).toLocaleString()}`, 10);
+  addText(`Date: ${phxDateTime(handoff.inspection_date)}`, 10);
   addSpace(0.25);
   addLine();
 
@@ -746,7 +751,7 @@ export function generateOwnerTripsPDF(trips: YachtBooking[], yachtName: string):
 
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  const dateText = `Generated: ${new Date().toLocaleString()}`;
+  const dateText = `Generated: ${phxDateTime(new Date())}`;
   const dateWidth = doc.getTextWidth(dateText);
   doc.text(dateText, (pageWidth - dateWidth) / 2, yPos);
   yPos += 0.4;
@@ -756,8 +761,8 @@ export function generateOwnerTripsPDF(trips: YachtBooking[], yachtName: string):
   });
 
   const tableData = sortedTrips.map((trip: any) => {
-    const startDate = new Date(trip.start_date).toLocaleDateString();
-    const endDate = new Date(trip.end_date).toLocaleDateString();
+    const startDate = phxDate(trip.start_date);
+    const endDate = phxDate(trip.end_date);
     const departureTime = trip.departure_time ? convertTo12Hour(trip.departure_time) : '';
     const arrivalTime = trip.arrival_time ? convertTo12Hour(trip.arrival_time) : '';
     const timeInfo = [departureTime && `Dep: ${departureTime}`, arrivalTime && `Arr: ${arrivalTime}`].filter(Boolean).join(' | ') || 'N/A';
@@ -877,7 +882,7 @@ export function generateAllYachtTripsPDF(yachtTripsMap: { yacht: { id: string; n
 
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    const dateText = `Generated: ${new Date().toLocaleString()}`;
+    const dateText = `Generated: ${phxDateTime(new Date())}`;
     const dateWidth = doc.getTextWidth(dateText);
     doc.text(dateText, (pageWidth - dateWidth) / 2, yPos);
     yPos += 0.4;
@@ -1198,7 +1203,7 @@ export async function generateEstimatePDF(
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
-  doc.text(`Date: ${new Date(estimate.created_at).toLocaleDateString()}`, leftColumnX, yPos);
+  doc.text(`Date: ${phxDate(estimate.created_at)}`, leftColumnX, yPos);
   yPos += 0.13;
   doc.text(`Status: ${estimate.status.charAt(0).toUpperCase() + estimate.status.slice(1)}`, leftColumnX, yPos);
 
@@ -1546,7 +1551,7 @@ export async function generateEstimatePDF(
 
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
-    doc.text(`Generated: ${new Date().toLocaleString()}`, margin, 10.5);
+    doc.text(`Generated: ${phxDateTime(new Date())}`, margin, 10.5);
     doc.text(`Page ${i} of ${pageCount}`, pageWidth - margin - 0.5, 10.5, { align: 'right' });
   }
 
@@ -1779,7 +1784,7 @@ export async function generateWorkOrderPDF(
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
-  doc.text(`Date: ${new Date(workOrder.created_at).toLocaleDateString()}`, leftColumnX, yPos);
+  doc.text(`Date: ${phxDate(workOrder.created_at)}`, leftColumnX, yPos);
   yPos += 0.13;
   doc.text(`Status: ${workOrder.status.charAt(0).toUpperCase() + workOrder.status.slice(1)}`, leftColumnX, yPos);
 
@@ -2135,7 +2140,7 @@ export async function generateWorkOrderPDF(
 
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
-    doc.text(`Generated: ${new Date().toLocaleString()}`, margin, 10.5);
+    doc.text(`Generated: ${phxDateTime(new Date())}`, margin, 10.5);
     doc.text(`Page ${i} of ${pageCount}`, pageWidth - margin - 0.5, 10.5, { align: 'right' });
   }
 
@@ -2190,9 +2195,9 @@ export async function generatePayrollReportPDF(
   };
 
   addText('PAYROLL REPORT', 16, 'bold', 'center');
-  addText(`Pay Period: ${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}`, 12, 'normal', 'center');
+  addText(`Pay Period: ${phxDate(startDate)} - ${phxDate(endDate)}`, 12, 'normal', 'center');
   if (payDate) {
-    addText(`Payday: ${new Date(payDate).toLocaleDateString()}`, 12, 'normal', 'center');
+    addText(`Payday: ${phxDate(payDate)}`, 12, 'normal', 'center');
   }
   addSpace(0.3);
 
@@ -2277,19 +2282,19 @@ export async function generatePayrollReportPDF(
     if (report.entries.length > 0) {
       const detailHeaders = [['Date', 'Yacht', 'Punch In', 'Punch Out', 'Lunch', 'Std Hours', 'OT Hours', 'Total', 'Notes']];
       const detailData = report.entries.map(entry => {
-      const date = new Date(entry.punch_in_time).toLocaleDateString();
+      const date = phxDate(entry.punch_in_time);
       const yacht = entry.yacht_id ? yachtMap[entry.yacht_id] || 'N/A' : 'N/A';
-      const punchIn = new Date(entry.punch_in_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      const punchIn = phxTime(entry.punch_in_time);
       const punchOut = entry.punch_out_time
-        ? new Date(entry.punch_out_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+        ? phxTime(entry.punch_out_time)
         : 'Active';
 
       let lunch = 'N/A';
       if (report.user.employee_type === 'salary') {
         lunch = '1h (auto)';
       } else if (entry.lunch_break_start && entry.lunch_break_end) {
-        const lunchStart = new Date(entry.lunch_break_start).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-        const lunchEnd = new Date(entry.lunch_break_end).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        const lunchStart = phxTime(entry.lunch_break_start);
+        const lunchEnd = phxTime(entry.lunch_break_end);
         lunch = `${lunchStart}-${lunchEnd}`;
       }
 
@@ -2444,11 +2449,11 @@ export async function generatePayrollReportPDF(
 
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
-    doc.text(`Generated: ${new Date().toLocaleString()}`, margin, pageHeight - 0.3);
+    doc.text(`Generated: ${phxDateTime(new Date())}`, margin, pageHeight - 0.3);
     doc.text(`Page ${i} of ${pageCount}`, pageWidth - margin - 0.5, pageHeight - 0.3, { align: 'right' });
   }
 
-  const fileName = `Payroll_Report_${new Date(startDate).toLocaleDateString().replace(/\//g, '-')}_to_${new Date(endDate).toLocaleDateString().replace(/\//g, '-')}.pdf`;
+  const fileName = `Payroll_Report_${phxDate(startDate).replace(/\//g, '-')}_to_${phxDate(endDate).replace(/\//g, '-')}.pdf`;
   doc.save(fileName);
 }
 
@@ -2472,7 +2477,7 @@ export function generateActiveYachtsPDF(yachts: Yacht[], agreementPaymentMap: Re
 
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  const dateText = `Generated: ${new Date().toLocaleString()}`;
+  const dateText = `Generated: ${phxDateTime(new Date())}`;
   const dateWidth = doc.getTextWidth(dateText);
   doc.text(dateText, (pageWidth - dateWidth) / 2, yPos);
   yPos += 0.4;
@@ -2593,7 +2598,7 @@ export function generateFleetTripDatesReportPDF(rows: FleetTripDatesRow[]): jsPD
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(100);
-  const rptDateText = `Generated: ${new Date().toLocaleString()}`;
+  const rptDateText = `Generated: ${phxDateTime(new Date())}`;
   const rptDateWidth = doc.getTextWidth(rptDateText);
   doc.text(rptDateText, (rptPageWidth - rptDateWidth) / 2, rptY);
   rptY += 0.4;
@@ -2601,7 +2606,7 @@ export function generateFleetTripDatesReportPDF(rows: FleetTripDatesRow[]): jsPD
 
   const fmtTripDate = (iso: string | null) => {
     if (!iso) return '—';
-    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return phxDate(iso);
   };
 
   const rptTableData = rows.map(r => [

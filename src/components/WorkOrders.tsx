@@ -3023,7 +3023,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                                                       .map(e => `${e!.first_name} ${e!.last_name}`);
                                                     return names.length > 0 ? `Assigned: ${names.join(', ')}` : 'Hours sent';
                                                   })()}
-                                                  <span className="text-gray-400 ml-1">· {new Date(item.time_entry_sent_at).toLocaleDateString()}</span>
+                                                  <span className="text-gray-400 ml-1">· {new Date(item.time_entry_sent_at).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}</span>
                                                 </div>
                                               ) : (
                                                 <span className="text-xs text-gray-400 italic">Use &quot;Send Labor Hours to Time Clock&quot; above</span>
@@ -3583,7 +3583,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                     {editingWorkOrder.deposit_payment_status === 'paid' && editingWorkOrder.deposit_paid_at && !editingWorkOrder.deposit_payment_link_url && workOrderRepairRequestIds[editingWorkOrder.id] && (
                       <div className="flex items-center gap-1.5 text-xs text-green-700 bg-green-50 border border-green-200 rounded px-2 py-1.5">
                         <CheckCircle className="w-3.5 h-3.5 shrink-0 text-green-600" />
-                        Deposit collected via Admin / Repair Request on {new Date(editingWorkOrder.deposit_paid_at).toLocaleDateString()}
+                        Deposit collected via Admin / Repair Request on {new Date(editingWorkOrder.deposit_paid_at).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}
                         {editingWorkOrder.deposit_payment_method_type && ` · ${editingWorkOrder.deposit_payment_method_type}`}
                       </div>
                     )}
@@ -3598,7 +3598,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                               <span className="font-semibold text-gray-700">#{idx + 1}</span>
                               <span className="text-green-700 font-bold">${parseFloat(String(dep.amount)).toFixed(2)}</span>
                               <span className="text-gray-500">{dep.payment_method === 'check' ? `Check #${dep.reference_number}` : dep.payment_method}</span>
-                              <span className="text-gray-400 ml-auto">{new Date(dep.payment_date).toLocaleDateString()}</span>
+                              <span className="text-gray-400 ml-auto">{new Date(dep.payment_date).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}</span>
                             </div>
                             {dep.notes && (
                               <div className="mt-1 pl-5 text-gray-500 italic">{dep.notes}</div>
@@ -3671,17 +3671,17 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                           <div className="space-y-1">
                             <div className="flex items-center gap-2 text-xs text-gray-600">
                               <Mail className="w-3 h-3 text-blue-600" />
-                              <span>Sent: {new Date(editingWorkOrder.deposit_email_sent_at).toLocaleDateString()} at {new Date(editingWorkOrder.deposit_email_sent_at).toLocaleTimeString()}</span>
+                              <span>Sent: {new Date(editingWorkOrder.deposit_email_sent_at).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })} at {new Date(editingWorkOrder.deposit_email_sent_at).toLocaleTimeString('en-US', { timeZone: 'America/Phoenix', hour: 'numeric', minute: '2-digit' })}</span>
                             </div>
                             {editingWorkOrder.deposit_email_delivered_at ? (
                               <div className="flex items-center gap-2 text-xs text-emerald-700">
                                 <CheckCircle className="w-3 h-3" />
-                                <span>Delivered: {new Date(editingWorkOrder.deposit_email_delivered_at).toLocaleDateString()} at {new Date(editingWorkOrder.deposit_email_delivered_at).toLocaleTimeString()}</span>
+                                <span>Delivered: {new Date(editingWorkOrder.deposit_email_delivered_at).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })} at {new Date(editingWorkOrder.deposit_email_delivered_at).toLocaleTimeString('en-US', { timeZone: 'America/Phoenix', hour: 'numeric', minute: '2-digit' })}</span>
                               </div>
                             ) : editingWorkOrder.deposit_email_bounced_at ? (
                               <div className="flex items-center gap-2 text-xs text-red-700">
                                 <AlertCircle className="w-3 h-3" />
-                                <span>Bounced: {new Date(editingWorkOrder.deposit_email_bounced_at).toLocaleDateString()} at {new Date(editingWorkOrder.deposit_email_bounced_at).toLocaleTimeString()}</span>
+                                <span>Bounced: {new Date(editingWorkOrder.deposit_email_bounced_at).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })} at {new Date(editingWorkOrder.deposit_email_bounced_at).toLocaleTimeString('en-US', { timeZone: 'America/Phoenix', hour: 'numeric', minute: '2-digit' })}</span>
                               </div>
                             ) : (
                               <div className="flex items-center gap-2 text-xs text-yellow-700">
@@ -3692,13 +3692,13 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                             {editingWorkOrder.deposit_email_opened_at && (
                               <div className="flex items-center gap-2 text-xs text-green-700">
                                 <Eye className="w-3 h-3" />
-                                <span>Opened: {new Date(editingWorkOrder.deposit_email_opened_at).toLocaleDateString()} at {new Date(editingWorkOrder.deposit_email_opened_at).toLocaleTimeString()}</span>
+                                <span>Opened: {new Date(editingWorkOrder.deposit_email_opened_at).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })} at {new Date(editingWorkOrder.deposit_email_opened_at).toLocaleTimeString('en-US', { timeZone: 'America/Phoenix', hour: 'numeric', minute: '2-digit' })}</span>
                               </div>
                             )}
                             {editingWorkOrder.deposit_email_clicked_at && (
                               <div className="flex items-center gap-2 text-xs text-cyan-700">
                                 <MousePointer className="w-3 h-3" />
-                                <span>Clicked: {new Date(editingWorkOrder.deposit_email_clicked_at).toLocaleDateString()} at {new Date(editingWorkOrder.deposit_email_clicked_at).toLocaleTimeString()}</span>
+                                <span>Clicked: {new Date(editingWorkOrder.deposit_email_clicked_at).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })} at {new Date(editingWorkOrder.deposit_email_clicked_at).toLocaleTimeString('en-US', { timeZone: 'America/Phoenix', hour: 'numeric', minute: '2-digit' })}</span>
                               </div>
                             )}
                           </div>
@@ -4023,7 +4023,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                   ${(workOrder.total_amount || 0).toFixed(2)}
                 </td>
                 <td className="px-6 py-4 text-right text-sm text-gray-500">
-                  {new Date(workOrder.created_at).toLocaleDateString()}
+                  {new Date(workOrder.created_at).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}
                 </td>
                 <td className="px-6 py-4 text-center">
                   <div className="flex items-center justify-center gap-2">

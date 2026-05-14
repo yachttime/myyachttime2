@@ -67,18 +67,21 @@ function adjustPaymentDateForWeekend(date: Date): Date {
   return adjustedDate;
 }
 
+const TZ = 'America/Phoenix';
+
 function formatDateShort(date: Date): string {
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return date.toLocaleDateString('en-US', { timeZone: TZ, month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 export function formatTime(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date;
-  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  return d.toLocaleTimeString('en-US', { timeZone: TZ, hour: 'numeric', minute: '2-digit', hour12: true });
 }
 
 export function formatDateTime(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date;
   return d.toLocaleString('en-US', {
+    timeZone: TZ,
     month: 'short',
     day: 'numeric',
     hour: 'numeric',
@@ -160,6 +163,7 @@ export function groupEntriesByDate(entries: TimeEntry[]): DailyTimeEntry[] {
 
   entries.forEach(entry => {
     const date = new Date(entry.punch_in_time).toLocaleDateString('en-US', {
+      timeZone: TZ,
       year: 'numeric',
       month: '2-digit',
       day: '2-digit'
@@ -203,7 +207,7 @@ export function calculatePayrollSummary(entries: TimeEntry[]): PayrollSummary {
   const totalHours = totalStandardHours + totalOvertimeHours;
 
   const uniqueDates = new Set(
-    entries.map(e => new Date(e.punch_in_time).toDateString())
+    entries.map(e => new Date(e.punch_in_time).toLocaleDateString('en-US', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }))
   );
   const dayCount = uniqueDates.size;
   const averageHoursPerDay = dayCount > 0 ? totalHours / dayCount : 0;

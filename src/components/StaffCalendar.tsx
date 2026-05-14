@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, User, X, Check, Clock, AlertCircle, Plus, Briefcase, Sun, BarChart3, Edit3 } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, User, X, Check, Clock, AlertCircle, Plus, Briefcase, Sun, BarChart3, CreditCard as Edit3 } from 'lucide-react';
 import { supabase, StaffTimeOffRequest, StaffSchedule, UserProfile, canAccessAllYachts, isStaffRole } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useRoleImpersonation } from '../contexts/RoleImpersonationContext';
@@ -622,7 +622,7 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
   const formatDateOnly = (dateStr: string) => {
     const [year, month, day] = dateStr.split('-');
     const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-    return date.toLocaleDateString();
+    return date.toLocaleDateString('en-US', { timeZone: 'America/Phoenix' });
   };
 
   const monthNames = [
@@ -1478,7 +1478,7 @@ function ApprovalPanel({ requests, onClose, onSuccess }: { requests: StaffTimeOf
   const formatDateOnly = (dateStr: string) => {
     const [year, month, day] = dateStr.split('-');
     const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-    return date.toLocaleDateString();
+    return date.toLocaleDateString('en-US', { timeZone: 'America/Phoenix' });
   };
 
   return (
@@ -1512,7 +1512,7 @@ function ApprovalPanel({ requests, onClose, onSuccess }: { requests: StaffTimeOf
                   </div>
                   <span className="text-xs text-slate-400 flex items-center gap-1">
                     <Clock className="w-3 h-3" />
-                    {new Date(request.submitted_at).toLocaleDateString()}
+                    {new Date(request.submitted_at).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}
                   </span>
                 </div>
 
@@ -1679,7 +1679,7 @@ function RequestDetailsModal({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="text-xs text-slate-400">Start Date</p>
-              <p className="font-medium">{new Date(request.start_date).toLocaleDateString()}</p>
+              <p className="font-medium">{new Date(request.start_date).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}</p>
               {request.start_time && (
                 <p className="text-sm text-amber-400 flex items-center gap-1 mt-1">
                   <Clock className="w-3 h-3" />
@@ -1689,7 +1689,7 @@ function RequestDetailsModal({
             </div>
             <div>
               <p className="text-xs text-slate-400">End Date</p>
-              <p className="font-medium">{new Date(request.end_date).toLocaleDateString()}</p>
+              <p className="font-medium">{new Date(request.end_date).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}</p>
               {request.end_time && (
                 <p className="text-sm text-amber-400 flex items-center gap-1 mt-1">
                   <Clock className="w-3 h-3" />
@@ -1715,13 +1715,13 @@ function RequestDetailsModal({
 
           <div>
             <p className="text-xs text-slate-400">Submitted</p>
-            <p className="text-sm">{new Date(request.submitted_at).toLocaleString()}</p>
+            <p className="text-sm">{new Date(request.submitted_at).toLocaleString('en-US', { timeZone: 'America/Phoenix' })}</p>
           </div>
 
           {request.reviewed_at && (
             <div>
               <p className="text-xs text-slate-400">Reviewed</p>
-              <p className="text-sm">{new Date(request.reviewed_at).toLocaleString()}</p>
+              <p className="text-sm">{new Date(request.reviewed_at).toLocaleString('en-US', { timeZone: 'America/Phoenix' })}</p>
             </div>
           )}
 
@@ -2484,7 +2484,7 @@ function DateScheduleEditModal({ date, staff, scheduleOverrides, onClose, onSucc
               Edit Staff Schedule
             </h3>
             <p className="text-slate-400 mt-1">
-              {dayName}, {date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+              {dayName}, {date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'America/Phoenix' })}
             </p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-white">

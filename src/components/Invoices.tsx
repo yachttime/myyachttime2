@@ -1040,9 +1040,9 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
 
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(9);
-      doc.text(`Date: ${new Date(invoice.invoice_date).toLocaleDateString()}`, leftColX, yPos);
+      doc.text(`Date: ${new Date(invoice.invoice_date).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}`, leftColX, yPos);
       yPos += 0.14;
-      doc.text(`Due Date: ${new Date(invoice.due_date).toLocaleDateString()}`, leftColX, yPos);
+      doc.text(`Due Date: ${new Date(invoice.due_date).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}`, leftColX, yPos);
       yPos += 0.14;
 
       if (invoice.work_order_number) {
@@ -2310,7 +2310,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                             {rr.status.replace('_', ' ')}
                           </span>
                         </div>
-                        <p className="text-xs text-gray-400 mt-0.5">{new Date(rr.created_at).toLocaleDateString()}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{new Date(rr.created_at).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}</p>
                       </button>
                     ))}
                   {repairRequests.filter(rr =>
@@ -2734,10 +2734,10 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(invoice.invoice_date).toLocaleDateString()}
+                      {new Date(invoice.invoice_date).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(invoice.due_date).toLocaleDateString()}
+                      {new Date(invoice.due_date).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
@@ -2918,7 +2918,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                     Exported to QuickBooks
                     {selectedInvoice.quickbooks_export_date && (
                       <span className="text-green-600 font-normal">
-                        {new Date(selectedInvoice.quickbooks_export_date).toLocaleDateString()}
+                        {new Date(selectedInvoice.quickbooks_export_date).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}
                       </span>
                     )}
                   </div>
@@ -2953,11 +2953,11 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                   <div className="space-y-1">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">Invoice Date:</span>
-                      <span className="text-gray-900">{new Date(selectedInvoice.invoice_date).toLocaleDateString()}</span>
+                      <span className="text-gray-900">{new Date(selectedInvoice.invoice_date).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">Due Date:</span>
-                      <span className="text-gray-900">{new Date(selectedInvoice.due_date).toLocaleDateString()}</span>
+                      <span className="text-gray-900">{new Date(selectedInvoice.due_date).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}</span>
                     </div>
                     {selectedInvoice.work_order_number && (
                       <div className="flex justify-between text-sm">
@@ -3136,7 +3136,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                         <p className={`text-xs mt-0.5 ${hasMismatch ? 'text-amber-700' : 'text-green-700'}`}>
                           ${Number(rrDepositAmount).toFixed(2)} collected
                           {rrDepositMethod ? ` via ${rrDepositMethod}` : ''}
-                          {rrDepositPaidAt ? ` on ${new Date(rrDepositPaidAt).toLocaleDateString()}` : ''}
+                          {rrDepositPaidAt ? ` on ${new Date(rrDepositPaidAt).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}` : ''}
                           {hasDeposit ? ' · Applied to invoice' : ''}
                         </p>
                       </div>
@@ -3217,7 +3217,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                         </p>
                         {paidAt && (
                           <p className="text-xs text-green-600">
-                            Paid on: {new Date(paidAt).toLocaleDateString()} at {new Date(paidAt).toLocaleTimeString()}
+                            Paid on: {new Date(paidAt).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })} at {new Date(paidAt).toLocaleTimeString('en-US', { timeZone: 'America/Phoenix', hour: 'numeric', minute: '2-digit' })}
                           </p>
                         )}
                         {invoiceCheckPayments.length > 0 && (
@@ -3227,7 +3227,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                                 <FileText className="w-4 h-4 text-gray-500 flex-shrink-0" />
                                 <div>
                                   <p className="text-xs font-semibold text-gray-700">Check #{cp.reference_number}</p>
-                                  <p className="text-xs text-gray-500">${Number(cp.amount).toFixed(2)} recorded on {new Date(cp.payment_date).toLocaleDateString()}{cp.notes ? ` — ${cp.notes}` : ''}</p>
+                                  <p className="text-xs text-gray-500">${Number(cp.amount).toFixed(2)} recorded on {new Date(cp.payment_date).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}{cp.notes ? ` — ${cp.notes}` : ''}</p>
                                 </div>
                               </div>
                             ))}
@@ -3240,7 +3240,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                             <div className="space-y-1">
                               <div className="flex items-center gap-2 text-xs text-gray-500">
                                 <Mail className="w-3 h-3 text-blue-500" />
-                                <span>Sent: {new Date(emailSentAt).toLocaleDateString()} at {new Date(emailSentAt).toLocaleTimeString()}</span>
+                                <span>Sent: {new Date(emailSentAt).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })} at {new Date(emailSentAt).toLocaleTimeString('en-US', { timeZone: 'America/Phoenix', hour: 'numeric', minute: '2-digit' })}</span>
                               </div>
                               {((selectedInvoice as any).final_payment_cc_emails as string[] | null)?.map((cc, i) => (
                                 <div key={i} className="flex items-center gap-2 text-xs text-gray-500">
@@ -3275,7 +3275,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                                             {eng.delivered_at ? (
                                               <div className="flex items-center gap-1.5 text-xs text-green-600 pl-4">
                                                 <CheckCircle className="w-3 h-3" />
-                                                <span>Delivered: {new Date(eng.delivered_at).toLocaleDateString()} at {new Date(eng.delivered_at).toLocaleTimeString()}</span>
+                                                <span>Delivered: {new Date(eng.delivered_at).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })} at {new Date(eng.delivered_at).toLocaleTimeString('en-US', { timeZone: 'America/Phoenix', hour: 'numeric', minute: '2-digit' })}</span>
                                               </div>
                                             ) : (
                                               <div className="flex items-center gap-1.5 text-xs text-gray-400 pl-4">
@@ -3286,7 +3286,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                                             {eng.opened_at && (
                                               <div className="flex items-center gap-1.5 text-xs text-blue-600 pl-4">
                                                 <Eye className="w-3 h-3" />
-                                                <span>Opened: {new Date(eng.opened_at).toLocaleDateString()} at {new Date(eng.opened_at).toLocaleTimeString()}</span>
+                                                <span>Opened: {new Date(eng.opened_at).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })} at {new Date(eng.opened_at).toLocaleTimeString('en-US', { timeZone: 'America/Phoenix', hour: 'numeric', minute: '2-digit' })}</span>
                                                 {(eng.open_count ?? 0) > 1 && (
                                                   <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-xs font-semibold">{eng.open_count}x</span>
                                                 )}
@@ -3295,7 +3295,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                                             {eng.clicked_at && (
                                               <div className="flex items-center gap-1.5 text-xs text-blue-700 pl-4">
                                                 <MousePointer className="w-3 h-3" />
-                                                <span>Clicked: {new Date(eng.clicked_at).toLocaleDateString()} at {new Date(eng.clicked_at).toLocaleTimeString()}</span>
+                                                <span>Clicked: {new Date(eng.clicked_at).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })} at {new Date(eng.clicked_at).toLocaleTimeString('en-US', { timeZone: 'America/Phoenix', hour: 'numeric', minute: '2-digit' })}</span>
                                                 {(eng.click_count ?? 0) > 1 && (
                                                   <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-xs font-semibold">{eng.click_count}x</span>
                                                 )}
@@ -3304,7 +3304,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                                             {eng.bounced_at && (
                                               <div className="flex items-center gap-1.5 text-xs text-red-600 pl-4">
                                                 <AlertCircle className="w-3 h-3" />
-                                                <span>Bounced: {new Date(eng.bounced_at).toLocaleDateString()} at {new Date(eng.bounced_at).toLocaleTimeString()}</span>
+                                                <span>Bounced: {new Date(eng.bounced_at).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })} at {new Date(eng.bounced_at).toLocaleTimeString('en-US', { timeZone: 'America/Phoenix', hour: 'numeric', minute: '2-digit' })}</span>
                                               </div>
                                             )}
                                           </div>
@@ -3326,13 +3326,13 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                                     {emailDeliveredAt && (
                                       <div className="flex items-center gap-2 text-xs text-green-600">
                                         <CheckCircle className="w-3 h-3" />
-                                        <span>Delivered: {new Date(emailDeliveredAt).toLocaleDateString()} at {new Date(emailDeliveredAt).toLocaleTimeString()}</span>
+                                        <span>Delivered: {new Date(emailDeliveredAt).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })} at {new Date(emailDeliveredAt).toLocaleTimeString('en-US', { timeZone: 'America/Phoenix', hour: 'numeric', minute: '2-digit' })}</span>
                                       </div>
                                     )}
                                     {emailOpenedAt && (
                                       <div className="flex items-center gap-2 text-xs text-blue-600">
                                         <Eye className="w-3 h-3" />
-                                        <span>Opened: {new Date(emailOpenedAt).toLocaleDateString()} at {new Date(emailOpenedAt).toLocaleTimeString()}</span>
+                                        <span>Opened: {new Date(emailOpenedAt).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })} at {new Date(emailOpenedAt).toLocaleTimeString('en-US', { timeZone: 'America/Phoenix', hour: 'numeric', minute: '2-digit' })}</span>
                                         {(selectedInvoice.email_open_count ?? 0) > 1 && (
                                           <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-semibold">{selectedInvoice.email_open_count}x</span>
                                         )}
@@ -3341,7 +3341,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                                     {emailClickedAt && (
                                       <div className="flex items-center gap-2 text-xs text-blue-700">
                                         <MousePointer className="w-3 h-3" />
-                                        <span>Clicked: {new Date(emailClickedAt).toLocaleDateString()} at {new Date(emailClickedAt).toLocaleTimeString()}</span>
+                                        <span>Clicked: {new Date(emailClickedAt).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })} at {new Date(emailClickedAt).toLocaleTimeString('en-US', { timeZone: 'America/Phoenix', hour: 'numeric', minute: '2-digit' })}</span>
                                         {(selectedInvoice.email_click_count ?? 0) > 1 && (
                                           <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-semibold">{selectedInvoice.email_click_count}x</span>
                                         )}
@@ -3350,7 +3350,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                                     {emailBouncedAt && (
                                       <div className="flex items-center gap-2 text-xs text-red-600">
                                         <AlertCircle className="w-3 h-3" />
-                                        <span>Bounced: {new Date(emailBouncedAt).toLocaleDateString()} at {new Date(emailBouncedAt).toLocaleTimeString()}</span>
+                                        <span>Bounced: {new Date(emailBouncedAt).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })} at {new Date(emailBouncedAt).toLocaleTimeString('en-US', { timeZone: 'America/Phoenix', hour: 'numeric', minute: '2-digit' })}</span>
                                       </div>
                                     )}
                                   </>
@@ -3359,7 +3359,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                               {selectedInvoice.payment_status === 'paid' && confirmationEmailSentAt && (
                                 <div className="flex items-center gap-2 text-xs text-green-600 pt-2 border-t border-green-200 mt-2">
                                   <CheckCircle className="w-3 h-3" />
-                                  <span className="font-medium">Payment Confirmation Sent: {new Date(confirmationEmailSentAt).toLocaleDateString()} at {new Date(confirmationEmailSentAt).toLocaleTimeString()}</span>
+                                  <span className="font-medium">Payment Confirmation Sent: {new Date(confirmationEmailSentAt).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })} at {new Date(confirmationEmailSentAt).toLocaleTimeString('en-US', { timeZone: 'America/Phoenix', hour: 'numeric', minute: '2-digit' })}</span>
                                 </div>
                               )}
                             </div>

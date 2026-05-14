@@ -597,7 +597,7 @@ export function MarineWholesalePartsManager({ userId, userRole }: MarineWholesal
             <tbody className="bg-white divide-y divide-gray-200">
               {importHistory.map((record) => (
                 <tr key={record.id}>
-                  <td className="px-6 py-4 text-sm text-gray-900">{new Date(record.uploaded_at).toLocaleString()}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900">{new Date(record.uploaded_at).toLocaleString('en-US', { timeZone: 'America/Phoenix' })}</td>
                   <td className="px-6 py-4 text-sm text-gray-900">{record.file_name}</td>
                   <td className="px-6 py-4 text-sm text-gray-900">{record.uploader_name}</td>
                   <td className="px-6 py-4 text-sm text-gray-900">{record.total_parts_imported}</td>

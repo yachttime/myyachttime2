@@ -434,7 +434,7 @@ export default function SupportTickets() {
                         {CATEGORIES.find(c => c.value === ticket.category)?.label}
                       </span>
                       <span>
-                        {new Date(ticket.created_at).toLocaleDateString()}
+                        {new Date(ticket.created_at).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}
                       </span>
                       {isStaff && ticket.user_profiles && (
                         <span>
@@ -520,7 +520,7 @@ export default function SupportTickets() {
                             {ticket.user_profiles ? `${ticket.user_profiles.first_name} ${ticket.user_profiles.last_name}` : 'You'}
                           </span>
                           <span className="text-sm text-gray-500 ml-2">
-                            {new Date(ticket.created_at).toLocaleString()}
+                            {new Date(ticket.created_at).toLocaleString('en-US', { timeZone: 'America/Phoenix' })}
                           </span>
                         </div>
                       </div>
@@ -562,7 +562,7 @@ export default function SupportTickets() {
                               </span>
                             )}
                             <span className="text-sm text-gray-500 ml-2">
-                              {new Date(response.created_at).toLocaleString()}
+                              {new Date(response.created_at).toLocaleString('en-US', { timeZone: 'America/Phoenix' })}
                             </span>
                           </div>
                         </div>

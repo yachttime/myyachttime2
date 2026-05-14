@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { TimeEntry } from '../utils/timeClockHelpers';
 import { useConfirm } from '../hooks/useConfirm';
+import { toPhxDateInput, toPhxTimeInput } from '../utils/timezone';
 
 interface TimeEntryEditorProps {
   entry: TimeEntry;
@@ -17,32 +18,12 @@ export function TimeEntryEditor({ entry, onClose, onSave }: TimeEntryEditorProps
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const toLocalDateStr = (iso: string) => {
-    const d = new Date(iso);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-  };
-  const toLocalTimeStr = (iso: string) => {
-    const d = new Date(iso);
-    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-  };
-
-  const [punchInDate, setPunchInDate] = useState(toLocalDateStr(entry.punch_in_time));
-  const [punchInTime, setPunchInTime] = useState(toLocalTimeStr(entry.punch_in_time));
-  const [punchOutDate, setPunchOutDate] = useState(
-    entry.punch_out_time ? toLocalDateStr(entry.punch_out_time) : ''
-  );
-  const [punchOutTime, setPunchOutTime] = useState(
-    entry.punch_out_time ? toLocalTimeStr(entry.punch_out_time) : ''
-  );
-  const [lunchStartTime, setLunchStartTime] = useState(
-    entry.lunch_break_start ? toLocalTimeStr(entry.lunch_break_start) : ''
-  );
-  const [lunchEndTime, setLunchEndTime] = useState(
-    entry.lunch_break_end ? toLocalTimeStr(entry.lunch_break_end) : ''
-  );
+  const [punchInDate, setPunchInDate] = useState(toPhxDateInput(entry.punch_in_time));
+  const [punchInTime, setPunchInTime] = useState(toPhxTimeInput(entry.punch_in_time));
+  const [punchOutDate, setPunchOutDate] = useState(toPhxDateInput(entry.punch_out_time));
+  const [punchOutTime, setPunchOutTime] = useState(toPhxTimeInput(entry.punch_out_time));
+  const [lunchStartTime, setLunchStartTime] = useState(toPhxTimeInput(entry.lunch_break_start));
+  const [lunchEndTime, setLunchEndTime] = useState(toPhxTimeInput(entry.lunch_break_end));
   const [notes, setNotes] = useState(entry.notes || '');
   const [editReason, setEditReason] = useState('');
 
@@ -56,21 +37,21 @@ export function TimeEntryEditor({ entry, onClose, onSave }: TimeEntryEditorProps
     setError(null);
 
     try {
-      const punchIn = new Date(`${punchInDate}T${punchInTime}`);
+      // Arizona/Phoenix is always UTC-7 (no DST)
+      const phxToUtc = (dateStr: string, timeStr: string): Date =>
+        new Date(`${dateStr}T${timeStr}:00-07:00`);
+
+      const punchIn = phxToUtc(punchInDate, punchInTime);
       const punchOut = punchOutDate && punchOutTime
-        ? new Date(`${punchOutDate}T${punchOutTime}`)
+        ? phxToUtc(punchOutDate, punchOutTime)
         : null;
 
       if (punchOut && punchOut <= punchIn) {
         throw new Error('Punch out time must be after punch in time');
       }
 
-      const lunchStart = lunchStartTime
-        ? new Date(`${punchInDate}T${lunchStartTime}`)
-        : null;
-      const lunchEnd = lunchEndTime
-        ? new Date(`${punchInDate}T${lunchEndTime}`)
-        : null;
+      const lunchStart = lunchStartTime ? phxToUtc(punchInDate, lunchStartTime) : null;
+      const lunchEnd = lunchEndTime ? phxToUtc(punchOutDate || punchInDate, lunchEndTime) : null;
 
       if (lunchStart && lunchEnd && lunchEnd <= lunchStart) {
         throw new Error('Lunch end time must be after lunch start time');

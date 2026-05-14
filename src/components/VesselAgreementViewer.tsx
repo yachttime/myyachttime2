@@ -109,7 +109,7 @@ export function VesselAgreementViewer({ agreement, userProfile, userId, onClose,
             </div>
             <h3 className="text-lg font-bold text-white mb-1">{agreement.season_name}</h3>
             <p className="text-slate-400 text-sm">
-              {new Date(agreement.start_date).toLocaleDateString()} - {new Date(agreement.end_date).toLocaleDateString()}
+              {new Date(agreement.start_date).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })} - {new Date(agreement.end_date).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}
             </p>
           </div>
 
@@ -209,7 +209,7 @@ export function VesselAgreementViewer({ agreement, userProfile, userId, onClose,
                       <span className="text-emerald-400 font-semibold text-sm">Signed</span>
                     </div>
                     <p className="text-white text-sm">{agreement.owner_signature_name}</p>
-                    <p className="text-slate-400 text-xs">{new Date(agreement.owner_signature_date).toLocaleString()}</p>
+                    <p className="text-slate-400 text-xs">{new Date(agreement.owner_signature_date).toLocaleString('en-US', { timeZone: 'America/Phoenix' })}</p>
                   </div>
                 ) : (
                   <div className="bg-slate-800 border border-slate-600 rounded-lg p-3">
@@ -227,7 +227,7 @@ export function VesselAgreementViewer({ agreement, userProfile, userId, onClose,
                       <span className="text-emerald-400 font-semibold text-sm">Signed</span>
                     </div>
                     <p className="text-white text-sm">{agreement.staff_signature_name}</p>
-                    <p className="text-slate-400 text-xs">{new Date(agreement.staff_signature_date).toLocaleString()}</p>
+                    <p className="text-slate-400 text-xs">{new Date(agreement.staff_signature_date).toLocaleString('en-US', { timeZone: 'America/Phoenix' })}</p>
                   </div>
                 ) : (
                   <div className="bg-slate-800 border border-slate-600 rounded-lg p-3">

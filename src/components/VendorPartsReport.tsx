@@ -176,7 +176,7 @@ export function VendorPartsReport({ onClose }: Props) {
       `;
     }).join('');
 
-    const dateStr = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    const dateStr = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'America/Phoenix' });
     const filterNote = statusFilter !== 'all' ? ` &bull; ${statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)} parts only` : '';
 
     const html = `<!DOCTYPE html>
@@ -308,7 +308,7 @@ export function VendorPartsReport({ onClose }: Props) {
             <div ref={printRef}>
               <h1 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '2px', color: '#111' }}>Parts Inventory by Vendor</h1>
               <div className="report-meta" style={{ fontSize: '11px', color: '#555', marginBottom: '16px' }}>
-                Generated: {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} &nbsp;&bull;&nbsp; {filteredGroups.length} vendor{filteredGroups.length !== 1 ? 's' : ''} &nbsp;&bull;&nbsp; {totalParts} total part{totalParts !== 1 ? 's' : ''}
+                Generated: {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'America/Phoenix' })} &nbsp;&bull;&nbsp; {filteredGroups.length} vendor{filteredGroups.length !== 1 ? 's' : ''} &nbsp;&bull;&nbsp; {totalParts} total part{totalParts !== 1 ? 's' : ''}
                 {statusFilter !== 'all' && <> &nbsp;&bull;&nbsp; {statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)} parts only</>}
               </div>
 

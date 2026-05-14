@@ -676,7 +676,7 @@ export default function QuickBooksAccountMapping() {
                 </span>
                 {connectionStatus.last_sync_at && (
                   <span className="text-gray-500">
-                    • Last synced: {new Date(connectionStatus.last_sync_at).toLocaleDateString()}
+                    • Last synced: {new Date(connectionStatus.last_sync_at).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}
                   </span>
                 )}
               </div>

@@ -904,13 +904,13 @@ export function PayrollReportView() {
                         </button>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-900">
-                        {parseDateLocal(period.period_start).toLocaleDateString()}
+                        {parseDateLocal(period.period_start).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-900">
-                        {parseDateLocal(period.period_end).toLocaleDateString()}
+                        {parseDateLocal(period.period_end).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-900 font-medium">
-                        {parseDateLocal(period.pay_date).toLocaleDateString()}
+                        {parseDateLocal(period.pay_date).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">{period.notes || '-'}</td>
                       <td className="px-4 py-3 text-sm">
@@ -973,7 +973,7 @@ export function PayrollReportView() {
                               <span className="text-sm font-semibold text-gray-800">
                                 Paid Hours — Pay Period #{period.period_number} &nbsp;
                                 <span className="text-gray-500 font-normal">
-                                  ({parseDateLocal(period.period_start).toLocaleDateString()} – {parseDateLocal(period.period_end).toLocaleDateString()}, Pay Date: {parseDateLocal(period.pay_date).toLocaleDateString()})
+                                  ({parseDateLocal(period.period_start).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })} – {parseDateLocal(period.period_end).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}, Pay Date: {parseDateLocal(period.pay_date).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })})
                                 </span>
                               </span>
                             </div>
@@ -1089,7 +1089,7 @@ export function PayrollReportView() {
             >
               <span className={activePayPeriod ? 'text-gray-900' : 'text-gray-400'}>
                 {activePayPeriod
-                  ? `#${activePayPeriod.period_number} — ${new Date(activePayPeriod.period_start).toLocaleDateString()} to ${new Date(activePayPeriod.period_end).toLocaleDateString()} (Pay: ${new Date(activePayPeriod.pay_date).toLocaleDateString()})`
+                  ? `#${activePayPeriod.period_number} — ${new Date(activePayPeriod.period_start).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })} to ${new Date(activePayPeriod.period_end).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })} (Pay: ${new Date(activePayPeriod.pay_date).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })})`
                   : '-- Select a Pay Period --'}
               </span>
               <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${periodDropdownOpen ? 'rotate-180' : ''}`} />
@@ -1120,7 +1120,7 @@ export function PayrollReportView() {
                     }}
                     className={`w-full text-left px-4 py-2 text-sm hover:bg-blue-50 hover:text-blue-700 ${activePayPeriod?.id === p.id ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-900'}`}
                   >
-                    #{p.period_number} — {new Date(p.period_start).toLocaleDateString()} to {new Date(p.period_end).toLocaleDateString()} (Pay: {new Date(p.pay_date).toLocaleDateString()}){p.is_processed ? ' ✓' : ''}
+                    #{p.period_number} — {new Date(p.period_start).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })} to {new Date(p.period_end).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })} (Pay: {new Date(p.pay_date).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}){p.is_processed ? ' ✓' : ''}
                   </button>
                 ))}
               </div>
@@ -1128,8 +1128,8 @@ export function PayrollReportView() {
           </div>
           {activePayPeriod && (
             <p className="text-xs text-gray-500 mt-1">
-              {new Date(activePayPeriod.period_start).toLocaleDateString()} – {new Date(activePayPeriod.period_end).toLocaleDateString()}
-              &nbsp;&bull;&nbsp;Payday: <span className="font-medium text-gray-700">{new Date(activePayPeriod.pay_date).toLocaleDateString()}</span>
+              {new Date(activePayPeriod.period_start).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })} – {new Date(activePayPeriod.period_end).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}
+              &nbsp;&bull;&nbsp;Payday: <span className="font-medium text-gray-700">{new Date(activePayPeriod.pay_date).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}</span>
             </p>
           )}
         </div>
@@ -1205,11 +1205,11 @@ export function PayrollReportView() {
               <div>
                 <h3 className="text-lg font-bold text-amber-500">Report Summary</h3>
                 <p className="text-sm text-gray-600">
-                  {new Date(startDate).toLocaleDateString()} - {new Date(endDate).toLocaleDateString()}
+                  {new Date(startDate).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })} - {new Date(endDate).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}
                 </p>
                 {activePayPeriod && (
                   <p className="text-xs text-blue-600 font-medium mt-1">
-                    Pay Period #{activePayPeriod.period_number} — Pay Date: {new Date(activePayPeriod.pay_date).toLocaleDateString()}
+                    Pay Period #{activePayPeriod.period_number} — Pay Date: {new Date(activePayPeriod.pay_date).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}
                     {activePayPeriod.is_processed && (
                       <span className="ml-2 inline-flex items-center gap-1 text-green-600">
                         <CheckCircle className="w-3 h-3" /> Processed
@@ -1395,7 +1395,7 @@ export function PayrollReportView() {
                     .filter(p => p.id !== reassignModal.sourcePeriod.id && !p.is_processed)
                     .map(p => (
                       <option key={p.id} value={p.id}>
-                        #{p.period_number} — {new Date(p.period_start).toLocaleDateString()} to {new Date(p.period_end).toLocaleDateString()}
+                        #{p.period_number} — {new Date(p.period_start).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })} to {new Date(p.period_end).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}
                       </option>
                     ))
                   }

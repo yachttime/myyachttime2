@@ -321,7 +321,7 @@ export function TaxSurchargeReport({ onClose }: Props) {
 
   function formatDate(dateStr: string): string {
     return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
-      month: '2-digit', day: '2-digit', year: 'numeric'
+      month: '2-digit', day: '2-digit', year: 'numeric', timeZone: 'America/Phoenix'
     });
   }
 
@@ -363,7 +363,7 @@ export function TaxSurchargeReport({ onClose }: Props) {
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(100, 100, 100);
     doc.text(`Period: ${formatDate(dateFrom)} – ${formatDate(dateTo)}`, margin, y);
-    doc.text(`Generated: ${new Date().toLocaleDateString()}`, pageWidth - margin, y, { align: 'right' });
+    doc.text(`Generated: ${new Date().toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}`, pageWidth - margin, y, { align: 'right' });
 
     y += 20;
 
