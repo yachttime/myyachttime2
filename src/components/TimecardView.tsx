@@ -55,7 +55,7 @@ function addDays(date: Date, days: number): Date {
 }
 
 function toDateStr(date: Date): string {
-  return date.toISOString().split('T')[0];
+  return date.toLocaleDateString('en-CA', { timeZone: 'America/Phoenix' });
 }
 
 function formatHours(h: number): string {
@@ -91,8 +91,9 @@ export function TimecardView({ userId, userName }: TimecardViewProps) {
     if (!targetUserId) return;
     setLoading(true);
     try {
-      const startISO = new Date(periodStart.getFullYear(), periodStart.getMonth(), periodStart.getDate(), 0, 0, 0).toISOString();
-      const endISO = new Date(periodEnd.getFullYear(), periodEnd.getMonth(), periodEnd.getDate(), 23, 59, 59).toISOString();
+      // PHX is UTC-7 (no DST). Midnight PHX = 07:00 UTC. End of day PHX = next day 06:59:59 UTC.
+      const startISO = new Date(`${toDateStr(periodStart)}T00:00:00-07:00`).toISOString();
+      const endISO = new Date(`${toDateStr(periodEnd)}T23:59:59-07:00`).toISOString();
 
       const { data, error } = await supabase
         .from('staff_time_entries')
