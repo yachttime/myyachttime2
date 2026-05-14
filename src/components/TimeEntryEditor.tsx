@@ -47,7 +47,7 @@ export function TimeEntryEditor({ entry, onClose, onSave }: TimeEntryEditorProps
         : null;
 
       if (punchOut && punchOut <= punchIn) {
-        throw new Error('Punch out time must be after punch in time');
+        throw new Error('Punch out time must be after punch in time. If the shift crosses midnight, update the punch out date to the next day.');
       }
 
       const lunchStart = lunchStartTime ? phxToUtc(punchInDate, lunchStartTime) : null;
@@ -124,12 +124,6 @@ export function TimeEntryEditor({ entry, onClose, onSave }: TimeEntryEditorProps
         </div>
 
         <div className="p-6 space-y-6">
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-              <div className="text-sm text-red-800">{error}</div>
-            </div>
-          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -248,7 +242,14 @@ export function TimeEntryEditor({ entry, onClose, onSave }: TimeEntryEditorProps
           )}
         </div>
 
-        <div className="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50">
+        <div className="border-t border-gray-200 bg-gray-50">
+          {error && (
+            <div className="px-6 pt-4 flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-red-700 font-medium">{error}</div>
+            </div>
+          )}
+          <div className="flex items-center justify-between p-6">
           <button
             onClick={handleDelete}
             disabled={loading}
@@ -273,6 +274,7 @@ export function TimeEntryEditor({ entry, onClose, onSave }: TimeEntryEditorProps
               Save Changes
             </button>
           </div>
+        </div>
         </div>
       </div>
       <ConfirmDialog />
