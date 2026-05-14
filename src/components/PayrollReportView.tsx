@@ -290,32 +290,13 @@ export function PayrollReportView() {
       let entries: any[] = [];
       let entriesError: any = null;
 
-      if (period.is_processed) {
-        const { data, error } = await supabase
-          .from('staff_time_entries')
-          .select('user_id, standard_hours, overtime_hours, total_hours, work_order_id')
-          .not('punch_out_time', 'is', null)
-          .eq('pay_period_id', period.id);
-        entries = data || [];
-        entriesError = error;
-      } else {
-        const [assignedRes, unassignedRes] = await Promise.all([
-          supabase
-            .from('staff_time_entries')
-            .select('user_id, standard_hours, overtime_hours, total_hours, work_order_id')
-            .not('punch_out_time', 'is', null)
-            .eq('pay_period_id', period.id),
-          supabase
-            .from('staff_time_entries')
-            .select('user_id, standard_hours, overtime_hours, total_hours, work_order_id')
-            .not('punch_out_time', 'is', null)
-            .is('pay_period_id', null)
-            .gte('punch_in_time', startOfDay)
-            .lte('punch_in_time', endOfDay)
-        ]);
-        entries = [...(assignedRes.data || []), ...(unassignedRes.data || [])];
-        entriesError = assignedRes.error || unassignedRes.error;
-      }
+      const { data, error } = await supabase
+        .from('staff_time_entries')
+        .select('user_id, standard_hours, overtime_hours, total_hours, work_order_id')
+        .not('punch_out_time', 'is', null)
+        .eq('pay_period_id', period.id);
+      entries = data || [];
+      entriesError = error;
 
       if (entriesError) console.error('Period detail fetch error:', entriesError);
 
@@ -629,28 +610,18 @@ export function PayrollReportView() {
       let workOrderEntries: any[] = [];
 
       if (periodId) {
-        const [regAssigned, regUnassigned, woAssigned, woUnassigned] = await Promise.all([
+        const [regRes, woRes] = await Promise.all([
           supabase.from('staff_time_entries').select('*')
             .in('user_id', userIds).is('work_order_id', null)
             .eq('pay_period_id', periodId).not('punch_out_time', 'is', null).order('punch_in_time'),
-          supabase.from('staff_time_entries').select('*')
-            .in('user_id', userIds).is('work_order_id', null)
-            .is('pay_period_id', null).gte('punch_in_time', startIso).lte('punch_in_time', endIso)
-            .not('punch_out_time', 'is', null).order('punch_in_time'),
           supabase.from('staff_time_entries').select(woSelect)
             .in('user_id', userIds).not('work_order_id', 'is', null)
-            .eq('pay_period_id', periodId).not('punch_out_time', 'is', null).order('punch_in_time'),
-          supabase.from('staff_time_entries').select(woSelect)
-            .in('user_id', userIds).not('work_order_id', 'is', null)
-            .is('pay_period_id', null).gte('punch_in_time', startIso).lte('punch_in_time', endIso)
-            .not('punch_out_time', 'is', null).order('punch_in_time')
+            .eq('pay_period_id', periodId).not('punch_out_time', 'is', null).order('punch_in_time')
         ]);
-        if (regAssigned.error) throw regAssigned.error;
-        if (regUnassigned.error) throw regUnassigned.error;
-        if (woAssigned.error) throw woAssigned.error;
-        if (woUnassigned.error) throw woUnassigned.error;
-        regularEntries = [...(regAssigned.data || []), ...(regUnassigned.data || [])];
-        workOrderEntries = [...(woAssigned.data || []), ...(woUnassigned.data || [])];
+        if (regRes.error) throw regRes.error;
+        if (woRes.error) throw woRes.error;
+        regularEntries = regRes.data || [];
+        workOrderEntries = woRes.data || [];
       } else {
         const [regularEntriesResult, workOrderEntriesResult] = await Promise.all([
           supabase.from('staff_time_entries').select('*')
