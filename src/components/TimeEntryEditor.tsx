@@ -151,7 +151,7 @@ export function TimeEntryEditor({ entry, onClose, onSave }: TimeEntryEditorProps
                 type="date"
                 value={punchInDate}
                 onChange={(e) => setPunchInDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
               />
             </div>
             <div>
@@ -162,7 +162,7 @@ export function TimeEntryEditor({ entry, onClose, onSave }: TimeEntryEditorProps
                 type="time"
                 value={punchInTime}
                 onChange={(e) => setPunchInTime(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
               />
             </div>
           </div>
@@ -176,7 +176,7 @@ export function TimeEntryEditor({ entry, onClose, onSave }: TimeEntryEditorProps
                 type="date"
                 value={punchOutDate}
                 onChange={(e) => setPunchOutDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
               />
             </div>
             <div>
@@ -187,7 +187,7 @@ export function TimeEntryEditor({ entry, onClose, onSave }: TimeEntryEditorProps
                 type="time"
                 value={punchOutTime}
                 onChange={(e) => setPunchOutTime(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
               />
             </div>
           </div>
@@ -203,7 +203,7 @@ export function TimeEntryEditor({ entry, onClose, onSave }: TimeEntryEditorProps
                   type="time"
                   value={lunchStartTime}
                   onChange={(e) => setLunchStartTime(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                 />
               </div>
               <div>
@@ -214,7 +214,7 @@ export function TimeEntryEditor({ entry, onClose, onSave }: TimeEntryEditorProps
                   type="time"
                   value={lunchEndTime}
                   onChange={(e) => setLunchEndTime(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                 />
               </div>
             </div>
@@ -228,7 +228,7 @@ export function TimeEntryEditor({ entry, onClose, onSave }: TimeEntryEditorProps
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
             />
           </div>
 
@@ -241,7 +241,7 @@ export function TimeEntryEditor({ entry, onClose, onSave }: TimeEntryEditorProps
               onChange={(e) => setEditReason(e.target.value)}
               rows={2}
               placeholder="Explain why you are editing this entry..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
             />
           </div>
 
