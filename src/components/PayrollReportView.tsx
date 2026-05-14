@@ -393,10 +393,7 @@ export function PayrollReportView() {
             .from('payroll-report-pdfs')
             .upload(fileName, pdfBlob, { contentType: 'application/pdf', upsert: true });
           if (!uploadError) {
-            const { data: urlData } = supabase.storage
-              .from('payroll-report-pdfs')
-              .getPublicUrl(fileName);
-            pdfUrl = urlData?.publicUrl || null;
+            pdfUrl = fileName;
           }
         } catch (pdfErr) {
           console.error('Failed to archive payroll PDF:', pdfErr);
@@ -414,6 +411,18 @@ export function PayrollReportView() {
       alert(err.message || 'Failed to assign pay period');
     } finally {
       setAssigningPayroll(null);
+    }
+  };
+
+  const handleDownloadArchivedPdf = async (filePath: string) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('payroll-report-pdfs')
+        .createSignedUrl(filePath, 60);
+      if (error || !data?.signedUrl) throw error || new Error('Failed to create download link');
+      window.open(data.signedUrl, '_blank');
+    } catch (err: any) {
+      alert(err.message || 'Failed to open archived PDF');
     }
   };
 
@@ -1008,16 +1017,14 @@ export function PayrollReportView() {
                             </div>
                             <div className="flex items-center gap-2">
                               {period.pdf_url && (
-                                <a
-                                  href={period.pdf_url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
+                                <button
+                                  onClick={() => handleDownloadArchivedPdf(period.pdf_url!)}
                                   className="flex items-center gap-1.5 px-3 py-1.5 bg-green-700 hover:bg-green-800 text-white text-xs font-medium rounded-lg transition-colors"
                                   title="Download the archived PDF that was saved when this period was processed"
                                 >
                                   <Download className="w-3.5 h-3.5" />
                                   Archived PDF
-                                </a>
+                                </button>
                               )}
                               <button
                                 onClick={() => handlePrintPayPeriod(period)}
@@ -1257,15 +1264,13 @@ export function PayrollReportView() {
                       <span className="ml-2 inline-flex items-center gap-1 text-green-600">
                         <CheckCircle className="w-3 h-3" /> Processed
                         {activePayPeriod.pdf_url && (
-                          <a
-                            href={activePayPeriod.pdf_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <button
+                            onClick={() => handleDownloadArchivedPdf(activePayPeriod.pdf_url!)}
                             className="ml-2 inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 underline text-xs"
                             title="Download archived payroll PDF"
                           >
                             <Download className="w-3 h-3" /> Archived PDF
-                          </a>
+                          </button>
                         )}
                       </span>
                     )}
