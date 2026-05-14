@@ -452,7 +452,7 @@ export function PayrollReportView() {
 
       const { error: error1 } = await supabase
         .from('staff_time_entries')
-        .update({ pay_period_id: null })
+        .update({ pay_period_id: reassignTargetPeriodId })
         .eq('user_id', employee.user_id)
         .not('punch_out_time', 'is', null)
         .eq('pay_period_id', sourcePeriod.id)
