@@ -19,6 +19,7 @@ interface PayPeriod {
   period_number: number;
   is_processed: boolean;
   notes?: string;
+  pdf_url?: string;
 }
 
 interface UserProfile {
@@ -373,9 +374,37 @@ export function PayrollReportView() {
       setPeriodDetailData(prev => { const n = { ...prev }; delete n[activePayPeriod.id]; return n; });
 
       if (newPaid.size >= employeeReports.filter(r => r.grandTotalHours > 0).length) {
+        const { data: yachtsData } = await supabase.from('yachts').select('id, name');
+        const yachtMap: Record<string, string> = {};
+        (yachtsData || []).forEach((y: any) => { yachtMap[y.id] = y.name; });
+
+        let pdfUrl: string | null = null;
+        try {
+          const pdfBlob = await generatePayrollReportPDF(
+            employeeReports,
+            activePayPeriod.period_start,
+            activePayPeriod.period_end,
+            yachtMap,
+            activePayPeriod.pay_date,
+            true
+          ) as Blob;
+          const fileName = `payroll_pp${activePayPeriod.period_number}_${activePayPeriod.year}_${activePayPeriod.id}.pdf`;
+          const { error: uploadError } = await supabase.storage
+            .from('payroll-report-pdfs')
+            .upload(fileName, pdfBlob, { contentType: 'application/pdf', upsert: true });
+          if (!uploadError) {
+            const { data: urlData } = supabase.storage
+              .from('payroll-report-pdfs')
+              .getPublicUrl(fileName);
+            pdfUrl = urlData?.publicUrl || null;
+          }
+        } catch (pdfErr) {
+          console.error('Failed to archive payroll PDF:', pdfErr);
+        }
+
         await supabase
           .from('pay_periods')
-          .update({ is_processed: true })
+          .update({ is_processed: true, ...(pdfUrl ? { pdf_url: pdfUrl } : {}) })
           .eq('id', activePayPeriod.id);
         setActivePayPeriod({ ...activePayPeriod, is_processed: true });
       }
@@ -977,18 +1006,32 @@ export function PayrollReportView() {
                                 </span>
                               </span>
                             </div>
-                            <button
-                              onClick={() => handlePrintPayPeriod(period)}
-                              disabled={printingPeriodId === period.id}
-                              className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-900 text-white text-xs font-medium rounded-lg disabled:opacity-50 transition-colors"
-                            >
-                              {printingPeriodId === period.id ? (
-                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
-                              ) : (
-                                <Printer className="w-3.5 h-3.5" />
+                            <div className="flex items-center gap-2">
+                              {period.pdf_url && (
+                                <a
+                                  href={period.pdf_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-green-700 hover:bg-green-800 text-white text-xs font-medium rounded-lg transition-colors"
+                                  title="Download the archived PDF that was saved when this period was processed"
+                                >
+                                  <Download className="w-3.5 h-3.5" />
+                                  Archived PDF
+                                </a>
                               )}
-                              {printingPeriodId === period.id ? 'Generating...' : 'Print Payroll'}
-                            </button>
+                              <button
+                                onClick={() => handlePrintPayPeriod(period)}
+                                disabled={printingPeriodId === period.id}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-900 text-white text-xs font-medium rounded-lg disabled:opacity-50 transition-colors"
+                              >
+                                {printingPeriodId === period.id ? (
+                                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                                ) : (
+                                  <Printer className="w-3.5 h-3.5" />
+                                )}
+                                {printingPeriodId === period.id ? 'Generating...' : 'Print Payroll'}
+                              </button>
+                            </div>
                           </div>
 
                             {loadingDetail === period.id ? (
@@ -1213,6 +1256,17 @@ export function PayrollReportView() {
                     {activePayPeriod.is_processed && (
                       <span className="ml-2 inline-flex items-center gap-1 text-green-600">
                         <CheckCircle className="w-3 h-3" /> Processed
+                        {activePayPeriod.pdf_url && (
+                          <a
+                            href={activePayPeriod.pdf_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="ml-2 inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 underline text-xs"
+                            title="Download archived payroll PDF"
+                          >
+                            <Download className="w-3 h-3" /> Archived PDF
+                          </a>
+                        )}
                       </span>
                     )}
                   </p>

@@ -2152,8 +2152,9 @@ export async function generatePayrollReportPDF(
   startDate: string,
   endDate: string,
   yachtMap: Record<string, string>,
-  payDate?: string
-): Promise<void> {
+  payDate?: string,
+  skipDownload?: boolean
+): Promise<Blob | void> {
   const doc = new jsPDF({
     orientation: 'landscape',
     unit: 'in',
@@ -2454,6 +2455,9 @@ export async function generatePayrollReportPDF(
   }
 
   const fileName = `Payroll_Report_${phxDate(startDate).replace(/\//g, '-')}_to_${phxDate(endDate).replace(/\//g, '-')}.pdf`;
+  if (skipDownload) {
+    return doc.output('blob');
+  }
   doc.save(fileName);
 }
 
