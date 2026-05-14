@@ -17,23 +17,31 @@ export function TimeEntryEditor({ entry, onClose, onSave }: TimeEntryEditorProps
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [punchInDate, setPunchInDate] = useState(
-    new Date(entry.punch_in_time).toISOString().split('T')[0]
-  );
-  const [punchInTime, setPunchInTime] = useState(
-    new Date(entry.punch_in_time).toTimeString().slice(0, 5)
-  );
+  const toLocalDateStr = (iso: string) => {
+    const d = new Date(iso);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+  const toLocalTimeStr = (iso: string) => {
+    const d = new Date(iso);
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  };
+
+  const [punchInDate, setPunchInDate] = useState(toLocalDateStr(entry.punch_in_time));
+  const [punchInTime, setPunchInTime] = useState(toLocalTimeStr(entry.punch_in_time));
   const [punchOutDate, setPunchOutDate] = useState(
-    entry.punch_out_time ? new Date(entry.punch_out_time).toISOString().split('T')[0] : ''
+    entry.punch_out_time ? toLocalDateStr(entry.punch_out_time) : ''
   );
   const [punchOutTime, setPunchOutTime] = useState(
-    entry.punch_out_time ? new Date(entry.punch_out_time).toTimeString().slice(0, 5) : ''
+    entry.punch_out_time ? toLocalTimeStr(entry.punch_out_time) : ''
   );
   const [lunchStartTime, setLunchStartTime] = useState(
-    entry.lunch_break_start ? new Date(entry.lunch_break_start).toTimeString().slice(0, 5) : ''
+    entry.lunch_break_start ? toLocalTimeStr(entry.lunch_break_start) : ''
   );
   const [lunchEndTime, setLunchEndTime] = useState(
-    entry.lunch_break_end ? new Date(entry.lunch_break_end).toTimeString().slice(0, 5) : ''
+    entry.lunch_break_end ? toLocalTimeStr(entry.lunch_break_end) : ''
   );
   const [notes, setNotes] = useState(entry.notes || '');
   const [editReason, setEditReason] = useState('');
