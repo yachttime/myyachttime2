@@ -88,6 +88,24 @@ Deno.serve(withErrorHandling(async (req: Request) => {
       throw new Error('A payment is already being processed for this invoice. Please wait for it to complete.');
     }
 
+    // Atomically claim the invoice by setting status to 'processing'.
+    // Only succeeds if status is still 'pending' — prevents race conditions
+    // where two simultaneous requests both pass the check above and each
+    // create a separate Stripe payment link.
+    const { data: claimed, error: claimError } = await supabase
+      .from('yacht_invoices')
+      .update({ payment_status: 'processing', updated_at: new Date().toISOString() })
+      .eq('id', invoiceId)
+      .eq('payment_status', 'pending')
+      .select('id')
+      .maybeSingle();
+
+    if (claimError) throw claimError;
+
+    if (!claimed) {
+      throw new Error('A payment is already being processed for this invoice. Please wait for it to complete.');
+    }
+
     // Deactivate any existing payment link before creating a new one
     if (invoice.stripe_checkout_session_id) {
       try {
