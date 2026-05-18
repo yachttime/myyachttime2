@@ -300,7 +300,8 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
         if (schedulesError) {
           console.error('Error loading schedules:', schedulesError);
         } else {
-          setStaffSchedules(schedulesData || []);
+          const activeUserIds = new Set((staffData || []).map((s: any) => s.user_id));
+          setStaffSchedules((schedulesData || []).filter((s: any) => activeUserIds.has(s.user_id)));
         }
 
         // Load schedule overrides for the current month
@@ -321,7 +322,8 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
         if (overridesError) {
           console.error('Error loading schedule overrides:', overridesError);
         } else {
-          setScheduleOverrides(overridesData || []);
+          const activeUserIds = new Set((staffData || []).map((s: any) => s.user_id));
+          setScheduleOverrides((overridesData || []).filter((s: any) => activeUserIds.has(s.user_id)));
         }
       }
     } catch (error) {
