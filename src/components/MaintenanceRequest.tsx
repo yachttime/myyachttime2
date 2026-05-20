@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Anchor, ArrowLeft, Send, Upload, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -6,6 +6,11 @@ import { uploadFileToStorage } from '../utils/fileUpload';
 
 interface MaintenanceRequestProps {
   onBack: () => void;
+}
+
+interface Yacht {
+  id: string;
+  name: string;
 }
 
 export const MaintenanceRequest = ({ onBack }: MaintenanceRequestProps) => {
@@ -17,6 +22,27 @@ export const MaintenanceRequest = ({ onBack }: MaintenanceRequestProps) => {
   const [error, setError] = useState('');
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+
+  const isStaff = userProfile?.role === 'staff' || userProfile?.role === 'mechanic';
+  const [allYachts, setAllYachts] = useState<Yacht[]>([]);
+  const [selectedYachtId, setSelectedYachtId] = useState<string>('');
+
+  useEffect(() => {
+    if (isStaff) {
+      supabase
+        .from('yachts')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('name')
+        .then(({ data }) => {
+          if (data) setAllYachts(data);
+        });
+    }
+  }, [isStaff]);
+
+  const effectiveYacht = isStaff
+    ? allYachts.find(y => y.id === selectedYachtId) || null
+    : yacht;
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -41,7 +67,7 @@ export const MaintenanceRequest = ({ onBack }: MaintenanceRequestProps) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !yacht) return;
+    if (!user || !effectiveYacht) return;
 
     setLoading(true);
     setError('');
@@ -55,7 +81,7 @@ export const MaintenanceRequest = ({ onBack }: MaintenanceRequestProps) => {
         const uploadResult = await uploadFileToStorage(
           photoFile,
           'repair-files',
-          `${yacht.id}/${Date.now()}_${photoFile.name}`
+          `${effectiveYacht.id}/${Date.now()}_${photoFile.name}`
         );
 
         if (uploadResult.error) {
@@ -68,7 +94,7 @@ export const MaintenanceRequest = ({ onBack }: MaintenanceRequestProps) => {
 
       const { data: insertedData, error: dbError } = await supabase.from('repair_requests').insert({
         submitted_by: user.id,
-        yacht_id: yacht.id,
+        yacht_id: effectiveYacht.id,
         title: subject,
         description: description,
         file_url: fileUrl,
@@ -87,7 +113,7 @@ export const MaintenanceRequest = ({ onBack }: MaintenanceRequestProps) => {
         const { data: managers, error: managersError } = await supabase
           .from('user_profiles')
           .select('user_id, first_name, last_name, email')
-          .eq('yacht_id', yacht.id)
+          .eq('yacht_id', effectiveYacht.id)
           .eq('role', 'manager');
 
         if (!managersError && managers && managers.length > 0) {
@@ -109,7 +135,7 @@ export const MaintenanceRequest = ({ onBack }: MaintenanceRequestProps) => {
                 managerEmails: managersWithEmail.map(m => m.email),
                 managerNames: managersWithEmail.map(m => `${m.first_name} ${m.last_name}`),
                 repairTitle: subject,
-                yachtName: yacht.name,
+                yachtName: effectiveYacht.name,
                 submitterName: userProfile?.first_name ? `${userProfile.first_name} ${userProfile.last_name || ''}`.trim() : 'Unknown',
                 repairRequestId: insertedData.id
               })
@@ -136,6 +162,7 @@ export const MaintenanceRequest = ({ onBack }: MaintenanceRequestProps) => {
       setDescription('');
       setPhotoFile(null);
       setPhotoPreview(null);
+      if (isStaff) setSelectedYachtId('');
 
       setTimeout(() => {
         setSuccess(false);
@@ -168,12 +195,29 @@ export const MaintenanceRequest = ({ onBack }: MaintenanceRequestProps) => {
           <h2 className="text-3xl font-bold mb-8">Maintenance Request</h2>
 
           <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 mb-6">
-            <div className="mb-4">
-              <p className="text-slate-400">Yacht:</p>
-              <p className="text-lg font-semibold">{yacht?.name || 'No yacht assigned'}</p>
-            </div>
+            {isStaff ? (
+              <div className="mb-4">
+                <label className="block text-slate-400 text-sm mb-1">Select Yacht</label>
+                <select
+                  value={selectedYachtId}
+                  onChange={e => setSelectedYachtId(e.target.value)}
+                  required
+                  className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 transition-colors text-white"
+                >
+                  <option value="">-- Select a yacht --</option>
+                  {allYachts.map(y => (
+                    <option key={y.id} value={y.id}>{y.name}</option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div className="mb-4">
+                <p className="text-slate-400">Yacht:</p>
+                <p className="text-lg font-semibold">{yacht?.name || 'No yacht assigned'}</p>
+              </div>
+            )}
             <div>
-              <p className="text-slate-400">Owner Email:</p>
+              <p className="text-slate-400">Submitted By:</p>
               <p className="text-lg font-semibold">{user?.email}</p>
             </div>
           </div>
@@ -263,7 +307,7 @@ export const MaintenanceRequest = ({ onBack }: MaintenanceRequestProps) => {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || (isStaff && !selectedYachtId)}
               className="w-full bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold py-4 rounded-lg transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               <Send className="w-5 h-5" />
