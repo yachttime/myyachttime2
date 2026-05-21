@@ -472,6 +472,55 @@ export function DailyTasksView() {
     const today = new Date().toISOString().split('T')[0];
     const printedOn = new Date().toLocaleDateString('en-US', { timeZone: 'America/Phoenix', weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
 
+    const renderTaskCard = (t: DailyTask) => {
+      const isCompleted = t.is_completed;
+      const isOverdue = !isCompleted && t.task_date < today;
+      const statusColor = isCompleted ? '#166534' : isOverdue ? '#991b1b' : '#854d0e';
+      const statusBg = isCompleted ? '#dcfce7' : isOverdue ? '#fee2e2' : '#fef9c3';
+      const statusBorder = isCompleted ? '#86efac' : isOverdue ? '#fca5a5' : '#fde047';
+      const statusLabel = isCompleted ? 'Completed' : isOverdue ? 'Overdue' : 'Open';
+      const customerName = t.customers
+        ? (t.customers.customer_type === 'business'
+          ? t.customers.business_name
+          : [t.customers.first_name, t.customers.last_name].filter(Boolean).join(' '))
+        : null;
+      const customerVesselName = t.customers?.customer_vessels?.[0]?.vessel_name ?? null;
+      const vesselDisplay = t.yachts
+        ? t.yachts.name + (t.yachts.slip_location ? ` — Slip: ${t.yachts.slip_location}` : '')
+        : customerVesselName ?? null;
+
+      let card = `<div style="border:1.5px solid #d1d5db;border-radius:8px;padding:12px 14px;margin-bottom:10px;page-break-inside:avoid;background:#fff;">
+  <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:6px;">
+    <span style="display:inline-block;min-width:16px;height:16px;border:2px solid #374151;border-radius:3px;margin-top:1px;flex-shrink:0;"></span>
+    <span style="font-size:14px;font-weight:700;flex:1;">${t.title}</span>
+    <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:${statusBg};color:${statusColor};border:1px solid ${statusBorder};white-space:nowrap;">${statusLabel}</span>
+  </div>`;
+      if (customerName || t.appointments) {
+        card += `<div style="display:flex;flex-wrap:wrap;gap:12px;font-size:12px;margin-left:26px;margin-bottom:4px;">`;
+        if (vesselDisplay && !t.yachts) card += `<span style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:5px;padding:2px 8px;color:#1d4ed8;font-weight:700;">&#9875; ${vesselDisplay}</span>`;
+        if (customerName) card += `<span style="color:#555;"><strong style="color:#374151;">Customer:</strong> ${customerName}</span>`;
+        if (t.appointments) card += `<span style="color:#555;"><strong style="color:#374151;">Appointment:</strong> ${t.appointments.name}</span>`;
+        card += `</div>`;
+      }
+      if (t.admin_notes) {
+        card += `<div style="margin-top:6px;margin-left:26px;font-size:11px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:4px;padding:6px 8px;white-space:pre-wrap;"><strong>Notes:</strong> ${t.admin_notes}</div>`;
+      }
+      if (t.staff_notes) {
+        card += `<div style="margin-top:6px;margin-left:26px;font-size:11px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:4px;padding:6px 8px;white-space:pre-wrap;"><strong>Staff Notes:</strong> ${t.staff_notes}</div>`;
+      }
+      if ((t.daily_task_parts ?? []).length > 0) {
+        card += `<div style="margin-top:8px;margin-left:26px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#6b7280;margin-bottom:4px;">Parts</div>`;
+        (t.daily_task_parts ?? []).forEach((p) => {
+          card += `<div style="display:flex;gap:8px;font-size:11px;padding:3px 0;border-bottom:1px solid #f0f0f0;">
+    <span>${p.part_name}</span>${p.quantity ? `<span style="color:#555;">Qty: ${p.quantity}</span>` : ''}${p.notes ? `<span style="color:#888;">— ${p.notes}</span>` : ''}
+  </div>`;
+        });
+        card += `</div>`;
+      }
+      card += `</div>`;
+      return card;
+    };
+
     let html = `<h1 style="font-size:22px;font-weight:700;margin-bottom:2px;">Open Daily Tasks</h1>
 <p style="font-size:13px;color:#555;margin-bottom:24px;">Printed: ${printedOn}</p>`;
 
@@ -480,53 +529,32 @@ export function DailyTasksView() {
       const name = staffId === 'unassigned' ? 'Unassigned' : ([profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || 'Unknown');
       html += `<div style="margin-bottom:32px;">
   <div style="font-size:16px;font-weight:700;padding:8px 12px;background:#1e293b;color:#fff;border-radius:6px;margin-bottom:12px;">${name}</div>`;
-      staffTasks.forEach((t, i) => {
-        const isCompleted = t.is_completed;
-        const isOverdue = !isCompleted && t.task_date < today;
-        const statusColor = isCompleted ? '#166534' : isOverdue ? '#991b1b' : '#854d0e';
-        const statusBg = isCompleted ? '#dcfce7' : isOverdue ? '#fee2e2' : '#fef9c3';
-        const statusBorder = isCompleted ? '#86efac' : isOverdue ? '#fca5a5' : '#fde047';
-        const statusLabel = isCompleted ? 'Completed' : isOverdue ? 'Overdue' : 'Open';
-        const customerName = t.customers
-          ? (t.customers.customer_type === 'business'
-            ? t.customers.business_name
-            : [t.customers.first_name, t.customers.last_name].filter(Boolean).join(' '))
-          : null;
-        html += `<div style="border:1.5px solid #d1d5db;border-radius:8px;padding:12px 14px;margin-bottom:10px;page-break-inside:avoid;background:#fff;">
-    <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:6px;">
-      <span style="display:inline-block;min-width:16px;height:16px;border:2px solid #374151;border-radius:3px;margin-top:1px;flex-shrink:0;"></span>
-      <span style="font-size:14px;font-weight:700;flex:1;">${t.title}</span>
-      <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:${statusBg};color:${statusColor};border:1px solid ${statusBorder};white-space:nowrap;">${statusLabel}</span>
-    </div>`;
-        const customerVesselName = t.customers?.customer_vessels?.[0]?.vessel_name ?? null;
-        const vesselDisplay = t.yachts
-          ? t.yachts.name + (t.yachts.slip_location ? ` — Slip: ${t.yachts.slip_location}` : '')
-          : customerVesselName ?? null;
-        if (vesselDisplay || customerName || t.appointments) {
-          html += `<div style="display:flex;flex-wrap:wrap;gap:12px;font-size:12px;margin-left:26px;margin-bottom:4px;">`;
-          if (vesselDisplay) html += `<span style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:5px;padding:2px 8px;color:#1d4ed8;font-weight:700;">&#9875; ${vesselDisplay}</span>`;
-          if (customerName) html += `<span style="color:#555;"><strong style="color:#374151;">Customer:</strong> ${customerName}</span>`;
-          if (t.appointments) html += `<span style="color:#555;"><strong style="color:#374151;">Appointment:</strong> ${t.appointments.name}</span>`;
-          html += `</div>`;
+
+      // Group tasks by vessel within this staff section
+      const vesselGroups: Record<string, { label: string; tasks: DailyTask[] }> = {};
+      staffTasks.forEach((t) => {
+        let vKey = 'none';
+        let vLabel = '';
+        if (t.yachts) {
+          vKey = t.yacht_id!;
+          vLabel = t.yachts.name + (t.yachts.slip_location ? ` — Slip: ${t.yachts.slip_location}` : '');
+        } else if (t.customers?.customer_vessels?.[0]?.vessel_name) {
+          vKey = t.customers.customer_vessels[0].vessel_name;
+          vLabel = t.customers.customer_vessels[0].vessel_name;
         }
-        if (t.admin_notes) {
-          html += `<div style="margin-top:6px;margin-left:26px;font-size:11px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:4px;padding:6px 8px;white-space:pre-wrap;"><strong>Notes:</strong> ${t.admin_notes}</div>`;
-        }
-        if (t.staff_notes) {
-          html += `<div style="margin-top:6px;margin-left:26px;font-size:11px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:4px;padding:6px 8px;white-space:pre-wrap;"><strong>Staff Notes:</strong> ${t.staff_notes}</div>`;
-        }
-        if ((t.daily_task_parts ?? []).length > 0) {
-          html += `<div style="margin-top:8px;margin-left:26px;">
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#6b7280;margin-bottom:4px;">Parts</div>`;
-          (t.daily_task_parts ?? []).forEach((p) => {
-            html += `<div style="display:flex;gap:8px;font-size:11px;padding:3px 0;border-bottom:1px solid #f0f0f0;">
-        <span>${p.part_name}</span>${p.quantity ? `<span style="color:#555;">Qty: ${p.quantity}</span>` : ''}${p.notes ? `<span style="color:#888;">— ${p.notes}</span>` : ''}
-      </div>`;
-          });
-          html += `</div>`;
-        }
-        html += `</div>`;
+        if (!vesselGroups[vKey]) vesselGroups[vKey] = { label: vLabel, tasks: [] };
+        vesselGroups[vKey].tasks.push(t);
       });
+
+      const hasVessels = Object.keys(vesselGroups).some(k => k !== 'none');
+
+      for (const [vKey, vGroup] of Object.entries(vesselGroups)) {
+        if (hasVessels && vKey !== 'none') {
+          html += `<div style="font-size:13px;font-weight:700;padding:5px 10px;background:#dbeafe;color:#1e40af;border-radius:5px;margin-bottom:8px;border-left:4px solid #3b82f6;">&#9875; ${vGroup.label} <span style="font-weight:400;font-size:11px;color:#3b82f6;">(${vGroup.tasks.length} task${vGroup.tasks.length !== 1 ? 's' : ''})</span></div>`;
+        }
+        vGroup.tasks.forEach((t) => { html += renderTaskCard(t); });
+      }
+
       html += `</div>`;
     }
     return html;
@@ -671,11 +699,47 @@ export function DailyTasksView() {
         </div>
       ) : (
         <div className="space-y-3">
-          {tasks.filter((t) => {
-            if (!canManage || listStaffFilter === 'all') return true;
-            if (listStaffFilter === 'unassigned') return !t.assigned_to;
-            return t.assigned_to === listStaffFilter;
-          }).map((task) => {
+          {(() => {
+            const filtered = tasks.filter((t) => {
+              if (!canManage || listStaffFilter === 'all') return true;
+              if (listStaffFilter === 'unassigned') return !t.assigned_to;
+              return t.assigned_to === listStaffFilter;
+            });
+
+            // Group by vessel key so tasks for the same boat stay together
+            const vesselGroups: Record<string, { label: string; tasks: DailyTask[] }> = {};
+            filtered.forEach((t) => {
+              let key = 'no-vessel';
+              let label = '';
+              if (t.yacht_id && t.yachts) {
+                key = `yacht-${t.yacht_id}`;
+                label = t.yachts.name + (t.yachts.slip_location ? ` — Slip: ${t.yachts.slip_location}` : '');
+              } else if (t.customer_id && t.customers) {
+                const vesselName = t.customers.customer_vessels?.[0]?.vessel_name;
+                key = vesselName ? `vessel-${vesselName}` : `customer-${t.customer_id}`;
+                label = vesselName || (t.customers.customer_type === 'business'
+                  ? t.customers.business_name || 'Unknown'
+                  : [t.customers.first_name, t.customers.last_name].filter(Boolean).join(' ') || 'Unknown');
+              }
+              if (!vesselGroups[key]) vesselGroups[key] = { label, tasks: [] };
+              vesselGroups[key].tasks.push(t);
+            });
+
+            const groupEntries = Object.entries(vesselGroups);
+            const hasMultipleGroups = groupEntries.filter(([k]) => k !== 'no-vessel').length > 0;
+
+            return groupEntries.map(([groupKey, group]) => (
+              <div key={groupKey}>
+                {hasMultipleGroups && groupKey !== 'no-vessel' && (
+                  <div className="flex items-center gap-2 mb-2 mt-4 first:mt-0">
+                    <Ship className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                    <span className="text-sm font-semibold text-blue-300">{group.label}</span>
+                    <div className="flex-1 h-px bg-blue-500/20" />
+                    <span className="text-xs text-slate-400">{group.tasks.length} task{group.tasks.length !== 1 ? 's' : ''}</span>
+                  </div>
+                )}
+                <div className="space-y-3">
+                  {group.tasks.map((task) => {
             const overdue = isOverdue(task);
             const isExpanded = expandedTaskId === task.id;
             const assigneeName = task.assigned_to
@@ -1036,6 +1100,10 @@ export function DailyTasksView() {
               </div>
             );
           })}
+                </div>
+              </div>
+            ));
+          })()}
         </div>
       )}
 
