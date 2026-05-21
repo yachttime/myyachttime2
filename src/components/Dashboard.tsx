@@ -943,6 +943,35 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     };
   }, [user]);
 
+  // Realtime subscription for admin_notifications — alerts staff immediately on check-ins and other events
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('admin_notifications_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'admin_notifications',
+        },
+        (payload) => {
+          const notif = payload.new as AdminNotification;
+          loadAdminNotifications();
+          // Show a toast for check-in/check-out events so staff are alerted immediately
+          if (notif.notification_type === 'check_in' || notif.notification_type === 'check_out') {
+            showInfo(notif.message);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [user]);
+
   const loadBookings = async () => {
     const userIsStaff = isStaffRole(effectiveRole);
     const userIsManager = isManagerRole(effectiveRole);
