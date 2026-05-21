@@ -512,6 +512,9 @@ export function DailyTasksView() {
         if (t.admin_notes) {
           html += `<div style="margin-top:6px;margin-left:26px;font-size:11px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:4px;padding:6px 8px;white-space:pre-wrap;"><strong>Notes:</strong> ${t.admin_notes}</div>`;
         }
+        if (t.staff_notes) {
+          html += `<div style="margin-top:6px;margin-left:26px;font-size:11px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:4px;padding:6px 8px;white-space:pre-wrap;"><strong>Staff Notes:</strong> ${t.staff_notes}</div>`;
+        }
         if ((t.daily_task_parts ?? []).length > 0) {
           html += `<div style="margin-top:8px;margin-left:26px;">
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#6b7280;margin-bottom:4px;">Parts</div>`;
