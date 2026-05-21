@@ -5650,6 +5650,23 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         userName
       );
 
+      // Fire-and-forget email + SMS to staff/master
+      const checkInTimeStr = `${now.toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })} at ${now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Phoenix' })} MST`;
+      fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-checkin-notification`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ownerName: userName,
+          yachtName: yacht.name,
+          checkInTime: checkInTimeStr,
+          eventType: 'check_in',
+          companyId: yacht.company_id || userProfile?.company_id,
+        }),
+      }).catch(err => console.error('Check-in notification error:', err));
+
       await loadBookings();
       await loadAdminNotifications();
     } catch (error) {
@@ -5701,6 +5718,23 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         user.id,
         userName
       );
+
+      // Fire-and-forget email + SMS to staff/master
+      const checkOutTimeStr = `${now.toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })} at ${now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Phoenix' })} MST`;
+      fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-checkin-notification`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ownerName: userName,
+          yachtName: yacht.name,
+          checkInTime: checkOutTimeStr,
+          eventType: 'check_out',
+          companyId: yacht.company_id || userProfile?.company_id,
+        }),
+      }).catch(err => console.error('Check-out notification error:', err));
 
       await loadBookings();
       await loadAdminNotifications();
