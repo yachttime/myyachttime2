@@ -190,6 +190,9 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
   const [adminSurchargeCcNote, setAdminSurchargeCcNote] = useState('');
   const [adminSurchargeCcEnabled, setAdminSurchargeCcEnabled] = useState(false);
 
+  // Tracks which work order tasks have open daily tasks linked to them: taskId -> daily task info
+  const [dailyTasksByWOTaskId, setDailyTasksByWOTaskId] = useState<Record<string, { id: string; is_completed: boolean; task_date: string }[]>>({});
+
   // Send-to-Daily-Tasks modal state
   const [sendToDailyTaskModal, setSendToDailyTaskModal] = useState<{
     workOrderId: string;
@@ -1369,6 +1372,23 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
 
       setTasks(loadedTasks);
 
+      // Load any daily tasks linked to these work order tasks
+      const taskIds = loadedTasks.map(t => t.id).filter(Boolean) as string[];
+      if (taskIds.length > 0) {
+        const { data: linkedDailyTasks } = await supabase
+          .from('daily_tasks')
+          .select('id, work_order_task_id, is_completed, task_date')
+          .in('work_order_task_id', taskIds);
+        const dtMap: Record<string, { id: string; is_completed: boolean; task_date: string }[]> = {};
+        (linkedDailyTasks || []).forEach((dt: any) => {
+          if (!dtMap[dt.work_order_task_id]) dtMap[dt.work_order_task_id] = [];
+          dtMap[dt.work_order_task_id].push({ id: dt.id, is_completed: dt.is_completed, task_date: dt.task_date });
+        });
+        setDailyTasksByWOTaskId(dtMap);
+      } else {
+        setDailyTasksByWOTaskId({});
+      }
+
       const allTaskIndexes = loadedTasks.map((_, index) => index);
       setExpandedTasks(new Set(allTaskIndexes));
 
@@ -1890,6 +1910,12 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
         showError('Failed to send task to Daily Tasks.');
       } else {
         showSuccess(`"${sendToDailyTaskModal.taskName}" sent to Daily Tasks.`);
+        // Update the local map so the badge appears immediately
+        const woTaskId = sendToDailyTaskModal.taskId;
+        setDailyTasksByWOTaskId(prev => ({
+          ...prev,
+          [woTaskId]: [...(prev[woTaskId] || []), { id: data.id, is_completed: false, task_date: dailyTaskDate }],
+        }));
         setSendToDailyTaskModal(null);
         setDailyTaskDate(new Date().toISOString().split('T')[0]);
       }
@@ -2853,6 +2879,27 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                               {task.lineItems.length} line item{task.lineItems.length !== 1 ? 's' : ''} -
                               ${task.lineItems.reduce((sum, item) => sum + item.total_price, 0).toFixed(2)}
                             </p>
+                            {task.id && (dailyTasksByWOTaskId[task.id] || []).length > 0 && (() => {
+                              const linked = dailyTasksByWOTaskId[task.id];
+                              const open = linked.filter(d => !d.is_completed).length;
+                              const done = linked.filter(d => d.is_completed).length;
+                              return (
+                                <div className="flex flex-wrap gap-1 mt-1.5">
+                                  {open > 0 && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-teal-100 text-teal-800 rounded-full text-xs font-medium">
+                                      <ClipboardList className="w-3 h-3" />
+                                      {open} In Daily Tasks
+                                    </span>
+                                  )}
+                                  {done > 0 && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                                      <Check className="w-3 h-3" />
+                                      {done} Completed
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })()}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -2951,6 +2998,27 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                                 );
                               }
                               return null;
+                            })()}
+                            {task.id && (dailyTasksByWOTaskId[task.id] || []).length > 0 && (() => {
+                              const linked = dailyTasksByWOTaskId[task.id];
+                              const open = linked.filter(d => !d.is_completed);
+                              const done = linked.filter(d => d.is_completed);
+                              return (
+                                <div className="mt-2 rounded-lg border border-teal-200 bg-teal-50 p-3 space-y-1">
+                                  {open.map(d => (
+                                    <div key={d.id} className="flex items-center gap-2 text-sm text-teal-800">
+                                      <ClipboardList className="w-4 h-4 flex-shrink-0" />
+                                      <span>Sent to Daily Tasks — <span className="font-medium">{d.task_date}</span> — pending assignment</span>
+                                    </div>
+                                  ))}
+                                  {done.map(d => (
+                                    <div key={d.id} className="flex items-center gap-2 text-sm text-green-800">
+                                      <Check className="w-4 h-4 flex-shrink-0" />
+                                      <span>Daily Task completed — <span className="font-medium">{d.task_date}</span></span>
+                                    </div>
+                                  ))}
+                                </div>
+                              );
                             })()}
                             <div className="mt-2">
                               <button
