@@ -365,6 +365,8 @@ export function DailyTasksView() {
     const hours = parseFloat(hoursStr) || 0;
     const minutes = Math.round(hours * 60);
 
+    const task = tasks.find((t) => t.id === taskId);
+
     const { error: updateError } = await supabase
       .from('daily_tasks')
       .update({
@@ -375,8 +377,19 @@ export function DailyTasksView() {
       })
       .eq('id', taskId);
 
-    if (updateError) setError('Failed to mark task complete.');
-    else {
+    if (updateError) {
+      setError('Failed to mark task complete.');
+    } else {
+      // If this daily task was linked to a work order task and has an assignee,
+      // push that employee back to the work order task assignments.
+      if (task && (task as any).work_order_task_id && task.assigned_to) {
+        await supabase
+          .from('work_order_task_assignments')
+          .upsert(
+            { task_id: (task as any).work_order_task_id, employee_id: task.assigned_to },
+            { onConflict: 'task_id,employee_id', ignoreDuplicates: true }
+          );
+      }
       setExpandedTaskId(null);
       await loadTasks();
     }

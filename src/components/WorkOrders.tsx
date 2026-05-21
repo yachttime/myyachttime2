@@ -190,6 +190,19 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
   const [adminSurchargeCcNote, setAdminSurchargeCcNote] = useState('');
   const [adminSurchargeCcEnabled, setAdminSurchargeCcEnabled] = useState(false);
 
+  // Send-to-Daily-Tasks modal state
+  const [sendToDailyTaskModal, setSendToDailyTaskModal] = useState<{
+    workOrderId: string;
+    taskIndex: number;
+    taskId: string;
+    taskName: string;
+    taskOverview: string;
+    yachtId: string | null;
+    yachtName: string | null;
+  } | null>(null);
+  const [dailyTaskDate, setDailyTaskDate] = useState(new Date().toISOString().split('T')[0]);
+  const [sendingToDailyTask, setSendingToDailyTask] = useState(false);
+
   useEffect(() => {
     loadData();
   }, []);
@@ -1852,6 +1865,40 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
 
   const canDeleteAssignedEmployees = userProfile?.role === 'master' || userProfile?.role === 'staff';
 
+  const handleSendToDailyTask = async () => {
+    if (!sendToDailyTaskModal) return;
+    setSendingToDailyTask(true);
+    try {
+      const { data, error: insertError } = await supabase
+        .from('daily_tasks')
+        .insert({
+          title: sendToDailyTaskModal.taskName,
+          assigned_to: null,
+          assigned_by: userProfile?.user_id,
+          yacht_id: sendToDailyTaskModal.yachtId || null,
+          admin_notes: sendToDailyTaskModal.taskOverview || '',
+          staff_notes: '',
+          time_spent_minutes: 0,
+          is_completed: false,
+          task_date: dailyTaskDate,
+          company_id: userProfile?.company_id,
+          work_order_task_id: sendToDailyTaskModal.taskId || null,
+        })
+        .select('id')
+        .single();
+      if (insertError || !data) {
+        showError('Failed to send task to Daily Tasks.');
+      } else {
+        showSuccess(`"${sendToDailyTaskModal.taskName}" sent to Daily Tasks.`);
+        setSendToDailyTaskModal(null);
+        setDailyTaskDate(new Date().toISOString().split('T')[0]);
+      }
+    } catch {
+      showError('Failed to send task to Daily Tasks.');
+    }
+    setSendingToDailyTask(false);
+  };
+
   const handleAssignLaborEmployee = async (taskIndex: number, lineIndex: number, employeeId: string) => {
     const item = tasks[taskIndex]?.lineItems[lineIndex];
     const updatedTasks = [...tasks];
@@ -2905,6 +2952,28 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                               }
                               return null;
                             })()}
+                            <div className="mt-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const wo = workOrders.find(w => w.id === editingId);
+                                  setSendToDailyTaskModal({
+                                    workOrderId: editingId || '',
+                                    taskIndex,
+                                    taskId: task.id || '',
+                                    taskName: task.task_name,
+                                    taskOverview: task.task_overview || '',
+                                    yachtId: wo?.yacht_id || null,
+                                    yachtName: wo?.yachts?.name || null,
+                                  });
+                                  setDailyTaskDate(new Date().toISOString().split('T')[0]);
+                                }}
+                                className="w-full px-3 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 flex items-center justify-center gap-2 text-sm font-medium"
+                              >
+                                <ClipboardList className="w-4 h-4" />
+                                Send to Daily Tasks
+                              </button>
+                            </div>
                           </div>
 
                           <div className="flex justify-between items-center mb-3">
@@ -4065,6 +4134,67 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
             <p className="text-gray-500">Work orders will appear here when estimates are approved.</p>
           </div>
         )}
+        </div>
+      )}
+
+      {sendToDailyTaskModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+            <div className="flex items-center gap-2 mb-4">
+              <ClipboardList className="w-5 h-5 text-teal-600" />
+              <h3 className="text-lg font-semibold text-gray-900">Send to Daily Tasks</h3>
+            </div>
+            <div className="space-y-3 mb-5">
+              <div>
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Task</p>
+                <p className="text-sm font-semibold text-gray-900">{sendToDailyTaskModal.taskName}</p>
+                {sendToDailyTaskModal.taskOverview && (
+                  <p className="text-sm text-gray-600 mt-0.5">{sendToDailyTaskModal.taskOverview}</p>
+                )}
+              </div>
+              {sendToDailyTaskModal.yachtName && (
+                <div>
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Vessel</p>
+                  <p className="text-sm text-gray-900">{sendToDailyTaskModal.yachtName}</p>
+                </div>
+              )}
+              <div>
+                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                  Task Date
+                </label>
+                <input
+                  type="date"
+                  value={dailyTaskDate}
+                  onChange={(e) => setDailyTaskDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900"
+                />
+              </div>
+              <p className="text-xs text-gray-500 italic">
+                The task will be created unassigned so a manager can assign it in Daily Tasks.
+              </p>
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setSendToDailyTaskModal(null);
+                  setDailyTaskDate(new Date().toISOString().split('T')[0]);
+                }}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSendToDailyTask}
+                disabled={sendingToDailyTask}
+                className="px-4 py-2 text-white bg-teal-600 rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                <ClipboardList className="w-4 h-4" />
+                {sendingToDailyTask ? 'Sending...' : 'Send to Daily Tasks'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
