@@ -165,7 +165,7 @@ export function TimeClockPanel() {
     if (!user) return;
 
     const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - 7);
+    cutoff.setHours(cutoff.getHours() - 36);
 
     const { data, error } = await supabase
       .from('staff_time_entries')
