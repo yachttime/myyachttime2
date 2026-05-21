@@ -42,11 +42,13 @@ export function TimeEntryEditor({ entry, onClose, onSave }: TimeEntryEditorProps
         new Date(`${dateStr}T${timeStr}:00-07:00`);
 
       const punchIn = phxToUtc(punchInDate, punchInTime);
-      const punchOut = punchOutDate && punchOutTime
-        ? phxToUtc(punchOutDate, punchOutTime)
-        : null;
+      if (!punchOutDate || !punchOutTime) {
+        throw new Error('Punch out date and time are required.');
+      }
 
-      if (punchOut && punchOut <= punchIn) {
+      const punchOut = phxToUtc(punchOutDate, punchOutTime);
+
+      if (punchOut <= punchIn) {
         throw new Error('Punch out time must be after punch in time. If the shift crosses midnight, update the punch out date to the next day.');
       }
 
@@ -59,7 +61,7 @@ export function TimeEntryEditor({ entry, onClose, onSave }: TimeEntryEditorProps
 
       const updates: any = {
         punch_in_time: punchIn.toISOString(),
-        punch_out_time: punchOut?.toISOString() || null,
+        punch_out_time: punchOut.toISOString(),
         lunch_break_start: lunchStart?.toISOString() || null,
         lunch_break_end: lunchEnd?.toISOString() || null,
         notes,
