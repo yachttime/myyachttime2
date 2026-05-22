@@ -1795,7 +1795,45 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       if (archiveError) throw archiveError;
 
-      // Step 3: Record transfer in audit table
+      // Step 3: Update future bookings for this yacht to reflect the new owner's name
+      const newOwnerFullName = `${transferForm.first_name} ${transferForm.last_name}`.trim();
+      const oldOwnerFullName = `${outgoingUser.first_name} ${outgoingUser.last_name}`.trim();
+      const today = new Date().toISOString().split('T')[0];
+
+      if (yachtId) {
+        // Fetch future bookings for this yacht
+        const { data: futureBookings } = await supabase
+          .from('yacht_bookings')
+          .select('id, owner_name, user_id')
+          .eq('yacht_id', yachtId)
+          .gte('start_date', today);
+
+        if (futureBookings && futureBookings.length > 0) {
+          const bookingIds = futureBookings.map((b: any) => b.id);
+
+          // Update owner_name on the bookings where it matches the outgoing owner
+          // (or where user_id matches the outgoing owner's user_id)
+          for (const booking of futureBookings) {
+            const nameMatches = booking.owner_name === oldOwnerFullName || !booking.owner_name;
+            const userMatches = booking.user_id === outgoingUser.user_id;
+            if (nameMatches || userMatches) {
+              await supabase
+                .from('yacht_bookings')
+                .update({ owner_name: newOwnerFullName })
+                .eq('id', booking.id);
+            }
+          }
+
+          // Update yacht_booking_owners rows that match the old owner's name
+          await supabase
+            .from('yacht_booking_owners')
+            .update({ owner_name: newOwnerFullName })
+            .in('booking_id', bookingIds)
+            .eq('owner_name', oldOwnerFullName);
+        }
+      }
+
+      // Step 4: Record transfer in audit table
       const { data: currentProfile } = await supabase
         .from('user_profiles')
         .select('company_id')
