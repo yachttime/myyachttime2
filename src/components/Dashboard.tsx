@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Anchor, Calendar, CheckCircle, AlertCircle, BookOpen, LogOut, Wrench, Send, Play, Shield, ClipboardCheck, ClipboardList, Ship, CalendarPlus, FileUp, MessageCircle, Mail, CreditCard as Edit2, Trash2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, History, UserCheck, FileText, Upload, Download, X, Users, Save, RefreshCw, Clock, Thermometer, Camera, Receipt, Pencil, Lock, CreditCard, Eye, EyeOff, MousePointer, Ligature as FileSignature, Folder, Menu, Phone, Printer, Plus, QrCode, CircleUser as UserCircle2, DollarSign, Archive, Building2, MessageSquare, ShieldAlert, Paperclip, ExternalLink, User, Image } from 'lucide-react';
+import { Anchor, Calendar, CheckCircle, AlertCircle, BookOpen, LogOut, Wrench, Send, Play, Shield, ClipboardCheck, ClipboardList, Ship, CalendarPlus, FileUp, MessageCircle, Mail, CreditCard as Edit2, Trash2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, History, UserCheck, FileText, Upload, Download, X, Users, Save, RefreshCw, Clock, Thermometer, Camera, Receipt, Pencil, Lock, CreditCard, Eye, EyeOff, MousePointer, Ligature as FileSignature, Folder, Menu, Phone, Printer, Plus, QrCode, CircleUser as UserCircle2, DollarSign, Archive, Building2, MessageSquare, ShieldAlert, Paperclip, ExternalLink, User, Image, ArrowLeftRight } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCompany } from '../contexts/CompanyContext';
 import { useRoleImpersonation } from '../contexts/RoleImpersonationContext';
@@ -118,6 +118,29 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [emailAllManagersRecipients, setEmailAllManagersRecipients] = useState<Array<{ email: string; name: string }>>([]);
   const [showEmailAllOwnersManagersModal, setShowEmailAllOwnersManagersModal] = useState(false);
   const [emailAllOwnersManagersRecipients, setEmailAllOwnersManagersRecipients] = useState<Array<{ email: string; name: string }>>([]);
+
+  // Ownership transfer state
+  const [transferModal, setTransferModal] = useState<{ user: any; yachtName: string } | null>(null);
+  const [transferStep, setTransferStep] = useState<1 | 2>(1);
+  const [transferLoading, setTransferLoading] = useState(false);
+  const [transferNotes, setTransferNotes] = useState('');
+  const [transferForm, setTransferForm] = useState({
+    first_name: '',
+    last_name: '',
+    email: '',
+    password: '',
+    phone: '',
+    trip_number: '',
+    street: '',
+    city: '',
+    state: '',
+    zip_code: '',
+    notification_email: '',
+    notification_phone: '',
+    secondary_email: '',
+    email_notifications_enabled: true,
+    sms_notifications_enabled: false,
+  });
 
   const convertTo12Hour = (time24: string): string => {
     if (!time24) return '';
@@ -1710,6 +1733,110 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     } catch (error: any) {
       console.error('Error deactivating user:', error);
       showError('Failed to deactivate user: ' + (error.message || 'Unknown error'));
+    }
+  };
+
+  const handleTransferOwnership = async () => {
+    if (!transferModal) return;
+    setTransferLoading(true);
+
+    try {
+      const outgoingUser = transferModal.user;
+      const yachtId = outgoingUser.yacht_id;
+
+      // Step 1: Create new owner account
+      const createUserUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-user`;
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const response = await fetch(createUserUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: transferForm.email,
+          password: transferForm.password,
+          first_name: transferForm.first_name,
+          last_name: transferForm.last_name,
+          phone: transferForm.phone || null,
+          trip_number: transferForm.trip_number || null,
+          street: transferForm.street || null,
+          city: transferForm.city || null,
+          state: transferForm.state || null,
+          zip_code: transferForm.zip_code || null,
+          yacht_id: yachtId,
+          role: 'owner',
+          email_notifications_enabled: transferForm.email_notifications_enabled,
+          sms_notifications_enabled: transferForm.sms_notifications_enabled,
+          notification_email: transferForm.notification_email || null,
+          notification_phone: transferForm.notification_phone || null,
+          secondary_email: transferForm.secondary_email || null,
+          can_approve_repairs: false,
+          can_approve_billing: false,
+          sms_consent_given: false,
+          sms_consent_method: 'web_form',
+          company_id: selectedCompany?.id || null,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create new owner account');
+      }
+
+      const { user_id: newUserId } = await response.json();
+
+      // Step 2: Archive outgoing owner — remove yacht link and deactivate
+      const { error: archiveError } = await supabase
+        .from('user_profiles')
+        .update({ is_active: false, yacht_id: null })
+        .eq('user_id', outgoingUser.user_id);
+
+      if (archiveError) throw archiveError;
+
+      // Step 3: Record transfer in audit table
+      const { data: currentProfile } = await supabase
+        .from('user_profiles')
+        .select('company_id')
+        .eq('user_id', user?.id)
+        .maybeSingle();
+
+      await supabase.from('ownership_transfers').insert({
+        yacht_id: yachtId,
+        from_user_id: outgoingUser.user_id,
+        to_user_id: newUserId,
+        transferred_by: user?.id,
+        notes: transferNotes || null,
+        company_id: currentProfile?.company_id || selectedCompany?.id || null,
+      });
+
+      // Log the activity
+      if (yachtId) {
+        await logYachtActivity(
+          yachtId,
+          'ownership_transferred',
+          `Ownership transferred from ${outgoingUser.first_name} ${outgoingUser.last_name} to ${transferForm.first_name} ${transferForm.last_name}`,
+          user?.id
+        );
+      }
+
+      await loadUsers();
+      setTransferModal(null);
+      setTransferStep(1);
+      setTransferNotes('');
+      setTransferForm({
+        first_name: '', last_name: '', email: '', password: '', phone: '',
+        trip_number: '', street: '', city: '', state: '', zip_code: '',
+        notification_email: '', notification_phone: '', secondary_email: '',
+        email_notifications_enabled: true, sms_notifications_enabled: false,
+      });
+      showSuccess(`Ownership of ${transferModal.yachtName} transferred to ${transferForm.first_name} ${transferForm.last_name}`);
+    } catch (error: any) {
+      console.error('Error transferring ownership:', error);
+      showError('Transfer failed: ' + (error.message || 'Unknown error'));
+    } finally {
+      setTransferLoading(false);
     }
   };
 
@@ -18949,7 +19076,26 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                               )}
                                             </div>
                                           </div>
-                                          <div className="flex gap-2 ml-4">
+                                          <div className="flex flex-wrap gap-2 ml-4 justify-end">
+                                            {effectiveRole === 'master' && user.role === 'owner' && user.yacht_id && (
+                                              <button
+                                                onClick={() => {
+                                                  setTransferModal({ user, yachtName: selectedUserGroup || '' });
+                                                  setTransferStep(1);
+                                                  setTransferNotes('');
+                                                  setTransferForm({
+                                                    first_name: '', last_name: '', email: '', password: '', phone: '',
+                                                    trip_number: '', street: '', city: '', state: '', zip_code: '',
+                                                    notification_email: '', notification_phone: '', secondary_email: '',
+                                                    email_notifications_enabled: true, sms_notifications_enabled: false,
+                                                  });
+                                                }}
+                                                className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
+                                              >
+                                                <ArrowLeftRight className="w-4 h-4" />
+                                                Transfer
+                                              </button>
+                                            )}
                                             <button
                                               onClick={() => handleUserEdit(user)}
                                               className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
@@ -21374,6 +21520,237 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       />
 
       <ConfirmDialog />
+
+      {/* Transfer Ownership Modal */}
+      {transferModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
+                  <ArrowLeftRight className="w-5 h-5 text-amber-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Transfer Ownership</h3>
+                  <p className="text-sm text-gray-500">{transferModal.yachtName} — Step {transferStep} of 2</p>
+                </div>
+              </div>
+              <button
+                onClick={() => { setTransferModal(null); setTransferStep(1); }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {transferStep === 1 ? (
+              <div className="p-6 space-y-4">
+                {/* Outgoing owner summary */}
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                  <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-1">Transferring from</p>
+                  <p className="font-semibold text-gray-900">{transferModal.user.first_name} {transferModal.user.last_name}</p>
+                  <p className="text-sm text-gray-500">{transferModal.user.email}</p>
+                  <p className="text-xs text-amber-700 mt-2">This owner will immediately lose all access once the transfer is confirmed.</p>
+                </div>
+
+                <p className="text-sm font-semibold text-gray-700">New Owner Details</p>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">First Name *</label>
+                    <input
+                      type="text"
+                      value={transferForm.first_name}
+                      onChange={e => setTransferForm(f => ({ ...f, first_name: e.target.value }))}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Last Name *</label>
+                    <input
+                      type="text"
+                      value={transferForm.last_name}
+                      onChange={e => setTransferForm(f => ({ ...f, last_name: e.target.value }))}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Email *</label>
+                  <input
+                    type="email"
+                    value={transferForm.email}
+                    onChange={e => setTransferForm(f => ({ ...f, email: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Password *</label>
+                  <input
+                    type="password"
+                    value={transferForm.password}
+                    onChange={e => setTransferForm(f => ({ ...f, password: e.target.value }))}
+                    placeholder="Min. 6 characters"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Phone</label>
+                  <input
+                    type="tel"
+                    value={transferForm.phone}
+                    onChange={e => setTransferForm(f => ({ ...f, phone: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Trip Number</label>
+                  <input
+                    type="text"
+                    value={transferForm.trip_number}
+                    onChange={e => setTransferForm(f => ({ ...f, trip_number: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Street Address</label>
+                  <input
+                    type="text"
+                    value={transferForm.street}
+                    onChange={e => setTransferForm(f => ({ ...f, street: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">City</label>
+                    <input
+                      type="text"
+                      value={transferForm.city}
+                      onChange={e => setTransferForm(f => ({ ...f, city: e.target.value }))}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">State</label>
+                    <input
+                      type="text"
+                      value={transferForm.state}
+                      onChange={e => setTransferForm(f => ({ ...f, state: e.target.value }))}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">ZIP</label>
+                    <input
+                      type="text"
+                      value={transferForm.zip_code}
+                      onChange={e => setTransferForm(f => ({ ...f, zip_code: e.target.value }))}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Notification Email</label>
+                  <input
+                    type="email"
+                    value={transferForm.notification_email}
+                    onChange={e => setTransferForm(f => ({ ...f, notification_email: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Transfer Notes (optional)</label>
+                  <textarea
+                    value={transferNotes}
+                    onChange={e => setTransferNotes(e.target.value)}
+                    rows={2}
+                    placeholder="e.g. Sold 8 weeks on yacht to new owner"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none"
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => { setTransferModal(null); setTransferStep(1); }}
+                    className="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => setTransferStep(2)}
+                    disabled={!transferForm.first_name.trim() || !transferForm.last_name.trim() || !transferForm.email.trim() || transferForm.password.length < 6}
+                    className="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-2.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                  >
+                    Review Transfer
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="p-6 space-y-4">
+                <p className="text-sm text-gray-600">Please confirm the following ownership transfer:</p>
+
+                <div className="rounded-xl border border-gray-200 overflow-hidden">
+                  <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Yacht</p>
+                    <p className="font-semibold text-gray-900 mt-0.5">{transferModal.yachtName}</p>
+                  </div>
+                  <div className="grid grid-cols-2 divide-x divide-gray-200">
+                    <div className="px-4 py-3">
+                      <p className="text-xs font-semibold text-red-600 uppercase tracking-wide mb-1">Outgoing Owner</p>
+                      <p className="font-medium text-gray-900">{transferModal.user.first_name} {transferModal.user.last_name}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{transferModal.user.email}</p>
+                      <p className="text-xs text-red-600 mt-2">Will lose all access</p>
+                    </div>
+                    <div className="px-4 py-3">
+                      <p className="text-xs font-semibold text-green-600 uppercase tracking-wide mb-1">New Owner</p>
+                      <p className="font-medium text-gray-900">{transferForm.first_name} {transferForm.last_name}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{transferForm.email}</p>
+                      <p className="text-xs text-green-600 mt-2">New account will be created</p>
+                    </div>
+                  </div>
+                  {transferNotes && (
+                    <div className="px-4 py-3 border-t border-gray-200 bg-gray-50">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Notes</p>
+                      <p className="text-sm text-gray-700">{transferNotes}</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+                  All existing trips and bookings for this yacht remain on the master calendar unchanged. Only future access is affected.
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => setTransferStep(1)}
+                    disabled={transferLoading}
+                    className="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={handleTransferOwnership}
+                    disabled={transferLoading}
+                    className="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-2.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {transferLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ArrowLeftRight className="w-4 h-4" />}
+                    {transferLoading ? 'Transferring...' : 'Confirm Transfer'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {yachtInvoiceCheckModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
