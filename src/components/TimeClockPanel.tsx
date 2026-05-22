@@ -193,6 +193,22 @@ export function TimeClockPanel() {
 
     setLoading(true);
     try {
+      // Guard: check for any open entry (no punch_out_time) before inserting
+      const { data: openEntry } = await supabase
+        .from('staff_time_entries')
+        .select('id, punch_in_time')
+        .eq('user_id', user.id)
+        .is('punch_out_time', null)
+        .order('punch_in_time', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (openEntry) {
+        await loadCurrentEntry();
+        showMessage('error', 'You are already clocked in. Please punch out before clocking in again.');
+        return;
+      }
+
       const { data, error } = await supabase
         .from('staff_time_entries')
         .insert({
