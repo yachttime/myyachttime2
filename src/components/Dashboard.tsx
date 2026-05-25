@@ -5655,11 +5655,20 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       console.log('Master Calendar: Loading data for user:', user.id, 'Role:', effectiveRole, 'Profile:', userProfile?.role, 'Company:', selectedCompany.id);
 
+      // Only include bookings for active yachts
+      const { data: activeYachts } = await supabase
+        .from('yachts')
+        .select('id')
+        .eq('company_id', selectedCompany.id)
+        .eq('is_active', true);
+
+      const activeYachtIds = (activeYachts || []).map((y: any) => y.id);
+
       let bookingsQuery = supabase
         .from('yacht_bookings')
         .select(`
           *,
-          yachts:yacht_id (name),
+          yachts:yacht_id (name, is_active),
           yacht_booking_owners (
             id,
             owner_name,
@@ -5674,6 +5683,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           )
         `)
         .eq('company_id', selectedCompany.id)
+        .in('yacht_id', activeYachtIds.length > 0 ? activeYachtIds : ['00000000-0000-0000-0000-000000000000'])
         .order('start_date', { ascending: false });
 
       // Filter by yacht_id for managers and owners (but not master role)
