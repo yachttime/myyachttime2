@@ -2293,7 +2293,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         .from('user_profiles')
         .select('id, user_id, first_name, last_name, email, role, company_id')
         .eq('company_id', selectedCompany.id)
-        .in('role', ['mechanic', 'staff', 'manager', 'master'])
+        .in('role', ['mechanic', 'staff', 'master'])
         .order('first_name', { ascending: true});
 
       if (error) throw error;
@@ -8862,7 +8862,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                     <div>
                       <label htmlFor="mechanic" className="block text-sm font-medium mb-2">
-                        Mechanic completing Inspection
+                        Staff completing Inspection
                       </label>
                       <select
                         id="mechanic"
@@ -8871,7 +8871,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                         className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 transition-colors text-white"
                         required
                       >
-                        <option value="">Choose a mechanic...</option>
+                        <option value="">Choose staff member...</option>
                         {mechanics.map((mechanic) => (
                           <option key={mechanic.id} value={mechanic.user_id}>
                             {mechanic.first_name} {mechanic.last_name}
