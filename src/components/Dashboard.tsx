@@ -983,8 +983,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         (payload) => {
           const notif = payload.new as AdminNotification;
           loadAdminNotifications();
-          // Show a toast for check-in/check-out events so staff are alerted immediately
-          if (notif.notification_type === 'check_in' || notif.notification_type === 'check_out') {
+          // Only toast if this notification row is for the current user
+          if (notif.user_id !== user?.id) return;
+          if (
+            notif.notification_type === 'check_in' ||
+            notif.notification_type === 'check_out' ||
+            notif.notification_type === 'trip_inspection'
+          ) {
             showInfo(notif.message);
           }
         }
