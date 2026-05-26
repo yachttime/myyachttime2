@@ -616,7 +616,7 @@ export const canManageUsers = (role?: UserRole): boolean => {
 };
 
 export const canManageYacht = (role?: UserRole): boolean => {
-  return role === 'staff' || role === 'manager' || role === 'master';
+  return role === 'staff' || role === 'manager' || role === 'master' || role === 'mechanic';
 };
 
 export const canAccessAllYachts = (role?: UserRole): boolean => {
