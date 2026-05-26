@@ -650,8 +650,8 @@ export async function generateTripInspectionPDF(
     doc.setFontSize(7);
     const noteMaxW = CW - 0.22;
     const noteLines = doc.splitTextToSize(note || '', noteMaxW);
-    const noteLineH = 0.115; // ~7pt line height in inches
-    const totalH = noteRowH + noteLines.length * noteLineH + 0.06;
+    const noteLineH = (7 / 72) * 1.5; // 7pt × 1.5 line-spacing in inches ≈ 0.146"
+    const totalH = noteRowH + noteLines.length * noteLineH + 0.10;
 
     if (yPos + totalH > PH - 0.5) { doc.addPage(); yPos = M; }
 
@@ -677,11 +677,11 @@ export async function generateTripInspectionPDF(
     doc.setTextColor(badgeFg[0], badgeFg[1], badgeFg[2]);
     doc.text(badgeTxt, nbx + noteBadgeW / 2, yPos + 0.035 + badgeH * 0.65, { align: 'center' });
 
-    // Note text (italic, below label row)
+    // Note text (italic, below label baseline with clear gap)
     doc.setFont('helvetica', 'italic');
     doc.setFontSize(7);
     doc.setTextColor(noteFg[0], noteFg[1], noteFg[2]);
-    const noteY = yPos + noteRowH + 0.01;
+    const noteY = yPos + noteRowH + noteLineH * 0.5;
     doc.text(noteLines, M + 0.12, noteY);
 
     doc.setTextColor(0, 0, 0);
