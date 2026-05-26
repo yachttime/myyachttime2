@@ -6596,6 +6596,19 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   };
 
   const openRepairToTaskModal = async (request: RepairRequest) => {
+    // Check fresh from DB whether this repair request already has a daily task
+    const { data: existingTask } = await supabase
+      .from('daily_tasks')
+      .select('id')
+      .eq('repair_request_id', request.id)
+      .maybeSingle();
+
+    if (existingTask) {
+      // Already sent — update local state to reflect this and don't open modal
+      setRepairRequestsWithTasks(prev => new Set([...prev, request.id]));
+      return;
+    }
+
     setRepairToTaskRequest(request);
     setRepairToTaskForm({
       assigned_to: '',
