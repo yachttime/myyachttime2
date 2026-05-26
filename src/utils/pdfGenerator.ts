@@ -579,9 +579,12 @@ export async function generateTripInspectionPDF(
   const noteItems   = checkItems.filter(([, , n]) => !!n);
 
   // Draw two-column grid for normal items
-  const colW2 = CW / 2;
-  const rowH  = 0.195;
-  const badgeW = 0.52;
+  const colGap = 0.06;
+  const colW2  = (CW - colGap) / 2;   // each column ~3.77"
+  const rowH   = 0.20;
+  const badgeW = 0.44;
+  const labelPad = 0.07;
+  const labelMaxW = colW2 - badgeW - 0.18; // space for label text
 
   const drawCheckRow = (x: number, y: number, w: number, label: string, status: string | null) => {
     const isWarn = status === 'warn';
@@ -595,14 +598,17 @@ export async function generateTripInspectionPDF(
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
     doc.setTextColor(30, 40, 50);
-    doc.text(label, x + 0.06, y + rowH * 0.64);
+    // Clip label to available width so it never overlaps the badge
+    const labelLines = doc.splitTextToSize(label, labelMaxW);
+    doc.text(labelLines[0], x + labelPad, y + rowH * 0.64);
 
-    // Badge
-    fillRect(x + w - badgeW - 0.06, y + 0.03, badgeW, rowH - 0.07, badgeBg);
+    // Badge flush to right edge
+    const bx = x + w - badgeW - 0.05;
+    fillRect(bx, y + 0.03, badgeW, rowH - 0.07, badgeBg);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(6.5);
     doc.setTextColor(badgeFg[0], badgeFg[1], badgeFg[2]);
-    doc.text(badgeTxt, x + w - badgeW / 2 - 0.06, y + rowH * 0.62, { align: 'center' });
+    doc.text(badgeTxt, bx + badgeW / 2, y + rowH * 0.62, { align: 'center' });
     doc.setTextColor(0, 0, 0);
   };
 
@@ -613,8 +619,8 @@ export async function generateTripInspectionPDF(
 
   for (let r = 0; r < rows; r++) {
     if (yPos + rowH > PH - 0.5) { doc.addPage(); yPos = M; }
-    if (leftItems[r])  drawCheckRow(M,          yPos, colW2 - 0.04, leftItems[r][0],  getStatus(leftItems[r][1]));
-    if (rightItems[r]) drawCheckRow(M + colW2,  yPos, colW2 - 0.04, rightItems[r][0], getStatus(rightItems[r][1]));
+    if (leftItems[r])  drawCheckRow(M,               yPos, colW2, leftItems[r][0],  getStatus(leftItems[r][1]));
+    if (rightItems[r]) drawCheckRow(M + colW2 + colGap, yPos, colW2, rightItems[r][0], getStatus(rightItems[r][1]));
     yPos += rowH;
   }
 
@@ -644,11 +650,12 @@ export async function generateTripInspectionPDF(
     doc.setTextColor(30, 40, 50);
     doc.text(label, M + 0.10, yPos + 0.135);
 
-    fillRect(M + CW - badgeW - 0.06, yPos + 0.03, badgeW, rowH - 0.07, badgeBg);
+    const nbx = M + CW - badgeW - 0.05;
+    fillRect(nbx, yPos + 0.03, badgeW, rowH - 0.07, badgeBg);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(6.5);
     doc.setTextColor(badgeFg[0], badgeFg[1], badgeFg[2]);
-    doc.text(badgeTxt, M + CW - badgeW / 2 - 0.06, yPos + rowH * 0.62, { align: 'center' });
+    doc.text(badgeTxt, nbx + badgeW / 2, yPos + rowH * 0.62, { align: 'center' });
 
     doc.setFont('helvetica', 'italic');
     doc.setFontSize(7);
