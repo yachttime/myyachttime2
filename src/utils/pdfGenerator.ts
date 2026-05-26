@@ -488,13 +488,15 @@ export async function generateTripInspectionPDF(
 
   // ── Engine & Generator Hours ──────────────────────────────────────────────────
   if (inspection.cabin_notes || inspection.galley_notes || inspection.head_notes || inspection.cabin_condition) {
-    fillRect(M, yPos, CW, 0.2, NAVY);
+    const sectionHdrH = 0.26;
+    if (yPos + sectionHdrH + 0.3 > PH - 0.5) { doc.addPage(); yPos = M; }
+    fillRect(M, yPos, CW, sectionHdrH, NAVY);
     doc.setTextColor(...WHITE);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7.5);
-    doc.text('ENGINE & GENERATOR HOURS', M + 0.08, yPos + 0.135);
+    doc.text('ENGINE & GENERATOR HOURS', M + 0.08, yPos + sectionHdrH * 0.65);
     doc.setTextColor(0, 0, 0);
-    yPos += 0.22;
+    yPos += sectionHdrH;
 
     const hrItems = [
       ['Port Engine', inspection.cabin_notes],
@@ -522,13 +524,14 @@ export async function generateTripInspectionPDF(
   }
 
   // ── Checklist section ─────────────────────────────────────────────────────────
-  fillRect(M, yPos, CW, 0.2, NAVY);
+  const hdrH = 0.26;
+  fillRect(M, yPos, CW, hdrH, NAVY);
   doc.setTextColor(...WHITE);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7.5);
-  doc.text('INSPECTION CHECKLIST', M + 0.08, yPos + 0.135);
+  doc.text('INSPECTION CHECKLIST', M + 0.08, yPos + hdrH * 0.65);
   doc.setTextColor(0, 0, 0);
-  yPos += 0.22;
+  yPos += hdrH;
 
   const getStatus = (val?: string) => {
     if (!val) return null;
@@ -705,11 +708,11 @@ export async function generateTripInspectionPDF(
     yPos += 0.08;
     if (yPos + 0.5 > PH - 0.5) { doc.addPage(); yPos = M; }
 
-    fillRect(M, yPos, CW, 0.2, NAVY);
+    fillRect(M, yPos, CW, 0.26, NAVY);
     doc.setTextColor(...WHITE);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7.5);
-    doc.text('ADDITIONAL NOTES', M + 0.08, yPos + 0.135);
+    doc.text('ADDITIONAL NOTES', M + 0.08, yPos + 0.26 * 0.65);
     doc.setTextColor(0, 0, 0);
     yPos += 0.22;
 
@@ -733,11 +736,11 @@ export async function generateTripInspectionPDF(
       yPos += 0.08;
       if (yPos + 0.3 > PH - 0.5) { doc.addPage(); yPos = M; }
 
-      fillRect(M, yPos, CW, 0.2, NAVY);
+      fillRect(M, yPos, CW, 0.26, NAVY);
       doc.setTextColor(...WHITE);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(7.5);
-      doc.text('INSPECTION PHOTOS', M + 0.08, yPos + 0.135);
+      doc.text('INSPECTION PHOTOS', M + 0.08, yPos + 0.26 * 0.65);
       doc.setTextColor(0, 0, 0);
       yPos += 0.22;
 
