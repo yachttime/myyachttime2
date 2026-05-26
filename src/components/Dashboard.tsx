@@ -2428,9 +2428,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       setExpandedYachtId(null);
     } else {
       setExpandedYachtId(yachtId);
-      if (!yachtHistoryLogs[yachtId]) {
-        await loadYachtHistory(yachtId);
-      }
+      await loadYachtHistory(yachtId);
     }
   };
 
@@ -6099,6 +6097,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       }
 
       await loadAdminNotifications();
+      await loadYachtHistory(selectedYachtForInspection);
 
       setInspectionSuccess(true);
       setSelectedYachtForInspection('');
