@@ -634,49 +634,78 @@ export async function generateTripInspectionPDF(
 
   yPos = (doc as any).lastAutoTable.finalY + 0.08;
 
-  // Items with notes — full width rows
-  const rowH  = 0.20;
-  const badgeW = 0.5;
-
+  // Items with notes — full width rows rendered via autoTable for reliable layout
   for (const [label, val, note] of noteItems) {
     const isWarn = getStatus(val) === 'warn';
-    const badgeBg = isWarn ? WARN_BG : OK_BG;
-    const badgeFg = isWarn ? WARN_FG : OK_FG;
-    const noteFg  = isWarn ? WARN_FG : OK_FG;
     const badgeTxt = isWarn ? 'NEEDS SVC' : 'OK';
+    const badgeFg  = isWarn ? [146, 64, 14]  : [22, 101, 52];
+    const badgeBgC = isWarn ? [254, 242, 220] : [230, 247, 237];
+    const noteFgC  = isWarn ? [146, 64, 14]  : [22, 101, 52];
+    const accentFg = isWarn ? [146, 64, 14]  : [22, 101, 52];
 
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7);
-    const noteLines = doc.splitTextToSize(note || '', CW - 0.2);
-    const noteLineH = 7 / 72 * 1.4;
-    const h = rowH + noteLines.length * noteLineH + 0.06;
+    if (yPos + 0.5 > PH - 0.5) { doc.addPage(); yPos = M; }
 
-    if (yPos + h > PH - 0.5) { doc.addPage(); yPos = M; }
+    autoTable(doc, {
+      startY: yPos,
+      body: [
+        [
+          {
+            content: label,
+            styles: {
+              fontStyle: 'bold' as const,
+              fontSize: 8,
+              textColor: [30, 40, 50] as [number,number,number],
+              fillColor: [255, 255, 255] as [number,number,number],
+              cellPadding: { top: 0.05, bottom: 0.02, left: 0.10, right: 0.04 },
+            },
+          },
+          {
+            content: badgeTxt,
+            styles: {
+              fontStyle: 'bold' as const,
+              fontSize: 7,
+              textColor: badgeFg as [number,number,number],
+              fillColor: badgeBgC as [number,number,number],
+              halign: 'center' as const,
+              cellPadding: { top: 0.05, bottom: 0.02, left: 0.04, right: 0.04 },
+            },
+          },
+        ],
+        [
+          {
+            content: note || '',
+            colSpan: 2,
+            styles: {
+              fontStyle: 'italic' as const,
+              fontSize: 7,
+              textColor: noteFgC as [number,number,number],
+              fillColor: [255, 255, 255] as [number,number,number],
+              cellPadding: { top: 0.02, bottom: 0.05, left: 0.10, right: 0.04 },
+            },
+          },
+        ],
+      ],
+      columnStyles: {
+        0: { cellWidth: CW - 0.6 },
+        1: { cellWidth: 0.6 },
+      },
+      styles: {
+        lineColor: [210, 215, 220] as [number,number,number],
+        lineWidth: 0.005,
+        overflow: 'linebreak',
+      },
+      // Left accent stripe via didDrawCell hook
+      didDrawCell: (data: any) => {
+        if (isWarn && data.column.index === 0 && data.row.index === 0) {
+          fillRect(data.cell.x, data.cell.y, 0.04, data.table.height, accentFg as [number,number,number]);
+        }
+      },
+      margin: { left: M, right: M },
+      theme: 'grid',
+      tableWidth: CW,
+    });
 
-    fillRect(M, yPos, CW, h, [255, 255, 255]);
-    strokeRect(M, yPos, CW, h, BORDER);
-
-    if (isWarn) fillRect(M, yPos, 0.04, h, WARN_FG);
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
-    doc.setTextColor(30, 40, 50);
-    doc.text(label, M + 0.12, yPos + 0.14);
-
-    const nbx = M + CW - badgeW - 0.05;
-    fillRect(nbx, yPos + 0.035, badgeW, rowH - 0.08, badgeBg);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7);
-    doc.setTextColor(badgeFg[0], badgeFg[1], badgeFg[2]);
-    doc.text(badgeTxt, nbx + badgeW / 2, yPos + rowH * 0.60, { align: 'center' });
-
-    doc.setFont('helvetica', 'italic');
-    doc.setFontSize(7);
-    doc.setTextColor(noteFg[0], noteFg[1], noteFg[2]);
-    doc.text(noteLines, M + 0.12, yPos + rowH + 0.02);
-    doc.setTextColor(0, 0, 0);
-
-    yPos += h + 0.04;
+    yPos = (doc as any).lastAutoTable.finalY + 0.06;
   }
 
   // ── Additional Notes ──────────────────────────────────────────────────────────
