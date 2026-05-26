@@ -6115,6 +6115,32 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         }
       }
 
+      // Fire-and-forget email + SMS to staff/master/mechanic
+      const inspectionTimeStr = new Date().toLocaleString('en-US', {
+        timeZone: 'America/Phoenix',
+        month: 'numeric', day: 'numeric', year: 'numeric',
+        hour: '2-digit', minute: '2-digit',
+      }) + ' MST';
+      const inspectorProfile = allUsers.find((u: any) => u.user_id === selectedMechanicId);
+      const inspectorName = inspectorProfile
+        ? `${inspectorProfile.first_name || ''} ${inspectorProfile.last_name || ''}`.trim()
+        : 'Inspector';
+      fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-checkin-notification`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ownerName: inspectorName,
+          yachtName: selectedYacht.name,
+          checkInTime: inspectionTimeStr,
+          eventType: 'trip_inspection',
+          companyId: selectedYacht.company_id,
+          inspectorId: selectedMechanicId,
+        }),
+      }).catch(err => console.error('Trip inspection notification error:', err));
+
       await loadAdminNotifications();
       await loadYachtHistory(selectedYachtForInspection);
 

@@ -10,9 +10,10 @@ const corsHeaders = {
 interface CheckInNotificationRequest {
   ownerName: string;
   yachtName: string;
-  checkInTime: string; // formatted local time string
-  eventType: 'check_in' | 'check_out';
+  checkInTime: string;
+  eventType: 'check_in' | 'check_out' | 'trip_inspection';
   companyId: string;
+  inspectorId?: string;
 }
 
 Deno.serve(async (req: Request) => {
@@ -22,7 +23,7 @@ Deno.serve(async (req: Request) => {
 
   try {
     const payload: CheckInNotificationRequest = await req.json();
-    const { ownerName, yachtName, checkInTime, eventType, companyId } = payload;
+    const { ownerName, yachtName, checkInTime, eventType, companyId, inspectorId } = payload;
 
     if (!ownerName || !yachtName || !companyId) {
       throw new Error('ownerName, yachtName, and companyId are required');
@@ -39,11 +40,15 @@ Deno.serve(async (req: Request) => {
     const siteUrl = Deno.env.get('SITE_URL') || 'https://myyachttime.com';
     let fromEmail = (Deno.env.get('RESEND_FROM_EMAIL') || 'onboarding@resend.dev').trim();
 
-    // Fetch all active staff and master users for this company
+    // For trip inspections include mechanic role; for check-in/out use staff and master only
+    const rolesToNotify = eventType === 'trip_inspection'
+      ? ['staff', 'master', 'mechanic']
+      : ['staff', 'master'];
+
     const { data: staffUsers, error: staffError } = await supabase
       .from('user_profiles')
       .select('user_id, first_name, last_name, email, phone, notification_email, notification_phone, email_notifications_enabled, sms_notifications_enabled, sms_consent_given, role')
-      .in('role', ['staff', 'master'])
+      .in('role', rolesToNotify)
       .eq('company_id', companyId)
       .eq('is_active', true);
 
@@ -51,7 +56,7 @@ Deno.serve(async (req: Request) => {
 
     if (!staffUsers || staffUsers.length === 0) {
       return new Response(
-        JSON.stringify({ success: true, message: 'No staff/master users to notify', emailsSent: 0, smsSent: 0 }),
+        JSON.stringify({ success: true, message: 'No users to notify', emailsSent: 0, smsSent: 0 }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -61,6 +66,9 @@ Deno.serve(async (req: Request) => {
     const smsRecipients: Array<{ phone: string; name: string }> = [];
 
     for (const user of staffUsers) {
+      // Don't notify the inspector about their own inspection
+      if (inspectorId && user.user_id === inspectorId) continue;
+
       const userName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Team Member';
 
       if (user.email_notifications_enabled !== false) {
@@ -78,10 +86,15 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    const isTripInspection = eventType === 'trip_inspection';
     const isCheckIn = eventType === 'check_in';
-    const eventLabel = isCheckIn ? 'Check-In' : 'Check-Out';
-    const subject = `${eventLabel} Alert: ${ownerName} — ${yachtName}`;
-    const smsBody = `${eventLabel.toUpperCase()} ALERT: ${ownerName} has ${isCheckIn ? 'checked in to' : 'checked out of'} ${yachtName} at ${checkInTime}. Log in to view.`;
+    const eventLabel = isTripInspection ? 'Trip Inspection' : isCheckIn ? 'Check-In' : 'Check-Out';
+    const subject = isTripInspection
+      ? `Trip Inspection Completed: ${yachtName} — by ${ownerName}`
+      : `${eventLabel} Alert: ${ownerName} — ${yachtName}`;
+    const smsBody = isTripInspection
+      ? `TRIP INSPECTION: ${ownerName} completed a trip inspection on ${yachtName} at ${checkInTime}. Log in to view.`
+      : `${eventLabel.toUpperCase()} ALERT: ${ownerName} has ${isCheckIn ? 'checked in to' : 'checked out of'} ${yachtName} at ${checkInTime}. Log in to view.`;
 
     const emailFormatRegex = /^(?:[a-zA-Z0-9\s]+ <)?[^\s@]+@[^\s@]+\.[^\s@]+>?$/;
     if (!emailFormatRegex.test(fromEmail)) {
@@ -92,11 +105,11 @@ Deno.serve(async (req: Request) => {
     let smsSent = 0;
 
     if (resendApiKey && emailRecipients.length > 0) {
-      const headerColor = isCheckIn ? '#059669' : '#0369a1';
-      const badgeColor = isCheckIn ? '#d1fae5' : '#dbeafe';
-      const badgeTextColor = isCheckIn ? '#065f46' : '#1e40af';
-      const badgeBorder = isCheckIn ? '#6ee7b7' : '#93c5fd';
-      const icon = isCheckIn ? '&#9875;' : '&#128682;';
+      const headerColor = isTripInspection ? '#0e7490' : isCheckIn ? '#059669' : '#0369a1';
+      const badgeColor = isTripInspection ? '#cffafe' : isCheckIn ? '#d1fae5' : '#dbeafe';
+      const badgeTextColor = isTripInspection ? '#164e63' : isCheckIn ? '#065f46' : '#1e40af';
+      const badgeBorder = isTripInspection ? '#67e8f9' : isCheckIn ? '#6ee7b7' : '#93c5fd';
+      const icon = isTripInspection ? '&#128203;' : isCheckIn ? '&#9875;' : '&#128682;';
 
       for (const recipient of emailRecipients) {
         const htmlContent = `
@@ -127,10 +140,10 @@ Deno.serve(async (req: Request) => {
                 <p>Hello ${recipient.name},</p>
                 <span class="badge">${eventLabel}</span>
                 <div class="details">
-                  <p><strong>Owner:</strong> ${ownerName}</p>
+                  <p><strong>${isTripInspection ? 'Inspector' : 'Owner'}:</strong> ${ownerName}</p>
                   <p><strong>Yacht:</strong> ${yachtName}</p>
                   <p><strong>Time:</strong> ${checkInTime}</p>
-                  <p><strong>Event:</strong> ${isCheckIn ? 'Arrived at vessel' : 'Departed vessel'}</p>
+                  <p><strong>Event:</strong> ${isTripInspection ? 'Trip inspection completed' : isCheckIn ? 'Arrived at vessel' : 'Departed vessel'}</p>
                 </div>
                 <p style="text-align: center; margin: 25px 0;">
                   <a href="${siteUrl}" class="view-button" style="color: white;">View Dashboard</a>
