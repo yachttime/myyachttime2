@@ -433,10 +433,15 @@ export async function generateTripInspectionPDF(
   const TEXT_DIM = [100, 110, 120] as [number,number,number];
   const WHITE    = [255, 255, 255] as [number,number,number];
 
-  // ── Helper: draw a filled rect ───────────────────────────────────────────────
+  // ── Helpers ──────────────────────────────────────────────────────────────────
   const fillRect = (x: number, y: number, w: number, h: number, rgb: [number,number,number]) => {
-    doc.setFillColor(...rgb);
+    doc.setFillColor(rgb[0], rgb[1], rgb[2]);
     doc.rect(x, y, w, h, 'F');
+  };
+  const strokeRect = (x: number, y: number, w: number, h: number, rgb: [number,number,number]) => {
+    doc.setDrawColor(rgb[0], rgb[1], rgb[2]);
+    doc.rect(x, y, w, h, 'D');
+    doc.setDrawColor(0, 0, 0);
   };
 
   // ── Header bar ───────────────────────────────────────────────────────────────
@@ -500,8 +505,7 @@ export async function generateTripInspectionPDF(
 
     const colW = CW / 4;
     fillRect(M, yPos, CW, 0.26, LIGHT_BG);
-    doc.setFillColor(...BORDER);
-    doc.rect(M, yPos, CW, 0.26, 'S');
+    strokeRect(M, yPos, CW, 0.26, BORDER);
 
     hrItems.forEach(([label, val], i) => {
       const x = M + i * colW;
@@ -581,13 +585,12 @@ export async function generateTripInspectionPDF(
 
   const drawCheckRow = (x: number, y: number, w: number, label: string, status: string | null) => {
     const isWarn = status === 'warn';
-    const bg = isWarn ? WARN_BG : (status === 'ok' ? OK_BG : LIGHT_BG);
-    const fg = isWarn ? WARN_FG : OK_FG;
+    const badgeBg = isWarn ? WARN_BG : OK_BG;
+    const badgeFg = isWarn ? WARN_FG : OK_FG;
     const badgeTxt = isWarn ? 'NEEDS SVC' : 'OK';
 
-    fillRect(x, y, w, rowH - 0.01, LIGHT_BG);
-    doc.setFillColor(...BORDER);
-    doc.rect(x, y, w, rowH - 0.01, 'S');
+    fillRect(x, y, w, rowH - 0.01, [255, 255, 255]);
+    strokeRect(x, y, w, rowH - 0.01, BORDER);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
@@ -595,10 +598,10 @@ export async function generateTripInspectionPDF(
     doc.text(label, x + 0.06, y + rowH * 0.64);
 
     // Badge
-    fillRect(x + w - badgeW - 0.06, y + 0.03, badgeW, rowH - 0.07, bg);
+    fillRect(x + w - badgeW - 0.06, y + 0.03, badgeW, rowH - 0.07, badgeBg);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(6.5);
-    doc.setTextColor(...fg);
+    doc.setTextColor(badgeFg[0], badgeFg[1], badgeFg[2]);
     doc.text(badgeTxt, x + w - badgeW / 2 - 0.06, y + rowH * 0.62, { align: 'center' });
     doc.setTextColor(0, 0, 0);
   };
@@ -618,37 +621,42 @@ export async function generateTripInspectionPDF(
   // Items with notes — full width
   for (const [label, val, note] of noteItems) {
     const isWarn = getStatus(val) === 'warn';
-    const bg = isWarn ? WARN_BG : OK_BG;
-    const fg = isWarn ? WARN_FG : OK_FG;
+    const badgeBg = isWarn ? WARN_BG : OK_BG;
+    const badgeFg = isWarn ? WARN_FG : OK_FG;
+    const noteFg  = isWarn ? WARN_FG : OK_FG;
     const badgeTxt = isWarn ? 'NEEDS SVC' : 'OK';
-    const noteH = 0.1;
-    const h = rowH + noteH + 0.02;
+
+    const noteLines = doc.splitTextToSize(note || '', CW - 0.2);
+    const h = rowH + noteLines.length * (7 / 72 * 1.3) + 0.06;
 
     if (yPos + h > PH - 0.5) { doc.addPage(); yPos = M; }
 
-    fillRect(M, yPos, CW, h, LIGHT_BG);
-    doc.setFillColor(...BORDER);
-    doc.rect(M, yPos, CW, h, 'S');
+    fillRect(M, yPos, CW, h, [255, 255, 255]);
+    strokeRect(M, yPos, CW, h, BORDER);
+
+    // Left accent stripe for items needing service
+    if (isWarn) {
+      fillRect(M, yPos, 0.04, h, WARN_FG);
+    }
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7.5);
     doc.setTextColor(30, 40, 50);
-    doc.text(label, M + 0.06, yPos + 0.13);
+    doc.text(label, M + 0.10, yPos + 0.135);
 
-    fillRect(M + CW - badgeW - 0.06, yPos + 0.03, badgeW, rowH - 0.07, bg);
+    fillRect(M + CW - badgeW - 0.06, yPos + 0.03, badgeW, rowH - 0.07, badgeBg);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(6.5);
-    doc.setTextColor(...fg);
+    doc.setTextColor(badgeFg[0], badgeFg[1], badgeFg[2]);
     doc.text(badgeTxt, M + CW - badgeW / 2 - 0.06, yPos + rowH * 0.62, { align: 'center' });
 
     doc.setFont('helvetica', 'italic');
     doc.setFontSize(7);
-    doc.setTextColor(...WARN_FG);
-    const noteLines = doc.splitTextToSize(note || '', CW - 0.2);
-    doc.text(noteLines, M + 0.06, yPos + rowH + 0.03);
+    doc.setTextColor(noteFg[0], noteFg[1], noteFg[2]);
+    doc.text(noteLines, M + 0.10, yPos + rowH + 0.02);
     doc.setTextColor(0, 0, 0);
 
-    yPos += h + 0.02;
+    yPos += h + 0.03;
   }
 
   // ── Additional Notes ──────────────────────────────────────────────────────────
@@ -666,9 +674,8 @@ export async function generateTripInspectionPDF(
 
     const noteLines = doc.splitTextToSize(inspection.additional_notes, CW - 0.12);
     const noteBlockH = noteLines.length * (8 / 72 * 1.3) + 0.1;
-    fillRect(M, yPos, CW, noteBlockH, LIGHT_BG);
-    doc.setFillColor(...BORDER);
-    doc.rect(M, yPos, CW, noteBlockH, 'S');
+    fillRect(M, yPos, CW, noteBlockH, [255, 255, 255]);
+    strokeRect(M, yPos, CW, noteBlockH, BORDER);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.text(noteLines, M + 0.06, yPos + 0.12);
