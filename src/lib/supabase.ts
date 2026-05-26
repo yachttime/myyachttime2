@@ -88,6 +88,7 @@ export interface UserProfile {
   must_change_password?: boolean;
   notification_email?: string;
   secondary_email?: string;
+  secondary_phone?: string;
   email_notifications_enabled?: boolean;
   sms_notifications_enabled?: boolean;
   notification_phone?: string;

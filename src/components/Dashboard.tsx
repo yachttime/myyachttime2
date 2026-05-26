@@ -728,6 +728,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     notification_email: '',
     notification_phone: '',
     secondary_email: '',
+    secondary_phone: '',
     can_approve_repairs: false,
     can_approve_billing: false,
     sms_consent_given: false,
@@ -1699,6 +1700,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       notification_email: user.notification_email || '',
       notification_phone: user.notification_phone || '',
       secondary_email: user.secondary_email || '',
+      secondary_phone: user.secondary_phone || '',
       can_approve_repairs: user.can_approve_repairs || false,
       can_approve_billing: user.can_approve_billing || false,
       sms_consent_given: user.sms_consent_given || false,
@@ -1872,7 +1874,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       setTransferForm({
         first_name: '', last_name: '', email: '', password: '', phone: '',
         trip_number: '', street: '', city: '', state: '', zip_code: '',
-        notification_email: '', notification_phone: '', secondary_email: '',
+        notification_email: '', notification_phone: '', secondary_email: '', secondary_phone: '',
         email_notifications_enabled: true, sms_notifications_enabled: false,
       });
       showSuccess(`Ownership of ${transferModal.yachtName} transferred to ${transferForm.first_name} ${transferForm.last_name}`);
@@ -1928,6 +1930,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               notification_email: userEditForm.notification_email || null,
               notification_phone: userEditForm.notification_phone || null,
               secondary_email: userEditForm.secondary_email || null,
+              secondary_phone: userEditForm.secondary_phone || null,
               can_approve_repairs: userEditForm.can_approve_repairs || false,
               can_approve_billing: userEditForm.can_approve_billing || false,
               sms_consent_given: userEditForm.sms_consent_given || false,
@@ -1972,6 +1975,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               notification_email: userEditForm.notification_email || null,
               notification_phone: userEditForm.notification_phone || null,
               secondary_email: userEditForm.secondary_email || null,
+              secondary_phone: userEditForm.secondary_phone || null,
               can_approve_repairs: userEditForm.can_approve_repairs || false,
               can_approve_billing: userEditForm.can_approve_billing || false,
               sms_consent_given: userEditForm.sms_consent_given || false,
@@ -2083,6 +2087,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             notification_email: userEditForm.notification_email || null,
             notification_phone: userEditForm.notification_phone || null,
             secondary_email: userEditForm.secondary_email || null,
+            secondary_phone: userEditForm.secondary_phone || null,
             can_approve_repairs: userEditForm.can_approve_repairs || false,
             can_approve_billing: userEditForm.can_approve_billing || false,
             sms_consent_given: userEditForm.sms_consent_given || false,
@@ -18448,6 +18453,19 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 />
                               </div>
 
+                              <div>
+                                <label className="block text-sm font-medium text-slate-300 mb-2">
+                                  Secondary Phone
+                                </label>
+                                <input
+                                  type="tel"
+                                  value={userEditForm.secondary_phone}
+                                  onChange={(e) => setUserEditForm({ ...userEditForm, secondary_phone: formatPhoneNumber(e.target.value) })}
+                                  placeholder="123-456-7890"
+                                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                />
+                              </div>
+
                               <div className="md:col-span-2">
                                 <label className="block text-sm font-medium text-slate-300 mb-2">
                                   Street Address
@@ -19153,6 +19171,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                   {user.phone}
                                                 </span>
                                               )}
+                                              {user.secondary_phone && (
+                                                <span className="px-3 py-1 bg-slate-600 text-slate-300 rounded-full text-xs">
+                                                  {user.secondary_phone}
+                                                </span>
+                                              )}
                                             </div>
                                             <div className="flex flex-col gap-1 text-xs text-slate-500">
                                               {user.last_sign_in_at && (
@@ -19199,7 +19222,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                   setTransferForm({
                                                     first_name: '', last_name: '', email: '', password: '', phone: '',
                                                     trip_number: '', street: '', city: '', state: '', zip_code: '',
-                                                    notification_email: '', notification_phone: '', secondary_email: '',
+                                                    notification_email: '', notification_phone: '', secondary_email: '', secondary_phone: '',
                                                     email_notifications_enabled: true, sms_notifications_enabled: false,
                                                   });
                                                 }}
