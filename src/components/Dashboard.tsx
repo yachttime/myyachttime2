@@ -640,6 +640,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [repairToTaskLoading, setRepairToTaskLoading] = useState(false);
   const [repairToTaskError, setRepairToTaskError] = useState('');
   const [repairToTaskSuccess, setRepairToTaskSuccess] = useState<string | null>(null);
+  const [repairRequestsWithTasks, setRepairRequestsWithTasks] = useState<Set<string>>(new Set());
   const [staffMessages, setStaffMessages] = useState<StaffMessage[]>([]);
   const [messagesTab, setMessagesTab] = useState<'yacht' | 'staff'>('yacht');
   const [yachtPartners, setYachtPartners] = useState<{ [yachtId: string]: any[] }>({});
@@ -3127,10 +3128,23 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         setRepairRequests(enrichedRequests);
         setRepairInvoices(invoicesMap);
         setRepairEstimatingInvoices(estimatingInvoicesMap);
+
+        // Track which repair requests already have a daily task
+        const repairIds = enrichedRequests.map((r: any) => r.id).filter(Boolean);
+        if (repairIds.length > 0) {
+          const { data: taskLinks } = await supabase
+            .from('daily_tasks')
+            .select('repair_request_id')
+            .in('repair_request_id', repairIds);
+          setRepairRequestsWithTasks(new Set((taskLinks || []).map((t: any) => t.repair_request_id)));
+        } else {
+          setRepairRequestsWithTasks(new Set());
+        }
       } else {
         setRepairRequests([]);
         setRepairInvoices({});
         setRepairEstimatingInvoices({});
+        setRepairRequestsWithTasks(new Set());
       }
     } catch (error) {
       console.error('Error loading repair requests:', error);
@@ -6615,8 +6629,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         task_date: repairToTaskForm.task_date,
         task_type: 'repair_request',
         company_id: userProfile?.company_id,
+        repair_request_id: repairToTaskRequest.id,
       });
       if (error) throw error;
+      // Mark this repair request as having a task so the button updates immediately
+      setRepairRequestsWithTasks(prev => new Set([...prev, repairToTaskRequest.id]));
       const staff = assignTaskStaffList.find(s => s.user_id === repairToTaskForm.assigned_to);
       const staffName = staff ? `${staff.first_name || ''} ${staff.last_name || ''}`.trim() : '';
       setRepairToTaskSuccess(staffName ? `Task assigned to ${staffName}` : 'Task added to daily task list');
@@ -15326,18 +15343,25 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 {/* Send to Daily Task button */}
                                 {canManageYacht(effectiveRole) && request.status !== 'completed' && (
                                   <div className="flex gap-2 ml-4 mt-2">
-                                    <button
-                                      onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        openRepairToTaskModal(request);
-                                      }}
-                                      className="bg-teal-600 hover:bg-teal-500 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2"
-                                      title="Send this repair request to the daily task list"
-                                    >
-                                      <ClipboardList className="w-4 h-4" />
-                                      Send to Daily Task
-                                    </button>
+                                    {repairRequestsWithTasks.has(request.id) ? (
+                                      <div className="flex items-center gap-2 bg-slate-700 text-teal-400 px-4 py-2 rounded-lg text-sm font-semibold border border-teal-700/50">
+                                        <CheckCircle className="w-4 h-4" />
+                                        Sent to Daily Task
+                                      </div>
+                                    ) : (
+                                      <button
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          openRepairToTaskModal(request);
+                                        }}
+                                        className="bg-teal-600 hover:bg-teal-500 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2"
+                                        title="Send this repair request to the daily task list"
+                                      >
+                                        <ClipboardList className="w-4 h-4" />
+                                        Send to Daily Task
+                                      </button>
+                                    )}
                                   </div>
                                 )}
 
