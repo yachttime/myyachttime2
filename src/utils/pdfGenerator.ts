@@ -734,7 +734,12 @@ export async function generateTripInspectionPDF(
 
     if (validPhotos.length > 0) {
       yPos += 0.08;
-      if (yPos + 0.3 > PH - 0.5) { doc.addPage(); yPos = M; }
+      const perRow = 3;
+      const gap = 0.08;
+      const imgW = (CW - gap * (perRow - 1)) / perRow;
+      const imgH = imgW * 0.72;
+      const minPhotoSectionH = 0.32 + imgH + 0.14; // header + one photo row + caption
+      if (yPos + minPhotoSectionH > PH - 0.5) { doc.addPage(); yPos = M; }
 
       fillRect(M, yPos, CW, 0.32, NAVY);
       doc.setTextColor(...WHITE);
@@ -743,11 +748,6 @@ export async function generateTripInspectionPDF(
       doc.text('INSPECTION PHOTOS', M + 0.08, yPos + 0.21);
       doc.setTextColor(0, 0, 0);
       yPos += 0.32;
-
-      const perRow = 3;
-      const gap = 0.08;
-      const imgW = (CW - gap * (perRow - 1)) / perRow;
-      const imgH = imgW * 0.72;
 
       for (let i = 0; i < validPhotos.length; i += perRow) {
         const rowPhotos = validPhotos.slice(i, i + perRow);
