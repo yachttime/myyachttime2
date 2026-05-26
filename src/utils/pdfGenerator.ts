@@ -578,53 +578,66 @@ export async function generateTripInspectionPDF(
   const normalItems = checkItems.filter(([, , n]) => !n);
   const noteItems   = checkItems.filter(([, , n]) => !!n);
 
-  // Draw two-column grid for normal items
-  const colGap = 0.06;
-  const colW2  = (CW - colGap) / 2;   // each column ~3.77"
-  const rowH   = 0.20;
-  const badgeW = 0.44;
-  const labelPad = 0.07;
-  const labelMaxW = colW2 - badgeW - 0.18; // space for label text
-
-  const drawCheckRow = (x: number, y: number, w: number, label: string, status: string | null) => {
-    const isWarn = status === 'warn';
-    const badgeBg = isWarn ? WARN_BG : OK_BG;
-    const badgeFg = isWarn ? WARN_FG : OK_FG;
-    const badgeTxt = isWarn ? 'NEEDS SVC' : 'OK';
-
-    fillRect(x, y, w, rowH - 0.01, [255, 255, 255]);
-    strokeRect(x, y, w, rowH - 0.01, BORDER);
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7.5);
-    doc.setTextColor(30, 40, 50);
-    // Clip label to available width so it never overlaps the badge
-    const labelLines = doc.splitTextToSize(label, labelMaxW);
-    doc.text(labelLines[0], x + labelPad, y + rowH * 0.64);
-
-    // Badge flush to right edge
-    const bx = x + w - badgeW - 0.05;
-    fillRect(bx, y + 0.03, badgeW, rowH - 0.07, badgeBg);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(6.5);
-    doc.setTextColor(badgeFg[0], badgeFg[1], badgeFg[2]);
-    doc.text(badgeTxt, bx + badgeW / 2, y + rowH * 0.62, { align: 'center' });
-    doc.setTextColor(0, 0, 0);
-  };
-
-  // Two columns: left and right
-  const leftItems  = normalItems.filter((_, i) => i % 2 === 0);
-  const rightItems = normalItems.filter((_, i) => i % 2 === 1);
-  const rows = Math.max(leftItems.length, rightItems.length);
-
-  for (let r = 0; r < rows; r++) {
-    if (yPos + rowH > PH - 0.5) { doc.addPage(); yPos = M; }
-    if (leftItems[r])  drawCheckRow(M,               yPos, colW2, leftItems[r][0],  getStatus(leftItems[r][1]));
-    if (rightItems[r]) drawCheckRow(M + colW2 + colGap, yPos, colW2, rightItems[r][0], getStatus(rightItems[r][1]));
-    yPos += rowH;
+  // Build two-column autoTable for normal items (no notes)
+  // Each pair of items fills one row: [label1, status1, label2, status2]
+  const tableRows: any[] = [];
+  for (let i = 0; i < normalItems.length; i += 2) {
+    const left  = normalItems[i];
+    const right = normalItems[i + 1];
+    const leftStatus  = getStatus(left[1]);
+    const rightStatus = right ? getStatus(right[1]) : null;
+    tableRows.push([
+      left[0],
+      leftStatus === 'warn' ? 'NEEDS SVC' : 'OK',
+      right ? right[0] : '',
+      right ? (rightStatus === 'warn' ? 'NEEDS SVC' : 'OK') : '',
+    ]);
   }
 
-  // Items with notes — full width
+  const statusCellStyles = (val: string, isWarn: boolean) => ({
+    content: val,
+    styles: {
+      fontStyle: 'bold' as const,
+      fontSize: 7,
+      textColor: isWarn ? [146, 64, 14] : [22, 101, 52],
+      fillColor: isWarn ? [254, 242, 220] : [230, 247, 237],
+      halign: 'center' as const,
+    },
+  });
+
+  const tableData = tableRows.map(([l1, s1, l2, s2]) => [
+    { content: l1, styles: { fontSize: 7.5, fontStyle: 'normal' as const, textColor: [30, 40, 50], fillColor: [255, 255, 255] } },
+    statusCellStyles(s1, s1 === 'NEEDS SVC'),
+    { content: l2, styles: { fontSize: 7.5, fontStyle: 'normal' as const, textColor: [30, 40, 50], fillColor: [255, 255, 255] } },
+    statusCellStyles(s2, s2 === 'NEEDS SVC'),
+  ]);
+
+  autoTable(doc, {
+    startY: yPos,
+    body: tableData,
+    columnStyles: {
+      0: { cellWidth: (CW / 2) - 0.5 },
+      1: { cellWidth: 0.5 },
+      2: { cellWidth: (CW / 2) - 0.5 },
+      3: { cellWidth: 0.5 },
+    },
+    styles: {
+      cellPadding: { top: 0.03, bottom: 0.03, left: 0.06, right: 0.04 },
+      lineColor: [210, 215, 220],
+      lineWidth: 0.005,
+      overflow: 'linebreak',
+    },
+    margin: { left: M, right: M },
+    theme: 'grid',
+    tableWidth: CW,
+  });
+
+  yPos = (doc as any).lastAutoTable.finalY + 0.08;
+
+  // Items with notes — full width rows
+  const rowH  = 0.20;
+  const badgeW = 0.5;
+
   for (const [label, val, note] of noteItems) {
     const isWarn = getStatus(val) === 'warn';
     const badgeBg = isWarn ? WARN_BG : OK_BG;
@@ -632,38 +645,38 @@ export async function generateTripInspectionPDF(
     const noteFg  = isWarn ? WARN_FG : OK_FG;
     const badgeTxt = isWarn ? 'NEEDS SVC' : 'OK';
 
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
     const noteLines = doc.splitTextToSize(note || '', CW - 0.2);
-    const h = rowH + noteLines.length * (7 / 72 * 1.3) + 0.06;
+    const noteLineH = 7 / 72 * 1.4;
+    const h = rowH + noteLines.length * noteLineH + 0.06;
 
     if (yPos + h > PH - 0.5) { doc.addPage(); yPos = M; }
 
     fillRect(M, yPos, CW, h, [255, 255, 255]);
     strokeRect(M, yPos, CW, h, BORDER);
 
-    // Left accent stripe for items needing service
-    if (isWarn) {
-      fillRect(M, yPos, 0.04, h, WARN_FG);
-    }
+    if (isWarn) fillRect(M, yPos, 0.04, h, WARN_FG);
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7.5);
+    doc.setFontSize(8);
     doc.setTextColor(30, 40, 50);
-    doc.text(label, M + 0.10, yPos + 0.135);
+    doc.text(label, M + 0.12, yPos + 0.14);
 
     const nbx = M + CW - badgeW - 0.05;
-    fillRect(nbx, yPos + 0.03, badgeW, rowH - 0.07, badgeBg);
+    fillRect(nbx, yPos + 0.035, badgeW, rowH - 0.08, badgeBg);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(6.5);
+    doc.setFontSize(7);
     doc.setTextColor(badgeFg[0], badgeFg[1], badgeFg[2]);
-    doc.text(badgeTxt, nbx + badgeW / 2, yPos + rowH * 0.62, { align: 'center' });
+    doc.text(badgeTxt, nbx + badgeW / 2, yPos + rowH * 0.60, { align: 'center' });
 
     doc.setFont('helvetica', 'italic');
     doc.setFontSize(7);
     doc.setTextColor(noteFg[0], noteFg[1], noteFg[2]);
-    doc.text(noteLines, M + 0.10, yPos + rowH + 0.02);
+    doc.text(noteLines, M + 0.12, yPos + rowH + 0.02);
     doc.setTextColor(0, 0, 0);
 
-    yPos += h + 0.03;
+    yPos += h + 0.04;
   }
 
   // ── Additional Notes ──────────────────────────────────────────────────────────
