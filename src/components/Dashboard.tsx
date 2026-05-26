@@ -18202,7 +18202,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 ? allUsers
                                 : allUsers.filter((user) => user.is_active !== false);
 
-                              if (isStaffRole(effectiveRole) && userProfile?.role !== 'master') {
+                              if (isStaffRole(effectiveRole) || isMasterRole(effectiveRole)) {
                                 if (printYachtFilter !== 'all') {
                                   filteredUsers = filteredUsers.filter((user) => user.yacht_id === printYachtFilter);
                                 }
@@ -18221,15 +18221,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               }));
 
                               let title = 'User List';
-                              if (isStaffRole(effectiveRole) && userProfile?.role !== 'master') {
+                              if (isStaffRole(effectiveRole) || isMasterRole(effectiveRole)) {
                                 if (printYachtFilter !== 'all') {
                                   const yachtName = allYachts.find(y => y.id === printYachtFilter)?.name;
                                   title = yachtName ? `${yachtName} - User List` : 'User List';
                                 } else {
                                   title = 'All Yachts - User List';
                                 }
-                              } else if (effectiveRole === 'master') {
-                                title = 'All Yachts - User List';
                               } else if ((effectiveRole === 'owner' || effectiveRole === 'manager') && effectiveYacht?.id) {
                                 const yachtName = allYachts.find(y => y.id === effectiveYacht.id)?.name;
                                 title = yachtName ? `${yachtName} - User List` : 'User List';
