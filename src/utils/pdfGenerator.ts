@@ -413,209 +413,332 @@ export async function generateTripInspectionPDF(
   inspection: TripInspection & { yachts?: { name: string }; user_profiles?: { first_name: string; last_name: string } },
   photos?: InspectionPhoto[]
 ): Promise<jsPDF> {
-  const doc = new jsPDF({
-    orientation: 'portrait',
-    unit: 'in',
-    format: 'letter',
-  });
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'in', format: 'letter' });
 
-  const pageWidth = 8.5;
-  const margin = 0.75;
-  const contentWidth = pageWidth - (margin * 2);
-  let yPos = margin;
+  const PW = 8.5;
+  const PH = 11;
+  const M = 0.45;
+  const CW = PW - M * 2;
+  const anyI = inspection as any;
 
-  const addText = (text: string, fontSize: number = 10, style: 'normal' | 'bold' = 'normal') => {
-    doc.setFontSize(fontSize);
-    doc.setFont('helvetica', style);
+  // ── Colour palette ──────────────────────────────────────────────────────────
+  const NAVY  = [10, 36, 64]   as [number,number,number];
+  const TEAL  = [0, 128, 128]  as [number,number,number];
+  const OK_BG    = [230, 247, 237] as [number,number,number];
+  const OK_FG    = [22, 101, 52]  as [number,number,number];
+  const WARN_BG  = [254, 242, 220] as [number,number,number];
+  const WARN_FG  = [146, 64, 14]  as [number,number,number];
+  const LIGHT_BG = [245, 247, 250] as [number,number,number];
+  const BORDER   = [210, 215, 220] as [number,number,number];
+  const TEXT_DIM = [100, 110, 120] as [number,number,number];
+  const WHITE    = [255, 255, 255] as [number,number,number];
 
-    if (yPos > 10.25) {
-      doc.addPage();
-      yPos = margin;
-    }
-
-    const lines = doc.splitTextToSize(text, contentWidth);
-    doc.text(lines, margin, yPos);
-    yPos += (lines.length * fontSize / 72 * 1.2);
+  // ── Helper: draw a filled rect ───────────────────────────────────────────────
+  const fillRect = (x: number, y: number, w: number, h: number, rgb: [number,number,number]) => {
+    doc.setFillColor(...rgb);
+    doc.rect(x, y, w, h, 'F');
   };
 
-  const addSpace = (inches: number = 0.15) => {
-    yPos += inches;
-    if (yPos > 10.25) {
-      doc.addPage();
-      yPos = margin;
-    }
-  };
+  // ── Header bar ───────────────────────────────────────────────────────────────
+  fillRect(0, 0, PW, 1.0, NAVY);
 
-  const addLine = () => {
-    if (yPos > 10.25) {
-      doc.addPage();
-      yPos = margin;
-    }
-    doc.setLineWidth(0.02);
-    doc.line(margin, yPos, pageWidth - margin, yPos);
-    yPos += 0.1;
-  };
+  doc.setTextColor(...WHITE);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(18);
+  doc.text('TRIP INSPECTION REPORT', M, 0.42);
 
-  const addInspectionItem = (label: string, condition?: string, notes?: string) => {
-    if (!condition) return;
+  const typeLabel = (inspection.inspection_type === 'check_in' ? 'Check-In' :
+                     inspection.inspection_type === 'check_out' ? 'Check-Out' : 'Inspection').toUpperCase();
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text(typeLabel, PW - M, 0.42, { align: 'right' });
 
-    const getConditionLabel = () => {
-      if (condition === 'needs service' || condition === 'poor' || condition === 'needs_repair') {
-        return 'Needs Service';
-      } else if (condition === 'ok' || condition === 'good' || condition === 'excellent') {
-        return 'OK';
-      }
-      return condition.replace('_', ' ');
-    };
+  // Yacht / Inspector / Date row inside header
+  doc.setFontSize(9);
+  const yachtName = inspection.yachts?.name || 'Unknown';
+  const inspectorName = `${inspection.user_profiles?.first_name || ''} ${inspection.user_profiles?.last_name || ''}`.trim();
+  const dateStr = phxDateTime(inspection.inspection_date);
+  doc.text(`Vessel: ${yachtName}`, M, 0.68);
+  doc.text(`Inspector: ${inspectorName}`, M + CW * 0.35, 0.68);
+  doc.text(`Date: ${dateStr}`, M + CW * 0.70, 0.68);
 
-    addText(`${label}: ${getConditionLabel()}`, 10, 'bold');
-    if (notes) {
-      addText(`  Notes: ${notes}`, 9);
-    }
-    addSpace(0.1);
-  };
+  // Accent stripe under header
+  fillRect(0, 1.0, PW, 0.04, TEAL);
 
-  addText('Trip Inspection Report', 18, 'bold');
-  addSpace(0.3);
+  let yPos = 1.18;
 
-  addText(`Yacht: ${inspection.yachts?.name || 'Unknown'}`, 10, 'bold');
-  addText(`Inspector: ${inspection.user_profiles?.first_name || ''} ${inspection.user_profiles?.last_name || ''}`, 10);
-  addText(`Inspection Type: ${inspection.inspection_type?.replace('_', '-') || 'N/A'}`, 10);
-  addText(`Date: ${phxDateTime(inspection.inspection_date)}`, 10);
-  addSpace(0.25);
-  addLine();
+  // ── Issues Found badge ────────────────────────────────────────────────────────
+  const issuesBg  = inspection.issues_found ? WARN_BG : OK_BG;
+  const issuesFg  = inspection.issues_found ? WARN_FG : OK_FG;
+  const issuesLbl = inspection.issues_found ? '  ISSUES FOUND' : '  ALL CLEAR';
+  fillRect(M, yPos, 1.6, 0.22, issuesBg);
+  doc.setFillColor(...issuesFg);
+  doc.setTextColor(...issuesFg);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.text(issuesLbl, M + 0.08, yPos + 0.145);
+  doc.setTextColor(0, 0, 0);
 
-  addText('Inspection Details', 14, 'bold');
-  addSpace(0.15);
+  yPos += 0.34;
 
-  const anyInspection = inspection as any;
-
-  addInspectionItem('Hull Damage', inspection.hull_condition, inspection.hull_notes);
-  addInspectionItem('Shore Cords', inspection.deck_condition, inspection.deck_notes);
-  addInspectionItem('Trash Removed', anyInspection.trash_removed, anyInspection.trash_removed_notes);
-
+  // ── Engine & Generator Hours ──────────────────────────────────────────────────
   if (inspection.cabin_notes || inspection.galley_notes || inspection.head_notes || inspection.cabin_condition) {
-    addText('Engine & Generator Hours', 12, 'bold');
-    addSpace(0.1);
-    if (inspection.cabin_notes) addText(`Port Engine Hours: ${inspection.cabin_notes}`, 10);
-    if (inspection.galley_notes) addText(`Starboard Engine Hours: ${inspection.galley_notes}`, 10);
-    if (inspection.head_notes) addText(`Port Generator Hours: ${inspection.head_notes}`, 10);
-    if (inspection.cabin_condition) addText(`Starboard Generator Hours: ${inspection.cabin_condition}`, 10);
-    addSpace(0.15);
+    fillRect(M, yPos, CW, 0.2, NAVY);
+    doc.setTextColor(...WHITE);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.text('ENGINE & GENERATOR HOURS', M + 0.08, yPos + 0.135);
+    doc.setTextColor(0, 0, 0);
+    yPos += 0.22;
+
+    const hrItems = [
+      ['Port Engine', inspection.cabin_notes],
+      ['Stbd Engine', inspection.galley_notes],
+      ['Port Gen', inspection.head_notes],
+      ['Stbd Gen', inspection.cabin_condition],
+    ].filter(([, v]) => v);
+
+    const colW = CW / 4;
+    fillRect(M, yPos, CW, 0.26, LIGHT_BG);
+    doc.setFillColor(...BORDER);
+    doc.rect(M, yPos, CW, 0.26, 'S');
+
+    hrItems.forEach(([label, val], i) => {
+      const x = M + i * colW;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(...TEXT_DIM);
+      doc.text(label || '', x + 0.06, yPos + 0.10);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(0, 0, 0);
+      doc.text(String(val || ''), x + 0.06, yPos + 0.21);
+    });
+    yPos += 0.34;
   }
 
-  addInspectionItem('Overall Condition', inspection.overall_condition);
-  addInspectionItem('Inverter System', anyInspection.inverter_system, anyInspection.inverter_notes);
-  addInspectionItem('Master Bathroom', anyInspection.master_bathroom, anyInspection.master_bathroom_notes);
-  addInspectionItem('Secondary Bathroom', anyInspection.secondary_bathroom, anyInspection.secondary_bathroom_notes);
-  addInspectionItem('Upper Deck Bathroom', anyInspection.upper_deck_bathroom, anyInspection.upper_deck_bathroom_notes);
-  addInspectionItem('Lower Sinks', anyInspection.lower_sinks, anyInspection.lower_sinks_notes);
-  addInspectionItem('Kitchen Sink', anyInspection.kitchen_sink, anyInspection.kitchen_sink_notes);
-  addInspectionItem('Upper Kitchen Sink', anyInspection.upper_kitchen_sink, anyInspection.upper_kitchen_sink_notes);
-  addInspectionItem('Garbage Disposal', anyInspection.garbage_disposal, anyInspection.garbage_disposal_notes);
-  addInspectionItem('Upper Disposal', anyInspection.upper_disposal, anyInspection.upper_disposal_notes);
-  addInspectionItem('Stove Top', anyInspection.stove_top, anyInspection.stove_top_notes);
-  addInspectionItem('Upper Stove Top', anyInspection.upper_stove_top, anyInspection.upper_stove_top_notes);
-  addInspectionItem('Dishwasher', anyInspection.dishwasher, anyInspection.dishwasher_notes);
-  addInspectionItem('Trash Compactor', anyInspection.trash_compactor, anyInspection.trash_compactor_notes);
-  addInspectionItem('Ice Maker', anyInspection.icemaker, anyInspection.icemaker_notes);
-  addInspectionItem('12V Fans', anyInspection.volt_fans, anyInspection.volt_fans_notes);
-  addInspectionItem('AC Filters', anyInspection.ac_filters, anyInspection.ac_filters_notes);
-  addInspectionItem('Upper AC Filter', anyInspection.upper_ac_filter, anyInspection.upper_ac_filter_notes);
-  addInspectionItem('AC Water Pumps', anyInspection.ac_water_pumps, anyInspection.ac_water_pumps_notes);
-  addInspectionItem('Water Filters', anyInspection.water_filters, anyInspection.water_filters_notes);
-  addInspectionItem('Water Pumps Controls', anyInspection.water_pumps_controls, anyInspection.water_pumps_controls_notes);
-  addInspectionItem('Propane', anyInspection.propane, anyInspection.propane_notes);
-  addInspectionItem('Windless Port', anyInspection.windless_port, anyInspection.windless_port_notes);
-  addInspectionItem('Windless Starboard', anyInspection.windless_starboard, anyInspection.windless_starboard_notes);
-  addInspectionItem('Anchor Lines', anyInspection.anchor_lines, anyInspection.anchor_lines_notes);
-  addInspectionItem('Port Engine Oil', anyInspection.port_engine_oil, anyInspection.port_engine_oil_notes);
-  addInspectionItem('Starboard Engine Oil', anyInspection.starboard_engine_oil, anyInspection.starboard_engine_oil_notes);
-  addInspectionItem('Port Generator Oil', anyInspection.port_generator_oil, anyInspection.port_generator_oil_notes);
-  addInspectionItem('Starboard Generator Oil', anyInspection.starboard_generator_oil, anyInspection.starboard_generator_oil_notes);
-  addInspectionItem('Sea Strainers', anyInspection.sea_strainers, anyInspection.sea_strainers_notes);
-  addInspectionItem('Engine Batteries', anyInspection.engine_batteries, anyInspection.engine_batteries_notes);
+  // ── Checklist section ─────────────────────────────────────────────────────────
+  fillRect(M, yPos, CW, 0.2, NAVY);
+  doc.setTextColor(...WHITE);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.text('INSPECTION CHECKLIST', M + 0.08, yPos + 0.135);
+  doc.setTextColor(0, 0, 0);
+  yPos += 0.22;
 
+  const getStatus = (val?: string) => {
+    if (!val) return null;
+    if (['needs service', 'poor', 'needs_repair', 'needs service'].includes(val.toLowerCase())) return 'warn';
+    if (['ok', 'good', 'excellent'].includes(val.toLowerCase())) return 'ok';
+    return 'other';
+  };
+
+  const checkItems: Array<[string, string | undefined, string | undefined]> = [
+    ['Hull Damage',          inspection.hull_condition,             inspection.hull_notes],
+    ['Shore Cords',          inspection.deck_condition,             inspection.deck_notes],
+    ['Trash Removed',        anyI.trash_removed,                    anyI.trash_removed_notes],
+    ['Overall Condition',    inspection.overall_condition,          undefined],
+    ['Inverter System',      anyI.inverter_system,                  anyI.inverter_notes],
+    ['Master Bathroom',      anyI.master_bathroom,                  anyI.master_bathroom_notes],
+    ['Secondary Bathroom',   anyI.secondary_bathroom,               anyI.secondary_bathroom_notes],
+    ['Upper Deck Bathroom',  anyI.upper_deck_bathroom,              anyI.upper_deck_bathroom_notes],
+    ['Lower Sinks',          anyI.lower_sinks,                      anyI.lower_sinks_notes],
+    ['Kitchen Sink',         anyI.kitchen_sink,                     anyI.kitchen_sink_notes],
+    ['Upper Kitchen Sink',   anyI.upper_kitchen_sink,               anyI.upper_kitchen_sink_notes],
+    ['Garbage Disposal',     anyI.garbage_disposal,                 anyI.garbage_disposal_notes],
+    ['Upper Disposal',       anyI.upper_disposal,                   anyI.upper_disposal_notes],
+    ['Stove Top',            anyI.stove_top,                        anyI.stove_top_notes],
+    ['Upper Stove Top',      anyI.upper_stove_top,                  anyI.upper_stove_top_notes],
+    ['Dishwasher',           anyI.dishwasher,                       anyI.dishwasher_notes],
+    ['Trash Compactor',      anyI.trash_compactor,                  anyI.trash_compactor_notes],
+    ['Ice Maker',            anyI.icemaker,                         anyI.icemaker_notes],
+    ['12V Fans',             anyI.volt_fans,                        anyI.volt_fans_notes],
+    ['AC Filters',           anyI.ac_filters,                       anyI.ac_filters_notes],
+    ['Upper AC Filter',      anyI.upper_ac_filter,                  anyI.upper_ac_filter_notes],
+    ['AC Water Pumps',       anyI.ac_water_pumps,                   anyI.ac_water_pumps_notes],
+    ['Water Filters',        anyI.water_filters,                    anyI.water_filters_notes],
+    ['Water Pump Controls',  anyI.water_pumps_controls,             anyI.water_pumps_controls_notes],
+    ['Propane',              anyI.propane,                          anyI.propane_notes],
+    ['Windlass Port',        anyI.windless_port,                    anyI.windless_port_notes],
+    ['Windlass Stbd',        anyI.windless_starboard,               anyI.windless_starboard_notes],
+    ['Anchor Lines',         anyI.anchor_lines,                     anyI.anchor_lines_notes],
+    ['Port Engine Oil',      anyI.port_engine_oil,                  anyI.port_engine_oil_notes],
+    ['Stbd Engine Oil',      anyI.starboard_engine_oil,             anyI.starboard_engine_oil_notes],
+    ['Port Generator Oil',   anyI.port_generator_oil,               anyI.port_generator_oil_notes],
+    ['Stbd Generator Oil',   anyI.starboard_generator_oil,          anyI.starboard_generator_oil_notes],
+    ['Sea Strainers',        anyI.sea_strainers,                    anyI.sea_strainers_notes],
+    ['Engine Batteries',     anyI.engine_batteries,                 anyI.engine_batteries_notes],
+  ].filter(([, v]) => v) as Array<[string, string | undefined, string | undefined]>;
+
+  // Separate items with notes (need extra height) from normal items
+  const normalItems = checkItems.filter(([, , n]) => !n);
+  const noteItems   = checkItems.filter(([, , n]) => !!n);
+
+  // Draw two-column grid for normal items
+  const colW2 = CW / 2;
+  const rowH  = 0.195;
+  const badgeW = 0.52;
+
+  const drawCheckRow = (x: number, y: number, w: number, label: string, status: string | null) => {
+    const isWarn = status === 'warn';
+    const bg = isWarn ? WARN_BG : (status === 'ok' ? OK_BG : LIGHT_BG);
+    const fg = isWarn ? WARN_FG : OK_FG;
+    const badgeTxt = isWarn ? 'NEEDS SVC' : 'OK';
+
+    fillRect(x, y, w, rowH - 0.01, LIGHT_BG);
+    doc.setFillColor(...BORDER);
+    doc.rect(x, y, w, rowH - 0.01, 'S');
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(30, 40, 50);
+    doc.text(label, x + 0.06, y + rowH * 0.64);
+
+    // Badge
+    fillRect(x + w - badgeW - 0.06, y + 0.03, badgeW, rowH - 0.07, bg);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.5);
+    doc.setTextColor(...fg);
+    doc.text(badgeTxt, x + w - badgeW / 2 - 0.06, y + rowH * 0.62, { align: 'center' });
+    doc.setTextColor(0, 0, 0);
+  };
+
+  // Two columns: left and right
+  const leftItems  = normalItems.filter((_, i) => i % 2 === 0);
+  const rightItems = normalItems.filter((_, i) => i % 2 === 1);
+  const rows = Math.max(leftItems.length, rightItems.length);
+
+  for (let r = 0; r < rows; r++) {
+    if (yPos + rowH > PH - 0.5) { doc.addPage(); yPos = M; }
+    if (leftItems[r])  drawCheckRow(M,          yPos, colW2 - 0.04, leftItems[r][0],  getStatus(leftItems[r][1]));
+    if (rightItems[r]) drawCheckRow(M + colW2,  yPos, colW2 - 0.04, rightItems[r][0], getStatus(rightItems[r][1]));
+    yPos += rowH;
+  }
+
+  // Items with notes — full width
+  for (const [label, val, note] of noteItems) {
+    const isWarn = getStatus(val) === 'warn';
+    const bg = isWarn ? WARN_BG : OK_BG;
+    const fg = isWarn ? WARN_FG : OK_FG;
+    const badgeTxt = isWarn ? 'NEEDS SVC' : 'OK';
+    const noteH = 0.1;
+    const h = rowH + noteH + 0.02;
+
+    if (yPos + h > PH - 0.5) { doc.addPage(); yPos = M; }
+
+    fillRect(M, yPos, CW, h, LIGHT_BG);
+    doc.setFillColor(...BORDER);
+    doc.rect(M, yPos, CW, h, 'S');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(30, 40, 50);
+    doc.text(label, M + 0.06, yPos + 0.13);
+
+    fillRect(M + CW - badgeW - 0.06, yPos + 0.03, badgeW, rowH - 0.07, bg);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.5);
+    doc.setTextColor(...fg);
+    doc.text(badgeTxt, M + CW - badgeW / 2 - 0.06, yPos + rowH * 0.62, { align: 'center' });
+
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(7);
+    doc.setTextColor(...WARN_FG);
+    const noteLines = doc.splitTextToSize(note || '', CW - 0.2);
+    doc.text(noteLines, M + 0.06, yPos + rowH + 0.03);
+    doc.setTextColor(0, 0, 0);
+
+    yPos += h + 0.02;
+  }
+
+  // ── Additional Notes ──────────────────────────────────────────────────────────
   if (inspection.additional_notes) {
-    addSpace(0.15);
-    addText('Additional Notes', 12, 'bold');
-    addSpace(0.1);
-    addText(inspection.additional_notes, 9);
+    yPos += 0.08;
+    if (yPos + 0.5 > PH - 0.5) { doc.addPage(); yPos = M; }
+
+    fillRect(M, yPos, CW, 0.2, NAVY);
+    doc.setTextColor(...WHITE);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.text('ADDITIONAL NOTES', M + 0.08, yPos + 0.135);
+    doc.setTextColor(0, 0, 0);
+    yPos += 0.22;
+
+    const noteLines = doc.splitTextToSize(inspection.additional_notes, CW - 0.12);
+    const noteBlockH = noteLines.length * (8 / 72 * 1.3) + 0.1;
+    fillRect(M, yPos, CW, noteBlockH, LIGHT_BG);
+    doc.setFillColor(...BORDER);
+    doc.rect(M, yPos, CW, noteBlockH, 'S');
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.text(noteLines, M + 0.06, yPos + 0.12);
+    yPos += noteBlockH + 0.06;
   }
 
-  addSpace(0.15);
-  addText(`Issues Found: ${inspection.issues_found ? 'Yes' : 'No'}`, 11, 'bold');
-
+  // ── Photos ────────────────────────────────────────────────────────────────────
   if (photos && photos.length > 0) {
-    const catLabels: Record<string, string> = {
-      port_prop: 'Port Propeller',
-      starboard_prop: 'Starboard Propeller',
-      damage: 'Damage',
-      general: 'General',
-    };
+    const allPhotos = photos.slice(0, 6); // max 6 photos, 3 per row
+    const dataUrls = await Promise.all(allPhotos.map(p => loadImageAsDataUrl(p.photo_url)));
+    const validPhotos = allPhotos.map((p, i) => ({ ...p, dataUrl: dataUrls[i] })).filter(p => p.dataUrl);
 
-    const categories = ['port_prop', 'starboard_prop', 'damage', 'general'] as const;
-    const photosByCategory = categories.map(cat => ({
-      cat,
-      label: catLabels[cat],
-      items: photos.filter(p => p.category === cat),
-    })).filter(g => g.items.length > 0);
+    if (validPhotos.length > 0) {
+      yPos += 0.08;
+      if (yPos + 0.3 > PH - 0.5) { doc.addPage(); yPos = M; }
 
-    if (photosByCategory.length > 0) {
-      addSpace(0.25);
-      addLine();
-      addText('Inspection Photos', 14, 'bold');
-      addSpace(0.15);
+      fillRect(M, yPos, CW, 0.2, NAVY);
+      doc.setTextColor(...WHITE);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.5);
+      doc.text('INSPECTION PHOTOS', M + 0.08, yPos + 0.135);
+      doc.setTextColor(0, 0, 0);
+      yPos += 0.22;
 
-      const imgWidth = 3.2;
-      const imgHeight = 2.4;
-      const imgsPerRow = 2;
-      const hGap = 0.1;
+      const perRow = 3;
+      const gap = 0.08;
+      const imgW = (CW - gap * (perRow - 1)) / perRow;
+      const imgH = imgW * 0.72;
 
-      for (const group of photosByCategory) {
-        addText(group.label, 12, 'bold');
-        addSpace(0.1);
+      for (let i = 0; i < validPhotos.length; i += perRow) {
+        const rowPhotos = validPhotos.slice(i, i + perRow);
+        const captionH = 0.14;
+        const totalH = imgH + captionH;
 
-        const dataUrls = await Promise.all(group.items.map(p => loadImageAsDataUrl(p.photo_url)));
+        if (yPos + totalH > PH - 0.45) { doc.addPage(); yPos = M; }
 
-        let col = 0;
-        let rowStartY = yPos;
-        for (let i = 0; i < group.items.length; i++) {
-          const dataUrl = dataUrls[i];
-          if (!dataUrl) { col++; continue; }
+        rowPhotos.forEach((p, j) => {
+          const x = M + j * (imgW + gap);
+          doc.addImage(p.dataUrl!, 'JPEG', x, yPos, imgW, imgH);
 
-          const xPos = margin + col * (imgWidth + hGap);
-          if (yPos + imgHeight > 10.25) {
-            doc.addPage();
-            yPos = margin;
-            rowStartY = yPos;
-          }
-
-          doc.addImage(dataUrl, 'JPEG', xPos, yPos, imgWidth, imgHeight);
-
-          const caption = group.items[i].caption?.trim();
-          if (caption) {
-            doc.setFontSize(8);
+          const catLabels: Record<string, string> = {
+            port_prop: 'Port Propeller', starboard_prop: 'Stbd Propeller',
+            damage: 'Damage', general: 'General',
+          };
+          const cap = p.caption?.trim() || catLabels[p.category || ''] || '';
+          if (cap) {
             doc.setFont('helvetica', 'normal');
-            doc.setTextColor(80, 80, 80);
-            doc.text(caption, xPos + imgWidth / 2, yPos + imgHeight + 0.12, { align: 'center' });
+            doc.setFontSize(6.5);
+            doc.setTextColor(...TEXT_DIM);
+            doc.text(cap, x + imgW / 2, yPos + imgH + 0.10, { align: 'center' });
             doc.setTextColor(0, 0, 0);
           }
+        });
 
-          col++;
-          if (col >= imgsPerRow) {
-            col = 0;
-            yPos = rowStartY + imgHeight + 0.25;
-            rowStartY = yPos;
-          }
-        }
-
-        if (col > 0) {
-          yPos = rowStartY + imgHeight + 0.25;
-        }
-        addSpace(0.15);
+        yPos += totalH + 0.06;
       }
     }
+  }
+
+  // ── Footer ────────────────────────────────────────────────────────────────────
+  const pageCount = (doc as any).internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    fillRect(0, PH - 0.32, PW, 0.32, NAVY);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(...WHITE);
+    doc.text(`${yachtName}  |  ${typeLabel}  |  ${dateStr}`, M, PH - 0.12);
+    doc.text(`Page ${i} of ${pageCount}`, PW - M, PH - 0.12, { align: 'right' });
+    doc.setTextColor(0, 0, 0);
   }
 
   return doc;
