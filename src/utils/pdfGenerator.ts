@@ -634,78 +634,58 @@ export async function generateTripInspectionPDF(
 
   yPos = (doc as any).lastAutoTable.finalY + 0.08;
 
-  // Items with notes — full width rows rendered via autoTable for reliable layout
+  // Items with notes — drawn manually for full control
+  const noteRowH = 0.195;
+  const noteBadgeW = 0.5;
+
   for (const [label, val, note] of noteItems) {
     const isWarn = getStatus(val) === 'warn';
+    const badgeBg = isWarn ? WARN_BG : OK_BG;
+    const badgeFg = isWarn ? WARN_FG : OK_FG;
+    const noteFg  = isWarn ? WARN_FG : OK_FG;
     const badgeTxt = isWarn ? 'NEEDS SVC' : 'OK';
-    const badgeFg  = isWarn ? [146, 64, 14]  : [22, 101, 52];
-    const badgeBgC = isWarn ? [254, 242, 220] : [230, 247, 237];
-    const noteFgC  = isWarn ? [146, 64, 14]  : [22, 101, 52];
-    const accentFg = isWarn ? [146, 64, 14]  : [22, 101, 52];
 
-    if (yPos + 0.5 > PH - 0.5) { doc.addPage(); yPos = M; }
+    // Measure note text height before drawing
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(7);
+    const noteMaxW = CW - 0.22;
+    const noteLines = doc.splitTextToSize(note || '', noteMaxW);
+    const noteLineH = 0.115; // ~7pt line height in inches
+    const totalH = noteRowH + noteLines.length * noteLineH + 0.06;
 
-    autoTable(doc, {
-      startY: yPos,
-      body: [
-        [
-          {
-            content: label,
-            styles: {
-              fontStyle: 'bold' as const,
-              fontSize: 8,
-              textColor: [30, 40, 50] as [number,number,number],
-              fillColor: [255, 255, 255] as [number,number,number],
-              cellPadding: { top: 0.05, bottom: 0.02, left: 0.10, right: 0.04 },
-            },
-          },
-          {
-            content: badgeTxt,
-            styles: {
-              fontStyle: 'bold' as const,
-              fontSize: 7,
-              textColor: badgeFg as [number,number,number],
-              fillColor: badgeBgC as [number,number,number],
-              halign: 'center' as const,
-              cellPadding: { top: 0.05, bottom: 0.02, left: 0.04, right: 0.04 },
-            },
-          },
-        ],
-        [
-          {
-            content: note || '',
-            colSpan: 2,
-            styles: {
-              fontStyle: 'italic' as const,
-              fontSize: 7,
-              textColor: noteFgC as [number,number,number],
-              fillColor: [255, 255, 255] as [number,number,number],
-              cellPadding: { top: 0.02, bottom: 0.05, left: 0.10, right: 0.04 },
-            },
-          },
-        ],
-      ],
-      columnStyles: {
-        0: { cellWidth: CW - 0.6 },
-        1: { cellWidth: 0.6 },
-      },
-      styles: {
-        lineColor: [210, 215, 220] as [number,number,number],
-        lineWidth: 0.005,
-        overflow: 'linebreak',
-      },
-      // Left accent stripe via didDrawCell hook
-      didDrawCell: (data: any) => {
-        if (isWarn && data.column.index === 0 && data.row.index === 0) {
-          fillRect(data.cell.x, data.cell.y, 0.04, data.table.height, accentFg as [number,number,number]);
-        }
-      },
-      margin: { left: M, right: M },
-      theme: 'grid',
-      tableWidth: CW,
-    });
+    if (yPos + totalH > PH - 0.5) { doc.addPage(); yPos = M; }
 
-    yPos = (doc as any).lastAutoTable.finalY + 0.06;
+    // Row background + border
+    fillRect(M, yPos, CW, totalH, [255, 255, 255]);
+    strokeRect(M, yPos, CW, totalH, BORDER);
+
+    // Left accent stripe for warn items
+    if (isWarn) fillRect(M, yPos, 0.04, totalH, WARN_FG);
+
+    // Label (bold)
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(30, 40, 50);
+    doc.text(label, M + 0.12, yPos + 0.135);
+
+    // Badge (right-aligned, top portion only)
+    const nbx = M + CW - noteBadgeW - 0.05;
+    const badgeH = noteRowH - 0.07;
+    fillRect(nbx, yPos + 0.035, noteBadgeW, badgeH, badgeBg);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(badgeFg[0], badgeFg[1], badgeFg[2]);
+    doc.text(badgeTxt, nbx + noteBadgeW / 2, yPos + 0.035 + badgeH * 0.65, { align: 'center' });
+
+    // Note text (italic, below label row)
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(7);
+    doc.setTextColor(noteFg[0], noteFg[1], noteFg[2]);
+    const noteY = yPos + noteRowH + 0.01;
+    doc.text(noteLines, M + 0.12, noteY);
+
+    doc.setTextColor(0, 0, 0);
+    yPos += totalH + 0.04;
   }
 
   // ── Additional Notes ──────────────────────────────────────────────────────────
