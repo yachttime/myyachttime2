@@ -635,8 +635,16 @@ export async function generateTripInspectionPDF(
   yPos = (doc as any).lastAutoTable.finalY + 0.08;
 
   // Items with notes — drawn manually for full control
-  const noteRowH = 0.195;
+  // Layout: topPad | label(8pt) | labelToNote gap | note(7pt) × N lines | bottomPad
   const noteBadgeW = 0.5;
+  const labelFontPt = 8;
+  const noteFontPt  = 7;
+  const ptToIn = 1 / 72;
+  const labelH  = labelFontPt * ptToIn;   // text height ~0.111"
+  const noteH   = noteFontPt  * ptToIn;   // text height ~0.097"
+  const topPad  = 0.08;
+  const noteGap = 0.06;  // gap between label baseline and note top
+  const botPad  = 0.08;
 
   for (const [label, val, note] of noteItems) {
     const isWarn = getStatus(val) === 'warn';
@@ -645,13 +653,13 @@ export async function generateTripInspectionPDF(
     const noteFg  = isWarn ? WARN_FG : OK_FG;
     const badgeTxt = isWarn ? 'NEEDS SVC' : 'OK';
 
-    // Measure note text height before drawing
+    // Measure note text
     doc.setFont('helvetica', 'italic');
-    doc.setFontSize(7);
+    doc.setFontSize(noteFontPt);
     const noteMaxW = CW - 0.22;
     const noteLines = doc.splitTextToSize(note || '', noteMaxW);
-    const noteLineH = (7 / 72) * 1.5; // 7pt × 1.5 line-spacing in inches ≈ 0.146"
-    const totalH = noteRowH + noteLines.length * noteLineH + 0.10;
+    const noteLineH = noteH * 1.5;
+    const totalH = topPad + labelH + noteGap + noteLines.length * noteLineH + botPad;
 
     if (yPos + totalH > PH - 0.5) { doc.addPage(); yPos = M; }
 
@@ -662,27 +670,31 @@ export async function generateTripInspectionPDF(
     // Left accent stripe for warn items
     if (isWarn) fillRect(M, yPos, 0.04, totalH, WARN_FG);
 
-    // Label (bold)
+    // Label (bold) — baseline at topPad + labelH
+    const labelBaseline = yPos + topPad + labelH;
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
+    doc.setFontSize(labelFontPt);
     doc.setTextColor(30, 40, 50);
-    doc.text(label, M + 0.12, yPos + 0.135);
+    doc.text(label, M + 0.12, labelBaseline);
 
-    // Badge (right-aligned, top portion only)
+    // Badge — vertically centered in the label row zone
+    const badgeRowH = topPad + labelH;
     const nbx = M + CW - noteBadgeW - 0.05;
-    const badgeH = noteRowH - 0.07;
-    fillRect(nbx, yPos + 0.035, noteBadgeW, badgeH, badgeBg);
+    const badgeH = badgeRowH - 0.04;
+    fillRect(nbx, yPos + 0.02, noteBadgeW, badgeH, badgeBg);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7);
     doc.setTextColor(badgeFg[0], badgeFg[1], badgeFg[2]);
-    doc.text(badgeTxt, nbx + noteBadgeW / 2, yPos + 0.035 + badgeH * 0.65, { align: 'center' });
+    doc.text(badgeTxt, nbx + noteBadgeW / 2, yPos + 0.02 + badgeH * 0.68, { align: 'center' });
 
-    // Note text (italic, below label baseline with clear gap)
+    // Note lines — first baseline below label baseline + gap
+    const firstNoteBaseline = labelBaseline + noteGap + noteH;
     doc.setFont('helvetica', 'italic');
-    doc.setFontSize(7);
+    doc.setFontSize(noteFontPt);
     doc.setTextColor(noteFg[0], noteFg[1], noteFg[2]);
-    const noteY = yPos + noteRowH + noteLineH * 0.5;
-    doc.text(noteLines, M + 0.12, noteY);
+    noteLines.forEach((line: string, i: number) => {
+      doc.text(line, M + 0.12, firstNoteBaseline + i * noteLineH);
+    });
 
     doc.setTextColor(0, 0, 0);
     yPos += totalH + 0.04;
