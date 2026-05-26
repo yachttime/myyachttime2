@@ -488,13 +488,13 @@ export async function generateTripInspectionPDF(
 
   // ── Engine & Generator Hours ──────────────────────────────────────────────────
   if (inspection.cabin_notes || inspection.galley_notes || inspection.head_notes || inspection.cabin_condition) {
-    const sectionHdrH = 0.26;
+    const sectionHdrH = 0.32;
     if (yPos + sectionHdrH + 0.3 > PH - 0.5) { doc.addPage(); yPos = M; }
     fillRect(M, yPos, CW, sectionHdrH, NAVY);
     doc.setTextColor(...WHITE);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7.5);
-    doc.text('ENGINE & GENERATOR HOURS', M + 0.08, yPos + sectionHdrH * 0.65);
+    doc.setFontSize(8);
+    doc.text('ENGINE & GENERATOR HOURS', M + 0.08, yPos + 0.21);
     doc.setTextColor(0, 0, 0);
     yPos += sectionHdrH;
 
@@ -524,12 +524,12 @@ export async function generateTripInspectionPDF(
   }
 
   // ── Checklist section ─────────────────────────────────────────────────────────
-  const hdrH = 0.26;
+  const hdrH = 0.32;
   fillRect(M, yPos, CW, hdrH, NAVY);
   doc.setTextColor(...WHITE);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7.5);
-  doc.text('INSPECTION CHECKLIST', M + 0.08, yPos + hdrH * 0.65);
+  doc.setFontSize(8);
+  doc.text('INSPECTION CHECKLIST', M + 0.08, yPos + 0.21);
   doc.setTextColor(0, 0, 0);
   yPos += hdrH;
 
@@ -708,13 +708,13 @@ export async function generateTripInspectionPDF(
     yPos += 0.08;
     if (yPos + 0.5 > PH - 0.5) { doc.addPage(); yPos = M; }
 
-    fillRect(M, yPos, CW, 0.26, NAVY);
+    fillRect(M, yPos, CW, 0.32, NAVY);
     doc.setTextColor(...WHITE);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7.5);
-    doc.text('ADDITIONAL NOTES', M + 0.08, yPos + 0.26 * 0.65);
+    doc.setFontSize(8);
+    doc.text('ADDITIONAL NOTES', M + 0.08, yPos + 0.21);
     doc.setTextColor(0, 0, 0);
-    yPos += 0.22;
+    yPos += 0.32;
 
     const noteLines = doc.splitTextToSize(inspection.additional_notes, CW - 0.12);
     const noteBlockH = noteLines.length * (8 / 72 * 1.3) + 0.1;
@@ -736,13 +736,13 @@ export async function generateTripInspectionPDF(
       yPos += 0.08;
       if (yPos + 0.3 > PH - 0.5) { doc.addPage(); yPos = M; }
 
-      fillRect(M, yPos, CW, 0.26, NAVY);
+      fillRect(M, yPos, CW, 0.32, NAVY);
       doc.setTextColor(...WHITE);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(7.5);
-      doc.text('INSPECTION PHOTOS', M + 0.08, yPos + 0.26 * 0.65);
+      doc.setFontSize(8);
+      doc.text('INSPECTION PHOTOS', M + 0.08, yPos + 0.21);
       doc.setTextColor(0, 0, 0);
-      yPos += 0.22;
+      yPos += 0.32;
 
       const perRow = 3;
       const gap = 0.08;
