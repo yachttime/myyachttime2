@@ -11,18 +11,17 @@ interface RoleImpersonationContextType {
 const RoleImpersonationContext = createContext<RoleImpersonationContextType | undefined>(undefined);
 
 export const RoleImpersonationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [impersonatedRole, setImpersonatedRoleState] = useState<UserRole | null>(() => {
-    const stored = localStorage.getItem('impersonatedRole');
-    return stored ? (stored as UserRole) : null;
-  });
+  const [impersonatedRole, setImpersonatedRoleState] = useState<UserRole | null>(null);
 
   const setImpersonatedRole = (role: UserRole | null) => {
     setImpersonatedRoleState(role);
-    if (role) {
-      localStorage.setItem('impersonatedRole', role);
-    } else {
-      localStorage.removeItem('impersonatedRole');
-    }
+    try {
+      if (role) {
+        localStorage.setItem('impersonatedRole', role);
+      } else {
+        localStorage.removeItem('impersonatedRole');
+      }
+    } catch {}
   };
 
   const getEffectiveRole = (actualRole: UserRole | undefined): UserRole | undefined => {
