@@ -2511,15 +2511,30 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     try {
       const { data, error } = await supabase
         .from('trip_inspections')
-        .select('id, inspection_type, created_at, inspector_id, user_profiles(first_name, last_name)')
+        .select('id, inspection_type, created_at, inspector_id')
         .eq('yacht_id', yachtId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
+      const inspections = data || [];
+
+      // Fetch inspector names in one query
+      const inspectorIds = [...new Set(inspections.map((i: any) => i.inspector_id).filter(Boolean))];
+      let inspectorMap: Record<string, string> = {};
+      if (inspectorIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('user_profiles')
+          .select('user_id, first_name, last_name')
+          .in('user_id', inspectorIds);
+        (profiles || []).forEach((p: any) => {
+          inspectorMap[p.user_id] = `${p.first_name || ''} ${p.last_name || ''}`.trim();
+        });
+      }
+
       setYachtInspectionDocs(prev => ({
         ...prev,
-        [yachtId]: data || []
+        [yachtId]: inspections.map((i: any) => ({ ...i, inspector_name: inspectorMap[i.inspector_id] || '' }))
       }));
     } catch (error) {
       console.error('Error loading yacht inspections:', error);
@@ -11751,8 +11766,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                       : inspection.inspection_type === 'check_out' ? 'Check-Out'
                                       : inspection.inspection_type === 'mid_trip' ? 'Mid-Trip'
                                       : inspection.inspection_type;
-                                    const inspector = inspection.user_profiles;
-                                    const inspectorName = inspector ? `${inspector.first_name || ''} ${inspector.last_name || ''}`.trim() : '';
+                                    const inspectorName = inspection.inspector_name || '';
                                     return (
                                       <div key={inspection.id} className="flex items-center justify-between bg-slate-900/50 rounded-lg px-3 py-2 text-xs">
                                         <div>
