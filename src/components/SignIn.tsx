@@ -226,7 +226,8 @@ export const SignIn = () => {
     } catch (err: any) {
       console.error('Auth error:', err);
       const message = err?.message || err?.error_description || err?.msg;
-      if (!message) {
+      const isEmptyOrObject = !message || message === '{}' || message === '[object Object]';
+      if (isEmptyOrObject) {
         setError('Unable to sign in. The server may be temporarily unavailable — please try again in a moment.');
       } else if (message.toLowerCase().includes('invalid') || message.toLowerCase().includes('credentials')) {
         setError('Invalid email or password. Please try again.');
