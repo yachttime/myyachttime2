@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, LogIn, LogOut, Coffee, AlertCircle, CheckCircle, Wrench } from 'lucide-react';
+import { Clock, LogIn, LogOut, Coffee, AlertCircle, CheckCircle, Wrench, AlertTriangle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { calculateElapsedTime, formatTime, getClientIP } from '../utils/timeClockHelpers';
@@ -33,7 +33,7 @@ export function TimeClockPanel() {
   const { user, userProfile } = useAuth();
   const [currentEntry, setCurrentEntry] = useState<TimeEntry | null>(null);
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [message, setMessage] = useState<{ type: 'success' | 'error' | 'warning'; text: string } | null>(null);
   const [elapsedTime, setElapsedTime] = useState('');
   const [notes, setNotes] = useState('');
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -204,9 +204,35 @@ export function TimeClockPanel() {
         .maybeSingle();
 
       if (openEntry) {
-        await loadCurrentEntry();
-        showMessage('error', 'You are already clocked in. Please punch out before clocking in again.');
-        return;
+        const punchInDate = new Date(openEntry.punch_in_time);
+        const today = new Date();
+        const isSameDay =
+          punchInDate.getFullYear() === today.getFullYear() &&
+          punchInDate.getMonth() === today.getMonth() &&
+          punchInDate.getDate() === today.getDate();
+
+        if (isSameDay) {
+          await loadCurrentEntry();
+          showMessage('error', 'You are already clocked in. Please punch out before clocking in again.');
+          return;
+        }
+
+        // Stale open entry from a previous day — auto-close it at end of that day
+        const autoCloseTime = new Date(punchInDate);
+        autoCloseTime.setHours(23, 59, 0, 0);
+
+        const { error: closeError } = await supabase
+          .from('staff_time_entries')
+          .update({
+            punch_out_time: autoCloseTime.toISOString(),
+            is_edited: true,
+            edited_by: user.id,
+            edited_at: new Date().toISOString(),
+            edit_reason: 'Auto-closed: employee forgot to punch out — hours need admin review'
+          })
+          .eq('id', openEntry.id);
+
+        if (closeError) throw closeError;
       }
 
       const { data, error } = await supabase
@@ -225,7 +251,12 @@ export function TimeClockPanel() {
       if (error) throw error;
 
       setCurrentEntry(data);
-      showMessage('success', 'Punched in successfully');
+
+      if (openEntry) {
+        showMessage('warning', 'Punched in. Your previous shift was not clocked out — an admin has been notified to review your hours.');
+      } else {
+        showMessage('success', 'Punched in successfully');
+      }
     } catch (error) {
       console.error('Error punching in:', error);
       showMessage('error', 'Failed to punch in');
@@ -309,9 +340,9 @@ export function TimeClockPanel() {
     }
   };
 
-  const showMessage = (type: 'success' | 'error', text: string) => {
+  const showMessage = (type: 'success' | 'error' | 'warning', text: string) => {
     setMessage({ type, text });
-    setTimeout(() => setMessage(null), 3000);
+    setTimeout(() => setMessage(null), type === 'warning' ? 8000 : 3000);
   };
 
   const isHourlyEmployee = profile?.employee_type === 'hourly';
@@ -338,16 +369,20 @@ export function TimeClockPanel() {
 
       {message && (
         <div
-          className={`mb-4 p-3 rounded-lg flex items-center gap-2 ${
+          className={`mb-4 p-3 rounded-lg flex items-start gap-2 ${
             message.type === 'success'
               ? 'bg-green-50 text-green-800'
+              : message.type === 'warning'
+              ? 'bg-amber-50 text-amber-900 border border-amber-200'
               : 'bg-red-50 text-red-800'
           }`}
         >
           {message.type === 'success' ? (
-            <CheckCircle className="w-5 h-5" />
+            <CheckCircle className="w-5 h-5 shrink-0 mt-0.5" />
+          ) : message.type === 'warning' ? (
+            <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
           ) : (
-            <AlertCircle className="w-5 h-5" />
+            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
           )}
           <span>{message.text}</span>
         </div>
