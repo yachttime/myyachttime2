@@ -583,7 +583,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     start_date: '',
     departure_time: '',
     end_date: '',
-    arrival_time: ''
+    arrival_time: '',
+    additionalOwners: [] as Array<{ id?: string; owner_name: string; owner_contact: string }>
   });
   const [editBookingLoading, setEditBookingLoading] = useState(false);
   const [selectedChatYachtId, setSelectedChatYachtId] = useState<string | null>(null);
@@ -6816,9 +6817,16 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     let ownerName = '';
     let ownerContact = '';
 
+    let additionalOwners: Array<{ id?: string; owner_name: string; owner_contact: string }> = [];
+
     if (booking.yacht_booking_owners && booking.yacht_booking_owners.length > 0) {
       ownerName = booking.yacht_booking_owners[0].owner_name || '';
       ownerContact = booking.yacht_booking_owners[0].owner_contact || '';
+      additionalOwners = booking.yacht_booking_owners.slice(1).map((o: any) => ({
+        id: o.id,
+        owner_name: o.owner_name || '',
+        owner_contact: o.owner_contact || '',
+      }));
     } else if (booking.owner_name) {
       // Prefer explicit owner_name (handles swapped bookings where user_id was cleared)
       ownerName = booking.owner_name;
@@ -6834,7 +6842,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       start_date: startDate.toLocaleDateString('en-CA', { timeZone: 'America/Phoenix' }),
       departure_time: startDate.toLocaleTimeString('en-US', { timeZone: 'America/Phoenix', hour: '2-digit', minute: '2-digit', hour12: false }),
       end_date: endDate.toLocaleDateString('en-CA', { timeZone: 'America/Phoenix' }),
-      arrival_time: endDate.toLocaleTimeString('en-US', { timeZone: 'America/Phoenix', hour: '2-digit', minute: '2-digit', hour12: false })
+      arrival_time: endDate.toLocaleTimeString('en-US', { timeZone: 'America/Phoenix', hour: '2-digit', minute: '2-digit', hour12: false }),
+      additionalOwners,
     });
   };
 
@@ -6898,7 +6907,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         throw new Error('Update failed: you may not have permission to edit this booking, or the booking was not found.');
       }
 
-      // Also update yacht_booking_owners if the booking uses that legacy system
+      // Sync yacht_booking_owners: update primary, upsert/delete additionals
       if (editingBooking.yacht_booking_owners && editingBooking.yacht_booking_owners.length > 0) {
         const primaryOwner = editingBooking.yacht_booking_owners[0];
         await supabase
@@ -6908,6 +6917,40 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             owner_contact: editBookingForm.owner_contact,
           })
           .eq('id', primaryOwner.id);
+
+        // Delete all additional owners, then re-insert current list
+        const additionalIds = editingBooking.yacht_booking_owners.slice(1).map((o: any) => o.id);
+        if (additionalIds.length > 0) {
+          await supabase.from('yacht_booking_owners').delete().in('id', additionalIds);
+        }
+        const validAdditional = editBookingForm.additionalOwners.filter(o => o.owner_name.trim());
+        if (validAdditional.length > 0) {
+          await supabase.from('yacht_booking_owners').insert(
+            validAdditional.map(o => ({
+              booking_id: editingBooking.id,
+              owner_name: o.owner_name.trim(),
+              owner_contact: o.owner_contact || null,
+            }))
+          );
+        }
+      } else {
+        // Booking uses the direct owner_name column — if additional owners were added,
+        // migrate to yacht_booking_owners for this booking
+        const validAdditional = editBookingForm.additionalOwners.filter(o => o.owner_name.trim());
+        if (validAdditional.length > 0) {
+          await supabase.from('yacht_booking_owners').insert([
+            {
+              booking_id: editingBooking.id,
+              owner_name: editBookingForm.owner_name,
+              owner_contact: editBookingForm.owner_contact || null,
+            },
+            ...validAdditional.map(o => ({
+              booking_id: editingBooking.id,
+              owner_name: o.owner_name.trim(),
+              owner_contact: o.owner_contact || null,
+            })),
+          ]);
+        }
       }
 
       const yacht = allYachts.find(y => y.id === editingBooking.yacht_id);
@@ -17252,25 +17295,88 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                         <div className="bg-slate-800 rounded-2xl border border-slate-700 p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                           <h3 className="text-xl font-bold mb-4">Edit Trip</h3>
                           <form onSubmit={handleUpdateBooking} className="space-y-4">
-                            <div>
-                              <label className="block text-sm font-medium mb-2">Owner Name</label>
-                              <input
-                                type="text"
-                                value={editBookingForm.owner_name}
-                                onChange={(e) => setEditBookingForm({ ...editBookingForm, owner_name: e.target.value })}
-                                className="w-full px-4 py-2 bg-slate-900/50 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 text-white"
-                                required
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium mb-2">Contact Info</label>
-                              <input
-                                type="text"
-                                value={editBookingForm.owner_contact}
-                                onChange={(e) => setEditBookingForm({ ...editBookingForm, owner_contact: e.target.value })}
-                                className="w-full px-4 py-2 bg-slate-900/50 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 text-white"
-                                required
-                              />
+                            {/* Owners section */}
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between">
+                                <label className="block text-sm font-semibold text-slate-200">Owners</label>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditBookingForm({
+                                    ...editBookingForm,
+                                    additionalOwners: [...editBookingForm.additionalOwners, { owner_name: '', owner_contact: '' }]
+                                  })}
+                                  className="flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300 transition-colors"
+                                >
+                                  <span className="text-base leading-none">+</span> Add Owner
+                                </button>
+                              </div>
+
+                              {/* Primary owner */}
+                              <div className="bg-slate-900/40 border border-slate-600 rounded-lg p-3 space-y-2">
+                                <p className="text-xs text-slate-400 font-medium">Owner 1 (Primary)</p>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <input
+                                    type="text"
+                                    placeholder="Name"
+                                    value={editBookingForm.owner_name}
+                                    onChange={(e) => setEditBookingForm({ ...editBookingForm, owner_name: e.target.value })}
+                                    className="px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 text-white text-sm"
+                                    required
+                                  />
+                                  <input
+                                    type="text"
+                                    placeholder="Contact Info"
+                                    value={editBookingForm.owner_contact}
+                                    onChange={(e) => setEditBookingForm({ ...editBookingForm, owner_contact: e.target.value })}
+                                    className="px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 text-white text-sm"
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Additional owners */}
+                              {editBookingForm.additionalOwners.map((owner, idx) => (
+                                <div key={idx} className="bg-slate-900/40 border border-slate-600 rounded-lg p-3 space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <p className="text-xs text-slate-400 font-medium">Owner {idx + 2}</p>
+                                    <button
+                                      type="button"
+                                      onClick={() => setEditBookingForm({
+                                        ...editBookingForm,
+                                        additionalOwners: editBookingForm.additionalOwners.filter((_, i) => i !== idx)
+                                      })}
+                                      className="text-xs text-red-400 hover:text-red-300 transition-colors"
+                                    >
+                                      Remove
+                                    </button>
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <input
+                                      type="text"
+                                      placeholder="Name"
+                                      value={owner.owner_name}
+                                      onChange={(e) => setEditBookingForm({
+                                        ...editBookingForm,
+                                        additionalOwners: editBookingForm.additionalOwners.map((o, i) =>
+                                          i === idx ? { ...o, owner_name: e.target.value } : o
+                                        )
+                                      })}
+                                      className="px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 text-white text-sm"
+                                    />
+                                    <input
+                                      type="text"
+                                      placeholder="Contact Info"
+                                      value={owner.owner_contact}
+                                      onChange={(e) => setEditBookingForm({
+                                        ...editBookingForm,
+                                        additionalOwners: editBookingForm.additionalOwners.map((o, i) =>
+                                          i === idx ? { ...o, owner_contact: e.target.value } : o
+                                        )
+                                      })}
+                                      className="px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 text-white text-sm"
+                                    />
+                                  </div>
+                                </div>
+                              ))}
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                               <div>
