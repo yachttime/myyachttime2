@@ -7940,18 +7940,6 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                   <h3 className="text-lg font-semibold mb-4">Antelope Point</h3>
                   <div className="space-y-3">
                     <button
-                      onClick={() => window.open('https://share.hsforms.com/1saGMMmyZSRu6bgPwR2YC3Aqgylg', '_blank')}
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-all duration-300"
-                    >
-                      Book Trip including Cathedral Cleaning Package
-                    </button>
-                    <button
-                      onClick={() => window.open('https://share.hsforms.com/1wLei4o0HTL6knc738ffwXQqgylg', '_blank')}
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-all duration-300"
-                    >
-                      Book Trip & Turnaround without Cleaning Package
-                    </button>
-                    <button
                       onClick={() => window.open('https://share.hsforms.com/13sFPShojQni7ZaOfBJB5mAqgylg', '_blank')}
                       className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-all duration-300"
                     >
