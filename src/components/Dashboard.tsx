@@ -2507,6 +2507,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   };
 
   const loadYachtInspectionDocs = async (yachtId: string) => {
+    setYachtInspectionDocs(prev => ({ ...prev, [yachtId]: null as any }));
     try {
       const { data, error } = await supabase
         .from('trip_inspections')
@@ -2522,6 +2523,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       }));
     } catch (error) {
       console.error('Error loading yacht inspections:', error);
+      setYachtInspectionDocs(prev => ({ ...prev, [yachtId]: [] }));
     }
   };
 
@@ -11738,7 +11740,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             {/* Inspection Reports */}
                             <div className="mt-4 pt-4 border-t border-slate-700">
                               <h4 className="text-sm font-semibold text-slate-300 mb-3">Inspection Reports</h4>
-                              {!yachtInspectionDocs[yacht.id] ? (
+                              {yachtInspectionDocs[yacht.id] == null ? (
                                 <div className="text-slate-500 text-xs text-center py-4">Loading...</div>
                               ) : yachtInspectionDocs[yacht.id].length === 0 ? (
                                 <div className="text-slate-500 text-xs text-center py-4">No inspection reports yet</div>
