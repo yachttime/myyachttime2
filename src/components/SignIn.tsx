@@ -225,7 +225,16 @@ export const SignIn = () => {
       }
     } catch (err: any) {
       console.error('Auth error:', err);
-      setError(err.message || 'An error occurred. Please try again.');
+      const message = err?.message || err?.error_description || err?.msg;
+      if (!message) {
+        setError('Unable to sign in. The server may be temporarily unavailable — please try again in a moment.');
+      } else if (message.toLowerCase().includes('invalid') || message.toLowerCase().includes('credentials')) {
+        setError('Invalid email or password. Please try again.');
+      } else if (message.toLowerCase().includes('timeout') || message.toLowerCase().includes('upstream')) {
+        setError('The server is temporarily unavailable. Please try again in a moment.');
+      } else {
+        setError(message);
+      }
     } finally {
       setLoading(false);
     }
