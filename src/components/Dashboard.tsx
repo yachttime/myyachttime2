@@ -660,6 +660,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [yachtHistoryLogs, setYachtHistoryLogs] = useState<Record<string, YachtHistoryLog[]>>({});
   const [expandedYachtId, setExpandedYachtId] = useState<string | null>(null);
   const [yachtDocuments, setYachtDocuments] = useState<Record<string, YachtDocument[]>>({});
+  const [yachtInspectionDocs, setYachtInspectionDocs] = useState<Record<string, any[]>>({});
   const [documentYachtId, setDocumentYachtId] = useState<string | null>(null);
   const [showDocumentForm, setShowDocumentForm] = useState(false);
   const [documentForm, setDocumentForm] = useState({
@@ -2502,6 +2503,25 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       }));
     } catch (error) {
       console.error('Error loading yacht documents:', error);
+    }
+  };
+
+  const loadYachtInspectionDocs = async (yachtId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('trip_inspections')
+        .select('id, inspection_type, created_at, inspector_id, user_profiles(first_name, last_name)')
+        .eq('yacht_id', yachtId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      setYachtInspectionDocs(prev => ({
+        ...prev,
+        [yachtId]: data || []
+      }));
+    } catch (error) {
+      console.error('Error loading yacht inspections:', error);
     }
   };
 
@@ -11149,9 +11169,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 } else {
                                   setDocumentYachtId(yacht.id);
                                   setShowDocumentForm(false);
-                                  if (!yachtDocuments[yacht.id]) {
-                                    await loadYachtDocuments(yacht.id);
-                                  }
+                                  await Promise.all([
+                                    !yachtDocuments[yacht.id] ? loadYachtDocuments(yacht.id) : Promise.resolve(),
+                                    loadYachtInspectionDocs(yacht.id),
+                                  ]);
                                 }
                               }}
                               className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm"
@@ -11710,6 +11731,75 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               ) : (
                                 <div className="text-slate-500 text-xs text-center py-4">
                                   No documents uploaded yet
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Inspection Reports */}
+                            <div className="mt-4 pt-4 border-t border-slate-700">
+                              <h4 className="text-sm font-semibold text-slate-300 mb-3">Inspection Reports</h4>
+                              {!yachtInspectionDocs[yacht.id] ? (
+                                <div className="text-slate-500 text-xs text-center py-4">Loading...</div>
+                              ) : yachtInspectionDocs[yacht.id].length === 0 ? (
+                                <div className="text-slate-500 text-xs text-center py-4">No inspection reports yet</div>
+                              ) : (
+                                <div className="space-y-2 max-h-64 overflow-y-auto">
+                                  {yachtInspectionDocs[yacht.id].map((inspection: any) => {
+                                    const typeLabel = inspection.inspection_type === 'check_in' ? 'Check-In'
+                                      : inspection.inspection_type === 'check_out' ? 'Check-Out'
+                                      : inspection.inspection_type === 'mid_trip' ? 'Mid-Trip'
+                                      : inspection.inspection_type;
+                                    const inspector = inspection.user_profiles;
+                                    const inspectorName = inspector ? `${inspector.first_name || ''} ${inspector.last_name || ''}`.trim() : '';
+                                    return (
+                                      <div key={inspection.id} className="flex items-center justify-between bg-slate-900/50 rounded-lg px-3 py-2 text-xs">
+                                        <div>
+                                          <span className="text-slate-200 font-medium">{typeLabel}</span>
+                                          <span className="text-slate-500 ml-2">{new Date(inspection.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                          {inspectorName && <span className="text-slate-500 ml-2">• {inspectorName}</span>}
+                                        </div>
+                                        <button
+                                          onClick={async () => {
+                                            if (loadingPdfId) return;
+                                            try {
+                                              setLoadingPdfId(inspection.id);
+                                              const { data: inspectionData, error: inspectionError } = await supabase
+                                                .from('trip_inspections')
+                                                .select('*, yachts(name)')
+                                                .eq('id', inspection.id)
+                                                .maybeSingle();
+                                              if (inspectionError) throw inspectionError;
+                                              if (!inspectionData) { alert('Inspection not found'); return; }
+                                              if (inspectionData.inspector_id) {
+                                                const { data: inspectorData } = await supabase
+                                                  .from('user_profiles')
+                                                  .select('first_name, last_name')
+                                                  .eq('user_id', inspectionData.inspector_id)
+                                                  .maybeSingle();
+                                                if (inspectorData) inspectionData.user_profiles = inspectorData;
+                                              }
+                                              setSelectedInspectionForPDF(inspectionData as any);
+                                            } catch (err) {
+                                              console.error('Error:', err);
+                                              alert('Failed to load inspection report');
+                                            } finally {
+                                              setLoadingPdfId(null);
+                                            }
+                                          }}
+                                          disabled={loadingPdfId === inspection.id}
+                                          className={`px-2 py-1 rounded transition-colors text-xs whitespace-nowrap flex items-center gap-1 ${
+                                            loadingPdfId === inspection.id
+                                              ? 'bg-cyan-500/10 text-cyan-500/50 cursor-not-allowed'
+                                              : 'bg-cyan-500/20 text-cyan-500 hover:bg-cyan-500/30'
+                                          }`}
+                                        >
+                                          {loadingPdfId === inspection.id ? (
+                                            <><RefreshCw className="w-3 h-3 animate-spin" />Loading...</>
+                                          ) : 'View PDF'}
+                                        </button>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               )}
                             </div>
