@@ -363,12 +363,15 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [inspectionSuccess, setInspectionSuccess] = useState(false);
   const [inspectionError, setInspectionError] = useState('');
   const [inspectionPhotos, setInspectionPhotos] = useState<Array<{
-    file: File;
+    url: string;
+    storagePath: string;
     preview: string;
     category: 'port_prop' | 'starboard_prop' | 'damage' | 'general';
     caption: string;
+    uploading?: boolean;
+    error?: string;
   }>>([]);
-  const [inspectionPhotoUploading, setInspectionPhotoUploading] = useState(false);
+
   const [adminView, setAdminView] = useState<'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies' | 'maintenancerequests'>(() => {
     try {
       const stored = localStorage.getItem('adminView');
@@ -6053,19 +6056,55 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   };
 
   const handleInspectionPhotoAdd = (files: FileList | null, category: 'port_prop' | 'starboard_prop' | 'damage' | 'general') => {
-    if (!files) return;
-    const newPhotos = Array.from(files).map(file => ({
-      file,
-      preview: URL.createObjectURL(file),
-      category,
-      caption: '',
-    }));
-    setInspectionPhotos(prev => [...prev, ...newPhotos]);
+    if (!files || !user) return;
+    const fileArray = Array.from(files);
+
+    // Use a stable key per photo so we can update each one individually
+    fileArray.forEach(file => {
+      const key = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+      const preview = URL.createObjectURL(file);
+
+      setInspectionPhotos(prev => [...prev, {
+        url: '',
+        storagePath: '',
+        preview,
+        category,
+        caption: '',
+        uploading: true,
+        error: undefined,
+        _key: key,
+      } as any]);
+
+      // Upload immediately
+      (async () => {
+        try {
+          const fileExt = file.name.split('.').pop() || 'jpg';
+          const storagePath = `${user.id}/temp-inspection/${key}.${fileExt}`;
+          const { error: storageError } = await supabase.storage
+            .from('inspection-photos')
+            .upload(storagePath, file, { cacheControl: '3600', upsert: false });
+          if (storageError) throw storageError;
+          const { data: urlData } = supabase.storage.from('inspection-photos').getPublicUrl(storagePath);
+          setInspectionPhotos(prev => prev.map((p: any) =>
+            p._key === key ? { ...p, url: urlData.publicUrl, storagePath, uploading: false, error: undefined } : p
+          ));
+        } catch (err: any) {
+          setInspectionPhotos(prev => prev.map((p: any) =>
+            p._key === key ? { ...p, uploading: false, error: err.message || 'Upload failed' } : p
+          ));
+        }
+      })();
+    });
   };
 
   const handleInspectionPhotoRemove = (index: number) => {
     setInspectionPhotos(prev => {
-      URL.revokeObjectURL(prev[index].preview);
+      const photo = prev[index];
+      URL.revokeObjectURL(photo.preview);
+      // Delete from storage if already uploaded (fire-and-forget)
+      if (photo.storagePath) {
+        supabase.storage.from('inspection-photos').remove([photo.storagePath]);
+      }
       return prev.filter((_, i) => i !== index);
     });
   };
@@ -6097,16 +6136,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       if (dbError) throw dbError;
 
-      if (inspectionPhotos.length > 0) {
-        setInspectionPhotoUploading(true);
-        const uploadResults = await Promise.allSettled(
-          inspectionPhotos.map(async (photo) => {
-            const fileExt = photo.file.name.split('.').pop() || 'jpg';
-            const filePath = `${user.id}/${insertedInspection.id}/${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
-            const photoUrl = await uploadFileToStorage('inspection-photos', filePath, photo.file);
+      const readyPhotos = inspectionPhotos.filter(p => p.url && !p.uploading && !p.error);
+      if (readyPhotos.length > 0) {
+        const insertResults = await Promise.allSettled(
+          readyPhotos.map(async (photo) => {
             const { error: photoInsertError } = await supabase.from('inspection_photos').insert({
               inspection_id: insertedInspection.id,
-              photo_url: photoUrl,
+              photo_url: photo.url,
               caption: photo.caption,
               category: photo.category,
               company_id: selectedYacht.company_id,
@@ -6115,11 +6151,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             if (photoInsertError) throw photoInsertError;
           })
         );
-        setInspectionPhotoUploading(false);
-        const failedResults = uploadResults.filter(r => r.status === 'rejected') as PromiseRejectedResult[];
+        const failedResults = insertResults.filter(r => r.status === 'rejected') as PromiseRejectedResult[];
         if (failedResults.length > 0) {
           const firstReason = failedResults[0].reason?.message || 'Unknown error';
-          setInspectionError(`Inspection saved, but ${failedResults.length} photo${failedResults.length > 1 ? 's' : ''} failed to attach (${firstReason}). Open the inspection report to add photos manually.`);
+          setInspectionError(`Inspection saved, but ${failedResults.length} photo${failedResults.length > 1 ? 's' : ''} failed to link (${firstReason}). Open the inspection report to add photos manually.`);
           setInspectionLoading(false);
           return;
         }
@@ -10012,7 +10047,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                   {inspectionPhotos.length > 0 && (
                     <div>
-                      <p className="text-sm font-medium text-slate-300 mb-3">{inspectionPhotos.length} photo{inspectionPhotos.length !== 1 ? 's' : ''} added</p>
+                      <p className="text-sm font-medium text-slate-300 mb-3">
+                        {inspectionPhotos.filter(p => p.url).length}/{inspectionPhotos.length} photo{inspectionPhotos.length !== 1 ? 's' : ''} uploaded
+                      </p>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                         {inspectionPhotos.map((photo, idx) => {
                           const catLabels: Record<string, string> = {
@@ -10034,6 +10071,27 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 alt={photo.caption || `Photo ${idx + 1}`}
                                 className="w-full h-32 object-cover"
                               />
+                              {/* Uploading overlay */}
+                              {photo.uploading && (
+                                <div className="absolute inset-0 bg-slate-900/70 flex items-center justify-center">
+                                  <div className="text-center">
+                                    <div className="w-6 h-6 border-2 border-amber-400 border-t-transparent rounded-full animate-spin mx-auto mb-1" />
+                                    <span className="text-xs text-amber-300">Uploading...</span>
+                                  </div>
+                                </div>
+                              )}
+                              {/* Error overlay */}
+                              {photo.error && (
+                                <div className="absolute inset-0 bg-red-900/70 flex items-center justify-center p-2">
+                                  <span className="text-xs text-red-200 text-center">{photo.error}</span>
+                                </div>
+                              )}
+                              {/* Success indicator */}
+                              {photo.url && !photo.uploading && (
+                                <div className="absolute bottom-1.5 right-1.5 bg-green-500/90 rounded-full p-0.5">
+                                  <CheckCircle className="w-3 h-3 text-white" />
+                                </div>
+                              )}
                               <div className="absolute top-1.5 left-1.5">
                                 <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${catColors[photo.category]}`}>
                                   {catLabels[photo.category]}
@@ -10109,11 +10167,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                 <button
                   type="submit"
-                  disabled={inspectionLoading || inspectionPhotoUploading}
+                  disabled={inspectionLoading || inspectionPhotos.some(p => p.uploading)}
                   className="w-full bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold py-4 rounded-lg transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   <ClipboardCheck className="w-5 h-5" />
-                  {inspectionPhotoUploading ? 'Uploading Photos...' : inspectionLoading ? 'Submitting...' : `Submit Inspection${inspectionPhotos.length > 0 ? ` (${inspectionPhotos.length} photo${inspectionPhotos.length !== 1 ? 's' : ''})` : ''}`}
+                  {inspectionPhotos.some(p => p.uploading) ? 'Uploading Photos...' : inspectionLoading ? 'Submitting...' : `Submit Inspection${inspectionPhotos.filter(p => p.url).length > 0 ? ` (${inspectionPhotos.filter(p => p.url).length} photo${inspectionPhotos.filter(p => p.url).length !== 1 ? 's' : ''})` : ''}`}
                 </button>
               </form>
                 </>
