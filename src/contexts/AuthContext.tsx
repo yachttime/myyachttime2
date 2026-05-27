@@ -209,6 +209,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       localStorage.removeItem('activeTab');
       localStorage.removeItem('adminView');
+      localStorage.removeItem('impersonatedRole');
     } catch {}
 
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -238,6 +239,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       localStorage.removeItem('activeTab');
       localStorage.removeItem('adminView');
+      localStorage.removeItem('impersonatedRole');
     } catch {}
 
     // Fire-and-forget: record sign-out time without blocking
