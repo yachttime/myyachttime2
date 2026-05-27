@@ -117,6 +117,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         if (event === 'INITIAL_SESSION') {
           if (isPasswordRecoveryRef.current) return;
+          try { localStorage.removeItem('impersonatedRole'); } catch {}
           setUser(session?.user ?? null);
           if (session?.user) {
             await loadUserProfile(session.user.id);
