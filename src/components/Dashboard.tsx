@@ -6104,7 +6104,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             const fileExt = photo.file.name.split('.').pop() || 'jpg';
             const filePath = `${user.id}/${insertedInspection.id}/${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
             const photoUrl = await uploadFileToStorage('inspection-photos', filePath, photo.file);
-            await supabase.from('inspection_photos').insert({
+            const { error: photoInsertError } = await supabase.from('inspection_photos').insert({
               inspection_id: insertedInspection.id,
               photo_url: photoUrl,
               caption: photo.caption,
@@ -6112,12 +6112,15 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               company_id: selectedYacht.company_id,
               created_by: user.id,
             });
+            if (photoInsertError) throw photoInsertError;
           })
         );
         setInspectionPhotoUploading(false);
         const failed = uploadResults.filter(r => r.status === 'rejected').length;
         if (failed > 0) {
-          console.warn(`${failed} photo(s) failed to upload`);
+          setInspectionError(`Inspection saved, but ${failed} photo${failed > 1 ? 's' : ''} failed to attach. Please try re-submitting the photos or contact an admin.`);
+          setInspectionLoading(false);
+          return;
         }
       }
 
