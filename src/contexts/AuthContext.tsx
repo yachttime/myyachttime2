@@ -132,15 +132,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const loadUserProfile = async (userId: string, attempt = 1) => {
-    const MAX_ATTEMPTS = 4;
-    const RETRY_DELAY_MS = 2000;
+    const MAX_ATTEMPTS = 3;
+    const RETRY_DELAY_MS = 1000;
+    const QUERY_TIMEOUT_MS = 8000;
 
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), QUERY_TIMEOUT_MS);
+
       const { data: profile, error: profileError } = await supabase
         .from('user_profiles')
         .select('*')
         .eq('user_id', userId)
-        .maybeSingle();
+        .maybeSingle()
+        .abortSignal(controller.signal);
+
+      clearTimeout(timeoutId);
 
       if (profileError) {
         console.error('Profile load error:', profileError);
@@ -164,14 +171,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       setLoading(false);
     } catch (error: any) {
-      const isTimeout = error?.message?.includes('timeout') ||
+      const isRetryable =
+        error?.message?.includes('timeout') ||
         error?.message?.includes('upstream') ||
+        error?.message?.includes('schema cache') ||
+        error?.name === 'AbortError' ||
         error?.code === '57014';
 
-      if (isTimeout && attempt < MAX_ATTEMPTS) {
-        console.warn(`Profile load timed out, retrying (${attempt}/${MAX_ATTEMPTS - 1})...`);
+      if (isRetryable && attempt < MAX_ATTEMPTS) {
+        console.warn(`Profile load failed, retrying (${attempt}/${MAX_ATTEMPTS - 1})...`);
         setTimeout(() => loadUserProfile(userId, attempt + 1), RETRY_DELAY_MS);
-        // Keep loading=true so the app stays on the loading screen during retry
       } else {
         console.error('Error loading user profile:', error);
         setUserProfile(null);
