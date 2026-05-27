@@ -222,10 +222,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       localStorage.removeItem('impersonatedRole');
     } catch {}
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const AUTH_TIMEOUT_MS = 15000;
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('The server is temporarily unavailable. Please try again in a moment.')), AUTH_TIMEOUT_MS)
+    );
+
+    const { data, error } = await Promise.race([
+      supabase.auth.signInWithPassword({ email, password }),
+      timeoutPromise,
+    ]);
 
     if (error) throw error;
 
