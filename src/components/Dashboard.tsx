@@ -6116,9 +6116,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           })
         );
         setInspectionPhotoUploading(false);
-        const failed = uploadResults.filter(r => r.status === 'rejected').length;
-        if (failed > 0) {
-          setInspectionError(`Inspection saved, but ${failed} photo${failed > 1 ? 's' : ''} failed to attach. Please try re-submitting the photos or contact an admin.`);
+        const failedResults = uploadResults.filter(r => r.status === 'rejected') as PromiseRejectedResult[];
+        if (failedResults.length > 0) {
+          const firstReason = failedResults[0].reason?.message || 'Unknown error';
+          setInspectionError(`Inspection saved, but ${failedResults.length} photo${failedResults.length > 1 ? 's' : ''} failed to attach (${firstReason}). Open the inspection report to add photos manually.`);
           setInspectionLoading(false);
           return;
         }
