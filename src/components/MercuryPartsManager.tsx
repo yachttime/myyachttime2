@@ -271,7 +271,7 @@ export function MercuryPartsManager({ userId, userRole }: MercuryPartsManagerPro
       setUploadProgress(10);
       setUploadStatus('Sending data to server...');
 
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://eqiecntollhgfxmmbize.supabase.co';
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://aeouyvngcjddffuzlenx.supabase.co';
       const response = await fetch(
         `${supabaseUrl}/functions/v1/process-mercury-import`,
         {
