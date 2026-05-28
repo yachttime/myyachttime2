@@ -132,9 +132,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const loadUserProfile = async (userId: string, attempt = 1) => {
-    const MAX_ATTEMPTS = 3;
-    const RETRY_DELAY_MS = 1000;
-    const QUERY_TIMEOUT_MS = 8000;
+    const MAX_ATTEMPTS = 5;
+    const QUERY_TIMEOUT_MS = 25000;
+
+    const jitter = () => Math.floor(Math.random() * 500);
+    const backoff = (n: number) => Math.min(1000 * Math.pow(2, n - 1) + jitter(), 12000);
 
     try {
       const controller = new AbortController();
@@ -149,9 +151,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       clearTimeout(timeoutId);
 
-      if (profileError) {
-        throw profileError;
-      }
+      if (profileError) throw profileError;
 
       setUserProfile(profile);
 
@@ -170,15 +170,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       setLoading(false);
     } catch (error: any) {
+      const msg = (error?.message ?? '').toLowerCase();
       const isRetryable =
-        error?.message?.includes('timeout') ||
-        error?.message?.includes('upstream') ||
-        error?.message?.includes('schema cache') ||
+        msg.includes('timeout') ||
+        msg.includes('upstream') ||
+        msg.includes('schema cache') ||
+        msg.includes('unavailable') ||
+        msg.includes('503') ||
+        msg.includes('504') ||
+        msg.includes('502') ||
         error?.name === 'AbortError' ||
-        error?.code === '57014';
+        error?.code === '57014' ||
+        error?.status === 504 ||
+        error?.status === 503 ||
+        error?.status === 502;
 
       if (isRetryable && attempt < MAX_ATTEMPTS) {
-        setTimeout(() => loadUserProfile(userId, attempt + 1), RETRY_DELAY_MS);
+        const delay = backoff(attempt);
+        console.warn(`Profile load attempt ${attempt} failed, retrying in ${delay}ms...`, error?.message);
+        setTimeout(() => loadUserProfile(userId, attempt + 1), delay);
       } else {
         if (!isRetryable) console.error('Error loading user profile:', error);
         setUserProfile(null);
@@ -220,13 +230,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       localStorage.removeItem('impersonatedRole');
     } catch {}
 
-    const MAX_ATTEMPTS = 3;
-    const BASE_TIMEOUT_MS = 12000;
+    const MAX_ATTEMPTS = 4;
+    const BASE_TIMEOUT_MS = 20000;
+    const jitter = () => Math.floor(Math.random() * 600);
+    const backoff = (n: number) => Math.min(1500 * Math.pow(2, n - 1) + jitter(), 15000);
 
     let lastError: any;
 
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-      const timeoutMs = BASE_TIMEOUT_MS * attempt;
+      const timeoutMs = BASE_TIMEOUT_MS + (attempt - 1) * 5000;
       const timeoutPromise = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('upstream request timeout')), timeoutMs)
       );
@@ -252,17 +264,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } catch (err: any) {
         lastError = err;
 
+        const msg = (err?.message ?? '').toLowerCase();
         const isRetryable =
-          err?.message?.toLowerCase().includes('timeout') ||
-          err?.message?.toLowerCase().includes('upstream') ||
-          err?.message?.toLowerCase().includes('unavailable') ||
+          msg.includes('timeout') ||
+          msg.includes('upstream') ||
+          msg.includes('unavailable') ||
+          msg.includes('504') ||
+          msg.includes('503') ||
+          msg.includes('502') ||
           err?.status === 504 ||
           err?.status === 503 ||
           err?.status === 502;
 
         if (!isRetryable || attempt === MAX_ATTEMPTS) break;
 
-        const delay = 1500 * attempt;
+        const delay = backoff(attempt);
         console.warn(`Sign in attempt ${attempt} failed, retrying in ${delay}ms...`, err?.message);
         await new Promise(resolve => setTimeout(resolve, delay));
       }

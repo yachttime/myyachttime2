@@ -27,6 +27,7 @@ export const SignIn = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const [retrying, setRetrying] = useState(false);
   const [signInVideo, setSignInVideo] = useState<EducationVideo | null>(null);
   const [scannedYachtName, setScannedYachtName] = useState<string | null>(null);
   const [showWelcomeVideo, setShowWelcomeVideo] = useState(false);
@@ -173,6 +174,7 @@ export const SignIn = () => {
     setError('');
     setSuccess('');
     setLoading(true);
+    setRetrying(false);
 
     try {
       if (isForgotPassword) {
@@ -185,7 +187,14 @@ export const SignIn = () => {
         setEmail('');
       } else {
         try {
-          await signIn(email, password);
+          // Show "retrying" feedback if sign-in takes > 15s (retry loop in progress)
+          const retryIndicatorTimer = setTimeout(() => setRetrying(true), 15000);
+          try {
+            await signIn(email, password);
+          } finally {
+            clearTimeout(retryIndicatorTimer);
+            setRetrying(false);
+          }
         } catch (signInErr: any) {
           const isTimeout =
             signInErr?.message?.toLowerCase().includes('timeout') ||
@@ -381,8 +390,19 @@ export const SignIn = () => {
                 disabled={loading}
                 className="w-full bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold py-3 rounded-lg transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? (isForgotPassword ? 'Sending...' : 'Signing in...') : isForgotPassword ? 'Send Reset Link' : 'Sign In'}
+                {loading
+                  ? (isForgotPassword
+                      ? 'Sending...'
+                      : retrying
+                        ? 'Service slow — retrying...'
+                        : 'Signing in...')
+                  : isForgotPassword ? 'Send Reset Link' : 'Sign In'}
               </button>
+              {retrying && (
+                <p className="text-xs text-amber-400 text-center mt-2">
+                  The server is responding slowly. Retrying automatically — please wait.
+                </p>
+              )}
             </form>
 
             <div className="mt-6 text-center">
