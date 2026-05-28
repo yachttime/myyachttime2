@@ -222,27 +222,55 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       localStorage.removeItem('impersonatedRole');
     } catch {}
 
-    const AUTH_TIMEOUT_MS = 15000;
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('The server is temporarily unavailable. Please try again in a moment.')), AUTH_TIMEOUT_MS)
-    );
+    const MAX_ATTEMPTS = 3;
+    const BASE_TIMEOUT_MS = 12000;
 
-    const { data, error } = await Promise.race([
-      supabase.auth.signInWithPassword({ email, password }),
-      timeoutPromise,
-    ]);
+    let lastError: any;
 
-    if (error) throw error;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      const timeoutMs = BASE_TIMEOUT_MS * attempt;
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('upstream request timeout')), timeoutMs)
+      );
 
-    if (data.user) {
-      supabase
-        .from('user_profiles')
-        .update({ last_sign_in_at: new Date().toISOString() })
-        .eq('user_id', data.user.id)
-        .then(({ error }) => {
-          if (error) console.error('Error updating sign in time:', error);
-        });
+      try {
+        const { data, error } = await Promise.race([
+          supabase.auth.signInWithPassword({ email, password }),
+          timeoutPromise,
+        ]);
+
+        if (error) throw error;
+
+        if (data.user) {
+          supabase
+            .from('user_profiles')
+            .update({ last_sign_in_at: new Date().toISOString() })
+            .eq('user_id', data.user.id)
+            .then(({ error }) => {
+              if (error) console.error('Error updating sign in time:', error);
+            });
+        }
+        return;
+      } catch (err: any) {
+        lastError = err;
+
+        const isRetryable =
+          err?.message?.toLowerCase().includes('timeout') ||
+          err?.message?.toLowerCase().includes('upstream') ||
+          err?.message?.toLowerCase().includes('unavailable') ||
+          err?.status === 504 ||
+          err?.status === 503 ||
+          err?.status === 502;
+
+        if (!isRetryable || attempt === MAX_ATTEMPTS) break;
+
+        const delay = 1500 * attempt;
+        console.warn(`Sign in attempt ${attempt} failed, retrying in ${delay}ms...`, err?.message);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
     }
+
+    throw lastError;
   };
 
   const signOut = async () => {

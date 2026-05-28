@@ -196,6 +196,14 @@ export const SignIn = () => {
         try {
           await signIn(email, password);
         } catch (signInErr: any) {
+          const isTimeout =
+            signInErr?.message?.toLowerCase().includes('timeout') ||
+            signInErr?.message?.toLowerCase().includes('upstream') ||
+            signInErr?.status === 504 ||
+            signInErr?.status === 503;
+
+          if (isTimeout) throw signInErr;
+
           const isInvalidCredentials =
             signInErr.message?.toLowerCase().includes('invalid login credentials') ||
             signInErr.message?.toLowerCase().includes('invalid credentials') ||
@@ -231,8 +239,12 @@ export const SignIn = () => {
         setError('Unable to sign in. The server may be temporarily unavailable — please try again in a moment.');
       } else if (message.toLowerCase().includes('invalid') || message.toLowerCase().includes('credentials')) {
         setError('Invalid email or password. Please try again.');
-      } else if (message.toLowerCase().includes('timeout') || message.toLowerCase().includes('upstream')) {
-        setError('The server is temporarily unavailable. Please try again in a moment.');
+      } else if (
+        message.toLowerCase().includes('timeout') ||
+        message.toLowerCase().includes('upstream') ||
+        message.toLowerCase().includes('unavailable')
+      ) {
+        setError('The authentication service is not responding after multiple attempts. This is a temporary Supabase outage — please wait a minute and try again.');
       } else {
         setError(message);
       }
@@ -380,7 +392,7 @@ export const SignIn = () => {
                 disabled={loading}
                 className="w-full bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold py-3 rounded-lg transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? 'Please wait...' : isForgotPassword ? 'Send Reset Link' : 'Sign In'}
+                {loading ? (isForgotPassword ? 'Sending...' : 'Signing in...') : isForgotPassword ? 'Send Reset Link' : 'Sign In'}
               </button>
             </form>
 
