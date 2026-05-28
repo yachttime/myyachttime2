@@ -245,7 +245,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             .update({ last_sign_in_at: new Date().toISOString() })
             .eq('user_id', data.user.id)
             .then(({ error }) => {
-              if (error) console.error('Error updating sign in time:', error);
+              if (error && !error.message?.includes('upstream') && error.code !== '57014') console.error('Error updating sign in time:', error);
             });
         }
         return;
@@ -290,17 +290,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .update({ last_sign_out_at: new Date().toISOString() })
         .eq('user_id', user.id)
         .then(({ error }) => {
-          if (error) console.error('Error updating sign out time:', error);
+          if (error && !error.message?.includes('upstream') && error.code !== '57014') console.error('Error updating sign out time:', error);
         });
     }
 
     try {
       const { error } = await supabase.auth.signOut();
-      if (error && error.message !== 'Auth session missing!' && !error.message.includes('session_id claim')) {
+      if (error && error.message !== 'Auth session missing!' && !error.message.includes('session_id claim') && !error.message.includes('upstream') && !error.message.includes('fetch')) {
         console.error('Sign out error:', error);
       }
     } catch (error: any) {
-      if (error?.message !== 'Auth session missing!' && !error?.message?.includes('session_id claim')) {
+      const msg = error?.message ?? '';
+      if (msg !== 'Auth session missing!' && !msg.includes('session_id claim') && !msg.includes('upstream') && !msg.includes('fetch') && !msg.includes('504') && !msg.includes('{}')) {
         console.error('Sign out error:', error);
       }
     }
