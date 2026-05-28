@@ -37,15 +37,16 @@ export const SignIn = () => {
   const { signIn } = useAuth();
 
   useEffect(() => {
-    handleYachtQRCode();
-    fetchSignInVideo();
+    let cancelled = false;
+    handleYachtQRCode(cancelled);
+    fetchSignInVideo(cancelled);
+    return () => { cancelled = true; };
   }, []);
 
-  const handleYachtQRCode = async () => {
+  const handleYachtQRCode = async (cancelled: boolean) => {
     try {
       const params = new URLSearchParams(window.location.search);
       const yachtId = params.get('yacht');
-      console.log('[QR Code] URL yacht parameter:', yachtId);
 
       if (yachtId) {
         const { data: yacht, error } = await supabase
@@ -54,29 +55,24 @@ export const SignIn = () => {
           .eq('id', yachtId)
           .maybeSingle();
 
-        console.log('[QR Code] Yacht lookup result:', { yacht, error });
+        if (cancelled) return;
 
         if (!error && yacht) {
           localStorage.setItem('qr_scanned_yacht_id', yacht.id);
           setScannedYachtName(yacht.name);
-          console.log('[QR Code] Set scanned yacht:', yacht.name);
-
-          // Fetch yacht-specific welcome video
           await fetchYachtWelcomeVideo(yacht.id);
         }
 
         window.history.replaceState({}, '', window.location.pathname);
-      } else {
-        console.log('[QR Code] No yacht parameter found in URL');
       }
-    } catch (err) {
+    } catch (err: any) {
+      if (cancelled || err?.name === 'AbortError' || err?.message?.includes('AbortError')) return;
       console.error('Error handling yacht QR code:', err);
     }
   };
 
   const fetchYachtWelcomeVideo = async (yachtId: string) => {
     try {
-      console.log('[Video] Fetching welcome video for yacht:', yachtId);
       setVideoLoading(true);
       const { data, error } = await supabase
         .from('education_videos')
@@ -87,31 +83,27 @@ export const SignIn = () => {
         .limit(1)
         .maybeSingle();
 
-      console.log('[Video] Welcome video query result:', { data, error });
-
       if (error) {
-        console.error('[Video] Error fetching yacht welcome video:', error);
         setVideoLoading(false);
         return;
       }
 
       if (data) {
-        console.log('[Video] Setting welcome video:', data.title);
-        console.log('[Video] Video URL:', data.video_url);
         setWelcomeVideo(data);
         setShowWelcomeVideo(true);
-        setVideoLoading(false);
-      } else {
-        console.log('[Video] No welcome video found for this yacht');
-        setVideoLoading(false);
       }
-    } catch (err) {
-      console.error('[Video] Exception while fetching yacht welcome video:', err);
+      setVideoLoading(false);
+    } catch (err: any) {
+      if (err?.name === 'AbortError' || err?.message?.includes('AbortError')) {
+        setVideoLoading(false);
+        return;
+      }
+      console.error('Error fetching yacht welcome video:', err);
       setVideoLoading(false);
     }
   };
 
-  const fetchSignInVideo = async () => {
+  const fetchSignInVideo = async (cancelled: boolean) => {
     try {
       const { data, error } = await supabase
         .from('education_videos')
@@ -122,16 +114,15 @@ export const SignIn = () => {
         .limit(1)
         .maybeSingle();
 
-      if (error) {
-        console.error('Error fetching sign-in video:', error);
-        return;
-      }
-
-      if (data) {
+      if (cancelled) return;
+      if (!error && data) {
         setSignInVideo(data);
       }
-    } catch (err) {
-      console.error('Exception while fetching sign-in video:', err);
+    } catch (err: any) {
+      if (cancelled || err?.name === 'AbortError' || err?.message?.includes('AbortError')) return;
+      // 504s during Supabase outages are expected — no need to log
+      if (err?.message?.includes('upstream') || err?.status === 504) return;
+      console.error('Error fetching sign-in video:', err);
     }
   };
 
@@ -252,8 +243,6 @@ export const SignIn = () => {
       setLoading(false);
     }
   };
-
-  console.log('[Render] showWelcomeVideo:', showWelcomeVideo, 'welcomeVideo:', welcomeVideo?.title);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white">

@@ -30,9 +30,10 @@ export const Welcome = ({ onGetStarted }: WelcomeProps) => {
   const [videoEnded, setVideoEnded] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+
     const fetchVideos = async () => {
       const qrYachtId = localStorage.getItem('qr_scanned_yacht_id');
-      console.log('[Welcome] QR Yacht ID from localStorage:', qrYachtId);
 
       if (qrYachtId) {
         const { data: yachtData, error: yachtError } = await supabase
@@ -41,11 +42,10 @@ export const Welcome = ({ onGetStarted }: WelcomeProps) => {
           .eq('id', qrYachtId)
           .maybeSingle();
 
-        if (yachtError) {
-          console.error('[Welcome] Error fetching yacht:', yachtError);
-        } else if (yachtData) {
+        if (cancelled) return;
+
+        if (!yachtError && yachtData) {
           setYacht(yachtData);
-          console.log('[Welcome] Yacht found:', yachtData.name);
 
           const { data: yachtVideoData, error: yachtVideoError } = await supabase
             .from('education_videos')
@@ -56,14 +56,12 @@ export const Welcome = ({ onGetStarted }: WelcomeProps) => {
             .limit(1)
             .maybeSingle();
 
-          if (yachtVideoError) {
-            console.error('[Welcome] Error fetching yacht-specific video:', yachtVideoError);
-          } else if (yachtVideoData) {
-            console.log('[Welcome] Yacht-specific video found:', yachtVideoData.title);
+          if (cancelled) return;
+
+          if (!yachtVideoError && yachtVideoData) {
             setYachtWelcomeVideo(yachtVideoData);
             setShowYachtVideo(true);
           } else {
-            console.log('[Welcome] No yacht-specific video found, proceeding to login');
             onGetStarted();
           }
         }
@@ -77,16 +75,20 @@ export const Welcome = ({ onGetStarted }: WelcomeProps) => {
           .limit(1)
           .maybeSingle();
 
-        if (error) {
-          console.error('[Welcome] Error fetching generic sign in video:', error);
-        } else if (data) {
-          console.log('[Welcome] Generic sign in video found:', data.title);
+        if (cancelled) return;
+        if (!error && data) {
           setSignInVideo(data);
         }
       }
     };
 
-    fetchVideos();
+    fetchVideos().catch((err: any) => {
+      if (cancelled || err?.name === 'AbortError' || err?.message?.includes('AbortError')) return;
+      if (err?.message?.includes('upstream') || err?.status === 504) return;
+      console.error('Error fetching sign-in video:', err);
+    });
+
+    return () => { cancelled = true; };
   }, [onGetStarted]);
 
   const handleSkipVideo = () => {
