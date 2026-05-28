@@ -6223,6 +6223,19 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         }),
       }).catch(err => console.error('Trip inspection notification error:', err));
 
+      // Credit 2.0 inspection hours to the inspector in the payroll system
+      supabase.from('inspection_time_entries').insert({
+        user_id: selectedMechanicId,
+        yacht_id: selectedYachtForInspection,
+        inspection_id: insertedInspection.id,
+        inspection_type: 'trip_inspection',
+        hours: 2.0,
+        inspection_date: new Date().toISOString(),
+        company_id: selectedYacht.company_id,
+      }).then(({ error }) => {
+        if (error) console.error('Failed to log inspection hours:', error);
+      });
+
       await loadAdminNotifications();
       await loadYachtHistory(selectedYachtForInspection);
 
@@ -6308,6 +6321,19 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           reference_id: insertedHandoff.id,
           message: `Meet the Yacht Owner inspection completed for ${selectedYacht.name} by ${mechanicName}`,
           company_id: selectedYacht.company_id
+        });
+
+        // Credit 2.0 inspection hours to the inspector in the payroll system
+        supabase.from('inspection_time_entries').insert({
+          user_id: selectedMechanicForHandoff,
+          yacht_id: selectedYacht.id,
+          inspection_id: insertedHandoff.id,
+          inspection_type: 'owner_handoff',
+          hours: 2.0,
+          inspection_date: new Date().toISOString(),
+          company_id: selectedYacht.company_id,
+        }).then(({ error }) => {
+          if (error) console.error('Failed to log inspection hours:', error);
         });
 
         await loadAdminNotifications();

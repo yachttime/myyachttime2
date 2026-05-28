@@ -1153,6 +1153,7 @@ interface EmployeeReport {
   totalOvertimeHours: number;
   totalHours: number;
   totalWorkOrderHours: number;
+  totalInspectionHours: number;
   grandTotalHours: number;
 }
 
@@ -2376,7 +2377,7 @@ export async function generatePayrollReportPDF(
   }
   addSpace(0.3);
 
-  const summaryHeaders = [['Employee', 'Type', 'Standard Hrs', 'Overtime Hrs', 'Time Clock', 'Work Order Hrs', 'Grand Total']];
+  const summaryHeaders = [['Employee', 'Type', 'Standard Hrs', 'Overtime Hrs', 'Time Clock', 'Work Order Hrs', 'Inspection Hrs', 'Grand Total']];
   const summaryData = employeeReports.map(report => {
     return [
       `${report.user.last_name}, ${report.user.first_name}`,
@@ -2385,6 +2386,7 @@ export async function generatePayrollReportPDF(
       report.totalOvertimeHours.toFixed(2),
       report.totalHours.toFixed(2),
       report.totalWorkOrderHours.toFixed(2),
+      (report.totalInspectionHours || 0).toFixed(2),
       report.grandTotalHours.toFixed(2)
     ];
   });
@@ -2393,7 +2395,8 @@ export async function generatePayrollReportPDF(
   const grandTotalOvertime = employeeReports.reduce((sum, r) => sum + r.totalOvertimeHours, 0);
   const grandTotalTimeClock = grandTotalStandard + grandTotalOvertime;
   const grandTotalWorkOrder = employeeReports.reduce((sum, r) => sum + r.totalWorkOrderHours, 0);
-  const grandTotal = grandTotalTimeClock + grandTotalWorkOrder;
+  const grandTotalInspection = employeeReports.reduce((sum, r) => sum + (r.totalInspectionHours || 0), 0);
+  const grandTotal = grandTotalTimeClock + grandTotalWorkOrder + grandTotalInspection;
 
   summaryData.push([
     'TOTALS',
@@ -2402,6 +2405,7 @@ export async function generatePayrollReportPDF(
     grandTotalOvertime.toFixed(2),
     grandTotalTimeClock.toFixed(2),
     grandTotalWorkOrder.toFixed(2),
+    grandTotalInspection.toFixed(2),
     grandTotal.toFixed(2)
   ]);
 

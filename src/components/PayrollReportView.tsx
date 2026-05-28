@@ -48,6 +48,7 @@ interface EmployeeReport {
   totalOvertimeHours: number;
   totalHours: number;
   totalWorkOrderHours: number;
+  totalInspectionHours: number;
   grandTotalHours: number;
 }
 
@@ -550,23 +551,27 @@ export function PayrollReportView() {
         workOrderQuery = workOrderQuery.gte('punch_in_time', startOfDay).lte('punch_in_time', endOfDay);
       }
 
-      const [regularResult, workOrderResult, profilesResult, yachtsResult] = await Promise.all([
+      const [regularResult, workOrderResult, profilesResult, yachtsResult, inspectionResult] = await Promise.all([
         regularQuery,
         workOrderQuery,
         supabase.from('user_profiles').select('user_id, first_name, last_name, employee_type').in('role', ['staff', 'mechanic', 'master']).eq('is_active', true).order('last_name'),
-        supabase.from('yachts').select('id, name')
+        supabase.from('yachts').select('id, name'),
+        supabase.from('inspection_time_entries').select('*')
+          .gte('inspection_date', startOfDay).lte('inspection_date', endOfDay)
       ]);
 
       const regularEntries = regularResult.data || [];
       const workOrderEntries = workOrderResult.data || [];
       const profiles = profilesResult.data || [];
+      const inspectionEntries = inspectionResult.data || [];
 
       const yachtMap: Record<string, string> = {};
       (yachtsResult.data || []).forEach(y => { yachtMap[y.id] = y.name; });
 
       const allUserIds = new Set([
         ...regularEntries.map((e: any) => e.user_id),
-        ...workOrderEntries.map((e: any) => e.user_id)
+        ...workOrderEntries.map((e: any) => e.user_id),
+        ...inspectionEntries.map((e: any) => e.user_id)
       ]);
 
       const reports: any[] = [];
@@ -597,7 +602,10 @@ export function PayrollReportView() {
           });
 
         const totalWorkOrderHours = userWorkOrderEntries.reduce((sum: number, e: any) => sum + e.total_hours, 0);
-        const grandTotalHours = totalHours + totalWorkOrderHours;
+        const totalInspectionHours = inspectionEntries
+          .filter((e: any) => e.user_id === user.user_id)
+          .reduce((sum: number, e: any) => sum + (e.hours || 0), 0);
+        const grandTotalHours = totalHours + totalWorkOrderHours + totalInspectionHours;
 
         reports.push({
           user,
@@ -607,6 +615,7 @@ export function PayrollReportView() {
           totalOvertimeHours: Math.round(totalOvertimeHours * 100) / 100,
           totalHours: Math.round(totalHours * 100) / 100,
           totalWorkOrderHours: Math.round(totalWorkOrderHours * 100) / 100,
+          totalInspectionHours: Math.round(totalInspectionHours * 100) / 100,
           grandTotalHours: Math.round(grandTotalHours * 100) / 100
         });
       });
@@ -646,22 +655,27 @@ export function PayrollReportView() {
 
       let regularEntries: any[] = [];
       let workOrderEntries: any[] = [];
+      let inspectionEntries: any[] = [];
 
       if (periodId) {
-        const [regRes, woRes] = await Promise.all([
+        const [regRes, woRes, inspRes] = await Promise.all([
           supabase.from('staff_time_entries').select('*')
             .in('user_id', userIds).is('work_order_id', null)
             .eq('pay_period_id', periodId).not('punch_out_time', 'is', null).order('punch_in_time'),
           supabase.from('staff_time_entries').select(woSelect)
             .in('user_id', userIds).not('work_order_id', 'is', null)
-            .eq('pay_period_id', periodId).not('punch_out_time', 'is', null).order('punch_in_time')
+            .eq('pay_period_id', periodId).not('punch_out_time', 'is', null).order('punch_in_time'),
+          supabase.from('inspection_time_entries').select('*')
+            .in('user_id', userIds)
+            .gte('inspection_date', startIso).lte('inspection_date', endIso)
         ]);
         if (regRes.error) throw regRes.error;
         if (woRes.error) throw woRes.error;
         regularEntries = regRes.data || [];
         workOrderEntries = woRes.data || [];
+        inspectionEntries = inspRes.data || [];
       } else {
-        const [regularEntriesResult, workOrderEntriesResult] = await Promise.all([
+        const [regularEntriesResult, workOrderEntriesResult, inspectionEntriesResult] = await Promise.all([
           supabase.from('staff_time_entries').select('*')
             .in('user_id', userIds).is('work_order_id', null)
             .gte('punch_in_time', startIso).lte('punch_in_time', endIso)
@@ -669,12 +683,16 @@ export function PayrollReportView() {
           supabase.from('staff_time_entries').select(woSelect)
             .in('user_id', userIds).not('work_order_id', 'is', null)
             .gte('punch_in_time', startIso).lte('punch_in_time', endIso)
-            .not('punch_out_time', 'is', null).order('punch_in_time')
+            .not('punch_out_time', 'is', null).order('punch_in_time'),
+          supabase.from('inspection_time_entries').select('*')
+            .in('user_id', userIds)
+            .gte('inspection_date', startIso).lte('inspection_date', endIso)
         ]);
         if (regularEntriesResult.error) throw regularEntriesResult.error;
         if (workOrderEntriesResult.error) throw workOrderEntriesResult.error;
         regularEntries = regularEntriesResult.data || [];
         workOrderEntries = workOrderEntriesResult.data || [];
+        inspectionEntries = inspectionEntriesResult.data || [];
       }
 
       const reports: EmployeeReport[] = [];
@@ -701,7 +719,10 @@ export function PayrollReportView() {
             });
 
           const totalWorkOrderHours = userWorkOrderEntries.reduce((sum, e) => sum + e.total_hours, 0);
-          const grandTotalHours = totalHours + totalWorkOrderHours;
+          const totalInspectionHours = inspectionEntries
+            .filter((e: any) => e.user_id === user.user_id)
+            .reduce((sum: number, e: any) => sum + (e.hours || 0), 0);
+          const grandTotalHours = totalHours + totalWorkOrderHours + totalInspectionHours;
 
           reports.push({
             user,
@@ -711,6 +732,7 @@ export function PayrollReportView() {
             totalOvertimeHours: Math.round(totalOvertimeHours * 100) / 100,
             totalHours: Math.round(totalHours * 100) / 100,
             totalWorkOrderHours: Math.round(totalWorkOrderHours * 100) / 100,
+            totalInspectionHours: Math.round(totalInspectionHours * 100) / 100,
             grandTotalHours: Math.round(grandTotalHours * 100) / 100
           });
         }
@@ -780,7 +802,8 @@ export function PayrollReportView() {
   const grandTotalOvertime = employeeReports.reduce((sum, r) => sum + r.totalOvertimeHours, 0);
   const grandTotalTimeClock = grandTotalStandard + grandTotalOvertime;
   const grandTotalWorkOrder = employeeReports.reduce((sum, r) => sum + r.totalWorkOrderHours, 0);
-  const grandTotal = grandTotalTimeClock + grandTotalWorkOrder;
+  const grandTotalInspection = employeeReports.reduce((sum, r) => sum + r.totalInspectionHours, 0);
+  const grandTotal = grandTotalTimeClock + grandTotalWorkOrder + grandTotalInspection;
 
   return (
     <div className="space-y-6">
@@ -1322,6 +1345,9 @@ export function PayrollReportView() {
                     Work Order Hours
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Inspection Hours
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Grand Total {activePayPeriod && <span className="normal-case text-blue-500">(click to mark paid)</span>}
                   </th>
                 </tr>
@@ -1357,6 +1383,9 @@ export function PayrollReportView() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-blue-600 font-medium">
                         {report.totalWorkOrderHours.toFixed(2)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-teal-600 font-medium">
+                        {report.totalInspectionHours.toFixed(2)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
                         {activePayPeriod ? (
@@ -1405,6 +1434,9 @@ export function PayrollReportView() {
                   </td>
                   <td className="px-6 py-4 text-right text-sm font-bold text-blue-600">
                     {grandTotalWorkOrder.toFixed(2)}
+                  </td>
+                  <td className="px-6 py-4 text-right text-sm font-bold text-teal-600">
+                    {grandTotalInspection.toFixed(2)}
                   </td>
                   <td className="px-6 py-4 text-right text-sm font-bold text-gray-900">
                     {grandTotal.toFixed(2)}
