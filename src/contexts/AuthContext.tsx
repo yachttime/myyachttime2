@@ -150,7 +150,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       clearTimeout(timeoutId);
 
       if (profileError) {
-        console.error('Profile load error:', profileError);
         throw profileError;
       }
 
@@ -179,10 +178,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         error?.code === '57014';
 
       if (isRetryable && attempt < MAX_ATTEMPTS) {
-        console.warn(`Profile load failed, retrying (${attempt}/${MAX_ATTEMPTS - 1})...`);
         setTimeout(() => loadUserProfile(userId, attempt + 1), RETRY_DELAY_MS);
       } else {
-        console.error('Error loading user profile:', error);
+        if (!isRetryable) console.error('Error loading user profile:', error);
         setUserProfile(null);
         setYacht(null);
         setLoading(false);

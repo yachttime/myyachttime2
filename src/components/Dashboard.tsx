@@ -786,10 +786,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   useEffect(() => {
     const handleQRScannedYacht = async () => {
       const scannedYachtId = localStorage.getItem('qr_scanned_yacht_id');
-      console.log('[Dashboard QR] Checking for scanned yacht ID:', scannedYachtId);
 
       if (!scannedYachtId || !user) {
-        console.log('[Dashboard QR] No yacht ID or no user');
         return;
       }
 
@@ -800,15 +798,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           .eq('id', scannedYachtId)
           .maybeSingle();
 
-        console.log('[Dashboard QR] Yacht lookup result:', { scannedYacht, error });
-
         if (!error && scannedYacht) {
-          // Set yacht name for display
           setQrScannedYachtName(scannedYacht.name);
-          console.log('[Dashboard QR] Set yacht name:', scannedYacht.name);
 
-          // Fetch yacht-specific welcome video
-          console.log('[Dashboard QR] Fetching welcome video for yacht:', scannedYachtId);
           const { data: videoData, error: videoError } = await supabase
             .from('education_videos')
             .select('*')
@@ -818,28 +810,20 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             .limit(1)
             .maybeSingle();
 
-          console.log('[Dashboard QR] Video query result:', { videoData, videoError });
-
           if (!videoError && videoData) {
-            console.log('[Dashboard QR] Setting welcome video:', videoData.title);
-            console.log('[Dashboard QR] Video URL:', videoData.video_url);
             setWelcomeVideo(videoData);
             setShowWelcomeVideo(true);
           } else {
-            console.log('[Dashboard QR] No video found or error occurred');
           }
 
-          // For master users, also set the impersonated yacht
           if (userProfile?.role === 'master') {
             setImpersonatedYacht(scannedYacht);
-            console.log('[Dashboard QR] Set impersonated yacht for master user');
           }
         }
       } catch (err) {
-        console.error('[Dashboard QR] Error handling QR scanned yacht:', err);
+        console.error('Error handling QR scanned yacht:', err);
       } finally {
         localStorage.removeItem('qr_scanned_yacht_id');
-        console.log('[Dashboard QR] Removed yacht ID from localStorage');
       }
     };
 
@@ -1211,7 +1195,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       if (error) throw error;
       setVideos(data || []);
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.message?.includes('upstream') || error?.status === 504 || error?.name === 'AbortError' || error?.message?.includes('AbortError')) return;
       console.error('Error loading videos:', error);
     }
   };
@@ -1228,7 +1213,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       if (error) throw error;
       setWelcomeVideo(data);
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.message?.includes('upstream') || error?.status === 504 || error?.name === 'AbortError' || error?.message?.includes('AbortError')) return;
       console.error('Error loading welcome video:', error);
     }
   };
@@ -5630,7 +5616,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         grouped[p.yacht_id].push(p);
       });
       setYachtPartners(grouped);
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.message?.includes('upstream') || error?.status === 504 || error?.name === 'AbortError' || error?.message?.includes('AbortError')) return;
       console.error('Error loading yacht partners:', error);
     }
   };
@@ -5706,17 +5693,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const loadMasterCalendar = async () => {
     try {
       if (!user) {
-        console.log('Master Calendar: No user logged in');
         return;
       }
 
       if (!selectedCompany?.id) {
-        console.log('Master Calendar: No company selected');
         setMasterCalendarBookings([]);
         return;
       }
-
-      console.log('Master Calendar: Loading data for user:', user.id, 'Role:', effectiveRole, 'Profile:', userProfile?.role, 'Company:', selectedCompany.id);
 
       // Only include bookings for active yachts
       const { data: activeYachts } = await supabase
