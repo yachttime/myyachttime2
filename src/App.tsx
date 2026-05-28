@@ -15,7 +15,7 @@ import { StaffCalendar } from './components/StaffCalendar';
 type Page = 'welcome' | 'signin' | 'dashboard' | 'maintenance' | 'education' | 'staffCalendar';
 
 function AppContent() {
-  const { user, userProfile, loading, isPasswordRecovery } = useAuth();
+  const { user, userProfile, loading, isPasswordRecovery, signOut } = useAuth();
   const [page, setPage] = useState<Page>('welcome');
   const [mounted, setMounted] = useState(false);
 
@@ -92,6 +92,37 @@ function AppContent() {
       return <Welcome onGetStarted={() => setPage('signin')} />;
     }
     return <SignIn />;
+  }
+
+  // User is authenticated but profile failed to load (e.g. Supabase 504)
+  if (!userProfile) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white flex items-center justify-center">
+        <div className="text-center max-w-sm px-6">
+          <div className="w-16 h-16 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-6">
+            <svg className="w-8 h-8 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-semibold text-white mb-2">Unable to Load Profile</h2>
+          <p className="text-slate-400 text-sm mb-6">There was a problem loading your account. This is usually a temporary issue.</p>
+          <div className="flex flex-col gap-3">
+            <button
+              onClick={() => { window.location.reload(); }}
+              className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-900 font-semibold rounded-lg transition-colors"
+            >
+              Retry
+            </button>
+            <button
+              onClick={signOut}
+              className="px-6 py-3 text-slate-400 hover:text-white transition-colors text-sm"
+            >
+              Sign Out
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (userProfile?.must_change_password) {
