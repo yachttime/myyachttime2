@@ -153,7 +153,7 @@ export const SignIn = () => {
   };
 
   const sendPasswordReset = async (emailAddress: string) => {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://aeouyvngcjddffuzlenx.supabase.co';
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://eqiecntollhgfxmmbize.supabase.co';
     const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
     const res = await fetch(`${supabaseUrl}/functions/v1/send-password-reset`, {
       method: 'POST',
