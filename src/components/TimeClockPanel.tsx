@@ -3,6 +3,7 @@ import { Clock, LogIn, LogOut, Coffee, AlertCircle, CheckCircle, Wrench, AlertTr
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { calculateElapsedTime, formatTime, getClientIP } from '../utils/timeClockHelpers';
+import { toPhxDateInput } from '../utils/timezone';
 
 interface TimeEntry {
   id: string;
@@ -205,19 +206,20 @@ export function TimeClockPanel() {
 
       if (openEntry) {
         const punchInDate = new Date(openEntry.punch_in_time);
-        const today = new Date();
-        const isSameDay =
-          punchInDate.getFullYear() === today.getFullYear() &&
-          punchInDate.getMonth() === today.getMonth() &&
-          punchInDate.getDate() === today.getDate();
+        const now = new Date();
+        // Compare calendar dates in Phoenix local time (not UTC) to avoid midnight boundary issues
+        const isSameDay = toPhxDateInput(punchInDate) === toPhxDateInput(now);
+        // Also treat entries open 14+ hours as forgotten regardless of calendar day
+        const hoursOpen = (now.getTime() - punchInDate.getTime()) / (1000 * 60 * 60);
+        const isForgotten = !isSameDay || hoursOpen >= 14;
 
-        if (isSameDay) {
+        if (!isForgotten) {
           await loadCurrentEntry();
           showMessage('error', 'You are already clocked in. Please punch out before clocking in again.');
           return;
         }
 
-        // Stale open entry from a previous day — auto-close it at end of that day
+        // Stale open entry from a previous day (or open 14+ hrs) — auto-close it at end of that day
         const autoCloseTime = new Date(punchInDate);
         autoCloseTime.setHours(23, 59, 0, 0);
 
