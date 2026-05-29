@@ -2,7 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Force reload */
+/* Ensure all form inputs always show dark text on white background */
+input,
+textarea,
+select {
+  color: #111827;
+  background-color: #ffffff;
+  color-scheme: light;
+}
 
 @keyframes slideIn {
   from {
