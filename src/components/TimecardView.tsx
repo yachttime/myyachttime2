@@ -28,39 +28,23 @@ interface WeekBlock {
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-function toDateStr(date: Date): string {
-  return date.toLocaleDateString('en-CA', { timeZone: 'America/Phoenix' });
-}
-
-async function getPayPeriodBoundsFromDB(referenceDate: Date): Promise<{ start: Date; end: Date; periodNumber: number | null }> {
-  const dateStr = toDateStr(referenceDate);
-  const { data } = await supabase
-    .from('pay_periods')
-    .select('period_start, period_end, period_number')
-    .lte('period_start', dateStr)
-    .gte('period_end', dateStr)
-    .maybeSingle();
-
-  if (data) {
-    return {
-      start: new Date(data.period_start + 'T00:00:00'),
-      end: new Date(data.period_end + 'T00:00:00'),
-      periodNumber: data.period_number
-    };
-  }
-
-  // Fallback: compute from hardcoded cycle if no DB record found
+function getPayPeriodBounds(referenceDate: Date): { start: Date; end: Date } {
   const d = referenceDate.getDate();
   const m = referenceDate.getMonth();
   const y = referenceDate.getFullYear();
-  if (d <= 10) {
+
+  if (d <= 11) {
     const prevMonth = m === 0 ? 11 : m - 1;
     const prevYear = m === 0 ? y - 1 : y;
-    return { start: new Date(prevYear, prevMonth, 28), end: new Date(y, m, 10), periodNumber: null };
-  } else if (d <= 27) {
-    return { start: new Date(y, m, 11), end: new Date(y, m, 27), periodNumber: null };
+    return {
+      start: new Date(prevYear, prevMonth, 27),
+      end: new Date(y, m, 11)
+    };
   } else {
-    return { start: new Date(y, m, 28), end: new Date(y, m + 1, 10), periodNumber: null };
+    return {
+      start: new Date(y, m, 12),
+      end: new Date(y, m, 26)
+    };
   }
 }
 
@@ -68,6 +52,10 @@ function addDays(date: Date, days: number): Date {
   const d = new Date(date);
   d.setDate(d.getDate() + days);
   return d;
+}
+
+function toDateStr(date: Date): string {
+  return date.toLocaleDateString('en-CA', { timeZone: 'America/Phoenix' });
 }
 
 function formatHours(h: number): string {
@@ -84,9 +72,14 @@ export function TimecardView({ userId, userName }: TimecardViewProps) {
   const targetUserId = userId || user?.id;
   const isMaster = userProfile?.role === 'master';
 
-  const [periodStart, setPeriodStart] = useState<Date>(new Date());
-  const [periodEnd, setPeriodEnd] = useState<Date>(new Date());
-  const [periodInitialized, setPeriodInitialized] = useState(false);
+  const [periodStart, setPeriodStart] = useState<Date>(() => {
+    const { start } = getPayPeriodBounds(new Date());
+    return start;
+  });
+  const [periodEnd, setPeriodEnd] = useState<Date>(() => {
+    const { end } = getPayPeriodBounds(new Date());
+    return end;
+  });
 
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -95,18 +88,8 @@ export function TimecardView({ userId, userName }: TimecardViewProps) {
   const [refreshKey, setRefreshKey] = useState(0);
   const [payPeriodNumber, setPayPeriodNumber] = useState<number | null>(null);
 
-  // Initialize to the current pay period from DB
-  useEffect(() => {
-    getPayPeriodBoundsFromDB(new Date()).then(({ start, end, periodNumber }) => {
-      setPeriodStart(start);
-      setPeriodEnd(end);
-      setPayPeriodNumber(periodNumber);
-      setPeriodInitialized(true);
-    });
-  }, []);
-
   const loadEntries = useCallback(async () => {
-    if (!targetUserId || !periodInitialized) return;
+    if (!targetUserId) return;
     setLoading(true);
     try {
       // PHX is UTC-7 (no DST). Midnight PHX = 07:00 UTC. End of day PHX = next day 06:59:59 UTC.
@@ -128,33 +111,46 @@ export function TimecardView({ userId, userName }: TimecardViewProps) {
     } finally {
       setLoading(false);
     }
-  }, [targetUserId, periodStart, periodEnd, refreshKey, periodInitialized]);
+  }, [targetUserId, periodStart, periodEnd, refreshKey]);
 
   useEffect(() => {
     loadEntries();
   }, [loadEntries]);
 
-  const goToPrevPeriod = async () => {
-    const newRef = addDays(periodStart, -1);
-    const { start, end, periodNumber } = await getPayPeriodBoundsFromDB(newRef);
+  useEffect(() => {
+    const fetchPayPeriodNumber = async () => {
+      const midPoint = new Date(periodStart);
+      midPoint.setDate(midPoint.getDate() + 7);
+      const midStr = toDateStr(midPoint);
+      const { data } = await supabase
+        .from('pay_periods')
+        .select('period_number, year')
+        .lte('period_start', midStr)
+        .gte('period_end', midStr)
+        .maybeSingle();
+      setPayPeriodNumber(data ? data.period_number : null);
+    };
+    fetchPayPeriodNumber();
+  }, [periodStart, periodEnd]);
+
+  const goToPrevPeriod = () => {
+    const newEnd = addDays(periodStart, -1);
+    const { start, end } = getPayPeriodBounds(newEnd);
     setPeriodStart(start);
     setPeriodEnd(end);
-    setPayPeriodNumber(periodNumber);
   };
 
-  const goToNextPeriod = async () => {
-    const newRef = addDays(periodEnd, 1);
-    const { start, end, periodNumber } = await getPayPeriodBoundsFromDB(newRef);
+  const goToNextPeriod = () => {
+    const newStart = addDays(periodEnd, 1);
+    const { start, end } = getPayPeriodBounds(newStart);
     setPeriodStart(start);
     setPeriodEnd(end);
-    setPayPeriodNumber(periodNumber);
   };
 
-  const goToCurrentPeriod = async () => {
-    const { start, end, periodNumber } = await getPayPeriodBoundsFromDB(new Date());
+  const goToCurrentPeriod = () => {
+    const { start, end } = getPayPeriodBounds(new Date());
     setPeriodStart(start);
     setPeriodEnd(end);
-    setPayPeriodNumber(periodNumber);
   };
 
   const entriesByDate = new Map<string, TimeEntry[]>();
@@ -576,7 +572,7 @@ function AddEntryModal({ dateStr, userId, onClose, onSave }: AddEntryModalProps)
                 type="time"
                 value={punchInTime}
                 onChange={e => setPunchInTime(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <div>
@@ -585,7 +581,7 @@ function AddEntryModal({ dateStr, userId, onClose, onSave }: AddEntryModalProps)
                 type="time"
                 value={punchOutTime}
                 onChange={e => setPunchOutTime(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
           </div>
@@ -596,7 +592,7 @@ function AddEntryModal({ dateStr, userId, onClose, onSave }: AddEntryModalProps)
               value={notes}
               onChange={e => setNotes(e.target.value)}
               rows={2}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
             />
           </div>
 
@@ -609,7 +605,7 @@ function AddEntryModal({ dateStr, userId, onClose, onSave }: AddEntryModalProps)
               onChange={e => setEditReason(e.target.value)}
               rows={2}
               placeholder="Explain why you are manually adding this entry..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
             />
           </div>
         </div>
