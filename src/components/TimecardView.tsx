@@ -576,7 +576,7 @@ function AddEntryModal({ dateStr, userId, onClose, onSave }: AddEntryModalProps)
                 type="time"
                 value={punchInTime}
                 onChange={e => setPunchInTime(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <div>
@@ -585,7 +585,7 @@ function AddEntryModal({ dateStr, userId, onClose, onSave }: AddEntryModalProps)
                 type="time"
                 value={punchOutTime}
                 onChange={e => setPunchOutTime(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
           </div>
@@ -596,7 +596,7 @@ function AddEntryModal({ dateStr, userId, onClose, onSave }: AddEntryModalProps)
               value={notes}
               onChange={e => setNotes(e.target.value)}
               rows={2}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
             />
           </div>
 
@@ -609,7 +609,7 @@ function AddEntryModal({ dateStr, userId, onClose, onSave }: AddEntryModalProps)
               onChange={e => setEditReason(e.target.value)}
               rows={2}
               placeholder="Explain why you are manually adding this entry..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
             />
           </div>
         </div>
