@@ -18389,7 +18389,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             type="text"
                             value={staffAppointmentForm.name}
                             onChange={(e) => setStaffAppointmentForm({ ...staffAppointmentForm, name: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
                             placeholder="Enter name"
                             required
                           />
@@ -18403,7 +18403,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             type="tel"
                             value={staffAppointmentForm.phone}
                             onChange={(e) => setStaffAppointmentForm({ ...staffAppointmentForm, phone: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
                             placeholder="Enter phone number"
                           />
                         </div>
@@ -18416,7 +18416,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             type="email"
                             value={staffAppointmentForm.email}
                             onChange={(e) => setStaffAppointmentForm({ ...staffAppointmentForm, email: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
                             placeholder="Enter email address"
                           />
                         </div>
@@ -18429,7 +18429,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             type="date"
                             value={staffAppointmentForm.date}
                             onChange={(e) => setStaffAppointmentForm({ ...staffAppointmentForm, date: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
                             required
                           />
                         </div>
@@ -18442,7 +18442,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             type="time"
                             value={staffAppointmentForm.time}
                             onChange={(e) => setStaffAppointmentForm({ ...staffAppointmentForm, time: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
                             required
                           />
                         </div>
@@ -18799,7 +18799,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   type="text"
                                   value={userEditForm.first_name}
                                   onChange={(e) => setUserEditForm({ ...userEditForm, first_name: e.target.value })}
-                                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
                                   required
                                 />
                               </div>
@@ -18812,7 +18812,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   type="text"
                                   value={userEditForm.last_name}
                                   onChange={(e) => setUserEditForm({ ...userEditForm, last_name: e.target.value })}
-                                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
                                   required
                                 />
                               </div>
@@ -18825,7 +18825,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   type="email"
                                   value={userEditForm.email}
                                   onChange={(e) => setUserEditForm({ ...userEditForm, email: e.target.value })}
-                                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
                                   required
                                 />
                               </div>
@@ -18839,7 +18839,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   value={userEditForm.secondary_email}
                                   onChange={(e) => setUserEditForm({ ...userEditForm, secondary_email: e.target.value })}
                                   placeholder="CC recipient for email notifications"
-                                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
                                 />
                                 <p className="text-xs text-slate-500 mt-1">This email will receive a copy (CC) of all notifications sent to the user</p>
                               </div>
@@ -18883,7 +18883,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   value={userEditForm.phone}
                                   onChange={(e) => setUserEditForm({ ...userEditForm, phone: formatPhoneNumber(e.target.value) })}
                                   placeholder="123-456-7890"
-                                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
                                 />
                               </div>
 
@@ -18896,7 +18896,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   value={userEditForm.secondary_phone}
                                   onChange={(e) => setUserEditForm({ ...userEditForm, secondary_phone: formatPhoneNumber(e.target.value) })}
                                   placeholder="123-456-7890"
-                                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
                                 />
                               </div>
 
@@ -18908,7 +18908,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   type="text"
                                   value={userEditForm.street}
                                   onChange={(e) => setUserEditForm({ ...userEditForm, street: e.target.value })}
-                                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
                                 />
                               </div>
 
@@ -18920,7 +18920,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   type="text"
                                   value={userEditForm.city}
                                   onChange={(e) => setUserEditForm({ ...userEditForm, city: e.target.value })}
-                                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
                                 />
                               </div>
 
@@ -18931,7 +18931,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 <select
                                   value={userEditForm.state}
                                   onChange={(e) => setUserEditForm({ ...userEditForm, state: e.target.value })}
-                                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
                                 >
                                   <option value="">Select State</option>
                                   <option value="AL">Alabama</option>
@@ -18996,7 +18996,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   type="text"
                                   value={userEditForm.zip_code}
                                   onChange={(e) => setUserEditForm({ ...userEditForm, zip_code: e.target.value })}
-                                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
                                 />
                               </div>
 
@@ -19019,7 +19019,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                     <select
                                       value={userEditForm.role}
                                       onChange={(e) => setUserEditForm({ ...userEditForm, role: e.target.value })}
-                                      className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                      className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
                                       required
                                     >
                                       <option value="owner">Owner</option>
@@ -19050,7 +19050,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                     <select
                                       value={userEditForm.employee_type}
                                       onChange={(e) => setUserEditForm({ ...userEditForm, employee_type: e.target.value })}
-                                      className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                      className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
                                       required
                                     >
                                       <option value="hourly">Hourly</option>
@@ -19074,7 +19074,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                       value={userEditForm.rate_of_pay}
                                       onChange={(e) => setUserEditForm({ ...userEditForm, rate_of_pay: e.target.value })}
                                       placeholder="e.g., 25.00"
-                                      className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                      className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
                                     />
                                   </div>
                                 </>
@@ -19098,7 +19098,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   <select
                                     value={userEditForm.yacht_id}
                                     onChange={(e) => setUserEditForm({ ...userEditForm, yacht_id: e.target.value })}
-                                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
                                   >
                                     <option value="">No Yacht Assigned</option>
                                     {allYachts.map((yacht) => (
@@ -19119,7 +19119,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   value={userEditForm.trip_number}
                                   onChange={(e) => setUserEditForm({ ...userEditForm, trip_number: e.target.value })}
                                   placeholder="e.g., T1, T2, Trip 1"
-                                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
                                 />
                                 <p className="text-xs text-slate-500 mt-1">Optional field to track owner trip sequence</p>
                               </div>
@@ -19188,7 +19188,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                         value={userEditForm.notification_email}
                                         onChange={(e) => setUserEditForm({ ...userEditForm, notification_email: e.target.value })}
                                         placeholder="Leave blank to use primary email"
-                                        className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
                                       />
                                       <p className="text-xs text-slate-500 mt-1">If left blank, notifications will be sent to the primary email address</p>
                                     </div>
@@ -19217,7 +19217,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                           value={userEditForm.notification_phone}
                                           onChange={(e) => setUserEditForm({ ...userEditForm, notification_phone: formatPhoneNumber(e.target.value) })}
                                           placeholder="123-456-7890"
-                                          className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                          className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
                                         />
                                         <p className="text-xs text-slate-500 mt-1">If left blank, SMS will be sent to the primary phone number.</p>
                                       </div>
@@ -19282,7 +19282,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                           value={resetPasswordValue}
                                           onChange={(e) => setResetPasswordValue(e.target.value)}
                                           placeholder="New password (min. 6 characters)"
-                                          className="w-full px-4 py-2.5 pr-10 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent text-sm"
+                                          className="w-full px-4 py-2.5 pr-10 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent text-sm text-white placeholder:text-slate-400"
                                           minLength={6}
                                           required
                                         />
@@ -21359,7 +21359,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     required
                     value={profileEditForm.first_name}
                     onChange={(e) => setProfileEditForm({ ...profileEditForm, first_name: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
                   />
                 </div>
 
@@ -21372,7 +21372,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     required
                     value={profileEditForm.last_name}
                     onChange={(e) => setProfileEditForm({ ...profileEditForm, last_name: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
                   />
                 </div>
 
@@ -21385,7 +21385,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     required
                     value={profileEditForm.email}
                     onChange={(e) => setProfileEditForm({ ...profileEditForm, email: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
                   />
                   <p className="text-xs text-slate-400 mt-1">
                     Changing your email will update your login credentials
@@ -21401,7 +21401,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     value={profileEditForm.phone}
                     onChange={(e) => setProfileEditForm({ ...profileEditForm, phone: formatPhoneNumber(e.target.value) })}
                     placeholder="123-456-7890"
-                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
                   />
                 </div>
 
@@ -21413,7 +21413,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     type="text"
                     value={profileEditForm.street}
                     onChange={(e) => setProfileEditForm({ ...profileEditForm, street: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
                   />
                 </div>
 
@@ -21425,7 +21425,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     type="text"
                     value={profileEditForm.city}
                     onChange={(e) => setProfileEditForm({ ...profileEditForm, city: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
                   />
                 </div>
 
@@ -21436,7 +21436,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                   <select
                     value={profileEditForm.state}
                     onChange={(e) => setProfileEditForm({ ...profileEditForm, state: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
                   >
                     <option value="">Select State</option>
                     <option value="AL">Alabama</option>
@@ -21501,7 +21501,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     type="text"
                     value={profileEditForm.zip_code}
                     onChange={(e) => setProfileEditForm({ ...profileEditForm, zip_code: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
                   />
                 </div>
               </div>
@@ -21520,7 +21520,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       value={profileEditForm.secondary_email}
                       onChange={(e) => setProfileEditForm({ ...profileEditForm, secondary_email: e.target.value })}
                       placeholder="CC recipient for email notifications"
-                      className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
                     />
                     <p className="text-xs text-slate-500 mt-1">This email will receive a copy (CC) of all notifications sent to you</p>
                   </div>
@@ -21549,7 +21549,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             value={profileEditForm.notification_email}
                             onChange={(e) => setProfileEditForm({ ...profileEditForm, notification_email: e.target.value })}
                             placeholder="Leave blank to use primary email"
-                            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
                           />
                           <p className="text-xs text-slate-500 mt-1">If left blank, notifications will be sent to your primary email address</p>
                         </div>
