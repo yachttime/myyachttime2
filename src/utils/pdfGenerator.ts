@@ -728,14 +728,14 @@ export async function generateTripInspectionPDF(
 
   // ── Photos ────────────────────────────────────────────────────────────────────
   if (photos && photos.length > 0) {
-    const allPhotos = photos.slice(0, 6); // max 6 photos, 3 per row
+    const allPhotos = photos.slice(0, 6); // max 6 photos, 2 per row
     const dataUrls = await Promise.all(allPhotos.map(p => loadImageAsDataUrl(p.photo_url)));
     const validPhotos = allPhotos.map((p, i) => ({ ...p, dataUrl: dataUrls[i] })).filter(p => p.dataUrl);
 
     if (validPhotos.length > 0) {
       yPos += 0.08;
-      const perRow = 3;
-      const gap = 0.08;
+      const perRow = 2;
+      const gap = 0.12;
       const imgW = (CW - gap * (perRow - 1)) / perRow;
       const imgH = imgW * 0.72;
       const minPhotoSectionH = 0.32 + imgH + 0.14; // header + one photo row + caption
