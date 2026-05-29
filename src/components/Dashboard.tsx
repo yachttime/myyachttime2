@@ -7365,8 +7365,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     }
 
     const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-    printWindow.document.write(`<!DOCTYPE html><html><head>
+    if (!printWindow) {
+      alert('Please allow pop-ups for this site to print the calendar.');
+      return;
+    }
+    const htmlContent = `<!DOCTYPE html><html><head>
       <title>Master Calendar - ${title}</title>
       <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -7392,7 +7395,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#94a3b8"><div style="width:12px;height:12px;border-radius:2px;background:#1e3a5f;border:1px solid #3b82f6"></div>Staff Meeting</div>
       </div>
       <div>${bodyHtml}</div>
-    </body></html>`);
+      <script>window.onload = function() { window.print(); }<\/script>
+    </body></html>`;
+    printWindow.document.open();
+    printWindow.document.write(htmlContent);
     printWindow.document.close();
   };
 
