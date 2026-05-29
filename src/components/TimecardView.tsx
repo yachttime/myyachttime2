@@ -480,7 +480,7 @@ interface AddEntryModalProps {
 function AddEntryModal({ dateStr, userId, onClose, onSave }: AddEntryModalProps) {
   const { user } = useAuth();
   const [punchInTime, setPunchInTime] = useState('08:00');
-  const [punchOutTime, setPunchOutTime] = useState('17:00');
+  const [punchOutTime, setPunchOutTime] = useState('');
   const [notes, setNotes] = useState('');
   const [editReason, setEditReason] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -495,15 +495,15 @@ function AddEntryModal({ dateStr, userId, onClose, onSave }: AddEntryModalProps)
       setError('Please provide a reason for adding this entry');
       return;
     }
-    if (!punchInTime || !punchOutTime) {
-      setError('Punch in and punch out times are required');
+    if (!punchInTime) {
+      setError('Punch in time is required');
       return;
     }
 
-    const punchIn = new Date(`${dateStr}T${punchInTime}`);
-    const punchOut = new Date(`${dateStr}T${punchOutTime}`);
+    const punchIn = new Date(`${dateStr}T${punchInTime}:00-07:00`);
+    const punchOut = punchOutTime ? new Date(`${dateStr}T${punchOutTime}:00-07:00`) : null;
 
-    if (punchOut <= punchIn) {
+    if (punchOut && punchOut <= punchIn) {
       setError('Punch out must be after punch in');
       return;
     }
@@ -512,20 +512,26 @@ function AddEntryModal({ dateStr, userId, onClose, onSave }: AddEntryModalProps)
     setError(null);
 
     try {
-      const diffMs = punchOut.getTime() - punchIn.getTime();
-      const totalHours = diffMs / (1000 * 60 * 60);
-      const standardHours = Math.min(totalHours, 8);
-      const overtimeHours = Math.max(0, totalHours - 8);
+      let totalHours = 0;
+      let standardHours = 0;
+      let overtimeHours = 0;
+
+      if (punchOut) {
+        const diffMs = punchOut.getTime() - punchIn.getTime();
+        totalHours = Math.round((diffMs / (1000 * 60 * 60)) * 100) / 100;
+        standardHours = Math.round(Math.min(totalHours, 8) * 100) / 100;
+        overtimeHours = Math.round(Math.max(0, totalHours - 8) * 100) / 100;
+      }
 
       const { error: insertError } = await supabase
         .from('staff_time_entries')
         .insert({
           user_id: userId,
           punch_in_time: punchIn.toISOString(),
-          punch_out_time: punchOut.toISOString(),
-          total_hours: Math.round(totalHours * 100) / 100,
-          standard_hours: Math.round(standardHours * 100) / 100,
-          overtime_hours: Math.round(overtimeHours * 100) / 100,
+          punch_out_time: punchOut ? punchOut.toISOString() : null,
+          total_hours: totalHours,
+          standard_hours: standardHours,
+          overtime_hours: overtimeHours,
           notes: notes || null,
           is_edited: true,
           edited_by: user?.id,
@@ -576,7 +582,7 @@ function AddEntryModal({ dateStr, userId, onClose, onSave }: AddEntryModalProps)
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Punch Out</label>
+              <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Punch Out <span className="text-gray-400 normal-case font-normal">(optional)</span></label>
               <input
                 type="time"
                 value={punchOutTime}
