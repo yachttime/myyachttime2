@@ -113,20 +113,31 @@ export function PayrollReportView() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const setDefaultDates = () => {
-    const today = new Date();
-    const day = today.getDate();
+  const setDefaultDates = async () => {
+    // Use the most recent unprocessed pay period, falling back to the most recent period
+    const { data } = await supabase
+      .from('pay_periods')
+      .select('period_start, period_end')
+      .eq('is_processed', false)
+      .order('period_start', { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-    if (day <= 15) {
-      const start = new Date(today.getFullYear(), today.getMonth() - 1, 27);
-      const end = new Date(today.getFullYear(), today.getMonth(), 11);
-      setStartDate(start.toISOString().split('T')[0]);
-      setEndDate(end.toISOString().split('T')[0]);
+    if (data) {
+      setStartDate(data.period_start);
+      setEndDate(data.period_end);
     } else {
-      const start = new Date(today.getFullYear(), today.getMonth(), 12);
-      const end = new Date(today.getFullYear(), today.getMonth(), 26);
-      setStartDate(start.toISOString().split('T')[0]);
-      setEndDate(end.toISOString().split('T')[0]);
+      // Fallback: most recent period of any kind
+      const { data: latest } = await supabase
+        .from('pay_periods')
+        .select('period_start, period_end')
+        .order('period_start', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (latest) {
+        setStartDate(latest.period_start);
+        setEndDate(latest.period_end);
+      }
     }
   };
 
