@@ -7245,6 +7245,157 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     }
   };
 
+  const handlePrintCalendar = () => {
+    const title = formatCalendarTitle() || '';
+
+    const getEventColor = (booking: any, isDeparture: boolean) => {
+      const appointmentType = booking.appointment_type || 'customer';
+      if (booking.is_appointment && appointmentType === 'staff') return { bg: '#1e3a5f', border: '#3b82f6', text: '#93c5fd', label: 'Staff Meeting' };
+      if (booking.is_appointment) return { bg: '#4a1942', border: '#ec4899', text: '#f9a8d4', label: 'Appointment' };
+      if (isDeparture) return { bg: '#14532d', border: '#22c55e', text: '#86efac', label: 'Departure' };
+      if (booking.oil_change_needed) return { bg: '#713f12', border: '#eab308', text: '#fde047', label: 'Arrival (Oil Chg)' };
+      return { bg: '#450a0a', border: '#ef4444', text: '#fca5a5', label: 'Arrival' };
+    };
+
+    const renderBookingRow = (booking: any, dateForCheck: Date) => {
+      const startDate = new Date(booking.start_date.includes('T') ? booking.start_date : booking.start_date + 'T00:00:00');
+      const endDate = new Date(booking.end_date.includes('T') ? booking.end_date : booking.end_date + 'T00:00:00');
+      startDate.setHours(0, 0, 0, 0); endDate.setHours(0, 0, 0, 0);
+      const check = new Date(dateForCheck); check.setHours(0, 0, 0, 0);
+      const isDeparture = check.getTime() === startDate.getTime();
+      const col = getEventColor(booking, isDeparture);
+      const name = getBookingDisplayName(booking) || '';
+      const yachtName = booking.is_appointment ? col.label : (booking.yachts?.name || 'Yacht');
+      const time = booking.is_appointment
+        ? convertTo12Hour(booking.departure_time)
+        : isDeparture
+          ? `Dep: ${convertTo12Hour(booking.departure_time)}`
+          : `Arr: ${convertTo12Hour(booking.arrival_time)}`;
+
+      return `<tr style="border-bottom:1px solid #334155">
+        <td style="padding:8px 12px;background:${col.bg};border-left:3px solid ${col.border}">
+          <div style="color:${col.text};font-weight:600;font-size:13px">${yachtName}</div>
+          <div style="color:#94a3b8;font-size:12px">${name}</div>
+        </td>
+        <td style="padding:8px 12px;color:${col.text};font-size:12px;font-weight:600">${col.label}</td>
+        <td style="padding:8px 12px;color:#cbd5e1;font-size:12px">${time}</td>
+        <td style="padding:8px 12px;color:#cbd5e1;font-size:12px">${booking.is_appointment ? booking.start_date : `${booking.start_date} → ${booking.end_date}`}</td>
+      </tr>`;
+    };
+
+    let bodyHtml = '';
+
+    if (calendarView === 'day') {
+      const bookings = getBookingsForDate(currentDate);
+      if (bookings.length === 0) {
+        bodyHtml = '<p style="color:#94a3b8;text-align:center;padding:32px">No events scheduled for this day.</p>';
+      } else {
+        bodyHtml = `<table style="width:100%;border-collapse:collapse;margin-top:16px">
+          <thead><tr style="background:#1e293b">
+            <th style="padding:8px 12px;text-align:left;color:#94a3b8;font-size:12px;text-transform:uppercase">Event</th>
+            <th style="padding:8px 12px;text-align:left;color:#94a3b8;font-size:12px;text-transform:uppercase">Type</th>
+            <th style="padding:8px 12px;text-align:left;color:#94a3b8;font-size:12px;text-transform:uppercase">Time</th>
+            <th style="padding:8px 12px;text-align:left;color:#94a3b8;font-size:12px;text-transform:uppercase">Date</th>
+          </tr></thead>
+          <tbody>${bookings.map(b => renderBookingRow(b as any, currentDate)).join('')}</tbody>
+        </table>`;
+      }
+    } else if (calendarView === 'week') {
+      const weekDays = getWeekDays(currentDate);
+      bodyHtml = weekDays.map(date => {
+        const bookings = getBookingsForDate(date);
+        const dayLabel = date.toLocaleDateString('en-US', { timeZone: 'America/Phoenix', weekday: 'long', month: 'long', day: 'numeric' });
+        const rows = bookings.length === 0
+          ? '<tr><td colspan="4" style="padding:8px 12px;color:#475569;font-size:12px;font-style:italic">No events</td></tr>'
+          : bookings.map(b => renderBookingRow(b as any, date)).join('');
+        return `<div style="margin-bottom:24px">
+          <div style="background:#1e293b;padding:10px 14px;border-radius:6px 6px 0 0;border-left:3px solid #14b8a6">
+            <span style="color:#e2e8f0;font-weight:700;font-size:14px">${dayLabel}</span>
+            <span style="color:#64748b;font-size:12px;margin-left:8px">${bookings.length} event${bookings.length !== 1 ? 's' : ''}</span>
+          </div>
+          <table style="width:100%;border-collapse:collapse;border:1px solid #1e293b">
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
+      }).join('');
+    } else {
+      const { daysInMonth, startingDayOfWeek } = getDaysInMonth(currentDate);
+      const days: (number | null)[] = [];
+      for (let i = 0; i < startingDayOfWeek; i++) days.push(null);
+      for (let d = 1; d <= daysInMonth; d++) days.push(d);
+
+      const cells = days.map(day => {
+        if (!day) return `<td style="border:1px solid #1e293b;padding:4px;background:#0a0f1a;min-height:80px;vertical-align:top"></td>`;
+        const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+        const bookings = getBookingsForDate(date);
+        const isToday = date.toLocaleDateString('en-CA', { timeZone: 'America/Phoenix' }) === new Date().toLocaleDateString('en-CA', { timeZone: 'America/Phoenix' });
+        const dayBg = isToday ? '#134e4a' : '#0f172a';
+        const dayColor = isToday ? '#2dd4bf' : '#94a3b8';
+        const events = bookings.map((booking: any) => {
+          const startDate = new Date(booking.start_date.includes('T') ? booking.start_date : booking.start_date + 'T00:00:00');
+          const endDate = new Date(booking.end_date.includes('T') ? booking.end_date : booking.end_date + 'T00:00:00');
+          startDate.setHours(0, 0, 0, 0); endDate.setHours(0, 0, 0, 0);
+          const check = new Date(date); check.setHours(0, 0, 0, 0);
+          const isDeparture = check.getTime() === startDate.getTime();
+          const col = getEventColor(booking, isDeparture);
+          const name = getBookingDisplayName(booking) || '';
+          const yachtName = booking.is_appointment ? col.label : (booking.yachts?.name || 'Yacht');
+          return `<div style="background:${col.bg};border-left:2px solid ${col.border};padding:2px 4px;margin-bottom:2px;border-radius:2px">
+            <div style="color:${col.text};font-size:9px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${yachtName}</div>
+            <div style="color:#94a3b8;font-size:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}</div>
+          </div>`;
+        }).join('');
+        return `<td style="border:1px solid #1e293b;padding:4px;background:${dayBg};min-height:80px;vertical-align:top">
+          <div style="color:${dayColor};font-weight:700;font-size:12px;margin-bottom:3px">${day}</div>
+          ${events}
+        </td>`;
+      });
+
+      const rows: string[] = [];
+      for (let i = 0; i < cells.length; i += 7) {
+        rows.push(`<tr>${cells.slice(i, i + 7).join('')}</tr>`);
+      }
+
+      bodyHtml = `<table style="width:100%;border-collapse:collapse">
+        <thead><tr>${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d =>
+          `<th style="padding:8px;background:#1e293b;color:#64748b;font-size:12px;text-align:center;border:1px solid #334155">${d}</th>`
+        ).join('')}</tr></thead>
+        <tbody>${rows.join('')}</tbody>
+      </table>`;
+    }
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    printWindow.document.write(`<!DOCTYPE html><html><head>
+      <title>Master Calendar - ${title}</title>
+      <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: #0f172a; color: #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 24px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        @media print { body { padding: 12px; } @page { size: landscape; margin: 0.5in; } }
+        .no-print { display: inline-block; margin-bottom: 16px; }
+        @media print { .no-print { display: none !important; } }
+      </style>
+    </head><body>
+      <button class="no-print" onclick="window.print()" style="background:#14b8a6;color:#0f172a;border:none;padding:8px 20px;border-radius:6px;font-weight:700;cursor:pointer;font-size:13px">Print</button>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:14px;border-bottom:2px solid #14b8a6">
+        <div>
+          <div style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">Master Calendar &mdash; ${calendarView.charAt(0).toUpperCase() + calendarView.slice(1)} View</div>
+          <div style="color:#e2e8f0;font-size:22px;font-weight:700">${title}</div>
+        </div>
+        <div style="color:#64748b;font-size:11px">Printed ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
+      </div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px">
+        <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#94a3b8"><div style="width:12px;height:12px;border-radius:2px;background:#14532d;border:1px solid #22c55e"></div>Departure</div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#94a3b8"><div style="width:12px;height:12px;border-radius:2px;background:#450a0a;border:1px solid #ef4444"></div>Arrival</div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#94a3b8"><div style="width:12px;height:12px;border-radius:2px;background:#713f12;border:1px solid #eab308"></div>Arrival (Oil Change)</div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#94a3b8"><div style="width:12px;height:12px;border-radius:2px;background:#4a1942;border:1px solid #ec4899"></div>Customer Appt</div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#94a3b8"><div style="width:12px;height:12px;border-radius:2px;background:#1e3a5f;border:1px solid #3b82f6"></div>Staff Meeting</div>
+      </div>
+      <div>${bodyHtml}</div>
+    </body></html>`);
+    printWindow.document.close();
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white flex">
       {/* Welcome Video Modal */}
@@ -16966,6 +17117,14 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             Month
                           </button>
                         </div>
+                        <button
+                          onClick={handlePrintCalendar}
+                          className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 border border-slate-600 rounded-lg transition-colors text-slate-300 hover:text-white font-medium"
+                          title="Print calendar"
+                        >
+                          <Printer className="w-4 h-4" />
+                          Print
+                        </button>
                       </div>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
