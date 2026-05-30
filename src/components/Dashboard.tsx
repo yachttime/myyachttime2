@@ -7377,7 +7377,18 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { background: #0f172a; color: #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 24px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         .data-cell { color: #e2e8f0; }
-        @media print { body { background: #ffffff !important; color: #111827 !important; padding: 12px; } .data-cell { color: #111827 !important; } @page { size: landscape; margin: 0.5in; } td, th { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+        .muted { color: #94a3b8; }
+        .title-main { color: #e2e8f0; }
+        .legend-label { color: #94a3b8; }
+        @media print {
+          body { background: #ffffff !important; color: #111827 !important; padding: 12px; }
+          .data-cell { color: #111827 !important; }
+          .muted { color: #374151 !important; }
+          .title-main { color: #111827 !important; }
+          .legend-label { color: #111827 !important; }
+          @page { size: landscape; margin: 0.5in; }
+          td, th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
         .no-print { display: inline-block; margin-bottom: 16px; }
         @media print { .no-print { display: none !important; } }
       </style>
@@ -7385,17 +7396,17 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       <button class="no-print" onclick="window.print()" style="background:#14b8a6;color:#0f172a;border:none;padding:8px 20px;border-radius:6px;font-weight:700;cursor:pointer;font-size:13px">Print</button>
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:14px;border-bottom:2px solid #14b8a6">
         <div>
-          <div style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">Master Calendar &mdash; ${calendarView.charAt(0).toUpperCase() + calendarView.slice(1)} View</div>
-          <div style="color:#e2e8f0;font-size:22px;font-weight:700">${title}</div>
+          <div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">Master Calendar &mdash; ${calendarView.charAt(0).toUpperCase() + calendarView.slice(1)} View</div>
+          <div class="title-main" style="font-size:22px;font-weight:700">${title}</div>
         </div>
-        <div style="color:#64748b;font-size:11px">Printed ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
+        <div class="muted" style="font-size:11px">Printed ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
       </div>
       <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px">
-        <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#94a3b8"><div style="width:12px;height:12px;border-radius:2px;background:#14532d;border:1px solid #22c55e"></div>Departure</div>
-        <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#94a3b8"><div style="width:12px;height:12px;border-radius:2px;background:#450a0a;border:1px solid #ef4444"></div>Arrival</div>
-        <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#94a3b8"><div style="width:12px;height:12px;border-radius:2px;background:#713f12;border:1px solid #eab308"></div>Arrival (Oil Change)</div>
-        <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#94a3b8"><div style="width:12px;height:12px;border-radius:2px;background:#4a1942;border:1px solid #ec4899"></div>Customer Appt</div>
-        <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#94a3b8"><div style="width:12px;height:12px;border-radius:2px;background:#1e3a5f;border:1px solid #3b82f6"></div>Staff Meeting</div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:11px"><div style="width:12px;height:12px;border-radius:2px;background:#14532d;border:1px solid #22c55e"></div><span class="legend-label">Departure</span></div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:11px"><div style="width:12px;height:12px;border-radius:2px;background:#450a0a;border:1px solid #ef4444"></div><span class="legend-label">Arrival</span></div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:11px"><div style="width:12px;height:12px;border-radius:2px;background:#713f12;border:1px solid #eab308"></div><span class="legend-label">Arrival (Oil Change)</span></div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:11px"><div style="width:12px;height:12px;border-radius:2px;background:#4a1942;border:1px solid #ec4899"></div><span class="legend-label">Customer Appt</span></div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:11px"><div style="width:12px;height:12px;border-radius:2px;background:#1e3a5f;border:1px solid #3b82f6"></div><span class="legend-label">Staff Meeting</span></div>
       </div>
       <div>${bodyHtml}</div>
     </body></html>`;
