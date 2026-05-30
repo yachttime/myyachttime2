@@ -7278,14 +7278,14 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         return `${s.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} \u2192 ${e.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
       })();
 
-      return `<tr style="border-bottom:1px solid #d1d5db">
+      return `<tr style="border-bottom:1px solid #334155">
         <td style="padding:8px 12px;background:${col.bg};border-left:3px solid ${col.border}">
           <div style="color:${col.text};font-weight:600;font-size:13px">${yachtName}</div>
           <div style="color:#cbd5e1;font-size:12px">${name}</div>
         </td>
         <td style="padding:8px 12px;color:${col.text};font-size:12px;font-weight:600;background:${col.bg}">${col.label}</td>
-        <td style="padding:8px 12px;color:#111827;font-size:13px;font-weight:600">${time}</td>
-        <td style="padding:8px 12px;color:#111827;font-size:13px">${startFormatted}</td>
+        <td class="data-cell" style="padding:8px 12px;font-size:13px;font-weight:600">${time}</td>
+        <td class="data-cell" style="padding:8px 12px;font-size:13px">${startFormatted}</td>
       </tr>`;
     };
 
@@ -7375,7 +7375,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { background: #0f172a; color: #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 24px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        @media print { body { background: #ffffff !important; color: #111827 !important; padding: 12px; } @page { size: landscape; margin: 0.5in; } td, th { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+        .data-cell { color: #e2e8f0; }
+        @media print { body { background: #ffffff !important; color: #111827 !important; padding: 12px; } .data-cell { color: #111827 !important; } @page { size: landscape; margin: 0.5in; } td, th { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
         .no-print { display: inline-block; margin-bottom: 16px; }
         @media print { .no-print { display: none !important; } }
       </style>
