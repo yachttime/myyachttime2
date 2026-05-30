@@ -7275,7 +7275,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       const startFormatted = booking.is_appointment ? booking.start_date : (() => {
         const s = new Date(booking.start_date.includes('T') ? booking.start_date : booking.start_date + 'T00:00:00');
         const e = new Date(booking.end_date.includes('T') ? booking.end_date : booking.end_date + 'T00:00:00');
-        return `${s.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} \u2192 ${e.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+        return `${s.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} &rarr; ${e.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
       })();
 
       return `<tr style="border-bottom:1px solid #334155">
@@ -7371,6 +7371,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     }
 
     const html = `<!DOCTYPE html><html><head>
+      <meta charset="utf-8">
       <title>Master Calendar - ${title}</title>
       <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
