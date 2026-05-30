@@ -73,6 +73,7 @@ Deno.serve(async (req: Request) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
+    const siteUrl = Deno.env.get("SITE_URL") || "https://myyachttime.vercel.app";
 
     // Import Supabase client
     const { createClient } = await import("npm:@supabase/supabase-js@2");
@@ -228,7 +229,7 @@ Deno.serve(async (req: Request) => {
                     <p>You were scheduled to start work at <strong>${schedule.start_time}</strong> today.</p>
                     <p>We noticed you haven't punched in yet. Please remember to clock in using the Time Clock in the app.</p>
                     <p style="margin-top: 20px;">
-                      <a href="${supabaseUrl.replace('/functions/v1', '')}"
+                      <a href="${siteUrl}"
                          style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
                         Open Time Clock
                       </a>
@@ -380,7 +381,7 @@ Deno.serve(async (req: Request) => {
                     <p>Your shift was scheduled to end at <strong>${schedule.end_time}</strong> today.</p>
                     <p>We noticed you haven't punched out yet. Please remember to clock out using the Time Clock in the app.</p>
                     <p style="margin-top: 20px;">
-                      <a href="${supabaseUrl.replace('/functions/v1', '')}"
+                      <a href="${siteUrl}"
                          style="background-color: #dc2626; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
                         Open Time Clock
                       </a>
