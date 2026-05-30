@@ -7265,14 +7265,17 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       const isDeparture = check.getTime() === startDate.getTime();
       const col = getEventColor(booking, isDeparture);
       const name = getBookingDisplayName(booking) || '';
-      const yachtName = booking.is_appointment ? col.label : (booking.yachts?.name || 'Yacht');
+      const yachtName = booking.is_appointment ? (booking.yachts?.name || 'Appointment') : (booking.yachts?.name || 'Yacht');
       const time = booking.is_appointment
         ? convertTo12Hour(booking.departure_time)
         : isDeparture
           ? `Dep: ${convertTo12Hour(booking.departure_time)}`
           : `Arr: ${convertTo12Hour(booking.arrival_time)}`;
 
-      const startFormatted = booking.is_appointment ? booking.start_date : (() => {
+      const startFormatted = booking.is_appointment ? (() => {
+        const d = new Date(booking.start_date.includes('T') ? booking.start_date : booking.start_date + 'T00:00:00');
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      })() : (() => {
         const s = new Date(booking.start_date.includes('T') ? booking.start_date : booking.start_date + 'T00:00:00');
         const e = new Date(booking.end_date.includes('T') ? booking.end_date : booking.end_date + 'T00:00:00');
         return `${s.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} &rarr; ${e.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
@@ -7345,7 +7348,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           const isDeparture = check.getTime() === startDate.getTime();
           const col = getEventColor(booking, isDeparture);
           const name = getBookingDisplayName(booking) || '';
-          const yachtName = booking.is_appointment ? col.label : (booking.yachts?.name || 'Yacht');
+          const yachtName = booking.is_appointment ? (booking.yachts?.name || 'Appointment') : (booking.yachts?.name || 'Yacht');
           return `<div style="background:${col.bg};border-left:2px solid ${col.border};padding:2px 4px;margin-bottom:2px;border-radius:2px">
             <div style="color:${col.text};font-size:9px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${yachtName}</div>
             <div style="color:#94a3b8;font-size:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}</div>
