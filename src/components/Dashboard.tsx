@@ -7272,14 +7272,20 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           ? `Dep: ${convertTo12Hour(booking.departure_time)}`
           : `Arr: ${convertTo12Hour(booking.arrival_time)}`;
 
-      return `<tr style="border-bottom:1px solid #334155">
+      const startFormatted = booking.is_appointment ? booking.start_date : (() => {
+        const s = new Date(booking.start_date.includes('T') ? booking.start_date : booking.start_date + 'T00:00:00');
+        const e = new Date(booking.end_date.includes('T') ? booking.end_date : booking.end_date + 'T00:00:00');
+        return `${s.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} \u2192 ${e.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+      })();
+
+      return `<tr style="border-bottom:1px solid #d1d5db">
         <td style="padding:8px 12px;background:${col.bg};border-left:3px solid ${col.border}">
           <div style="color:${col.text};font-weight:600;font-size:13px">${yachtName}</div>
-          <div style="color:#94a3b8;font-size:12px">${name}</div>
+          <div style="color:#cbd5e1;font-size:12px">${name}</div>
         </td>
-        <td style="padding:8px 12px;color:${col.text};font-size:12px;font-weight:600">${col.label}</td>
-        <td style="padding:8px 12px;color:#cbd5e1;font-size:12px">${time}</td>
-        <td style="padding:8px 12px;color:#cbd5e1;font-size:12px">${booking.is_appointment ? booking.start_date : `${booking.start_date} → ${booking.end_date}`}</td>
+        <td style="padding:8px 12px;color:${col.text};font-size:12px;font-weight:600;background:${col.bg}">${col.label}</td>
+        <td style="padding:8px 12px;color:#111827;font-size:13px;font-weight:600">${time}</td>
+        <td style="padding:8px 12px;color:#111827;font-size:13px">${startFormatted}</td>
       </tr>`;
     };
 
@@ -7292,10 +7298,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       } else {
         bodyHtml = `<table style="width:100%;border-collapse:collapse;margin-top:16px">
           <thead><tr style="background:#1e293b">
-            <th style="padding:8px 12px;text-align:left;color:#94a3b8;font-size:12px;text-transform:uppercase">Event</th>
-            <th style="padding:8px 12px;text-align:left;color:#94a3b8;font-size:12px;text-transform:uppercase">Type</th>
-            <th style="padding:8px 12px;text-align:left;color:#94a3b8;font-size:12px;text-transform:uppercase">Time</th>
-            <th style="padding:8px 12px;text-align:left;color:#94a3b8;font-size:12px;text-transform:uppercase">Date</th>
+            <th style="padding:8px 12px;text-align:left;color:#e2e8f0;font-size:12px;text-transform:uppercase">Event</th>
+            <th style="padding:8px 12px;text-align:left;color:#e2e8f0;font-size:12px;text-transform:uppercase">Type</th>
+            <th style="padding:8px 12px;text-align:left;color:#e2e8f0;font-size:12px;text-transform:uppercase">Time</th>
+            <th style="padding:8px 12px;text-align:left;color:#e2e8f0;font-size:12px;text-transform:uppercase">Date</th>
           </tr></thead>
           <tbody>${bookings.map(b => renderBookingRow(b as any, currentDate)).join('')}</tbody>
         </table>`;
@@ -7369,7 +7375,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { background: #0f172a; color: #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 24px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        @media print { body { padding: 12px; } @page { size: landscape; margin: 0.5in; } }
+        @media print { body { background: #ffffff !important; color: #111827 !important; padding: 12px; } @page { size: landscape; margin: 0.5in; } td, th { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
         .no-print { display: inline-block; margin-bottom: 16px; }
         @media print { .no-print { display: none !important; } }
       </style>
