@@ -177,6 +177,17 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    // Try to find the email in estimating_invoices (surcharge manager emails)
+    let surchargeInvoice = null;
+    if (!estimatingInvoice) {
+      const { data: surchargeInvoiceData } = await supabase
+        .from('estimating_invoices')
+        .select('*')
+        .eq('surcharge_email_resend_id', event.data.email_id)
+        .maybeSingle();
+      if (surchargeInvoiceData) surchargeInvoice = surchargeInvoiceData;
+    }
+
     // Try to find the email in staff_messages (by single ID or batch ID array)
     let staffMessage = null;
     const { data: staffMessageSingle } = await supabase
@@ -198,7 +209,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    if (!invoice && !repairRequest && !repairNotification && !depositRequest && !estimatingInvoice && !staffMessage) {
+    if (!invoice && !repairRequest && !repairNotification && !depositRequest && !estimatingInvoice && !surchargeInvoice && !staffMessage) {
       console.log('No record found for email_id:', event.data.email_id);
       return new Response(
         JSON.stringify({ received: true, message: 'No record found for this email' }),
@@ -545,6 +556,47 @@ Deno.serve(async (req: Request) => {
           console.error('Error updating estimating invoice:', updateError);
         } else {
           console.log('Updated estimating invoice:', estimatingInvoice.id, 'with data:', estimatingUpdateData);
+        }
+      }
+    }
+
+    // Handle estimating_invoices surcharge manager email tracking
+    if (surchargeInvoice) {
+      const surchargeUpdateData: Record<string, any> = {};
+
+      switch (event.type) {
+        case 'email.delivered':
+          if (!surchargeInvoice.surcharge_email_delivered_at) {
+            surchargeUpdateData.surcharge_email_delivered_at = eventTimestamp;
+          }
+          break;
+        case 'email.opened':
+          if (!surchargeInvoice.surcharge_email_opened_at) {
+            surchargeUpdateData.surcharge_email_opened_at = eventTimestamp;
+          }
+          break;
+        case 'email.clicked':
+          if (!surchargeInvoice.surcharge_email_clicked_at) {
+            surchargeUpdateData.surcharge_email_clicked_at = eventTimestamp;
+          }
+          break;
+        case 'email.bounced':
+          if (!surchargeInvoice.surcharge_email_bounced_at) {
+            surchargeUpdateData.surcharge_email_bounced_at = eventTimestamp;
+          }
+          break;
+      }
+
+      if (Object.keys(surchargeUpdateData).length > 0) {
+        const { error: updateError } = await supabase
+          .from('estimating_invoices')
+          .update(surchargeUpdateData)
+          .eq('id', surchargeInvoice.id);
+
+        if (updateError) {
+          console.error('Error updating surcharge invoice tracking:', updateError);
+        } else {
+          console.log('Updated surcharge invoice tracking:', surchargeInvoice.id, 'with data:', surchargeUpdateData);
         }
       }
     }

@@ -76,6 +76,13 @@ interface Invoice {
   surcharge_amount: number | null;
   discount_percentage: number | null;
   discount_amount: number | null;
+  surcharge_email_sent_at: string | null;
+  surcharge_email_recipient: string | null;
+  surcharge_email_delivered_at: string | null;
+  surcharge_email_opened_at: string | null;
+  surcharge_email_clicked_at: string | null;
+  surcharge_email_bounced_at: string | null;
+  surcharge_email_resend_id: string | null;
   manager_name?: string | null;
   company_id?: string | null;
   repair_request_id?: string | null;
@@ -135,6 +142,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
   const [billingManagers, setBillingManagers] = useState<{ email: string; name: string }[]>([]);
   const [billingManagersLoading, setBillingManagersLoading] = useState(false);
   const [sendingEmailModal, setSendingEmailModal] = useState(false);
+  const [sendingSurchargeEmail, setSendingSurchargeEmail] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
   const [checkPaymentModal, setCheckPaymentModal] = useState(false);
   const [checkPaymentLoading, setCheckPaymentLoading] = useState(false);
@@ -1898,6 +1906,43 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
     openEmailModal(selectedInvoice);
   }
 
+  async function handleSendSurchargeManagerEmail(invoice: Invoice) {
+    if (!companySurchargeManagerEmail) {
+      setToast({ message: 'No surcharge manager email configured in Company Settings.', type: 'error' });
+      return;
+    }
+    if (!invoice.surcharge_amount || invoice.surcharge_amount <= 0) {
+      setToast({ message: 'This invoice has no surcharge amount.', type: 'error' });
+      return;
+    }
+    setSendingSurchargeEmail(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const response = await fetch(`${supabaseUrl}/functions/v1/send-surcharge-manager-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token || supabaseAnonKey}`,
+          'Apikey': supabaseAnonKey,
+        },
+        body: JSON.stringify({
+          invoiceId: invoice.id,
+          surchargeManagerEmail: companySurchargeManagerEmail,
+        }),
+      });
+      const result = await response.json();
+      if (!result.success) throw new Error(result.error || 'Failed to send email');
+      setToast({ message: `Surcharge notification sent to ${companySurchargeManagerEmail}`, type: 'success' });
+      await fetchInvoices();
+    } catch (err: any) {
+      setToast({ message: err.message || 'Failed to send surcharge email', type: 'error' });
+    } finally {
+      setSendingSurchargeEmail(false);
+    }
+  }
+
   function openPaidInvoiceEmailModal(invoice: Invoice) {
     setPaidInvoiceEmailTarget(invoice);
     setPaidInvoiceEmailRecipient(invoice.customer_email || '');
@@ -2923,6 +2968,20 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                   <Mail className="w-4 h-4" />
                   Email Invoice
                 </button>
+                {selectedInvoice.surcharge_amount && selectedInvoice.surcharge_amount > 0 && companySurchargeManagerEmail && (
+                  <button
+                    onClick={() => handleSendSurchargeManagerEmail(selectedInvoice)}
+                    disabled={sendingSurchargeEmail}
+                    className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg flex items-center gap-2 text-sm font-medium transition-colors disabled:opacity-50"
+                  >
+                    {sendingSurchargeEmail ? (
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Mail className="w-4 h-4" />
+                    )}
+                    Email Surcharge Manager
+                  </button>
+                )}
                 {qbConnection?.is_active && selectedInvoice.quickbooks_export_status !== 'exported' && (
                   <button
                     onClick={() => handleQbExport(selectedInvoice)}
@@ -3477,6 +3536,62 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                   );
                 })()}
               </div>
+
+              {/* Surcharge Manager Email Tracking */}
+              {selectedInvoice.surcharge_amount && selectedInvoice.surcharge_amount > 0 && selectedInvoice.surcharge_email_sent_at && (
+                <div className="border-t border-gray-200 pt-6">
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Mail className="w-4 h-4 text-amber-600" />
+                      <h5 className="font-semibold text-amber-700 text-sm">Surcharge Manager Notification</h5>
+                      <span className="ml-auto bg-amber-100 text-amber-800 px-3 py-1 rounded-full text-xs font-semibold">
+                        ${selectedInvoice.surcharge_amount.toFixed(2)} surcharge
+                      </span>
+                    </div>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2 text-xs text-amber-700">
+                        <Mail className="w-3 h-3 flex-shrink-0" />
+                        <span className="font-medium">To: {selectedInvoice.surcharge_email_recipient}</span>
+                        <span className="text-amber-500">+ CC: sales@azmarine.net</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-gray-600">
+                        <CheckCircle className="w-3 h-3 text-gray-400" />
+                        <span>Sent: {new Date(selectedInvoice.surcharge_email_sent_at).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })} at {new Date(selectedInvoice.surcharge_email_sent_at).toLocaleTimeString('en-US', { timeZone: 'America/Phoenix', hour: 'numeric', minute: '2-digit' })}</span>
+                      </div>
+                      {selectedInvoice.surcharge_email_delivered_at && (
+                        <div className="flex items-center gap-2 text-xs text-green-600">
+                          <CheckCircle className="w-3 h-3" />
+                          <span>Delivered: {new Date(selectedInvoice.surcharge_email_delivered_at).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })} at {new Date(selectedInvoice.surcharge_email_delivered_at).toLocaleTimeString('en-US', { timeZone: 'America/Phoenix', hour: 'numeric', minute: '2-digit' })}</span>
+                        </div>
+                      )}
+                      {selectedInvoice.surcharge_email_opened_at && (
+                        <div className="flex items-center gap-2 text-xs text-blue-600">
+                          <Eye className="w-3 h-3" />
+                          <span>Opened: {new Date(selectedInvoice.surcharge_email_opened_at).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })} at {new Date(selectedInvoice.surcharge_email_opened_at).toLocaleTimeString('en-US', { timeZone: 'America/Phoenix', hour: 'numeric', minute: '2-digit' })}</span>
+                        </div>
+                      )}
+                      {selectedInvoice.surcharge_email_clicked_at && (
+                        <div className="flex items-center gap-2 text-xs text-blue-700">
+                          <MousePointer className="w-3 h-3" />
+                          <span>Clicked: {new Date(selectedInvoice.surcharge_email_clicked_at).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })} at {new Date(selectedInvoice.surcharge_email_clicked_at).toLocaleTimeString('en-US', { timeZone: 'America/Phoenix', hour: 'numeric', minute: '2-digit' })}</span>
+                        </div>
+                      )}
+                      {selectedInvoice.surcharge_email_bounced_at && (
+                        <div className="flex items-center gap-2 text-xs text-red-600">
+                          <AlertCircle className="w-3 h-3" />
+                          <span>Bounced: {new Date(selectedInvoice.surcharge_email_bounced_at).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })} at {new Date(selectedInvoice.surcharge_email_bounced_at).toLocaleTimeString('en-US', { timeZone: 'America/Phoenix', hour: 'numeric', minute: '2-digit' })}</span>
+                        </div>
+                      )}
+                      {!selectedInvoice.surcharge_email_delivered_at && !selectedInvoice.surcharge_email_bounced_at && (
+                        <div className="flex items-center gap-2 text-xs text-amber-600">
+                          <RefreshCw className="w-3 h-3" />
+                          <span>Awaiting delivery confirmation...</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {selectedInvoice.notes && (
                 <div className="border-t border-gray-200 pt-6 mt-6">
