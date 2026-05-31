@@ -484,7 +484,7 @@ export function CompanyManagement() {
                 placeholder="Search companies..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
+                className="w-full pl-10 pr-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 text-white"
               />
             </div>
 
@@ -689,7 +689,7 @@ export function CompanyManagement() {
                         required
                         value={formData.company_name}
                         onChange={(e) => updateFormData({ company_name: e.target.value })}
-                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
+                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 text-white"
                       />
                     </div>
 
@@ -699,7 +699,7 @@ export function CompanyManagement() {
                         type="text"
                         value={formData.legal_name}
                         onChange={(e) => updateFormData({ legal_name: e.target.value })}
-                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
+                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 text-white"
                       />
                     </div>
 
@@ -710,7 +710,7 @@ export function CompanyManagement() {
                         value={formData.tax_id}
                         onChange={(e) => updateFormData({ tax_id: e.target.value })}
                         placeholder="XX-XXXXXXX"
-                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
+                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 text-white"
                       />
                     </div>
 
@@ -720,7 +720,7 @@ export function CompanyManagement() {
                         type="url"
                         value={formData.website}
                         onChange={(e) => updateFormData({ website: e.target.value })}
-                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
+                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 text-white"
                       />
                     </div>
                   </div>
@@ -779,7 +779,7 @@ export function CompanyManagement() {
                         type="text"
                         value={formData.contact_name}
                         onChange={(e) => updateFormData({ contact_name: e.target.value })}
-                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
+                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 text-white"
                       />
                     </div>
 
@@ -789,7 +789,7 @@ export function CompanyManagement() {
                         type="email"
                         value={formData.contact_email}
                         onChange={(e) => updateFormData({ contact_email: e.target.value })}
-                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
+                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 text-white"
                       />
                     </div>
 
@@ -799,7 +799,7 @@ export function CompanyManagement() {
                         type="tel"
                         value={formData.contact_phone}
                         onChange={(e) => updateFormData({ contact_phone: e.target.value })}
-                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
+                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 text-white"
                       />
                     </div>
                   </div>
@@ -815,7 +815,7 @@ export function CompanyManagement() {
                         type="email"
                         value={formData.email}
                         onChange={(e) => updateFormData({ email: e.target.value })}
-                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
+                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 text-white"
                       />
                     </div>
 
@@ -825,7 +825,7 @@ export function CompanyManagement() {
                         type="tel"
                         value={formData.phone}
                         onChange={(e) => updateFormData({ phone: e.target.value })}
-                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
+                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 text-white"
                       />
                     </div>
                   </div>
@@ -844,7 +844,7 @@ export function CompanyManagement() {
                         type="text"
                         value={formData.physical_address}
                         onChange={(e) => updateFormData({ physical_address: e.target.value })}
-                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
+                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 text-white"
                       />
                     </div>
 
@@ -855,7 +855,7 @@ export function CompanyManagement() {
                           type="text"
                           value={formData.physical_city}
                           onChange={(e) => updateFormData({ physical_city: e.target.value })}
-                          className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
+                          className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 text-white"
                         />
                       </div>
 
@@ -865,7 +865,7 @@ export function CompanyManagement() {
                           type="text"
                           value={formData.physical_state}
                           onChange={(e) => updateFormData({ physical_state: e.target.value })}
-                          className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
+                          className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 text-white"
                         />
                       </div>
 
@@ -875,7 +875,7 @@ export function CompanyManagement() {
                           type="text"
                           value={formData.physical_zip_code}
                           onChange={(e) => updateFormData({ physical_zip_code: e.target.value })}
-                          className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
+                          className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 text-white"
                         />
                       </div>
                     </div>
@@ -896,7 +896,7 @@ export function CompanyManagement() {
                         value={formData.mailing_address}
                         onChange={(e) => updateFormData({ mailing_address: e.target.value })}
                         placeholder="Leave blank if same as physical address"
-                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
+                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 text-white"
                       />
                     </div>
 
@@ -907,7 +907,7 @@ export function CompanyManagement() {
                           type="text"
                           value={formData.mailing_city}
                           onChange={(e) => updateFormData({ mailing_city: e.target.value })}
-                          className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
+                          className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 text-white"
                         />
                       </div>
 
@@ -917,7 +917,7 @@ export function CompanyManagement() {
                           type="text"
                           value={formData.mailing_state}
                           onChange={(e) => updateFormData({ mailing_state: e.target.value })}
-                          className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
+                          className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 text-white"
                         />
                       </div>
 
@@ -927,7 +927,7 @@ export function CompanyManagement() {
                           type="text"
                           value={formData.mailing_zip_code}
                           onChange={(e) => updateFormData({ mailing_zip_code: e.target.value })}
-                          className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
+                          className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 text-white"
                         />
                       </div>
                     </div>
@@ -943,7 +943,7 @@ export function CompanyManagement() {
                       <select
                         value={formData.timezone}
                         onChange={(e) => updateFormData({ timezone: e.target.value })}
-                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
+                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 text-white"
                       >
                         <option value="America/New_York">Eastern Time</option>
                         <option value="America/Chicago">Central Time</option>
@@ -961,7 +961,7 @@ export function CompanyManagement() {
                         max="100"
                         value={formData.default_tax_rate}
                         onChange={(e) => updateFormData({ default_tax_rate: parseFloat(e.target.value) || 0 })}
-                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
+                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 text-white"
                       />
                     </div>
 
@@ -972,7 +972,7 @@ export function CompanyManagement() {
                         value={surchargeManagerEmail}
                         onChange={(e) => { setSurchargeManagerEmail(e.target.value); setHasUnsavedChanges(true); }}
                         placeholder="Email to auto-CC on invoices with a surcharge"
-                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
+                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 text-white"
                       />
                       <p className="text-xs text-slate-400 mt-1">When set, this email will automatically be CC'd on any invoice email that includes a surcharge.</p>
                     </div>
