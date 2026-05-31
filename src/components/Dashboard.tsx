@@ -21347,9 +21347,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       {showProfileEdit && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-800 rounded-2xl border border-slate-700 p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-slate-700 rounded-2xl border border-slate-600 p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold">Edit My Profile</h3>
+              <h3 className="text-2xl font-bold text-white">Edit My Profile</h3>
               <button
                 onClick={() => setShowProfileEdit(false)}
                 className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
@@ -21373,7 +21373,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             <form onSubmit={handleSaveProfile} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <label className="block text-sm font-medium text-slate-200 mb-2">
                     First Name
                   </label>
                   <input
@@ -21381,12 +21381,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     required
                     value={profileEditForm.first_name}
                     onChange={(e) => setProfileEditForm({ ...profileEditForm, first_name: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
+                    className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-300"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <label className="block text-sm font-medium text-slate-200 mb-2">
                     Last Name
                   </label>
                   <input
@@ -21394,12 +21394,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     required
                     value={profileEditForm.last_name}
                     onChange={(e) => setProfileEditForm({ ...profileEditForm, last_name: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
+                    className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-300"
                   />
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <label className="block text-sm font-medium text-slate-200 mb-2">
                     Email Address
                   </label>
                   <input
@@ -21407,15 +21407,15 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     required
                     value={profileEditForm.email}
                     onChange={(e) => setProfileEditForm({ ...profileEditForm, email: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
+                    className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-300"
                   />
-                  <p className="text-xs text-slate-400 mt-1">
+                  <p className="text-xs text-slate-300 mt-1">
                     Changing your email will update your login credentials
                   </p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <label className="block text-sm font-medium text-slate-200 mb-2">
                     Phone
                   </label>
                   <input
@@ -21423,42 +21423,42 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     value={profileEditForm.phone}
                     onChange={(e) => setProfileEditForm({ ...profileEditForm, phone: formatPhoneNumber(e.target.value) })}
                     placeholder="123-456-7890"
-                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
+                    className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-300"
                   />
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <label className="block text-sm font-medium text-slate-200 mb-2">
                     Street Address
                   </label>
                   <input
                     type="text"
                     value={profileEditForm.street}
                     onChange={(e) => setProfileEditForm({ ...profileEditForm, street: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
+                    className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-300"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <label className="block text-sm font-medium text-slate-200 mb-2">
                     City
                   </label>
                   <input
                     type="text"
                     value={profileEditForm.city}
                     onChange={(e) => setProfileEditForm({ ...profileEditForm, city: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
+                    className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-300"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <label className="block text-sm font-medium text-slate-200 mb-2">
                     State
                   </label>
                   <select
                     value={profileEditForm.state}
                     onChange={(e) => setProfileEditForm({ ...profileEditForm, state: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
+                    className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white"
                   >
                     <option value="">Select State</option>
                     <option value="AL">Alabama</option>
@@ -21516,25 +21516,25 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <label className="block text-sm font-medium text-slate-200 mb-2">
                     Zip Code
                   </label>
                   <input
                     type="text"
                     value={profileEditForm.zip_code}
                     onChange={(e) => setProfileEditForm({ ...profileEditForm, zip_code: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
+                    className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-300"
                   />
                 </div>
               </div>
 
-              <div className="mt-6 p-6 bg-slate-900/50 rounded-xl border border-slate-600">
-                <h4 className="text-lg font-bold mb-4 text-blue-400">Email Notification Settings</h4>
-                <p className="text-sm text-slate-400 mb-4">Configure how you receive email notifications</p>
+              <div className="mt-6 p-6 bg-slate-600/50 rounded-xl border border-slate-500">
+                <h4 className="text-lg font-bold mb-4 text-blue-300">Email Notification Settings</h4>
+                <p className="text-sm text-slate-300 mb-4">Configure how you receive email notifications</p>
 
                 <div className="space-y-4">
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                    <label className="block text-sm font-medium text-slate-200 mb-2">
                       Secondary CC Email (optional)
                     </label>
                     <input
@@ -21542,9 +21542,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       value={profileEditForm.secondary_email}
                       onChange={(e) => setProfileEditForm({ ...profileEditForm, secondary_email: e.target.value })}
                       placeholder="CC recipient for email notifications"
-                      className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
+                      className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-300"
                     />
-                    <p className="text-xs text-slate-500 mt-1">This email will receive a copy (CC) of all notifications sent to you</p>
+                    <p className="text-xs text-slate-300 mt-1">This email will receive a copy (CC) of all notifications sent to you</p>
                   </div>
 
                   {isStaffOrManager(effectiveRole) && (
@@ -21571,9 +21571,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             value={profileEditForm.notification_email}
                             onChange={(e) => setProfileEditForm({ ...profileEditForm, notification_email: e.target.value })}
                             placeholder="Leave blank to use primary email"
-                            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
+                            className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-300"
                           />
-                          <p className="text-xs text-slate-500 mt-1">If left blank, notifications will be sent to your primary email address</p>
+                          <p className="text-xs text-slate-300 mt-1">If left blank, notifications will be sent to your primary email address</p>
                         </div>
                       )}
                     </>
