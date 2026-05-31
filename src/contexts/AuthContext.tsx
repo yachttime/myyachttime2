@@ -353,12 +353,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     if (error) throw error;
 
+    // Sign out after password change — Supabase invalidates the session on password update.
+    // The user will be sent to the sign-in page to log in with their new password.
     isPasswordRecoveryRef.current = false;
     setIsPasswordRecovery(false);
-
-    if (user) {
-      await refreshProfile();
-    }
+    await supabase.auth.signOut();
   };
 
   const value = {
