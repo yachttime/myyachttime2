@@ -50,6 +50,7 @@ export function CompanyManagement() {
   const [filterActive, setFilterActive] = useState<boolean | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
+  const [surchargeManagerEmail, setSurchargeManagerEmail] = useState('');
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [companyStats, setCompanyStats] = useState<Record<string, CompanyStats>>({});
   const [formData, setFormData] = useState({
@@ -262,7 +263,7 @@ export function CompanyManagement() {
   };
 
   // Open edit modal
-  const handleEdit = (company: Company) => {
+  const handleEdit = async (company: Company) => {
     setSelectedCompany(company);
     setLogoFile(null);
     setLogoPreview(company.logo_url);
@@ -292,6 +293,16 @@ export function CompanyManagement() {
       timezone: company.timezone,
       default_tax_rate: company.default_tax_rate,
     });
+
+    // Load surcharge manager email from company_settings
+    const { data: setting } = await supabase
+      .from('company_settings')
+      .select('setting_value')
+      .eq('company_id', company.id)
+      .eq('setting_key', 'surcharge_manager_email')
+      .maybeSingle();
+    setSurchargeManagerEmail(setting?.setting_value?.email ?? '');
+
     setShowAddModal(true);
   };
 
@@ -355,6 +366,16 @@ export function CompanyManagement() {
           .eq('id', selectedCompany.id);
 
         if (error) throw error;
+
+        // Save surcharge manager email setting
+        await supabase
+          .from('company_settings')
+          .upsert({
+            company_id: selectedCompany.id,
+            setting_key: 'surcharge_manager_email',
+            setting_value: { email: surchargeManagerEmail.trim() },
+          }, { onConflict: 'company_id,setting_key' });
+
         showSuccess('Company updated successfully');
       } else {
         // Create new company
@@ -410,6 +431,7 @@ export function CompanyManagement() {
       setLogoFile(null);
       setLogoPreview(null);
       setHasUnsavedChanges(false);
+      setSurchargeManagerEmail('');
       await fetchCompanies();
     } catch (error) {
       console.error('Error saving company:', error);
@@ -941,6 +963,18 @@ export function CompanyManagement() {
                         onChange={(e) => updateFormData({ default_tax_rate: parseFloat(e.target.value) || 0 })}
                         className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
                       />
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium mb-2">Surcharge Manager Email</label>
+                      <input
+                        type="email"
+                        value={surchargeManagerEmail}
+                        onChange={(e) => { setSurchargeManagerEmail(e.target.value); setHasUnsavedChanges(true); }}
+                        placeholder="Email to auto-CC on invoices with a surcharge"
+                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
+                      />
+                      <p className="text-xs text-slate-400 mt-1">When set, this email will automatically be CC'd on any invoice email that includes a surcharge.</p>
                     </div>
                   </div>
                 </div>

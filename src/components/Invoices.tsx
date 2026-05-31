@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Receipt, Search, Printer, Mail, DollarSign, Eye, CheckCircle, Clock, XCircle, ExternalLink, Archive, RotateCcw, RefreshCw, X, Copy, CreditCard, AlertCircle, MousePointer, Download, FileText, BarChart2, Users, ChevronDown, Pencil, Link } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { useCompany } from '../contexts/CompanyContext';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Toast } from './Toast';
@@ -108,6 +109,7 @@ interface WorkOrderLineItem {
 }
 
 export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
+  const { selectedCompany } = useCompany();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -145,6 +147,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
   const [surchargeCcEmail, setSurchargeCcEmail] = useState('');
   const [surchargeCcNote, setSurchargeCcNote] = useState('');
   const [surchargeCcEnabled, setSurchargeCcEnabled] = useState(false);
+  const [companySurchargeManagerEmail, setCompanySurchargeManagerEmail] = useState('');
   const [paymentMethodModal, setPaymentMethodModal] = useState<{ invoice: Invoice; email: string; mode: 'generate' | 'regenerate'; allRecipients?: string[] } | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'card' | 'ach' | 'both'>('card');
   const [editableRecipients, setEditableRecipients] = useState<string[]>([]);
@@ -195,6 +198,19 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
     fetchQbBankAccounts();
     fetchQbConnection();
   }, []);
+
+  useEffect(() => {
+    if (!selectedCompany) return;
+    supabase
+      .from('company_settings')
+      .select('setting_value')
+      .eq('company_id', selectedCompany.id)
+      .eq('setting_key', 'surcharge_manager_email')
+      .maybeSingle()
+      .then(({ data }) => {
+        setCompanySurchargeManagerEmail(data?.setting_value?.email ?? '');
+      });
+  }, [selectedCompany?.id]);
 
   useEffect(() => {
     if (initialInvoiceId && invoices.length > 0) {
@@ -1777,9 +1793,18 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
   async function openEmailModal(invoice: Invoice) {
     setEmailModalInvoice(invoice);
     setBillingManagers([]);
-    setSurchargeCcEmail('');
     setSurchargeCcNote('');
-    setSurchargeCcEnabled(false);
+
+    // Auto-populate surcharge CC from company setting when invoice has a surcharge
+    const hasSurcharge = invoice.surcharge_amount && invoice.surcharge_amount > 0;
+    if (hasSurcharge && companySurchargeManagerEmail) {
+      setSurchargeCcEmail(companySurchargeManagerEmail);
+      setSurchargeCcEnabled(true);
+    } else {
+      setSurchargeCcEmail('');
+      setSurchargeCcEnabled(false);
+    }
+
     setShowEmailModal(true);
 
     setBillingManagersLoading(true);
