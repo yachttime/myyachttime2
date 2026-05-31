@@ -34,6 +34,8 @@ interface DashboardStats {
   lowStockItems: number;
   totalRevenue: number;
   activeJobs: number;
+  ytdTotalSales: number;
+  ytdTotalSalesCount: number;
 }
 
 export function EstimatingDashboard({ userId, initialInvoiceId }: EstimatingDashboardProps) {
@@ -50,7 +52,9 @@ export function EstimatingDashboard({ userId, initialInvoiceId }: EstimatingDash
     unpaidAmount: 0,
     lowStockItems: 0,
     totalRevenue: 0,
-    activeJobs: 0
+    activeJobs: 0,
+    ytdTotalSales: 0,
+    ytdTotalSalesCount: 0,
   });
   const [loading, setLoading] = useState(true);
 
@@ -95,11 +99,14 @@ export function EstimatingDashboard({ userId, initialInvoiceId }: EstimatingDash
     try {
       setLoading(true);
 
-      const [estimatesRes, workOrdersRes, invoicesRes, partsRes] = await Promise.all([
+      const yearStart = `${new Date().getFullYear()}-01-01`;
+
+      const [estimatesRes, workOrdersRes, invoicesRes, partsRes, ytdInvoicesRes] = await Promise.all([
         supabase.from('estimates').select('id, status, total_amount', { count: 'exact' }).neq('status', 'converted').eq('archived', false),
         supabase.from('work_orders').select('id, status, total_amount, deposit_amount, deposit_payment_status, deposit_paid_at', { count: 'exact' }).eq('archived', false),
         supabase.from('estimating_invoices').select('id, total_amount, payment_status, work_order_id', { count: 'exact' }).eq('archived', false),
-        supabase.from('parts_inventory').select('id, quantity_on_hand, reorder_level', { count: 'exact' })
+        supabase.from('parts_inventory').select('id, quantity_on_hand, reorder_level', { count: 'exact' }),
+        supabase.from('estimating_invoices').select('id, total_amount, payment_status').gte('created_at', yearStart),
       ]);
 
       const estimates = estimatesRes.data || [];
@@ -112,6 +119,7 @@ export function EstimatingDashboard({ userId, initialInvoiceId }: EstimatingDash
       );
       const workOrders = allWorkOrders.filter(wo => !convertedWorkOrderIds.has(wo.id));
       const parts = partsRes.data || [];
+      const ytdInvoices = ytdInvoicesRes.data || [];
 
       const totalEstimatesAmount = estimates.reduce((sum, e) => sum + (e.total_amount || 0), 0);
       const pendingApproval = estimates.filter(e => e.status === 'sent').length;
@@ -134,6 +142,10 @@ export function EstimatingDashboard({ userId, initialInvoiceId }: EstimatingDash
         w.status === 'in_progress' || w.status === 'pending'
       ).length;
 
+      // YTD total sales: all invoices (active + archived) created this calendar year
+      const ytdTotalSales = ytdInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
+      const ytdTotalSalesCount = ytdInvoices.length;
+
       setStats({
         totalEstimates: estimates.length,
         totalEstimatesAmount,
@@ -146,7 +158,9 @@ export function EstimatingDashboard({ userId, initialInvoiceId }: EstimatingDash
         unpaidAmount,
         lowStockItems,
         totalRevenue,
-        activeJobs
+        activeJobs,
+        ytdTotalSales,
+        ytdTotalSalesCount,
       });
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
@@ -288,6 +302,17 @@ export function EstimatingDashboard({ userId, initialInvoiceId }: EstimatingDash
                 <h2 className="text-lg font-bold text-gray-900 mb-6">System Overview</h2>
 
                 <div className="space-y-4">
+                  <div className="flex items-center justify-between py-3 border-b border-gray-100">
+                    <div>
+                      <span className="text-sm font-semibold text-gray-700">Total Sales ({new Date().getFullYear()})</span>
+                      <span className="ml-2 text-xs text-gray-400">({loading ? '...' : stats.ytdTotalSalesCount} invoices)</span>
+                      <p className="text-xs text-gray-400 mt-0.5">Active &amp; archived</p>
+                    </div>
+                    <span className="text-xl font-bold text-emerald-700">
+                      {loading ? '...' : `$${stats.ytdTotalSales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                    </span>
+                  </div>
+
                   <div className="flex items-center justify-between py-3 border-b border-gray-100">
                     <span className="text-sm text-gray-600">Total Revenue (Outstanding)</span>
                     <span className="text-lg font-bold text-gray-900">
