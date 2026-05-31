@@ -340,6 +340,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const changePassword = async (newPassword: string) => {
+    if (user) {
+      await supabase
+        .from('user_profiles')
+        .update({ must_change_password: false })
+        .eq('user_id', user.id);
+    }
+
     const { error } = await supabase.auth.updateUser({
       password: newPassword
     });
@@ -350,11 +357,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsPasswordRecovery(false);
 
     if (user) {
-      await supabase
-        .from('user_profiles')
-        .update({ must_change_password: false })
-        .eq('user_id', user.id);
-
       await refreshProfile();
     }
   };
