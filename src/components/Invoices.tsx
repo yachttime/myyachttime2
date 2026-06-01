@@ -148,7 +148,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
   const [checkPaymentLoading, setCheckPaymentLoading] = useState(false);
   const [fixDepositLoading, setFixDepositLoading] = useState(false);
   const [checkForm, setCheckForm] = useState({ checkNumber: '', amount: '', depositAccount: '', notes: '' });
-  const [invoiceCheckPayments, setInvoiceCheckPayments] = useState<{ id: string; reference_number: string; amount: number; payment_date: string; notes: string | null }[]>([]);
+  const [invoiceCheckPayments, setInvoiceCheckPayments] = useState<{ id: string; reference_number: string | null; amount: number; payment_date: string; notes: string | null; payment_method: string; payment_method_type: string | null; stripe_payment_intent_id: string | null }[]>([]);
   const [qbBankAccounts, setQbBankAccounts] = useState<{ qbo_account_id: string; account_name: string; account_number: string | null }[]>([]);
   const { confirm, ConfirmDialog } = useConfirm();
   const [showTaxReport, setShowTaxReport] = useState(false);
@@ -772,9 +772,8 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
   async function fetchInvoiceCheckPayments(invoiceId: string) {
     const { data } = await supabase
       .from('estimating_payments')
-      .select('id, reference_number, amount, payment_date, notes')
+      .select('id, reference_number, amount, payment_date, notes, payment_method, payment_method_type, stripe_payment_intent_id')
       .eq('invoice_id', invoiceId)
-      .eq('payment_method', 'check')
       .order('payment_date', { ascending: true });
     setInvoiceCheckPayments(data ?? []);
   }
@@ -3306,15 +3305,27 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                         )}
                         {invoiceCheckPayments.length > 0 && (
                           <div className="mt-2 space-y-1">
-                            {invoiceCheckPayments.map((cp) => (
-                              <div key={cp.id} className="p-2 bg-white border border-green-200 rounded flex items-center gap-2">
-                                <FileText className="w-4 h-4 text-gray-500 flex-shrink-0" />
-                                <div>
-                                  <p className="text-xs font-semibold text-gray-700">Check #{cp.reference_number}</p>
-                                  <p className="text-xs text-gray-500">${Number(cp.amount).toFixed(2)} recorded on {new Date(cp.payment_date).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}{cp.notes ? ` — ${cp.notes}` : ''}</p>
+                            {invoiceCheckPayments.map((cp) => {
+                              const isStripe = cp.payment_method === 'stripe';
+                              const isCheck = cp.payment_method === 'check';
+                              const methodLabel = isStripe
+                                ? (cp.payment_method_type === 'ach' ? 'ACH / Bank Transfer' : cp.payment_method_type === 'card' ? 'Card' : 'Stripe')
+                                : isCheck ? `Check${cp.reference_number ? ` #${cp.reference_number}` : ''}`
+                                : cp.payment_method;
+                              return (
+                                <div key={cp.id} className="p-2 bg-white border border-green-200 rounded flex items-center gap-2">
+                                  <FileText className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                                  <div>
+                                    <p className="text-xs font-semibold text-gray-700">{methodLabel} — ${Number(cp.amount).toFixed(2)}</p>
+                                    <p className="text-xs text-gray-500">
+                                      {new Date(cp.payment_date).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}
+                                      {isStripe && cp.stripe_payment_intent_id ? ` · ${cp.stripe_payment_intent_id}` : ''}
+                                      {cp.notes ? ` — ${cp.notes}` : ''}
+                                    </p>
+                                  </div>
                                 </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         )}
 
