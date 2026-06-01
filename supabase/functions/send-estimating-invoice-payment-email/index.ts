@@ -436,7 +436,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    let fromEmail = (Deno.env.get('RESEND_FROM_EMAIL') || 'onboarding@resend.dev').trim();
+    let fromEmail = (Deno.env.get('RESEND_FROM_EMAIL') || 'notifications@myyachttime.com').trim();
 
     // Always look up all billing managers from DB using service role (bypasses RLS/frontend state issues)
     const allRecipients: string[] = [];

@@ -38,7 +38,7 @@ Deno.serve(async (req: Request) => {
     const twilioAuthToken = Deno.env.get('TWILIO_AUTH_TOKEN');
     const twilioPhone = Deno.env.get('TWILIO_PHONE_NUMBER');
     const siteUrl = Deno.env.get('SITE_URL') || 'https://myyachttime.com';
-    let fromEmail = (Deno.env.get('RESEND_FROM_EMAIL') || 'onboarding@resend.dev').trim();
+    let fromEmail = (Deno.env.get('RESEND_FROM_EMAIL') || 'notifications@myyachttime.com').trim();
 
     // For trip inspections include mechanic role; for check-in/out use staff and master only
     const rolesToNotify = eventType === 'trip_inspection'

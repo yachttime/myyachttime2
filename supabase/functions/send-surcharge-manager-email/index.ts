@@ -327,7 +327,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const fromEmail = (Deno.env.get('RESEND_FROM_EMAIL') || 'onboarding@resend.dev').trim();
+    const fromEmail = (Deno.env.get('RESEND_FROM_EMAIL') || 'notifications@myyachttime.com').trim();
     const salesCc = 'sales@azmarine.net';
     const subject = `Surcharge Notification — ${invoice.invoice_number} | ${yachtName} | $${surchargeAmount.toFixed(2)}`;
 

@@ -270,7 +270,7 @@ Deno.serve(async (req: Request) => {
 
     // Send email using Resend if API key is configured
     if (resendApiKey) {
-      let fromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'onboarding@resend.dev';
+      let fromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'notifications@myyachttime.com';
       fromEmail = fromEmail.trim();
 
       // Validate the from email format

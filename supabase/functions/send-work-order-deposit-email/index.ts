@@ -108,7 +108,7 @@ Deno.serve(async (req: Request) => {
 
     if (!resendApiKey) throw new Error('Email service not configured');
 
-    let fromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'onboarding@resend.dev';
+    let fromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'notifications@myyachttime.com';
     fromEmail = fromEmail.trim();
 
     const emailPayload: any = {

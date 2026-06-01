@@ -592,7 +592,7 @@ Deno.serve(async (req: Request) => {
     `;
 
     if (resendApiKey) {
-      let fromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'onboarding@resend.dev';
+      let fromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'notifications@myyachttime.com';
       fromEmail = fromEmail.trim();
 
       const emailFormatRegex = /^(?:[a-zA-Z0-9\s]+ <)?[^\s@]+@[^\s@]+\.[^\s@]+>?$/;

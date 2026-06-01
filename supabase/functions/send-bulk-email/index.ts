@@ -102,7 +102,7 @@ Deno.serve(withErrorHandling(async (req: Request) => {
       }
     }
 
-    let fromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'onboarding@resend.dev';
+    let fromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'notifications@myyachttime.com';
     fromEmail = fromEmail.trim();
 
     const senderName = profile.first_name && profile.last_name
