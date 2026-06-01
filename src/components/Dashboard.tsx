@@ -2699,11 +2699,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       setSelectedAgreement(null);
     } else {
       setAgreementYachtId(yachtId);
-      let agreements = vesselAgreements[yachtId];
-      if (!agreements) {
-        agreements = await loadVesselAgreements(yachtId) || [];
-      }
-      if (isManagerRole(effectiveRole) && agreements.length === 0) {
+      const [agreements] = await Promise.all([
+        vesselAgreements[yachtId] ? Promise.resolve(vesselAgreements[yachtId]) : loadVesselAgreements(yachtId),
+        yachtInvoices[yachtId] ? Promise.resolve(null) : loadYachtInvoices(yachtId),
+      ]);
+      if (isManagerRole(effectiveRole) && (!agreements || agreements.length === 0)) {
         setSelectedAgreement(null);
         setShowAgreementForm(true);
       }
