@@ -11,6 +11,10 @@ import { MaintenanceRequest } from './components/MaintenanceRequest';
 import { Education } from './components/Education';
 import { PasswordChange } from './components/PasswordChange';
 import { StaffCalendar } from './components/StaffCalendar';
+import { PublicAgreementSigner } from './components/PublicAgreementSigner';
+
+// Check for public signing token before any auth logic
+const _signingToken = new URLSearchParams(window.location.search).get('sign');
 
 type Page = 'welcome' | 'signin' | 'dashboard' | 'maintenance' | 'education' | 'staffCalendar';
 
@@ -60,6 +64,11 @@ function AppContent() {
         </div>
       </div>
     );
+  }
+
+  // Public signing route — no auth required
+  if (_signingToken) {
+    return <PublicAgreementSigner token={_signingToken} />;
   }
 
   if (isPasswordRecovery) {

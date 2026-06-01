@@ -209,7 +209,16 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    if (!invoice && !repairRequest && !repairNotification && !depositRequest && !estimatingInvoice && !surchargeInvoice && !staffMessage) {
+    // Try to find the email in vessel_management_agreements (signing link emails)
+    let vesselAgreement = null;
+    const { data: vesselAgreementData } = await supabase
+      .from('vessel_management_agreements')
+      .select('id, signing_email_resend_id, signing_email_open_count, signing_email_click_count, signing_email_opened_at, signing_email_clicked_at, signing_email_delivered_at, signing_email_bounced_at, vessel_name, season_name')
+      .eq('signing_email_resend_id', event.data.email_id)
+      .maybeSingle();
+    if (vesselAgreementData) vesselAgreement = vesselAgreementData;
+
+    if (!invoice && !repairRequest && !repairNotification && !depositRequest && !estimatingInvoice && !surchargeInvoice && !staffMessage && !vesselAgreement) {
       console.log('No record found for email_id:', event.data.email_id);
       return new Response(
         JSON.stringify({ received: true, message: 'No record found for this email' }),
@@ -743,6 +752,49 @@ Deno.serve(async (req: Request) => {
           created_by: null,
           created_by_name: 'System',
         });
+      }
+    }
+
+    // Handle vessel_management_agreements signing email tracking
+    if (vesselAgreement) {
+      const agreementUpdateData: Record<string, any> = {};
+
+      switch (event.type) {
+        case 'email.delivered':
+          if (!vesselAgreement.signing_email_delivered_at) {
+            agreementUpdateData.signing_email_delivered_at = eventTimestamp;
+          }
+          break;
+        case 'email.opened':
+          if (!vesselAgreement.signing_email_opened_at) {
+            agreementUpdateData.signing_email_opened_at = eventTimestamp;
+          }
+          agreementUpdateData.signing_email_open_count = (vesselAgreement.signing_email_open_count || 0) + 1;
+          break;
+        case 'email.clicked':
+          if (!vesselAgreement.signing_email_clicked_at) {
+            agreementUpdateData.signing_email_clicked_at = eventTimestamp;
+          }
+          agreementUpdateData.signing_email_click_count = (vesselAgreement.signing_email_click_count || 0) + 1;
+          break;
+        case 'email.bounced':
+          if (!vesselAgreement.signing_email_bounced_at) {
+            agreementUpdateData.signing_email_bounced_at = eventTimestamp;
+          }
+          break;
+      }
+
+      if (Object.keys(agreementUpdateData).length > 0) {
+        const { error: agUpdateError } = await supabase
+          .from('vessel_management_agreements')
+          .update(agreementUpdateData)
+          .eq('id', vesselAgreement.id);
+
+        if (agUpdateError) {
+          console.error('Error updating vessel agreement signing email tracking:', agUpdateError);
+        } else {
+          console.log('Updated vessel agreement signing email tracking:', vesselAgreement.id, agreementUpdateData);
+        }
       }
     }
 

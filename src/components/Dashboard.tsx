@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Anchor, Calendar, CheckCircle, AlertCircle, BookOpen, LogOut, Wrench, Send, Play, Shield, ClipboardCheck, ClipboardList, Ship, CalendarPlus, FileUp, MessageCircle, Mail, CreditCard as Edit2, Trash2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, History, UserCheck, FileText, Upload, Download, X, Users, Save, RefreshCw, Clock, Thermometer, Camera, Receipt, Pencil, Lock, CreditCard, Eye, EyeOff, MousePointer, Ligature as FileSignature, Folder, Menu, Phone, Printer, Plus, QrCode, CircleUser as UserCircle2, DollarSign, Archive, Building2, MessageSquare, ShieldAlert, Paperclip, ExternalLink, User, Image, ArrowLeftRight } from 'lucide-react';
+import { Anchor, Calendar, CheckCircle, AlertCircle, BookOpen, LogOut, Wrench, Send, Play, Shield, ClipboardCheck, ClipboardList, Ship, CalendarPlus, FileUp, MessageCircle, Mail, CreditCard as Edit2, Trash2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, History, UserCheck, FileText, Upload, Download, X, Users, Save, RefreshCw, Clock, Thermometer, Camera, Receipt, Pencil, Lock, CreditCard, Eye, EyeOff, MousePointer, Ligature as FileSignature, Folder, Menu, Phone, Printer, Plus, QrCode, CircleUser as UserCircle2, DollarSign, Archive, Building2, MessageSquare, ShieldAlert, Paperclip, ExternalLink, User, Image, ArrowLeftRight, Copy, Link } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCompany } from '../contexts/CompanyContext';
 import { useRoleImpersonation } from '../contexts/RoleImpersonationContext';
@@ -771,6 +771,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [showAgreementViewer, setShowAgreementViewer] = useState(false);
   const [selectedAgreement, setSelectedAgreement] = useState<VesselManagementAgreement | null>(null);
   const [agreementFilter, setAgreementFilter] = useState<'all' | 'draft' | 'pending' | 'approved'>('all');
+  const [signingLinkState, setSigningLinkState] = useState<Record<string, { generating?: boolean; copied?: boolean; sending?: boolean }>>({});
+  const [showSigningEmailModal, setShowSigningEmailModal] = useState<{ agreement: VesselManagementAgreement; yachtId: string } | null>(null);
+  const [signingEmailRecipient, setSigningEmailRecipient] = useState('');
   const [hasSmartDevices, setHasSmartDevices] = useState(false);
   const [showUserPrintView, setShowUserPrintView] = useState(false);
   const [usersToPrint, setUsersToPrint] = useState<(UserProfile & { yachts?: Yacht })[]>([]);
@@ -2719,6 +2722,126 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       if (isManagerRole(effectiveRole) && hasSubmittedAgreement(agreementYachtId)) {
         setAgreementYachtId(null);
       }
+    }
+  };
+
+  const getSigningUrl = (token: string) =>
+    `${window.location.origin}${window.location.pathname}?sign=${token}`;
+
+  const getSigningLinkDaysLeft = (createdAt?: string) => {
+    if (!createdAt) return 0;
+    const expiry = new Date(createdAt).getTime() + 30 * 24 * 60 * 60 * 1000;
+    return Math.max(0, Math.ceil((expiry - Date.now()) / (1000 * 60 * 60 * 24)));
+  };
+
+  const handleGenerateOrCopySigningLink = async (agreement: VesselManagementAgreement, yachtId: string) => {
+    const key = agreement.id;
+    const tokenIsValid = agreement.signing_token && agreement.signing_token_created_at
+      && getSigningLinkDaysLeft(agreement.signing_token_created_at) > 0;
+
+    if (!tokenIsValid) {
+      // Generate a new token
+      setSigningLinkState(prev => ({ ...prev, [key]: { ...prev[key], generating: true } }));
+      try {
+        const newToken = crypto.randomUUID();
+        const { error } = await supabase
+          .from('vessel_management_agreements')
+          .update({
+            signing_token: newToken,
+            signing_token_created_at: new Date().toISOString(),
+            signing_token_generated_by: user?.id,
+          })
+          .eq('id', agreement.id);
+        if (error) throw error;
+        // Refresh agreement in state
+        setVesselAgreements(prev => ({
+          ...prev,
+          [yachtId]: (prev[yachtId] || []).map(a =>
+            a.id === agreement.id
+              ? { ...a, signing_token: newToken, signing_token_created_at: new Date().toISOString() }
+              : a
+          ),
+        }));
+        await navigator.clipboard.writeText(getSigningUrl(newToken));
+        setSigningLinkState(prev => ({ ...prev, [key]: { copied: true } }));
+        setTimeout(() => setSigningLinkState(prev => ({ ...prev, [key]: {} })), 2500);
+      } catch (err: any) {
+        alert(`Failed to generate signing link: ${err.message}`);
+        setSigningLinkState(prev => ({ ...prev, [key]: {} }));
+      }
+    } else {
+      // Just copy existing URL
+      await navigator.clipboard.writeText(getSigningUrl(agreement.signing_token!));
+      setSigningLinkState(prev => ({ ...prev, [key]: { copied: true } }));
+      setTimeout(() => setSigningLinkState(prev => ({ ...prev, [key]: {} })), 2500);
+    }
+  };
+
+  const handleOpenSigningEmailModal = (agreement: VesselManagementAgreement, yachtId: string) => {
+    setShowSigningEmailModal({ agreement, yachtId });
+    setSigningEmailRecipient(agreement.manager_billing_approval_email || agreement.manager_email || '');
+  };
+
+  const handleSendSigningEmail = async () => {
+    if (!showSigningEmailModal) return;
+    const { agreement, yachtId } = showSigningEmailModal;
+    const key = agreement.id;
+
+    if (!signingEmailRecipient.trim()) return;
+
+    let token = agreement.signing_token;
+    const tokenIsValid = token && agreement.signing_token_created_at
+      && getSigningLinkDaysLeft(agreement.signing_token_created_at) > 0;
+
+    // Auto-generate token if missing/expired
+    if (!tokenIsValid) {
+      token = crypto.randomUUID();
+      const { error } = await supabase
+        .from('vessel_management_agreements')
+        .update({
+          signing_token: token,
+          signing_token_created_at: new Date().toISOString(),
+          signing_token_generated_by: user?.id,
+        })
+        .eq('id', agreement.id);
+      if (error) { alert(`Failed to generate token: ${error.message}`); return; }
+      setVesselAgreements(prev => ({
+        ...prev,
+        [yachtId]: (prev[yachtId] || []).map(a =>
+          a.id === agreement.id
+            ? { ...a, signing_token: token!, signing_token_created_at: new Date().toISOString() }
+            : a
+        ),
+      }));
+    }
+
+    setSigningLinkState(prev => ({ ...prev, [key]: { ...prev[key], sending: true } }));
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://eqiecntollhgfxmmbize.supabase.co';
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch(`${supabaseUrl}/functions/v1/send-agreement-signing-link`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({
+          agreementId: agreement.id,
+          recipientEmail: signingEmailRecipient.trim(),
+          recipientName: agreement.manager_billing_approval_name || agreement.manager_name,
+          signingUrl: getSigningUrl(token!),
+        }),
+      });
+      const result = await response.json();
+      if (!result.success) throw new Error(result.error || 'Failed to send email');
+
+      // Refresh agreement to pick up email tracking fields
+      await loadVesselAgreements(yachtId, true);
+      setShowSigningEmailModal(null);
+      setSigningLinkState(prev => ({ ...prev, [key]: {} }));
+    } catch (err: any) {
+      alert(`Failed to send email: ${err.message}`);
+      setSigningLinkState(prev => ({ ...prev, [key]: {} }));
     }
   };
 
@@ -12107,7 +12230,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                 {agreement.status === 'approved' && !vmaInvoice && (
                                                   <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 rounded text-xs font-semibold">No Invoice</span>
                                                 )}
-                                                {agreement.status === 'pending_approval' && !agreement.staff_signature_date && canManageYacht(effectiveRole) && (
+                                                {agreement.status === 'pending_approval' && !agreement.owner_signature_date && canManageYacht(effectiveRole) && (
                                                   <span className="px-2 py-0.5 bg-orange-500/20 text-orange-400 rounded text-xs font-semibold">
                                                     Needs AZ Marine Signature
                                                   </span>
@@ -12125,6 +12248,91 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                   <p className="text-red-500">Reason: {agreement.rejection_reason}</p>
                                                 )}
                                               </div>
+
+                                              {/* Signing Link — master only, pending agreements not yet owner-signed */}
+                                              {effectiveRole === 'master' && agreement.status === 'pending_approval' && !agreement.owner_signature_date && (() => {
+                                                const lkey = agreement.id;
+                                                const ls = signingLinkState[lkey] || {};
+                                                const daysLeft = getSigningLinkDaysLeft(agreement.signing_token_created_at);
+                                                const hasValidToken = !!agreement.signing_token && daysLeft > 0;
+                                                return (
+                                                  <div className="mt-2 pt-2 border-t border-slate-700/50">
+                                                    <p className="text-slate-500 text-xs mb-1.5 font-medium">Manager Signing Link</p>
+                                                    <div className="flex flex-wrap gap-1 mb-1.5">
+                                                      <button
+                                                        onClick={() => handleGenerateOrCopySigningLink(agreement, yacht.id)}
+                                                        disabled={ls.generating}
+                                                        className={`px-2 py-1 rounded text-xs transition-colors flex items-center gap-1 ${
+                                                          ls.copied ? 'bg-emerald-500/20 text-emerald-400' :
+                                                          ls.generating ? 'bg-slate-700 text-slate-500 cursor-not-allowed' :
+                                                          hasValidToken ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' :
+                                                          'bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30'
+                                                        }`}
+                                                      >
+                                                        {ls.generating ? (
+                                                          <><span className="animate-spin rounded-full h-3 w-3 border-t border-slate-400 inline-block" />Generating…</>
+                                                        ) : ls.copied ? (
+                                                          <><CheckCircle className="w-3 h-3" />Copied!</>
+                                                        ) : hasValidToken ? (
+                                                          <><Copy className="w-3 h-3" />Copy Link</>
+                                                        ) : (
+                                                          <><Link className="w-3 h-3" />Generate Link</>
+                                                        )}
+                                                      </button>
+                                                      {hasValidToken && (
+                                                        <button
+                                                          onClick={() => handleOpenSigningEmailModal(agreement, yacht.id)}
+                                                          disabled={ls.sending}
+                                                          className="px-2 py-1 bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 rounded text-xs transition-colors flex items-center gap-1"
+                                                        >
+                                                          <Mail className="w-3 h-3" />
+                                                          {agreement.signing_email_sent_at ? 'Resend Email' : 'Send Email'}
+                                                        </button>
+                                                      )}
+                                                      {hasValidToken && (
+                                                        <button
+                                                          onClick={() => handleGenerateOrCopySigningLink({ ...agreement, signing_token: undefined }, yacht.id)}
+                                                          className="px-2 py-1 bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 rounded text-xs transition-colors flex items-center gap-1"
+                                                          title="Regenerate link (invalidates old link)"
+                                                        >
+                                                          <RefreshCw className="w-3 h-3" />
+                                                          Regenerate
+                                                        </button>
+                                                      )}
+                                                    </div>
+                                                    {/* Expiry */}
+                                                    {hasValidToken && (
+                                                      <p className={`text-xs ${daysLeft <= 5 ? 'text-amber-500' : 'text-slate-600'}`}>
+                                                        Expires in {daysLeft} day{daysLeft !== 1 ? 's' : ''}
+                                                      </p>
+                                                    )}
+                                                    {/* Email tracking badges */}
+                                                    {agreement.signing_email_sent_at && (
+                                                      <div className="flex flex-wrap gap-1 mt-1.5">
+                                                        <span className="px-1.5 py-0.5 bg-slate-700 text-slate-400 rounded text-xs">
+                                                          Sent {new Date(agreement.signing_email_sent_at).toLocaleDateString()}
+                                                        </span>
+                                                        {agreement.signing_email_delivered_at && (
+                                                          <span className="px-1.5 py-0.5 bg-teal-500/20 text-teal-400 rounded text-xs">Delivered</span>
+                                                        )}
+                                                        {agreement.signing_email_opened_at && (
+                                                          <span className="px-1.5 py-0.5 bg-cyan-500/20 text-cyan-400 rounded text-xs">
+                                                            Opened{agreement.signing_email_open_count && agreement.signing_email_open_count > 1 ? ` (${agreement.signing_email_open_count}x)` : ''}
+                                                          </span>
+                                                        )}
+                                                        {agreement.signing_email_clicked_at && (
+                                                          <span className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 rounded text-xs">
+                                                            Clicked{agreement.signing_email_click_count && agreement.signing_email_click_count > 1 ? ` (${agreement.signing_email_click_count}x)` : ''}
+                                                          </span>
+                                                        )}
+                                                        {agreement.signing_email_bounced_at && (
+                                                          <span className="px-1.5 py-0.5 bg-red-500/20 text-red-400 rounded text-xs">Bounced</span>
+                                                        )}
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                );
+                                              })()}
                                       </div>
                                       <div className="flex flex-col gap-1">
                                         {agreement.status === 'draft' && (isOwnerRole(effectiveRole) || canManageYacht(effectiveRole)) && (
@@ -21278,6 +21486,71 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                   </>
                 )}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Signing Link Email Modal */}
+      {showSigningEmailModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[9999]">
+          <div className="bg-slate-800 rounded-xl border border-slate-700 w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <Mail className="w-4 h-4 text-cyan-400" />
+                Send Signing Link
+              </h3>
+              <button onClick={() => setShowSigningEmailModal(null)} className="p-1.5 hover:bg-slate-700 rounded-lg transition-colors">
+                <X className="w-4 h-4 text-slate-400" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div className="bg-slate-900/50 rounded-lg p-3 text-xs text-slate-400 space-y-1">
+                <p><span className="text-slate-500">Agreement:</span> <span className="text-slate-300">{showSigningEmailModal.agreement.season_name}</span></p>
+                <p><span className="text-slate-500">Vessel:</span> <span className="text-slate-300">{showSigningEmailModal.agreement.vessel_name}</span></p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Recipient Email <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="email"
+                  value={signingEmailRecipient}
+                  onChange={(e) => setSigningEmailRecipient(e.target.value)}
+                  placeholder="manager@example.com"
+                  className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-500 transition-colors"
+                />
+                {showSigningEmailModal.agreement.manager_billing_approval_email && showSigningEmailModal.agreement.manager_billing_approval_email !== signingEmailRecipient && (
+                  <button
+                    onClick={() => setSigningEmailRecipient(showSigningEmailModal.agreement.manager_billing_approval_email!)}
+                    className="mt-1 text-xs text-cyan-400 hover:text-cyan-300 transition-colors"
+                  >
+                    Use billing approval email: {showSigningEmailModal.agreement.manager_billing_approval_email}
+                  </button>
+                )}
+              </div>
+              <p className="text-xs text-slate-500">
+                The recipient will receive an email with a button to review and sign the agreement. The link expires in 30 days.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowSigningEmailModal(null)}
+                  className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSendSigningEmail}
+                  disabled={!signingEmailRecipient.trim() || !!signingLinkState[showSigningEmailModal.agreement.id]?.sending}
+                  className="flex-1 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2"
+                >
+                  {signingLinkState[showSigningEmailModal.agreement.id]?.sending ? (
+                    <><span className="animate-spin rounded-full h-4 w-4 border-t-2 border-white" />Sending…</>
+                  ) : (
+                    <><Send className="w-4 h-4" />Send Email</>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>

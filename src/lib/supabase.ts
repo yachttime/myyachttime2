@@ -533,6 +533,18 @@ export interface VesselManagementAgreement {
   created_at: string;
   updated_at: string;
   submitted_at?: string;
+  signing_token?: string;
+  signing_token_created_at?: string;
+  signing_token_generated_by?: string;
+  signing_email_sent_at?: string;
+  signing_email_recipient?: string;
+  signing_email_resend_id?: string;
+  signing_email_delivered_at?: string;
+  signing_email_opened_at?: string;
+  signing_email_clicked_at?: string;
+  signing_email_bounced_at?: string;
+  signing_email_open_count?: number;
+  signing_email_click_count?: number;
   yachts?: {
     name: string;
   };
