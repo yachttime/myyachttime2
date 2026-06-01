@@ -1178,10 +1178,23 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
         invoiceDeposits = depData || [];
       }
 
+      // Fetch individual invoice_payment records so each payment shows on the printed invoice
+      let invoiceFinalPayments: { id: string; amount: number; payment_method: string; payment_method_type: string | null; reference_number: string | null; notes: string | null; payment_date: string; stripe_payment_intent_id: string | null }[] = [];
+      if (invoice.amount_paid && invoice.amount_paid > 0) {
+        const { data: fpData } = await supabase
+          .from('estimating_payments')
+          .select('id, amount, payment_method, payment_method_type, reference_number, notes, payment_date, stripe_payment_intent_id')
+          .eq('invoice_id', invoice.id)
+          .eq('payment_type', 'invoice_payment')
+          .order('payment_date', { ascending: true });
+        invoiceFinalPayments = fpData || [];
+      }
+
       // Estimate how much vertical space the totals block needs
       const pageHeight = 11;
       const bottomMargin = 0.75;
       const depositLineCount = invoiceDeposits.length > 0 ? invoiceDeposits.length : (invoice.deposit_applied && invoice.deposit_applied > 0 ? 1 : 0);
+      const finalPaymentLineCount = invoiceFinalPayments.length > 0 ? invoiceFinalPayments.length : 0;
       const totalsLineCount =
         2 + // subtotal + tax
         (invoice.discount_amount && invoice.discount_amount > 0 ? 1 : 0) +
@@ -1190,7 +1203,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
         (invoice.surcharge_amount && invoice.surcharge_amount > 0 ? 1 : 0) +
         depositLineCount +
         (invoice.credit_card_fee && invoice.credit_card_fee > 0 ? 1 : 0) +
-        (invoice.payment_status === 'paid' || (invoice.amount_paid !== null && invoice.amount_paid > 0) ? 2 : 0);
+        (invoice.payment_status === 'paid' || (invoice.amount_paid !== null && invoice.amount_paid > 0) ? 2 + finalPaymentLineCount : 0);
       const totalsBlockHeight = totalsLineCount * 0.2 + 0.2 + (invoice.notes ? 0.6 : 0);
 
       if (yPos + totalsBlockHeight > pageHeight - bottomMargin) {
@@ -1291,6 +1304,26 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
         yPos += 0.2;
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(10);
+
+        // Show individual payment rows if available
+        if (invoiceFinalPayments.length > 0) {
+          invoiceFinalPayments.forEach((fp, idx) => {
+            const fpAmt = parseFloat(String(fp.amount || 0));
+            const methodLabel = fp.payment_method === 'stripe'
+              ? (fp.payment_method_type === 'ach' ? 'ACH / Bank Transfer' : fp.payment_method_type === 'card' ? 'Card' : 'Stripe')
+              : fp.payment_method === 'check'
+              ? `Check${fp.reference_number ? ` #${fp.reference_number}` : ''}`
+              : (fp.payment_method || 'Payment');
+            const dateStr = new Date(fp.payment_date).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' });
+            const label = `Payment #${idx + 1} (${methodLabel}) — ${dateStr}:`;
+            const labelLines = doc.splitTextToSize(label, totalsX - margin - 0.05);
+            doc.text(labelLines, margin, yPos);
+            doc.text(`-$${fpAmt.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
+            yPos += labelLines.length > 1 ? labelLines.length * 0.14 : 0.2;
+          });
+          yPos += 0.05;
+        }
+
         const amountPaid = invoice.amount_paid ?? computedTotal;
         doc.text('Amount Paid:', totalsX, yPos);
         doc.text(`-$${amountPaid.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
