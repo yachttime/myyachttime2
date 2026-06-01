@@ -12249,8 +12249,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                 )}
                                               </div>
 
-                                              {/* Signing Link — master only, pending agreements not yet owner-signed */}
-                                              {effectiveRole === 'master' && agreement.status === 'pending_approval' && !agreement.owner_signature_date && (() => {
+                                              {/* Signing Link — master only, draft/pending agreements not yet owner-signed */}
+                                              {effectiveRole === 'master' && (agreement.status === 'pending_approval' || agreement.status === 'draft') && !agreement.owner_signature_date && (() => {
                                                 const lkey = agreement.id;
                                                 const ls = signingLinkState[lkey] || {};
                                                 const daysLeft = getSigningLinkDaysLeft(agreement.signing_token_created_at);
