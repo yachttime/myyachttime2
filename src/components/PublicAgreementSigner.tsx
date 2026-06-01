@@ -77,6 +77,14 @@ export function PublicAgreementSigner({ token }: Props) {
   const [state, setState] = useState<PageState>('loading');
   const [agreement, setAgreement] = useState<Agreement | null>(null);
   const [signatureName, setSignatureName] = useState('');
+  const [consentOfficeScheduling, setConsentOfficeScheduling] = useState(false);
+  const [consentPaymentTerms, setConsentPaymentTerms] = useState(false);
+  const [repairName, setRepairName] = useState('');
+  const [repairEmail, setRepairEmail] = useState('');
+  const [repairPhone, setRepairPhone] = useState('');
+  const [billingName, setBillingName] = useState('');
+  const [billingEmail, setBillingEmail] = useState('');
+  const [billingPhone, setBillingPhone] = useState('');
   const [signing, setSigning] = useState(false);
   const [error, setError] = useState('');
   const [signedAt, setSignedAt] = useState('');
@@ -96,11 +104,28 @@ export function PublicAgreementSigner({ token }: Props) {
   };
 
   const handleSign = async () => {
+    if (!consentOfficeScheduling) { setError('You must acknowledge the Office Scheduling policy'); return; }
+    if (!consentPaymentTerms) { setError('You must acknowledge the Payment Terms policy'); return; }
+    if (!repairName.trim()) { setError('Management Team Repair Approval name is required'); return; }
+    if (!repairEmail.trim()) { setError('Management Team Repair Approval email is required'); return; }
+    if (!repairPhone.trim()) { setError('Management Team Repair Approval phone is required'); return; }
+    if (!billingName.trim()) { setError('Management Team Billing Approval name is required'); return; }
+    if (!billingEmail.trim()) { setError('Management Team Billing Approval email is required'); return; }
+    if (!billingPhone.trim()) { setError('Management Team Billing Approval phone is required'); return; }
     if (!signatureName.trim()) { setError('Please enter your full legal name'); return; }
     setSigning(true); setError('');
     try {
       const { data, error } = await anonClient.rpc('sign_agreement_by_token', {
-        p_token: token, p_signature_name: signatureName.trim(),
+        p_token: token,
+        p_signature_name: signatureName.trim(),
+        p_consent_office_scheduling: consentOfficeScheduling,
+        p_consent_payment_terms: consentPaymentTerms,
+        p_repair_approval_name: repairName.trim(),
+        p_repair_approval_email: repairEmail.trim(),
+        p_repair_approval_phone: repairPhone.trim(),
+        p_billing_approval_name: billingName.trim(),
+        p_billing_approval_email: billingEmail.trim(),
+        p_billing_approval_phone: billingPhone.trim(),
       });
       if (error) throw error;
       if (!data?.success) {
@@ -390,12 +415,125 @@ export function PublicAgreementSigner({ token }: Props) {
 
         {/* ── Signature panel — sticky at bottom on mobile, inline on desktop ── */}
         <div className="border-t-2 border-black pt-8 pb-12">
-          <h2 className="text-xl font-bold mb-2">VESSEL OWNER/MANAGER SIGNATURE</h2>
-          <p className="text-sm text-gray-600 mb-6 leading-relaxed">
-            By entering your full legal name below and clicking <strong>Sign Agreement</strong>, you confirm that you have read and understood all 23 sections of this Vessel Management Agreement and agree to be bound by its terms.
-          </p>
+          <h2 className="text-xl font-bold mb-6">COMPLETE &amp; SIGN AGREEMENT</h2>
 
+          {/* Consent checkboxes */}
+          <div className="mb-8">
+            <h3 className="font-bold text-base mb-4 border-b border-gray-300 pb-2">Agreement Consent</h3>
+            <div className="space-y-4">
+              <label className="flex items-start gap-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={consentOfficeScheduling}
+                  onChange={(e) => { setConsentOfficeScheduling(e.target.checked); setError(''); }}
+                  className="mt-1 w-4 h-4 flex-shrink-0 accent-gray-900 cursor-pointer"
+                  disabled={signing}
+                />
+                <span className="text-sm text-gray-800 leading-relaxed">
+                  <strong>Office Scheduling:</strong> I acknowledge that all new work must be scheduled through the office phone numbers (928-637-6500) and not directly with employees. Scheduling services directly with employees without going through the office may result in contract cancellation.
+                </span>
+              </label>
+              <label className="flex items-start gap-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={consentPaymentTerms}
+                  onChange={(e) => { setConsentPaymentTerms(e.target.checked); setError(''); }}
+                  className="mt-1 w-4 h-4 flex-shrink-0 accent-gray-900 cursor-pointer"
+                  disabled={signing}
+                />
+                <span className="text-sm text-gray-800 leading-relaxed">
+                  <strong>Payment Terms:</strong> I agree to send all payments within 48 hours of the work being completed. Failure to comply with this payment schedule may result in suspension of future work.
+                </span>
+              </label>
+            </div>
+          </div>
+
+          {/* Repair Approval contact */}
+          <div className="mb-8">
+            <h3 className="font-bold text-base mb-4 border-b border-gray-300 pb-2">Management Team - Repair Approval</h3>
+            <div className="grid grid-cols-1 gap-4 max-w-xl">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Name <span className="text-red-600">*</span></label>
+                <input
+                  type="text"
+                  value={repairName}
+                  onChange={(e) => { setRepairName(e.target.value); setError(''); }}
+                  className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:border-gray-900 transition-colors text-sm"
+                  disabled={signing}
+                  autoComplete="name"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Email <span className="text-red-600">*</span></label>
+                <input
+                  type="email"
+                  value={repairEmail}
+                  onChange={(e) => { setRepairEmail(e.target.value); setError(''); }}
+                  className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:border-gray-900 transition-colors text-sm"
+                  disabled={signing}
+                  autoComplete="email"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Phone <span className="text-red-600">*</span></label>
+                <input
+                  type="tel"
+                  value={repairPhone}
+                  onChange={(e) => { setRepairPhone(e.target.value); setError(''); }}
+                  className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:border-gray-900 transition-colors text-sm"
+                  disabled={signing}
+                  autoComplete="tel"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Billing Approval contact */}
+          <div className="mb-8">
+            <h3 className="font-bold text-base mb-4 border-b border-gray-300 pb-2">Management Team - Billing Approval</h3>
+            <div className="grid grid-cols-1 gap-4 max-w-xl">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Name <span className="text-red-600">*</span></label>
+                <input
+                  type="text"
+                  value={billingName}
+                  onChange={(e) => { setBillingName(e.target.value); setError(''); }}
+                  className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:border-gray-900 transition-colors text-sm"
+                  disabled={signing}
+                  autoComplete="name"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Email <span className="text-red-600">*</span></label>
+                <input
+                  type="email"
+                  value={billingEmail}
+                  onChange={(e) => { setBillingEmail(e.target.value); setError(''); }}
+                  className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:border-gray-900 transition-colors text-sm"
+                  disabled={signing}
+                  autoComplete="email"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Phone <span className="text-red-600">*</span></label>
+                <input
+                  type="tel"
+                  value={billingPhone}
+                  onChange={(e) => { setBillingPhone(e.target.value); setError(''); }}
+                  className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:border-gray-900 transition-colors text-sm"
+                  disabled={signing}
+                  autoComplete="tel"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Signature */}
           <div className="max-w-xl space-y-4">
+            <h3 className="font-bold text-base border-b border-gray-300 pb-2">Vessel Owner/Manager Signature</h3>
+            <p className="text-sm text-gray-600 leading-relaxed">
+              By entering your full legal name below and clicking <strong>Sign Agreement</strong>, you confirm that you have read and understood all 23 sections of this Vessel Management Agreement and agree to be bound by its terms.
+            </p>
             <div>
               <label className="block text-sm font-bold text-gray-800 mb-2">
                 Full Legal Name <span className="text-red-600">*</span>
@@ -427,7 +565,7 @@ export function PublicAgreementSigner({ token }: Props) {
 
             <button
               onClick={handleSign}
-              disabled={signing || !signatureName.trim()}
+              disabled={signing || !signatureName.trim() || !consentOfficeScheduling || !consentPaymentTerms}
               className="w-full px-6 py-4 bg-gray-900 hover:bg-gray-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg transition-colors font-bold text-base"
             >
               {signing ? (
