@@ -12074,12 +12074,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   return agreement.status === agreementFilter;
                                 }).map((agreement) => (
                                   <div key={agreement.id} className="bg-slate-900/50 rounded-lg p-3 text-xs">
+                                    {(() => {
+                                      const vmaInvoice = (yachtInvoices[yacht.id] || []).find((yi: any) => yi.vessel_management_agreement_id === agreement.id);
+                                      return (
                                     <div className="flex items-start justify-between gap-2">
                                       <div className="flex-1">
-                                        {(() => {
-                                          const vmaInvoice = (yachtInvoices[yacht.id] || []).find((yi: any) => yi.vessel_management_agreement_id === agreement.id);
-                                          return (
-                                            <>
                                               <div className="flex items-center gap-2 mb-1 flex-wrap">
                                                 <FileSignature className="w-3 h-3 text-cyan-400" />
                                                 <span className="text-slate-300 font-medium">{agreement.season_name}</span>
@@ -12126,9 +12125,6 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                   <p className="text-red-500">Reason: {agreement.rejection_reason}</p>
                                                 )}
                                               </div>
-                                            </>
-                                          );
-                                        })()}
                                       </div>
                                       <div className="flex flex-col gap-1">
                                         {agreement.status === 'draft' && (isOwnerRole(effectiveRole) || canManageYacht(effectiveRole)) && (
@@ -12283,6 +12279,15 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                             View
                                           </button>
                                         )}
+                                        {agreement.status === 'approved' && vmaInvoice && vmaInvoice.payment_status !== 'paid' && isStaffRole(effectiveRole) && (
+                                          <button
+                                            onClick={() => handleOpenEmailModal(vmaInvoice)}
+                                            className="px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded hover:bg-emerald-500/30 transition-colors text-xs flex items-center gap-1"
+                                          >
+                                            <Mail className="w-3 h-3" />
+                                            {vmaInvoice.payment_email_sent_at ? 'Resend Payment Link' : 'Send Payment Link'}
+                                          </button>
+                                        )}
                                         {agreement.status === 'rejected' && (
                                           <div className="flex flex-col gap-1">
                                             <button
@@ -12310,6 +12315,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                         )}
                                       </div>
                                     </div>
+                                      );
+                                    })()}
                                   </div>
                                 ))
                               ) : (
