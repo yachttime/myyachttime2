@@ -219,22 +219,12 @@ export function TimeClockPanel() {
           return;
         }
 
-        // Stale open entry from a previous day (or open 14+ hrs) — auto-close it at end of that day
-        const autoCloseTime = new Date(punchInDate);
-        autoCloseTime.setHours(23, 59, 0, 0);
-
-        const { error: closeError } = await supabase
-          .from('staff_time_entries')
-          .update({
-            punch_out_time: autoCloseTime.toISOString(),
-            is_edited: true,
-            edited_by: user.id,
-            edited_at: new Date().toISOString(),
-            edit_reason: 'Auto-closed: employee forgot to punch out — hours need admin review'
-          })
-          .eq('id', openEntry.id);
+        // Stale open entry from a previous day (or open 14+ hrs) — auto-close via SECURITY DEFINER function
+        const { data: closeResult, error: closeError } = await supabase
+          .rpc('auto_close_forgotten_punch_out', { p_entry_id: openEntry.id });
 
         if (closeError) throw closeError;
+        if (closeResult && !closeResult.success) throw new Error(closeResult.error || 'Failed to close previous entry');
       }
 
       const { data, error } = await supabase
