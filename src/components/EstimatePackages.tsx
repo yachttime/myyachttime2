@@ -543,6 +543,14 @@ export function EstimatePackages({ userId }: EstimatePackagesProps) {
 
           {selectedPackage ? (
             <div className="p-4 space-y-6">
+              {(() => {
+                const pkg = packages.find(p => p.id === selectedPackage);
+                return pkg?.description ? (
+                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <p className="text-sm text-gray-700">{pkg.description}</p>
+                  </div>
+                ) : null;
+              })()}
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="font-medium text-gray-900 flex items-center gap-2">
