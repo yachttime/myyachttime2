@@ -69,9 +69,11 @@ Deno.serve(async (req: Request) => {
       }
 
       if (user.sms_notifications_enabled) {
-        const phoneNumber = user.notification_phone || user.phone;
-        if (phoneNumber) {
-          smsRecipients.push({ phone: phoneNumber, name: userName });
+        const rawPhone = user.notification_phone || user.phone;
+        if (rawPhone) {
+          const digits = rawPhone.replace(/\D/g, '');
+          const normalized = digits.length === 10 ? `+1${digits}` : digits.length === 11 && digits.startsWith('1') ? `+${digits}` : rawPhone;
+          smsRecipients.push({ phone: normalized, name: userName });
         }
       }
     }
