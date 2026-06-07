@@ -737,7 +737,9 @@ export function Estimates({ userId }: EstimatesProps) {
       }
 
       const currentLineOrder = updatedTasks[activeTaskIndex].lineItems.length;
-      const packageName = packages.find(p => p.id === selectedPackageId)?.name || 'Package';
+      const selectedPkg = packages.find(p => p.id === selectedPackageId);
+      const packageName = selectedPkg?.name || 'Package';
+      const packageDescription = selectedPkg?.description || null;
 
       const headerItem: EstimateLineItem = {
         line_type: 'labor',
@@ -749,7 +751,7 @@ export function Estimates({ userId }: EstimatesProps) {
         labor_code_id: null,
         part_id: null,
         line_order: currentLineOrder,
-        work_details: null,
+        work_details: packageDescription,
         package_header: packageName
       };
       updatedTasks[activeTaskIndex].lineItems.push(headerItem);
@@ -2864,7 +2866,12 @@ export function Estimates({ userId }: EstimatesProps) {
                                                 title="Click to rename"
                                               >
                                                 <Package className="w-3.5 h-3.5 text-green-600" />
-                                                <span className="text-xs font-semibold text-green-700 uppercase tracking-wide">{item.package_header || 'Click to name package'}</span>
+                                                <div>
+                                                  <span className="text-xs font-semibold text-green-700 uppercase tracking-wide">{item.package_header || 'Click to name package'}</span>
+                                                  {item.work_details && (
+                                                    <div className="text-xs text-green-600 font-normal normal-case tracking-normal mt-0.5">{item.work_details}</div>
+                                                  )}
+                                                </div>
                                               </div>
                                             )}
                                           </td>
