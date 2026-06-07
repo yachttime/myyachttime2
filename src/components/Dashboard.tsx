@@ -3414,6 +3414,61 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     }
   };
 
+  const handleCompleteWithoutBilling = async () => {
+    if (!selectedRepairForInvoice || !user) return;
+    setInvoiceLoading(true);
+    try {
+      const { error: updateError } = await supabase
+        .from('repair_requests')
+        .update({
+          status: 'completed',
+          completed_by: user.id,
+          completed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', selectedRepairForInvoice.id);
+
+      if (updateError) throw updateError;
+
+      const userName = userProfile?.first_name && userProfile?.last_name
+        ? `${userProfile.first_name} ${userProfile.last_name}`
+        : userProfile?.email || user.email || 'Staff';
+
+      await supabase.from('admin_notifications').insert({
+        user_id: user.id,
+        yacht_id: selectedRepairForInvoice.yacht_id,
+        notification_type: 'repair_request',
+        message: `Repair marked complete (no invoice): "${selectedRepairForInvoice.title}" — completed by ${userName}`,
+        reference_id: selectedRepairForInvoice.id,
+        company_id: userProfile?.company_id
+      });
+
+      if (!selectedRepairForInvoice.is_retail_customer && selectedRepairForInvoice.yacht_id) {
+        await supabase.from('owner_chat_messages').insert({
+          yacht_id: selectedRepairForInvoice.yacht_id,
+          user_id: user.id,
+          message: `Repair Completed: ${selectedRepairForInvoice.title}\n\n✓ This repair has been completed by ${userName}. No invoice was generated.`,
+          company_id: userProfile?.company_id
+        });
+      }
+
+      setShowInvoiceModal(false);
+      setSelectedRepairForInvoice(null);
+      setInvoiceForm({ final_invoice_amount: '', invoice_file: null, payment_method_type: 'card' });
+      setIsEditingInvoice(false);
+      setSelectedInvoiceForEdit(null);
+      setIsAddingInvoiceToCompleted(false);
+      await loadRepairRequests();
+      await loadChatMessages();
+      await loadAdminNotifications();
+    } catch (error: any) {
+      console.error('Error completing repair without billing:', error);
+      alert(`Error: ${error.message || 'Failed to complete repair'}`);
+    } finally {
+      setInvoiceLoading(false);
+    }
+  };
+
   const handleToggleArchiveRepairRequest = async (requestId: string, currentArchived: boolean) => {
     try {
       const { error } = await supabase
@@ -16392,11 +16447,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                           <div>
                             <label className="block text-sm font-medium mb-2">
-                              {isEditingInvoice ? 'New Invoice Amount *' : 'Final Invoice Amount *'}
+                              {isEditingInvoice ? 'New Invoice Amount *' : isAddingInvoiceToCompleted ? 'Final Invoice Amount *' : 'Final Invoice Amount (leave blank if no invoice)'}
                             </label>
                             <input
                               type="text"
-                              required
                               value={invoiceForm.final_invoice_amount}
                               onChange={(e) => setInvoiceForm({...invoiceForm, final_invoice_amount: e.target.value})}
                               className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-orange-500"
@@ -16464,7 +16518,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           )}
                         </div>
 
-                        <div className="p-6 border-t border-slate-700 flex gap-3">
+                        <div className="p-6 border-t border-slate-700 flex gap-3 flex-wrap">
                           <button
                             onClick={() => {
                               setShowInvoiceModal(false);
@@ -16479,6 +16533,15 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           >
                             Cancel
                           </button>
+                          {!isEditingInvoice && !isAddingInvoiceToCompleted && (
+                            <button
+                              onClick={handleCompleteWithoutBilling}
+                              disabled={invoiceLoading}
+                              className="flex-1 bg-slate-600 hover:bg-slate-500 text-white font-semibold py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {invoiceLoading ? 'Saving...' : 'Mark Complete (No Invoice)'}
+                            </button>
+                          )}
                           <button
                             onClick={isEditingInvoice ? handleUpdateInvoice : isAddingInvoiceToCompleted ? handleAddInvoiceToCompletedRepairSubmit : handleBillYachtManager}
                             disabled={invoiceLoading || !invoiceForm.final_invoice_amount}
