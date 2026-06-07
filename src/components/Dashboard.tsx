@@ -14730,6 +14730,16 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 flex-wrap">
                                       <h4 className="text-lg font-bold text-orange-400">{group.label}</h4>
+                                      {(() => {
+                                        const mostRecent = group.requests.reduce((latest: any, r: any) =>
+                                          !latest || new Date(r.created_at) > new Date(latest.created_at) ? r : latest, null);
+                                        if (!mostRecent) return null;
+                                        return (
+                                          <span className="text-slate-400 text-xs font-normal">
+                                            {new Date(mostRecent.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                          </span>
+                                        );
+                                      })()}
                                       {group.requests.some((r: any) => r.submitter_role === 'manager' || r.submitter_role === 'owner') && (
                                         <span className="bg-sky-500/20 text-sky-300 text-xs px-2 py-0.5 rounded-full font-medium flex items-center gap-1 border border-sky-500/30">
                                           <User className="w-3 h-3" />
