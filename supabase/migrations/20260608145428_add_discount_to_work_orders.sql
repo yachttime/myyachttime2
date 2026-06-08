@@ -1,0 +1,1 @@
+ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS discount numeric(5,4) DEFAULT 0 NOT NULL;

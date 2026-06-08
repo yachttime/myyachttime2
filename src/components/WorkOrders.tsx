@@ -29,6 +29,7 @@ interface WorkOrder {
   park_fees_amount: number | null;
   surcharge_rate: number | null;
   surcharge_amount: number | null;
+  discount: number | null;
   subtotal: number | null;
   total_amount: number | null;
   notes: string | null;
@@ -131,6 +132,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
     shop_supplies_rate: '0.05',
     park_fees_rate: '0.02',
     surcharge_rate: '0.03',
+    discount_rate: '0',
     apply_shop_supplies: true,
     apply_park_fees: true,
     notes: '',
@@ -991,13 +993,18 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
     return calculateSurchargeableSubtotal() * parseFloat(formData.surcharge_rate || '0');
   };
 
+  const calculateDiscount = () => {
+    return calculateSubtotal() * parseFloat(formData.discount_rate || '0');
+  };
+
   const calculateTotal = () => {
     const subtotal = calculateSubtotal();
     const salesTax = calculateSalesTax();
     const shopSupplies = calculateShopSupplies();
     const parkFees = calculateParkFees();
     const surcharge = calculateSurcharge();
-    return subtotal + salesTax + shopSupplies + parkFees + surcharge;
+    const discount = calculateDiscount();
+    return subtotal + salesTax + shopSupplies + parkFees + surcharge - discount;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1029,6 +1036,8 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
       const parkFeesAmount = calculateParkFees();
       const surchargeRate = parseFloat(formData.surcharge_rate);
       const surchargeAmount = calculateSurcharge();
+      const discountRate = parseFloat(formData.discount_rate || '0');
+      const discountAmount = calculateDiscount();
       const totalAmount = calculateTotal();
 
       if (!editingId) {
@@ -1057,6 +1066,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
         park_fees_amount: parkFeesAmount,
         surcharge_rate: surchargeRate,
         surcharge_amount: surchargeAmount,
+        discount: discountRate,
         total_amount: totalAmount,
         notes: formData.notes || null,
         customer_notes: formData.customer_notes || null,
@@ -1192,6 +1202,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
       manager_email: '',
       manager_phone: '',
       ...defaultRates,
+      discount_rate: '0',
       apply_shop_supplies: true,
       apply_park_fees: true,
       notes: '',
@@ -1294,6 +1305,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
         shop_supplies_rate: (workOrder.shop_supplies_rate || 0).toString(),
         park_fees_rate: (workOrder.park_fees_rate || 0).toString(),
         surcharge_rate: (workOrder.surcharge_rate || 0).toString(),
+        discount_rate: (workOrder.discount || 0).toString(),
         apply_shop_supplies: (workOrder.shop_supplies_amount || 0) > 0,
         apply_park_fees: (workOrder.park_fees_amount || 0) > 0,
         notes: workOrder.notes || '',
@@ -3579,6 +3591,21 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                         <span className="text-xs text-gray-500">= ${calculateSurcharge().toFixed(2)}</span>
                       </div>
                     </div>
+
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-medium text-red-600">Discount (%)</label>
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={(parseFloat(formData.discount_rate || '0') * 100).toFixed(2)}
+                          onChange={(e) => setFormData({ ...formData, discount_rate: (parseFloat(e.target.value || '0') / 100).toString() })}
+                          className="w-16 px-1.5 py-0.5 text-right border border-red-300 rounded text-xs bg-white text-red-600"
+                        />
+                        <span className="text-xs text-red-500">= -${calculateDiscount().toFixed(2)}</span>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="bg-gray-50 rounded p-2">
@@ -3604,6 +3631,12 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                         <span>Surcharge:</span>
                         <span>${calculateSurcharge().toFixed(2)}</span>
                       </div>
+                      {parseFloat(formData.discount_rate || '0') > 0 && (
+                        <div className="flex justify-between text-xs text-red-600">
+                          <span>Discount:</span>
+                          <span>-${calculateDiscount().toFixed(2)}</span>
+                        </div>
+                      )}
                       <div className="flex justify-between text-sm font-bold border-t pt-1 mt-1 text-gray-900">
                         <span>Total:</span>
                         <span>${calculateTotal().toFixed(2)}</span>
