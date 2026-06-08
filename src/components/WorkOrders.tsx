@@ -132,7 +132,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
     shop_supplies_rate: '0.05',
     park_fees_rate: '0.02',
     surcharge_rate: '0.03',
-    discount_rate: '0',
+    discount_pct: '0',
     apply_shop_supplies: true,
     apply_park_fees: true,
     notes: '',
@@ -994,7 +994,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
   };
 
   const calculateDiscount = () => {
-    return calculateSubtotal() * parseFloat(formData.discount_rate || '0');
+    return calculateSubtotal() * (parseFloat(formData.discount_pct || '0') / 100);
   };
 
   const calculateTotal = () => {
@@ -1036,7 +1036,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
       const parkFeesAmount = calculateParkFees();
       const surchargeRate = parseFloat(formData.surcharge_rate);
       const surchargeAmount = calculateSurcharge();
-      const discountRate = parseFloat(formData.discount_rate || '0');
+      const discountRate = parseFloat(formData.discount_pct || '0') / 100;
       const discountAmount = calculateDiscount();
       const totalAmount = calculateTotal();
 
@@ -1202,7 +1202,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
       manager_email: '',
       manager_phone: '',
       ...defaultRates,
-      discount_rate: '0',
+      discount_pct: '0',
       apply_shop_supplies: true,
       apply_park_fees: true,
       notes: '',
@@ -1305,7 +1305,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
         shop_supplies_rate: (workOrder.shop_supplies_rate || 0).toString(),
         park_fees_rate: (workOrder.park_fees_rate || 0).toString(),
         surcharge_rate: (workOrder.surcharge_rate || 0).toString(),
-        discount_rate: (workOrder.discount || 0).toString(),
+        discount_pct: ((workOrder.discount || 0) * 100).toString(),
         apply_shop_supplies: (workOrder.shop_supplies_amount || 0) > 0,
         apply_park_fees: (workOrder.park_fees_amount || 0) > 0,
         notes: workOrder.notes || '',
@@ -3599,9 +3599,9 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                           type="number"
                           step="0.01"
                           min="0"
-                          value={(parseFloat(formData.discount_rate || '0') * 100).toFixed(2)}
-                          onChange={(e) => setFormData({ ...formData, discount_rate: (parseFloat(e.target.value || '0') / 100).toString() })}
-                          className="w-16 px-1.5 py-0.5 text-right border border-red-300 rounded text-xs bg-white text-red-600"
+                          value={formData.discount_pct}
+                          onChange={(e) => setFormData({ ...formData, discount_pct: e.target.value })}
+                          className="w-20 px-1.5 py-0.5 text-right border border-red-300 rounded text-xs bg-white text-red-600"
                         />
                         <span className="text-xs text-red-500">= -${calculateDiscount().toFixed(2)}</span>
                       </div>
@@ -3631,7 +3631,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                         <span>Surcharge:</span>
                         <span>${calculateSurcharge().toFixed(2)}</span>
                       </div>
-                      {parseFloat(formData.discount_rate || '0') > 0 && (
+                      {parseFloat(formData.discount_pct || '0') > 0 && (
                         <div className="flex justify-between text-xs text-red-600">
                           <span>Discount:</span>
                           <span>-${calculateDiscount().toFixed(2)}</span>

@@ -1,0 +1,1 @@
+ALTER TABLE work_orders ALTER COLUMN discount TYPE numeric(6,4);
