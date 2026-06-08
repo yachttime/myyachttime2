@@ -23,6 +23,7 @@ import { YachtQRCode, printAllQRCodesAvery5168 } from './YachtQRCode';
 import { StaffCalendar } from './StaffCalendar';
 import { TimeClock } from './TimeClock';
 import { EstimatingDashboard } from './EstimatingDashboard';
+import { PasswordChange } from './PasswordChange';
 import CustomerManagement from './CustomerManagement';
 import { CompanyManagement } from './CompanyManagement';
 import SupportTickets from './SupportTickets';
@@ -65,6 +66,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   };
 
   const [bookings, setBookings] = useState<YachtBooking[]>([]);
+  const [showChangePassword, setShowChangePassword] = useState(false);
   const [maintenanceRequests, setMaintenanceRequests] = useState<MaintenanceRequest[]>([]);
   const [videos, setVideos] = useState<EducationVideo[]>([]);
   const [welcomeVideo, setWelcomeVideo] = useState<EducationVideo | null>(null);
@@ -7945,6 +7947,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             <span>Edit Profile</span>
           </button>
           <button
+            onClick={() => setShowChangePassword(true)}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm text-slate-400 hover:text-amber-400 hover:bg-slate-800/50 rounded-lg transition-colors"
+          >
+            <Lock className="w-4 h-4" />
+            <span>Change Password</span>
+          </button>
+          <button
             onClick={signOut}
             className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm text-slate-400 hover:text-red-400 hover:bg-slate-800/50 rounded-lg transition-colors"
           >
@@ -7953,6 +7962,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           </button>
         </div>
       </aside>
+
+      {showChangePassword && (
+        <PasswordChange voluntary onClose={() => setShowChangePassword(false)} />
+      )}
 
       {/* Main Content */}
       <main className="flex-1 lg:ml-64 w-full">

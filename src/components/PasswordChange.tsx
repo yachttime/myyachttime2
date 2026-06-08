@@ -1,8 +1,13 @@
 import { useState } from 'react';
-import { Lock, Eye, EyeOff } from 'lucide-react';
+import { Lock, Eye, EyeOff, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
-export function PasswordChange() {
+interface PasswordChangeProps {
+  voluntary?: boolean;
+  onClose?: () => void;
+}
+
+export function PasswordChange({ voluntary = false, onClose }: PasswordChangeProps) {
   const { changePassword } = useAuth();
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -31,107 +36,141 @@ export function PasswordChange() {
     try {
       await changePassword(newPassword);
       setSuccess(true);
+      if (voluntary) {
+        setTimeout(() => onClose?.(), 1500);
+      }
     } catch (error: any) {
       setError(error.message || 'Failed to change password');
       setLoading(false);
     }
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
-      <div className="max-w-md w-full">
-        <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 overflow-hidden">
-          <div className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 border-b border-slate-700 px-6 py-4">
-            <div className="flex items-center gap-3">
-              <Lock className="w-6 h-6 text-amber-400" />
-              <h2 className="text-2xl font-bold text-white">Change Password Required</h2>
+  const card = (
+    <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 overflow-hidden">
+      <div className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 border-b border-slate-700 px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Lock className="w-6 h-6 text-amber-400" />
+            <h2 className="text-2xl font-bold text-white">
+              {voluntary ? 'Change Password' : 'Change Password Required'}
+            </h2>
+          </div>
+          {voluntary && onClose && (
+            <button
+              onClick={onClose}
+              className="text-slate-400 hover:text-white transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="p-6">
+        {!voluntary && (
+          <p className="text-slate-300 mb-6">
+            For security reasons, you must change your password before continuing.
+          </p>
+        )}
+
+        {error && (
+          <div className="mb-4 p-4 bg-red-500/20 border border-red-500 rounded-lg text-red-400">
+            {error}
+          </div>
+        )}
+
+        {success && (
+          <div className="mb-4 p-4 bg-green-500/20 border border-green-500 rounded-lg text-green-400">
+            {voluntary ? 'Password changed successfully!' : 'Password changed successfully! Please sign in with your new password.'}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              New Password
+            </label>
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="w-full px-4 py-3 pr-12 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent text-white"
+                required
+                minLength={6}
+                placeholder="Minimum 6 characters"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-300 transition-colors"
+              >
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
             </div>
           </div>
 
-          <div className="p-6">
-            <p className="text-slate-300 mb-6">
-              For security reasons, you must change your password before continuing.
-            </p>
-
-            {error && (
-              <div className="mb-4 p-4 bg-red-500/20 border border-red-500 rounded-lg text-red-400">
-                {error}
-              </div>
-            )}
-
-            {success && (
-              <div className="mb-4 p-4 bg-green-500/20 border border-green-500 rounded-lg text-green-400">
-                Password changed successfully! Please sign in with your new password.
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  New Password
-                </label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full px-4 py-3 pr-12 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent text-white"
-                    required
-                    minLength={6}
-                    placeholder="Minimum 6 characters"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-300 transition-colors"
-                  >
-                    {showPassword ? (
-                      <EyeOff className="w-5 h-5" />
-                    ) : (
-                      <Eye className="w-5 h-5" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Confirm New Password
-                </label>
-                <div className="relative">
-                  <input
-                    type={showConfirmPassword ? "text" : "password"}
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full px-4 py-3 pr-12 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent text-white"
-                    required
-                    minLength={6}
-                    placeholder="Confirm your password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-300 transition-colors"
-                  >
-                    {showConfirmPassword ? (
-                      <EyeOff className="w-5 h-5" />
-                    ) : (
-                      <Eye className="w-5 h-5" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              Confirm New Password
+            </label>
+            <div className="relative">
+              <input
+                type={showConfirmPassword ? "text" : "password"}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full px-4 py-3 pr-12 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent text-white"
+                required
+                minLength={6}
+                placeholder="Confirm your password"
+              />
               <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-300 transition-colors"
               >
-                {loading ? 'Changing Password...' : 'Change Password'}
+                {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
-            </form>
+            </div>
           </div>
+
+          <div className="flex gap-3">
+            {voluntary && onClose && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 py-3 bg-slate-700 hover:bg-slate-600 text-slate-300 font-semibold rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+            )}
+            <button
+              type="submit"
+              disabled={loading || success}
+              className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? 'Changing Password...' : 'Change Password'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+
+  if (voluntary) {
+    return (
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="max-w-md w-full">
+          {card}
         </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
+      <div className="max-w-md w-full">
+        {card}
       </div>
     </div>
   );
