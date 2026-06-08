@@ -1821,10 +1821,13 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
         .eq('payment_type', 'deposit')
         .order('payment_date', { ascending: true });
 
+      const woDiscount = workOrderData.discount || 0;
       const workOrderWithEstimates = {
         ...workOrderData,
         estimates: {
           subtotal: workOrderData.subtotal || 0,
+          discount_percentage: woDiscount * 100,
+          discount_amount: (workOrderData.subtotal || 0) * woDiscount,
           sales_tax_rate: workOrderData.sales_tax_rate || 0,
           sales_tax_amount: workOrderData.sales_tax_amount || 0,
           shop_supplies_rate: workOrderData.shop_supplies_rate || 0,
@@ -2133,10 +2136,13 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
 
       const yachtName = workOrderData.yachts?.name || null;
 
+      const woDiscount2 = workOrderData.discount || 0;
       const workOrderWithEstimates = {
         ...workOrderData,
         estimates: {
           subtotal: workOrderData.subtotal || 0,
+          discount_percentage: woDiscount2 * 100,
+          discount_amount: (workOrderData.subtotal || 0) * woDiscount2,
           sales_tax_rate: workOrderData.sales_tax_rate || 0,
           sales_tax_amount: workOrderData.sales_tax_amount || 0,
           shop_supplies_rate: workOrderData.shop_supplies_rate || 0,
