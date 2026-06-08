@@ -16233,19 +16233,19 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                       <div className="bg-slate-800 rounded-2xl border border-slate-700 max-w-lg w-full">
                         <div className="p-6 border-b border-slate-700">
-                          <h3 className="text-2xl font-bold">
+                          <h3 className="text-2xl font-bold text-white">
                             {approvalAction.status === 'approved' ? 'Approve Repair Request' : 'Deny Repair Request'}
                           </h3>
                         </div>
 
                         <div className="p-6">
-                          <label className="block text-sm font-medium mb-2">
+                          <label className="block text-sm font-medium text-slate-300 mb-2">
                             {approvalAction.status === 'approved' ? 'Approval Notes (Optional)' : 'Denial Reason (Optional)'}
                           </label>
                           <textarea
                             value={approvalNotes}
                             onChange={(e) => setApprovalNotes(e.target.value)}
-                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-orange-500 min-h-[100px]"
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-orange-500 min-h-[100px] text-white placeholder-slate-500"
                             placeholder={approvalAction.status === 'approved' ? 'Add any approval notes...' : 'Explain why this request is being denied...'}
                           />
                         </div>
