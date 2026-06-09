@@ -14251,7 +14251,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               required
                               value={repairForm.yacht_id}
                               onChange={(e) => setRepairForm({...repairForm, yacht_id: e.target.value})}
-                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-orange-500"
+                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-orange-500"
                             >
                               <option value="">Select a yacht</option>
                               {allYachts.map((yacht) => (
@@ -14524,7 +14524,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             required
                             value={repairForm.title}
                             onChange={(e) => setRepairForm({...repairForm, title: e.target.value})}
-                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-orange-500"
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-orange-500"
                             placeholder="Brief description of repair needed"
                           />
                         </div>
@@ -14545,7 +14545,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             type="text"
                             value={repairForm.estimated_repair_cost}
                             onChange={(e) => setRepairForm({...repairForm, estimated_repair_cost: e.target.value})}
-                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-orange-500"
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-orange-500"
                             placeholder="e.g., $1,500.00"
                           />
                         </div>
@@ -16288,7 +16288,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   type="text"
                                   value={editRepairForm.customer_name}
                                   onChange={(e) => setEditRepairForm({ ...editRepairForm, customer_name: e.target.value })}
-                                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-orange-500"
+                                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-orange-500"
                                   required
                                 />
                               </div>
@@ -16299,7 +16299,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   type="tel"
                                   value={editRepairForm.customer_phone}
                                   onChange={(e) => setEditRepairForm({ ...editRepairForm, customer_phone: e.target.value })}
-                                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-orange-500"
+                                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-orange-500"
                                   required
                                 />
                               </div>
@@ -16310,7 +16310,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   type="email"
                                   value={editRepairForm.customer_email}
                                   onChange={(e) => setEditRepairForm({ ...editRepairForm, customer_email: e.target.value })}
-                                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-orange-500"
+                                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-orange-500"
                                   required
                                 />
                               </div>
@@ -16323,7 +16323,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               type="text"
                               value={editRepairForm.title}
                               onChange={(e) => setEditRepairForm({ ...editRepairForm, title: e.target.value })}
-                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-orange-500"
+                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-orange-500"
                               required
                             />
                           </div>
@@ -16346,7 +16346,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               min="0"
                               value={editRepairForm.estimated_repair_cost}
                               onChange={(e) => setEditRepairForm({ ...editRepairForm, estimated_repair_cost: e.target.value })}
-                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-orange-500"
+                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-orange-500"
                               placeholder="0.00"
                             />
                           </div>
@@ -16372,7 +16372,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             <input
                               type="file"
                               onChange={(e) => setEditRepairForm({ ...editRepairForm, file: e.target.files?.[0] || null })}
-                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-orange-500"
+                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-orange-500"
                             />
                           </div>
                         </div>
@@ -16474,7 +16474,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               type="text"
                               value={invoiceForm.final_invoice_amount}
                               onChange={(e) => setInvoiceForm({...invoiceForm, final_invoice_amount: e.target.value})}
-                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-orange-500"
+                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-orange-500"
                               placeholder="e.g., $1,500.00"
                             />
                           </div>
@@ -16504,7 +16504,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             <select
                               value={invoiceForm.payment_method_type}
                               onChange={(e) => setInvoiceForm({...invoiceForm, payment_method_type: e.target.value as 'card' | 'ach' | 'both'})}
-                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-orange-500"
+                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-orange-500"
                             >
                               <option value="card">Credit/Debit Card Only</option>
                               <option value="ach">ACH (Bank Transfer) Only</option>
@@ -18501,7 +18501,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                     email: customer?.email || ''
                                   });
                                 }}
-                                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent cursor-pointer"
+                                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-white cursor-pointer"
                                 required
                               >
                                 <option value="">Select existing customer...</option>
@@ -18525,7 +18525,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 type="text"
                                 value={appointmentForm.name}
                                 onChange={(e) => setAppointmentForm({ ...appointmentForm, name: e.target.value })}
-                                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                                 placeholder="Enter customer name"
                                 required
                               />
@@ -18548,7 +18548,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             type="tel"
                             value={appointmentForm.phone}
                             onChange={(e) => setAppointmentForm({ ...appointmentForm, phone: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                             required
                           />
                         </div>
@@ -18561,7 +18561,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             type="email"
                             value={appointmentForm.email}
                             onChange={(e) => setAppointmentForm({ ...appointmentForm, email: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                             required
                           />
                         </div>
@@ -18573,7 +18573,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           <select
                             value={appointmentForm.yacht_name}
                             onChange={(e) => setAppointmentForm({ ...appointmentForm, yacht_name: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent cursor-pointer"
+                            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-white cursor-pointer"
                           >
                             <option value="">Select a yacht...</option>
                             {allYachts.map(yacht => (
@@ -18592,7 +18592,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             type="date"
                             value={appointmentForm.date}
                             onChange={(e) => setAppointmentForm({ ...appointmentForm, date: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                             required
                           />
                         </div>
@@ -18605,7 +18605,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             type="time"
                             value={appointmentForm.time}
                             onChange={(e) => setAppointmentForm({ ...appointmentForm, time: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                             required
                           />
                         </div>
@@ -19175,7 +19175,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                       type={showPassword ? "text" : "password"}
                                       value={userEditForm.password}
                                       onChange={(e) => setUserEditForm({ ...userEditForm, password: e.target.value })}
-                                      className="w-full px-4 py-3 pr-12 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                      className="w-full px-4 py-3 pr-12 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                       required
                                       minLength={6}
                                       placeholder="Minimum 6 characters"
@@ -20713,7 +20713,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                   type="text"
                   value={videoUploadForm.title}
                   onChange={(e) => setVideoUploadForm({ ...videoUploadForm, title: e.target.value })}
-                  className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-4 py-3 focus:outline-none focus:border-amber-500"
+                  className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-amber-500"
                   placeholder="Enter video title"
                 />
               </div>
@@ -20734,7 +20734,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                   type="text"
                   value={videoUploadForm.category}
                   onChange={(e) => setVideoUploadForm({ ...videoUploadForm, category: e.target.value })}
-                  className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-4 py-3 focus:outline-none focus:border-amber-500"
+                  className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-amber-500"
                   placeholder="e.g., Navigation, Maintenance, Safety"
                 />
               </div>
@@ -20745,7 +20745,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                   type="number"
                   value={videoUploadForm.order_index}
                   onChange={(e) => setVideoUploadForm({ ...videoUploadForm, order_index: parseInt(e.target.value) || 0 })}
-                  className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-4 py-3 focus:outline-none focus:border-amber-500"
+                  className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-amber-500"
                   placeholder="0"
                 />
               </div>
