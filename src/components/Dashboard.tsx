@@ -6343,6 +6343,28 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     setInspectionError('');
     setInspectionSuccess(false);
 
+    // Validate required hour fields
+    if (!inspectionForm.port_engine_hours || inspectionForm.port_engine_hours === '') {
+      setInspectionError('Port Engine Hours is required.');
+      setInspectionLoading(false);
+      return;
+    }
+    if (!inspectionForm.stbd_engine_hours || inspectionForm.stbd_engine_hours === '') {
+      setInspectionError('Starboard Engine Hours is required.');
+      setInspectionLoading(false);
+      return;
+    }
+    if (!inspectionForm.port_gen_hours || inspectionForm.port_gen_hours === '') {
+      setInspectionError('Port Generator Hours is required.');
+      setInspectionLoading(false);
+      return;
+    }
+    if (!inspectionForm.stbd_gen_hours || inspectionForm.stbd_gen_hours === '') {
+      setInspectionError('Starboard Generator Hours is required.');
+      setInspectionLoading(false);
+      return;
+    }
+
     try {
       const selectedYacht = allYachts.find(y => y.id === selectedYachtForInspection);
       if (!selectedYacht) throw new Error('Yacht not found');
@@ -9576,49 +9598,53 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                   <h3 className="text-lg font-semibold mb-4">Engine Hours</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label className="block text-sm font-medium mb-2">Port Engine Hours</label>
+                      <label className="block text-sm font-medium mb-2">Port Engine Hours <span className="text-red-400">*</span></label>
                       <input
                         type="number"
                         step="0.1"
                         value={inspectionForm.port_engine_hours}
                         onChange={(e) => setInspectionForm({ ...inspectionForm, port_engine_hours: e.target.value })}
                         placeholder="Enter hours"
+                        required
                         className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 transition-colors text-white placeholder-slate-400"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium mb-2">Starboard Engine Hours</label>
+                      <label className="block text-sm font-medium mb-2">Starboard Engine Hours <span className="text-red-400">*</span></label>
                       <input
                         type="number"
                         step="0.1"
                         value={inspectionForm.stbd_engine_hours}
                         onChange={(e) => setInspectionForm({ ...inspectionForm, stbd_engine_hours: e.target.value })}
                         placeholder="Enter hours"
+                        required
                         className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 transition-colors text-white placeholder-slate-400"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium mb-2">Port Generator Hours</label>
+                      <label className="block text-sm font-medium mb-2">Port Generator Hours <span className="text-red-400">*</span></label>
                       <input
                         type="number"
                         step="0.1"
                         value={inspectionForm.port_gen_hours}
                         onChange={(e) => setInspectionForm({ ...inspectionForm, port_gen_hours: e.target.value })}
                         placeholder="Enter hours"
+                        required
                         className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 transition-colors text-white placeholder-slate-400"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium mb-2">Starboard Generator Hours</label>
+                      <label className="block text-sm font-medium mb-2">Starboard Generator Hours <span className="text-red-400">*</span></label>
                       <input
                         type="number"
                         step="0.1"
                         value={inspectionForm.stbd_gen_hours}
                         onChange={(e) => setInspectionForm({ ...inspectionForm, stbd_gen_hours: e.target.value })}
                         placeholder="Enter hours"
+                        required
                         className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 transition-colors text-white placeholder-slate-400"
                       />
                     </div>
