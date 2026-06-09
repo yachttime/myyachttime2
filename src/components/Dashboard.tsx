@@ -11595,12 +11595,14 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               const portGenIn = prevPortGenOut;
                               const stbdGenIn = prevStbdGenOut;
 
-                              const portEngOut = cout?.port_engine_hours ?? null;
-                              const stbdEngOut = cout?.stbd_engine_hours ?? null;
-                              const portGenOut = cout?.port_gen_hours ?? null;
-                              const stbdGenOut = cout?.stbd_gen_hours ?? null;
+                              // check_in inspection records END-of-trip hours (boat returned by owner)
+                              // check_out inspection hours are secondary fallback
+                              const portEngOut = cin?.port_engine_hours ?? cout?.port_engine_hours ?? null;
+                              const stbdEngOut = cin?.stbd_engine_hours ?? cout?.stbd_engine_hours ?? null;
+                              const portGenOut = cin?.port_gen_hours ?? cout?.port_gen_hours ?? null;
+                              const stbdGenOut = cin?.stbd_gen_hours ?? cout?.stbd_gen_hours ?? null;
 
-                              // Advance carry-forward to this trip's ending hours (if complete)
+                              // Advance carry-forward to this trip's ending hours (if recorded)
                               if (portEngOut != null) prevPortEngOut = portEngOut;
                               if (stbdEngOut != null) prevStbdEngOut = stbdEngOut;
                               if (portGenOut != null) prevPortGenOut = portGenOut;
@@ -11626,10 +11628,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                     <span className="text-xs font-semibold text-slate-300">
                                       Trip {idx + 1} — {tripDate}
                                     </span>
-                                    {cin && cout && (
+                                    {cin && (portEngOut != null || stbdEngOut != null || portGenOut != null || stbdGenOut != null) && (
                                       <span className="text-xs text-emerald-400 font-medium">Complete</span>
                                     )}
-                                    {cin && !cout && (
+                                    {cin && portEngOut == null && stbdEngOut == null && portGenOut == null && stbdGenOut == null && (
                                       <span className="text-xs text-amber-400 font-medium">In Progress</span>
                                     )}
                                     {!cin && cout && (
