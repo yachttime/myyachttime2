@@ -11530,10 +11530,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           )}
                           {/* Engine Hour History — per trip */}
                           {(() => {
+                            const showEngineSection = documentYachtId === yacht.id || engineHoursYachtId === yacht.id;
+                            if (!showEngineSection) return null;
                             const history = yachtEngineHourHistory[yacht.id];
-                            if (!history && engineHoursYachtId !== yacht.id) return null;
-                            if (history && history.length === 0 && engineHoursYachtId !== yacht.id) return null;
                             if (!history) return <div className="mt-2 text-xs text-slate-400 text-center py-2">Loading engine hours...</div>;
+                            if (history.length === 0) return null;
 
                             // Group into trips: pair check_in with nearest subsequent check_out sharing booking_id
                             // or, if no booking_id, pair sequentially by inspection date
