@@ -6962,6 +6962,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   };
 
   const viewInspectionPDF = async (inspectionId: string) => {
+    if (loadingPdfId) return;
+    setLoadingPdfId(inspectionId);
     try {
       const { data: inspection, error } = await supabase
         .from('trip_inspections')
@@ -6987,6 +6989,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       setSelectedInspectionForPDF(inspection);
     } catch (err) {
       console.error('Error loading inspection:', err);
+    } finally {
+      setLoadingPdfId(null);
     }
   };
 
@@ -17098,10 +17102,23 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                         <div className="mt-3">
                                           <button
                                             onClick={() => viewInspectionPDF(msg.reference_id)}
-                                            className="w-full bg-cyan-500 hover:bg-cyan-600 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 text-sm"
+                                            disabled={loadingPdfId === msg.reference_id}
+                                            className="w-full bg-cyan-500 hover:bg-cyan-600 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-2 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 text-sm"
                                           >
-                                            <ClipboardCheck className="w-4 h-4" />
-                                            View Inspection Report
+                                            {loadingPdfId === msg.reference_id ? (
+                                              <>
+                                                <svg className="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                                </svg>
+                                                Loading Report...
+                                              </>
+                                            ) : (
+                                              <>
+                                                <ClipboardCheck className="w-4 h-4" />
+                                                View Inspection Report
+                                              </>
+                                            )}
                                           </button>
                                         </div>
                                       )}
