@@ -11195,7 +11195,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               required
                               value={yachtForm.name}
                               onChange={(e) => setYachtForm({...yachtForm, name: e.target.value})}
-                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500"
+                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500"
                               placeholder="e.g., Sea Dream"
                             />
                           </div>
@@ -11205,7 +11205,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               type="text"
                               value={yachtForm.hull_number}
                               onChange={(e) => setYachtForm({...yachtForm, hull_number: e.target.value})}
-                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500"
+                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500"
                               placeholder="e.g., HIN123456"
                             />
                           </div>
@@ -11215,7 +11215,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               type="text"
                               value={yachtForm.manufacturer}
                               onChange={(e) => setYachtForm({...yachtForm, manufacturer: e.target.value})}
-                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500"
+                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500"
                               placeholder="e.g., Sunseeker, Azimut"
                             />
                           </div>
@@ -11225,7 +11225,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               type="number"
                               value={yachtForm.year}
                               onChange={(e) => setYachtForm({...yachtForm, year: e.target.value})}
-                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500"
+                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500"
                               placeholder="e.g., 2020"
                             />
                           </div>
@@ -11235,7 +11235,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               type="text"
                               value={yachtForm.size}
                               onChange={(e) => setYachtForm({...yachtForm, size: e.target.value})}
-                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500"
+                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500"
                               placeholder="e.g., 75 ft"
                             />
                           </div>
@@ -11245,7 +11245,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               type="text"
                               value={yachtForm.marina_name}
                               onChange={(e) => setYachtForm({...yachtForm, marina_name: e.target.value})}
-                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500"
+                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500"
                               placeholder="e.g., Harbor Bay Marina"
                             />
                           </div>
@@ -11255,7 +11255,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               type="text"
                               value={yachtForm.slip_location}
                               onChange={(e) => setYachtForm({...yachtForm, slip_location: e.target.value})}
-                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500"
+                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500"
                               placeholder="e.g., Dock A, Slip 12"
                             />
                           </div>
@@ -11265,7 +11265,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               type="text"
                               value={yachtForm.wifi_name}
                               onChange={(e) => setYachtForm({...yachtForm, wifi_name: e.target.value})}
-                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500"
+                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500"
                               placeholder="e.g., YachtWiFi"
                             />
                           </div>
@@ -11275,7 +11275,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               type="text"
                               value={yachtForm.wifi_password}
                               onChange={(e) => setYachtForm({...yachtForm, wifi_password: e.target.value})}
-                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500"
+                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500"
                               placeholder="Enter WiFi password"
                             />
                           </div>
@@ -13938,7 +13938,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   end_date: endDateString
                                 });
                               }}
-                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-green-500 [color-scheme:dark]"
+                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-green-500 [color-scheme:dark]"
                             />
                           </div>
                           <div>
@@ -13947,7 +13947,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               type="time"
                               value={ownerTripForm.departure_time}
                               onChange={(e) => setOwnerTripForm({...ownerTripForm, departure_time: e.target.value})}
-                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-green-500 [color-scheme:dark]"
+                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-green-500 [color-scheme:dark]"
                             />
                           </div>
                           <div>
@@ -13957,7 +13957,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               required
                               value={ownerTripForm.end_date}
                               onChange={(e) => setOwnerTripForm({...ownerTripForm, end_date: e.target.value})}
-                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-green-500 [color-scheme:dark]"
+                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-green-500 [color-scheme:dark]"
                             />
                           </div>
                           <div>
@@ -13966,7 +13966,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               type="time"
                               value={ownerTripForm.arrival_time}
                               onChange={(e) => setOwnerTripForm({...ownerTripForm, arrival_time: e.target.value})}
-                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-green-500 [color-scheme:dark]"
+                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-green-500 [color-scheme:dark]"
                             />
                           </div>
                         </div>
@@ -14534,7 +14534,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           <textarea
                             value={repairForm.description}
                             onChange={(e) => setRepairForm({...repairForm, description: e.target.value})}
-                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-orange-500 min-h-[100px]"
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-orange-500 min-h-[100px]"
                             placeholder="Detailed description of the repair..."
                           />
                         </div>
@@ -16333,7 +16333,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             <textarea
                               value={editRepairForm.description}
                               onChange={(e) => setEditRepairForm({ ...editRepairForm, description: e.target.value })}
-                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-orange-500 min-h-[120px]"
+                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-orange-500 min-h-[120px]"
                               placeholder="Describe the repair request..."
                             />
                           </div>
@@ -16595,7 +16595,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               required
                               value={depositForm.deposit_amount}
                               onChange={(e) => setDepositForm({...depositForm, deposit_amount: e.target.value})}
-                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-cyan-500"
+                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-cyan-500"
                               placeholder="e.g., 500.00"
                             />
                             <p className="text-sm text-slate-400 mt-1">Enter the deposit amount required to start work</p>
@@ -16608,7 +16608,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             <select
                               value={depositForm.payment_method_type}
                               onChange={(e) => setDepositForm({...depositForm, payment_method_type: e.target.value as 'card' | 'ach' | 'both'})}
-                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-cyan-500"
+                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-cyan-500"
                             >
                               <option value="card">Credit Card Only</option>
                               <option value="ach">ACH / US Bank Account Only</option>
@@ -16648,7 +16648,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                     type="text"
                                     value={selectedRepairForDeposit.deposit_payment_link_url}
                                     readOnly
-                                    className="flex-1 bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm"
+                                    className="flex-1 bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm text-white"
                                   />
                                   {!isExpired && (
                                     <>
@@ -18906,7 +18906,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   setAllMaintenanceRequests(prev => prev.map(r => r.id === req.id ? { ...r, status: newStatus } : r));
                                 }
                               }}
-                              className="bg-slate-900 border border-slate-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-amber-500"
+                              className="bg-slate-900 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-amber-500"
                             >
                               <option value="pending">Pending</option>
                               <option value="in_progress">In Progress</option>
@@ -20723,7 +20723,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                 <textarea
                   value={videoUploadForm.description}
                   onChange={(e) => setVideoUploadForm({ ...videoUploadForm, description: e.target.value })}
-                  className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-4 py-3 focus:outline-none focus:border-amber-500 min-h-[100px]"
+                  className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-amber-500 min-h-[100px]"
                   placeholder="Enter video description"
                 />
               </div>
