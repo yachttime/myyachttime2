@@ -13487,7 +13487,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 required
                                 value={yachtForm.name}
                                 onChange={(e) => setYachtForm({...yachtForm, name: e.target.value})}
-                                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-amber-500"
+                                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-amber-500"
                                 placeholder="e.g., Sea Dream"
                               />
                             </div>
@@ -13497,7 +13497,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 type="text"
                                 value={yachtForm.hull_number}
                                 onChange={(e) => setYachtForm({...yachtForm, hull_number: e.target.value})}
-                                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-amber-500"
+                                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-amber-500"
                                 placeholder="e.g., HIN123456"
                               />
                             </div>
@@ -13507,7 +13507,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 type="text"
                                 value={yachtForm.manufacturer}
                                 onChange={(e) => setYachtForm({...yachtForm, manufacturer: e.target.value})}
-                                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-amber-500"
+                                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-amber-500"
                                 placeholder="e.g., Sunseeker, Azimut"
                               />
                             </div>
@@ -13517,7 +13517,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 type="number"
                                 value={yachtForm.year}
                                 onChange={(e) => setYachtForm({...yachtForm, year: e.target.value})}
-                                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-amber-500"
+                                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-amber-500"
                                 placeholder="e.g., 2020"
                               />
                             </div>
@@ -13527,7 +13527,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 type="text"
                                 value={yachtForm.size}
                                 onChange={(e) => setYachtForm({...yachtForm, size: e.target.value})}
-                                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-amber-500"
+                                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-amber-500"
                                 placeholder="e.g., 75 ft"
                               />
                             </div>
@@ -13537,7 +13537,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 type="text"
                                 value={yachtForm.marina_name}
                                 onChange={(e) => setYachtForm({...yachtForm, marina_name: e.target.value})}
-                                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-amber-500"
+                                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-amber-500"
                                 placeholder="e.g., Harbor Bay Marina"
                               />
                             </div>
@@ -13547,7 +13547,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 type="text"
                                 value={yachtForm.slip_location}
                                 onChange={(e) => setYachtForm({...yachtForm, slip_location: e.target.value})}
-                                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-amber-500"
+                                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-amber-500"
                                 placeholder="e.g., Dock A, Slip 12"
                               />
                             </div>
@@ -13557,7 +13557,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 type="text"
                                 value={yachtForm.wifi_name}
                                 onChange={(e) => setYachtForm({...yachtForm, wifi_name: e.target.value})}
-                                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-amber-500"
+                                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-amber-500"
                                 placeholder="e.g., YachtWiFi"
                               />
                             </div>
@@ -13567,7 +13567,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 type="text"
                                 value={yachtForm.wifi_password}
                                 onChange={(e) => setYachtForm({...yachtForm, wifi_password: e.target.value})}
-                                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-amber-500"
+                                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-amber-500"
                                 placeholder="Enter WiFi password"
                               />
                             </div>
@@ -13582,13 +13582,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             {enginesForm.map((eng, i) => (
                               <div key={i} className="bg-slate-900/50 rounded-lg p-3 mb-2 grid grid-cols-1 gap-2">
                                 <div className="grid grid-cols-2 gap-2">
-                                  <input type="text" value={eng.label} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], label: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500" placeholder="Label (e.g. Port Engine)" />
-                                  <input type="text" value={eng.description} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], description: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500" placeholder="Description (e.g. Cat C18 1000HP)" />
+                                  <input type="text" value={eng.label} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], label: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500" placeholder="Label (e.g. Port Engine)" />
+                                  <input type="text" value={eng.description} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], description: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500" placeholder="Description (e.g. Cat C18 1000HP)" />
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <div className="flex-1">
                                     <label className="block text-xs text-slate-400 mb-1">Season Start Hours</label>
-                                    <input type="number" step="0.1" min="0" value={eng.season_start_hours} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], season_start_hours: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500" placeholder="e.g. 1250.5" />
+                                    <input type="number" step="0.1" min="0" value={eng.season_start_hours} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], season_start_hours: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500" placeholder="e.g. 1250.5" />
                                   </div>
                                   <button type="button" onClick={() => setEnginesForm(enginesForm.filter((_, j) => j !== i))} className="mt-5 p-2 text-red-400 hover:text-red-300 hover:bg-slate-700 rounded-lg transition-colors"><X className="w-4 h-4" /></button>
                                 </div>
@@ -13605,13 +13605,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             {generatorsForm.map((gen, i) => (
                               <div key={i} className="bg-slate-900/50 rounded-lg p-3 mb-2 grid grid-cols-1 gap-2">
                                 <div className="grid grid-cols-2 gap-2">
-                                  <input type="text" value={gen.label} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], label: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500" placeholder="Label (e.g. Port Generator)" />
-                                  <input type="text" value={gen.description} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], description: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500" placeholder="Description (e.g. Northern Lights 27kW)" />
+                                  <input type="text" value={gen.label} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], label: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500" placeholder="Label (e.g. Port Generator)" />
+                                  <input type="text" value={gen.description} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], description: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500" placeholder="Description (e.g. Northern Lights 27kW)" />
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <div className="flex-1">
                                     <label className="block text-xs text-slate-400 mb-1">Season Start Hours</label>
-                                    <input type="number" step="0.1" min="0" value={gen.season_start_hours} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], season_start_hours: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500" placeholder="e.g. 850.0" />
+                                    <input type="number" step="0.1" min="0" value={gen.season_start_hours} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], season_start_hours: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500" placeholder="e.g. 850.0" />
                                   </div>
                                   <button type="button" onClick={() => setGeneratorsForm(generatorsForm.filter((_, j) => j !== i))} className="mt-5 p-2 text-red-400 hover:text-red-300 hover:bg-slate-700 rounded-lg transition-colors"><X className="w-4 h-4" /></button>
                                 </div>
