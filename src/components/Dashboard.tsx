@@ -11566,23 +11566,45 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             const hasEngines = (yacht.yacht_engines?.length ?? 0) > 0;
                             const hasGens = (yacht.yacht_generators?.length ?? 0) > 0;
 
+                            // Season start hours from yacht_engines / yacht_generators (sort_order 1 = port, 2 = stbd)
+                            const sortedEngines = [...(yacht.yacht_engines ?? [])].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+                            const sortedGens = [...(yacht.yacht_generators ?? [])].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+                            const seasonStartPortEng: number | null = sortedEngines[0]?.season_start_hours ?? null;
+                            const seasonStartStbdEng: number | null = sortedEngines[1]?.season_start_hours ?? null;
+                            const seasonStartPortGen: number | null = sortedGens[0]?.season_start_hours ?? null;
+                            const seasonStartStbdGen: number | null = sortedGens[1]?.season_start_hours ?? null;
+
                             let seasonPortEngine = 0;
                             let seasonStbdEngine = 0;
                             let seasonPortGen = 0;
                             let seasonStbdGen = 0;
 
+                            // Track previous trip's ending hours for carry-forward (Trip N start = Trip N-1 end)
+                            let prevPortEngOut: number | null = seasonStartPortEng;
+                            let prevStbdEngOut: number | null = seasonStartStbdEng;
+                            let prevPortGenOut: number | null = seasonStartPortGen;
+                            let prevStbdGenOut: number | null = seasonStartStbdGen;
+
                             const tripRows = trips.map((trip, idx) => {
                               const cin = trip.checkIn;
                               const cout = trip.checkOut;
 
-                              const portEngIn = cin?.port_engine_hours ?? null;
+                              // Start = season start hours (Trip 1) or previous trip's end hours (Trip 2+)
+                              const portEngIn = prevPortEngOut;
+                              const stbdEngIn = prevStbdEngOut;
+                              const portGenIn = prevPortGenOut;
+                              const stbdGenIn = prevStbdGenOut;
+
                               const portEngOut = cout?.port_engine_hours ?? null;
-                              const stbdEngIn = cin?.stbd_engine_hours ?? null;
                               const stbdEngOut = cout?.stbd_engine_hours ?? null;
-                              const portGenIn = cin?.port_gen_hours ?? null;
                               const portGenOut = cout?.port_gen_hours ?? null;
-                              const stbdGenIn = cin?.stbd_gen_hours ?? null;
                               const stbdGenOut = cout?.stbd_gen_hours ?? null;
+
+                              // Advance carry-forward to this trip's ending hours (if complete)
+                              if (portEngOut != null) prevPortEngOut = portEngOut;
+                              if (stbdEngOut != null) prevStbdEngOut = stbdEngOut;
+                              if (portGenOut != null) prevPortGenOut = portGenOut;
+                              if (stbdGenOut != null) prevStbdGenOut = stbdGenOut;
 
                               const dPortEng = (portEngOut != null && portEngIn != null) ? portEngOut - portEngIn : null;
                               const dStbdEng = (stbdEngOut != null && stbdEngIn != null) ? stbdEngOut - stbdEngIn : null;
