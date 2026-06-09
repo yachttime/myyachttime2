@@ -37,7 +37,7 @@ Deno.serve(async (req: Request) => {
     const { invoice_id, estimating_invoice_id, repair_request_id, workOrderId, is_deposit, type, payment_intent_id } = body as SyncRequest & { payment_intent_id?: string };
 
     // Handle manual payment intent sync (when we have the payment intent ID directly)
-    if (payment_intent_id && (is_deposit || invoice_id)) {
+    if (payment_intent_id && (is_deposit || invoice_id || estimating_invoice_id)) {
       console.log('Manual sync with payment intent:', payment_intent_id);
 
       // Fetch payment intent from Stripe
@@ -155,6 +155,60 @@ Deno.serve(async (req: Request) => {
             success: true,
             message: 'Invoice manually synced and marked as paid',
             payment_intent_id
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Update estimating invoice by payment intent ID
+      if (estimating_invoice_id) {
+        const { data: estInvoice } = await supabase
+          .from('estimating_invoices')
+          .select('id, payment_status, total_amount, deposit_applied, amount_paid')
+          .eq('id', estimating_invoice_id)
+          .single();
+
+        if (!estInvoice) {
+          throw new Error('Estimating invoice not found');
+        }
+
+        if (estInvoice.payment_status === 'paid') {
+          return new Response(
+            JSON.stringify({ success: true, message: 'Invoice already marked as paid' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const amountFromStripe = (paymentIntent.amount_received || paymentIntent.amount || 0) / 100;
+        const newAmountPaid = Math.max(amountFromStripe, estInvoice.amount_paid || 0);
+        const balanceDue = Math.max(0, (estInvoice.total_amount || 0) - (estInvoice.deposit_applied || 0) - newAmountPaid);
+        const paidAt = paymentIntent.created
+          ? new Date(paymentIntent.created * 1000).toISOString()
+          : new Date().toISOString();
+        const paymentMethodType = paymentIntent.charges?.data?.[0]?.payment_method_details?.type || 'card';
+
+        await supabase
+          .from('estimating_invoices')
+          .update({
+            payment_status: balanceDue <= 0 ? 'paid' : 'partial',
+            amount_paid: newAmountPaid,
+            balance_due: balanceDue,
+            final_payment_paid_at: paidAt,
+            final_payment_method_type: paymentMethodType,
+            final_payment_stripe_payment_intent_id: payment_intent_id,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', estimating_invoice_id);
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: balanceDue <= 0
+              ? 'Estimating invoice synced and marked as paid'
+              : `Estimating invoice updated — $${balanceDue.toFixed(2)} balance remaining`,
+            payment_intent_id,
+            amount_paid: newAmountPaid,
+            balance_due: balanceDue,
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );

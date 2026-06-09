@@ -146,6 +146,9 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
   const [checkPaymentModal, setCheckPaymentModal] = useState(false);
   const [checkPaymentLoading, setCheckPaymentLoading] = useState(false);
+  const [syncPiModal, setSyncPiModal] = useState(false);
+  const [syncPiInput, setSyncPiInput] = useState('');
+  const [syncPiLoading, setSyncPiLoading] = useState(false);
   const [fixDepositLoading, setFixDepositLoading] = useState(false);
   const [checkForm, setCheckForm] = useState({ checkNumber: '', amount: '', depositAccount: '', notes: '' });
   const [invoiceCheckPayments, setInvoiceCheckPayments] = useState<{ id: string; reference_number: string | null; amount: number; payment_date: string; notes: string | null; payment_method: string; payment_method_type: string | null; stripe_payment_intent_id: string | null }[]>([]);
@@ -1573,6 +1576,58 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       showToast(error.message || 'Failed to sync payment status', 'error');
     } finally {
       setSyncPaymentLoading(false);
+    }
+  }
+
+  async function handleSyncWithPaymentIntent() {
+    if (!selectedInvoice || !syncPiInput.trim()) return;
+    setSyncPiLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error('Not authenticated');
+
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-stripe-payment`;
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          payment_intent_id: syncPiInput.trim(),
+          estimating_invoice_id: selectedInvoice.id,
+        }),
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        showToast(result.message || 'Payment synced successfully!', 'success');
+        setSyncPiModal(false);
+        setSyncPiInput('');
+        await fetchInvoices();
+        const { data: fresh } = await supabase
+          .from('estimating_invoices')
+          .select('*, work_orders!estimating_invoices_work_order_id_fkey(work_order_number), yachts!estimating_invoices_yacht_id_fkey(name), repair_requests!repair_requests_estimating_invoice_id_fkey(id, status, deposit_payment_status, deposit_amount, deposit_paid_at, deposit_payment_method_type)')
+          .eq('id', selectedInvoice.id)
+          .maybeSingle();
+        if (fresh) {
+          const rr = fresh.repair_requests;
+          setSelectedInvoice({
+            ...fresh,
+            work_order_number: fresh.work_orders?.work_order_number,
+            yacht_name: fresh.yachts?.name,
+            repair_request_id: rr?.id || null,
+            repair_request_status: rr?.status || null,
+            repair_request_deposit_status: rr?.deposit_payment_status || null,
+          });
+        }
+      } else {
+        showToast(result.message || result.error || 'Sync failed', 'error');
+      }
+    } catch (error: any) {
+      showToast(error.message || 'Failed to sync payment intent', 'error');
+    } finally {
+      setSyncPiLoading(false);
     }
   }
 
@@ -3546,6 +3601,13 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                             <FileText className="w-3 h-3" />
                             Record Check
                           </button>
+                          <button
+                            onClick={() => { setSyncPiInput(''); setSyncPiModal(true); }}
+                            className="bg-violet-700 hover:bg-violet-800 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1"
+                          >
+                            <Link className="w-3 h-3" />
+                            Sync Payment Intent
+                          </button>
                           {paymentLink && (
                             <>
                               <button
@@ -4512,6 +4574,66 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
               >
                 <FileText className="w-4 h-4" />
                 {checkPaymentLoading ? 'Recording...' : 'Record Payment'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {syncPiModal && selectedInvoice && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[9999] p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between p-5 border-b border-gray-200">
+              <div className="flex items-center gap-2">
+                <Link className="w-5 h-5 text-violet-700" />
+                <h3 className="text-lg font-semibold text-gray-900">Sync with Stripe Payment Intent</h3>
+              </div>
+              <button onClick={() => setSyncPiModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div className="p-3 bg-gray-50 rounded-lg text-sm text-gray-700">
+                <p className="font-medium">{selectedInvoice.invoice_number} — {selectedInvoice.customer_name}</p>
+                <p className="text-gray-500 text-xs mt-0.5">Balance due: ${(selectedInvoice.balance_due ?? selectedInvoice.total_amount).toFixed(2)}</p>
+              </div>
+
+              <p className="text-sm text-gray-600">
+                Enter a Stripe Payment Intent ID (starts with <code className="bg-gray-100 px-1 rounded text-xs">pi_</code>) to manually link and mark this invoice as paid.
+              </p>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Payment Intent ID *</label>
+                <input
+                  type="text"
+                  value={syncPiInput}
+                  onChange={(e) => setSyncPiInput(e.target.value)}
+                  placeholder="pi_3THRxxxxxxxxxxxxxxxx"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 font-mono"
+                  autoFocus
+                />
+              </div>
+
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+                The payment intent must have a <strong>succeeded</strong> status in Stripe. The amount and date will be pulled directly from Stripe.
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 px-5 pb-5">
+              <button
+                onClick={() => setSyncPiModal(false)}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSyncWithPaymentIntent}
+                disabled={syncPiLoading || !syncPiInput.trim().startsWith('pi_')}
+                className="flex items-center gap-2 px-4 py-2 bg-violet-700 text-white rounded-lg hover:bg-violet-800 text-sm font-semibold disabled:opacity-50"
+              >
+                <Link className="w-4 h-4" />
+                {syncPiLoading ? 'Syncing...' : 'Sync Payment'}
               </button>
             </div>
           </div>
