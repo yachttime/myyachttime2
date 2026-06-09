@@ -12044,7 +12044,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                     <textarea
                                       value={documentForm.notes}
                                       onChange={(e) => setDocumentForm({ ...documentForm, notes: e.target.value })}
-                                      className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-xs focus:outline-none focus:border-blue-500 resize-none"
+                                      className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-xs text-white focus:outline-none focus:border-blue-500 resize-none"
                                       rows={2}
                                       placeholder="Optional notes about this document"
                                       disabled={documentLoading}
@@ -18619,7 +18619,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           value={appointmentForm.problem_description}
                           onChange={(e) => setAppointmentForm({ ...appointmentForm, problem_description: e.target.value })}
                           rows={4}
-                          className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none"
+                          className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none"
                           required
                         />
                       </div>
@@ -18777,7 +18777,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           value={staffAppointmentForm.notes}
                           onChange={(e) => setStaffAppointmentForm({ ...staffAppointmentForm, notes: e.target.value })}
                           rows={4}
-                          className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                          className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                           placeholder="Meeting purpose or additional notes"
                         />
                       </div>
