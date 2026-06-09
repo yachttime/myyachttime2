@@ -2545,7 +2545,6 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           .from('estimating_invoices')
           .select('*')
           .eq('yacht_id', yachtId)
-          .eq('archived', false)
           .order('invoice_date', { ascending: false })
       ]);
 
@@ -2583,7 +2582,6 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           .from('estimating_invoices')
           .select('yacht_id, total_amount, payment_status')
           .in('yacht_id', yachtIds)
-          .eq('archived', false)
           .neq('payment_status', 'paid')
       ]);
 
