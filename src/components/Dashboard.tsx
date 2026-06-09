@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Anchor, Calendar, CheckCircle, AlertCircle, BookOpen, LogOut, Wrench, Send, Play, Shield, ClipboardCheck, ClipboardList, Ship, CalendarPlus, FileUp, MessageCircle, Mail, CreditCard as Edit2, Trash2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, History, UserCheck, FileText, Upload, Download, X, Users, Save, RefreshCw, Clock, Thermometer, Camera, Receipt, Pencil, Lock, CreditCard, Eye, EyeOff, MousePointer, Ligature as FileSignature, Folder, Menu, Phone, Printer, Plus, QrCode, CircleUser as UserCircle2, DollarSign, Archive, Building2, MessageSquare, ShieldAlert, Paperclip, ExternalLink, User, Image, ArrowLeftRight, Copy, Link } from 'lucide-react';
+import { Anchor, Calendar, CheckCircle, AlertCircle, BookOpen, LogOut, Wrench, Send, Play, Shield, ClipboardCheck, ClipboardList, Ship, CalendarPlus, FileUp, MessageCircle, Mail, CreditCard as Edit2, Trash2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, History, UserCheck, FileText, Upload, Download, X, Users, Save, RefreshCw, Clock, Thermometer, Camera, Receipt, Pencil, Lock, CreditCard, Eye, EyeOff, MousePointer, Ligature as FileSignature, Folder, Menu, Phone, Printer, Plus, QrCode, CircleUser as UserCircle2, DollarSign, Archive, Building2, MessageSquare, ShieldAlert, Paperclip, ExternalLink, User, Image, ArrowLeftRight, Copy, Link, Gauge } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCompany } from '../contexts/CompanyContext';
 import { useRoleImpersonation } from '../contexts/RoleImpersonationContext';
@@ -668,6 +668,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [yachtDocuments, setYachtDocuments] = useState<Record<string, YachtDocument[]>>({});
   const [yachtInspectionDocs, setYachtInspectionDocs] = useState<Record<string, any[]>>({});
   const [yachtEngineHourHistory, setYachtEngineHourHistory] = useState<Record<string, any[]>>({});
+  const [engineHoursYachtId, setEngineHoursYachtId] = useState<string | null>(null);
   const [documentYachtId, setDocumentYachtId] = useState<string | null>(null);
   const [showDocumentForm, setShowDocumentForm] = useState(false);
   const [documentForm, setDocumentForm] = useState({
@@ -11530,8 +11531,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           {/* Engine Hour History — per trip */}
                           {(() => {
                             const history = yachtEngineHourHistory[yacht.id];
-                            if (!history) return null;
-                            if (history.length === 0) return null;
+                            if (!history && engineHoursYachtId !== yacht.id) return null;
+                            if (history && history.length === 0 && engineHoursYachtId !== yacht.id) return null;
+                            if (!history) return <div className="mt-2 text-xs text-slate-400 text-center py-2">Loading engine hours...</div>;
 
                             // Group into trips: pair check_in with nearest subsequent check_out sharing booking_id
                             // or, if no booking_id, pair sequentially by inspection date
@@ -11813,6 +11815,22 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             >
                               <FileText className="w-4 h-4" />
                               {documentYachtId === yacht.id ? 'Hide' : 'Docs'}
+                            </button>
+                            <button
+                              onClick={async () => {
+                                if (engineHoursYachtId === yacht.id) {
+                                  setEngineHoursYachtId(null);
+                                } else {
+                                  setEngineHoursYachtId(yacht.id);
+                                  if (!yachtEngineHourHistory[yacht.id]) {
+                                    await loadYachtEngineHourHistory(yacht.id);
+                                  }
+                                }
+                              }}
+                              className="flex items-center justify-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition-colors text-sm"
+                            >
+                              <Gauge className="w-4 h-4" />
+                              {engineHoursYachtId === yacht.id ? 'Hide Hours' : 'Engine Hours'}
                             </button>
                             {shouldShowAgreementsButton(yacht.id) && (
                               <div className="flex flex-col gap-1">
