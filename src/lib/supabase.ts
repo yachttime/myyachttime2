@@ -283,6 +283,10 @@ export interface TripInspection {
   overall_condition: ConditionRating;
   additional_notes?: string;
   issues_found: boolean;
+  port_engine_hours?: number | null;
+  stbd_engine_hours?: number | null;
+  port_gen_hours?: number | null;
+  stbd_gen_hours?: number | null;
   created_at: string;
   updated_at: string;
 }

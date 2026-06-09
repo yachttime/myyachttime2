@@ -360,6 +360,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     sea_strainers_notes: '',
     engine_batteries: '' as ConditionRating,
     engine_batteries_notes: '',
+    port_engine_hours: '',
+    stbd_engine_hours: '',
+    port_gen_hours: '',
+    stbd_gen_hours: '',
   });
   const [inspectionLoading, setInspectionLoading] = useState(false);
   const [inspectionSuccess, setInspectionSuccess] = useState(false);
@@ -663,6 +667,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [expandedYachtId, setExpandedYachtId] = useState<string | null>(null);
   const [yachtDocuments, setYachtDocuments] = useState<Record<string, YachtDocument[]>>({});
   const [yachtInspectionDocs, setYachtInspectionDocs] = useState<Record<string, any[]>>({});
+  const [yachtEngineHourHistory, setYachtEngineHourHistory] = useState<Record<string, any[]>>({});
   const [documentYachtId, setDocumentYachtId] = useState<string | null>(null);
   const [showDocumentForm, setShowDocumentForm] = useState(false);
   const [documentForm, setDocumentForm] = useState({
@@ -2530,6 +2535,24 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     } catch (error) {
       console.error('Error loading yacht inspections:', error);
       setYachtInspectionDocs(prev => ({ ...prev, [yachtId]: [] }));
+    }
+  };
+
+  const loadYachtEngineHourHistory = async (yachtId: string) => {
+    setYachtEngineHourHistory(prev => ({ ...prev, [yachtId]: null as any }));
+    try {
+      const { data, error } = await supabase
+        .from('trip_inspections')
+        .select('id, inspection_type, created_at, booking_id, port_engine_hours, stbd_engine_hours, port_gen_hours, stbd_gen_hours')
+        .eq('yacht_id', yachtId)
+        .or('port_engine_hours.not.is.null,stbd_engine_hours.not.is.null,port_gen_hours.not.is.null,stbd_gen_hours.not.is.null')
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      setYachtEngineHourHistory(prev => ({ ...prev, [yachtId]: data || [] }));
+    } catch (error) {
+      console.error('Error loading engine hour history:', error);
+      setYachtEngineHourHistory(prev => ({ ...prev, [yachtId]: [] }));
     }
   };
 
@@ -6329,6 +6352,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         inspector_id: selectedMechanicId,
         inspection_type: inspectionType,
         ...inspectionForm,
+        port_engine_hours: inspectionForm.port_engine_hours !== '' ? parseFloat(inspectionForm.port_engine_hours) : null,
+        stbd_engine_hours: inspectionForm.stbd_engine_hours !== '' ? parseFloat(inspectionForm.stbd_engine_hours) : null,
+        port_gen_hours: inspectionForm.port_gen_hours !== '' ? parseFloat(inspectionForm.port_gen_hours) : null,
+        stbd_gen_hours: inspectionForm.stbd_gen_hours !== '' ? parseFloat(inspectionForm.stbd_gen_hours) : null,
         company_id: selectedYacht.company_id,
       }).select().single();
 
@@ -9550,9 +9577,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     <div>
                       <label className="block text-sm font-medium mb-2">Port Engine Hours</label>
                       <input
-                        type="text"
-                        value={inspectionForm.cabin_notes}
-                        onChange={(e) => setInspectionForm({ ...inspectionForm, cabin_notes: e.target.value })}
+                        type="number"
+                        step="0.1"
+                        value={inspectionForm.port_engine_hours}
+                        onChange={(e) => setInspectionForm({ ...inspectionForm, port_engine_hours: e.target.value })}
                         placeholder="Enter hours"
                         className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 transition-colors text-white placeholder-slate-400"
                       />
@@ -9561,9 +9589,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     <div>
                       <label className="block text-sm font-medium mb-2">Starboard Engine Hours</label>
                       <input
-                        type="text"
-                        value={inspectionForm.galley_notes}
-                        onChange={(e) => setInspectionForm({ ...inspectionForm, galley_notes: e.target.value })}
+                        type="number"
+                        step="0.1"
+                        value={inspectionForm.stbd_engine_hours}
+                        onChange={(e) => setInspectionForm({ ...inspectionForm, stbd_engine_hours: e.target.value })}
                         placeholder="Enter hours"
                         className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 transition-colors text-white placeholder-slate-400"
                       />
@@ -9572,9 +9601,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     <div>
                       <label className="block text-sm font-medium mb-2">Port Generator Hours</label>
                       <input
-                        type="text"
-                        value={inspectionForm.head_notes}
-                        onChange={(e) => setInspectionForm({ ...inspectionForm, head_notes: e.target.value })}
+                        type="number"
+                        step="0.1"
+                        value={inspectionForm.port_gen_hours}
+                        onChange={(e) => setInspectionForm({ ...inspectionForm, port_gen_hours: e.target.value })}
                         placeholder="Enter hours"
                         className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 transition-colors text-white placeholder-slate-400"
                       />
@@ -9583,9 +9613,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     <div>
                       <label className="block text-sm font-medium mb-2">Starboard Generator Hours</label>
                       <input
-                        type="text"
-                        value={inspectionForm.cabin_condition}
-                        onChange={(e) => setInspectionForm({ ...inspectionForm, cabin_condition: e.target.value as ConditionRating })}
+                        type="number"
+                        step="0.1"
+                        value={inspectionForm.stbd_gen_hours}
+                        onChange={(e) => setInspectionForm({ ...inspectionForm, stbd_gen_hours: e.target.value })}
                         placeholder="Enter hours"
                         className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 transition-colors text-white placeholder-slate-400"
                       />
@@ -11466,7 +11497,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           )}
                           {yacht.yacht_engines && yacht.yacht_engines.length > 0 && (
                             <div className="pt-1 border-t border-slate-700/50">
-                              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Engines</p>
+                              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Engines — Season Start</p>
                               {[...(yacht.yacht_engines)].sort((a, b) => a.sort_order - b.sort_order).map((eng) => (
                                 <div key={eng.id} className="flex justify-between items-start gap-2 py-0.5">
                                   <div>
@@ -11482,7 +11513,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           )}
                           {yacht.yacht_generators && yacht.yacht_generators.length > 0 && (
                             <div className="pt-1 border-t border-slate-700/50">
-                              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Generators</p>
+                              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Generators — Season Start</p>
                               {[...(yacht.yacht_generators)].sort((a, b) => a.sort_order - b.sort_order).map((gen) => (
                                 <div key={gen.id} className="flex justify-between items-start gap-2 py-0.5">
                                   <div>
@@ -11496,6 +11527,188 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               ))}
                             </div>
                           )}
+                          {/* Engine Hour History — per trip */}
+                          {(() => {
+                            const history = yachtEngineHourHistory[yacht.id];
+                            if (!history) return null;
+                            if (history.length === 0) return null;
+
+                            // Group into trips: pair check_in with nearest subsequent check_out sharing booking_id
+                            // or, if no booking_id, pair sequentially by inspection date
+                            const trips: Array<{ checkIn: any | null; checkOut: any | null; date: string }> = [];
+                            const used = new Set<string>();
+
+                            for (const insp of history) {
+                              if (used.has(insp.id)) continue;
+                              if (insp.inspection_type === 'check_in') {
+                                // Find matching check_out
+                                const partner = history.find(o =>
+                                  !used.has(o.id) &&
+                                  o.inspection_type === 'check_out' &&
+                                  o.id !== insp.id &&
+                                  (insp.booking_id ? o.booking_id === insp.booking_id : new Date(o.created_at) > new Date(insp.created_at))
+                                );
+                                used.add(insp.id);
+                                if (partner) used.add(partner.id);
+                                trips.push({ checkIn: insp, checkOut: partner || null, date: insp.created_at });
+                              } else if (insp.inspection_type === 'check_out') {
+                                // Orphan check_out (no matching check_in found yet)
+                                used.add(insp.id);
+                                trips.push({ checkIn: null, checkOut: insp, date: insp.created_at });
+                              } else {
+                                // Standalone inspection with hours
+                                used.add(insp.id);
+                                trips.push({ checkIn: insp, checkOut: null, date: insp.created_at });
+                              }
+                            }
+
+                            // Calculate season totals
+                            const hasEngines = (yacht.yacht_engines?.length ?? 0) > 0;
+                            const hasGens = (yacht.yacht_generators?.length ?? 0) > 0;
+
+                            let seasonPortEngine = 0;
+                            let seasonStbdEngine = 0;
+                            let seasonPortGen = 0;
+                            let seasonStbdGen = 0;
+
+                            const tripRows = trips.map((trip, idx) => {
+                              const cin = trip.checkIn;
+                              const cout = trip.checkOut;
+
+                              const portEngIn = cin?.port_engine_hours ?? null;
+                              const portEngOut = cout?.port_engine_hours ?? null;
+                              const stbdEngIn = cin?.stbd_engine_hours ?? null;
+                              const stbdEngOut = cout?.stbd_engine_hours ?? null;
+                              const portGenIn = cin?.port_gen_hours ?? null;
+                              const portGenOut = cout?.port_gen_hours ?? null;
+                              const stbdGenIn = cin?.stbd_gen_hours ?? null;
+                              const stbdGenOut = cout?.stbd_gen_hours ?? null;
+
+                              const dPortEng = (portEngOut != null && portEngIn != null) ? portEngOut - portEngIn : null;
+                              const dStbdEng = (stbdEngOut != null && stbdEngIn != null) ? stbdEngOut - stbdEngIn : null;
+                              const dPortGen = (portGenOut != null && portGenIn != null) ? portGenOut - portGenIn : null;
+                              const dStbdGen = (stbdGenOut != null && stbdGenIn != null) ? stbdGenOut - stbdGenIn : null;
+
+                              if (dPortEng != null && dPortEng > 0) seasonPortEngine += dPortEng;
+                              if (dStbdEng != null && dStbdEng > 0) seasonStbdEngine += dStbdEng;
+                              if (dPortGen != null && dPortGen > 0) seasonPortGen += dPortGen;
+                              if (dStbdGen != null && dStbdGen > 0) seasonStbdGen += dStbdGen;
+
+                              const tripDate = new Date(trip.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
+                              const hasData = [portEngIn, portEngOut, stbdEngIn, stbdEngOut, portGenIn, portGenOut, stbdGenIn, stbdGenOut].some(v => v != null);
+                              if (!hasData) return null;
+
+                              return (
+                                <div key={idx} className="mt-2 bg-slate-900/60 rounded-lg p-2 border border-slate-700/50">
+                                  <div className="flex items-center justify-between mb-1.5">
+                                    <span className="text-xs font-semibold text-slate-300">
+                                      Trip {idx + 1} — {tripDate}
+                                    </span>
+                                    {cin && cout && (
+                                      <span className="text-xs text-emerald-400 font-medium">Complete</span>
+                                    )}
+                                    {cin && !cout && (
+                                      <span className="text-xs text-amber-400 font-medium">In Progress</span>
+                                    )}
+                                    {!cin && cout && (
+                                      <span className="text-xs text-slate-500 font-medium">Check-Out Only</span>
+                                    )}
+                                  </div>
+                                  <div className="grid grid-cols-4 gap-x-2 gap-y-0.5 text-xs">
+                                    {/* Header row */}
+                                    <div className="text-slate-500"></div>
+                                    <div className="text-slate-500 text-center">Start</div>
+                                    <div className="text-slate-500 text-center">End</div>
+                                    <div className="text-slate-500 text-center">Used</div>
+                                    {/* Engine rows */}
+                                    {hasEngines && portEngIn != null || portEngOut != null ? (
+                                      <>
+                                        <div className="text-slate-400">Port Eng</div>
+                                        <div className="text-slate-300 text-center">{portEngIn != null ? portEngIn : '—'}</div>
+                                        <div className="text-slate-300 text-center">{portEngOut != null ? portEngOut : '—'}</div>
+                                        <div className={`text-center font-medium ${dPortEng != null ? (dPortEng >= 0 ? 'text-orange-400' : 'text-red-400') : 'text-slate-500'}`}>
+                                          {dPortEng != null ? `+${dPortEng.toFixed(1)}` : '—'}
+                                        </div>
+                                      </>
+                                    ) : null}
+                                    {hasEngines && stbdEngIn != null || stbdEngOut != null ? (
+                                      <>
+                                        <div className="text-slate-400">Stbd Eng</div>
+                                        <div className="text-slate-300 text-center">{stbdEngIn != null ? stbdEngIn : '—'}</div>
+                                        <div className="text-slate-300 text-center">{stbdEngOut != null ? stbdEngOut : '—'}</div>
+                                        <div className={`text-center font-medium ${dStbdEng != null ? (dStbdEng >= 0 ? 'text-orange-400' : 'text-red-400') : 'text-slate-500'}`}>
+                                          {dStbdEng != null ? `+${dStbdEng.toFixed(1)}` : '—'}
+                                        </div>
+                                      </>
+                                    ) : null}
+                                    {/* Generator rows */}
+                                    {hasGens && portGenIn != null || portGenOut != null ? (
+                                      <>
+                                        <div className="text-slate-400">Port Gen</div>
+                                        <div className="text-slate-300 text-center">{portGenIn != null ? portGenIn : '—'}</div>
+                                        <div className="text-slate-300 text-center">{portGenOut != null ? portGenOut : '—'}</div>
+                                        <div className={`text-center font-medium ${dPortGen != null ? (dPortGen >= 0 ? 'text-orange-400' : 'text-red-400') : 'text-slate-500'}`}>
+                                          {dPortGen != null ? `+${dPortGen.toFixed(1)}` : '—'}
+                                        </div>
+                                      </>
+                                    ) : null}
+                                    {hasGens && stbdGenIn != null || stbdGenOut != null ? (
+                                      <>
+                                        <div className="text-slate-400">Stbd Gen</div>
+                                        <div className="text-slate-300 text-center">{stbdGenIn != null ? stbdGenIn : '—'}</div>
+                                        <div className="text-slate-300 text-center">{stbdGenOut != null ? stbdGenOut : '—'}</div>
+                                        <div className={`text-center font-medium ${dStbdGen != null ? (dStbdGen >= 0 ? 'text-orange-400' : 'text-red-400') : 'text-slate-500'}`}>
+                                          {dStbdGen != null ? `+${dStbdGen.toFixed(1)}` : '—'}
+                                        </div>
+                                      </>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              );
+                            }).filter(Boolean);
+
+                            if (tripRows.length === 0) return null;
+
+                            const hasSeasonTotals = seasonPortEngine > 0 || seasonStbdEngine > 0 || seasonPortGen > 0 || seasonStbdGen > 0;
+
+                            return (
+                              <div className="pt-2 border-t border-slate-700/50">
+                                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Engine Hours — Trip History</p>
+                                {tripRows}
+                                {hasSeasonTotals && (
+                                  <div className="mt-2 bg-orange-500/10 rounded-lg p-2 border border-orange-500/30">
+                                    <p className="text-xs font-semibold text-orange-400 mb-1">Season Totals (Hours Used)</p>
+                                    <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
+                                      {seasonPortEngine > 0 && (
+                                        <>
+                                          <span className="text-slate-400">Port Engine</span>
+                                          <span className="text-orange-300 font-medium">+{seasonPortEngine.toFixed(1)} hrs</span>
+                                        </>
+                                      )}
+                                      {seasonStbdEngine > 0 && (
+                                        <>
+                                          <span className="text-slate-400">Stbd Engine</span>
+                                          <span className="text-orange-300 font-medium">+{seasonStbdEngine.toFixed(1)} hrs</span>
+                                        </>
+                                      )}
+                                      {seasonPortGen > 0 && (
+                                        <>
+                                          <span className="text-slate-400">Port Generator</span>
+                                          <span className="text-orange-300 font-medium">+{seasonPortGen.toFixed(1)} hrs</span>
+                                        </>
+                                      )}
+                                      {seasonStbdGen > 0 && (
+                                        <>
+                                          <span className="text-slate-400">Stbd Generator</span>
+                                          <span className="text-orange-300 font-medium">+{seasonStbdGen.toFixed(1)} hrs</span>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </div>
 
                         <div className="space-y-2">
@@ -11568,6 +11781,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   await Promise.all([
                                     !yachtDocuments[yacht.id] ? loadYachtDocuments(yacht.id) : Promise.resolve(),
                                     loadYachtInspectionDocs(yacht.id),
+                                    loadYachtEngineHourHistory(yacht.id),
                                   ]);
                                 }
                               }}

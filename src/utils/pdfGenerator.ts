@@ -487,7 +487,12 @@ export async function generateTripInspectionPDF(
   yPos += 0.34;
 
   // ── Engine & Generator Hours ──────────────────────────────────────────────────
-  if (inspection.cabin_notes || inspection.galley_notes || inspection.head_notes || inspection.cabin_condition) {
+  const portEngHrs = anyI.port_engine_hours ?? null;
+  const stbdEngHrs = anyI.stbd_engine_hours ?? null;
+  const portGenHrs = anyI.port_gen_hours ?? null;
+  const stbdGenHrs = anyI.stbd_gen_hours ?? null;
+
+  if (portEngHrs != null || stbdEngHrs != null || portGenHrs != null || stbdGenHrs != null) {
     const sectionHdrH = 0.32;
     if (yPos + sectionHdrH + 0.3 > PH - 0.5) { doc.addPage(); yPos = M; }
     fillRect(M, yPos, CW, sectionHdrH, NAVY);
@@ -498,12 +503,12 @@ export async function generateTripInspectionPDF(
     doc.setTextColor(0, 0, 0);
     yPos += sectionHdrH;
 
-    const hrItems = [
-      ['Port Engine', inspection.cabin_notes],
-      ['Stbd Engine', inspection.galley_notes],
-      ['Port Gen', inspection.head_notes],
-      ['Stbd Gen', inspection.cabin_condition],
-    ].filter(([, v]) => v);
+    const hrItems: [string, number | null][] = [
+      ['Port Engine', portEngHrs],
+      ['Stbd Engine', stbdEngHrs],
+      ['Port Gen', portGenHrs],
+      ['Stbd Gen', stbdGenHrs],
+    ].filter(([, v]) => v != null) as [string, number | null][];
 
     const colW = CW / 4;
     fillRect(M, yPos, CW, 0.26, LIGHT_BG);
@@ -518,7 +523,7 @@ export async function generateTripInspectionPDF(
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(9);
       doc.setTextColor(0, 0, 0);
-      doc.text(String(val || ''), x + 0.06, yPos + 0.21);
+      doc.text(String(val ?? ''), x + 0.06, yPos + 0.21);
     });
     yPos += 0.34;
   }
