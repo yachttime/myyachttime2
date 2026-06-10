@@ -2580,25 +2580,27 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         return profileNameMap[b.user_id] || null;
       };
 
-      // Match inspection to booking by date: prefer exact range, fall back to 1-day buffer on end
+      // Match inspection to booking by finding the booking whose end date is
+      // closest to the inspection date. Check-in inspections happen when an
+      // owner RETURNS the boat, so the inspection belongs to the trip that
+      // just ended — not the one that just started on the same day.
       const getOwnerForDate = (isoDate: string): string | null => {
         if (!bookings) return null;
-        const d = new Date(isoDate);
-        d.setHours(0, 0, 0, 0);
-        // First try exact match (inspection date strictly within booking range)
+        const d = new Date(isoDate); d.setHours(0, 0, 0, 0);
+        const candidates: Array<{ booking: any; absDistFromEnd: number }> = [];
         for (const b of bookings as any[]) {
           const start = new Date(b.start_date); start.setHours(0, 0, 0, 0);
-          const end = new Date(b.end_date); end.setHours(0, 0, 0, 0);
-          if (d >= start && d <= end) return getBookingName(b);
+          const endPlusOne = new Date(b.end_date); endPlusOne.setHours(0, 0, 0, 0);
+          endPlusOne.setDate(endPlusOne.getDate() + 1);
+          if (d >= start && d <= endPlusOne) {
+            const end = new Date(b.end_date); end.setHours(0, 0, 0, 0);
+            const daysFromEnd = (d.getTime() - end.getTime()) / 86400000;
+            candidates.push({ booking: b, absDistFromEnd: Math.abs(daysFromEnd) });
+          }
         }
-        // Fall back: allow 1-day buffer past end (inspection done day after booking ends)
-        for (const b of bookings as any[]) {
-          const start = new Date(b.start_date); start.setHours(0, 0, 0, 0);
-          const end = new Date(b.end_date); end.setHours(0, 0, 0, 0);
-          end.setDate(end.getDate() + 1);
-          if (d >= start && d <= end) return getBookingName(b);
-        }
-        return null;
+        if (candidates.length === 0) return null;
+        candidates.sort((a, b) => a.absDistFromEnd - b.absDistFromEnd);
+        return getBookingName(candidates[0].booking);
       };
 
       const enriched = (data || []).map((r: any) => ({
