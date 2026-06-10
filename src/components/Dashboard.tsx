@@ -2552,24 +2552,51 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       if (error) throw error;
 
       // Fetch bookings for this yacht to match inspections by date
-      // (inspections rarely store booking_id, so we match by inspection date falling within booking range)
       const { data: bookings } = await supabase
         .from('yacht_bookings')
         .select('id, start_date, end_date, owner_name, user_id')
         .eq('yacht_id', yachtId);
 
-      // Build a lookup: given an inspection date, find the owner name from the booking covering that date
+      // Fetch user profile names for bookings that lack owner_name
+      const missingNameUserIds = [...new Set(
+        (bookings || [])
+          .filter((b: any) => !b.owner_name && b.user_id)
+          .map((b: any) => b.user_id)
+      )];
+      const profileNameMap: Record<string, string> = {};
+      if (missingNameUserIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('user_profiles')
+          .select('user_id, first_name, last_name')
+          .in('user_id', missingNameUserIds);
+        for (const p of profiles || []) {
+          const name = [(p as any).first_name, (p as any).last_name].filter(Boolean).join(' ').trim();
+          if (name) profileNameMap[(p as any).user_id] = name;
+        }
+      }
+
+      const getBookingName = (b: any): string | null => {
+        if (b.owner_name) return b.owner_name.trim();
+        return profileNameMap[b.user_id] || null;
+      };
+
+      // Match inspection to booking by date: prefer exact range, fall back to 1-day buffer on end
       const getOwnerForDate = (isoDate: string): string | null => {
         if (!bookings) return null;
         const d = new Date(isoDate);
-        for (const b of bookings) {
-          const start = new Date((b as any).start_date);
-          const end = new Date((b as any).end_date);
-          // Add 1 day buffer to end to catch inspections done on the last day
+        d.setHours(0, 0, 0, 0);
+        // First try exact match (inspection date strictly within booking range)
+        for (const b of bookings as any[]) {
+          const start = new Date(b.start_date); start.setHours(0, 0, 0, 0);
+          const end = new Date(b.end_date); end.setHours(0, 0, 0, 0);
+          if (d >= start && d <= end) return getBookingName(b);
+        }
+        // Fall back: allow 1-day buffer past end (inspection done day after booking ends)
+        for (const b of bookings as any[]) {
+          const start = new Date(b.start_date); start.setHours(0, 0, 0, 0);
+          const end = new Date(b.end_date); end.setHours(0, 0, 0, 0);
           end.setDate(end.getDate() + 1);
-          if (d >= start && d <= end) {
-            return (b as any).owner_name || null;
-          }
+          if (d >= start && d <= end) return getBookingName(b);
         }
         return null;
       };
