@@ -31,6 +31,7 @@ export const InspectionPDFView = ({ inspection, onClose }: InspectionPDFViewProp
   const [photos, setPhotos] = useState<InspectionPhoto[]>([]);
   const [loadingPhotos, setLoadingPhotos] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [pendingPhotos, setPendingPhotos] = useState<PendingPhoto[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -135,26 +136,23 @@ export const InspectionPDFView = ({ inspection, onClose }: InspectionPDFViewProp
 
   const handlePreview = async () => {
     setGenerating(true);
-    const newTab = window.open('', '_blank');
     try {
       const pdf = await generateTripInspectionPDF(inspection, photos);
       const pdfBlob = pdf.output('blob');
-      const pdfUrl = URL.createObjectURL(pdfBlob);
-      if (newTab) {
-        newTab.document.write(
-          `<!DOCTYPE html><html><head><title>Trip Inspection Report</title></head>` +
-          `<body style="margin:0;padding:0;height:100vh;overflow:hidden">` +
-          `<embed src="${pdfUrl}" type="application/pdf" width="100%" height="100%">` +
-          `</body></html>`
-        );
-        newTab.document.close();
-      }
+      const url = URL.createObjectURL(pdfBlob);
+      setPdfPreviewUrl(url);
     } catch (error) {
       console.error('Error generating PDF preview:', error);
-      if (newTab) newTab.close();
       alert('Failed to generate PDF preview.');
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const closePdfPreview = () => {
+    if (pdfPreviewUrl) {
+      URL.revokeObjectURL(pdfPreviewUrl);
+      setPdfPreviewUrl(null);
     }
   };
 
@@ -403,6 +401,38 @@ export const InspectionPDFView = ({ inspection, onClose }: InspectionPDFViewProp
           </button>
         </div>
       </div>
+
+      {pdfPreviewUrl && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.9)', zIndex: 10000,
+          display: 'flex', flexDirection: 'column',
+        }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '0.75rem 1rem', backgroundColor: '#1e293b', flexShrink: 0,
+          }}>
+            <span style={{ color: 'white', fontWeight: 600, fontSize: '0.95rem' }}>
+              Trip Inspection Report — {inspection.yachts?.name}
+            </span>
+            <button
+              onClick={closePdfPreview}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '0.375rem',
+                padding: '0.5rem 1rem', backgroundColor: '#475569', color: 'white',
+                border: 'none', borderRadius: '0.375rem', cursor: 'pointer', fontSize: '0.875rem',
+              }}
+            >
+              <X style={{ width: '1rem', height: '1rem' }} /> Close Preview
+            </button>
+          </div>
+          <iframe
+            src={pdfPreviewUrl}
+            style={{ flex: 1, border: 'none', width: '100%' }}
+            title="PDF Preview"
+          />
+        </div>
+      )}
     </div>
   );
 };
