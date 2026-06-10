@@ -135,13 +135,19 @@ export const InspectionPDFView = ({ inspection, onClose }: InspectionPDFViewProp
 
   const handlePreview = async () => {
     setGenerating(true);
+    const newTab = window.open('', '_blank');
     try {
       const pdf = await generateTripInspectionPDF(inspection, photos);
       const pdfBlob = pdf.output('blob');
       const pdfUrl = URL.createObjectURL(pdfBlob);
-      window.open(pdfUrl, '_blank');
+      if (newTab) {
+        newTab.location.href = pdfUrl;
+      } else {
+        window.location.href = pdfUrl;
+      }
     } catch (error) {
       console.error('Error generating PDF preview:', error);
+      if (newTab) newTab.close();
       alert('Failed to generate PDF preview.');
     } finally {
       setGenerating(false);
