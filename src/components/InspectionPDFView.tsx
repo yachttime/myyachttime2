@@ -141,9 +141,13 @@ export const InspectionPDFView = ({ inspection, onClose }: InspectionPDFViewProp
       const pdfBlob = pdf.output('blob');
       const pdfUrl = URL.createObjectURL(pdfBlob);
       if (newTab) {
-        newTab.location.href = pdfUrl;
-      } else {
-        window.location.href = pdfUrl;
+        newTab.document.write(
+          `<!DOCTYPE html><html><head><title>Trip Inspection Report</title></head>` +
+          `<body style="margin:0;padding:0;height:100vh;overflow:hidden">` +
+          `<embed src="${pdfUrl}" type="application/pdf" width="100%" height="100%">` +
+          `</body></html>`
+        );
+        newTab.document.close();
       }
     } catch (error) {
       console.error('Error generating PDF preview:', error);
