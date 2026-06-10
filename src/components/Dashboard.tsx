@@ -2551,26 +2551,32 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       if (error) throw error;
 
-      // Fetch owner names for any bookings referenced
-      const bookingIds = [...new Set((data || []).map((r: any) => r.booking_id).filter(Boolean))];
-      const bookingOwnerMap: Record<string, string> = {};
-      if (bookingIds.length > 0) {
-        const { data: bookings } = await supabase
-          .from('yacht_bookings')
-          .select('id, owner_name, user_profiles!yacht_bookings_user_id_user_profiles_fkey(first_name, last_name)')
-          .in('id', bookingIds);
-        for (const b of bookings || []) {
-          const profile = (b as any).user_profiles;
-          const name = (profile?.first_name || profile?.last_name)
-            ? [profile.first_name, profile.last_name].filter(Boolean).join(' ')
-            : (b as any).owner_name || null;
-          if (name) bookingOwnerMap[(b as any).id] = name;
+      // Fetch bookings for this yacht to match inspections by date
+      // (inspections rarely store booking_id, so we match by inspection date falling within booking range)
+      const { data: bookings } = await supabase
+        .from('yacht_bookings')
+        .select('id, start_date, end_date, owner_name, user_id')
+        .eq('yacht_id', yachtId);
+
+      // Build a lookup: given an inspection date, find the owner name from the booking covering that date
+      const getOwnerForDate = (isoDate: string): string | null => {
+        if (!bookings) return null;
+        const d = new Date(isoDate);
+        for (const b of bookings) {
+          const start = new Date((b as any).start_date);
+          const end = new Date((b as any).end_date);
+          // Add 1 day buffer to end to catch inspections done on the last day
+          end.setDate(end.getDate() + 1);
+          if (d >= start && d <= end) {
+            return (b as any).owner_name || null;
+          }
         }
-      }
+        return null;
+      };
 
       const enriched = (data || []).map((r: any) => ({
         ...r,
-        _ownerName: r.booking_id ? (bookingOwnerMap[r.booking_id] || null) : null,
+        _ownerName: getOwnerForDate(r.created_at),
       }));
       setYachtEngineHourHistory(prev => ({ ...prev, [yachtId]: enriched }));
     } catch (error) {
