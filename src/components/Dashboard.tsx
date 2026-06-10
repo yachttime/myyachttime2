@@ -6096,9 +6096,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     }
 
     try {
+      const now = new Date();
       const { error } = await supabase
         .from('yacht_bookings')
-        .update({ checked_in: true })
+        .update({ checked_in: true, check_in_at: now.toISOString() })
         .eq('id', activeBooking.id);
 
       if (error) throw error;
@@ -6107,7 +6108,6 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         ? `${userProfile.first_name} ${userProfile.last_name}`
         : user.email;
 
-      const now = new Date();
       const checkInMessage = `Check-In Alert: ${userName} checked in to ${yacht.name} on ${now.toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })} at ${now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Phoenix' })} MST`;
 
       const { error: msgError } = await supabase
@@ -6165,9 +6165,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     }
 
     try {
+      const now = new Date();
       const { error } = await supabase
         .from('yacht_bookings')
-        .update({ checked_out: true })
+        .update({ checked_out: true, check_out_at: now.toISOString() })
         .eq('id', activeBooking.id);
 
       if (error) throw error;
@@ -6176,7 +6177,6 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         ? `${userProfile.first_name} ${userProfile.last_name}`
         : user.email;
 
-      const now = new Date();
       const checkOutMessage = `Check-Out Alert: ${userName} checked out from ${yacht.name} on ${now.toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })} at ${now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Phoenix' })} MST`;
 
       const { error: msgError } = await supabase
@@ -8484,9 +8484,27 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 {(booking as any).user_profiles.first_name} {(booking as any).user_profiles.last_name}
                               </div>
                             )}
-                            <div className="text-sm text-slate-400 mt-1">
-                              {booking.checked_in && 'Checked In'}
-                              {booking.checked_out && ' • Checked Out'}
+                            <div className="text-sm text-slate-400 mt-1 space-y-0.5">
+                              {booking.checked_in && (
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-green-400">&#10003; Checked In</span>
+                                  {(booking as any).check_in_at && (
+                                    <span className="text-slate-500">
+                                      — {new Date((booking as any).check_in_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/Phoenix' })} at {new Date((booking as any).check_in_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Phoenix' })} MST
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                              {booking.checked_out && (
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-blue-400">&#10003; Checked Out</span>
+                                  {(booking as any).check_out_at && (
+                                    <span className="text-slate-500">
+                                      — {new Date((booking as any).check_out_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/Phoenix' })} at {new Date((booking as any).check_out_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Phoenix' })} MST
+                                    </span>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </div>
                           {booking.checked_in && booking.checked_out && (
