@@ -11700,7 +11700,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                     )}
                                   </div>
                                   {trip.ownerName && (
-                                    <div className="text-xs text-slate-500 italic mb-1.5">{trip.ownerName}</div>
+                                    <div className="text-xs font-semibold text-sky-400 mb-1.5 tracking-wide">{trip.ownerName}</div>
                                   )}
                                   <div className="grid grid-cols-4 gap-x-2 gap-y-0.5 text-xs">
                                     {/* Header row */}
