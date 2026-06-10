@@ -2544,7 +2544,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     try {
       const { data, error } = await supabase
         .from('trip_inspections')
-        .select('id, inspection_type, created_at, booking_id, port_engine_hours, stbd_engine_hours, port_gen_hours, stbd_gen_hours')
+        .select('id, inspection_type, created_at, booking_id, port_engine_hours, stbd_engine_hours, port_gen_hours, stbd_gen_hours, yacht_bookings!booking_id(owner_name, user_profiles!yacht_bookings_user_id_user_profiles_fkey(first_name, last_name))')
         .eq('yacht_id', yachtId)
         .or('port_engine_hours.not.is.null,stbd_engine_hours.not.is.null,port_gen_hours.not.is.null,stbd_gen_hours.not.is.null')
         .order('created_at', { ascending: true });
@@ -11564,8 +11564,18 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                             // Group into trips: pair check_in with nearest subsequent check_out sharing booking_id
                             // or, if no booking_id, pair sequentially by inspection date
-                            const trips: Array<{ checkIn: any | null; checkOut: any | null; date: string }> = [];
+                            const trips: Array<{ checkIn: any | null; checkOut: any | null; date: string; ownerName: string | null }> = [];
                             const used = new Set<string>();
+
+                            const getOwnerName = (insp: any): string | null => {
+                              const booking = insp.yacht_bookings;
+                              if (!booking) return null;
+                              const profile = booking.user_profiles;
+                              if (profile?.first_name || profile?.last_name) {
+                                return [profile.first_name, profile.last_name].filter(Boolean).join(' ');
+                              }
+                              return booking.owner_name || null;
+                            };
 
                             for (const insp of history) {
                               if (used.has(insp.id)) continue;
@@ -11579,15 +11589,15 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 );
                                 used.add(insp.id);
                                 if (partner) used.add(partner.id);
-                                trips.push({ checkIn: insp, checkOut: partner || null, date: insp.created_at });
+                                trips.push({ checkIn: insp, checkOut: partner || null, date: insp.created_at, ownerName: getOwnerName(insp) || getOwnerName(partner) || null });
                               } else if (insp.inspection_type === 'check_out') {
                                 // Orphan check_out (no matching check_in found yet)
                                 used.add(insp.id);
-                                trips.push({ checkIn: null, checkOut: insp, date: insp.created_at });
+                                trips.push({ checkIn: null, checkOut: insp, date: insp.created_at, ownerName: getOwnerName(insp) });
                               } else {
                                 // Standalone inspection with hours
                                 used.add(insp.id);
-                                trips.push({ checkIn: insp, checkOut: null, date: insp.created_at });
+                                trips.push({ checkIn: insp, checkOut: null, date: insp.created_at, ownerName: getOwnerName(insp) });
                               }
                             }
 
@@ -11653,7 +11663,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                               return (
                                 <div key={idx} className="mt-2 bg-slate-900/60 rounded-lg p-2 border border-slate-700/50">
-                                  <div className="flex items-center justify-between mb-1.5">
+                                  <div className="flex items-center justify-between mb-0.5">
                                     <span className="text-xs font-semibold text-slate-300">
                                       Trip {idx + 1} — {tripDate}
                                     </span>
@@ -11667,6 +11677,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                       <span className="text-xs text-slate-500 font-medium">Check-Out Only</span>
                                     )}
                                   </div>
+                                  {trip.ownerName && (
+                                    <div className="text-xs text-slate-500 italic mb-1.5">{trip.ownerName}</div>
+                                  )}
                                   <div className="grid grid-cols-4 gap-x-2 gap-y-0.5 text-xs">
                                     {/* Header row */}
                                     <div className="text-slate-500"></div>
