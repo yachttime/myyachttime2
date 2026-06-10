@@ -2584,15 +2584,17 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       // closest to the inspection date. Check-in inspections happen when an
       // owner RETURNS the boat, so the inspection belongs to the trip that
       // just ended — not the one that just started on the same day.
+      // Also handles pre-trip inspections done 1 day before a booking starts.
       const getOwnerForDate = (isoDate: string): string | null => {
         if (!bookings) return null;
         const d = new Date(isoDate); d.setHours(0, 0, 0, 0);
         const candidates: Array<{ booking: any; absDistFromEnd: number }> = [];
         for (const b of bookings as any[]) {
           const start = new Date(b.start_date); start.setHours(0, 0, 0, 0);
+          const startMinusOne = new Date(start); startMinusOne.setDate(startMinusOne.getDate() - 1);
           const endPlusOne = new Date(b.end_date); endPlusOne.setHours(0, 0, 0, 0);
           endPlusOne.setDate(endPlusOne.getDate() + 1);
-          if (d >= start && d <= endPlusOne) {
+          if (d >= startMinusOne && d <= endPlusOne) {
             const end = new Date(b.end_date); end.setHours(0, 0, 0, 0);
             const daysFromEnd = (d.getTime() - end.getTime()) / 86400000;
             candidates.push({ booking: b, absDistFromEnd: Math.abs(daysFromEnd) });
