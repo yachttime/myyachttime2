@@ -2544,13 +2544,35 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     try {
       const { data, error } = await supabase
         .from('trip_inspections')
-        .select('id, inspection_type, created_at, booking_id, port_engine_hours, stbd_engine_hours, port_gen_hours, stbd_gen_hours, yacht_bookings!booking_id(owner_name, user_profiles!yacht_bookings_user_id_user_profiles_fkey(first_name, last_name))')
+        .select('id, inspection_type, created_at, booking_id, port_engine_hours, stbd_engine_hours, port_gen_hours, stbd_gen_hours')
         .eq('yacht_id', yachtId)
         .or('port_engine_hours.not.is.null,stbd_engine_hours.not.is.null,port_gen_hours.not.is.null,stbd_gen_hours.not.is.null')
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-      setYachtEngineHourHistory(prev => ({ ...prev, [yachtId]: data || [] }));
+
+      // Fetch owner names for any bookings referenced
+      const bookingIds = [...new Set((data || []).map((r: any) => r.booking_id).filter(Boolean))];
+      const bookingOwnerMap: Record<string, string> = {};
+      if (bookingIds.length > 0) {
+        const { data: bookings } = await supabase
+          .from('yacht_bookings')
+          .select('id, owner_name, user_profiles!yacht_bookings_user_id_user_profiles_fkey(first_name, last_name)')
+          .in('id', bookingIds);
+        for (const b of bookings || []) {
+          const profile = (b as any).user_profiles;
+          const name = (profile?.first_name || profile?.last_name)
+            ? [profile.first_name, profile.last_name].filter(Boolean).join(' ')
+            : (b as any).owner_name || null;
+          if (name) bookingOwnerMap[(b as any).id] = name;
+        }
+      }
+
+      const enriched = (data || []).map((r: any) => ({
+        ...r,
+        _ownerName: r.booking_id ? (bookingOwnerMap[r.booking_id] || null) : null,
+      }));
+      setYachtEngineHourHistory(prev => ({ ...prev, [yachtId]: enriched }));
     } catch (error) {
       console.error('Error loading engine hour history:', error);
       setYachtEngineHourHistory(prev => ({ ...prev, [yachtId]: [] }));
@@ -11568,13 +11590,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             const used = new Set<string>();
 
                             const getOwnerName = (insp: any): string | null => {
-                              const booking = insp.yacht_bookings;
-                              if (!booking) return null;
-                              const profile = booking.user_profiles;
-                              if (profile?.first_name || profile?.last_name) {
-                                return [profile.first_name, profile.last_name].filter(Boolean).join(' ');
-                              }
-                              return booking.owner_name || null;
+                              return insp?._ownerName || null;
                             };
 
                             for (const insp of history) {
