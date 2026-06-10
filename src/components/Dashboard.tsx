@@ -9340,7 +9340,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           </div>
                         </div>
                         <h3 className="text-xl font-bold mb-2">Trip Inspection Form</h3>
-                        <p className="text-slate-400 text-sm">Complete check-in and check-out inspections for yacht trips</p>
+                        <p className="text-slate-400 text-sm">Complete trip inspections for yacht trips</p>
                       </button>
                     )}
 
@@ -12490,10 +12490,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               ) : (
                                 <div className="space-y-2 max-h-64 overflow-y-auto">
                                   {yachtInspectionDocs[yacht.id].map((inspection: any) => {
-                                    const typeLabel = inspection.inspection_type === 'check_in' ? 'Check-In'
-                                      : inspection.inspection_type === 'check_out' ? 'Check-Out'
-                                      : inspection.inspection_type === 'mid_trip' ? 'Mid-Trip'
-                                      : inspection.inspection_type;
+                                    const typeLabel = 'Trip Inspection';
                                     const inspectorName = inspection.inspector_name || '';
                                     return (
                                       <div key={inspection.id} className="flex items-center justify-between bg-slate-900/50 rounded-lg px-3 py-2 text-xs">
