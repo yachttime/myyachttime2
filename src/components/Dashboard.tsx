@@ -277,6 +277,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [selectedYachtForInspection, setSelectedYachtForInspection] = useState<string>('');
   const [inspectionType, setInspectionType] = useState<InspectionType>('check_in');
   const [selectedMechanicId, setSelectedMechanicId] = useState<string>('');
+  const [ownerNameForInspection, setOwnerNameForInspection] = useState<string>('');
   const [mechanics, setMechanics] = useState<UserProfile[]>([]);
   const [inspectionForm, setInspectionForm] = useState({
     hull_condition: '' as ConditionRating,
@@ -6434,6 +6435,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         inspector_id: selectedMechanicId,
         inspection_type: inspectionType,
         ...inspectionForm,
+        owner_name: ownerNameForInspection.trim() || null,
         port_engine_hours: inspectionForm.port_engine_hours !== '' ? parseFloat(inspectionForm.port_engine_hours) : null,
         stbd_engine_hours: inspectionForm.stbd_engine_hours !== '' ? parseFloat(inspectionForm.stbd_engine_hours) : null,
         port_gen_hours: inspectionForm.port_gen_hours !== '' ? parseFloat(inspectionForm.port_gen_hours) : null,
@@ -6512,6 +6514,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       setInspectionSuccess(true);
       setSelectedYachtForInspection('');
       setSelectedMechanicId('');
+      setOwnerNameForInspection('');
       setInspectionPhotos([]);
       setInspectionForm({
         hull_condition: 'good',
@@ -9557,6 +9560,19 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           </option>
                         ))}
                       </select>
+                    </div>
+                    <div className="md:col-span-2">
+                      <label htmlFor="ownerName" className="block text-sm font-medium mb-2">
+                        Owner Name (for this trip)
+                      </label>
+                      <input
+                        id="ownerName"
+                        type="text"
+                        value={ownerNameForInspection}
+                        onChange={(e) => setOwnerNameForInspection(e.target.value)}
+                        placeholder="Enter owner's name..."
+                        className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 transition-colors text-white placeholder-slate-500"
+                      />
                     </div>
                   </div>
                 </div>

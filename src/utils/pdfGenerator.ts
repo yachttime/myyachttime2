@@ -445,7 +445,7 @@ export async function generateTripInspectionPDF(
   };
 
   // ── Header bar ───────────────────────────────────────────────────────────────
-  fillRect(0, 0, PW, 1.0, NAVY);
+  fillRect(0, 0, PW, 1.18, NAVY);
 
   doc.setTextColor(...WHITE);
   doc.setFont('helvetica', 'bold');
@@ -467,10 +467,16 @@ export async function generateTripInspectionPDF(
   doc.text(`Inspector: ${inspectorName}`, M + CW * 0.35, 0.68);
   doc.text(`Date: ${dateStr}`, M + CW * 0.70, 0.68);
 
-  // Accent stripe under header
-  fillRect(0, 1.0, PW, 0.04, TEAL);
+  // Owner name row
+  const ownerNameVal = (anyI.owner_name as string | null) || '';
+  if (ownerNameVal) {
+    doc.text(`Owner: ${ownerNameVal}`, M, 0.92);
+  }
 
-  let yPos = 1.18;
+  // Accent stripe under header
+  fillRect(0, 1.18, PW, 0.04, TEAL);
+
+  let yPos = 1.36;
 
   // ── Issues Found badge ────────────────────────────────────────────────────────
   const issuesBg  = inspection.issues_found ? WARN_BG : OK_BG;
