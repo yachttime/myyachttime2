@@ -3568,7 +3568,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         .select('*, user_profiles!user_id(first_name, last_name, role)')
         .eq('repair_request_id', repairRequestId)
         .order('created_at', { ascending: true });
-      if (!error && data) {
+      if (error) {
+        console.error('loadRepairNotes error:', error);
+      } else if (data) {
         setRepairNotes(prev => ({ ...prev, [repairRequestId]: data as RepairRequestNote[] }));
       }
     } finally {
