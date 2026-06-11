@@ -3604,7 +3604,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         is_internal: newNoteInternal[repairRequestId] ?? false,
         company_id: userProfile?.company_id || null,
       });
-      if (!error) {
+      if (error) {
+        alert(`Failed to save note: ${error.message}`);
+      } else {
         setNewNoteText(prev => ({ ...prev, [repairRequestId]: '' }));
         setNewNoteType(prev => ({ ...prev, [repairRequestId]: 'general' }));
         setNewNoteInternal(prev => ({ ...prev, [repairRequestId]: false }));
