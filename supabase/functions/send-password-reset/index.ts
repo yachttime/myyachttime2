@@ -28,6 +28,7 @@ Deno.serve(async (req: Request) => {
     );
 
     const normalizedEmail = email.toLowerCase().trim();
+    const siteUrl = Deno.env.get('SITE_URL') ?? 'https://myyachttime.com';
 
     const { data: usersPage1 } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
     const authUser = usersPage1?.users?.find(u => u.email?.toLowerCase() === normalizedEmail);
@@ -38,8 +39,6 @@ Deno.serve(async (req: Request) => {
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    const siteUrl = Deno.env.get('SITE_URL') ?? 'https://myyachttime.com';
 
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'recovery',
@@ -92,24 +91,35 @@ Deno.serve(async (req: Request) => {
       </div>
     `;
 
-    const resendRes = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${resendApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: fromEmail,
-        to: [normalizedEmail],
-        subject: 'Reset Your My Yacht Time Password',
-        html: emailHtml,
-      }),
-    });
+    try {
+      const resendRes = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${resendApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: fromEmail,
+          to: [normalizedEmail],
+          subject: 'Reset Your My Yacht Time Password',
+          html: emailHtml,
+        }),
+      });
 
-    if (!resendRes.ok) {
-      const resendErr = await resendRes.text();
-      console.error('Resend error:', resendErr);
-      throw new Error('Failed to send reset email');
+      if (!resendRes.ok) {
+        const resendErr = await resendRes.text();
+        console.error('Resend error, falling back to Supabase native reset:', resendErr);
+        throw new Error('Resend failed');
+      }
+    } catch (emailErr) {
+      console.error('Email via Resend failed, using Supabase native reset:', emailErr);
+      const { error: nativeErr } = await supabaseAdmin.auth.resetPasswordForEmail(normalizedEmail, {
+        redirectTo: siteUrl,
+      });
+      if (nativeErr) {
+        console.error('Supabase native reset also failed:', nativeErr);
+        throw new Error('Failed to send password reset email');
+      }
     }
 
     return new Response(
