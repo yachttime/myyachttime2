@@ -229,6 +229,23 @@ export interface RepairRequest {
   };
 }
 
+export interface RepairRequestNote {
+  id: string;
+  repair_request_id: string;
+  user_id: string;
+  note_text: string;
+  note_type?: 'general' | 'issue_found' | 'resolved' | 'work_order_needed';
+  is_internal: boolean;
+  company_id?: string;
+  created_at: string;
+  updated_at: string;
+  user_profiles?: {
+    first_name: string;
+    last_name: string;
+    role: string;
+  };
+}
+
 export interface OwnerChatMessage {
   id: string;
   yacht_id: string;

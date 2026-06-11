@@ -6,7 +6,7 @@ import { useRoleImpersonation } from '../contexts/RoleImpersonationContext';
 import { useYachtImpersonation } from '../contexts/YachtImpersonationContext';
 import { useNotification } from '../contexts/NotificationContext';
 import { useConfirm } from '../hooks/useConfirm';
-import { supabase, YachtBooking, MaintenanceRequest, EducationVideo, TripInspection, ConditionRating, InspectionType, RepairRequest, OwnerChatMessage, YachtHistoryLog, OwnerHandoffInspection, YachtDocument, YachtInvoice, YachtBudget, AdminNotification, StaffMessage, Appointment, Yacht, UserProfile, VesselManagementAgreement, logYachtActivity, isStaffRole, isManagerRole, isStaffOrManager, isMasterRole, isOwnerRole, canManageUsers, canManageYacht, canAccessAllYachts } from '../lib/supabase';
+import { supabase, YachtBooking, MaintenanceRequest, EducationVideo, TripInspection, ConditionRating, InspectionType, RepairRequest, RepairRequestNote, OwnerChatMessage, YachtHistoryLog, OwnerHandoffInspection, YachtDocument, YachtInvoice, YachtBudget, AdminNotification, StaffMessage, Appointment, Yacht, UserProfile, VesselManagementAgreement, logYachtActivity, isStaffRole, isManagerRole, isStaffOrManager, isMasterRole, isOwnerRole, canManageUsers, canManageYacht, canAccessAllYachts } from '../lib/supabase';
 import { InspectionPDFView } from './InspectionPDFView';
 import { OwnerHandoffPDFView } from './OwnerHandoffPDFView';
 import { FileUploadDropzone } from './FileUploadDropzone';
@@ -652,6 +652,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [repairToTaskError, setRepairToTaskError] = useState('');
   const [repairToTaskSuccess, setRepairToTaskSuccess] = useState<string | null>(null);
   const [repairRequestsWithTasks, setRepairRequestsWithTasks] = useState<Set<string>>(new Set());
+  const [repairNotes, setRepairNotes] = useState<{ [repairRequestId: string]: RepairRequestNote[] }>({});
+  const [expandedRepairNotes, setExpandedRepairNotes] = useState<Set<string>>(new Set());
+  const [newNoteText, setNewNoteText] = useState<{ [repairRequestId: string]: string }>({});
+  const [newNoteType, setNewNoteType] = useState<{ [repairRequestId: string]: string }>({});
+  const [newNoteInternal, setNewNoteInternal] = useState<{ [repairRequestId: string]: boolean }>({});
+  const [notesLoading, setNotesLoading] = useState<{ [repairRequestId: string]: boolean }>({});
+  const [notesSubmitting, setNotesSubmitting] = useState<{ [repairRequestId: string]: boolean }>({});
   const [staffMessages, setStaffMessages] = useState<StaffMessage[]>([]);
   const [messagesTab, setMessagesTab] = useState<'yacht' | 'staff'>('yacht');
   const [yachtPartners, setYachtPartners] = useState<{ [yachtId: string]: any[] }>({});
@@ -3550,6 +3557,61 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       alert(`Error: ${error.message || 'Failed to complete repair'}`);
     } finally {
       setInvoiceLoading(false);
+    }
+  };
+
+  const loadRepairNotes = async (repairRequestId: string) => {
+    setNotesLoading(prev => ({ ...prev, [repairRequestId]: true }));
+    try {
+      const { data, error } = await supabase
+        .from('repair_request_notes')
+        .select('*, user_profiles!user_id(first_name, last_name, role)')
+        .eq('repair_request_id', repairRequestId)
+        .order('created_at', { ascending: true });
+      if (!error && data) {
+        setRepairNotes(prev => ({ ...prev, [repairRequestId]: data as RepairRequestNote[] }));
+      }
+    } finally {
+      setNotesLoading(prev => ({ ...prev, [repairRequestId]: false }));
+    }
+  };
+
+  const toggleRepairNotes = (repairRequestId: string) => {
+    setExpandedRepairNotes(prev => {
+      const next = new Set(prev);
+      if (next.has(repairRequestId)) {
+        next.delete(repairRequestId);
+      } else {
+        next.add(repairRequestId);
+        if (!repairNotes[repairRequestId]) {
+          loadRepairNotes(repairRequestId);
+        }
+      }
+      return next;
+    });
+  };
+
+  const submitRepairNote = async (repairRequestId: string) => {
+    const text = (newNoteText[repairRequestId] || '').trim();
+    if (!text || !user) return;
+    setNotesSubmitting(prev => ({ ...prev, [repairRequestId]: true }));
+    try {
+      const { error } = await supabase.from('repair_request_notes').insert({
+        repair_request_id: repairRequestId,
+        user_id: user.id,
+        note_text: text,
+        note_type: newNoteType[repairRequestId] || 'general',
+        is_internal: newNoteInternal[repairRequestId] ?? false,
+        company_id: userProfile?.company_id || null,
+      });
+      if (!error) {
+        setNewNoteText(prev => ({ ...prev, [repairRequestId]: '' }));
+        setNewNoteType(prev => ({ ...prev, [repairRequestId]: 'general' }));
+        setNewNoteInternal(prev => ({ ...prev, [repairRequestId]: false }));
+        await loadRepairNotes(repairRequestId);
+      }
+    } finally {
+      setNotesSubmitting(prev => ({ ...prev, [repairRequestId]: false }));
     }
   };
 
@@ -16605,6 +16667,100 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 </button>
                               </div>
                             </>
+                          )}
+
+                          {/* Notes Section */}
+                          {(isStaffOrManager(effectiveRole) || isMasterRole(effectiveRole) || isOwnerRole(effectiveRole)) && (
+                            <div className="mt-4 border-t border-slate-700/50 pt-4">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); toggleRepairNotes(request.id); }}
+                                className="flex items-center gap-2 text-sm text-slate-400 hover:text-orange-400 transition-colors"
+                              >
+                                <MessageSquare className="w-4 h-4" />
+                                <span>
+                                  {repairNotes[request.id] ? `Notes (${repairNotes[request.id].length})` : 'Notes'}
+                                </span>
+                                <ChevronDown className={`w-3 h-3 transition-transform duration-150 ${expandedRepairNotes.has(request.id) ? '' : '-rotate-90'}`} />
+                              </button>
+
+                              {expandedRepairNotes.has(request.id) && (
+                                <div className="mt-3 space-y-3">
+                                  {notesLoading[request.id] ? (
+                                    <div className="flex items-center gap-2 text-slate-500 text-sm py-2">
+                                      <div className="w-4 h-4 border-2 border-slate-500/30 border-t-slate-400 rounded-full animate-spin" />
+                                      Loading notes...
+                                    </div>
+                                  ) : (repairNotes[request.id] || []).length === 0 ? (
+                                    <p className="text-slate-500 text-xs italic">No notes yet.</p>
+                                  ) : (
+                                    <div className="space-y-2">
+                                      {(repairNotes[request.id] || []).map(note => {
+                                        const noteTypeLabels: Record<string, { label: string; color: string }> = {
+                                          general: { label: 'Note', color: 'text-slate-400 bg-slate-700/50' },
+                                          issue_found: { label: 'Issue Found', color: 'text-amber-400 bg-amber-500/10' },
+                                          resolved: { label: 'Resolved', color: 'text-green-400 bg-green-500/10' },
+                                          work_order_needed: { label: 'Work Order Needed', color: 'text-cyan-400 bg-cyan-500/10' },
+                                        };
+                                        const typeInfo = noteTypeLabels[note.note_type || 'general'];
+                                        return (
+                                          <div key={note.id} className={`rounded-lg px-3 py-2 text-sm ${note.is_internal ? 'border border-orange-500/20 bg-orange-500/5' : 'bg-slate-800/50'}`}>
+                                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                              <span className={`text-xs font-semibold px-2 py-0.5 rounded ${typeInfo.color}`}>{typeInfo.label}</span>
+                                              {note.is_internal && <span className="text-xs text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded">Internal</span>}
+                                              <span className="text-xs text-slate-500">
+                                                {note.user_profiles ? `${note.user_profiles.first_name} ${note.user_profiles.last_name}` : 'Staff'} · {new Date(note.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                                              </span>
+                                            </div>
+                                            <p className="text-slate-300 leading-relaxed whitespace-pre-wrap">{note.note_text}</p>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+
+                                  {/* Add note form — staff/mechanic/master/manager only */}
+                                  {(isStaffOrManager(effectiveRole) || isMasterRole(effectiveRole)) && (
+                                    <div className="bg-slate-800/50 rounded-lg p-3 space-y-2">
+                                      <div className="flex gap-2">
+                                        <select
+                                          value={newNoteType[request.id] || 'general'}
+                                          onChange={e => setNewNoteType(prev => ({ ...prev, [request.id]: e.target.value }))}
+                                          className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-orange-500 shrink-0"
+                                        >
+                                          <option value="general">General Note</option>
+                                          <option value="issue_found">Issue Found</option>
+                                          <option value="resolved">Resolved</option>
+                                          <option value="work_order_needed">Work Order Needed</option>
+                                        </select>
+                                        <label className="flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer select-none">
+                                          <input
+                                            type="checkbox"
+                                            checked={newNoteInternal[request.id] ?? false}
+                                            onChange={e => setNewNoteInternal(prev => ({ ...prev, [request.id]: e.target.checked }))}
+                                            className="accent-orange-500"
+                                          />
+                                          Internal only
+                                        </label>
+                                      </div>
+                                      <textarea
+                                        value={newNoteText[request.id] || ''}
+                                        onChange={e => setNewNoteText(prev => ({ ...prev, [request.id]: e.target.value }))}
+                                        placeholder="Add a note..."
+                                        rows={2}
+                                        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 resize-none"
+                                      />
+                                      <button
+                                        onClick={() => submitRepairNote(request.id)}
+                                        disabled={notesSubmitting[request.id] || !(newNoteText[request.id] || '').trim()}
+                                        className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                                      >
+                                        {notesSubmitting[request.id] ? 'Saving...' : 'Add Note'}
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           )}
                         </div>
                       </div>
