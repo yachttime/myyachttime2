@@ -7619,6 +7619,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       const endDate = new Date(booking.end_date.slice(0, 10) + 'T00:00:00');
       startDate.setHours(0, 0, 0, 0); endDate.setHours(0, 0, 0, 0);
       const check = new Date(dateForCheck); check.setHours(0, 0, 0, 0);
+      const isDeparture = check.getTime() === startDate.getTime();
       const col = getEventColor(booking, isDeparture);
       const name = getBookingDisplayName(booking) || '';
       const yachtName = booking.is_appointment ? (booking.yachts?.name || 'Appointment') : (booking.yachts?.name || 'Yacht');
