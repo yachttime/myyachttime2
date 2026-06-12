@@ -155,16 +155,31 @@ export const SignIn = () => {
   const sendPasswordReset = async (emailAddress: string) => {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-    const res = await fetch(`${supabaseUrl}/functions/v1/send-password-reset`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${supabaseAnonKey}`,
-      },
-      body: JSON.stringify({ email: emailAddress }),
-    });
-    if (!res.ok) {
-      console.error('Password reset error:', await res.text());
+
+    // Try the custom edge function first (sends branded Resend email)
+    try {
+      const res = await fetch(`${supabaseUrl}/functions/v1/send-password-reset`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+        },
+        body: JSON.stringify({ email: emailAddress }),
+      });
+      if (res.ok) return;
+      const errText = await res.text();
+      console.error('Password reset edge function failed, using direct fallback:', errText);
+    } catch (err) {
+      console.error('Password reset edge function error, using direct fallback:', err);
+    }
+
+    // Direct fallback: use Supabase client SDK so owners always get a reset email
+    // even if the edge function is unavailable
+    const { error } = await supabase.auth.resetPasswordForEmail(
+      emailAddress.toLowerCase().trim(),
+      { redirectTo: window.location.origin }
+    );
+    if (error) {
       throw new Error('Unable to send password reset email. Please contact support or verify your email address is correct.');
     }
   };

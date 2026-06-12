@@ -30,15 +30,34 @@ Deno.serve(async (req: Request) => {
     const normalizedEmail = email.toLowerCase().trim();
     const siteUrl = Deno.env.get('SITE_URL') ?? 'https://myyachttime.com';
 
-    const { data: usersPage1 } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-    const authUser = usersPage1?.users?.find(u => u.email?.toLowerCase() === normalizedEmail);
+    // Look up user via user_profiles to get their user_id — avoids paginating
+    // the entire auth.users list (which breaks when there are >1000 users).
+    const { data: profile } = await supabaseAdmin
+      .from('user_profiles')
+      .select('user_id, first_name, last_name')
+      .eq('email', normalizedEmail)
+      .maybeSingle();
 
-    if (!authUser) {
+    if (!profile?.user_id) {
+      // Return success to prevent email enumeration
       return new Response(
         JSON.stringify({ success: true }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    const { data: userData, error: userError } = await supabaseAdmin.auth.admin.getUserById(profile.user_id);
+
+    if (userError || !userData?.user?.email) {
+      console.error('Error fetching auth user by id:', userError);
+      // Still return success — client falls back to its own reset flow
+      return new Response(
+        JSON.stringify({ success: true }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const authUser = userData.user;
 
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'recovery',
@@ -55,15 +74,9 @@ Deno.serve(async (req: Request) => {
 
     const resetLink = linkData.properties.action_link;
 
-    const { data: profile } = await supabaseAdmin
-      .from('user_profiles')
-      .select('first_name, last_name')
-      .eq('user_id', authUser.id)
-      .maybeSingle();
-
-    const firstName = profile?.first_name ?? '';
-    const lastName = profile?.last_name ?? '';
-    const displayName = [firstName, lastName].filter(Boolean).join(' ') || email;
+    const firstName = profile.first_name ?? '';
+    const lastName = profile.last_name ?? '';
+    const displayName = [firstName, lastName].filter(Boolean).join(' ') || normalizedEmail;
 
     const resendApiKey = Deno.env.get('RESEND_API_KEY') ?? '';
     const fromEmail = Deno.env.get('RESEND_FROM_EMAIL') ?? 'noreply@myyachttime.com';
