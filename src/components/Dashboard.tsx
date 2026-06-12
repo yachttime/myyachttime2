@@ -7532,13 +7532,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         // Yacht bookings count as customer activities
       }
 
-      // Parse dates in local timezone to avoid timezone offset issues
-      // Only add time component if the date string doesn't already have one
-      const startDateStr = booking.start_date.includes('T') ? booking.start_date : booking.start_date + 'T00:00:00';
-      const endDateStr = booking.end_date.includes('T') ? booking.end_date : booking.end_date + 'T00:00:00';
+      // Extract just the date portion (YYYY-MM-DD) and parse as local midnight to avoid UTC offset shifting the day
+      const startDay = booking.start_date.slice(0, 10);
+      const endDay = booking.end_date.slice(0, 10);
 
-      const startDate = new Date(startDateStr);
-      const endDate = new Date(endDateStr);
+      const startDate = new Date(startDay + 'T00:00:00');
+      const endDate = new Date(endDay + 'T00:00:00');
       const checkDate = new Date(date);
       checkDate.setHours(0, 0, 0, 0);
       startDate.setHours(0, 0, 0, 0);
@@ -7549,10 +7548,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       // Sort by time - earliest time first
       const getTimeValue = (booking: any) => {
         // Determine if this is a departure or arrival for the given date
-        const startDateStr = booking.start_date.includes('T') ? booking.start_date : booking.start_date + 'T00:00:00';
-        const endDateStr = booking.end_date.includes('T') ? booking.end_date : booking.end_date + 'T00:00:00';
-        const startDate = new Date(startDateStr);
-        const endDate = new Date(endDateStr);
+        const startDate = new Date(booking.start_date.slice(0, 10) + 'T00:00:00');
+        const endDate = new Date(booking.end_date.slice(0, 10) + 'T00:00:00');
         const checkDate = new Date(date);
         checkDate.setHours(0, 0, 0, 0);
         startDate.setHours(0, 0, 0, 0);
@@ -7618,11 +7615,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     };
 
     const renderBookingRow = (booking: any, dateForCheck: Date) => {
-      const startDate = new Date(booking.start_date.includes('T') ? booking.start_date : booking.start_date + 'T00:00:00');
-      const endDate = new Date(booking.end_date.includes('T') ? booking.end_date : booking.end_date + 'T00:00:00');
+      const startDate = new Date(booking.start_date.slice(0, 10) + 'T00:00:00');
+      const endDate = new Date(booking.end_date.slice(0, 10) + 'T00:00:00');
       startDate.setHours(0, 0, 0, 0); endDate.setHours(0, 0, 0, 0);
       const check = new Date(dateForCheck); check.setHours(0, 0, 0, 0);
-      const isDeparture = check.getTime() === startDate.getTime();
       const col = getEventColor(booking, isDeparture);
       const name = getBookingDisplayName(booking) || '';
       const yachtName = booking.is_appointment ? (booking.yachts?.name || 'Appointment') : (booking.yachts?.name || 'Yacht');
@@ -7633,11 +7629,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           : `Arr: ${convertTo12Hour(booking.arrival_time)}`;
 
       const startFormatted = booking.is_appointment ? (() => {
-        const d = new Date(booking.start_date.includes('T') ? booking.start_date : booking.start_date + 'T00:00:00');
+        const d = new Date(booking.start_date.slice(0, 10) + 'T00:00:00');
         return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
       })() : (() => {
-        const s = new Date(booking.start_date.includes('T') ? booking.start_date : booking.start_date + 'T00:00:00');
-        const e = new Date(booking.end_date.includes('T') ? booking.end_date : booking.end_date + 'T00:00:00');
+        const s = new Date(booking.start_date.slice(0, 10) + 'T00:00:00');
+        const e = new Date(booking.end_date.slice(0, 10) + 'T00:00:00');
         return `${s.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} &rarr; ${e.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
       })();
 
@@ -7701,8 +7697,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         const dayBg = isToday ? '#134e4a' : '#0f172a';
         const dayColor = isToday ? '#2dd4bf' : '#94a3b8';
         const events = bookings.map((booking: any) => {
-          const startDate = new Date(booking.start_date.includes('T') ? booking.start_date : booking.start_date + 'T00:00:00');
-          const endDate = new Date(booking.end_date.includes('T') ? booking.end_date : booking.end_date + 'T00:00:00');
+          const startDate = new Date(booking.start_date.slice(0, 10) + 'T00:00:00');
+          const endDate = new Date(booking.end_date.slice(0, 10) + 'T00:00:00');
           startDate.setHours(0, 0, 0, 0); endDate.setHours(0, 0, 0, 0);
           const check = new Date(date); check.setHours(0, 0, 0, 0);
           const isDeparture = check.getTime() === startDate.getTime();
@@ -18204,10 +18200,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                       </div>
                                       <div className="space-y-1">
                                         {bookings.slice(0, 2).map((booking: any) => {
-                                          const startDateStr = booking.start_date.includes('T') ? booking.start_date : booking.start_date + 'T00:00:00';
-                                          const endDateStr = booking.end_date.includes('T') ? booking.end_date : booking.end_date + 'T00:00:00';
-                                          const startDate = new Date(startDateStr);
-                                          const endDate = new Date(endDateStr);
+                                          const startDate = new Date(booking.start_date.slice(0, 10) + 'T00:00:00');
+                                          const endDate = new Date(booking.end_date.slice(0, 10) + 'T00:00:00');
                                           startDate.setHours(0, 0, 0, 0);
                                           endDate.setHours(0, 0, 0, 0);
                                           const checkDate = new Date(date!);
@@ -18299,10 +18293,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   </div>
                                   <div className="p-2 min-h-[400px] space-y-2">
                                     {bookings.map((booking: any) => {
-                                      const startDateStr = booking.start_date.includes('T') ? booking.start_date : booking.start_date + 'T00:00:00';
-                                      const endDateStr = booking.end_date.includes('T') ? booking.end_date : booking.end_date + 'T00:00:00';
-                                      const startDate = new Date(startDateStr);
-                                      const endDate = new Date(endDateStr);
+                                      const startDate = new Date(booking.start_date.slice(0, 10) + 'T00:00:00');
+                                      const endDate = new Date(booking.end_date.slice(0, 10) + 'T00:00:00');
                                       startDate.setHours(0, 0, 0, 0);
                                       endDate.setHours(0, 0, 0, 0);
                                       const checkDate = new Date(date);
@@ -18392,10 +18384,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 </div>
                               ) : (
                                 bookings.map((booking: any) => {
-                                  const startDateStr = booking.start_date.includes('T') ? booking.start_date : booking.start_date + 'T00:00:00';
-                                  const endDateStr = booking.end_date.includes('T') ? booking.end_date : booking.end_date + 'T00:00:00';
-                                  const startDate = new Date(startDateStr);
-                                  const endDate = new Date(endDateStr);
+                                  const startDate = new Date(booking.start_date.slice(0, 10) + 'T00:00:00');
+                                  const endDate = new Date(booking.end_date.slice(0, 10) + 'T00:00:00');
                                   startDate.setHours(0, 0, 0, 0);
                                   endDate.setHours(0, 0, 0, 0);
                                   const checkDate = new Date(currentDate);
