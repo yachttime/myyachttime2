@@ -10,6 +10,8 @@ const corsHeaders = {
 // QB account number for Marina Surcharge expense (6344.00 Marina Surcharge)
 const MARINA_SURCHARGE_ACCOUNT_NAME = 'Marina Surcharge';
 const MARINA_VENDOR_NAME = 'Antelope Point Marina';
+// Fallback vendor name used when the primary name is taken by a non-Vendor entity (e.g., a Customer)
+const MARINA_VENDOR_NAME_FALLBACK = 'Antelope Point Marina (Vendor)';
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -181,28 +183,49 @@ Deno.serve(async (req: Request) => {
           throw new Error('QuickBooks authorization has expired. Please reconnect your QuickBooks account.');
         }
 
-        // If vendor already exists (duplicate name), extract its Id from the error and use it
+        // If vendor already exists (duplicate name), the existing entity may be a Customer or Employee —
+        // NOT necessarily a Vendor. Do NOT use the Id from the error because it may be the wrong type.
+        // Instead, search explicitly for a Vendor with that name; if none found, create with fallback name.
         const errorText = createVendorResult.errorText || '';
         const isDuplicate = errorText.includes('6240') || errorText.toLowerCase().includes('duplicate name');
         if (isDuplicate) {
-          const idMatch = errorText.match(/Id=(\d+)/);
-          if (idMatch) {
-            vendorId = idMatch[1];
-            console.log(`[SurchargePush] Vendor already exists with Id=${vendorId}, using existing`);
+          // The primary name is taken by a non-Vendor entity; try the fallback vendor name
+          console.log(`[SurchargePush] Primary vendor name taken by non-Vendor entity; trying fallback: ${MARINA_VENDOR_NAME_FALLBACK}`);
+
+          // First check if fallback vendor already exists
+          const fallbackSearchResult = await makeQuickBooksAPICall({
+            url: `https://quickbooks.api.intuit.com/v3/company/${connection.realm_id}/query?query=${encodeURIComponent(`SELECT * FROM Vendor WHERE DisplayName = '${MARINA_VENDOR_NAME_FALLBACK}'`)}`,
+            method: 'GET',
+            accessToken,
+            requestType: 'search_vendor_marina_fallback',
+            companyId: profile.company_id,
+            connectionId: connection.id,
+            supabaseUrl,
+            serviceRoleKey,
+          });
+
+          if (fallbackSearchResult.success && fallbackSearchResult.data?.QueryResponse?.Vendor?.length > 0) {
+            vendorId = fallbackSearchResult.data.QueryResponse.Vendor[0].Id;
+            console.log(`[SurchargePush] Found existing fallback vendor with Id=${vendorId}`);
           } else {
-            // Fallback: search again since we know it exists now
-            const retrySearch = await makeQuickBooksAPICall({
-              url: `https://quickbooks.api.intuit.com/v3/company/${connection.realm_id}/query?query=${encodeURIComponent(`SELECT * FROM Vendor WHERE DisplayName = '${MARINA_VENDOR_NAME}'`)}`,
-              method: 'GET',
+            // Create vendor with fallback name
+            const createFallbackResult = await makeQuickBooksAPICall({
+              url: `https://quickbooks.api.intuit.com/v3/company/${connection.realm_id}/vendor`,
+              method: 'POST',
               accessToken,
-              requestType: 'search_vendor_marina_retry',
+              body: { DisplayName: MARINA_VENDOR_NAME_FALLBACK },
+              requestType: 'create_vendor_marina_fallback',
               companyId: profile.company_id,
               connectionId: connection.id,
               supabaseUrl,
               serviceRoleKey,
             });
-            if (retrySearch.success && retrySearch.data?.QueryResponse?.Vendor?.length > 0) {
-              vendorId = retrySearch.data.QueryResponse.Vendor[0].Id;
+
+            if (createFallbackResult.success) {
+              vendorId = createFallbackResult.data.Vendor?.Id;
+              console.log(`[SurchargePush] Created fallback vendor with Id=${vendorId}`);
+            } else {
+              throw new Error(`Failed to create vendor in QuickBooks: ${createFallbackResult.errorText}`);
             }
           }
         }

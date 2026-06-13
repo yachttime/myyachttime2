@@ -169,7 +169,27 @@ export function TaxSurchargeReport({ onClose }: Props) {
         setQbSessionExists(true);
       }
 
-      setQbPushResult(result.message);
+      if (result.failCount > 0 && result.results) {
+        const failedErrors = result.results
+          .filter((r: any) => !r.success)
+          .map((r: any) => `${r.invoiceNumber}: ${r.error}`)
+          .join(' | ');
+        setQbPushError(`${result.message}. Errors: ${failedErrors}`);
+      }
+
+      if (result.successCount > 0) {
+        setQbPushResult(result.message);
+      } else if (result.failCount > 0 && result.successCount === 0) {
+        // All failed — show error instead of success
+        const failedErrors = result.results
+          ?.filter((r: any) => !r.success)
+          .map((r: any) => `${r.invoiceNumber}: ${r.error}`)
+          .join(' | ') || result.message;
+        throw new Error(`All bills failed. ${failedErrors}`);
+      } else {
+        setQbPushResult(result.message);
+      }
+
       // Reload data to reflect pushed state
       await loadReport();
       await loadPushLog();
