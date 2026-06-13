@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { X, Printer, AlertCircle, Calendar, ChevronDown, BookOpen, CheckCircle, Lock } from 'lucide-react';
+import { X, Printer, AlertCircle, Calendar, ChevronDown, BookOpen, CheckCircle, Lock, RefreshCw } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -71,6 +71,8 @@ export function TaxSurchargeReport({ onClose }: Props) {
   const [qbPushResult, setQbPushResult] = useState<string | null>(null);
   const [qbPushError, setQbPushError] = useState<string | null>(null);
   const [pushLog, setPushLog] = useState<PushLog | null>(null);
+  const [qbSyncing, setQbSyncing] = useState(false);
+  const [qbSessionExists, setQbSessionExists] = useState(() => !!localStorage.getItem('quickbooks_encrypted_session'));
 
   useEffect(() => {
     loadCompanyName();
@@ -130,11 +132,12 @@ export function TaxSurchargeReport({ onClose }: Props) {
       // Retrieve encrypted QB session stored in localStorage
       const encryptedSession = localStorage.getItem('quickbooks_encrypted_session');
       if (!encryptedSession) {
+        setQbSessionExists(false);
         throw new Error(
-          'QuickBooks session not found in this browser. ' +
-          'Please go to QuickBooks Settings, click "Sync Accounts" to refresh the session, then try again.'
+          'QuickBooks session not found. Click "Refresh QB Session" below to reconnect.'
         );
       }
+      setQbSessionExists(true);
 
       const month = getSelectedMonth();
       const response = await fetch(
@@ -162,6 +165,7 @@ export function TaxSurchargeReport({ onClose }: Props) {
       // Update encrypted session if it was refreshed
       if (result.encrypted_session) {
         localStorage.setItem('quickbooks_encrypted_session', result.encrypted_session);
+        setQbSessionExists(true);
       }
 
       setQbPushResult(result.message);
@@ -172,6 +176,53 @@ export function TaxSurchargeReport({ onClose }: Props) {
       setQbPushError(err.message || 'Failed to push surcharge bills to QuickBooks');
     } finally {
       setQbPushLoading(false);
+    }
+  }
+
+  async function refreshQBSession() {
+    setQbSyncing(true);
+    setQbPushError(null);
+    setQbPushResult(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      const encryptedSession = localStorage.getItem('quickbooks_encrypted_session');
+      if (!encryptedSession) {
+        throw new Error('No QuickBooks session found. Please go to QuickBooks Settings and reconnect.');
+      }
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/quickbooks-sync-accounts`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ encrypted_session: encryptedSession }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Sync failed');
+      }
+
+      if (result.encrypted_session) {
+        localStorage.setItem('quickbooks_encrypted_session', result.encrypted_session);
+        setQbSessionExists(true);
+        setQbPushResult('QuickBooks session refreshed. You can now push bills.');
+      } else {
+        setQbSessionExists(true);
+        setQbPushResult('QuickBooks session verified. You can now push bills.');
+      }
+    } catch (err: any) {
+      setQbPushError(err.message || 'Failed to refresh QuickBooks session');
+      setQbSessionExists(false);
+    } finally {
+      setQbSyncing(false);
     }
   }
 
@@ -779,37 +830,56 @@ export function TaxSurchargeReport({ onClose }: Props) {
                 </div>
               </div>
 
-              {pushLog ? (
-                <div className="flex items-center gap-2 px-4 py-2 bg-green-100 border border-green-300 rounded-lg flex-shrink-0">
-                  <Lock className="w-4 h-4 text-green-700" />
-                  <div className="text-right">
-                    <p className="text-xs font-semibold text-green-800">
-                      Pushed {new Date(pushLog.pushed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </p>
-                    <p className="text-xs text-green-700">
-                      {pushLog.invoice_count} bill{pushLog.invoice_count !== 1 ? 's' : ''} · ${Number(pushLog.total_amount).toFixed(2)}
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  onClick={handlePushToQB}
-                  disabled={qbPushLoading || rows.filter(r => (r.surcharge_amount || 0) > 0 && !r.qb_surcharge_bill_id).length === 0}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium flex-shrink-0 transition-colors"
-                >
-                  {qbPushLoading ? (
-                    <>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {/* Session status + refresh */}
+                {!qbSessionExists && (
+                  <button
+                    onClick={refreshQBSession}
+                    disabled={qbSyncing}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-50 text-sm font-medium transition-colors"
+                    title="Sync accounts to refresh your QuickBooks session"
+                  >
+                    {qbSyncing ? (
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-                      Pushing...
-                    </>
-                  ) : (
-                    <>
-                      <BookOpen className="w-4 h-4" />
-                      Push {rows.filter(r => (r.surcharge_amount || 0) > 0 && !r.qb_surcharge_bill_id).length} Bills to QB
-                    </>
-                  )}
-                </button>
-              )}
+                    ) : (
+                      <RefreshCw className="w-4 h-4" />
+                    )}
+                    {qbSyncing ? 'Refreshing...' : 'Refresh QB Session'}
+                  </button>
+                )}
+
+                {pushLog ? (
+                  <div className="flex items-center gap-2 px-4 py-2 bg-green-100 border border-green-300 rounded-lg">
+                    <Lock className="w-4 h-4 text-green-700" />
+                    <div className="text-right">
+                      <p className="text-xs font-semibold text-green-800">
+                        Pushed {new Date(pushLog.pushed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </p>
+                      <p className="text-xs text-green-700">
+                        {pushLog.invoice_count} bill{pushLog.invoice_count !== 1 ? 's' : ''} · ${Number(pushLog.total_amount).toFixed(2)}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handlePushToQB}
+                    disabled={qbPushLoading || rows.filter(r => (r.surcharge_amount || 0) > 0 && !r.qb_surcharge_bill_id).length === 0}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors"
+                  >
+                    {qbPushLoading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                        Pushing...
+                      </>
+                    ) : (
+                      <>
+                        <BookOpen className="w-4 h-4" />
+                        Push {rows.filter(r => (r.surcharge_amount || 0) > 0 && !r.qb_surcharge_bill_id).length} Bills to QB
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
             </div>
 
             {qbPushResult && (
@@ -821,7 +891,17 @@ export function TaxSurchargeReport({ onClose }: Props) {
             {qbPushError && (
               <div className="flex items-center gap-2 mt-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
                 <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                {qbPushError}
+                <span>{qbPushError}</span>
+                {!qbSessionExists && (
+                  <button
+                    onClick={refreshQBSession}
+                    disabled={qbSyncing}
+                    className="ml-auto flex items-center gap-1 px-2 py-1 bg-amber-500 text-white rounded text-xs hover:bg-amber-600 disabled:opacity-50 whitespace-nowrap"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    {qbSyncing ? 'Refreshing...' : 'Refresh Session'}
+                  </button>
+                )}
               </div>
             )}
           </div>
