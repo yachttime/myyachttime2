@@ -313,6 +313,7 @@ export const SignIn = () => {
               src={welcomeVideo.video_url}
               className="w-full h-full object-contain"
               autoPlay
+              muted
               playsInline
               poster={welcomeVideo.thumbnail_url || undefined}
               onEnded={handleVideoEnded}
