@@ -130,7 +130,10 @@ export function TaxSurchargeReport({ onClose }: Props) {
       // Retrieve encrypted QB session stored in localStorage
       const encryptedSession = localStorage.getItem('quickbooks_encrypted_session');
       if (!encryptedSession) {
-        throw new Error('No active QuickBooks session. Please go to QuickBooks Settings and reconnect.');
+        throw new Error(
+          'QuickBooks session not found in this browser. ' +
+          'Please go to QuickBooks Settings, click "Sync Accounts" to refresh the session, then try again.'
+        );
       }
 
       const month = getSelectedMonth();
