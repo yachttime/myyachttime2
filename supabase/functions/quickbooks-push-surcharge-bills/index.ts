@@ -180,9 +180,39 @@ Deno.serve(async (req: Request) => {
             .eq('id', connection.id);
           throw new Error('QuickBooks authorization has expired. Please reconnect your QuickBooks account.');
         }
-        throw new Error(`Failed to create vendor "${MARINA_VENDOR_NAME}" in QuickBooks: ${createVendorResult.errorText}`);
+
+        // If vendor already exists (duplicate name), extract its Id from the error and use it
+        const errorText = createVendorResult.errorText || '';
+        const isDuplicate = errorText.includes('6240') || errorText.toLowerCase().includes('duplicate name');
+        if (isDuplicate) {
+          const idMatch = errorText.match(/Id=(\d+)/);
+          if (idMatch) {
+            vendorId = idMatch[1];
+            console.log(`[SurchargePush] Vendor already exists with Id=${vendorId}, using existing`);
+          } else {
+            // Fallback: search again since we know it exists now
+            const retrySearch = await makeQuickBooksAPICall({
+              url: `https://quickbooks.api.intuit.com/v3/company/${connection.realm_id}/query?query=${encodeURIComponent(`SELECT * FROM Vendor WHERE DisplayName = '${MARINA_VENDOR_NAME}'`)}`,
+              method: 'GET',
+              accessToken,
+              requestType: 'search_vendor_marina_retry',
+              companyId: profile.company_id,
+              connectionId: connection.id,
+              supabaseUrl,
+              serviceRoleKey,
+            });
+            if (retrySearch.success && retrySearch.data?.QueryResponse?.Vendor?.length > 0) {
+              vendorId = retrySearch.data.QueryResponse.Vendor[0].Id;
+            }
+          }
+        }
+
+        if (!vendorId) {
+          throw new Error(`Failed to create vendor "${MARINA_VENDOR_NAME}" in QuickBooks: ${errorText}`);
+        }
+      } else {
+        vendorId = createVendorResult.data.Vendor?.Id;
       }
-      vendorId = createVendorResult.data.Vendor?.Id;
     }
 
     if (!vendorId) throw new Error('Unable to determine QuickBooks vendor ID for Antelope Point Marina');
