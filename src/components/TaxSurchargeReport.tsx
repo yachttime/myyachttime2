@@ -128,7 +128,7 @@ export function TaxSurchargeReport({ onClose }: Props) {
       if (!session) throw new Error('Not authenticated');
 
       // Retrieve encrypted QB session stored in localStorage
-      const encryptedSession = localStorage.getItem('qb_encrypted_session');
+      const encryptedSession = localStorage.getItem('quickbooks_encrypted_session');
       if (!encryptedSession) {
         throw new Error('No active QuickBooks session. Please go to QuickBooks Settings and reconnect.');
       }
@@ -158,7 +158,7 @@ export function TaxSurchargeReport({ onClose }: Props) {
 
       // Update encrypted session if it was refreshed
       if (result.encrypted_session) {
-        localStorage.setItem('qb_encrypted_session', result.encrypted_session);
+        localStorage.setItem('quickbooks_encrypted_session', result.encrypted_session);
       }
 
       setQbPushResult(result.message);
