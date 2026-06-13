@@ -375,9 +375,9 @@ export default function QuickBooksAccountMapping() {
         throw new Error(result.error || 'Failed to sync QuickBooks accounts');
       }
 
-      // Update encrypted session if token was refreshed
-      if (result.encrypted_session && result.encrypted_session !== encryptedSession) {
-        console.log('[QuickBooks] Token was refreshed, updating encrypted session');
+      // Always persist the returned session so other components can use it
+      if (result.encrypted_session) {
+        console.log('[QuickBooks] Persisting encrypted session after sync');
         setEncryptedSession(result.encrypted_session);
         localStorage.setItem('quickbooks_encrypted_session', result.encrypted_session);
       }
