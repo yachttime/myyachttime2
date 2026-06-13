@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { X, Printer, AlertCircle, Calendar, ChevronDown } from 'lucide-react';
+import { X, Printer, AlertCircle, Calendar, ChevronDown, BookOpen, CheckCircle, Lock } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -21,6 +21,15 @@ interface ReportRow {
   total_amount: number;
   paid_at: string | null;
   check_number: string | null;
+  qb_surcharge_bill_id: string | null;
+  qb_surcharge_bill_date: string | null;
+}
+
+interface PushLog {
+  month: string;
+  pushed_at: string;
+  invoice_count: number;
+  total_amount: number;
 }
 
 interface LaborRow {
@@ -58,6 +67,10 @@ export function TaxSurchargeReport({ onClose }: Props) {
   const [presetPercent, setPresetPercent] = useState<string>('');
   const [companyName, setCompanyName] = useState('');
   const printRef = useRef<HTMLDivElement>(null);
+  const [qbPushLoading, setQbPushLoading] = useState(false);
+  const [qbPushResult, setQbPushResult] = useState<string | null>(null);
+  const [qbPushError, setQbPushError] = useState<string | null>(null);
+  const [pushLog, setPushLog] = useState<PushLog | null>(null);
 
   useEffect(() => {
     loadCompanyName();
@@ -69,6 +82,11 @@ export function TaxSurchargeReport({ onClose }: Props) {
     } else {
       loadReport();
     }
+    if (reportType === 'surcharge') {
+      loadPushLog();
+    } else {
+      setPushLog(null);
+    }
   }, [dateFrom, dateTo, reportType]);
 
   async function loadCompanyName() {
@@ -79,6 +97,81 @@ export function TaxSurchargeReport({ onClose }: Props) {
     if (data?.company_name) setCompanyName(data.company_name);
   }
 
+  // Derive the month key from the dateFrom (YYYY-MM)
+  function getSelectedMonth(): string {
+    return dateFrom.slice(0, 7);
+  }
+
+  async function loadPushLog() {
+    const month = dateFrom.slice(0, 7);
+    const { data } = await supabase
+      .from('qb_surcharge_push_log')
+      .select('month, pushed_at, invoice_count, total_amount')
+      .eq('month', month)
+      .maybeSingle();
+    setPushLog(data || null);
+  }
+
+  async function handlePushToQB() {
+    const surchargeRows = rows.filter(r => (r.surcharge_amount || 0) > 0 && !r.qb_surcharge_bill_id);
+    if (surchargeRows.length === 0) {
+      setQbPushError('No unpushed surcharge bills to push for this month.');
+      return;
+    }
+
+    setQbPushLoading(true);
+    setQbPushResult(null);
+    setQbPushError(null);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      // Retrieve encrypted QB session stored in localStorage
+      const encryptedSession = localStorage.getItem('qb_encrypted_session');
+      if (!encryptedSession) {
+        throw new Error('No active QuickBooks session. Please go to QuickBooks Settings and reconnect.');
+      }
+
+      const month = getSelectedMonth();
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/quickbooks-push-surcharge-bills`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            invoiceIds: surchargeRows.map(r => r.id),
+            encrypted_session: encryptedSession,
+            month,
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to push surcharge bills');
+      }
+
+      // Update encrypted session if it was refreshed
+      if (result.encrypted_session) {
+        localStorage.setItem('qb_encrypted_session', result.encrypted_session);
+      }
+
+      setQbPushResult(result.message);
+      // Reload data to reflect pushed state
+      await loadReport();
+      await loadPushLog();
+    } catch (err: any) {
+      setQbPushError(err.message || 'Failed to push surcharge bills to QuickBooks');
+    } finally {
+      setQbPushLoading(false);
+    }
+  }
+
   async function loadReport() {
     try {
       setLoading(true);
@@ -86,7 +179,7 @@ export function TaxSurchargeReport({ onClose }: Props) {
 
       const { data, error: fetchError } = await supabase
         .from('estimating_invoices')
-        .select('id, invoice_number, customer_name, customer_email, customer_phone, invoice_date, payment_status, tax_amount, tax_rate, subtotal, shop_supplies_amount, park_fees_amount, surcharge_amount, total_amount, paid_at, check_number')
+        .select('id, invoice_number, customer_name, customer_email, customer_phone, invoice_date, payment_status, tax_amount, tax_rate, subtotal, shop_supplies_amount, park_fees_amount, surcharge_amount, total_amount, paid_at, check_number, qb_surcharge_bill_id, qb_surcharge_bill_date')
         .gte('invoice_date', dateFrom)
         .lte('invoice_date', dateTo)
         .order('invoice_date', { ascending: true });
@@ -668,6 +761,69 @@ export function TaxSurchargeReport({ onClose }: Props) {
           </div>
         </div>
 
+        {/* QB Surcharge Push Panel — only shown on Surcharge report */}
+        {reportType === 'surcharge' && (
+          <div className="px-6 py-3 border-b border-gray-100 bg-blue-50">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <BookOpen className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-blue-900">Push to QuickBooks — Antelope Point Marina Bills</p>
+                  <p className="text-xs text-blue-600 mt-0.5">
+                    Creates individual expense bills in QB for each surcharge, posted to account 6344.00 Marina Surcharge.
+                    Each month can only be pushed once.
+                  </p>
+                </div>
+              </div>
+
+              {pushLog ? (
+                <div className="flex items-center gap-2 px-4 py-2 bg-green-100 border border-green-300 rounded-lg flex-shrink-0">
+                  <Lock className="w-4 h-4 text-green-700" />
+                  <div className="text-right">
+                    <p className="text-xs font-semibold text-green-800">
+                      Pushed {new Date(pushLog.pushed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </p>
+                    <p className="text-xs text-green-700">
+                      {pushLog.invoice_count} bill{pushLog.invoice_count !== 1 ? 's' : ''} · ${Number(pushLog.total_amount).toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={handlePushToQB}
+                  disabled={qbPushLoading || rows.filter(r => (r.surcharge_amount || 0) > 0 && !r.qb_surcharge_bill_id).length === 0}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium flex-shrink-0 transition-colors"
+                >
+                  {qbPushLoading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                      Pushing...
+                    </>
+                  ) : (
+                    <>
+                      <BookOpen className="w-4 h-4" />
+                      Push {rows.filter(r => (r.surcharge_amount || 0) > 0 && !r.qb_surcharge_bill_id).length} Bills to QB
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+
+            {qbPushResult && (
+              <div className="flex items-center gap-2 mt-2 text-sm text-green-700 bg-green-100 border border-green-200 rounded-lg px-3 py-2">
+                <CheckCircle className="w-4 h-4 flex-shrink-0" />
+                {qbPushResult}
+              </div>
+            )}
+            {qbPushError && (
+              <div className="flex items-center gap-2 mt-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                {qbPushError}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="flex-1 overflow-auto" ref={printRef}>
           {loading ? (
             <div className="flex items-center justify-center py-20">
@@ -826,6 +982,9 @@ export function TaxSurchargeReport({ onClose }: Props) {
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Paid Date</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Check #</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Invoice #</th>
+                  {reportType === 'surcharge' && (
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">QB Bill</th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -847,6 +1006,21 @@ export function TaxSurchargeReport({ onClose }: Props) {
                     <td className="px-4 py-3 text-sm text-gray-600"></td>
                     <td className="px-4 py-3 text-sm text-gray-600"></td>
                     <td className="px-4 py-3 text-sm text-gray-600"></td>
+                    {reportType === 'surcharge' && (
+                      <td className="px-4 py-3 text-center">
+                        {row.qb_surcharge_bill_id ? (
+                          <span
+                            title={`QB Bill #${row.qb_surcharge_bill_id}${row.qb_surcharge_bill_date ? ' · ' + new Date(row.qb_surcharge_bill_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}`}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"
+                          >
+                            <CheckCircle className="w-3.5 h-3.5" />
+                            Pushed
+                          </span>
+                        ) : (
+                          <span className="text-gray-300 text-sm">—</span>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
