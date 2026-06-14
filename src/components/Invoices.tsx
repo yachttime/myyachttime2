@@ -2023,6 +2023,8 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       if (!result.success) throw new Error(result.error || 'Failed to send email');
       setToast({ message: `Surcharge notification sent to ${companySurchargeManagerEmail}`, type: 'success' });
       await fetchInvoices();
+      const { data: fresh } = await supabase.from('estimating_invoices').select('*, work_orders!estimating_invoices_work_order_id_fkey(work_order_number), yachts!estimating_invoices_yacht_id_fkey(name)').eq('id', invoice.id).maybeSingle();
+      if (fresh) setSelectedInvoice({ ...fresh, work_order_number: fresh.work_orders?.work_order_number, yacht_name: fresh.yachts?.name });
     } catch (err: any) {
       setToast({ message: err.message || 'Failed to send surcharge email', type: 'error' });
     } finally {
