@@ -14303,9 +14303,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                         setSelectedOwnerUserId(selectedUser?.user_id || null);
                                       }
                                     }}
-                                    className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-green-500"
+                                    className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-green-500"
                                   >
-                                    <option value="">Select an owner</option>
+                                    <option value="" className="bg-slate-800 text-white">Select an owner</option>
                                     {(() => {
                                       const usersByYacht: { [key: string]: typeof allUsers } = {};
                                       const usersWithoutYacht: typeof allUsers = [];
@@ -14332,11 +14332,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                           {Object.entries(usersByYacht)
                                             .sort(([a], [b]) => a.localeCompare(b))
                                             .map(([yachtName, users]) => (
-                                              <optgroup key={yachtName} label={yachtName}>
+                                              <optgroup key={yachtName} label={yachtName} className="bg-slate-800 text-slate-300">
                                                 {users.map((user) => {
                                                   const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
                                                   return fullName ? (
-                                                    <option key={user.id} value={fullName}>
+                                                    <option key={user.id} value={fullName} className="bg-slate-800 text-white">
                                                       {fullName}
                                                     </option>
                                                   ) : null;
@@ -14344,11 +14344,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                               </optgroup>
                                             ))}
                                           {usersWithoutYacht.length > 0 && (
-                                            <optgroup label="Unassigned">
+                                            <optgroup label="Unassigned" className="bg-slate-800 text-slate-300">
                                               {usersWithoutYacht.map((user) => {
                                                 const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
                                                 return fullName ? (
-                                                  <option key={user.id} value={fullName}>
+                                                  <option key={user.id} value={fullName} className="bg-slate-800 text-white">
                                                     {fullName}
                                                   </option>
                                                 ) : null;
