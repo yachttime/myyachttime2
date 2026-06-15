@@ -2661,12 +2661,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             .from('work_order_tasks')
             .select('*')
             .eq('work_order_id', inv.work_order_id)
-            .order('sort_order', { ascending: true }),
+            .order('task_order', { ascending: true }),
           supabase
             .from('work_order_line_items')
             .select('*')
             .eq('work_order_id', inv.work_order_id)
-            .order('sort_order', { ascending: true }),
+            .order('line_order', { ascending: true }),
         ]);
 
         const tasks = tasksResult.data || [];
