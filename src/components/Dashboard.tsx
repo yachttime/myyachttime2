@@ -7121,6 +7121,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         task_type: 'repair_request',
         company_id: userProfile?.company_id,
         repair_request_id: repairToTaskRequest.id,
+        photo_url: repairToTaskRequest.file_url || null,
       });
       if (error) throw error;
       // Mark this repair request as having a task so the button updates immediately

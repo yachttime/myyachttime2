@@ -37,6 +37,7 @@ interface DailyTask {
   task_date: string;
   task_type: string;
   appointment_id: string | null;
+  photo_url?: string | null;
   created_at: string;
   assigned_to_profile?: { first_name: string | null; last_name: string | null };
   assigned_by_profile?: { first_name: string | null; last_name: string | null };
@@ -530,6 +531,9 @@ export function DailyTasksView() {
         });
         card += `</div>`;
       }
+      if (t.photo_url) {
+        card += `<div style="margin-top:8px;margin-left:26px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#6b7280;margin-bottom:4px;">Photo</div><img src="${t.photo_url}" style="max-width:100%;max-height:220px;border-radius:6px;border:1px solid #e5e7eb;display:block;" /></div>`;
+      }
       card += `</div>`;
       return card;
     };
@@ -937,6 +941,17 @@ export function DailyTasksView() {
                       <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
                         <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-1">Assignment Notes</p>
                         <p className="text-sm text-gray-800 whitespace-pre-wrap">{task.admin_notes}</p>
+                      </div>
+                    )}
+
+                    {task.photo_url && (
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                        <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Photo</p>
+                        <img
+                          src={task.photo_url}
+                          alt="Repair photo"
+                          className="max-h-64 rounded-lg border border-gray-300 object-contain"
+                        />
                       </div>
                     )}
 

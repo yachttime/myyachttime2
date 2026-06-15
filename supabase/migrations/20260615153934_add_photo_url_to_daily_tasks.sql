@@ -1,0 +1,1 @@
+ALTER TABLE daily_tasks ADD COLUMN IF NOT EXISTS photo_url text;
