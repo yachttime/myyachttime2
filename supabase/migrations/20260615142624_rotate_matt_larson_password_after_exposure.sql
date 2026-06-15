@@ -1,0 +1,1 @@
+SELECT update_user_password('54596742-2c1b-466c-946e-e3df75522a25', 'Solace2026#MYT');
