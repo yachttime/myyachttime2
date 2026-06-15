@@ -963,12 +963,15 @@ export function generateOwnerTripsPDF(trips: YachtBooking[], yachtName: string):
         .filter((c: any) => c)
         .join(', ');
       ownerContacts = contacts || 'N/A';
+    } else if (trip.owner_name) {
+      ownerNames = trip.owner_name;
+      ownerContacts = trip.owner_contact || (trip.user_profiles ? trip.user_profiles.phone || trip.user_profiles.email || 'N/A' : 'N/A');
     } else if (trip.user_profiles) {
       ownerNames = `${trip.user_profiles.first_name} ${trip.user_profiles.last_name}`;
       ownerContacts = trip.user_profiles.phone || trip.user_profiles.email || 'N/A';
     } else {
-      ownerNames = trip.owner_name || 'N/A';
-      ownerContacts = trip.owner_contact || 'N/A';
+      ownerNames = 'N/A';
+      ownerContacts = 'N/A';
     }
 
     return [
@@ -1094,12 +1097,15 @@ export function generateAllYachtTripsPDF(yachtTripsMap: { yacht: { id: string; n
           .filter((c: any) => c)
           .join(', ');
         ownerContacts = contacts || 'N/A';
+      } else if (trip.owner_name) {
+        ownerNames = trip.owner_name;
+        ownerContacts = trip.owner_contact || (trip.user_profiles ? trip.user_profiles.phone || trip.user_profiles.email || 'N/A' : 'N/A');
       } else if (trip.user_profiles) {
         ownerNames = `${trip.user_profiles.first_name} ${trip.user_profiles.last_name}`;
         ownerContacts = trip.user_profiles.phone || trip.user_profiles.email || 'N/A';
       } else {
-        ownerNames = trip.owner_name || 'N/A';
-        ownerContacts = trip.owner_contact || 'N/A';
+        ownerNames = 'N/A';
+        ownerContacts = 'N/A';
       }
 
       return [tripNumber, ownerNames, ownerContacts, startDate, endDate, timeInfo];
