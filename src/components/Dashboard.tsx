@@ -3671,12 +3671,14 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         .eq('user_id', request.submitted_by)
         .maybeSingle();
 
-      // Get managers for the yacht
+      // Get managers for the yacht — only those with billing approval (same filter as work order send)
       const { data: managers, error: managersError } = await supabase
         .from('user_profiles')
         .select('user_id, first_name, last_name, email')
         .eq('yacht_id', request.yacht_id)
-        .eq('role', 'manager');
+        .eq('role', 'manager')
+        .eq('can_approve_billing', true)
+        .eq('is_active', true);
 
       if (managersError) {
         console.error('Managers error:', managersError);
@@ -3698,6 +3700,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       const { data: { session } } = await supabase.auth.getSession();
 
+      const allEmails = managersWithEmail.map(m => m.email).join(', ');
+
       if (request.estimate_pdf_url || request.estimate_id) {
         const estimateApiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-repair-estimate-email`;
         let successCount = 0;
@@ -3715,6 +3719,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             })
           });
           if (resp.ok) successCount++;
+        }
+        if (successCount > 0) {
+          await supabase.from('repair_requests').update({ notification_recipients: allEmails }).eq('id', request.id);
         }
         showSuccess(`Estimate email with PDF sent to ${successCount} manager(s)`);
         await loadRepairRequests();
@@ -3744,6 +3751,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
         const result = await response.json();
         if (result.success) {
+          await supabase.from('repair_requests').update({ notification_recipients: allEmails }).eq('id', request.id);
           showSuccess(`Notification email successfully sent to ${result.successCount} manager(s)`);
           await loadRepairRequests();
         } else {
