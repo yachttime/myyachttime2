@@ -28,7 +28,7 @@ import CustomerManagement from './CustomerManagement';
 import { CompanyManagement } from './CompanyManagement';
 import SupportTickets from './SupportTickets';
 import { uploadFileToStorage, deleteFileFromStorage, isStorageUrl, UploadProgress, isTokenExpiredError } from '../utils/fileUpload';
-import { generateAllYachtTripsPDF } from '../utils/pdfGenerator';
+import { generateAllYachtTripsPDF, generateEstimatingInvoicePDF } from '../utils/pdfGenerator';
 
 interface DashboardProps {
   onNavigate: (page: 'maintenance' | 'education' | 'staffCalendar') => void;
@@ -2625,6 +2625,49 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     } catch (error) {
       console.error('Error loading engine hour history:', error);
       setYachtEngineHourHistory(prev => ({ ...prev, [yachtId]: [] }));
+    }
+  };
+
+  const handleOpenEstimatingInvoicePDF = async (invoiceId: string) => {
+    try {
+      const [invResult, lineItemsResult, companyResult] = await Promise.all([
+        supabase
+          .from('estimating_invoices')
+          .select('*, work_orders!estimating_invoices_work_order_id_fkey(work_order_number), yachts!estimating_invoices_yacht_id_fkey(name)')
+          .eq('id', invoiceId)
+          .maybeSingle(),
+        supabase
+          .from('estimating_invoice_line_items')
+          .select('*')
+          .eq('invoice_id', invoiceId)
+          .order('sort_order', { ascending: true }),
+        supabase.from('company_info').select('*').maybeSingle(),
+      ]);
+
+      if (!invResult.data) { showError('Invoice not found'); return; }
+
+      const inv = invResult.data;
+      const invoiceForPDF = {
+        ...inv,
+        work_order_number: inv.work_orders?.work_order_number || null,
+        yacht_name: inv.yachts?.name || inv.yacht_name || null,
+      };
+      const lineItems = (lineItemsResult.data || []).map((li: any) => ({
+        line_type: li.line_type || 'labor',
+        description: li.description || '',
+        work_details: li.work_details || null,
+        quantity: Number(li.quantity) || 1,
+        unit_price: Number(li.unit_price) || 0,
+        total_price: Number(li.total_price) || 0,
+        task_name: li.task_name || null,
+      }));
+
+      const pdf = await generateEstimatingInvoicePDF(invoiceForPDF, lineItems, companyResult.data);
+      const pdfUrl = URL.createObjectURL(pdf.output('blob'));
+      window.open(pdfUrl, '_blank');
+    } catch (error) {
+      console.error('Error generating invoice PDF:', error);
+      showError('Failed to generate invoice PDF');
     }
   };
 
@@ -13669,10 +13712,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                 </div>
                                                 <div className="flex flex-col gap-1 shrink-0">
                                                   <button
-                                                    onClick={() => {
-                                                      setPendingEstimatingInvoiceId(inv.id);
-                                                      setActiveTabPersisted('estimating');
-                                                    }}
+                                                    onClick={() => handleOpenEstimatingInvoicePDF(inv.id)}
                                                     className="px-2 py-1 bg-cyan-500/20 text-cyan-400 rounded hover:bg-cyan-500/30 transition-colors flex items-center gap-1 whitespace-nowrap"
                                                   >
                                                     <ExternalLink className="w-3 h-3" />

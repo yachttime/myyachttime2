@@ -2856,3 +2856,241 @@ export function generateFleetTripDatesReportPDF(rows: FleetTripDatesRow[]): jsPD
 
   return doc;
 }
+
+export async function generateEstimatingInvoicePDF(
+  invoice: {
+    invoice_number: string;
+    invoice_date: string;
+    due_date: string;
+    payment_status: string;
+    customer_name: string;
+    customer_email?: string | null;
+    customer_phone?: string | null;
+    yacht_name?: string | null;
+    work_order_number?: string | null;
+    subtotal: number;
+    tax_rate: number;
+    tax_amount: number;
+    discount_amount?: number | null;
+    discount_percentage?: number | null;
+    shop_supplies_amount?: number | null;
+    park_fees_amount?: number | null;
+    surcharge_amount?: number | null;
+    credit_card_fee?: number | null;
+    deposit_applied?: number | null;
+    amount_paid?: number | null;
+    total_amount: number;
+    notes?: string | null;
+  },
+  lineItems: { line_type: string; description: string; work_details?: string | null; quantity: number; unit_price: number; total_price: number; task_name?: string | null }[],
+  companyInfo?: {
+    company_name?: string | null;
+    logo_url?: string | null;
+    address_line1?: string | null;
+    address_line2?: string | null;
+    city?: string | null;
+    state?: string | null;
+    zip_code?: string | null;
+    phone?: string | null;
+    email?: string | null;
+    website?: string | null;
+  } | null
+): Promise<jsPDF> {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'in', format: 'letter' });
+  const pageWidth = 8.5;
+  const margin = 0.75;
+  let yPos = margin;
+
+  let logoAdded = false;
+  let logoWidth = 0;
+  let logoHeight = 0;
+
+  if (companyInfo?.logo_url) {
+    try {
+      const logoResponse = await fetch(companyInfo.logo_url);
+      const logoBlob = await logoResponse.blob();
+      await new Promise<void>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          try {
+            const base64data = reader.result as string;
+            const img = new Image();
+            img.onload = () => {
+              try {
+                const maxW = 1.8, maxH = 1.3;
+                const ar = img.width / img.height;
+                logoWidth = maxW;
+                logoHeight = logoWidth / ar;
+                if (logoHeight > maxH) { logoHeight = maxH; logoWidth = logoHeight * ar; }
+                doc.addImage(base64data, 'PNG', margin, yPos, logoWidth, logoHeight);
+                logoAdded = true;
+              } catch { /* skip */ }
+              resolve();
+            };
+            img.onerror = () => resolve();
+            img.src = base64data;
+          } catch { resolve(); }
+        };
+        reader.onerror = () => resolve();
+        reader.readAsDataURL(logoBlob);
+      });
+    } catch { /* skip */ }
+  }
+
+  if (logoAdded) {
+    const cx = margin + logoWidth + 0.15;
+    const origY = yPos;
+    doc.setFontSize(11); doc.setFont('helvetica', 'bold');
+    doc.text(companyInfo?.company_name || 'AZ Marine', cx, yPos); yPos += 0.13;
+    doc.setFontSize(8); doc.setFont('helvetica', 'normal');
+    if (companyInfo?.address_line1) { doc.text(companyInfo.address_line1, cx, yPos); yPos += 0.11; }
+    if (companyInfo?.address_line2) { doc.text(companyInfo.address_line2, cx, yPos); yPos += 0.11; }
+    const csz = [companyInfo?.city, companyInfo?.state, companyInfo?.zip_code].filter(Boolean).join(', ');
+    if (csz) { doc.text(csz, cx, yPos); yPos += 0.11; }
+    if (companyInfo?.phone) { doc.text(`Phone: ${companyInfo.phone}`, cx, yPos); yPos += 0.11; }
+    if (companyInfo?.email) { doc.text(`Email: ${companyInfo.email}`, cx, yPos); yPos += 0.11; }
+    if (companyInfo?.website) { doc.text(`Web: ${companyInfo.website}`, cx, yPos); yPos += 0.11; }
+    yPos = Math.max(yPos, origY + logoHeight) + 0.15;
+  } else {
+    doc.setFontSize(11); doc.setFont('helvetica', 'bold');
+    doc.text(companyInfo?.company_name || 'AZ Marine', pageWidth / 2, yPos, { align: 'center' }); yPos += 0.15;
+    doc.setFontSize(8); doc.setFont('helvetica', 'normal');
+    if (companyInfo?.address_line1) { doc.text(companyInfo.address_line1, pageWidth / 2, yPos, { align: 'center' }); yPos += 0.12; }
+    const csz = [companyInfo?.city, companyInfo?.state, companyInfo?.zip_code].filter(Boolean).join(', ');
+    if (csz) { doc.text(csz, pageWidth / 2, yPos, { align: 'center' }); yPos += 0.12; }
+    if (companyInfo?.phone) { doc.text(`Phone: ${companyInfo.phone}`, pageWidth / 2, yPos, { align: 'center' }); yPos += 0.12; }
+    if (companyInfo?.email) { doc.text(`Email: ${companyInfo.email}`, pageWidth / 2, yPos, { align: 'center' }); yPos += 0.12; }
+    yPos += 0.15;
+  }
+
+  doc.setLineWidth(0.01);
+  doc.line(margin, yPos, pageWidth - margin, yPos);
+  yPos += 0.2;
+
+  doc.setFontSize(16); doc.setFont('helvetica', 'bold');
+  doc.text(`Invoice #: ${invoice.invoice_number}`, margin, yPos);
+  const status = invoice.payment_status.toUpperCase();
+  doc.text(status, pageWidth - margin - doc.getTextWidth(status), yPos);
+  yPos += 0.3;
+
+  const leftStartY = yPos;
+  doc.setFontSize(10); doc.setFont('helvetica', 'bold');
+  doc.text('Invoice Details', margin, yPos); yPos += 0.18;
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+  doc.text(`Date: ${new Date(invoice.invoice_date).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}`, margin, yPos); yPos += 0.14;
+  doc.text(`Due Date: ${new Date(invoice.due_date).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}`, margin, yPos); yPos += 0.14;
+  if (invoice.work_order_number) { doc.text(`Work Order: ${invoice.work_order_number}`, margin, yPos); yPos += 0.14; }
+
+  const rightColX = pageWidth / 2 + 0.25;
+  yPos = leftStartY;
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
+  doc.text('Customer Information', rightColX, yPos); yPos += 0.18;
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+  doc.text(invoice.customer_name, rightColX, yPos); yPos += 0.14;
+  if (invoice.customer_email) { doc.text(invoice.customer_email, rightColX, yPos); yPos += 0.14; }
+  if (invoice.customer_phone) { doc.text(invoice.customer_phone, rightColX, yPos); yPos += 0.14; }
+  if (invoice.yacht_name) { doc.text(`Yacht: ${invoice.yacht_name}`, rightColX, yPos); yPos += 0.14; }
+  yPos = Math.max(yPos, leftStartY + 0.6) + 0.2;
+
+  if (lineItems.length > 0) {
+    const tableData: any[] = [];
+    let lastTask = '';
+    lineItems.forEach(item => {
+      const taskName = item.task_name || '';
+      if (taskName && taskName !== lastTask) {
+        tableData.push([{ content: taskName, colSpan: 5, styles: { fontStyle: 'bold', fillColor: [240, 240, 240] } }]);
+        lastTask = taskName;
+      }
+      tableData.push([
+        item.line_type.toUpperCase(),
+        item.description + (item.work_details ? '\n' + item.work_details : ''),
+        item.quantity.toString(),
+        `$${Number(item.unit_price).toFixed(2)}`,
+        `$${Number(item.total_price).toFixed(2)}`
+      ]);
+    });
+    autoTable(doc, {
+      startY: yPos,
+      head: [['Type', 'Description', 'Qty', 'Unit Price', 'Total']],
+      body: tableData,
+      theme: 'striped',
+      headStyles: { fillColor: [66, 139, 202] },
+      margin: { left: margin, right: margin },
+      styles: { fontSize: 9 },
+      columnStyles: {
+        0: { cellWidth: 0.8 },
+        1: { cellWidth: 3.5 },
+        2: { cellWidth: 0.6, halign: 'center' },
+        3: { cellWidth: 1, halign: 'right' },
+        4: { cellWidth: 1, halign: 'right' }
+      }
+    });
+    yPos = (doc as any).lastAutoTable.finalY + 0.3;
+  }
+
+  const totalsX = pageWidth - margin - 2;
+  doc.setFontSize(10); doc.setFont('helvetica', 'normal');
+  doc.text('Subtotal:', totalsX, yPos);
+  doc.text(`$${Number(invoice.subtotal).toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' }); yPos += 0.2;
+
+  if (invoice.discount_amount && invoice.discount_amount > 0) {
+    doc.text(`Discount (${Number(invoice.discount_percentage ?? 0).toFixed(1)}%):`, totalsX, yPos);
+    doc.text(`-$${Number(invoice.discount_amount).toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' }); yPos += 0.2;
+  }
+  doc.text(`Tax (${(Number(invoice.tax_rate) * 100).toFixed(2)}%):`, totalsX, yPos);
+  doc.text(`$${Number(invoice.tax_amount).toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' }); yPos += 0.2;
+  if (invoice.shop_supplies_amount && invoice.shop_supplies_amount > 0) {
+    doc.text('Shop Supplies:', totalsX, yPos);
+    doc.text(`$${Number(invoice.shop_supplies_amount).toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' }); yPos += 0.2;
+  }
+  if (invoice.park_fees_amount && invoice.park_fees_amount > 0) {
+    doc.text('Park Fees:', totalsX, yPos);
+    doc.text(`$${Number(invoice.park_fees_amount).toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' }); yPos += 0.2;
+  }
+  if (invoice.surcharge_amount && invoice.surcharge_amount > 0) {
+    doc.text('Surcharge:', totalsX, yPos);
+    doc.text(`$${Number(invoice.surcharge_amount).toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' }); yPos += 0.2;
+  }
+  if (invoice.deposit_applied && invoice.deposit_applied > 0) {
+    doc.text('Deposit Applied:', totalsX, yPos);
+    doc.text(`-$${Number(invoice.deposit_applied).toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' }); yPos += 0.2;
+  }
+  if (invoice.credit_card_fee && invoice.credit_card_fee > 0) {
+    doc.text('Credit Card Processing Fee (3%):', totalsX, yPos);
+    doc.text(`$${Number(invoice.credit_card_fee).toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' }); yPos += 0.2;
+  }
+
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
+  const computedTotal = Number(invoice.subtotal)
+    - (Number(invoice.discount_amount) || 0)
+    + Number(invoice.tax_amount)
+    + (Number(invoice.shop_supplies_amount) || 0)
+    + (Number(invoice.park_fees_amount) || 0)
+    + (Number(invoice.surcharge_amount) || 0)
+    + (Number(invoice.credit_card_fee) || 0)
+    - (Number(invoice.deposit_applied) || 0);
+  doc.text('Total:', totalsX, yPos);
+  doc.text(`$${computedTotal.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
+
+  if (invoice.payment_status === 'paid' || (invoice.amount_paid !== null && invoice.amount_paid !== undefined && invoice.amount_paid > 0)) {
+    yPos += 0.2;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+    const amountPaid = invoice.amount_paid ?? computedTotal;
+    doc.text('Amount Paid:', totalsX, yPos);
+    doc.text(`-$${Number(amountPaid).toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' }); yPos += 0.2;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
+    doc.text('Balance Due:', totalsX, yPos);
+    doc.text(`$${Math.max(0, computedTotal - Number(amountPaid)).toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
+  }
+
+  if (invoice.notes) {
+    yPos += 0.4;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
+    doc.text('Notes:', margin, yPos); yPos += 0.2;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+    const noteLines = doc.splitTextToSize(invoice.notes, pageWidth - margin * 2);
+    doc.text(noteLines, margin, yPos);
+  }
+
+  return doc;
+}
