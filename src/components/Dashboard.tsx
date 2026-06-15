@@ -2455,6 +2455,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
   const loadYachtTrips = async (yachtId: string) => {
     try {
+      const currentYear = new Date().getFullYear();
+      const yearStart = `${currentYear}-01-01`;
+      const yearEnd = `${currentYear}-12-31`;
+
       const { data, error } = await supabase
         .from('yacht_bookings')
         .select(`
@@ -2468,6 +2472,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           )
         `)
         .eq('yacht_id', yachtId)
+        .gte('start_date', yearStart)
+        .lte('start_date', yearEnd)
         .order('start_date', { ascending: true });
 
       if (error) throw error;
@@ -2486,9 +2492,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       setTripsYachtId(null);
     } else {
       setTripsYachtId(yachtId);
-      if (!yachtTrips[yachtId]) {
-        await loadYachtTrips(yachtId);
-      }
+      await loadYachtTrips(yachtId);
     }
   };
 
