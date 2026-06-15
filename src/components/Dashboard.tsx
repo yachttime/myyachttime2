@@ -2630,7 +2630,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
   const handleOpenEstimatingInvoicePDF = async (invoiceId: string) => {
     try {
-      const [invResult, lineItemsResult, companyResult] = await Promise.all([
+      const [invResult, estimatingLineItemsResult, companyResult] = await Promise.all([
         supabase
           .from('estimating_invoices')
           .select('*, work_orders!estimating_invoices_work_order_id_fkey(work_order_number), yachts!estimating_invoices_yacht_id_fkey(name)')
@@ -2652,15 +2652,55 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         work_order_number: inv.work_orders?.work_order_number || null,
         yacht_name: inv.yachts?.name || inv.yacht_name || null,
       };
-      const lineItems = (lineItemsResult.data || []).map((li: any) => ({
-        line_type: li.line_type || 'labor',
-        description: li.description || '',
-        work_details: li.work_details || null,
-        quantity: Number(li.quantity) || 1,
-        unit_price: Number(li.unit_price) || 0,
-        total_price: Number(li.total_price) || 0,
-        task_name: li.task_name || null,
-      }));
+
+      let lineItems: any[] = [];
+
+      if (inv.work_order_id) {
+        const [tasksResult, woLineItemsResult] = await Promise.all([
+          supabase
+            .from('work_order_tasks')
+            .select('*')
+            .eq('work_order_id', inv.work_order_id)
+            .order('sort_order', { ascending: true }),
+          supabase
+            .from('work_order_line_items')
+            .select('*')
+            .eq('work_order_id', inv.work_order_id)
+            .order('sort_order', { ascending: true }),
+        ]);
+
+        const tasks = tasksResult.data || [];
+        const woLineItems = woLineItemsResult.data || [];
+
+        if (tasks.length > 0 && woLineItems.length > 0) {
+          tasks.forEach((task: any) => {
+            const taskItems = woLineItems.filter((item: any) => item.task_id === task.id);
+            taskItems.forEach((item: any) => {
+              lineItems.push({
+                line_type: item.line_type || 'labor',
+                description: item.description || '',
+                work_details: item.work_details || null,
+                quantity: Number(item.quantity) || 1,
+                unit_price: Number(item.unit_price) || 0,
+                total_price: Number(item.total_price) || 0,
+                task_name: task.task_name || null,
+              });
+            });
+          });
+        }
+      }
+
+      if (lineItems.length === 0) {
+        lineItems = (estimatingLineItemsResult.data || []).map((li: any) => ({
+          line_type: li.line_type || 'labor',
+          description: li.description || '',
+          work_details: li.work_details || null,
+          quantity: Number(li.quantity) || 1,
+          unit_price: Number(li.unit_price) || 0,
+          total_price: Number(li.total_price) || 0,
+          task_name: li.task_name || null,
+        }));
+      }
 
       const pdf = await generateEstimatingInvoicePDF(invoiceForPDF, lineItems, companyResult.data);
       const pdfUrl = URL.createObjectURL(pdf.output('blob'));
