@@ -2711,6 +2711,31 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     }
   };
 
+  const handleGenerateACHPaymentLink = async (invoiceId: string, yachtId: string) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { showError('Not authenticated'); return; }
+
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-estimating-invoice-payment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ invoiceId, paymentMethodType: 'ach' }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || result.message || 'Failed to generate payment link');
+
+      showSuccess('ACH payment link generated');
+      await loadYachtInvoices(yachtId);
+    } catch (error: any) {
+      console.error('Error generating ACH payment link:', error);
+      showError(error.message || 'Failed to generate payment link');
+    }
+  };
+
   const loadYachtInvoices = async (yachtId: string) => {
     try {
       const [yiResult, eiResult] = await Promise.all([
@@ -13722,6 +13747,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                           const isPaid = inv.payment_status === 'paid';
                                           const balanceDue = inv.balance_due !== null ? Number(inv.balance_due) : Number(inv.total_amount);
                                           const depositApplied = inv.deposit_applied ? Number(inv.deposit_applied) : 0;
+                                          const hasActiveLink = inv.final_payment_link_url && inv.final_payment_link_expires_at && new Date(inv.final_payment_link_expires_at) > new Date();
+                                          const canManagePayment = isStaffRole(effectiveRole) || effectiveRole === 'manager';
                                           return (
                                             <div key={`est-${inv.id}`} className="bg-slate-900/50 rounded-lg p-3 text-xs">
                                               <div className="flex items-start justify-between gap-2">
@@ -13758,8 +13785,42 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                     <ExternalLink className="w-3 h-3" />
                                                     <span>Open</span>
                                                   </button>
+                                                  {!isPaid && canManagePayment && (
+                                                    <button
+                                                      onClick={() => handleGenerateACHPaymentLink(inv.id, inv.yacht_id)}
+                                                      className="px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded hover:bg-emerald-500/30 transition-colors flex items-center gap-1 whitespace-nowrap"
+                                                    >
+                                                      <CreditCard className="w-3 h-3" />
+                                                      <span>{hasActiveLink ? 'New ACH Link' : 'ACH Link'}</span>
+                                                    </button>
+                                                  )}
                                                 </div>
                                               </div>
+                                              {!isPaid && hasActiveLink && (
+                                                <div className="mt-2 pt-2 border-t border-slate-700/50">
+                                                  <div className="flex items-center gap-2">
+                                                    <Link className="w-3 h-3 text-emerald-400 shrink-0" />
+                                                    <span className="text-slate-400 truncate flex-1">{inv.final_payment_link_url}</span>
+                                                    <button
+                                                      onClick={() => { navigator.clipboard.writeText(inv.final_payment_link_url); showSuccess('Payment link copied'); }}
+                                                      className="px-2 py-0.5 bg-slate-600/50 text-slate-300 rounded hover:bg-slate-600 transition-colors whitespace-nowrap"
+                                                    >
+                                                      Copy
+                                                    </button>
+                                                    <a
+                                                      href={inv.final_payment_link_url}
+                                                      target="_blank"
+                                                      rel="noopener noreferrer"
+                                                      className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded hover:bg-emerald-500/30 transition-colors whitespace-nowrap"
+                                                    >
+                                                      Open
+                                                    </a>
+                                                  </div>
+                                                  <div className="text-slate-500 mt-1">
+                                                    ACH only • Expires {new Date(inv.final_payment_link_expires_at).toLocaleDateString()}
+                                                  </div>
+                                                </div>
+                                              )}
                                             </div>
                                           );
                                         })}
