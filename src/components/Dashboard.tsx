@@ -686,6 +686,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   });
   const [yachtInvoices, setYachtInvoices] = useState<Record<string, YachtInvoice[]>>({});
   const [yachtEstimatingInvoices, setYachtEstimatingInvoices] = useState<Record<string, any[]>>({});
+  const [achPaymentLinks, setAchPaymentLinks] = useState<Record<string, string>>({});
   const [yachtUnpaidCounts, setYachtUnpaidCounts] = useState<Record<string, { count: number; total: number; unpaidCount: number; processingCount: number; paidCount: number; unpaidTotal: number; processingTotal: number; paidTotal: number }>>({});
   const [pendingEstimatingInvoiceId, setPendingEstimatingInvoiceId] = useState<string | undefined>(undefined);
   const [invoiceYachtId, setInvoiceYachtId] = useState<string | null>(null);
@@ -2729,7 +2730,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       if (!response.ok) throw new Error(result.error || result.message || 'Failed to generate payment link');
 
       if (result.checkoutUrl) {
-        window.open(result.checkoutUrl, '_blank');
+        setAchPaymentLinks(prev => ({ ...prev, [invoiceId]: result.checkoutUrl }));
       }
       await loadYachtInvoices(yachtId);
     } catch (error: any) {
@@ -13749,7 +13750,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                           const isPaid = inv.payment_status === 'paid';
                                           const balanceDue = inv.balance_due !== null ? Number(inv.balance_due) : Number(inv.total_amount);
                                           const depositApplied = inv.deposit_applied ? Number(inv.deposit_applied) : 0;
-                                          const hasActiveLink = inv.final_payment_link_url && inv.final_payment_link_expires_at && new Date(inv.final_payment_link_expires_at) > new Date();
+                                          const pendingAchUrl = achPaymentLinks[inv.id];
+                                          const hasActiveLink = pendingAchUrl || (inv.final_payment_link_url && inv.final_payment_link_expires_at && new Date(inv.final_payment_link_expires_at) > new Date());
+                                          const activeLinkUrl = pendingAchUrl || inv.final_payment_link_url;
                                           const canManagePayment = isStaffRole(effectiveRole) || effectiveRole === 'manager';
                                           return (
                                             <div key={`est-${inv.id}`} className="bg-slate-900/50 rounded-lg p-3 text-xs">
@@ -13798,19 +13801,19 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                   )}
                                                 </div>
                                               </div>
-                                              {!isPaid && hasActiveLink && (
+                                              {!isPaid && hasActiveLink && activeLinkUrl && (
                                                 <div className="mt-2 pt-2 border-t border-slate-700/50">
                                                   <div className="flex items-center gap-2">
                                                     <Link className="w-3 h-3 text-emerald-400 shrink-0" />
-                                                    <span className="text-slate-400 truncate flex-1">{inv.final_payment_link_url}</span>
+                                                    <span className="text-slate-400 truncate flex-1">{activeLinkUrl}</span>
                                                     <button
-                                                      onClick={() => { navigator.clipboard.writeText(inv.final_payment_link_url); showSuccess('Payment link copied'); }}
+                                                      onClick={() => { navigator.clipboard.writeText(activeLinkUrl); showSuccess('Payment link copied'); }}
                                                       className="px-2 py-0.5 bg-slate-600/50 text-slate-300 rounded hover:bg-slate-600 transition-colors whitespace-nowrap"
                                                     >
                                                       Copy
                                                     </button>
                                                     <a
-                                                      href={inv.final_payment_link_url}
+                                                      href={activeLinkUrl}
                                                       target="_blank"
                                                       rel="noopener noreferrer"
                                                       className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded hover:bg-emerald-500/30 transition-colors whitespace-nowrap"
@@ -13819,7 +13822,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                     </a>
                                                   </div>
                                                   <div className="text-slate-500 mt-1">
-                                                    ACH only • Expires {new Date(inv.final_payment_link_expires_at).toLocaleDateString()}
+                                                    ACH only{inv.final_payment_link_expires_at ? ` • Expires ${new Date(inv.final_payment_link_expires_at).toLocaleDateString()}` : ''}
                                                   </div>
                                                 </div>
                                               )}
