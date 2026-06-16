@@ -2728,7 +2728,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || result.message || 'Failed to generate payment link');
 
-      showSuccess('ACH payment link generated');
+      if (result.checkoutUrl) {
+        window.open(result.checkoutUrl, '_blank');
+      }
       await loadYachtInvoices(yachtId);
     } catch (error: any) {
       console.error('Error generating ACH payment link:', error);
