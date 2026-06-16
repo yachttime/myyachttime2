@@ -13791,7 +13791,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                       className="px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded hover:bg-emerald-500/30 transition-colors flex items-center gap-1 whitespace-nowrap"
                                                     >
                                                       <CreditCard className="w-3 h-3" />
-                                                      <span>{hasActiveLink ? 'New ACH Link' : 'ACH Link'}</span>
+                                                      <span>Pay Now</span>
                                                     </button>
                                                   )}
                                                 </div>
