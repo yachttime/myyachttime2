@@ -414,7 +414,7 @@ export function Estimates({ userId }: EstimatesProps) {
       const displayName = isBusiness
         ? data.business_name
         : `${data.first_name || ''} ${data.last_name || ''}`.trim();
-      setFormData({ ...formData, customer_name: displayName, customer_email: data.email || '', customer_phone: data.phone || '', vessel_id: '' });
+      setFormData(prev => ({ ...prev, customer_name: displayName, customer_email: data.email || '', customer_phone: data.phone || '', vessel_id: '' }));
       setCustomerSearch(displayName);
       setYachtCustomerSearch(displayName);
       setSelectedCustomerId(data.id);
@@ -2252,7 +2252,7 @@ export function Estimates({ userId }: EstimatesProps) {
                     </div>
                     <button
                       type="button"
-                      onClick={() => { setFormData({ ...formData, customer_name: '', customer_email: '', customer_phone: '', vessel_id: '' }); setCustomerSearch(''); setSelectedCustomerId(''); setCustomerVessels([]); setShowNewVesselForm(false); }}
+                      onClick={() => { setFormData(prev => ({ ...prev, customer_name: '', customer_email: '', customer_phone: '', vessel_id: '' })); setCustomerSearch(''); setSelectedCustomerId(''); setCustomerVessels([]); setShowNewVesselForm(false); }}
                       className="text-gray-400 hover:text-gray-600 ml-2"
                     >
                       <X className="w-4 h-4" />
@@ -2302,7 +2302,7 @@ export function Estimates({ userId }: EstimatesProps) {
                                     setShowNewVesselForm(false);
                                     const vessels = await loadCustomerVessels(c.id);
                                     const autoVesselId = vessels.length === 1 ? vessels[0].id : '';
-                                    setFormData({ ...formData, customer_name: displayName, customer_email: c.email || '', customer_phone: c.phone || '', vessel_id: autoVesselId });
+                                    setFormData(prev => ({ ...prev, customer_name: displayName, customer_email: c.email || '', customer_phone: c.phone || '', vessel_id: autoVesselId }));
                                   }}
                                   className="w-full text-left px-4 py-2.5 hover:bg-blue-50 transition-colors flex items-center gap-3 border-b border-gray-100 last:border-0"
                                 >
@@ -2517,7 +2517,7 @@ export function Estimates({ userId }: EstimatesProps) {
 
                     <select
                       value={formData.vessel_id}
-                      onChange={(e) => setFormData({ ...formData, vessel_id: e.target.value })}
+                      onChange={(e) => setFormData(prev => ({ ...prev, vessel_id: e.target.value }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm text-gray-900"
                     >
                       <option value="">Select a vessel</option>
