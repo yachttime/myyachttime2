@@ -907,7 +907,7 @@ export function TaxSurchargeReport({ onClose }: Props) {
                           Pushed {new Date(pushLog.pushed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                         </p>
                         <p className="text-xs text-green-700">
-                          {pushLog.invoice_count} bill{pushLog.invoice_count !== 1 ? 's' : ''} · ${Number(pushLog.total_amount).toFixed(2)}
+                          {new Date(pushLog.month + '-02').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} · {pushLog.invoice_count} bill{pushLog.invoice_count !== 1 ? 's' : ''} · ${Number(pushLog.total_amount).toFixed(2)}
                         </p>
                       </div>
                     </div>
