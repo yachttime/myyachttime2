@@ -2,6 +2,15 @@ import { createClient } from 'npm:@supabase/supabase-js@2.57.4';
 import { parseRequestBody, validateRequired, validateEmailArray, validateStringLength } from '../_shared/validation.ts';
 import { withErrorHandling, successResponse } from '../_shared/response.ts';
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
+};
+
+// Supabase edge function body limit is ~6MB — stay well under it
+const MAX_BODY_BYTES = 5 * 1024 * 1024;
+
 interface Attachment {
   filename: string;
   content: string;
@@ -18,26 +27,50 @@ interface BulkEmailRequest {
   attachments?: Attachment[];
 }
 
-Deno.serve(withErrorHandling(async (req: Request) => {
+Deno.serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 200, headers: corsHeaders });
+  }
+
+  // Check Content-Length before attempting to parse body — avoids worker crash on oversized payloads
+  const contentLength = req.headers.get('content-length');
+  if (contentLength && parseInt(contentLength, 10) > MAX_BODY_BYTES) {
+    return new Response(
+      JSON.stringify({ error: 'Request body too large. Total attachments must be under 4MB.' }),
+      { status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
 
     if (!resendApiKey) {
-      throw new Error('Email service not configured. Please add RESEND_API_KEY.');
+      return new Response(
+        JSON.stringify({ error: 'Email service not configured. Please add RESEND_API_KEY.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    const authHeader = req.headers.get('Authorization')!;
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-      global: {
-        headers: { Authorization: authHeader },
-      },
+      global: { headers: { Authorization: authHeader } },
     });
 
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) {
-      throw new Error('Unauthorized');
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const { data: profile } = await supabase
@@ -47,19 +80,34 @@ Deno.serve(withErrorHandling(async (req: Request) => {
       .single();
 
     if (!profile || !['staff', 'manager', 'master', 'mechanic'].includes(profile.role)) {
-      throw new Error('Unauthorized: Only staff, mechanics, managers, and master users can send bulk emails');
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized: Only staff, mechanics, managers, and master users can send bulk emails' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    const body = await parseRequestBody<BulkEmailRequest>(req);
+    let body: BulkEmailRequest;
+    try {
+      body = await req.json();
+    } catch {
+      return new Response(
+        JSON.stringify({ error: 'Invalid JSON in request body' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     validateRequired(body, ['recipients', 'subject', 'message']);
 
-    // Validate recipients without the 100-address cap — large broadcasts are batched internally
     if (!Array.isArray(body.recipients) || body.recipients.length === 0) {
-      throw new Error('recipients must be a non-empty array');
+      return new Response(
+        JSON.stringify({ error: 'recipients must be a non-empty array' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
-    const emailRegexPre = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const recipients: string[] = body.recipients.map((e: any, i: number) => {
-      if (typeof e !== 'string' || !emailRegexPre.test(e)) {
+      if (typeof e !== 'string' || !emailRegex.test(e)) {
         throw new Error(`recipients[${i}] is not a valid email address`);
       }
       return e as string;
@@ -76,28 +124,15 @@ Deno.serve(withErrorHandling(async (req: Request) => {
     const { subject, message, yacht_name, attachments } = body;
 
     if (attachments && attachments.length > 0) {
-      const maxAttachmentSize = 4 * 1024 * 1024;
+      const maxTotalSize = 4 * 1024 * 1024;
       let totalSize = 0;
-
       for (const attachment of attachments) {
         totalSize += attachment.size;
-        if (totalSize > maxAttachmentSize) {
-          throw new Error('Total attachment size cannot exceed 40MB');
-        }
-      }
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    for (const email of recipients) {
-      if (!emailRegex.test(email)) {
-        throw new Error(`Invalid email address: ${email}`);
-      }
-    }
-
-    if (cc_recipients) {
-      for (const email of cc_recipients) {
-        if (!emailRegex.test(email)) {
-          throw new Error(`Invalid CC email address: ${email}`);
+        if (totalSize > maxTotalSize) {
+          return new Response(
+            JSON.stringify({ error: 'Total attachment size cannot exceed 4MB' }),
+            { status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
         }
       }
     }
@@ -200,7 +235,10 @@ Deno.serve(withErrorHandling(async (req: Request) => {
         } catch {
           errorMessage = `Resend Error (${emailResponse.status}): ${errorText}`;
         }
-        throw new Error(errorMessage);
+        return new Response(
+          JSON.stringify({ error: errorMessage }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
 
       const emailData = await emailResponse.json();
@@ -254,7 +292,10 @@ Deno.serve(withErrorHandling(async (req: Request) => {
           } catch {
             errorMessage = `Resend Error (${batchResponse.status}): ${errorText}`;
           }
-          throw new Error(errorMessage);
+          return new Response(
+            JSON.stringify({ error: errorMessage }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
         }
 
         const batchData = await batchResponse.json();
@@ -279,6 +320,9 @@ Deno.serve(withErrorHandling(async (req: Request) => {
       ? ` with ${attachments.length} attachment${attachments.length > 1 ? 's' : ''}`
       : '';
 
+    // Store a truncated version of the message body to avoid DB payload issues
+    const emailBodyForStorage = message.length > 5000 ? message.slice(0, 5000) + '...' : message;
+
     const { data: staffMessageData, error: staffMessageError } = await supabase
       .from('staff_messages')
       .insert({
@@ -286,7 +330,7 @@ Deno.serve(withErrorHandling(async (req: Request) => {
         notification_type: 'bulk_email',
         created_by: user.id,
         email_subject: subject,
-        email_body: message,
+        email_body: emailBodyForStorage,
         email_recipients: recipientsArray,
         email_cc_recipients: cc_recipients || [],
         yacht_name: yacht_name || null,
@@ -301,7 +345,7 @@ Deno.serve(withErrorHandling(async (req: Request) => {
     if (staffMessageError) {
       console.error('Error creating staff message:', staffMessageError);
     } else {
-      console.log('Staff message created successfully:', staffMessageData);
+      console.log('Staff message created successfully:', staffMessageData?.id);
 
       if (staffMessageData && recipientEmailIdMap.length > 0) {
         const trackingRows = recipientEmailIdMap.map(r => ({
@@ -329,13 +373,13 @@ Deno.serve(withErrorHandling(async (req: Request) => {
       const { data: yachtData, error: yachtError } = await supabase
         .from('yachts')
         .select('id')
-        .eq('name', yacht_name)
-        .single();
+        .ilike('name', yacht_name)
+        .maybeSingle();
 
       if (yachtError) {
         console.error('Error finding yacht:', yachtError);
       } else if (yachtData) {
-        const notificationMessage = `Email Sent: ${subject}\n\n${message}`;
+        const notificationMessage = `Email Sent: ${subject}\n\n${emailBodyForStorage}`;
 
         const { error: notificationError } = await supabase
           .from('admin_notifications')
@@ -354,13 +398,20 @@ Deno.serve(withErrorHandling(async (req: Request) => {
       }
     }
 
-    return successResponse({
-      success: true,
-      message: `Email sent successfully to ${recipients.length} recipient${recipients.length > 1 ? 's' : ''}`,
-      emailId: primaryEmailId,
-    });
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: `Email sent successfully to ${recipients.length} recipient${recipients.length > 1 ? 's' : ''}`,
+        emailId: primaryEmailId,
+      }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   } catch (error) {
-    console.error('Error sending bulk email:', error);
-    throw error;
+    console.error('Unhandled error in send-bulk-email:', error);
+    const message = error instanceof Error ? error.message : 'Internal server error';
+    return new Response(
+      JSON.stringify({ error: message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   }
-}));
+});
