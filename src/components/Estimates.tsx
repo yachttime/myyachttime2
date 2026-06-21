@@ -2869,7 +2869,7 @@ export function Estimates({ userId }: EstimatesProps) {
                                                 <div>
                                                   <span className="text-xs font-semibold text-green-700 uppercase tracking-wide">{item.package_header || 'Click to name package'}</span>
                                                   {item.work_details && (
-                                                    <div className="text-xs text-green-600 font-normal normal-case tracking-normal mt-0.5">{item.work_details}</div>
+                                                    <div className="text-xs text-green-800 font-medium normal-case tracking-normal mt-0.5">{item.work_details}</div>
                                                   )}
                                                 </div>
                                               </div>
