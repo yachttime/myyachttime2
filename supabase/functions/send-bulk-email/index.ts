@@ -76,7 +76,7 @@ Deno.serve(withErrorHandling(async (req: Request) => {
     const { subject, message, yacht_name, attachments } = body;
 
     if (attachments && attachments.length > 0) {
-      const maxAttachmentSize = 40 * 1024 * 1024;
+      const maxAttachmentSize = 4 * 1024 * 1024;
       let totalSize = 0;
 
       for (const attachment of attachments) {

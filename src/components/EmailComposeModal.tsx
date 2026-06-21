@@ -64,14 +64,14 @@ export function EmailComposeModal({ isOpen, onClose, recipients, ccRecipients = 
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    const maxSize = 10 * 1024 * 1024;
+    const maxSize = 4 * 1024 * 1024;
     const newAttachments: Attachment[] = [];
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
 
       if (file.size > maxSize) {
-        alert(`File "${file.name}" is too large. Maximum size is 10MB.`);
+        alert(`File "${file.name}" is too large. Maximum attachment size is 4MB.`);
         continue;
       }
 
