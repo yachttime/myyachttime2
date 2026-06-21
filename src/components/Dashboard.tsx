@@ -10824,7 +10824,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 src={photo.preview}
                                 alt={photo.caption || `Photo ${idx + 1}`}
                                 className="w-full object-cover"
-                                style={{ height: (photo.category === 'port_prop' || photo.category === 'starboard_prop') ? '141px' : '128px' }}
+                                style={{ height: (photo.category === 'port_prop' || photo.category === 'starboard_prop') ? '154px' : '128px' }}
                               />
                               {/* Uploading overlay */}
                               {photo.uploading && (

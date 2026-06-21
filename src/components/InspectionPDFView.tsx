@@ -280,7 +280,7 @@ export const InspectionPDFView = ({ inspection, onClose }: InspectionPDFViewProp
                     <img
                       src={p.preview}
                       alt=""
-                      style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: '0.375rem' }}
+                      style={{ width: '100%', aspectRatio: (p.category === 'port_prop' || p.category === 'starboard_prop') ? '5/6' : '1', objectFit: 'cover', borderRadius: '0.375rem' }}
                     />
                     <div style={{
                       position: 'absolute', top: '2px', left: '2px',
