@@ -312,9 +312,21 @@ export function EmailComposeModal({ isOpen, onClose, recipients, ccRecipients = 
 
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-medium text-slate-300">
-                Attachments
-              </label>
+              <div className="flex items-center gap-3">
+                <label className="block text-sm font-medium text-slate-300">
+                  Attachments
+                </label>
+                {attachments.length > 0 && (() => {
+                  const totalBytes = attachments.reduce((sum, a) => sum + a.size, 0);
+                  const limitBytes = 4 * 1024 * 1024;
+                  const overLimit = totalBytes > limitBytes;
+                  return (
+                    <span className={`text-xs font-medium ${overLimit ? 'text-red-400' : totalBytes > limitBytes * 0.75 ? 'text-yellow-400' : 'text-slate-400'}`}>
+                      {formatFileSize(totalBytes)} / 4 MB total{overLimit ? ' — exceeds limit!' : ''}
+                    </span>
+                  );
+                })()}
+              </div>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -376,7 +388,8 @@ export function EmailComposeModal({ isOpen, onClose, recipients, ccRecipients = 
                 sending ||
                 !subject.trim() ||
                 !message.trim() ||
-                (allowRecipientSelection && selectedRecipients.size === 0)
+                (allowRecipientSelection && selectedRecipients.size === 0) ||
+                attachments.reduce((sum, a) => sum + a.size, 0) > 4 * 1024 * 1024
               }
               className="flex-1 px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
