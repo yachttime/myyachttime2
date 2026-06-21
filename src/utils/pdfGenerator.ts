@@ -760,32 +760,55 @@ export async function generateTripInspectionPDF(
       doc.setTextColor(0, 0, 0);
       yPos += 0.32;
 
-      for (let i = 0; i < validPhotos.length; i += perRow) {
-        const rowPhotos = validPhotos.slice(i, i + perRow);
-        const captionH = 0.14;
-        const totalH = imgH + captionH;
+      const catLabels: Record<string, string> = {
+        port_prop: 'Port Propeller', starboard_prop: 'Stbd Propeller',
+        damage: 'Damage', general: 'General',
+      };
+      const propImgW = imgW * 1.4;
+      const propImgH = propImgW * 0.72;
+      const captionH = 0.14;
 
-        if (yPos + totalH > PH - 0.45) { doc.addPage(); yPos = M; }
+      let i = 0;
+      while (i < validPhotos.length) {
+        const p = validPhotos[i];
+        const isProp = p.category === 'port_prop' || p.category === 'starboard_prop';
 
-        rowPhotos.forEach((p, j) => {
-          const x = M + j * (imgW + gap);
-          doc.addImage(p.dataUrl!, 'JPEG', x, yPos, imgW, imgH);
-
-          const catLabels: Record<string, string> = {
-            port_prop: 'Port Propeller', starboard_prop: 'Stbd Propeller',
-            damage: 'Damage', general: 'General',
-          };
+        if (isProp) {
+          // Prop photos: one per row, 40% larger
+          const totalH = propImgH + captionH;
+          if (yPos + totalH > PH - 0.45) { doc.addPage(); yPos = M; }
+          const x = M + (CW - propImgW) / 2;
+          doc.addImage(p.dataUrl!, 'JPEG', x, yPos, propImgW, propImgH);
           const cap = p.caption?.trim() || catLabels[p.category || ''] || '';
           if (cap) {
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(6.5);
             doc.setTextColor(...TEXT_DIM);
-            doc.text(cap, x + imgW / 2, yPos + imgH + 0.10, { align: 'center' });
+            doc.text(cap, x + propImgW / 2, yPos + propImgH + 0.10, { align: 'center' });
             doc.setTextColor(0, 0, 0);
           }
-        });
-
-        yPos += totalH + 0.06;
+          yPos += totalH + 0.06;
+          i += 1;
+        } else {
+          // Non-prop photos: two per row at normal size
+          const actualRow = validPhotos.slice(i, i + perRow);
+          const totalH = imgH + captionH;
+          if (yPos + totalH > PH - 0.45) { doc.addPage(); yPos = M; }
+          actualRow.forEach((rp, j) => {
+            const x = M + j * (imgW + gap);
+            doc.addImage(rp.dataUrl!, 'JPEG', x, yPos, imgW, imgH);
+            const cap = rp.caption?.trim() || catLabels[rp.category || ''] || '';
+            if (cap) {
+              doc.setFont('helvetica', 'normal');
+              doc.setFontSize(6.5);
+              doc.setTextColor(...TEXT_DIM);
+              doc.text(cap, x + imgW / 2, yPos + imgH + 0.10, { align: 'center' });
+              doc.setTextColor(0, 0, 0);
+            }
+          });
+          yPos += totalH + 0.06;
+          i += actualRow.length;
+        }
       }
     }
   }
