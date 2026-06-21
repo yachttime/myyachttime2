@@ -10804,7 +10804,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       <p className="text-sm font-medium text-slate-300 mb-3">
                         {inspectionPhotos.filter(p => p.url).length}/{inspectionPhotos.length} photo{inspectionPhotos.length !== 1 ? 's' : ''} uploaded
                       </p>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 items-start">
                         {inspectionPhotos.map((photo, idx) => {
                           const catLabels: Record<string, string> = {
                             port_prop: 'Port Prop',
