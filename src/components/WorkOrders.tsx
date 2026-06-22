@@ -719,7 +719,9 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
       }
 
       const currentLineOrder = updatedTasks[activeTaskIndex].lineItems.length;
-      const packageName = packages.find(p => p.id === selectedPackageId)?.name || 'Package';
+      const selectedPkg = packages.find(p => p.id === selectedPackageId);
+      const packageName = selectedPkg?.name || 'Package';
+      const packageDescription = selectedPkg?.description || null;
 
       updatedTasks[activeTaskIndex].lineItems.push({
         line_type: 'labor',
@@ -731,7 +733,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
         labor_code_id: null,
         part_id: null,
         line_order: currentLineOrder,
-        work_details: null,
+        work_details: packageDescription,
         package_header: packageName
       });
 
@@ -3124,13 +3126,18 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                                                 <button type="button" onClick={() => { setEditingPackageHeader(null); setPackageHeaderEditValue(''); }} className="text-gray-500 hover:text-gray-700"><X className="w-4 h-4" /></button>
                                               </div>
                                             ) : (
-                                              <span
-                                                className="text-xs font-semibold text-green-700 uppercase tracking-wide cursor-pointer hover:text-green-900"
+                                              <div
+                                                className="cursor-pointer"
                                                 onClick={() => { setEditingPackageHeader({ taskIndex, lineIndex }); setPackageHeaderEditValue(item.package_header || ''); }}
                                                 title="Click to rename"
                                               >
-                                                {item.package_header}
-                                              </span>
+                                                <span className="text-xs font-semibold text-green-700 uppercase tracking-wide hover:text-green-900">
+                                                  {item.package_header}
+                                                </span>
+                                                {item.work_details && (
+                                                  <div className="text-xs text-green-800 font-medium normal-case tracking-normal mt-0.5">{item.work_details}</div>
+                                                )}
+                                              </div>
                                             )}
                                           </td>
                                           <td className="px-3 py-2 text-right align-top">
