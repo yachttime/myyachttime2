@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { Download, Eye, X, Image, Upload, CheckCircle, AlertCircle, Camera, Trash2 } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Download, Eye, X, Image, Upload, CheckCircle, AlertCircle, Camera, Trash2, ZoomIn, ZoomOut, RotateCcw, ChevronLeft, ChevronRight, Maximize2 } from 'lucide-react';
 import { TripInspection, supabase } from '../lib/supabase';
 import { generateTripInspectionPDF, InspectionPhoto } from '../utils/pdfGenerator';
 import { useAuth } from '../contexts/AuthContext';
@@ -26,6 +26,217 @@ const CAT_LABELS: Record<string, string> = {
   general: 'General',
 };
 
+interface LightboxPhoto {
+  url: string;
+  category: string;
+  caption?: string;
+}
+
+const PhotoLightbox = ({ photos, startIndex, onClose }: {
+  photos: LightboxPhoto[];
+  startIndex: number;
+  onClose: () => void;
+}) => {
+  const [index, setIndex] = useState(startIndex);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [dragging, setDragging] = useState(false);
+  const dragStart = useRef<{ mx: number; my: number; px: number; py: number } | null>(null);
+
+  const current = photos[index];
+
+  const resetZoom = () => { setZoom(1); setPan({ x: 0, y: 0 }); };
+
+  const go = (dir: number) => {
+    setIndex(i => (i + dir + photos.length) % photos.length);
+    resetZoom();
+  };
+
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'Escape') onClose();
+    if (e.key === 'ArrowRight') go(1);
+    if (e.key === 'ArrowLeft') go(-1);
+    if (e.key === '+' || e.key === '=') setZoom(z => Math.min(z + 0.5, 5));
+    if (e.key === '-') setZoom(z => Math.max(z - 0.5, 1));
+  }, [index]);
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
+
+  const onMouseDown = (e: React.MouseEvent) => {
+    if (zoom <= 1) return;
+    e.preventDefault();
+    setDragging(true);
+    dragStart.current = { mx: e.clientX, my: e.clientY, px: pan.x, py: pan.y };
+  };
+
+  const onMouseMove = (e: React.MouseEvent) => {
+    if (!dragging || !dragStart.current) return;
+    setPan({
+      x: dragStart.current.px + (e.clientX - dragStart.current.mx),
+      y: dragStart.current.py + (e.clientY - dragStart.current.my),
+    });
+  };
+
+  const onMouseUp = () => { setDragging(false); dragStart.current = null; };
+
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.95)',
+        zIndex: 20000, display: 'flex', flexDirection: 'column',
+      }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      {/* Header */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '0.625rem 1rem', backgroundColor: 'rgba(0,0,0,0.6)', flexShrink: 0,
+        borderBottom: '1px solid rgba(255,255,255,0.1)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <span style={{
+            backgroundColor: 'rgba(255,255,255,0.15)', color: 'white',
+            fontSize: '0.7rem', fontWeight: 700, padding: '2px 8px',
+            borderRadius: '9999px', textTransform: 'uppercase', letterSpacing: '0.05em',
+          }}>
+            {CAT_LABELS[current.category] || current.category}
+          </span>
+          {current.caption && (
+            <span style={{ color: '#cbd5e1', fontSize: '0.875rem' }}>{current.caption}</span>
+          )}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>
+            {index + 1} / {photos.length}
+          </span>
+          {/* Zoom controls */}
+          <button onClick={() => setZoom(z => Math.max(z - 0.5, 1))} title="Zoom out"
+            style={{ ...btnStyle, opacity: zoom <= 1 ? 0.4 : 1 }} disabled={zoom <= 1}>
+            <ZoomOut style={{ width: '1rem', height: '1rem' }} />
+          </button>
+          <span style={{ color: 'white', fontSize: '0.75rem', minWidth: '2.5rem', textAlign: 'center' }}>
+            {Math.round(zoom * 100)}%
+          </span>
+          <button onClick={() => setZoom(z => Math.min(z + 0.5, 5))} title="Zoom in"
+            style={{ ...btnStyle, opacity: zoom >= 5 ? 0.4 : 1 }} disabled={zoom >= 5}>
+            <ZoomIn style={{ width: '1rem', height: '1rem' }} />
+          </button>
+          <button onClick={resetZoom} title="Reset zoom"
+            style={{ ...btnStyle, opacity: zoom === 1 ? 0.4 : 1 }} disabled={zoom === 1}>
+            <RotateCcw style={{ width: '1rem', height: '1rem' }} />
+          </button>
+          <div style={{ width: '1px', height: '1.25rem', backgroundColor: 'rgba(255,255,255,0.2)', margin: '0 0.25rem' }} />
+          <button onClick={onClose} title="Close (Esc)" style={btnStyle}>
+            <X style={{ width: '1rem', height: '1rem' }} />
+          </button>
+        </div>
+      </div>
+
+      {/* Image area */}
+      <div
+        style={{
+          flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          overflow: 'hidden', position: 'relative',
+          cursor: zoom > 1 ? (dragging ? 'grabbing' : 'grab') : 'default',
+        }}
+        onMouseDown={onMouseDown}
+        onMouseMove={onMouseMove}
+        onMouseUp={onMouseUp}
+        onMouseLeave={onMouseUp}
+      >
+        <img
+          src={current.url}
+          alt={current.caption || current.category}
+          draggable={false}
+          style={{
+            maxWidth: zoom === 1 ? '90%' : 'none',
+            maxHeight: zoom === 1 ? '90%' : 'none',
+            transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
+            transformOrigin: 'center center',
+            transition: dragging ? 'none' : 'transform 0.15s ease',
+            borderRadius: zoom === 1 ? '0.5rem' : 0,
+            userSelect: 'none',
+            pointerEvents: 'none',
+          }}
+        />
+
+        {/* Prev / Next arrows */}
+        {photos.length > 1 && (
+          <>
+            <button
+              onClick={() => go(-1)}
+              style={{
+                position: 'absolute', left: '0.75rem',
+                backgroundColor: 'rgba(0,0,0,0.5)', color: 'white',
+                border: '1px solid rgba(255,255,255,0.2)', borderRadius: '9999px',
+                width: '2.5rem', height: '2.5rem', display: 'flex', alignItems: 'center',
+                justifyContent: 'center', cursor: 'pointer',
+              }}
+            >
+              <ChevronLeft style={{ width: '1.25rem', height: '1.25rem' }} />
+            </button>
+            <button
+              onClick={() => go(1)}
+              style={{
+                position: 'absolute', right: '0.75rem',
+                backgroundColor: 'rgba(0,0,0,0.5)', color: 'white',
+                border: '1px solid rgba(255,255,255,0.2)', borderRadius: '9999px',
+                width: '2.5rem', height: '2.5rem', display: 'flex', alignItems: 'center',
+                justifyContent: 'center', cursor: 'pointer',
+              }}
+            >
+              <ChevronRight style={{ width: '1.25rem', height: '1.25rem' }} />
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* Thumbnail strip */}
+      {photos.length > 1 && (
+        <div style={{
+          display: 'flex', gap: '0.375rem', padding: '0.625rem', overflowX: 'auto',
+          backgroundColor: 'rgba(0,0,0,0.5)', flexShrink: 0,
+          borderTop: '1px solid rgba(255,255,255,0.1)',
+        }}>
+          {photos.map((p, i) => (
+            <img
+              key={i}
+              src={p.url}
+              alt=""
+              onClick={() => { setIndex(i); resetZoom(); }}
+              style={{
+                width: '3.5rem', height: '3.5rem', objectFit: 'cover',
+                borderRadius: '0.25rem', flexShrink: 0, cursor: 'pointer',
+                opacity: i === index ? 1 : 0.5,
+                border: i === index ? '2px solid white' : '2px solid transparent',
+                transition: 'opacity 0.15s, border-color 0.15s',
+              }}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Keyboard hint */}
+      <div style={{
+        textAlign: 'center', padding: '0.375rem',
+        color: 'rgba(255,255,255,0.3)', fontSize: '0.7rem', flexShrink: 0,
+      }}>
+        Arrow keys to navigate &nbsp;·&nbsp; +/- to zoom &nbsp;·&nbsp; Drag to pan &nbsp;·&nbsp; Esc to close
+      </div>
+    </div>
+  );
+};
+
+const btnStyle: React.CSSProperties = {
+  backgroundColor: 'rgba(255,255,255,0.1)', color: 'white',
+  border: '1px solid rgba(255,255,255,0.2)', borderRadius: '0.375rem',
+  width: '2rem', height: '2rem', display: 'flex', alignItems: 'center',
+  justifyContent: 'center', cursor: 'pointer',
+};
+
 export const InspectionPDFView = ({ inspection, onClose }: InspectionPDFViewProps) => {
   const { user, userProfile } = useAuth();
   const [photos, setPhotos] = useState<InspectionPhoto[]>([]);
@@ -37,6 +248,7 @@ export const InspectionPDFView = ({ inspection, onClose }: InspectionPDFViewProp
   const [uploadMessage, setUploadMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedCategory, setSelectedCategory] = useState<PendingPhoto['category']>('general');
+  const [lightbox, setLightbox] = useState<{ photos: LightboxPhoto[]; index: number } | null>(null);
 
   const fetchPhotos = async () => {
     setLoadingPhotos(true);
@@ -196,15 +408,58 @@ export const InspectionPDFView = ({ inspection, onClose }: InspectionPDFViewProp
         {loadingPhotos ? (
           <p style={{ color: '#64748b', marginBottom: '1rem', fontSize: '0.875rem' }}>Loading photos...</p>
         ) : photos.length > 0 ? (
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: '0.5rem',
-            backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0',
-            borderRadius: '0.5rem', padding: '0.625rem 0.875rem', marginBottom: '1rem',
-          }}>
-            <Image style={{ width: '1rem', height: '1rem', color: '#16a34a', flexShrink: 0 }} />
-            <span style={{ fontSize: '0.875rem', color: '#15803d' }}>
-              {photos.length} photo{photos.length !== 1 ? 's' : ''} attached &mdash; will be included in PDF
-            </span>
+          <div style={{ marginBottom: '1rem' }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '0.5rem',
+              backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0',
+              borderRadius: '0.5rem 0.5rem 0 0', padding: '0.5rem 0.875rem',
+            }}>
+              <Image style={{ width: '1rem', height: '1rem', color: '#16a34a', flexShrink: 0 }} />
+              <span style={{ fontSize: '0.875rem', color: '#15803d' }}>
+                {photos.length} photo{photos.length !== 1 ? 's' : ''} attached &mdash; click to zoom
+              </span>
+            </div>
+            <div style={{
+              display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.375rem',
+              padding: '0.625rem', backgroundColor: '#f0fdf4',
+              border: '1px solid #bbf7d0', borderTop: 'none', borderRadius: '0 0 0.5rem 0.5rem',
+            }}>
+              {photos.map((p, i) => (
+                <div
+                  key={i}
+                  onClick={() => setLightbox({
+                    photos: photos.map(ph => ({ url: ph.photo_url, category: ph.category, caption: ph.caption })),
+                    index: i,
+                  })}
+                  style={{ position: 'relative', cursor: 'pointer', borderRadius: '0.25rem', overflow: 'hidden' }}
+                  title="Click to zoom"
+                >
+                  <img
+                    src={p.photo_url}
+                    alt={p.caption || p.category}
+                    style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block' }}
+                  />
+                  <div style={{
+                    position: 'absolute', inset: 0,
+                    backgroundColor: 'rgba(0,0,0,0)', transition: 'background-color 0.15s',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}
+                    onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.35)')}
+                    onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0)')}
+                  >
+                    <Maximize2 style={{ width: '1.1rem', height: '1.1rem', color: 'white', opacity: 0, transition: 'opacity 0.15s' }}
+                      className="zoom-icon" />
+                  </div>
+                  <div style={{
+                    position: 'absolute', bottom: 0, left: 0, right: 0,
+                    backgroundColor: 'rgba(0,0,0,0.5)', color: 'white',
+                    fontSize: '0.6rem', padding: '2px 4px', textAlign: 'center',
+                  }}>
+                    {CAT_LABELS[p.category] || p.category}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         ) : (
           <div style={{
@@ -280,7 +535,12 @@ export const InspectionPDFView = ({ inspection, onClose }: InspectionPDFViewProp
                     <img
                       src={p.preview}
                       alt=""
-                      style={{ width: '100%', aspectRatio: (p.category === 'port_prop' || p.category === 'starboard_prop') ? '5/6' : '1', objectFit: 'cover', borderRadius: '0.375rem' }}
+                      onClick={() => setLightbox({
+                        photos: pendingPhotos.map(ph => ({ url: ph.preview, category: ph.category, caption: ph.caption })),
+                        index: idx,
+                      })}
+                      style={{ width: '100%', aspectRatio: (p.category === 'port_prop' || p.category === 'starboard_prop') ? '5/6' : '1', objectFit: 'cover', borderRadius: '0.375rem', cursor: 'pointer' }}
+                      title="Click to zoom"
                     />
                     <div style={{
                       position: 'absolute', top: '2px', left: '2px',
@@ -401,6 +661,14 @@ export const InspectionPDFView = ({ inspection, onClose }: InspectionPDFViewProp
           </button>
         </div>
       </div>
+
+      {lightbox && (
+        <PhotoLightbox
+          photos={lightbox.photos}
+          startIndex={lightbox.index}
+          onClose={() => setLightbox(null)}
+        />
+      )}
 
       {pdfPreviewUrl && (
         <div style={{
