@@ -7738,6 +7738,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       return { bg: '#450a0a', border: '#ef4444', text: '#fca5a5', label: 'Arrival' };
     };
 
+    const formatCheckTimestamp = (ts: string | null | undefined): string => {
+      if (!ts) return '&mdash;';
+      const d = new Date(ts);
+      return d.toLocaleString('en-US', { timeZone: 'America/Phoenix', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }) + ' MST';
+    };
+
     const renderBookingRow = (booking: any, dateForCheck: Date) => {
       const startDate = new Date(booking.start_date.slice(0, 10) + 'T00:00:00');
       const endDate = new Date(booking.end_date.slice(0, 10) + 'T00:00:00');
@@ -7762,6 +7768,16 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         return `${s.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} &rarr; ${e.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
       })();
 
+      const checkInCell = booking.is_appointment ? '&mdash;' : `
+        <div style="font-size:11px;margin-bottom:3px">
+          <span style="color:#86efac;font-weight:600">IN:</span>
+          <span> ${formatCheckTimestamp(booking.check_in_at)}</span>
+        </div>
+        <div style="font-size:11px">
+          <span style="color:#fca5a5;font-weight:600">OUT:</span>
+          <span> ${formatCheckTimestamp(booking.check_out_at)}</span>
+        </div>`;
+
       return `<tr style="border-bottom:1px solid #334155">
         <td style="padding:8px 12px;background:${col.bg};border-left:3px solid ${col.border}">
           <div style="color:${col.text};font-weight:600;font-size:13px">${yachtName}</div>
@@ -7770,6 +7786,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         <td style="padding:8px 12px;color:${col.text};font-size:12px;font-weight:600;background:${col.bg}">${col.label}</td>
         <td class="data-cell" style="padding:8px 12px;font-size:13px;font-weight:600">${time}</td>
         <td class="data-cell" style="padding:8px 12px;font-size:13px">${startFormatted}</td>
+        <td class="data-cell" style="padding:8px 12px">${checkInCell}</td>
       </tr>`;
     };
 
@@ -7786,6 +7803,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             <th style="padding:8px 12px;text-align:left;color:#e2e8f0;font-size:12px;text-transform:uppercase">Type</th>
             <th style="padding:8px 12px;text-align:left;color:#e2e8f0;font-size:12px;text-transform:uppercase">Time</th>
             <th style="padding:8px 12px;text-align:left;color:#e2e8f0;font-size:12px;text-transform:uppercase">Date</th>
+            <th style="padding:8px 12px;text-align:left;color:#e2e8f0;font-size:12px;text-transform:uppercase">Check-In / Check-Out</th>
           </tr></thead>
           <tbody>${bookings.map(b => renderBookingRow(b as any, currentDate)).join('')}</tbody>
         </table>`;
