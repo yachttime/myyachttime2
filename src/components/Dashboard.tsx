@@ -7738,8 +7738,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       return { bg: '#450a0a', border: '#ef4444', text: '#fca5a5', label: 'Arrival' };
     };
 
-    const formatCheckTimestamp = (ts: string | null | undefined): string => {
-      if (!ts) return '&mdash;';
+    const formatCheckTimestamp = (ts: string | null | undefined, done?: boolean): string => {
+      if (!ts) return done ? '(no timestamp)' : '&mdash;';
       const d = new Date(ts);
       return d.toLocaleString('en-US', { timeZone: 'America/Phoenix', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }) + ' MST';
     };
@@ -7771,11 +7771,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       const checkInCell = booking.is_appointment ? '&mdash;' : `
         <div style="font-size:11px;margin-bottom:3px">
           <span style="color:#86efac;font-weight:600">IN:</span>
-          <span> ${formatCheckTimestamp(booking.check_in_at)}</span>
+          <span> ${formatCheckTimestamp(booking.check_in_at, booking.checked_in)}</span>
         </div>
         <div style="font-size:11px">
           <span style="color:#fca5a5;font-weight:600">OUT:</span>
-          <span> ${formatCheckTimestamp(booking.check_out_at)}</span>
+          <span> ${formatCheckTimestamp(booking.check_out_at, booking.checked_out)}</span>
         </div>`;
 
       return `<tr style="border-bottom:1px solid #334155">
