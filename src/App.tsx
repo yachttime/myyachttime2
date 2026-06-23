@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { CompanyProvider } from './contexts/CompanyContext';
 import { RoleImpersonationProvider } from './contexts/RoleImpersonationContext';
@@ -12,6 +12,67 @@ import { Education } from './components/Education';
 import { PasswordChange } from './components/PasswordChange';
 import { StaffCalendar } from './components/StaffCalendar';
 import { PublicAgreementSigner } from './components/PublicAgreementSigner';
+
+function ProfileLoadFallback({ onSignOut, onRetry }: { onSignOut: () => void; onRetry: () => Promise<void> }) {
+  const [countdown, setCountdown] = useState(8);
+  const [retrying, setRetrying] = useState(false);
+  const attemptRef = useRef(0);
+
+  useEffect(() => {
+    if (countdown <= 0) {
+      handleRetry();
+      return;
+    }
+    const t = setTimeout(() => setCountdown(c => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [countdown]);
+
+  const handleRetry = async () => {
+    if (retrying) return;
+    attemptRef.current += 1;
+    setRetrying(true);
+    try {
+      await onRetry();
+    } catch {}
+    setRetrying(false);
+    setCountdown(10);
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white flex items-center justify-center">
+      <div className="text-center max-w-sm px-6">
+        <div className="w-16 h-16 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-6">
+          {retrying ? (
+            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-amber-500" />
+          ) : (
+            <svg className="w-8 h-8 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          )}
+        </div>
+        <h2 className="text-xl font-semibold text-white mb-2">Connecting to server...</h2>
+        <p className="text-slate-400 text-sm mb-2">
+          {retrying ? 'Retrying...' : `Retrying automatically in ${countdown}s`}
+        </p>
+        {attemptRef.current > 0 && (
+          <p className="text-slate-500 text-xs mb-6">Attempt {attemptRef.current + 1} — server may be temporarily slow</p>
+        )}
+        <div className="flex flex-col gap-3 mt-6">
+          <button
+            onClick={handleRetry}
+            disabled={retrying}
+            className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-900 font-semibold rounded-lg transition-colors disabled:opacity-50"
+          >
+            {retrying ? 'Retrying...' : 'Retry Now'}
+          </button>
+          <button onClick={onSignOut} className="px-6 py-3 text-slate-400 hover:text-white transition-colors text-sm">
+            Sign Out
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // Check for public signing token before any auth logic
 const _signingToken = new URLSearchParams(window.location.search).get('sign');
@@ -103,35 +164,9 @@ function AppContent() {
     return <SignIn />;
   }
 
-  // User is authenticated but profile failed to load (e.g. Supabase 504)
+  // User is authenticated but profile failed to load — auto-retry
   if (!userProfile) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white flex items-center justify-center">
-        <div className="text-center max-w-sm px-6">
-          <div className="w-16 h-16 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-6">
-            <svg className="w-8 h-8 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <h2 className="text-xl font-semibold text-white mb-2">Unable to Load Profile</h2>
-          <p className="text-slate-400 text-sm mb-6">There was a problem loading your account. This is usually a temporary issue.</p>
-          <div className="flex flex-col gap-3">
-            <button
-              onClick={() => { window.location.reload(); }}
-              className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-900 font-semibold rounded-lg transition-colors"
-            >
-              Retry
-            </button>
-            <button
-              onClick={signOut}
-              className="px-6 py-3 text-slate-400 hover:text-white transition-colors text-sm"
-            >
-              Sign Out
-            </button>
-          </div>
-        </div>
-      </div>
-    );
+    return <ProfileLoadFallback onSignOut={signOut} onRetry={refreshProfile} />;
   }
 
   if (userProfile?.must_change_password) {
