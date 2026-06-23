@@ -133,23 +133,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const loadUserProfile = async (userId: string, attempt = 1) => {
     const MAX_ATTEMPTS = 5;
-    const QUERY_TIMEOUT_MS = 25000;
 
     const jitter = () => Math.floor(Math.random() * 500);
     const backoff = (n: number) => Math.min(1000 * Math.pow(2, n - 1) + jitter(), 12000);
 
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), QUERY_TIMEOUT_MS);
-
       const { data: profile, error: profileError } = await supabase
         .from('user_profiles')
         .select('*')
         .eq('user_id', userId)
-        .maybeSingle()
-        .abortSignal(controller.signal);
-
-      clearTimeout(timeoutId);
+        .maybeSingle();
 
       if (profileError) throw profileError;
 
