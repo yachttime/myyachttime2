@@ -532,7 +532,12 @@ export function DailyTasksView() {
         card += `</div>`;
       }
       if (t.photo_url) {
-        card += `<div style="margin-top:8px;margin-left:26px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#6b7280;margin-bottom:4px;">Photo</div><img src="${t.photo_url}" style="max-width:100%;max-height:220px;border-radius:6px;border:1px solid #e5e7eb;display:block;" /></div>`;
+        const isVideo = /\.(mp4|mov|avi|webm|mkv|m4v|hevc)(\?|$)/i.test(t.photo_url);
+        if (isVideo) {
+          card += `<div style="margin-top:8px;margin-left:26px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#6b7280;margin-bottom:4px;">Attachment</div><p style="font-size:11px;color:#6b7280;font-style:italic;">[Video attachment — view in app]</p></div>`;
+        } else {
+          card += `<div style="margin-top:8px;margin-left:26px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#6b7280;margin-bottom:4px;">Photo</div><img src="${t.photo_url}" style="max-width:100%;max-height:220px;border-radius:6px;border:1px solid #e5e7eb;display:block;" /></div>`;
+        }
       }
       card += `</div>`;
       return card;
@@ -946,12 +951,25 @@ export function DailyTasksView() {
 
                     {task.photo_url && (
                       <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                        <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Photo</p>
-                        <img
-                          src={task.photo_url}
-                          alt="Repair photo"
-                          className="max-h-64 rounded-lg border border-gray-300 object-contain"
-                        />
+                        {/\.(mp4|mov|avi|webm|mkv|m4v|hevc)(\?|$)/i.test(task.photo_url) ? (
+                          <>
+                            <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Video</p>
+                            <video
+                              src={task.photo_url}
+                              controls
+                              className="max-h-64 rounded-lg border border-gray-300 w-full"
+                            />
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Photo</p>
+                            <img
+                              src={task.photo_url}
+                              alt="Repair photo"
+                              className="max-h-64 rounded-lg border border-gray-300 object-contain"
+                            />
+                          </>
+                        )}
                       </div>
                     )}
 
