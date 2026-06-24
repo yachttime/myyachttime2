@@ -2554,12 +2554,61 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         });
       }
 
+      // Fetch bookings to derive owner name from date proximity (inspection within 24h of arrival)
+      const { data: bookings } = await supabase
+        .from('yacht_bookings')
+        .select('id, start_date, end_date, owner_name, user_id')
+        .eq('yacht_id', yachtId);
+
+      const missingNameUserIds = [...new Set(
+        (bookings || [])
+          .filter((b: any) => !b.owner_name && b.user_id)
+          .map((b: any) => b.user_id)
+      )];
+      const bookingProfileNameMap: Record<string, string> = {};
+      if (missingNameUserIds.length > 0) {
+        const { data: bProfiles } = await supabase
+          .from('user_profiles')
+          .select('user_id, first_name, last_name')
+          .in('user_id', missingNameUserIds);
+        for (const p of bProfiles || []) {
+          const name = [(p as any).first_name, (p as any).last_name].filter(Boolean).join(' ').trim();
+          if (name) bookingProfileNameMap[(p as any).user_id] = name;
+        }
+      }
+
+      const getBookingOwnerName = (b: any): string | null => {
+        if (b.owner_name) return b.owner_name.trim();
+        return bookingProfileNameMap[b.user_id] || null;
+      };
+
+      const getOwnerForInspectionDate = (isoDate: string): string | null => {
+        if (!bookings || bookings.length === 0) return null;
+        const d = new Date(isoDate); d.setHours(0, 0, 0, 0);
+        const candidates: Array<{ booking: any; absDistFromEnd: number }> = [];
+        for (const b of bookings as any[]) {
+          const start = new Date(b.start_date); start.setHours(0, 0, 0, 0);
+          const startMinusOne = new Date(start); startMinusOne.setDate(startMinusOne.getDate() - 1);
+          const endPlusOne = new Date(b.end_date); endPlusOne.setHours(0, 0, 0, 0);
+          endPlusOne.setDate(endPlusOne.getDate() + 1);
+          if (d >= startMinusOne && d <= endPlusOne) {
+            const end = new Date(b.end_date); end.setHours(0, 0, 0, 0);
+            const daysFromEnd = (d.getTime() - end.getTime()) / 86400000;
+            candidates.push({ booking: b, absDistFromEnd: Math.abs(daysFromEnd) });
+          }
+        }
+        if (candidates.length === 0) return null;
+        candidates.sort((a, b) => a.absDistFromEnd - b.absDistFromEnd);
+        return getBookingOwnerName(candidates[0].booking);
+      };
+
       setYachtInspectionDocs(prev => ({
         ...prev,
         [yachtId]: inspections.map((i: any) => ({
           ...i,
           inspector_name: userNameMap[i.inspector_id] || '',
           reviewer_name: i.reviewed_by ? (userNameMap[i.reviewed_by] || '') : '',
+          owner_name: i.owner_name || getOwnerForInspectionDate(i.created_at) || '',
         }))
       }));
     } catch (error) {
