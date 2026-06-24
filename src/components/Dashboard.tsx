@@ -2996,8 +2996,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     }
   };
 
-  const getSigningUrl = (token: string) =>
-    `${window.location.origin}${window.location.pathname}?sign=${token}`;
+  const getSigningUrl = (token: string) => {
+    const base = import.meta.env.VITE_APP_URL || window.location.origin;
+    return `${base}?sign=${token}`;
+  };
 
   const getSigningLinkDaysLeft = (createdAt?: string) => {
     if (!createdAt) return 0;
