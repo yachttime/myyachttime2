@@ -2530,7 +2530,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     try {
       const { data, error } = await supabase
         .from('trip_inspections')
-        .select('id, inspection_type, created_at, inspector_id, review_status, reviewed_by, reviewed_at, review_notes')
+        .select('id, inspection_type, created_at, inspector_id, review_status, reviewed_by, reviewed_at, review_notes, owner_name')
         .eq('yacht_id', yachtId)
         .order('created_at', { ascending: false });
 
@@ -12835,6 +12835,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 <div className="space-y-2 max-h-64 overflow-y-auto">
                                   {yachtInspectionDocs[yacht.id].map((inspection: any) => {
                                     const inspectorName = inspection.inspector_name || '';
+                                    const ownerName = inspection.owner_name || '';
                                     const isPending = inspection.review_status === 'pending_review';
                                     const canReview = (isStaffRole(effectiveRole) || isMasterRole(effectiveRole));
                                     return (
@@ -12844,6 +12845,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                             <div className="flex items-center gap-2 flex-wrap">
                                               <span className="text-slate-200 font-medium">Trip Inspection</span>
                                               <span className="text-slate-500">{new Date(inspection.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                              {ownerName && <span className="text-slate-300 font-medium">· {ownerName}</span>}
                                               {inspectorName && <span className="text-slate-500">• {inspectorName}</span>}
                                               {isPending ? (
                                                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 font-semibold text-xs">
@@ -23594,7 +23596,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                 <div>
                   <h3 className="text-lg font-bold text-gray-900">Review Trip Inspection</h3>
                   <p className="text-sm text-gray-500">
-                    {reviewInspectionData.yachts?.name} &mdash; {reviewInspectionData.user_profiles ? `${reviewInspectionData.user_profiles.first_name} ${reviewInspectionData.user_profiles.last_name}` : 'Inspector'} &mdash; {new Date(reviewInspectionData.inspection_date || reviewInspectionData.created_at).toLocaleDateString()}
+                    {reviewInspectionData.yachts?.name}{reviewInspectionData.owner_name ? ` \u2014 ${reviewInspectionData.owner_name}` : ''} &mdash; {reviewInspectionData.user_profiles ? `${reviewInspectionData.user_profiles.first_name} ${reviewInspectionData.user_profiles.last_name}` : 'Inspector'} &mdash; {new Date(reviewInspectionData.inspection_date || reviewInspectionData.created_at).toLocaleDateString()}
                   </p>
                 </div>
               </div>
