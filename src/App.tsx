@@ -80,7 +80,7 @@ const _signingToken = new URLSearchParams(window.location.search).get('sign');
 type Page = 'welcome' | 'signin' | 'dashboard' | 'maintenance' | 'education' | 'staffCalendar';
 
 function AppContent() {
-  const { user, userProfile, loading, isPasswordRecovery, signOut } = useAuth();
+  const { user, userProfile, loading, isPasswordRecovery, signOut, refreshProfile } = useAuth();
   const [page, setPage] = useState<Page>('welcome');
   const [mounted, setMounted] = useState(false);
 
