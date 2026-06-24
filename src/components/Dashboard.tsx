@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Anchor, Calendar, CheckCircle, AlertCircle, BookOpen, LogOut, Wrench, Send, Play, Shield, ClipboardCheck, ClipboardList, Ship, CalendarPlus, FileUp, MessageCircle, Mail, CreditCard as Edit2, Trash2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, History, UserCheck, FileText, Upload, Download, X, Users, Save, RefreshCw, Clock, Thermometer, Camera, Receipt, Pencil, Lock, CreditCard, Eye, EyeOff, MousePointer, Ligature as FileSignature, Folder, Menu, Phone, Printer, Plus, QrCode, CircleUser as UserCircle2, DollarSign, Archive, Building2, MessageSquare, ShieldAlert, Paperclip, ExternalLink, User, Image, ArrowLeftRight, Copy, Link, Gauge } from 'lucide-react';
+import { Anchor, Calendar, CheckCircle, AlertCircle, BookOpen, LogOut, Wrench, Send, Play, Shield, ClipboardCheck, ClipboardList, Ship, CalendarPlus, FileUp, MessageCircle, Mail, CreditCard as Edit2, Trash2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, History, UserCheck, FileText, Upload, Download, X, Users, Save, RefreshCw, Clock, Thermometer, Camera, Receipt, Pencil, Lock, CreditCard, Eye, EyeOff, MousePointer, Ligature as FileSignature, Folder, Menu, Phone, Printer, Plus, QrCode, CircleUser as UserCircle2, DollarSign, Archive, Building2, MessageSquare, ShieldAlert, Paperclip, ExternalLink, User, Image, ArrowLeftRight, Copy, Link, Gauge, ZoomIn } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCompany } from '../contexts/CompanyContext';
 import { useRoleImpersonation } from '../contexts/RoleImpersonationContext';
@@ -673,10 +673,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [loadingPdfId, setLoadingPdfId] = useState<string | null>(null);
   const [reviewInspectionId, setReviewInspectionId] = useState<string | null>(null);
   const [reviewInspectionData, setReviewInspectionData] = useState<any | null>(null);
+  const [reviewInspectionPhotos, setReviewInspectionPhotos] = useState<any[]>([]);
   const [reviewNotes, setReviewNotes] = useState('');
   const [loadingReviewId, setLoadingReviewId] = useState<string | null>(null);
   const [submittingReview, setSubmittingReview] = useState(false);
   const [pendingInspectionCount, setPendingInspectionCount] = useState(0);
+  const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
   const [yachtHistoryLogs, setYachtHistoryLogs] = useState<Record<string, YachtHistoryLog[]>>({});
   const [expandedYachtId, setExpandedYachtId] = useState<string | null>(null);
   const [yachtDocuments, setYachtDocuments] = useState<Record<string, YachtDocument[]>>({});
@@ -7330,6 +7332,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     if (loadingReviewId) return;
     setLoadingReviewId(inspectionId);
     setReviewNotes('');
+    setReviewInspectionPhotos([]);
     try {
       const { data, error } = await supabase
         .from('trip_inspections')
@@ -7345,6 +7348,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           .maybeSingle();
         if (profile) (data as any).user_profiles = profile;
       }
+      // Load photos
+      const { data: photos } = await supabase
+        .from('inspection_photos')
+        .select('id, photo_url, caption, category')
+        .eq('inspection_id', inspectionId)
+        .order('created_at', { ascending: true });
+      setReviewInspectionPhotos(photos || []);
       setReviewInspectionData(data);
       setReviewInspectionId(inspectionId);
     } catch (err) {
@@ -23588,7 +23598,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                   </p>
                 </div>
               </div>
-              <button onClick={() => { setReviewInspectionId(null); setReviewInspectionData(null); setReviewNotes(''); }} className="text-gray-400 hover:text-gray-600 transition-colors">
+              <button onClick={() => { setReviewInspectionId(null); setReviewInspectionData(null); setReviewNotes(''); setReviewInspectionPhotos([]); }} className="text-gray-400 hover:text-gray-600 transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -23717,6 +23727,39 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                 </div>
               )}
 
+              {/* Photos */}
+              {reviewInspectionPhotos.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3 flex items-center gap-2">
+                    <span className="w-2 h-2 bg-blue-500 rounded-full inline-block"></span>
+                    Photos ({reviewInspectionPhotos.length})
+                  </h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {reviewInspectionPhotos.map((photo) => (
+                      <button
+                        key={photo.id}
+                        onClick={() => setLightboxPhoto(photo.photo_url)}
+                        className="group relative aspect-square rounded-lg overflow-hidden border border-gray-200 hover:border-blue-400 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <img
+                          src={photo.photo_url}
+                          alt={photo.caption || photo.category}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                        />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                          <ZoomIn className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
+                        </div>
+                        {photo.caption && (
+                          <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1">
+                            <p className="text-white text-xs truncate">{photo.caption}</p>
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Review Notes */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Review Notes (optional)</label>
@@ -23742,7 +23785,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               </button>
               <div className="flex-1" />
               <button
-                onClick={() => { setReviewInspectionId(null); setReviewInspectionData(null); setReviewNotes(''); }}
+                onClick={() => { setReviewInspectionId(null); setReviewInspectionData(null); setReviewNotes(''); setReviewInspectionPhotos([]); }}
                 className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-white transition-colors"
               >
                 Cancel
@@ -23757,6 +23800,26 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {lightboxPhoto && (
+        <div
+          className="fixed inset-0 bg-black/90 flex items-center justify-center z-[60] p-4"
+          onClick={() => setLightboxPhoto(null)}
+        >
+          <button
+            className="absolute top-4 right-4 text-white/70 hover:text-white transition-colors"
+            onClick={() => setLightboxPhoto(null)}
+          >
+            <X className="w-8 h-8" />
+          </button>
+          <img
+            src={lightboxPhoto}
+            alt="Inspection photo"
+            className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          />
         </div>
       )}
 
