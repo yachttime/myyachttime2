@@ -671,6 +671,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [selectedInspectionForPDF, setSelectedInspectionForPDF] = useState<TripInspection | null>(null);
   const [selectedHandoffForPDF, setSelectedHandoffForPDF] = useState<OwnerHandoffInspection | null>(null);
   const [loadingPdfId, setLoadingPdfId] = useState<string | null>(null);
+  const [reviewInspectionId, setReviewInspectionId] = useState<string | null>(null);
+  const [reviewInspectionData, setReviewInspectionData] = useState<any | null>(null);
+  const [reviewNotes, setReviewNotes] = useState('');
+  const [loadingReviewId, setLoadingReviewId] = useState<string | null>(null);
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [pendingInspectionCount, setPendingInspectionCount] = useState(0);
   const [yachtHistoryLogs, setYachtHistoryLogs] = useState<Record<string, YachtHistoryLog[]>>({});
   const [expandedYachtId, setExpandedYachtId] = useState<string | null>(null);
   const [yachtDocuments, setYachtDocuments] = useState<Record<string, YachtDocument[]>>({});
@@ -867,6 +873,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     loadStaffMessages();
     loadYachtPartners();
     checkSmartDevices();
+    loadPendingInspectionCount();
   }, [user, yacht, effectiveRole, effectiveYacht, impersonatedYacht, selectedCompany, isLoadingCompanies]);
 
   useEffect(() => {
@@ -2521,7 +2528,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     try {
       const { data, error } = await supabase
         .from('trip_inspections')
-        .select('id, inspection_type, created_at, inspector_id')
+        .select('id, inspection_type, created_at, inspector_id, review_status, reviewed_by, reviewed_at, review_notes')
         .eq('yacht_id', yachtId)
         .order('created_at', { ascending: false });
 
@@ -2529,22 +2536,29 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       const inspections = data || [];
 
-      // Fetch inspector names in one query
-      const inspectorIds = [...new Set(inspections.map((i: any) => i.inspector_id).filter(Boolean))];
-      let inspectorMap: Record<string, string> = {};
-      if (inspectorIds.length > 0) {
+      // Fetch inspector + reviewer names in one query
+      const allUserIds = [...new Set([
+        ...inspections.map((i: any) => i.inspector_id).filter(Boolean),
+        ...inspections.map((i: any) => i.reviewed_by).filter(Boolean),
+      ])];
+      let userNameMap: Record<string, string> = {};
+      if (allUserIds.length > 0) {
         const { data: profiles } = await supabase
           .from('user_profiles')
           .select('user_id, first_name, last_name')
-          .in('user_id', inspectorIds);
+          .in('user_id', allUserIds);
         (profiles || []).forEach((p: any) => {
-          inspectorMap[p.user_id] = `${p.first_name || ''} ${p.last_name || ''}`.trim();
+          userNameMap[p.user_id] = `${p.first_name || ''} ${p.last_name || ''}`.trim();
         });
       }
 
       setYachtInspectionDocs(prev => ({
         ...prev,
-        [yachtId]: inspections.map((i: any) => ({ ...i, inspector_name: inspectorMap[i.inspector_id] || '' }))
+        [yachtId]: inspections.map((i: any) => ({
+          ...i,
+          inspector_name: userNameMap[i.inspector_id] || '',
+          reviewer_name: i.reviewed_by ? (userNameMap[i.reviewed_by] || '') : '',
+        }))
       }));
     } catch (error) {
       console.error('Error loading yacht inspections:', error);
@@ -7296,6 +7310,83 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     }
   };
 
+  const loadPendingInspectionCount = async () => {
+    if (!isStaffRole(effectiveRole) && !isMasterRole(effectiveRole)) return;
+    try {
+      const companyId = selectedCompany?.id || userProfile?.company_id;
+      if (!companyId) return;
+      const { count } = await supabase
+        .from('trip_inspections')
+        .select('id', { count: 'exact', head: true })
+        .eq('review_status', 'pending_review')
+        .eq('company_id', companyId);
+      setPendingInspectionCount(count || 0);
+    } catch {
+      // silently ignore
+    }
+  };
+
+  const openInspectionReview = async (inspectionId: string) => {
+    if (loadingReviewId) return;
+    setLoadingReviewId(inspectionId);
+    setReviewNotes('');
+    try {
+      const { data, error } = await supabase
+        .from('trip_inspections')
+        .select('*, yachts(name)')
+        .eq('id', inspectionId)
+        .single();
+      if (error) throw error;
+      if (data.inspector_id) {
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('first_name, last_name')
+          .eq('user_id', data.inspector_id)
+          .maybeSingle();
+        if (profile) (data as any).user_profiles = profile;
+      }
+      setReviewInspectionData(data);
+      setReviewInspectionId(inspectionId);
+    } catch (err) {
+      console.error('Error loading inspection for review:', err);
+      showError('Failed to load inspection');
+    } finally {
+      setLoadingReviewId(null);
+    }
+  };
+
+  const handleApproveInspection = async () => {
+    if (!reviewInspectionId || !user) return;
+    setSubmittingReview(true);
+    try {
+      const { error } = await supabase
+        .from('trip_inspections')
+        .update({
+          review_status: 'approved',
+          reviewed_by: user.id,
+          reviewed_at: new Date().toISOString(),
+          review_notes: reviewNotes.trim() || null,
+        })
+        .eq('id', reviewInspectionId);
+      if (error) throw error;
+
+      showSuccess('Inspection approved');
+      setReviewInspectionId(null);
+      setReviewInspectionData(null);
+      setReviewNotes('');
+
+      // Refresh inspection docs for the yacht
+      if (reviewInspectionData?.yacht_id) {
+        loadYachtInspectionDocs(reviewInspectionData.yacht_id);
+      }
+      loadPendingInspectionCount();
+    } catch (err: any) {
+      showError(err.message || 'Failed to approve inspection');
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
   const viewOwnerHandoffPDF = async (handoffId: string) => {
     try {
       const { data: handoff, error } = await supabase
@@ -9560,10 +9651,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                         onClick={() => setAdminViewPersisted('inspection')}
                         className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
                       >
-                        <div className="flex items-center gap-4 mb-4">
+                        <div className="flex items-center justify-between gap-4 mb-4">
                           <div className="bg-amber-500/20 p-4 rounded-xl group-hover:bg-amber-500/30 transition-colors">
                             <ClipboardCheck className="w-8 h-8 text-amber-500" />
                           </div>
+                          {(isStaffRole(effectiveRole) || isMasterRole(effectiveRole)) && pendingInspectionCount > 0 && (
+                            <span className="bg-amber-500 text-white text-xs font-bold px-2.5 py-1 rounded-full">{pendingInspectionCount} Pending</span>
+                          )}
                         </div>
                         <h3 className="text-xl font-bold mb-2">Trip Inspection Form</h3>
                         <p className="text-slate-400 text-sm">Complete trip inspections for yacht trips</p>
@@ -12730,54 +12824,84 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               ) : (
                                 <div className="space-y-2 max-h-64 overflow-y-auto">
                                   {yachtInspectionDocs[yacht.id].map((inspection: any) => {
-                                    const typeLabel = 'Trip Inspection';
                                     const inspectorName = inspection.inspector_name || '';
+                                    const isPending = inspection.review_status === 'pending_review';
+                                    const canReview = (isStaffRole(effectiveRole) || isMasterRole(effectiveRole));
                                     return (
-                                      <div key={inspection.id} className="flex items-center justify-between bg-slate-900/50 rounded-lg px-3 py-2 text-xs">
-                                        <div>
-                                          <span className="text-slate-200 font-medium">{typeLabel}</span>
-                                          <span className="text-slate-500 ml-2">{new Date(inspection.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                                          {inspectorName && <span className="text-slate-500 ml-2">• {inspectorName}</span>}
+                                      <div key={inspection.id} className="bg-slate-900/50 rounded-lg px-3 py-2 text-xs">
+                                        <div className="flex items-center justify-between">
+                                          <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                              <span className="text-slate-200 font-medium">Trip Inspection</span>
+                                              <span className="text-slate-500">{new Date(inspection.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                              {inspectorName && <span className="text-slate-500">• {inspectorName}</span>}
+                                              {isPending ? (
+                                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 font-semibold text-xs">
+                                                  <Clock className="w-2.5 h-2.5" />
+                                                  Pending Review
+                                                </span>
+                                              ) : (
+                                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-400 border border-green-500/30 font-semibold text-xs" title={inspection.reviewer_name ? `Approved by ${inspection.reviewer_name}${inspection.reviewed_at ? ' on ' + new Date(inspection.reviewed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}` : ''}>
+                                                  <CheckCircle className="w-2.5 h-2.5" />
+                                                  Approved{inspection.reviewer_name ? ` · ${inspection.reviewer_name}` : ''}
+                                                </span>
+                                              )}
+                                            </div>
+                                          </div>
+                                          <div className="flex items-center gap-1 ml-2 flex-shrink-0">
+                                            {isPending && canReview && (
+                                              <button
+                                                onClick={() => openInspectionReview(inspection.id)}
+                                                disabled={loadingReviewId === inspection.id}
+                                                className="px-2 py-1 rounded transition-colors text-xs whitespace-nowrap flex items-center gap-1 bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 disabled:opacity-50"
+                                              >
+                                                {loadingReviewId === inspection.id ? <><RefreshCw className="w-3 h-3 animate-spin" />Loading...</> : <><ClipboardCheck className="w-3 h-3" />Review</>}
+                                              </button>
+                                            )}
+                                            <button
+                                              onClick={async () => {
+                                                if (loadingPdfId) return;
+                                                try {
+                                                  setLoadingPdfId(inspection.id);
+                                                  const { data: inspectionData, error: inspectionError } = await supabase
+                                                    .from('trip_inspections')
+                                                    .select('*, yachts(name)')
+                                                    .eq('id', inspection.id)
+                                                    .maybeSingle();
+                                                  if (inspectionError) throw inspectionError;
+                                                  if (!inspectionData) { alert('Inspection not found'); return; }
+                                                  if (inspectionData.inspector_id) {
+                                                    const { data: inspectorData } = await supabase
+                                                      .from('user_profiles')
+                                                      .select('first_name, last_name')
+                                                      .eq('user_id', inspectionData.inspector_id)
+                                                      .maybeSingle();
+                                                    if (inspectorData) inspectionData.user_profiles = inspectorData;
+                                                  }
+                                                  setSelectedInspectionForPDF(inspectionData as any);
+                                                } catch (err) {
+                                                  console.error('Error:', err);
+                                                  alert('Failed to load inspection report');
+                                                } finally {
+                                                  setLoadingPdfId(null);
+                                                }
+                                              }}
+                                              disabled={loadingPdfId === inspection.id}
+                                              className={`px-2 py-1 rounded transition-colors text-xs whitespace-nowrap flex items-center gap-1 ${
+                                                loadingPdfId === inspection.id
+                                                  ? 'bg-cyan-500/10 text-cyan-500/50 cursor-not-allowed'
+                                                  : 'bg-cyan-500/20 text-cyan-500 hover:bg-cyan-500/30'
+                                              }`}
+                                            >
+                                              {loadingPdfId === inspection.id ? (
+                                                <><RefreshCw className="w-3 h-3 animate-spin" />Loading...</>
+                                              ) : 'View PDF'}
+                                            </button>
+                                          </div>
                                         </div>
-                                        <button
-                                          onClick={async () => {
-                                            if (loadingPdfId) return;
-                                            try {
-                                              setLoadingPdfId(inspection.id);
-                                              const { data: inspectionData, error: inspectionError } = await supabase
-                                                .from('trip_inspections')
-                                                .select('*, yachts(name)')
-                                                .eq('id', inspection.id)
-                                                .maybeSingle();
-                                              if (inspectionError) throw inspectionError;
-                                              if (!inspectionData) { alert('Inspection not found'); return; }
-                                              if (inspectionData.inspector_id) {
-                                                const { data: inspectorData } = await supabase
-                                                  .from('user_profiles')
-                                                  .select('first_name, last_name')
-                                                  .eq('user_id', inspectionData.inspector_id)
-                                                  .maybeSingle();
-                                                if (inspectorData) inspectionData.user_profiles = inspectorData;
-                                              }
-                                              setSelectedInspectionForPDF(inspectionData as any);
-                                            } catch (err) {
-                                              console.error('Error:', err);
-                                              alert('Failed to load inspection report');
-                                            } finally {
-                                              setLoadingPdfId(null);
-                                            }
-                                          }}
-                                          disabled={loadingPdfId === inspection.id}
-                                          className={`px-2 py-1 rounded transition-colors text-xs whitespace-nowrap flex items-center gap-1 ${
-                                            loadingPdfId === inspection.id
-                                              ? 'bg-cyan-500/10 text-cyan-500/50 cursor-not-allowed'
-                                              : 'bg-cyan-500/20 text-cyan-500 hover:bg-cyan-500/30'
-                                          }`}
-                                        >
-                                          {loadingPdfId === inspection.id ? (
-                                            <><RefreshCw className="w-3 h-3 animate-spin" />Loading...</>
-                                          ) : 'View PDF'}
-                                        </button>
+                                        {inspection.review_notes && (
+                                          <div className="mt-1.5 text-slate-400 italic pl-0.5">Note: {inspection.review_notes}</div>
+                                        )}
                                       </div>
                                     );
                                   })}
@@ -17815,7 +17939,20 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                         <p className="text-slate-200 text-sm whitespace-pre-wrap break-words">{msg.message}</p>
                                       </div>
                                       {msg.notification_type === 'trip_inspection' && msg.reference_id && (
-                                        <div className="mt-3">
+                                        <div className="mt-3 flex flex-col gap-2">
+                                          {(isStaffRole(effectiveRole) || isMasterRole(effectiveRole)) && (
+                                            <button
+                                              onClick={() => openInspectionReview(msg.reference_id)}
+                                              disabled={loadingReviewId === msg.reference_id}
+                                              className="w-full bg-amber-500 hover:bg-amber-600 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-2 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 text-sm"
+                                            >
+                                              {loadingReviewId === msg.reference_id ? (
+                                                <><RefreshCw className="w-4 h-4 animate-spin" />Loading...</>
+                                              ) : (
+                                                <><ClipboardCheck className="w-4 h-4" />Review Inspection</>
+                                              )}
+                                            </button>
+                                          )}
                                           <button
                                             onClick={() => viewInspectionPDF(msg.reference_id)}
                                             disabled={loadingPdfId === msg.reference_id}
@@ -23431,6 +23568,194 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {reviewInspectionId && reviewInspectionData && (
+        <div className="fixed inset-0 bg-black/70 flex items-start justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl my-6">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 sticky top-0 bg-white rounded-t-2xl z-10">
+              <div className="flex items-center gap-3">
+                <div className="bg-amber-50 p-2 rounded-lg">
+                  <ClipboardCheck className="w-5 h-5 text-amber-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Review Trip Inspection</h3>
+                  <p className="text-sm text-gray-500">
+                    {reviewInspectionData.yachts?.name} &mdash; {reviewInspectionData.user_profiles ? `${reviewInspectionData.user_profiles.first_name} ${reviewInspectionData.user_profiles.last_name}` : 'Inspector'} &mdash; {new Date(reviewInspectionData.inspection_date || reviewInspectionData.created_at).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+              <button onClick={() => { setReviewInspectionId(null); setReviewInspectionData(null); setReviewNotes(''); }} className="text-gray-400 hover:text-gray-600 transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Engine Hours */}
+              {(reviewInspectionData.port_engine_hours != null || reviewInspectionData.stbd_engine_hours != null || reviewInspectionData.port_gen_hours != null || reviewInspectionData.stbd_gen_hours != null) && (
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3 flex items-center gap-2"><span className="w-2 h-2 bg-blue-500 rounded-full inline-block"></span>Engine Hours</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {reviewInspectionData.port_engine_hours != null && <div className="bg-gray-50 rounded-lg p-3 text-center"><p className="text-xs text-gray-500 mb-1">Port Engine</p><p className="font-semibold text-gray-900">{reviewInspectionData.port_engine_hours} hrs</p></div>}
+                    {reviewInspectionData.stbd_engine_hours != null && <div className="bg-gray-50 rounded-lg p-3 text-center"><p className="text-xs text-gray-500 mb-1">Stbd Engine</p><p className="font-semibold text-gray-900">{reviewInspectionData.stbd_engine_hours} hrs</p></div>}
+                    {reviewInspectionData.port_gen_hours != null && <div className="bg-gray-50 rounded-lg p-3 text-center"><p className="text-xs text-gray-500 mb-1">Port Generator</p><p className="font-semibold text-gray-900">{reviewInspectionData.port_gen_hours} hrs</p></div>}
+                    {reviewInspectionData.stbd_gen_hours != null && <div className="bg-gray-50 rounded-lg p-3 text-center"><p className="text-xs text-gray-500 mb-1">Stbd Generator</p><p className="font-semibold text-gray-900">{reviewInspectionData.stbd_gen_hours} hrs</p></div>}
+                  </div>
+                </div>
+              )}
+
+              {/* Levels */}
+              {(reviewInspectionData.fuel_level != null || reviewInspectionData.water_level != null) && (
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3 flex items-center gap-2"><span className="w-2 h-2 bg-cyan-500 rounded-full inline-block"></span>Levels</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    {reviewInspectionData.fuel_level != null && <div className="bg-gray-50 rounded-lg p-3 text-center"><p className="text-xs text-gray-500 mb-1">Fuel Level</p><p className="font-semibold text-gray-900">{reviewInspectionData.fuel_level}%</p></div>}
+                    {reviewInspectionData.water_level != null && <div className="bg-gray-50 rounded-lg p-3 text-center"><p className="text-xs text-gray-500 mb-1">Water Level</p><p className="font-semibold text-gray-900">{reviewInspectionData.water_level}%</p></div>}
+                  </div>
+                </div>
+              )}
+
+              {/* Condition Fields */}
+              {(() => {
+                const conditionFields: [string, string, string, string][] = [
+                  ['Hull', reviewInspectionData.hull_condition, reviewInspectionData.hull_notes, 'hull'],
+                  ['Deck', reviewInspectionData.deck_condition, reviewInspectionData.deck_notes, 'deck'],
+                  ['Cabin', reviewInspectionData.cabin_condition, reviewInspectionData.cabin_notes, 'cabin'],
+                  ['Galley', reviewInspectionData.galley_condition, reviewInspectionData.galley_notes, 'galley'],
+                  ['Head', reviewInspectionData.head_condition, reviewInspectionData.head_notes, 'head'],
+                  ['Navigation Equipment', reviewInspectionData.navigation_equipment, reviewInspectionData.navigation_notes, 'navigation'],
+                  ['Safety Equipment', reviewInspectionData.safety_equipment, reviewInspectionData.safety_notes, 'safety'],
+                  ['Engine', reviewInspectionData.engine_condition, reviewInspectionData.engine_notes, 'engine'],
+                  ['Inverter System', reviewInspectionData.inverter_system, reviewInspectionData.inverter_notes, 'inverter'],
+                  ['Master Bathroom', reviewInspectionData.master_bathroom, reviewInspectionData.master_bathroom_notes, 'master_bath'],
+                  ['Secondary Bathroom', reviewInspectionData.secondary_bathroom, reviewInspectionData.secondary_bathroom_notes, 'sec_bath'],
+                  ['Upper Deck Bathroom', reviewInspectionData.upper_deck_bathroom, reviewInspectionData.upper_deck_bathroom_notes, 'upper_bath'],
+                  ['Lower Sinks', reviewInspectionData.lower_sinks, reviewInspectionData.lower_sinks_notes, 'lower_sinks'],
+                  ['Kitchen Sink', reviewInspectionData.kitchen_sink, reviewInspectionData.kitchen_sink_notes, 'kitchen_sink'],
+                  ['Upper Kitchen Sink', reviewInspectionData.upper_kitchen_sink, reviewInspectionData.upper_kitchen_sink_notes, 'upper_sink'],
+                  ['Garbage Disposal', reviewInspectionData.garbage_disposal, reviewInspectionData.garbage_disposal_notes, 'disposal'],
+                  ['Upper Disposal', reviewInspectionData.upper_disposal, reviewInspectionData.upper_disposal_notes, 'upper_disposal'],
+                  ['Stove Top', reviewInspectionData.stove_top, reviewInspectionData.stove_top_notes, 'stove'],
+                  ['Upper Stove Top', reviewInspectionData.upper_stove_top, reviewInspectionData.upper_stove_top_notes, 'upper_stove'],
+                  ['Dishwasher', reviewInspectionData.dishwasher, reviewInspectionData.dishwasher_notes, 'dishwasher'],
+                  ['Trash Compactor', reviewInspectionData.trash_compactor, reviewInspectionData.trash_compactor_notes, 'compactor'],
+                  ['Icemaker', reviewInspectionData.icemaker, reviewInspectionData.icemaker_notes, 'icemaker'],
+                  ['Propane', reviewInspectionData.propane, reviewInspectionData.propane_notes, 'propane'],
+                  ['12V Fans', reviewInspectionData.volt_fans, reviewInspectionData.volt_fans_notes, 'fans'],
+                  ['AC Filters', reviewInspectionData.ac_filters, reviewInspectionData.ac_filters_notes, 'ac_filters'],
+                  ['Upper AC Filter', reviewInspectionData.upper_ac_filter, reviewInspectionData.upper_ac_filter_notes, 'upper_ac'],
+                  ['AC Water Pumps', reviewInspectionData.ac_water_pumps, reviewInspectionData.ac_water_pumps_notes, 'ac_pumps'],
+                  ['Water Filters', reviewInspectionData.water_filters, reviewInspectionData.water_filters_notes, 'wtr_filters'],
+                  ['Water Pumps & Controls', reviewInspectionData.water_pumps_controls, reviewInspectionData.water_pumps_controls_notes, 'wtr_pumps'],
+                  ['Port Engine Oil', reviewInspectionData.port_engine_oil, reviewInspectionData.port_engine_oil_notes, 'port_oil'],
+                  ['Starboard Engine Oil', reviewInspectionData.starboard_engine_oil, reviewInspectionData.starboard_engine_oil_notes, 'stbd_oil'],
+                  ['Port Generator Oil', reviewInspectionData.port_generator_oil, reviewInspectionData.port_generator_oil_notes, 'port_gen_oil'],
+                  ['Starboard Generator Oil', reviewInspectionData.starboard_generator_oil, reviewInspectionData.starboard_generator_oil_notes, 'stbd_gen_oil'],
+                  ['Sea Strainers', reviewInspectionData.sea_strainers, reviewInspectionData.sea_strainers_notes, 'strainers'],
+                  ['Engine Batteries', reviewInspectionData.engine_batteries, reviewInspectionData.engine_batteries_notes, 'batteries'],
+                  ['Windless Port', reviewInspectionData.windless_port, reviewInspectionData.windless_port_notes, 'wind_port'],
+                  ['Windless Starboard', reviewInspectionData.windless_starboard, reviewInspectionData.windless_starboard_notes, 'wind_stbd'],
+                  ['Anchor & Lines', reviewInspectionData.anchor_lines, reviewInspectionData.anchor_lines_notes, 'anchor'],
+                  ['Trash Removed', reviewInspectionData.trash_removed, reviewInspectionData.trash_removed_notes, 'trash'],
+                ];
+                const filled = conditionFields.filter(([, val]) => val);
+                if (!filled.length) return null;
+                const getBadgeStyle = (val: string) => {
+                  const lower = val.toLowerCase();
+                  if (lower === 'good' || lower === 'ok' || lower === 'yes') return 'bg-green-100 text-green-800';
+                  if (lower === 'needs attention' || lower === 'fair') return 'bg-amber-100 text-amber-800';
+                  if (lower === 'poor' || lower === 'no' || lower === 'critical') return 'bg-red-100 text-red-800';
+                  return 'bg-gray-100 text-gray-700';
+                };
+                return (
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3 flex items-center gap-2"><span className="w-2 h-2 bg-amber-500 rounded-full inline-block"></span>Condition Report</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {filled.map(([label, val, notes, key]) => (
+                        <div key={key} className="flex items-start justify-between bg-gray-50 rounded-lg px-3 py-2 gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-gray-700">{label}</p>
+                            {notes && <p className="text-xs text-gray-500 mt-0.5 truncate">{notes}</p>}
+                          </div>
+                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${getBadgeStyle(val)}`}>{val}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Overall / Additional Notes */}
+              {(reviewInspectionData.overall_condition || reviewInspectionData.additional_notes) && (
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3 flex items-center gap-2"><span className="w-2 h-2 bg-gray-400 rounded-full inline-block"></span>Overall</h4>
+                  <div className="space-y-2">
+                    {reviewInspectionData.overall_condition && (
+                      <div className="bg-gray-50 rounded-lg px-3 py-2">
+                        <p className="text-xs text-gray-500 mb-0.5">Overall Condition</p>
+                        <p className="text-sm font-medium text-gray-900">{reviewInspectionData.overall_condition}</p>
+                      </div>
+                    )}
+                    {reviewInspectionData.additional_notes && (
+                      <div className="bg-gray-50 rounded-lg px-3 py-2">
+                        <p className="text-xs text-gray-500 mb-0.5">Additional Notes</p>
+                        <p className="text-sm text-gray-800 whitespace-pre-wrap">{reviewInspectionData.additional_notes}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Issues Found */}
+              {reviewInspectionData.issues_found && (
+                <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                  <p className="text-sm font-semibold text-red-700">Issues found during this inspection</p>
+                </div>
+              )}
+
+              {/* Review Notes */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Review Notes (optional)</label>
+                <textarea
+                  value={reviewNotes}
+                  onChange={e => setReviewNotes(e.target.value)}
+                  placeholder="Add any notes about this review..."
+                  rows={3}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 resize-none"
+                />
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center gap-3 px-6 py-4 border-t border-gray-200 bg-gray-50 rounded-b-2xl">
+              <button
+                onClick={() => viewInspectionPDF(reviewInspectionId)}
+                disabled={loadingPdfId === reviewInspectionId}
+                className="flex items-center gap-2 border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-white transition-colors disabled:opacity-50"
+              >
+                {loadingPdfId === reviewInspectionId ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ClipboardCheck className="w-4 h-4" />}
+                View PDF
+              </button>
+              <div className="flex-1" />
+              <button
+                onClick={() => { setReviewInspectionId(null); setReviewInspectionData(null); setReviewNotes(''); }}
+                className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleApproveInspection}
+                disabled={submittingReview}
+                className="bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {submittingReview ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                {submittingReview ? 'Approving...' : 'Approve Inspection'}
+              </button>
+            </div>
           </div>
         </div>
       )}
