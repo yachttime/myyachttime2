@@ -134,9 +134,9 @@ export function EstimatingDashboard({ userId, initialInvoiceId }: EstimatingDash
       const pendingWorkOrders = workOrders.filter(w =>
         w.status === 'in_progress' || w.status === 'pending'
       ).length;
-      const unpaidInvoices = invoices.filter(i => i.payment_status === 'unpaid');
+      const unpaidInvoices = invoices.filter(i => i.payment_status === 'unpaid' && (i.total_amount || 0) > 0);
       const unpaidAmount = unpaidInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
-      const processingInvoices = invoices.filter(i => i.payment_status === 'processing');
+      const processingInvoices = invoices.filter(i => i.payment_status === 'processing' && (i.total_amount || 0) > 0);
       const processingAmount = processingInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
       const lowStockItems = parts.filter(p => p.quantity_on_hand <= p.reorder_level).length;
 
