@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Package, Briefcase, Wrench, Settings, LayoutDashboard, Clock, DollarSign, AlertCircle, FileText as FileIcon, Receipt, ShoppingCart } from 'lucide-react';
+import { FileText, Package, Briefcase, Wrench, Settings, LayoutDashboard, Clock, DollarSign, AlertCircle, FileText as FileIcon, Receipt, ShoppingCart, TrendingUp } from 'lucide-react';
 import { Estimates } from './Estimates';
 import { WorkOrders } from './WorkOrders';
 import { Invoices } from './Invoices';
@@ -31,8 +31,9 @@ interface DashboardStats {
   pendingWorkOrders: number;
   unpaidInvoices: number;
   unpaidAmount: number;
+  processingInvoices: number;
+  processingAmount: number;
   lowStockItems: number;
-  totalRevenue: number;
   activeJobs: number;
   ytdTotalSales: number;
   ytdTotalSalesCount: number;
@@ -50,8 +51,9 @@ export function EstimatingDashboard({ userId, initialInvoiceId }: EstimatingDash
     pendingWorkOrders: 0,
     unpaidInvoices: 0,
     unpaidAmount: 0,
+    processingInvoices: 0,
+    processingAmount: 0,
     lowStockItems: 0,
-    totalRevenue: 0,
     activeJobs: 0,
     ytdTotalSales: 0,
     ytdTotalSalesCount: 0,
@@ -132,13 +134,11 @@ export function EstimatingDashboard({ userId, initialInvoiceId }: EstimatingDash
       const pendingWorkOrders = workOrders.filter(w =>
         w.status === 'in_progress' || w.status === 'pending'
       ).length;
-      const unpaidInvoices = invoices.filter(i => i.payment_status !== 'paid');
+      const unpaidInvoices = invoices.filter(i => i.payment_status === 'unpaid');
       const unpaidAmount = unpaidInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
+      const processingInvoices = invoices.filter(i => i.payment_status === 'processing');
+      const processingAmount = processingInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
       const lowStockItems = parts.filter(p => p.quantity_on_hand <= p.reorder_level).length;
-
-      const totalRevenue = invoices
-        .filter(i => i.payment_status !== 'paid')
-        .reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
 
       const activeJobs = workOrders.filter(w =>
         w.status === 'in_progress' || w.status === 'pending'
@@ -160,8 +160,9 @@ export function EstimatingDashboard({ userId, initialInvoiceId }: EstimatingDash
         pendingWorkOrders,
         unpaidInvoices: unpaidInvoices.length,
         unpaidAmount,
+        processingInvoices: processingInvoices.length,
+        processingAmount,
         lowStockItems,
-        totalRevenue,
         activeJobs,
         ytdTotalSales,
         ytdTotalSalesCount,
@@ -242,18 +243,23 @@ export function EstimatingDashboard({ userId, initialInvoiceId }: EstimatingDash
                 </div>
               </div>
 
-              <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+              <div className="bg-white rounded-lg shadow-sm p-6 border border-orange-200">
                 <div className="flex items-start justify-between mb-4">
                   <div className="p-3 bg-orange-100 rounded-lg">
                     <Receipt className="w-6 h-6 text-orange-600" />
                   </div>
+                  {!loading && (stats.unpaidInvoices + stats.processingInvoices) > 0 && (
+                    <span className="text-xs font-semibold bg-orange-100 text-orange-700 px-2 py-1 rounded-full">
+                      Action Needed
+                    </span>
+                  )}
                 </div>
-                <div className="text-3xl font-bold text-gray-900 mb-1">
-                  {loading ? '...' : stats.unpaidInvoices}
+                <div className="text-3xl font-bold text-orange-600 mb-1">
+                  {loading ? '...' : stats.unpaidInvoices + stats.processingInvoices}
                 </div>
                 <div className="text-sm font-medium text-gray-900 mb-1">Unpaid Invoices</div>
-                <div className="text-xs text-gray-500">
-                  {loading ? '...' : `$${stats.unpaidAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} outstanding`}
+                <div className="text-xs text-orange-600 font-semibold">
+                  {loading ? '...' : `$${(stats.unpaidAmount + stats.processingAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} outstanding`}
                 </div>
               </div>
 
@@ -317,11 +323,47 @@ export function EstimatingDashboard({ userId, initialInvoiceId }: EstimatingDash
                     </span>
                   </div>
 
-                  <div className="flex items-center justify-between py-3 border-b border-gray-100">
-                    <span className="text-sm text-gray-600">Total Revenue (Outstanding)</span>
-                    <span className="text-lg font-bold text-gray-900">
-                      {loading ? '...' : `$${stats.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                    </span>
+                  {/* Unpaid invoices — prominently highlighted */}
+                  <div className={`py-3 border-b rounded-lg px-3 -mx-3 ${!loading && (stats.unpaidInvoices + stats.processingInvoices) > 0 ? 'bg-orange-50 border-orange-200' : 'border-gray-100'}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Receipt className={`w-4 h-4 ${!loading && (stats.unpaidInvoices + stats.processingInvoices) > 0 ? 'text-orange-500' : 'text-gray-400'}`} />
+                        <span className={`text-sm font-semibold ${!loading && (stats.unpaidInvoices + stats.processingInvoices) > 0 ? 'text-orange-800' : 'text-gray-700'}`}>
+                          Outstanding Invoices
+                        </span>
+                        {!loading && (stats.unpaidInvoices + stats.processingInvoices) > 0 && (
+                          <span className="text-xs bg-orange-200 text-orange-800 font-bold px-2 py-0.5 rounded-full">
+                            {stats.unpaidInvoices + stats.processingInvoices}
+                          </span>
+                        )}
+                      </div>
+                      <span className={`text-xl font-bold ${!loading && (stats.unpaidInvoices + stats.processingInvoices) > 0 ? 'text-orange-700' : 'text-gray-900'}`}>
+                        {loading ? '...' : `$${(stats.unpaidAmount + stats.processingAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                      </span>
+                    </div>
+                    {!loading && (stats.unpaidInvoices > 0 || stats.processingInvoices > 0) && (
+                      <div className="flex gap-4 mt-1 pl-6">
+                        {stats.unpaidInvoices > 0 && (
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-red-400 inline-block"></span>
+                            <span className="text-xs text-orange-700">
+                              {stats.unpaidInvoices} unpaid — ${stats.unpaidAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          </div>
+                        )}
+                        {stats.processingInvoices > 0 && (
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-yellow-400 inline-block"></span>
+                            <span className="text-xs text-orange-700">
+                              {stats.processingInvoices} processing — ${stats.processingAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {!loading && stats.unpaidInvoices === 0 && stats.processingInvoices === 0 && (
+                      <p className="text-xs text-green-600 pl-6">All invoices paid</p>
+                    )}
                   </div>
 
                   <div className="flex items-center justify-between py-3 border-b border-gray-100">
