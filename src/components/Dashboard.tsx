@@ -678,6 +678,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [loadingReviewId, setLoadingReviewId] = useState<string | null>(null);
   const [submittingReview, setSubmittingReview] = useState(false);
   const [pendingInspectionCount, setPendingInspectionCount] = useState(0);
+  const [pendingInspectionsByYacht, setPendingInspectionsByYacht] = useState<Record<string, number>>({});
   const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
   const [yachtHistoryLogs, setYachtHistoryLogs] = useState<Record<string, YachtHistoryLog[]>>({});
   const [expandedYachtId, setExpandedYachtId] = useState<string | null>(null);
@@ -7368,12 +7369,17 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     try {
       const companyId = selectedCompany?.id || userProfile?.company_id;
       if (!companyId) return;
-      const { count } = await supabase
+      const { data, count } = await supabase
         .from('trip_inspections')
-        .select('id', { count: 'exact', head: true })
+        .select('id, yacht_id', { count: 'exact' })
         .eq('review_status', 'pending_review')
         .eq('company_id', companyId);
       setPendingInspectionCount(count || 0);
+      const byYacht: Record<string, number> = {};
+      for (const row of data || []) {
+        if (row.yacht_id) byYacht[row.yacht_id] = (byYacht[row.yacht_id] || 0) + 1;
+      }
+      setPendingInspectionsByYacht(byYacht);
     } catch {
       // silently ignore
     }
@@ -11969,6 +11975,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 <span className="px-2 py-0.5 rounded text-xs font-semibold bg-orange-500/20 text-orange-400 flex items-center gap-1">
                                   <RefreshCw className="w-3 h-3" />
                                   {yachtUnpaidCounts[yacht.id].processingCount} Processing
+                                </span>
+                              )}
+                              {(isStaffRole(effectiveRole) || isMasterRole(effectiveRole)) && pendingInspectionsByYacht[yacht.id] > 0 && (
+                                <span className="px-2 py-0.5 rounded text-xs font-semibold bg-amber-500/20 text-amber-400 flex items-center gap-1">
+                                  <ClipboardCheck className="w-3 h-3" />
+                                  {pendingInspectionsByYacht[yacht.id]} Review{pendingInspectionsByYacht[yacht.id] > 1 ? 's' : ''}
                                 </span>
                               )}
                             </div>
