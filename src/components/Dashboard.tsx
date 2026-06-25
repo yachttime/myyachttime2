@@ -7834,12 +7834,15 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         return false;
       }
 
-      // Filter by oil change needed
-      if (oilChangeFilter && !booking.is_appointment && !(booking as any).oil_change_needed) {
-        return false;
-      }
-      if (oilChangeFilter && booking.is_appointment) {
-        return false;
+      // Filter by oil change needed (arrivals only)
+      if (oilChangeFilter) {
+        if (booking.is_appointment || !(booking as any).oil_change_needed) return false;
+        const endDay = booking.end_date.slice(0, 10);
+        const endDate = new Date(endDay + 'T00:00:00');
+        const checkDate = new Date(date);
+        checkDate.setHours(0, 0, 0, 0);
+        endDate.setHours(0, 0, 0, 0);
+        if (checkDate.getTime() !== endDate.getTime()) return false;
       }
 
       // Filter by appointment type
