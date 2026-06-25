@@ -204,7 +204,7 @@ export function EstimatingDashboard({ userId, initialInvoiceId }: EstimatingDash
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto">
+      <div className={activeTab === 'invoices' ? '' : 'max-w-7xl mx-auto'}>
         {activeTab === 'dashboard' && (
           <div className="p-6">
             <div className="mb-8">
