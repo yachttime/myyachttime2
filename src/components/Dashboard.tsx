@@ -9676,7 +9676,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           )}
 
           {activeTab === 'estimating' && (
-            <div className="bg-slate-800/50 rounded-2xl border border-slate-700 overflow-hidden">
+            <div className="bg-slate-800/50 rounded-2xl border border-slate-700 overflow-x-auto">
               <EstimatingDashboard
                 userId={user?.id || ''}
                 initialInvoiceId={pendingEstimatingInvoiceId}
