@@ -197,10 +197,39 @@ Deno.serve(async (req: Request) => {
             .eq('id', connection.id);
           throw new Error('QuickBooks authorization has expired. Please reconnect your QuickBooks account.');
         }
-        throw new Error(`Failed to create customer in QuickBooks: ${createCustomerResult.data}`);
-      }
 
-      qboCustomerId = createCustomerResult.data.Customer?.Id;
+        // Handle duplicate customer name (error 6240) — search for the existing QB customer
+        let isDuplicateCustomer = false;
+        try {
+          const rawErr = createCustomerResult.errorText || JSON.stringify(createCustomerResult.data) || '';
+          const errData = rawErr ? JSON.parse(rawErr) : null;
+          if (errData?.Fault?.Error?.some((e: any) => e.code === '6240')) {
+            isDuplicateCustomer = true;
+          }
+        } catch (_) {}
+
+        if (isDuplicateCustomer) {
+          const retrySearch = await makeQuickBooksAPICall({
+            url: `https://quickbooks.api.intuit.com/v3/company/${connection.realm_id}/query?query=${encodeURIComponent(`SELECT * FROM Customer WHERE DisplayName = '${invoice.customer_name.trim().replace(/'/g, "\\'")}'`)}`,
+            method: 'GET',
+            accessToken,
+            requestType: 'search_customer',
+            companyId: profile.company_id,
+            connectionId: connection.id,
+            supabaseUrl,
+            serviceRoleKey,
+          });
+          if (retrySearch.success && retrySearch.data?.QueryResponse?.Customer?.length > 0) {
+            qboCustomerId = retrySearch.data.QueryResponse.Customer[0].Id;
+          }
+        }
+
+        if (!qboCustomerId) {
+          throw new Error(`Failed to create customer in QuickBooks: ${createCustomerResult.data}`);
+        }
+      } else {
+        qboCustomerId = createCustomerResult.data.Customer?.Id;
+      }
     }
 
     if (!qboCustomerId) throw new Error('Unable to determine QuickBooks customer ID');
