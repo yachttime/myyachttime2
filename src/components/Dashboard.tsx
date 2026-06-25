@@ -9845,10 +9845,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                         onClick={() => setAdminViewPersisted('yachts')}
                         className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
                       >
-                        <div className="flex items-center gap-4 mb-4">
+                        <div className="flex items-center justify-between gap-4 mb-4">
                           <div className="bg-blue-500/20 p-4 rounded-xl group-hover:bg-blue-500/30 transition-colors">
                             <Ship className="w-8 h-8 text-blue-500" />
                           </div>
+                          {(isStaffRole(effectiveRole) || isMasterRole(effectiveRole)) && pendingInspectionCount > 0 && (
+                            <span className="bg-amber-500 text-white text-xs font-bold px-2.5 py-1 rounded-full">{pendingInspectionCount} Review{pendingInspectionCount > 1 ? 's' : ''} Pending</span>
+                          )}
                         </div>
                         <h3 className="text-xl font-bold mb-2">Yachts</h3>
                         <p className="text-slate-400 text-sm">Manage yacht fleet and vessel information</p>
