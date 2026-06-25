@@ -43,6 +43,7 @@ export function VesselAgreementViewer({ agreement, userProfile, userId, onClose,
         updateData.staff_signature_name = signatureName;
         updateData.staff_signature_date = new Date().toISOString();
         updateData.staff_signature_ip = 'web-client';
+        updateData.status = 'approved';
       } else if (isOwner) {
         updateData.owner_signature_name = signatureName;
         updateData.owner_signature_date = new Date().toISOString();
@@ -57,7 +58,23 @@ export function VesselAgreementViewer({ agreement, userProfile, userId, onClose,
       if (updateError) throw updateError;
 
       if (isStaff) {
-        alert('Agreement signed successfully! You can now approve this agreement to finalize the contract.');
+        // Send approval confirmation email to the owner/manager
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.access_token) {
+            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+            await fetch(`${supabaseUrl}/functions/v1/send-agreement-notification`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`,
+              },
+              body: JSON.stringify({ agreementId: agreement.id }),
+            });
+          }
+        } catch (emailErr) {
+          console.warn('Approval email could not be sent:', emailErr);
+        }
       }
 
       onUpdate();
