@@ -16,6 +16,8 @@ import {
   Calendar,
   AlertCircle,
   Printer,
+  Camera,
+  Trash,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -141,6 +143,8 @@ export function DailyTasksView() {
   const [newPart, setNewPart] = useState<NewPartForm>({ part_name: '', quantity: '', notes: '' });
   const [savingPart, setSavingPart] = useState(false);
   const [deletingPartId, setDeletingPartId] = useState<string | null>(null);
+
+  const [uploadingPhotoForTask, setUploadingPhotoForTask] = useState<string | null>(null);
 
   const [listStaffFilter, setListStaffFilter] = useState<string>('all');
   const [showPrintModal, setShowPrintModal] = useState(false);
@@ -455,6 +459,39 @@ export function DailyTasksView() {
     if (deleteError) setError('Failed to delete part.');
     else await loadTasks();
     setDeletingPartId(null);
+  };
+
+  const handlePhotoUpload = async (taskId: string, file: File) => {
+    setUploadingPhotoForTask(taskId);
+    const ext = file.name.split('.').pop() || 'jpg';
+    const path = `daily-tasks/${taskId}/${Date.now()}.${ext}`;
+    const { error: uploadError } = await supabase.storage
+      .from('inspection-photos')
+      .upload(path, file, { upsert: true });
+    if (uploadError) {
+      setError('Failed to upload photo.');
+      setUploadingPhotoForTask(null);
+      return;
+    }
+    const { data: urlData } = supabase.storage.from('inspection-photos').getPublicUrl(path);
+    const { error: updateError } = await supabase
+      .from('daily_tasks')
+      .update({ photo_url: urlData.publicUrl })
+      .eq('id', taskId);
+    if (updateError) setError('Failed to save photo URL.');
+    else await loadTasks();
+    setUploadingPhotoForTask(null);
+  };
+
+  const handleRemovePhoto = async (taskId: string) => {
+    setUploadingPhotoForTask(taskId);
+    const { error: updateError } = await supabase
+      .from('daily_tasks')
+      .update({ photo_url: null })
+      .eq('id', taskId);
+    if (updateError) setError('Failed to remove photo.');
+    else await loadTasks();
+    setUploadingPhotoForTask(null);
   };
 
   const loadPrintTasks = async () => {
@@ -973,6 +1010,39 @@ export function DailyTasksView() {
                             />
                           </>
                         )}
+                        <button
+                          onClick={() => handleRemovePhoto(task.id)}
+                          disabled={uploadingPhotoForTask === task.id}
+                          className="mt-2 flex items-center gap-1.5 px-3 py-1.5 text-red-500 hover:bg-red-50 border border-red-200 rounded-lg text-xs font-medium transition-colors"
+                        >
+                          <Trash className="w-3 h-3" />
+                          Remove
+                        </button>
+                      </div>
+                    )}
+
+                    {!task.photo_url && (
+                      <div>
+                        <label
+                          className={`flex items-center gap-2 px-3 py-2 bg-slate-600 hover:bg-slate-500 border border-slate-500 text-slate-200 rounded-lg text-sm font-medium transition-colors cursor-pointer ${uploadingPhotoForTask === task.id ? 'opacity-50 pointer-events-none' : ''}`}
+                        >
+                          {uploadingPhotoForTask === task.id ? (
+                            <div className="w-4 h-4 animate-spin rounded-full border-b-2 border-slate-300" />
+                          ) : (
+                            <Camera className="w-4 h-4" />
+                          )}
+                          {uploadingPhotoForTask === task.id ? 'Uploading...' : 'Attach Photo / Video'}
+                          <input
+                            type="file"
+                            accept="image/*,video/*"
+                            className="hidden"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (file) await handlePhotoUpload(task.id, file);
+                              e.target.value = '';
+                            }}
+                          />
+                        </label>
                       </div>
                     )}
 
