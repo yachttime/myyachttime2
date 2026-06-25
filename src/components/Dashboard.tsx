@@ -584,6 +584,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [masterCalendarBookings, setMasterCalendarBookings] = useState<(YachtBooking | Appointment)[]>([]);
   const [calendarView, setCalendarView] = useState<'day' | 'week' | 'month'>('month');
   const [appointmentTypeFilter, setAppointmentTypeFilter] = useState<'all' | 'customer' | 'staff'>('all');
+  const [oilChangeFilter, setOilChangeFilter] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [editingBooking, setEditingBooking] = useState<(YachtBooking | Appointment) | null>(null);
   const [editingBookingClickedDate, setEditingBookingClickedDate] = useState<Date | null>(null);
@@ -7830,6 +7831,14 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     return masterCalendarBookings.filter(booking => {
       // Filter by yacht if user is owner or manager (but not staff, mechanic, or master)
       if ((effectiveRole === 'owner' || effectiveRole === 'manager') && effectiveYacht && booking.yacht_id !== effectiveYacht.id) {
+        return false;
+      }
+
+      // Filter by oil change needed
+      if (oilChangeFilter && !booking.is_appointment && !(booking as any).oil_change_needed) {
+        return false;
+      }
+      if (oilChangeFilter && booking.is_appointment) {
         return false;
       }
 
@@ -18514,6 +18523,21 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               </button>
                             </>
                           )}
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => setOilChangeFilter(prev => !prev)}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all border ${
+                              oilChangeFilter
+                                ? 'bg-yellow-500/20 border-yellow-500/50 text-yellow-400'
+                                : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:text-yellow-400 hover:border-yellow-500/30'
+                            }`}
+                          >
+                            <Wrench className="w-4 h-4" />
+                            Oil Change Needed
+                            {oilChangeFilter && <span className="ml-1 text-xs bg-yellow-500/30 px-1.5 py-0.5 rounded">ON</span>}
+                          </button>
                         </div>
 
                         <div className="p-4 bg-slate-900/50 rounded-lg border border-slate-600">
