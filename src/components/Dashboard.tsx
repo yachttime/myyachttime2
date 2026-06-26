@@ -14017,6 +14017,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                           const isPaid = inv.payment_status === 'paid';
                                           const balanceDue = inv.balance_due !== null ? Number(inv.balance_due) : Number(inv.total_amount);
                                           const depositApplied = inv.deposit_applied ? Number(inv.deposit_applied) : 0;
+                                          const hasDepositOnly = !isPaid && depositApplied > 0;
                                           const pendingAchUrl = achPaymentLinks[inv.id];
                                           const hasActiveLink = pendingAchUrl || (inv.final_payment_link_url && inv.final_payment_link_expires_at && new Date(inv.final_payment_link_expires_at) > new Date());
                                           const activeLinkUrl = pendingAchUrl || inv.final_payment_link_url;
@@ -14030,6 +14031,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                     <span className="text-slate-300 font-medium">{inv.invoice_number}{inv.work_title ? ` — ${inv.work_title}` : ''}</span>
                                                     {isPaid ? (
                                                       <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded text-xs font-medium">Paid</span>
+                                                    ) : hasDepositOnly ? (
+                                                      <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded text-xs font-medium">Deposit Paid</span>
                                                     ) : (
                                                       <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 rounded text-xs font-medium">Unpaid</span>
                                                     )}
