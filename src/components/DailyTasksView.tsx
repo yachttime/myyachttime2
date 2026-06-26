@@ -636,41 +636,42 @@ export function DailyTasksView() {
     iframe.style.height = '0';
     iframe.style.border = '0';
 
-    iframe.onload = () => {
-      iframe.contentWindow?.focus();
-      const doc = iframe.contentWindow?.document;
-      if (!doc) { document.body.removeChild(iframe); return; }
-      const imgs = Array.from(doc.querySelectorAll('img'));
-      if (imgs.length === 0) {
-        iframe.contentWindow?.print();
-        setTimeout(() => document.body.removeChild(iframe), 1000);
-        return;
-      }
-      let loaded = 0;
-      const tryPrint = () => {
-        loaded++;
-        if (loaded >= imgs.length) {
-          iframe.contentWindow?.print();
-          setTimeout(() => document.body.removeChild(iframe), 1000);
-        }
-      };
-      imgs.forEach((img) => {
-        if (img.complete) {
-          tryPrint();
-        } else {
-          img.onload = tryPrint;
-          img.onerror = tryPrint;
-        }
-      });
-    };
-
     document.body.appendChild(iframe);
 
-    const doc = iframe.contentWindow?.document;
-    if (!doc) { document.body.removeChild(iframe); return; }
+    const iframeWin = iframe.contentWindow;
+    const doc = iframeWin?.document;
+    if (!doc || !iframeWin) { document.body.removeChild(iframe); return; }
+
     doc.open();
     doc.write(fullHtml);
     doc.close();
+
+    iframeWin.focus();
+
+    let printed = false;
+    const doPrint = () => {
+      if (printed) return;
+      printed = true;
+      iframeWin.print();
+      setTimeout(() => document.body.removeChild(iframe), 1000);
+    };
+
+    const imgs = Array.from(doc.querySelectorAll('img'));
+    const pending = imgs.filter((img) => !img.complete);
+    if (pending.length === 0) {
+      setTimeout(doPrint, 100);
+    } else {
+      pending.forEach((img) => {
+        img.addEventListener('load', () => {
+          if (pending.every((i) => i.complete)) doPrint();
+        }, { once: true });
+        img.addEventListener('error', () => {
+          if (pending.every((i) => i.complete || i.naturalWidth === 0)) doPrint();
+        }, { once: true });
+      });
+      // Safety fallback: print after 8 seconds even if images are slow
+      setTimeout(doPrint, 8000);
+    }
   };
 
   const formatTaskDate = (dateStr: string) => {
