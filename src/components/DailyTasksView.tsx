@@ -638,10 +638,30 @@ export function DailyTasksView() {
 
     iframe.onload = () => {
       iframe.contentWindow?.focus();
-      setTimeout(() => {
+      const doc = iframe.contentWindow?.document;
+      if (!doc) { document.body.removeChild(iframe); return; }
+      const imgs = Array.from(doc.querySelectorAll('img'));
+      if (imgs.length === 0) {
         iframe.contentWindow?.print();
         setTimeout(() => document.body.removeChild(iframe), 1000);
-      }, 250);
+        return;
+      }
+      let loaded = 0;
+      const tryPrint = () => {
+        loaded++;
+        if (loaded >= imgs.length) {
+          iframe.contentWindow?.print();
+          setTimeout(() => document.body.removeChild(iframe), 1000);
+        }
+      };
+      imgs.forEach((img) => {
+        if (img.complete) {
+          tryPrint();
+        } else {
+          img.onload = tryPrint;
+          img.onerror = tryPrint;
+        }
+      });
     };
 
     document.body.appendChild(iframe);
