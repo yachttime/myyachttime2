@@ -629,38 +629,26 @@ export function DailyTasksView() {
         @media print { body { padding: 16px; } }
       </style></head><body>${html}</body></html>`;
 
-    const iframe = document.createElement('iframe');
-    iframe.style.position = 'fixed';
-    iframe.style.right = '0';
-    iframe.style.bottom = '0';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
-    iframe.style.border = '0';
+    const printWin = window.open('', '_blank');
+    if (!printWin) return;
 
-    document.body.appendChild(iframe);
-
-    const iframeWin = iframe.contentWindow;
-    const doc = iframeWin?.document;
-    if (!doc || !iframeWin) { document.body.removeChild(iframe); return; }
-
-    doc.open();
-    doc.write(fullHtml);
-    doc.close();
-
-    iframeWin.focus();
+    printWin.document.open();
+    printWin.document.write(fullHtml);
+    printWin.document.close();
 
     let printed = false;
     const doPrint = () => {
       if (printed) return;
       printed = true;
-      iframeWin.print();
-      setTimeout(() => document.body.removeChild(iframe), 1000);
+      printWin.focus();
+      printWin.print();
+      printWin.close();
     };
 
-    const imgs = Array.from(doc.querySelectorAll('img'));
+    const imgs = Array.from(printWin.document.querySelectorAll('img'));
     const pending = imgs.filter((img) => !img.complete);
     if (pending.length === 0) {
-      setTimeout(doPrint, 100);
+      setTimeout(doPrint, 150);
     } else {
       pending.forEach((img) => {
         img.addEventListener('load', () => {
@@ -670,7 +658,6 @@ export function DailyTasksView() {
           if (pending.every((i) => i.complete || i.naturalWidth === 0)) doPrint();
         }, { once: true });
       });
-      // Safety fallback: print after 8 seconds even if images are slow
       setTimeout(doPrint, 8000);
     }
   };
