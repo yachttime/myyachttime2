@@ -507,6 +507,7 @@ export function DailyTasksView() {
   };
 
   const handleOpenPrint = () => {
+    setLoadingPrint(true);
     setShowPrintModal(true);
     loadPrintTasks();
     if (staffOptions.length === 0) loadDropdownOptions();
@@ -746,10 +747,15 @@ export function DailyTasksView() {
             </select>
             <button
               onClick={handleOpenPrint}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-600 hover:bg-slate-500 text-white rounded-lg font-medium text-sm transition-colors"
+              disabled={loadingPrint}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-600 hover:bg-slate-500 text-white rounded-lg font-medium text-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              <Printer className="w-4 h-4" />
-              Print Tasks
+              {loadingPrint ? (
+                <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+              ) : (
+                <Printer className="w-4 h-4" />
+              )}
+              {loadingPrint ? 'Loading...' : 'Print Tasks'}
             </button>
             <button
               onClick={() => setShowCreateModal(true)}
