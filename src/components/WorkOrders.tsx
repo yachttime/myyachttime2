@@ -1976,6 +1976,17 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
   const [sendingTaskLaborToTimeClock, setSendingTaskLaborToTimeClock] = useState<Record<number, boolean>>({});
   const [taskLaborEmployeeOverride, setTaskLaborEmployeeOverride] = useState<Record<number, string>>({});
 
+  const checkActivePayPeriod = async (): Promise<boolean> => {
+    const today = new Date().toISOString().split('T')[0];
+    const { data } = await supabase
+      .from('pay_periods')
+      .select('id')
+      .lte('period_start', today)
+      .gte('period_end', today)
+      .limit(1);
+    return Array.isArray(data) && data.length > 0;
+  };
+
   const handleSendAllTaskLaborToTimeClock = async (taskIndex: number) => {
     const task = tasks[taskIndex];
     if (!task) return;
@@ -1996,6 +2007,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
     }
 
     setSendingTaskLaborToTimeClock(prev => ({ ...prev, [taskIndex]: true }));
+    const hasActivePeriod = await checkActivePayPeriod();
     try {
       const updatedItems = [...task.lineItems];
       const empCount = assignedEmployees.length;
@@ -2039,7 +2051,11 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
 
       const totalHours = unsentLaborLines.reduce((sum, i) => sum + i.quantity, 0);
       const hoursEach = (totalHours / empCount).toFixed(1);
-      showSuccess(`Sent ${totalHours} total labor hours to time clock — ${hoursEach} hrs each for ${empCount} employees`);
+      if (hasActivePeriod) {
+        showSuccess(`Sent ${totalHours} total labor hours to time clock — ${hoursEach} hrs each for ${empCount} employees`);
+      } else {
+        showSuccess(`Sent ${totalHours} total labor hours to time clock — ${hoursEach} hrs each for ${empCount} employees. Warning: No active pay period found for today. Create the next pay period to include this labor in payroll.`);
+      }
     } catch (err: any) {
       console.error('Error sending task labor to time clock:', err);
       setError(err.message || 'Failed to send labor hours to time clock');
@@ -2061,6 +2077,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
     if (item.time_entry_sent_at) return;
 
     setSendingLaborToTimeClock(prev => ({ ...prev, [item.id!]: true }));
+    const hasActivePeriod = await checkActivePayPeriod();
     try {
       const { data, error: rpcError } = await supabase.rpc('send_assigned_labor_to_time_clock', {
         p_line_item_id: item.id,
@@ -2078,7 +2095,12 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
       };
       setTasks(updatedTasks);
       if (editingId) updateSentEmployeesForWorkOrder(editingId, updatedTasks);
-      showSuccess(`Sent ${item.quantity} hours to time clock for ${employees.find(e => e.user_id === item.assigned_employee_id)?.first_name || 'employee'}`);
+      const empName = employees.find(e => e.user_id === item.assigned_employee_id)?.first_name || 'employee';
+      if (hasActivePeriod) {
+        showSuccess(`Sent ${item.quantity} hours to time clock for ${empName}`);
+      } else {
+        showSuccess(`Sent ${item.quantity} hours to time clock for ${empName}. Warning: No active pay period found for today. Create the next pay period to include this labor in payroll.`);
+      }
     } catch (err: any) {
       console.error('Error sending labor to time clock:', err);
       setError(err.message || 'Failed to send hours to time clock');
