@@ -629,37 +629,18 @@ export function DailyTasksView() {
         @media print { body { padding: 16px; } }
       </style></head><body>${html}</body></html>`;
 
-    const printWin = window.open('', '_blank');
-    if (!printWin) return;
+    const blob = new Blob([fullHtml], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const printWin = window.open(url, '_blank');
+    if (!printWin) { URL.revokeObjectURL(url); return; }
 
-    printWin.document.open();
-    printWin.document.write(fullHtml);
-    printWin.document.close();
-
-    let printed = false;
-    const doPrint = () => {
-      if (printed) return;
-      printed = true;
+    printWin.onload = () => {
       printWin.focus();
       printWin.print();
-      printWin.close();
+      setTimeout(() => { printWin.close(); URL.revokeObjectURL(url); }, 500);
     };
 
-    const imgs = Array.from(printWin.document.querySelectorAll('img'));
-    const pending = imgs.filter((img) => !img.complete);
-    if (pending.length === 0) {
-      setTimeout(doPrint, 150);
-    } else {
-      pending.forEach((img) => {
-        img.addEventListener('load', () => {
-          if (pending.every((i) => i.complete)) doPrint();
-        }, { once: true });
-        img.addEventListener('error', () => {
-          if (pending.every((i) => i.complete || i.naturalWidth === 0)) doPrint();
-        }, { once: true });
-      });
-      setTimeout(doPrint, 8000);
-    }
+    setTimeout(() => { URL.revokeObjectURL(url); }, 30000);
   };
 
   const formatTaskDate = (dateStr: string) => {
