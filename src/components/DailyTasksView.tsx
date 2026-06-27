@@ -626,21 +626,20 @@ export function DailyTasksView() {
       <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: Arial, sans-serif; font-size: 12px; color: #1a1a1a; background: #fff; padding: 28px; }
-        @media print { body { padding: 16px; } }
-      </style></head><body>${html}</body></html>`;
+        .no-print { display: flex; justify-content: flex-end; margin-bottom: 16px; }
+        .no-print button { padding: 8px 20px; background: #1e293b; color: #fff; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; }
+        .no-print button:hover { background: #334155; }
+        @media print { .no-print { display: none; } body { padding: 16px; } }
+      </style></head><body>
+      <div class="no-print"><button onclick="window.print()">Print</button></div>
+      ${html}
+      <script>window.onload = function() { window.print(); };<\/script>
+      </body></html>`;
 
     const blob = new Blob([fullHtml], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
-    const printWin = window.open(url, '_blank');
-    if (!printWin) { URL.revokeObjectURL(url); return; }
-
-    printWin.onload = () => {
-      printWin.focus();
-      printWin.print();
-      setTimeout(() => { printWin.close(); URL.revokeObjectURL(url); }, 500);
-    };
-
-    setTimeout(() => { URL.revokeObjectURL(url); }, 30000);
+    window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
   };
 
   const formatTaskDate = (dateStr: string) => {
