@@ -15706,7 +15706,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               <div className="flex items-start justify-between mb-4">
                                 <div className="flex-1">
                                   <div className="flex items-center gap-3 mb-2 flex-wrap">
-                                    <h4 className="text-lg font-semibold">{request.title}</h4>
+                                    <h4 className="text-lg font-semibold">{request.title || 'Repair Request'}</h4>
                                     {(request.submitter_role === 'manager' || request.submitter_role === 'owner') && (
                                       <span className="bg-sky-500/20 text-sky-300 border border-sky-500/30 px-2 py-0.5 rounded text-xs font-semibold flex items-center gap-1">
                                         <User className="w-3 h-3" />
