@@ -556,11 +556,11 @@ export function PayrollReportView() {
 
       if (period.is_processed) {
         regularQuery = regularQuery.eq('pay_period_id', period.id);
+        workOrderQuery = workOrderQuery.eq('pay_period_id', period.id);
       } else {
         regularQuery = regularQuery.gte('punch_in_time', startOfDay).lte('punch_in_time', endOfDay);
+        workOrderQuery = workOrderQuery.gte('punch_in_time', startOfDay).lte('punch_in_time', endOfDay);
       }
-      // Work order entries are always queried by date range — they never get pay_period_id assigned
-      workOrderQuery = workOrderQuery.gte('punch_in_time', startOfDay).lte('punch_in_time', endOfDay);
 
       const [regularResult, workOrderResult, profilesResult, yachtsResult, inspectionResult] = await Promise.all([
         regularQuery,
@@ -673,10 +673,9 @@ export function PayrollReportView() {
           supabase.from('staff_time_entries').select('*')
             .in('user_id', userIds).is('work_order_id', null)
             .eq('pay_period_id', periodId).not('punch_out_time', 'is', null).order('punch_in_time'),
-          // Work order entries are always queried by date range — they never get pay_period_id assigned
           supabase.from('staff_time_entries').select(woSelect)
             .in('user_id', userIds).not('work_order_id', 'is', null)
-            .gte('punch_in_time', startIso).lte('punch_in_time', endIso)
+            .eq('pay_period_id', periodId)
             .not('punch_out_time', 'is', null).order('punch_in_time'),
           supabase.from('inspection_time_entries').select('*')
             .in('user_id', userIds)
