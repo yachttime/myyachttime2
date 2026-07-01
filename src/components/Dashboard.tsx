@@ -160,6 +160,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     return `${cleaned.slice(0, 3)}-${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
   };
 
+  // Extract YYYY-MM-DD in Arizona time from a timestamp string (avoids UTC midnight shifting day)
+  const toAZDateStr = (ts: string): string =>
+    new Date(ts).toLocaleDateString('en-CA', { timeZone: 'America/Phoenix' });
+
   const isAntelopePoint = () => {
     if (!yacht?.marina_name) return false;
     const marinaName = yacht.marina_name.toLowerCase().trim();
@@ -7837,7 +7841,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       // Filter by oil change needed (arrivals only)
       if (oilChangeFilter) {
         if (booking.is_appointment || !(booking as any).oil_change_needed) return false;
-        const endDay = booking.end_date.slice(0, 10);
+        const endDay = toAZDateStr(booking.end_date);
         const endDate = new Date(endDay + 'T00:00:00');
         const checkDate = new Date(date);
         checkDate.setHours(0, 0, 0, 0);
@@ -7860,9 +7864,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         // Yacht bookings count as customer activities
       }
 
-      // Extract just the date portion (YYYY-MM-DD) and parse as local midnight to avoid UTC offset shifting the day
-      const startDay = booking.start_date.slice(0, 10);
-      const endDay = booking.end_date.slice(0, 10);
+      // Extract just the date portion in Arizona time to avoid UTC offset shifting the day
+      const startDay = toAZDateStr(booking.start_date);
+      const endDay = toAZDateStr(booking.end_date);
 
       const startDate = new Date(startDay + 'T00:00:00');
       const endDate = new Date(endDay + 'T00:00:00');
@@ -7876,8 +7880,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       // Sort by time - earliest time first
       const getTimeValue = (booking: any) => {
         // Determine if this is a departure or arrival for the given date
-        const startDate = new Date(booking.start_date.slice(0, 10) + 'T00:00:00');
-        const endDate = new Date(booking.end_date.slice(0, 10) + 'T00:00:00');
+        const startDate = new Date(toAZDateStr(booking.start_date) + 'T00:00:00');
+        const endDate = new Date(toAZDateStr(booking.end_date) + 'T00:00:00');
         const checkDate = new Date(date);
         checkDate.setHours(0, 0, 0, 0);
         startDate.setHours(0, 0, 0, 0);
@@ -7949,8 +7953,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     };
 
     const renderBookingRow = (booking: any, dateForCheck: Date) => {
-      const startDate = new Date(booking.start_date.slice(0, 10) + 'T00:00:00');
-      const endDate = new Date(booking.end_date.slice(0, 10) + 'T00:00:00');
+      const startDate = new Date(toAZDateStr(booking.start_date) + 'T00:00:00');
+      const endDate = new Date(toAZDateStr(booking.end_date) + 'T00:00:00');
       startDate.setHours(0, 0, 0, 0); endDate.setHours(0, 0, 0, 0);
       const check = new Date(dateForCheck); check.setHours(0, 0, 0, 0);
       const isDeparture = check.getTime() === startDate.getTime();
@@ -7964,11 +7968,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           : `Arr: ${convertTo12Hour(booking.arrival_time)}`;
 
       const startFormatted = booking.is_appointment ? (() => {
-        const d = new Date(booking.start_date.slice(0, 10) + 'T00:00:00');
+        const d = new Date(toAZDateStr(booking.start_date) + 'T00:00:00');
         return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
       })() : (() => {
-        const s = new Date(booking.start_date.slice(0, 10) + 'T00:00:00');
-        const e = new Date(booking.end_date.slice(0, 10) + 'T00:00:00');
+        const s = new Date(toAZDateStr(booking.start_date) + 'T00:00:00');
+        const e = new Date(toAZDateStr(booking.end_date) + 'T00:00:00');
         return `${s.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} &rarr; ${e.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
       })();
 
@@ -8044,8 +8048,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         const dayBg = isToday ? '#134e4a' : '#0f172a';
         const dayColor = isToday ? '#2dd4bf' : '#94a3b8';
         const events = bookings.map((booking: any) => {
-          const startDate = new Date(booking.start_date.slice(0, 10) + 'T00:00:00');
-          const endDate = new Date(booking.end_date.slice(0, 10) + 'T00:00:00');
+          const startDate = new Date(toAZDateStr(booking.start_date) + 'T00:00:00');
+          const endDate = new Date(toAZDateStr(booking.end_date) + 'T00:00:00');
           startDate.setHours(0, 0, 0, 0); endDate.setHours(0, 0, 0, 0);
           const check = new Date(date); check.setHours(0, 0, 0, 0);
           const isDeparture = check.getTime() === startDate.getTime();
@@ -18658,8 +18662,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                       </div>
                                       <div className="space-y-1">
                                         {bookings.slice(0, 2).map((booking: any) => {
-                                          const startDate = new Date(booking.start_date.slice(0, 10) + 'T00:00:00');
-                                          const endDate = new Date(booking.end_date.slice(0, 10) + 'T00:00:00');
+                                          const startDate = new Date(toAZDateStr(booking.start_date) + 'T00:00:00');
+                                          const endDate = new Date(toAZDateStr(booking.end_date) + 'T00:00:00');
                                           startDate.setHours(0, 0, 0, 0);
                                           endDate.setHours(0, 0, 0, 0);
                                           const checkDate = new Date(date!);
@@ -18751,8 +18755,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   </div>
                                   <div className="p-2 min-h-[400px] space-y-2">
                                     {bookings.map((booking: any) => {
-                                      const startDate = new Date(booking.start_date.slice(0, 10) + 'T00:00:00');
-                                      const endDate = new Date(booking.end_date.slice(0, 10) + 'T00:00:00');
+                                      const startDate = new Date(toAZDateStr(booking.start_date) + 'T00:00:00');
+                                      const endDate = new Date(toAZDateStr(booking.end_date) + 'T00:00:00');
                                       startDate.setHours(0, 0, 0, 0);
                                       endDate.setHours(0, 0, 0, 0);
                                       const checkDate = new Date(date);
@@ -18842,8 +18846,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 </div>
                               ) : (
                                 bookings.map((booking: any) => {
-                                  const startDate = new Date(booking.start_date.slice(0, 10) + 'T00:00:00');
-                                  const endDate = new Date(booking.end_date.slice(0, 10) + 'T00:00:00');
+                                  const startDate = new Date(toAZDateStr(booking.start_date) + 'T00:00:00');
+                                  const endDate = new Date(toAZDateStr(booking.end_date) + 'T00:00:00');
                                   startDate.setHours(0, 0, 0, 0);
                                   endDate.setHours(0, 0, 0, 0);
                                   const checkDate = new Date(currentDate);
