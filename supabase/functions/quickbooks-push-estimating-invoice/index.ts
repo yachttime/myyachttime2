@@ -224,10 +224,10 @@ Deno.serve(async (req: Request) => {
             qboCustomerId = retrySearch.data.QueryResponse.Customer[0].Id;
           }
 
-          // Exact match failed — try LIKE search (handles casing/spacing differences)
+          // Exact match failed — try LIKE search with wildcards (handles casing/spacing differences)
           if (!qboCustomerId) {
             const likeSearch = await makeQuickBooksAPICall({
-              url: `https://quickbooks.api.intuit.com/v3/company/${connection.realm_id}/query?query=${encodeURIComponent(`SELECT * FROM Customer WHERE DisplayName LIKE '${invoice.customer_name.trim().replace(/'/g, "\\'")}'`)}`,
+              url: `https://quickbooks.api.intuit.com/v3/company/${connection.realm_id}/query?query=${encodeURIComponent(`SELECT * FROM Customer WHERE DisplayName LIKE '%${invoice.customer_name.trim().replace(/'/g, "\\'")}%'`)}`,
               method: 'GET',
               accessToken,
               requestType: 'search_customer',
