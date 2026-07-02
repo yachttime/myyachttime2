@@ -287,6 +287,9 @@ Deno.serve(async (req: Request) => {
     const qbLineItems: any[] = [];
 
     for (const item of lineItems) {
+      // Skip zero-quantity or zero-amount lines — QuickBooks rejects them
+      if (!item.quantity || parseFloat(item.quantity) === 0) continue;
+
       const description = [item.task_name, item.description].filter(Boolean).join(' - ');
       const itemId = (item.line_type === 'parts' || item.line_type === 'part') ? partsItemId
         : item.line_type === 'labor' ? laborItemId
