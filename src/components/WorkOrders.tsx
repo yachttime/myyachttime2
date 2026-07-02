@@ -105,6 +105,8 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
   const [depositLoading, setDepositLoading] = useState(false);
   const [depositEmailRecipient, setDepositEmailRecipient] = useState('');
   const [depositEmailRecipientName, setDepositEmailRecipientName] = useState('');
+  const [yachtManagerOptions, setYachtManagerOptions] = useState<{ email: string; name: string }[]>([]);
+  const [selectedManagerEmails, setSelectedManagerEmails] = useState<Set<string>>(new Set());
   const [sendingDepositEmail, setSendingDepositEmail] = useState(false);
   const [depositSurchargeCcEmail, setDepositSurchargeCcEmail] = useState('');
   const [depositSurchargeCcNote, setDepositSurchargeCcNote] = useState('');
@@ -1409,21 +1411,32 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
       let managerEmail = workOrder.deposit_email_recipient || workOrder.manager_email || resolvedEmail || '';
       let managerName = workOrder.manager_name || workOrder.customer_name || '';
 
-      if (!managerEmail && workOrder.yacht_id) {
+      if (workOrder.yacht_id) {
         const { data: yachtManagers } = await supabase
           .from('user_profiles')
           .select('email, first_name, last_name')
           .eq('yacht_id', workOrder.yacht_id)
           .eq('role', 'manager')
-          .not('email', 'is', null)
-          .limit(1);
+          .not('email', 'is', null);
 
         if (yachtManagers && yachtManagers.length > 0) {
-          managerEmail = yachtManagers[0].email || '';
-          if (!managerName) {
-            managerName = [yachtManagers[0].first_name, yachtManagers[0].last_name].filter(Boolean).join(' ');
+          const options = yachtManagers.map((m: any) => ({
+            email: m.email || '',
+            name: [m.first_name, m.last_name].filter(Boolean).join(' '),
+          })).filter(m => m.email);
+          setYachtManagerOptions(options);
+          setSelectedManagerEmails(new Set(options.map(m => m.email)));
+          if (!managerEmail && options.length > 0) {
+            managerEmail = options[0].email;
+            if (!managerName) managerName = options[0].name;
           }
+        } else {
+          setYachtManagerOptions([]);
+          setSelectedManagerEmails(new Set());
         }
+      } else {
+        setYachtManagerOptions([]);
+        setSelectedManagerEmails(new Set());
       }
 
       setDepositEmailRecipient(managerEmail);
@@ -1645,10 +1658,14 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
   };
 
   const handleSendDepositEmail = async (workOrder: WorkOrder) => {
-    const recipientEmail = depositEmailRecipient || workOrder.deposit_email_recipient || workOrder.customer_email;
+    const targets = yachtManagerOptions.length > 0
+      ? yachtManagerOptions.filter(m => selectedManagerEmails.has(m.email))
+      : [{ email: depositEmailRecipient || workOrder.deposit_email_recipient || workOrder.customer_email || '', name: depositEmailRecipientName || workOrder.manager_name || workOrder.customer_name || '' }];
 
-    if (!workOrder.deposit_payment_link_url || !recipientEmail) {
-      setError('Payment link and recipient email are required');
+    const validTargets = targets.filter(t => t.email);
+
+    if (!workOrder.deposit_payment_link_url || validTargets.length === 0) {
+      setError('Payment link and at least one recipient email are required');
       return;
     }
 
@@ -1660,29 +1677,31 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
       }
 
       const sendApiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-work-order-deposit-email`;
-      const sendResponse = await fetch(sendApiUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          workOrderId: workOrder.id,
-          recipientEmail: recipientEmail,
-          recipientName: depositEmailRecipientName || workOrder.manager_name || workOrder.customer_name || recipientEmail,
-          surchargeCcEmail: depositSurchargeCcEnabled && depositSurchargeCcEmail.trim() ? depositSurchargeCcEmail.trim() : undefined,
-          surchargeCcNote: depositSurchargeCcEnabled && depositSurchargeCcNote.trim() ? depositSurchargeCcNote.trim() : undefined,
-        })
-      });
 
-      const sendResult = await sendResponse.json();
+      for (const target of validTargets) {
+        const sendResponse = await fetch(sendApiUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            workOrderId: workOrder.id,
+            recipientEmail: target.email,
+            recipientName: target.name || target.email,
+            surchargeCcEmail: depositSurchargeCcEnabled && depositSurchargeCcEmail.trim() ? depositSurchargeCcEmail.trim() : undefined,
+            surchargeCcNote: depositSurchargeCcEnabled && depositSurchargeCcNote.trim() ? depositSurchargeCcNote.trim() : undefined,
+          })
+        });
 
-      if (!sendResult.success) {
-        throw new Error(sendResult.error || 'Failed to send deposit request email');
+        const sendResult = await sendResponse.json();
+        if (!sendResult.success) {
+          throw new Error(sendResult.error || `Failed to send deposit request email to ${target.email}`);
+        }
       }
 
       await loadData();
-      showSuccess('Deposit request email sent successfully!');
+      showSuccess(validTargets.length > 1 ? `Deposit request sent to ${validTargets.length} managers!` : 'Deposit request email sent successfully!');
       setDepositEmailRecipient('');
       setDepositEmailRecipientName('');
       setDepositSurchargeCcEmail('');
@@ -3970,24 +3989,54 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                       </button>
                       {!editingWorkOrder.deposit_email_sent_at ? (
                         <div className="flex flex-col gap-2 w-full">
-                          <div className="flex gap-2 w-full">
-                            <input
-                              type="email"
-                              placeholder="Recipient email"
-                              value={depositEmailRecipient}
-                              onChange={(e) => setDepositEmailRecipient(e.target.value)}
-                              className="flex-1 bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400"
-                            />
-                            <input
-                              type="text"
-                              placeholder="Recipient name (optional)"
-                              value={depositEmailRecipientName}
-                              onChange={(e) => setDepositEmailRecipientName(e.target.value)}
-                              className="flex-1 bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400"
-                            />
+                          <div className="flex gap-2 w-full flex-wrap items-end">
+                            {yachtManagerOptions.length > 0 ? (
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs text-gray-500 mb-1.5 font-medium">Send to managers:</p>
+                                <div className="flex flex-col gap-1">
+                                  {yachtManagerOptions.map(mgr => (
+                                    <label key={mgr.email} className="flex items-center gap-2 cursor-pointer group">
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedManagerEmails.has(mgr.email)}
+                                        onChange={(e) => {
+                                          setSelectedManagerEmails(prev => {
+                                            const next = new Set(prev);
+                                            if (e.target.checked) next.add(mgr.email);
+                                            else next.delete(mgr.email);
+                                            return next;
+                                          });
+                                        }}
+                                        className="w-3.5 h-3.5 rounded accent-cyan-600"
+                                      />
+                                      <span className="text-xs text-gray-800 group-hover:text-cyan-700">
+                                        {mgr.name ? `${mgr.name} — ${mgr.email}` : mgr.email}
+                                      </span>
+                                    </label>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <input
+                                  type="email"
+                                  placeholder="Recipient email"
+                                  value={depositEmailRecipient}
+                                  onChange={(e) => setDepositEmailRecipient(e.target.value)}
+                                  className="flex-1 bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400"
+                                />
+                                <input
+                                  type="text"
+                                  placeholder="Recipient name (optional)"
+                                  value={depositEmailRecipientName}
+                                  onChange={(e) => setDepositEmailRecipientName(e.target.value)}
+                                  className="flex-1 bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400"
+                                />
+                              </>
+                            )}
                             <button
                               onClick={() => handleSendDepositEmail(editingWorkOrder)}
-                              disabled={sendingDepositEmail || !depositEmailRecipient}
+                              disabled={sendingDepositEmail || (yachtManagerOptions.length > 0 ? selectedManagerEmails.size === 0 : !depositEmailRecipient)}
                               type="button"
                               className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 disabled:opacity-50"
                             >
