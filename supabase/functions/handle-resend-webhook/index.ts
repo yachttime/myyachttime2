@@ -124,12 +124,23 @@ Deno.serve(async (req: Request) => {
       if (invoiceBatch) invoice = invoiceBatch;
     }
 
-    // Try to find the email in repair_requests (estimate emails)
-    const { data: repairRequest } = await supabase
+    // Try to find the email in repair_requests (estimate emails) — single ID or per-recipient array
+    let repairRequest = null;
+    const { data: repairRequestSingle } = await supabase
       .from('repair_requests')
       .select('*')
       .eq('resend_email_id', event.data.email_id)
       .maybeSingle();
+    if (repairRequestSingle) {
+      repairRequest = repairRequestSingle;
+    } else {
+      const { data: repairRequestBatch } = await supabase
+        .from('repair_requests')
+        .select('*')
+        .contains('resend_email_ids', [event.data.email_id])
+        .maybeSingle();
+      if (repairRequestBatch) repairRequest = repairRequestBatch;
+    }
 
     // Try to find the email in repair_requests (notification emails)
     const { data: repairNotification } = await supabase
@@ -316,14 +327,45 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Handle repair_requests tracking (estimate emails)
+    // Handle repair_requests tracking (estimate emails) — per-recipient via JSONB map
     if (repairRequest) {
       const repairUpdateData: Record<string, any> = {};
+
+      const estimateEventRecipient: string | null = Array.isArray(event.data.to)
+        ? event.data.to[0]
+        : (event.data.to || null);
+
+      // Find this email's record in the engagement map to determine canonical recipient
+      const currentEstimateEngagement: Record<string, any> = repairRequest.estimate_recipient_engagement || {};
+
+      // Find the entry keyed by email_id (seeded during send) and resolve recipient email
+      let engagementKey: string | null = null;
+      for (const [emailId, entry] of Object.entries(currentEstimateEngagement)) {
+        if (emailId === event.data.email_id) {
+          engagementKey = emailId;
+          break;
+        }
+      }
+      // Seed entry if missing (legacy single-ID sends won't have it)
+      if (!engagementKey) {
+        engagementKey = event.data.email_id;
+        currentEstimateEngagement[engagementKey] = {
+          email: estimateEventRecipient || repairRequest.estimate_email_recipient,
+          status: 'sent',
+          sent_at: repairRequest.estimate_email_sent_at,
+        };
+      }
+
+      const entry = currentEstimateEngagement[engagementKey];
 
       switch (event.type) {
         case 'email.delivered':
           if (!repairRequest.email_delivered_at) {
             repairUpdateData.email_delivered_at = eventTimestamp;
+          }
+          if (!entry.delivered_at) {
+            entry.delivered_at = eventTimestamp;
+            repairUpdateData.estimate_recipient_engagement = currentEstimateEngagement;
           }
           break;
 
@@ -331,17 +373,31 @@ Deno.serve(async (req: Request) => {
           if (!repairRequest.email_opened_at) {
             repairUpdateData.email_opened_at = eventTimestamp;
           }
+          if (!entry.opened_at) {
+            entry.opened_at = eventTimestamp;
+          }
+          entry.open_count = (entry.open_count || 0) + 1;
+          repairUpdateData.estimate_recipient_engagement = currentEstimateEngagement;
           break;
 
         case 'email.clicked':
           if (!repairRequest.email_clicked_at) {
             repairUpdateData.email_clicked_at = eventTimestamp;
           }
+          if (!entry.clicked_at) {
+            entry.clicked_at = eventTimestamp;
+          }
+          entry.click_count = (entry.click_count || 0) + 1;
+          repairUpdateData.estimate_recipient_engagement = currentEstimateEngagement;
           break;
 
         case 'email.bounced':
           if (!repairRequest.email_bounced_at) {
             repairUpdateData.email_bounced_at = eventTimestamp;
+          }
+          if (!entry.bounced_at) {
+            entry.bounced_at = eventTimestamp;
+            repairUpdateData.estimate_recipient_engagement = currentEstimateEngagement;
           }
           break;
       }

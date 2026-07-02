@@ -348,13 +348,30 @@ Deno.serve(async (req: Request) => {
       const emailData = await emailResponse.json();
       console.log('Email sent successfully:', emailData);
 
-      // Update repair request to mark that estimate email was sent
-      await supabase
+      // Update repair request: append new email ID to array and seed per-recipient engagement entry
+      const adminSupabase = createClient(supabaseUrl, supabaseServiceKey);
+
+      // Fetch current arrays so we can append
+      const { data: current } = await adminSupabase
+        .from('repair_requests')
+        .select('resend_email_ids, estimate_recipient_engagement')
+        .eq('id', repairRequestId)
+        .single();
+
+      const updatedIds = [...(current?.resend_email_ids ?? []), emailData.id];
+      const updatedEngagement = {
+        ...(current?.estimate_recipient_engagement ?? {}),
+        [emailData.id]: { email: recipientEmail, status: 'sent', sent_at: new Date().toISOString() },
+      };
+
+      await adminSupabase
         .from('repair_requests')
         .update({
           estimate_email_sent_at: new Date().toISOString(),
           resend_email_id: emailData.id,
           estimate_email_recipient: recipientEmail,
+          resend_email_ids: updatedIds,
+          estimate_recipient_engagement: updatedEngagement,
         })
         .eq('id', repairRequestId);
 

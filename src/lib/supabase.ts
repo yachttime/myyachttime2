@@ -214,6 +214,18 @@ export interface RepairRequest {
   estimate_email_sent_at?: string;
   estimate_email_recipient?: string;
   resend_email_id?: string;
+  resend_email_ids?: string[];
+  estimate_recipient_engagement?: Record<string, {
+    email?: string;
+    status?: string;
+    sent_at?: string;
+    delivered_at?: string;
+    opened_at?: string;
+    clicked_at?: string;
+    bounced_at?: string;
+    open_count?: number;
+    click_count?: number;
+  }>;
   email_opened_at?: string;
   email_delivered_at?: string;
   email_clicked_at?: string;

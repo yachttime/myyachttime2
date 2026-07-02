@@ -16134,79 +16134,135 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   {request.estimate_email_sent_at && (
                                     <div className="mt-3 bg-slate-900/50 rounded-lg p-3 border border-slate-700">
                                       <p className="text-xs font-semibold text-slate-300 mb-2">Email Status</p>
-                                      <div className="flex flex-wrap gap-2">
-                                        {request.estimate_email_sent_at && !request.email_delivered_at && !request.email_opened_at && !request.email_clicked_at && (
-                                          <span className="bg-blue-500/20 text-blue-400 px-3 py-1 rounded-full text-xs font-semibold">
-                                            Email Sent
-                                          </span>
-                                        )}
-                                        {request.email_delivered_at && !request.email_opened_at && !request.email_clicked_at && (
-                                          <span className="bg-cyan-500/20 text-cyan-400 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
-                                            <CheckCircle className="w-3 h-3" />
-                                            Email Delivered
-                                          </span>
-                                        )}
-                                        {request.email_opened_at && !request.email_clicked_at && (
-                                          <span className="bg-indigo-500/20 text-indigo-400 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
-                                            <Mail className="w-3 h-3" />
-                                            Email Opened
-                                          </span>
-                                        )}
-                                        {request.email_clicked_at && (
-                                          <span className="bg-purple-500/20 text-purple-400 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
-                                            <MousePointer className="w-3 h-3" />
-                                            Link Clicked
-                                          </span>
-                                        )}
-                                        {request.email_bounced_at && (
-                                          <span className="bg-red-500/20 text-red-400 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
-                                            <AlertCircle className="w-3 h-3" />
-                                            Email Bounced
-                                          </span>
-                                        )}
-                                      </div>
-                                      <div className="space-y-1 mt-3 pt-3 border-t border-slate-700">
-                                        {request.estimate_email_sent_at && (
-                                          <div className="flex items-center gap-2 text-xs text-slate-400">
-                                            <Mail className="w-3 h-3 text-blue-400" />
-                                            <span>Sent: {new Date(request.estimate_email_sent_at).toLocaleDateString()} at {new Date(request.estimate_email_sent_at).toLocaleTimeString()}</span>
-                                          </div>
-                                        )}
-                                        {request.email_delivered_at && (
-                                          <div className="flex items-center gap-2 text-xs text-emerald-400">
-                                            <CheckCircle className="w-3 h-3" />
-                                            <span>Delivered: {new Date(request.email_delivered_at).toLocaleDateString()} at {new Date(request.email_delivered_at).toLocaleTimeString()}</span>
-                                          </div>
-                                        )}
-                                        {request.email_opened_at && (
-                                          <div className="flex items-center gap-2 text-xs text-cyan-400">
-                                            <Mail className="w-3 h-3" />
-                                            <span>Opened: {new Date(request.email_opened_at).toLocaleDateString()} at {new Date(request.email_opened_at).toLocaleTimeString()}</span>
-                                            {request.email_open_count > 1 && (
-                                              <span className="bg-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded text-xs">
-                                                {request.email_open_count}x
+                                      {request.estimate_recipient_engagement && Object.keys(request.estimate_recipient_engagement).length > 0 ? (
+                                        // Per-recipient tracking
+                                        <div className="space-y-3">
+                                          {Object.entries(request.estimate_recipient_engagement).map(([emailId, entry]: [string, any]) => {
+                                            const recipientEmail = entry.email || request.estimate_email_recipient || emailId;
+                                            return (
+                                              <div key={emailId} className="bg-slate-800/60 rounded-lg p-2.5 border border-slate-700/50">
+                                                <div className="flex items-center gap-1.5 mb-1.5">
+                                                  <Mail className="w-3 h-3 text-blue-400 shrink-0" />
+                                                  <span className="text-xs text-slate-300 font-medium truncate">{recipientEmail}</span>
+                                                  {entry.clicked_at ? (
+                                                    <span className="ml-auto shrink-0 bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full text-xs font-semibold flex items-center gap-1">
+                                                      <MousePointer className="w-2.5 h-2.5" />Clicked
+                                                    </span>
+                                                  ) : entry.opened_at ? (
+                                                    <span className="ml-auto shrink-0 bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full text-xs font-semibold flex items-center gap-1">
+                                                      <Eye className="w-2.5 h-2.5" />Opened
+                                                    </span>
+                                                  ) : entry.delivered_at ? (
+                                                    <span className="ml-auto shrink-0 bg-cyan-500/20 text-cyan-300 px-2 py-0.5 rounded-full text-xs font-semibold flex items-center gap-1">
+                                                      <CheckCircle className="w-2.5 h-2.5" />Delivered
+                                                    </span>
+                                                  ) : entry.bounced_at ? (
+                                                    <span className="ml-auto shrink-0 bg-red-500/20 text-red-300 px-2 py-0.5 rounded-full text-xs font-semibold flex items-center gap-1">
+                                                      <AlertCircle className="w-2.5 h-2.5" />Bounced
+                                                    </span>
+                                                  ) : (
+                                                    <span className="ml-auto shrink-0 bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full text-xs font-semibold flex items-center gap-1">
+                                                      <Clock className="w-2.5 h-2.5" />Sent
+                                                    </span>
+                                                  )}
+                                                </div>
+                                                <div className="space-y-0.5 pl-4.5">
+                                                  {entry.sent_at && (
+                                                    <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                                                      <span>Sent: {new Date(entry.sent_at).toLocaleDateString()} {new Date(entry.sent_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>
+                                                    </div>
+                                                  )}
+                                                  {entry.delivered_at && (
+                                                    <div className="flex items-center gap-1.5 text-xs text-emerald-400">
+                                                      <CheckCircle className="w-2.5 h-2.5 shrink-0" />
+                                                      <span>Delivered: {new Date(entry.delivered_at).toLocaleDateString()} {new Date(entry.delivered_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>
+                                                    </div>
+                                                  )}
+                                                  {entry.opened_at && (
+                                                    <div className="flex items-center gap-1.5 text-xs text-cyan-400">
+                                                      <Eye className="w-2.5 h-2.5 shrink-0" />
+                                                      <span>Opened: {new Date(entry.opened_at).toLocaleDateString()} {new Date(entry.opened_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}{entry.open_count > 1 ? ` (${entry.open_count}x)` : ''}</span>
+                                                    </div>
+                                                  )}
+                                                  {entry.clicked_at && (
+                                                    <div className="flex items-center gap-1.5 text-xs text-teal-400">
+                                                      <MousePointer className="w-2.5 h-2.5 shrink-0" />
+                                                      <span>Clicked: {new Date(entry.clicked_at).toLocaleDateString()} {new Date(entry.clicked_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}{entry.click_count > 1 ? ` (${entry.click_count}x)` : ''}</span>
+                                                    </div>
+                                                  )}
+                                                  {entry.bounced_at && (
+                                                    <div className="flex items-center gap-1.5 text-xs text-red-400">
+                                                      <AlertCircle className="w-2.5 h-2.5 shrink-0" />
+                                                      <span>Bounced: {new Date(entry.bounced_at).toLocaleDateString()} {new Date(entry.bounced_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      ) : (
+                                        // Legacy flat tracking (single recipient, no engagement map yet)
+                                        <>
+                                          <div className="flex flex-wrap gap-2 mb-3">
+                                            {!request.email_delivered_at && !request.email_opened_at && !request.email_clicked_at && (
+                                              <span className="bg-blue-500/20 text-blue-400 px-3 py-1 rounded-full text-xs font-semibold">
+                                                Email Sent
+                                              </span>
+                                            )}
+                                            {request.email_delivered_at && !request.email_opened_at && !request.email_clicked_at && (
+                                              <span className="bg-cyan-500/20 text-cyan-400 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
+                                                <CheckCircle className="w-3 h-3" />Email Delivered
+                                              </span>
+                                            )}
+                                            {request.email_opened_at && !request.email_clicked_at && (
+                                              <span className="bg-indigo-500/20 text-indigo-400 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
+                                                <Mail className="w-3 h-3" />Email Opened
+                                              </span>
+                                            )}
+                                            {request.email_clicked_at && (
+                                              <span className="bg-purple-500/20 text-purple-400 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
+                                                <MousePointer className="w-3 h-3" />Link Clicked
+                                              </span>
+                                            )}
+                                            {request.email_bounced_at && (
+                                              <span className="bg-red-500/20 text-red-400 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
+                                                <AlertCircle className="w-3 h-3" />Email Bounced
                                               </span>
                                             )}
                                           </div>
-                                        )}
-                                        {request.email_clicked_at && (
-                                          <div className="flex items-center gap-2 text-xs text-teal-400">
-                                            <MousePointer className="w-3 h-3" />
-                                            <span>Clicked: {new Date(request.email_clicked_at).toLocaleDateString()} at {new Date(request.email_clicked_at).toLocaleTimeString()}</span>
-                                            {request.email_click_count > 1 && (
-                                              <span className="bg-teal-500/20 text-teal-400 px-2 py-0.5 rounded text-xs">
-                                                {request.email_click_count}x
-                                              </span>
+                                          <div className="space-y-1 pt-2 border-t border-slate-700">
+                                            <div className="flex items-center gap-2 text-xs text-slate-400">
+                                              <Mail className="w-3 h-3 text-blue-400" />
+                                              <span>Sent: {new Date(request.estimate_email_sent_at).toLocaleDateString()} at {new Date(request.estimate_email_sent_at).toLocaleTimeString()}</span>
+                                            </div>
+                                            {request.email_delivered_at && (
+                                              <div className="flex items-center gap-2 text-xs text-emerald-400">
+                                                <CheckCircle className="w-3 h-3" />
+                                                <span>Delivered: {new Date(request.email_delivered_at).toLocaleDateString()} at {new Date(request.email_delivered_at).toLocaleTimeString()}</span>
+                                              </div>
+                                            )}
+                                            {request.email_opened_at && (
+                                              <div className="flex items-center gap-2 text-xs text-cyan-400">
+                                                <Mail className="w-3 h-3" />
+                                                <span>Opened: {new Date(request.email_opened_at).toLocaleDateString()} at {new Date(request.email_opened_at).toLocaleTimeString()}{request.email_open_count > 1 ? ` (${request.email_open_count}x)` : ''}</span>
+                                              </div>
+                                            )}
+                                            {request.email_clicked_at && (
+                                              <div className="flex items-center gap-2 text-xs text-teal-400">
+                                                <MousePointer className="w-3 h-3" />
+                                                <span>Clicked: {new Date(request.email_clicked_at).toLocaleDateString()} at {new Date(request.email_clicked_at).toLocaleTimeString()}{request.email_click_count > 1 ? ` (${request.email_click_count}x)` : ''}</span>
+                                              </div>
+                                            )}
+                                            {request.email_bounced_at && (
+                                              <div className="flex items-center gap-2 text-xs text-red-400">
+                                                <AlertCircle className="w-3 h-3" />
+                                                <span>Bounced: {new Date(request.email_bounced_at).toLocaleDateString()} at {new Date(request.email_bounced_at).toLocaleTimeString()}</span>
+                                              </div>
                                             )}
                                           </div>
-                                        )}
-                                        {request.email_bounced_at && (
-                                          <div className="flex items-center gap-2 text-xs text-red-400">
-                                            <AlertCircle className="w-3 h-3" />
-                                            <span>Bounced: {new Date(request.email_bounced_at).toLocaleDateString()} at {new Date(request.email_bounced_at).toLocaleTimeString()}</span>
-                                          </div>
-                                        )}
-                                      </div>
+                                        </>
+                                      )}
                                       {canManageYacht(effectiveRole) && (
                                         <div className="mt-3 pt-3 border-t border-slate-700 flex flex-wrap gap-2">
                                           <button
