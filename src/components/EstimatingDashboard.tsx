@@ -127,22 +127,21 @@ export function EstimatingDashboard({ userId, initialInvoiceId }: EstimatingDash
 
       const totalEstimatesAmount = estimates.reduce((sum, e) => sum + (e.total_amount || 0), 0);
       const pendingApproval = estimates.filter(e => e.status === 'sent').length;
-      const totalWorkOrders = workOrders.length;
-      const totalWorkOrdersAmount = workOrders.reduce((sum, w) => sum + (w.total_amount || 0), 0);
-      const totalDepositsPaid = workOrders.reduce((sum, w) =>
-        sum + (w.deposit_paid_at ? (w.deposit_amount || 0) : 0), 0);
-      const pendingWorkOrders = workOrders.filter(w =>
+      const openWorkOrders = workOrders.filter(w =>
         w.status === 'in_progress' || w.status === 'pending'
-      ).length;
+      );
+      const totalWorkOrders = openWorkOrders.length;
+      const totalWorkOrdersAmount = openWorkOrders.reduce((sum, w) => sum + (w.total_amount || 0), 0);
+      const totalDepositsPaid = openWorkOrders.reduce((sum, w) =>
+        sum + (w.deposit_paid_at ? (w.deposit_amount || 0) : 0), 0);
+      const pendingWorkOrders = openWorkOrders.filter(w => w.status === 'pending').length;
       const unpaidInvoices = invoices.filter(i => i.payment_status === 'unpaid' && (i.total_amount || 0) > 0);
       const unpaidAmount = unpaidInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
       const processingInvoices = invoices.filter(i => i.payment_status === 'processing' && (i.total_amount || 0) > 0);
       const processingAmount = processingInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
       const lowStockItems = parts.filter(p => p.quantity_on_hand <= p.reorder_level).length;
 
-      const activeJobs = workOrders.filter(w =>
-        w.status === 'in_progress' || w.status === 'pending'
-      ).length;
+      const activeJobs = totalWorkOrders;
 
       // YTD total sales: estimating invoices + yacht card invoices created this calendar year
       const ytdTotalSales =
@@ -237,9 +236,9 @@ export function EstimatingDashboard({ userId, initialInvoiceId }: EstimatingDash
                 <div className="text-3xl font-bold text-gray-900 mb-1">
                   {loading ? '...' : stats.totalWorkOrders}
                 </div>
-                <div className="text-sm font-medium text-gray-900 mb-1">Total Work Orders</div>
+                <div className="text-sm font-medium text-gray-900 mb-1">Open Work Orders</div>
                 <div className="text-xs text-gray-500">
-                  {loading ? '...' : `${stats.pendingWorkOrders} pending or in progress`}
+                  {loading ? '...' : `${stats.pendingWorkOrders} pending`}
                 </div>
               </div>
 
@@ -379,7 +378,7 @@ export function EstimatingDashboard({ userId, initialInvoiceId }: EstimatingDash
                   <div className="py-3 border-b border-gray-100">
                     <div className="flex items-center justify-between">
                       <div>
-                        <span className="text-sm text-gray-600">Total Work Orders</span>
+                        <span className="text-sm text-gray-600">Open Work Orders</span>
                         <span className="ml-2 text-xs text-gray-400">({loading ? '...' : stats.totalWorkOrders})</span>
                       </div>
                       <span className="text-lg font-bold text-green-700">
