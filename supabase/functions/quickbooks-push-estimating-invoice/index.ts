@@ -209,6 +209,7 @@ Deno.serve(async (req: Request) => {
         } catch (_) {}
 
         if (isDuplicateCustomer) {
+          // Try exact match first
           const retrySearch = await makeQuickBooksAPICall({
             url: `https://quickbooks.api.intuit.com/v3/company/${connection.realm_id}/query?query=${encodeURIComponent(`SELECT * FROM Customer WHERE DisplayName = '${invoice.customer_name.trim().replace(/'/g, "\\'")}'`)}`,
             method: 'GET',
@@ -221,6 +222,40 @@ Deno.serve(async (req: Request) => {
           });
           if (retrySearch.success && retrySearch.data?.QueryResponse?.Customer?.length > 0) {
             qboCustomerId = retrySearch.data.QueryResponse.Customer[0].Id;
+          }
+
+          // Exact match failed — try LIKE search (handles casing/spacing differences)
+          if (!qboCustomerId) {
+            const likeSearch = await makeQuickBooksAPICall({
+              url: `https://quickbooks.api.intuit.com/v3/company/${connection.realm_id}/query?query=${encodeURIComponent(`SELECT * FROM Customer WHERE DisplayName LIKE '${invoice.customer_name.trim().replace(/'/g, "\\'")}'`)}`,
+              method: 'GET',
+              accessToken,
+              requestType: 'search_customer',
+              companyId: profile.company_id,
+              connectionId: connection.id,
+              supabaseUrl,
+              serviceRoleKey,
+            });
+            if (likeSearch.success && likeSearch.data?.QueryResponse?.Customer?.length > 0) {
+              qboCustomerId = likeSearch.data.QueryResponse.Customer[0].Id;
+            }
+          }
+
+          // Last resort — search by email
+          if (!qboCustomerId && invoice.customer_email) {
+            const emailSearch = await makeQuickBooksAPICall({
+              url: `https://quickbooks.api.intuit.com/v3/company/${connection.realm_id}/query?query=${encodeURIComponent(`SELECT * FROM Customer WHERE PrimaryEmailAddr = '${invoice.customer_email.replace(/'/g, "\\'")}'`)}`,
+              method: 'GET',
+              accessToken,
+              requestType: 'search_customer',
+              companyId: profile.company_id,
+              connectionId: connection.id,
+              supabaseUrl,
+              serviceRoleKey,
+            });
+            if (emailSearch.success && emailSearch.data?.QueryResponse?.Customer?.length > 0) {
+              qboCustomerId = emailSearch.data.QueryResponse.Customer[0].Id;
+            }
           }
         }
 
