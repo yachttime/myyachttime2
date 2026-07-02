@@ -1406,10 +1406,28 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
       const allTaskIndexes = loadedTasks.map((_, index) => index);
       setExpandedTasks(new Set(allTaskIndexes));
 
-      const autoEmail = workOrder.deposit_email_recipient || workOrder.manager_email || resolvedEmail || '';
-      const autoName = workOrder.manager_name || workOrder.customer_name || '';
-      setDepositEmailRecipient(autoEmail);
-      setDepositEmailRecipientName(autoName);
+      let managerEmail = workOrder.deposit_email_recipient || workOrder.manager_email || resolvedEmail || '';
+      let managerName = workOrder.manager_name || workOrder.customer_name || '';
+
+      if (!managerEmail && workOrder.yacht_id) {
+        const { data: yachtManagers } = await supabase
+          .from('user_profiles')
+          .select('email, first_name, last_name')
+          .eq('yacht_id', workOrder.yacht_id)
+          .eq('role', 'manager')
+          .not('email', 'is', null)
+          .limit(1);
+
+        if (yachtManagers && yachtManagers.length > 0) {
+          managerEmail = yachtManagers[0].email || '';
+          if (!managerName) {
+            managerName = [yachtManagers[0].first_name, yachtManagers[0].last_name].filter(Boolean).join(' ');
+          }
+        }
+      }
+
+      setDepositEmailRecipient(managerEmail);
+      setDepositEmailRecipientName(managerName);
 
       setEditingId(workOrderId);
       setShowForm(true);
