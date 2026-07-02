@@ -691,6 +691,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [yachtInspectionDocs, setYachtInspectionDocs] = useState<Record<string, any[]>>({});
   const [yachtEngineHourHistory, setYachtEngineHourHistory] = useState<Record<string, any[]>>({});
   const [engineHoursYachtId, setEngineHoursYachtId] = useState<string | null>(null);
+  const [editingEngineHoursId, setEditingEngineHoursId] = useState<string | null>(null);
+  const [engineHoursEditForm, setEngineHoursEditForm] = useState<{ port_engine_hours: string; stbd_engine_hours: string; port_gen_hours: string; stbd_gen_hours: string }>({ port_engine_hours: '', stbd_engine_hours: '', port_gen_hours: '', stbd_gen_hours: '' });
+  const [savingEngineHours, setSavingEngineHours] = useState(false);
   const [documentYachtId, setDocumentYachtId] = useState<string | null>(null);
   const [showDocumentForm, setShowDocumentForm] = useState(false);
   const [documentForm, setDocumentForm] = useState({
@@ -2697,6 +2700,31 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     } catch (error) {
       console.error('Error loading engine hour history:', error);
       setYachtEngineHourHistory(prev => ({ ...prev, [yachtId]: [] }));
+    }
+  };
+
+  const handleSaveEngineHours = async (inspectionId: string, yachtId: string) => {
+    setSavingEngineHours(true);
+    try {
+      const updates: Record<string, number | null> = {
+        port_engine_hours: engineHoursEditForm.port_engine_hours.trim() !== '' ? parseFloat(engineHoursEditForm.port_engine_hours) : null,
+        stbd_engine_hours: engineHoursEditForm.stbd_engine_hours.trim() !== '' ? parseFloat(engineHoursEditForm.stbd_engine_hours) : null,
+        port_gen_hours: engineHoursEditForm.port_gen_hours.trim() !== '' ? parseFloat(engineHoursEditForm.port_gen_hours) : null,
+        stbd_gen_hours: engineHoursEditForm.stbd_gen_hours.trim() !== '' ? parseFloat(engineHoursEditForm.stbd_gen_hours) : null,
+      };
+      const { error } = await supabase
+        .from('trip_inspections')
+        .update(updates)
+        .eq('id', inspectionId);
+      if (error) throw error;
+      setEditingEngineHoursId(null);
+      await loadYachtEngineHourHistory(yachtId);
+      showSuccess('Engine hours updated');
+    } catch (err: any) {
+      console.error('Error saving engine hours:', err);
+      setError(err.message || 'Failed to save engine hours');
+    } finally {
+      setSavingEngineHours(false);
     }
   };
 
@@ -12174,21 +12202,66 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               const hasData = [portEngIn, portEngOut, stbdEngIn, stbdEngOut, portGenIn, portGenOut, stbdGenIn, stbdGenOut].some(v => v != null);
                               if (!hasData) return null;
 
+                              // The inspection record that holds the end-of-trip hours (prefer check_in as it records return hours)
+                              const hoursRecord = cin ?? cout;
+                              const hoursRecordId = hoursRecord?.id ?? null;
+                              const isEditing = editingEngineHoursId === hoursRecordId && hoursRecordId != null;
+                              const canEdit = (effectiveRole === 'staff' || effectiveRole === 'master') && hoursRecordId != null;
+
                               return (
                                 <div key={idx} className="mt-2 bg-slate-900/60 rounded-lg p-2 border border-slate-700/50">
                                   <div className="flex items-center justify-between mb-0.5">
                                     <span className="text-xs font-semibold text-slate-300">
                                       Trip {idx + 1} — {tripDate}
                                     </span>
-                                    {cin && (portEngOut != null || stbdEngOut != null || portGenOut != null || stbdGenOut != null) && (
-                                      <span className="text-xs text-emerald-400 font-medium">Complete</span>
-                                    )}
-                                    {cin && portEngOut == null && stbdEngOut == null && portGenOut == null && stbdGenOut == null && (
-                                      <span className="text-xs text-amber-400 font-medium">In Progress</span>
-                                    )}
-                                    {!cin && cout && (
-                                      <span className="text-xs text-slate-500 font-medium">Check-Out Only</span>
-                                    )}
+                                    <div className="flex items-center gap-2">
+                                      {cin && (portEngOut != null || stbdEngOut != null || portGenOut != null || stbdGenOut != null) && !isEditing && (
+                                        <span className="text-xs text-emerald-400 font-medium">Complete</span>
+                                      )}
+                                      {cin && portEngOut == null && stbdEngOut == null && portGenOut == null && stbdGenOut == null && !isEditing && (
+                                        <span className="text-xs text-amber-400 font-medium">In Progress</span>
+                                      )}
+                                      {!cin && cout && !isEditing && (
+                                        <span className="text-xs text-slate-500 font-medium">Check-Out Only</span>
+                                      )}
+                                      {canEdit && !isEditing && (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setEditingEngineHoursId(hoursRecordId);
+                                            setEngineHoursEditForm({
+                                              port_engine_hours: portEngOut != null ? String(portEngOut) : '',
+                                              stbd_engine_hours: stbdEngOut != null ? String(stbdEngOut) : '',
+                                              port_gen_hours: portGenOut != null ? String(portGenOut) : '',
+                                              stbd_gen_hours: stbdGenOut != null ? String(stbdGenOut) : '',
+                                            });
+                                          }}
+                                          className="text-slate-500 hover:text-blue-400 transition-colors"
+                                          title="Edit engine hours"
+                                        >
+                                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M9 11l6.586-6.586a2 2 0 012.828 2.828L11.828 13.828a2 2 0 01-1.414.586H8v-2.414a2 2 0 01.586-1.414z" /></svg>
+                                        </button>
+                                      )}
+                                      {isEditing && (
+                                        <div className="flex items-center gap-1.5">
+                                          <button
+                                            type="button"
+                                            onClick={() => handleSaveEngineHours(hoursRecordId!, yacht.id)}
+                                            disabled={savingEngineHours}
+                                            className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-0.5 rounded font-medium disabled:opacity-50"
+                                          >
+                                            {savingEngineHours ? 'Saving...' : 'Save'}
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => setEditingEngineHoursId(null)}
+                                            className="text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 px-2 py-0.5 rounded font-medium"
+                                          >
+                                            Cancel
+                                          </button>
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
                                   {trip.ownerName && (
                                     <div className="text-xs font-semibold text-sky-400 mb-1.5 tracking-wide">{trip.ownerName}</div>
@@ -12204,7 +12277,17 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                       <>
                                         <div className="text-slate-400">Port Eng</div>
                                         <div className="text-slate-300 text-center">{portEngIn != null ? portEngIn : '—'}</div>
-                                        <div className="text-slate-300 text-center">{portEngOut != null ? portEngOut : '—'}</div>
+                                        {isEditing ? (
+                                          <input
+                                            type="number"
+                                            step="0.1"
+                                            value={engineHoursEditForm.port_engine_hours}
+                                            onChange={e => setEngineHoursEditForm(f => ({ ...f, port_engine_hours: e.target.value }))}
+                                            className="bg-slate-700 text-white text-center rounded px-1 py-0.5 w-full text-xs border border-blue-500/50 focus:outline-none focus:border-blue-400"
+                                          />
+                                        ) : (
+                                          <div className="text-slate-300 text-center">{portEngOut != null ? portEngOut : '—'}</div>
+                                        )}
                                         <div className={`text-center font-medium ${dPortEng != null ? (dPortEng >= 0 ? 'text-orange-400' : 'text-red-400') : 'text-slate-500'}`}>
                                           {dPortEng != null ? `+${dPortEng.toFixed(1)}` : '—'}
                                         </div>
@@ -12214,7 +12297,17 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                       <>
                                         <div className="text-slate-400">Stbd Eng</div>
                                         <div className="text-slate-300 text-center">{stbdEngIn != null ? stbdEngIn : '—'}</div>
-                                        <div className="text-slate-300 text-center">{stbdEngOut != null ? stbdEngOut : '—'}</div>
+                                        {isEditing ? (
+                                          <input
+                                            type="number"
+                                            step="0.1"
+                                            value={engineHoursEditForm.stbd_engine_hours}
+                                            onChange={e => setEngineHoursEditForm(f => ({ ...f, stbd_engine_hours: e.target.value }))}
+                                            className="bg-slate-700 text-white text-center rounded px-1 py-0.5 w-full text-xs border border-blue-500/50 focus:outline-none focus:border-blue-400"
+                                          />
+                                        ) : (
+                                          <div className="text-slate-300 text-center">{stbdEngOut != null ? stbdEngOut : '—'}</div>
+                                        )}
                                         <div className={`text-center font-medium ${dStbdEng != null ? (dStbdEng >= 0 ? 'text-orange-400' : 'text-red-400') : 'text-slate-500'}`}>
                                           {dStbdEng != null ? `+${dStbdEng.toFixed(1)}` : '—'}
                                         </div>
@@ -12225,7 +12318,17 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                       <>
                                         <div className="text-slate-400">Port Gen</div>
                                         <div className="text-slate-300 text-center">{portGenIn != null ? portGenIn : '—'}</div>
-                                        <div className="text-slate-300 text-center">{portGenOut != null ? portGenOut : '—'}</div>
+                                        {isEditing ? (
+                                          <input
+                                            type="number"
+                                            step="0.1"
+                                            value={engineHoursEditForm.port_gen_hours}
+                                            onChange={e => setEngineHoursEditForm(f => ({ ...f, port_gen_hours: e.target.value }))}
+                                            className="bg-slate-700 text-white text-center rounded px-1 py-0.5 w-full text-xs border border-blue-500/50 focus:outline-none focus:border-blue-400"
+                                          />
+                                        ) : (
+                                          <div className="text-slate-300 text-center">{portGenOut != null ? portGenOut : '—'}</div>
+                                        )}
                                         <div className={`text-center font-medium ${dPortGen != null ? (dPortGen >= 0 ? 'text-orange-400' : 'text-red-400') : 'text-slate-500'}`}>
                                           {dPortGen != null ? `+${dPortGen.toFixed(1)}` : '—'}
                                         </div>
@@ -12235,7 +12338,17 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                       <>
                                         <div className="text-slate-400">Stbd Gen</div>
                                         <div className="text-slate-300 text-center">{stbdGenIn != null ? stbdGenIn : '—'}</div>
-                                        <div className="text-slate-300 text-center">{stbdGenOut != null ? stbdGenOut : '—'}</div>
+                                        {isEditing ? (
+                                          <input
+                                            type="number"
+                                            step="0.1"
+                                            value={engineHoursEditForm.stbd_gen_hours}
+                                            onChange={e => setEngineHoursEditForm(f => ({ ...f, stbd_gen_hours: e.target.value }))}
+                                            className="bg-slate-700 text-white text-center rounded px-1 py-0.5 w-full text-xs border border-blue-500/50 focus:outline-none focus:border-blue-400"
+                                          />
+                                        ) : (
+                                          <div className="text-slate-300 text-center">{stbdGenOut != null ? stbdGenOut : '—'}</div>
+                                        )}
                                         <div className={`text-center font-medium ${dStbdGen != null ? (dStbdGen >= 0 ? 'text-orange-400' : 'text-red-400') : 'text-slate-500'}`}>
                                           {dStbdGen != null ? `+${dStbdGen.toFixed(1)}` : '—'}
                                         </div>
