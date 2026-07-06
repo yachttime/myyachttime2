@@ -14154,7 +14154,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                           const isPaid = inv.payment_status === 'paid';
                                           const balanceDue = inv.balance_due !== null ? Number(inv.balance_due) : Number(inv.total_amount);
                                           const depositApplied = inv.deposit_applied ? Number(inv.deposit_applied) : 0;
+                                          const amountPaid = inv.amount_paid ? Number(inv.amount_paid) : 0;
                                           const hasDepositOnly = !isPaid && depositApplied > 0;
+                                          const hasFinalPaymentOnly = !isPaid && !hasDepositOnly && inv.final_payment_paid_at && amountPaid > 0;
                                           const pendingAchUrl = achPaymentLinks[inv.id];
                                           const hasActiveLink = pendingAchUrl || (inv.final_payment_link_url && inv.final_payment_link_expires_at && new Date(inv.final_payment_link_expires_at) > new Date());
                                           const activeLinkUrl = pendingAchUrl || inv.final_payment_link_url;
@@ -14172,6 +14174,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                       <span className="px-2 py-0.5 bg-red-500/20 text-red-400 rounded text-xs font-medium">Refunded</span>
                                                     ) : hasDepositOnly ? (
                                                       <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded text-xs font-medium">Deposit Paid</span>
+                                                    ) : hasFinalPaymentOnly ? (
+                                                      <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded text-xs font-medium">Partial Paid</span>
                                                     ) : (
                                                       <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 rounded text-xs font-medium">Unpaid</span>
                                                     )}
@@ -14181,6 +14185,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                     {depositApplied > 0 && (
                                                       <span className="text-slate-400 font-normal ml-2">
                                                         (Balance: ${balanceDue.toFixed(2)} after ${depositApplied.toFixed(2)} deposit)
+                                                      </span>
+                                                    )}
+                                                    {hasFinalPaymentOnly && balanceDue > 0 && (
+                                                      <span className="text-slate-400 font-normal ml-2">
+                                                        (Paid: ${amountPaid.toFixed(2)} | Balance: ${balanceDue.toFixed(2)})
                                                       </span>
                                                     )}
                                                   </div>
