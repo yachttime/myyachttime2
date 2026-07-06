@@ -28,7 +28,7 @@ import CustomerManagement from './CustomerManagement';
 import { CompanyManagement } from './CompanyManagement';
 import SupportTickets from './SupportTickets';
 import { uploadFileToStorage, deleteFileFromStorage, isStorageUrl, UploadProgress, isTokenExpiredError } from '../utils/fileUpload';
-import { generateAllYachtTripsPDF, generateEstimatingInvoicePDF } from '../utils/pdfGenerator';
+import { generateAllYachtTripsPDF, generateEstimatingInvoicePDF, generateYachtInvoicesSummaryPDF } from '../utils/pdfGenerator';
 
 interface DashboardProps {
   onNavigate: (page: 'maintenance' | 'education' | 'staffCalendar') => void;
@@ -13586,6 +13586,26 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                     ));
                                   })()}
                                 </select>
+                                <button
+                                  onClick={() => {
+                                    const invoices = (yachtInvoices[yacht.id] || []).filter(
+                                      inv => inv.invoice_year === selectedInvoiceYear
+                                    );
+                                    const estInvoices = (yachtEstimatingInvoices[yacht.id] || []).filter(inv => {
+                                      const y = inv.invoice_date ? new Date(inv.invoice_date).getFullYear() : new Date().getFullYear();
+                                      return y === selectedInvoiceYear;
+                                    });
+                                    const pdf = generateYachtInvoicesSummaryPDF(yacht.name, selectedInvoiceYear, invoices, estInvoices);
+                                    const blob = pdf.output('blob');
+                                    const url = URL.createObjectURL(blob);
+                                    window.open(url, '_blank');
+                                  }}
+                                  className="flex items-center gap-1 px-2 py-1 bg-slate-700 hover:bg-slate-600 text-white rounded text-xs transition-colors whitespace-nowrap"
+                                  title="Print all invoices for this year"
+                                >
+                                  <Printer className="w-3 h-3" />
+                                  Print All
+                                </button>
                               </div>
                             </div>
 

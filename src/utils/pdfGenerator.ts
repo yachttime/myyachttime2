@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { VesselManagementAgreement, UserProfile, Yacht, TripInspection, OwnerHandoffInspection, YachtBooking } from '../lib/supabase';
+import { VesselManagementAgreement, UserProfile, Yacht, TripInspection, OwnerHandoffInspection, YachtBooking, YachtInvoice } from '../lib/supabase';
 
 const PHX = 'America/Phoenix';
 const phxDate = (d: Date | string) => new Date(d).toLocaleDateString('en-US', { timeZone: PHX });
@@ -3113,6 +3113,112 @@ export async function generateEstimatingInvoicePDF(
     doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
     const noteLines = doc.splitTextToSize(invoice.notes, pageWidth - margin * 2);
     doc.text(noteLines, margin, yPos);
+  }
+
+  return doc;
+}
+
+export interface EstimatingInvoiceSummary {
+  id: string;
+  invoice_number?: string;
+  invoice_date?: string;
+  total_amount?: number | string;
+  payment_status?: string;
+  work_title?: string;
+  paid_at?: string;
+}
+
+export function generateYachtInvoicesSummaryPDF(
+  yachtName: string,
+  year: number,
+  invoices: YachtInvoice[],
+  estInvoices: EstimatingInvoiceSummary[]
+): jsPDF {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'in', format: 'letter' });
+  const pageWidth = 8.5;
+  const margin = 0.75;
+  let yPos = margin;
+
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`${yachtName} — Invoices`, margin, yPos);
+  yPos += 0.3;
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(100, 116, 139);
+  doc.text(`Year: ${year}   |   Generated: ${phxDateTime(new Date())}`, margin, yPos);
+  yPos += 0.35;
+
+  doc.setTextColor(0, 0, 0);
+
+  const rows: string[][] = [];
+
+  for (const inv of invoices) {
+    const dateStr = inv.invoice_date ? phxDate(inv.invoice_date) : '—';
+    const status = inv.payment_status === 'paid' ? 'Paid' : inv.payment_status === 'pending' ? 'Pending' : inv.payment_status || '—';
+    const paidAt = inv.paid_at ? phxDate(inv.paid_at) : '—';
+    rows.push([dateStr, inv.repair_title || '—', inv.invoice_amount || '—', status, paidAt]);
+  }
+
+  for (const inv of estInvoices) {
+    const dateStr = inv.invoice_date ? phxDate(inv.invoice_date) : '—';
+    const amount = inv.total_amount != null ? `$${Number(inv.total_amount).toFixed(2)}` : '—';
+    const status = inv.payment_status === 'paid' ? 'Paid' : inv.payment_status === 'pending' ? 'Pending' : inv.payment_status || '—';
+    const paidAt = inv.paid_at ? phxDate(inv.paid_at) : '—';
+    rows.push([dateStr, inv.work_title || inv.invoice_number || '—', amount, status, paidAt]);
+  }
+
+  rows.sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime());
+
+  autoTable(doc, {
+    startY: yPos,
+    head: [['Date', 'Description', 'Amount', 'Status', 'Paid On']],
+    body: rows,
+    theme: 'striped',
+    styles: { fontSize: 9, cellPadding: 0.08, font: 'helvetica', lineColor: [203, 213, 225], lineWidth: 0.01 },
+    headStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'left' },
+    alternateRowStyles: { fillColor: [249, 250, 251] },
+    columnStyles: {
+      0: { cellWidth: 0.95 },
+      1: { cellWidth: 3.0 },
+      2: { cellWidth: 1.0 },
+      3: { cellWidth: 0.85 },
+      4: { cellWidth: 0.95 },
+    },
+    didParseCell: (data: any) => {
+      if (data.section === 'body' && data.column.index === 3) {
+        const val = data.cell.raw as string;
+        if (val === 'Paid') {
+          data.cell.styles.textColor = [5, 150, 105];
+          data.cell.styles.fontStyle = 'bold';
+        } else if (val === 'Pending') {
+          data.cell.styles.textColor = [217, 119, 6];
+          data.cell.styles.fontStyle = 'bold';
+        }
+      }
+    },
+    margin: { left: margin, right: margin },
+  });
+
+  const finalY = (doc as any).lastAutoTable?.finalY ?? yPos + 1;
+  const total = [
+    ...invoices.map(i => i.invoice_amount_numeric || 0),
+    ...estInvoices.map(i => Number(i.total_amount) || 0),
+  ].reduce((s, v) => s + v, 0);
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(0, 0, 0);
+  doc.text(`Total: $${total.toFixed(2)}`, pageWidth - margin, finalY + 0.25, { align: 'right' });
+
+  const pageCount = doc.getNumberOfPages();
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(100);
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.text(`Page ${i} of ${pageCount}`, pageWidth - margin, 10.5, { align: 'right' });
   }
 
   return doc;
