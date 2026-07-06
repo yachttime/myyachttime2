@@ -3157,7 +3157,7 @@ export function generateYachtInvoicesSummaryPDF(
 
   for (const inv of invoices) {
     const dateStr = inv.invoice_date ? phxDate(inv.invoice_date) : '—';
-    const status = inv.payment_status === 'paid' ? 'Paid' : inv.payment_status === 'pending' ? 'Pending' : inv.payment_status || '—';
+    const status = inv.payment_status === 'paid' ? 'Paid' : inv.payment_status === 'pending' ? 'Pending' : inv.payment_status === 'refunded' ? 'Refunded' : inv.payment_status || '—';
     const paidAt = inv.paid_at ? phxDate(inv.paid_at) : '—';
     const paymentId = inv.payment_status === 'paid' && inv.stripe_payment_intent_id ? inv.stripe_payment_intent_id : '—';
     rows.push([dateStr, inv.repair_title || '—', inv.invoice_amount || '—', status, paidAt, paymentId]);
@@ -3166,7 +3166,7 @@ export function generateYachtInvoicesSummaryPDF(
   for (const inv of estInvoices) {
     const dateStr = inv.invoice_date ? phxDate(inv.invoice_date) : '—';
     const amount = inv.total_amount != null ? `$${Number(inv.total_amount).toFixed(2)}` : '—';
-    const status = inv.payment_status === 'paid' ? 'Paid' : inv.payment_status === 'pending' ? 'Pending' : inv.payment_status || '—';
+    const status = inv.payment_status === 'paid' ? 'Paid' : inv.payment_status === 'pending' ? 'Pending' : inv.payment_status === 'refunded' ? 'Refunded' : inv.payment_status || '—';
     const paidAt = inv.paid_at ? phxDate(inv.paid_at) : '—';
     const paymentId = inv.payment_status === 'paid' && inv.stripe_payment_intent_id ? inv.stripe_payment_intent_id : '—';
     rows.push([dateStr, inv.work_title || inv.invoice_number || '—', amount, status, paidAt, paymentId]);
@@ -3198,6 +3198,9 @@ export function generateYachtInvoicesSummaryPDF(
           data.cell.styles.fontStyle = 'bold';
         } else if (val === 'Pending') {
           data.cell.styles.textColor = [217, 119, 6];
+          data.cell.styles.fontStyle = 'bold';
+        } else if (val === 'Refunded') {
+          data.cell.styles.textColor = [220, 38, 38];
           data.cell.styles.fontStyle = 'bold';
         }
       }

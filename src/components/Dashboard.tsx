@@ -14168,6 +14168,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                     <span className="text-slate-300 font-medium">{inv.invoice_number}{inv.work_title ? ` — ${inv.work_title}` : ''}</span>
                                                     {isPaid ? (
                                                       <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded text-xs font-medium">Paid</span>
+                                                    ) : inv.payment_status === 'refunded' ? (
+                                                      <span className="px-2 py-0.5 bg-red-500/20 text-red-400 rounded text-xs font-medium">Refunded</span>
                                                     ) : hasDepositOnly ? (
                                                       <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded text-xs font-medium">Deposit Paid</span>
                                                     ) : (
