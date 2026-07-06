@@ -3095,7 +3095,9 @@ export async function generateEstimatingInvoicePDF(
     doc.text('Amount Paid:', totalsX, yPos);
     doc.text(`-$${amountPaid.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' }); yPos += 0.2;
     doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
-    const balanceDue = Math.max(0, displayTotal - amountPaid);
+    const balanceDue = (invoice as any).balance_due !== null && (invoice as any).balance_due !== undefined
+      ? Number((invoice as any).balance_due)
+      : Math.max(0, displayTotal - amountPaid);
     doc.text('Balance Due:', totalsX, yPos);
     doc.text(`$${balanceDue.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
   }
