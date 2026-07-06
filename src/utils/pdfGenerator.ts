@@ -3126,6 +3126,7 @@ export interface EstimatingInvoiceSummary {
   payment_status?: string;
   work_title?: string;
   paid_at?: string;
+  stripe_payment_intent_id?: string;
 }
 
 export function generateYachtInvoicesSummaryPDF(
@@ -3134,8 +3135,8 @@ export function generateYachtInvoicesSummaryPDF(
   invoices: YachtInvoice[],
   estInvoices: EstimatingInvoiceSummary[]
 ): jsPDF {
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'in', format: 'letter' });
-  const pageWidth = 8.5;
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'in', format: 'letter' });
+  const pageWidth = 11;
   const margin = 0.75;
   let yPos = margin;
 
@@ -3158,7 +3159,8 @@ export function generateYachtInvoicesSummaryPDF(
     const dateStr = inv.invoice_date ? phxDate(inv.invoice_date) : '—';
     const status = inv.payment_status === 'paid' ? 'Paid' : inv.payment_status === 'pending' ? 'Pending' : inv.payment_status || '—';
     const paidAt = inv.paid_at ? phxDate(inv.paid_at) : '—';
-    rows.push([dateStr, inv.repair_title || '—', inv.invoice_amount || '—', status, paidAt]);
+    const paymentId = inv.payment_status === 'paid' && inv.stripe_payment_intent_id ? inv.stripe_payment_intent_id : '—';
+    rows.push([dateStr, inv.repair_title || '—', inv.invoice_amount || '—', status, paidAt, paymentId]);
   }
 
   for (const inv of estInvoices) {
@@ -3166,25 +3168,27 @@ export function generateYachtInvoicesSummaryPDF(
     const amount = inv.total_amount != null ? `$${Number(inv.total_amount).toFixed(2)}` : '—';
     const status = inv.payment_status === 'paid' ? 'Paid' : inv.payment_status === 'pending' ? 'Pending' : inv.payment_status || '—';
     const paidAt = inv.paid_at ? phxDate(inv.paid_at) : '—';
-    rows.push([dateStr, inv.work_title || inv.invoice_number || '—', amount, status, paidAt]);
+    const paymentId = inv.payment_status === 'paid' && inv.stripe_payment_intent_id ? inv.stripe_payment_intent_id : '—';
+    rows.push([dateStr, inv.work_title || inv.invoice_number || '—', amount, status, paidAt, paymentId]);
   }
 
   rows.sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime());
 
   autoTable(doc, {
     startY: yPos,
-    head: [['Date', 'Description', 'Amount', 'Status', 'Paid On']],
+    head: [['Date', 'Description', 'Amount', 'Status', 'Paid On', 'Stripe Payment ID']],
     body: rows,
     theme: 'striped',
-    styles: { fontSize: 9, cellPadding: 0.08, font: 'helvetica', lineColor: [203, 213, 225], lineWidth: 0.01 },
+    styles: { fontSize: 8, cellPadding: 0.08, font: 'helvetica', lineColor: [203, 213, 225], lineWidth: 0.01 },
     headStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'left' },
     alternateRowStyles: { fillColor: [249, 250, 251] },
     columnStyles: {
       0: { cellWidth: 0.95 },
-      1: { cellWidth: 3.0 },
+      1: { cellWidth: 3.2 },
       2: { cellWidth: 1.0 },
-      3: { cellWidth: 0.85 },
+      3: { cellWidth: 0.75 },
       4: { cellWidth: 0.95 },
+      5: { cellWidth: 2.65, textColor: [100, 116, 139] },
     },
     didParseCell: (data: any) => {
       if (data.section === 'body' && data.column.index === 3) {
@@ -3196,6 +3200,9 @@ export function generateYachtInvoicesSummaryPDF(
           data.cell.styles.textColor = [217, 119, 6];
           data.cell.styles.fontStyle = 'bold';
         }
+      }
+      if (data.section === 'body' && data.column.index === 5 && data.cell.raw === '—') {
+        data.cell.styles.textColor = [203, 213, 225];
       }
     },
     margin: { left: margin, right: margin },
@@ -3218,7 +3225,7 @@ export function generateYachtInvoicesSummaryPDF(
   doc.setTextColor(100);
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
-    doc.text(`Page ${i} of ${pageCount}`, pageWidth - margin, 10.5, { align: 'right' });
+    doc.text(`Page ${i} of ${pageCount}`, pageWidth - margin, 8, { align: 'right' });
   }
 
   return doc;
