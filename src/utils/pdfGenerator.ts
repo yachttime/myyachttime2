@@ -3084,20 +3084,22 @@ export async function generateEstimatingInvoicePDF(
   }
 
   doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
-  const displayTotal = Number(invoice.total_amount) - (Number(invoice.deposit_applied) || 0);
+  const rawTotal = Number(invoice.total_amount) || 0;
+  const rawDeposit = Number(invoice.deposit_applied) || 0;
+  const displayTotal = Math.round((rawTotal - rawDeposit) * 100) / 100;
   doc.text('Total:', totalsX, yPos);
   doc.text(`$${displayTotal.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
 
-  if (invoice.payment_status === 'paid' || (invoice.amount_paid !== null && invoice.amount_paid !== undefined && invoice.amount_paid > 0)) {
+  const rawAmountPaid = Number(invoice.amount_paid) || 0;
+  const rawBalanceDue = Number((invoice as any).balance_due);
+  if (invoice.payment_status === 'paid' || rawAmountPaid > 0) {
     yPos += 0.2;
     doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
-    const amountPaid = Number(invoice.amount_paid) || displayTotal;
+    const amountPaid = rawAmountPaid > 0 ? rawAmountPaid : displayTotal;
     doc.text('Amount Paid:', totalsX, yPos);
     doc.text(`-$${amountPaid.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' }); yPos += 0.2;
     doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
-    const balanceDue = (invoice as any).balance_due !== null && (invoice as any).balance_due !== undefined
-      ? Number((invoice as any).balance_due)
-      : Math.max(0, displayTotal - amountPaid);
+    const balanceDue = !isNaN(rawBalanceDue) ? rawBalanceDue : Math.round((displayTotal - amountPaid) * 100) / 100;
     doc.text('Balance Due:', totalsX, yPos);
     doc.text(`$${balanceDue.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
   }
