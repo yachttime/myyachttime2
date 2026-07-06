@@ -3084,25 +3084,18 @@ export async function generateEstimatingInvoicePDF(
   }
 
   doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
-  const computedTotal = Number(invoice.subtotal)
-    - (Number(invoice.discount_amount) || 0)
-    + Number(invoice.tax_amount)
-    + (Number(invoice.shop_supplies_amount) || 0)
-    + (Number(invoice.park_fees_amount) || 0)
-    + (Number(invoice.surcharge_amount) || 0)
-    + (Number(invoice.credit_card_fee) || 0)
-    - (Number(invoice.deposit_applied) || 0);
+  const displayTotal = Number(invoice.total_amount) - (Number(invoice.deposit_applied) || 0);
   doc.text('Total:', totalsX, yPos);
-  doc.text(`$${computedTotal.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
+  doc.text(`$${displayTotal.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
 
   if (invoice.payment_status === 'paid' || (invoice.amount_paid !== null && invoice.amount_paid !== undefined && invoice.amount_paid > 0)) {
     yPos += 0.2;
     doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
-    const amountPaid = invoice.amount_paid ?? computedTotal;
+    const amountPaid = Number(invoice.amount_paid) || displayTotal;
     doc.text('Amount Paid:', totalsX, yPos);
-    doc.text(`-$${Number(amountPaid).toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' }); yPos += 0.2;
+    doc.text(`-$${amountPaid.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' }); yPos += 0.2;
     doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
-    const balanceDue = Math.max(0, Number(invoice.total_amount) - (Number(invoice.deposit_applied) || 0) - Number(amountPaid));
+    const balanceDue = Math.max(0, displayTotal - amountPaid);
     doc.text('Balance Due:', totalsX, yPos);
     doc.text(`$${balanceDue.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
   }
