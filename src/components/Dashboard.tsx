@@ -9007,7 +9007,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                   </button>
 
                   <button
-                    onClick={() => window.open('https://share.hsforms.com/1C8LKdgirS6iwfNNWCVBllgqgylg', '_blank')}
+                    onClick={() => window.open('https://www.lakepowellgroceries.com/', '_blank')}
                     className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-lg transition-all duration-300"
                   >
                     Lake Powell Groceries
