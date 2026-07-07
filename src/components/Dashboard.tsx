@@ -9024,6 +9024,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     Lake Powell Groceries
                   </button>
                 </div>
+                <p className="text-sm text-slate-300 mt-4">
+                  If your yacht is on Dock 2 / Dry Storage / or in the Turn department, you should have gotten an email sent to you to schedule your trip. If you can't find the email you can contact them at{' '}
+                  <a href="mailto:Turnaround@apmlp.com" className="text-sky-400 hover:text-sky-300 underline">Turnaround@apmlp.com</a>
+                </p>
               </div>
 
               {isAntelopePoint() && (
