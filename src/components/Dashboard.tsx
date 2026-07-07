@@ -13240,6 +13240,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                         Invoice Unpaid — ${Number(vmaInvoice.invoice_amount_numeric).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                                                       </span>
                                                     )}
+                                                    {vmaInvoice.payment_status === 'partial' && (
+                                                      <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 rounded text-xs font-semibold flex items-center gap-1">
+                                                        <AlertCircle className="w-3 h-3" />
+                                                        Partially Paid — Balance: ${(Number(vmaInvoice.invoice_amount_numeric) - Number(vmaInvoice.credit_amount || 0)).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                                      </span>
+                                                    )}
                                                     {vmaInvoice.payment_status === 'processing' && (
                                                       <span className="px-2 py-0.5 bg-orange-500/20 text-orange-400 rounded text-xs font-semibold flex items-center gap-1">
                                                         <RefreshCw className="w-3 h-3" />
@@ -22310,7 +22316,16 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700">
                 <p className="text-sm text-slate-400 mb-1">Invoice</p>
                 <p className="text-white font-semibold">{selectedInvoiceForEmail.repair_title}</p>
-                <p className="text-emerald-400 text-lg font-bold mt-1">{selectedInvoiceForEmail.invoice_amount}</p>
+                <p className="text-emerald-400 text-lg font-bold mt-1">
+                  {selectedInvoiceForEmail.credit_amount && Number(selectedInvoiceForEmail.credit_amount) > 0
+                    ? `$${(Number(selectedInvoiceForEmail.invoice_amount_numeric || 0) - Number(selectedInvoiceForEmail.credit_amount)).toFixed(2)}`
+                    : selectedInvoiceForEmail.invoice_amount}
+                </p>
+                {selectedInvoiceForEmail.credit_amount && Number(selectedInvoiceForEmail.credit_amount) > 0 && (
+                  <p className="text-xs text-slate-400 mt-1">
+                    Original: {selectedInvoiceForEmail.invoice_amount} | Credit applied: ${Number(selectedInvoiceForEmail.credit_amount).toFixed(2)}
+                  </p>
+                )}
               </div>
 
               <div>
