@@ -8972,6 +8972,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                   </button>
 
                   <button
+                    onClick={() => window.open('https://share.hsforms.com/1C8LKdgirS6iwfNNWCVBllgqgylg', '_blank')}
+                    className="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold py-3 rounded-lg transition-all duration-300"
+                  >
+                    Deliverables (ice, propane, etc)
+                  </button>
+
+                  <button
                     onClick={() => window.open('https://share.hsforms.com/1saGMMmyZSRu6bgPwR2YC3Aqgylg', '_blank')}
                     className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg transition-all duration-300"
                   >
@@ -8990,6 +8997,20 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-all duration-300"
                   >
                     Update your trips deliverables APEX
+                  </button>
+
+                  <button
+                    onClick={() => window.open('https://share.hsforms.com/1C8LKdgirS6iwfNNWCVBllgqgylg', '_blank')}
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-lg transition-all duration-300"
+                  >
+                    Mobile pump out request APEX
+                  </button>
+
+                  <button
+                    onClick={() => window.open('https://share.hsforms.com/1C8LKdgirS6iwfNNWCVBllgqgylg', '_blank')}
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-lg transition-all duration-300"
+                  >
+                    Lake Powell Groceries
                   </button>
                 </div>
               </div>
