@@ -411,9 +411,13 @@ const loadImageAsDataUrl = (url: string): Promise<string> => {
 
 export async function generateTripInspectionPDF(
   inspection: TripInspection & { yachts?: { name: string }; user_profiles?: { first_name: string; last_name: string } },
-  photos?: InspectionPhoto[]
+  photos?: InspectionPhoto[],
+  existingDoc?: jsPDF
 ): Promise<jsPDF> {
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'in', format: 'letter' });
+  const doc = existingDoc || new jsPDF({ orientation: 'portrait', unit: 'in', format: 'letter' });
+  if (existingDoc) {
+    doc.addPage();
+  }
 
   const PW = 8.5;
   const PH = 11;

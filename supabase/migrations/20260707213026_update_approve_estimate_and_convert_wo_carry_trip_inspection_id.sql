@@ -1,0 +1,319 @@
+/*
+# Update approve_estimate and convert_work_order_to_invoice to carry trip_inspection_id
+
+1. Modified Functions
+   - `approve_estimate`: Now includes trip_inspection_id in the INSERT INTO work_orders
+   - `convert_work_order_to_invoice`: Now includes trip_inspection_id in the INSERT INTO estimating_invoices
+
+2. Purpose
+   - When an estimate with a linked trip inspection is approved, the work order inherits the link
+   - When a work order is converted to an invoice, the invoice inherits the link
+   - This ensures the trip inspection stays connected throughout the entire billing pipeline
+*/
+
+-- Update approve_estimate to carry trip_inspection_id
+CREATE OR REPLACE FUNCTION approve_estimate(p_estimate_id uuid, p_user_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+v_estimate record;
+v_work_order_id uuid;
+v_work_order_number text;
+v_next_number integer;
+v_inventory_result jsonb;
+v_line_item record;
+v_vendor_name text;
+v_vendor_id uuid;
+v_vendor_contact text;
+v_vendor_email text;
+v_vendor_phone text;
+v_vendor_address text;
+v_vendor_city text;
+v_vendor_state text;
+v_vendor_zip text;
+v_vendor_source text;
+v_po_id uuid;
+v_po_number text;
+v_next_po_number integer;
+v_part_number text;
+v_yacht_name text;
+v_company_id uuid;
+v_repair_request record;
+v_surcharge_cap numeric(10,2);
+v_capped_surcharge numeric(10,2);
+v_capped_total numeric(10,2);
+BEGIN
+IF NOT EXISTS (
+SELECT 1 FROM user_profiles
+WHERE user_id = p_user_id
+AND is_active = true
+AND (
+role IN ('staff', 'mechanic', 'master')
+OR (role = 'manager' AND can_approve_repairs = true)
+)
+) THEN
+RAISE EXCEPTION 'You do not have permission to approve estimates';
+END IF;
+
+SELECT * INTO v_estimate FROM estimates WHERE id = p_estimate_id;
+
+IF NOT FOUND THEN
+RAISE EXCEPTION 'Estimate not found';
+END IF;
+
+IF v_estimate.status NOT IN ('draft', 'sent') THEN
+RAISE EXCEPTION 'Estimate cannot be approved. Current status: %', v_estimate.status;
+END IF;
+
+v_company_id := v_estimate.company_id;
+
+IF v_estimate.yacht_id IS NOT NULL THEN
+SELECT name INTO v_yacht_name FROM yachts WHERE id = v_estimate.yacht_id;
+END IF;
+
+-- Read surcharge cap from settings and apply it
+SELECT surcharge_cap INTO v_surcharge_cap FROM estimate_settings LIMIT 1;
+v_capped_surcharge := CASE
+  WHEN v_surcharge_cap IS NOT NULL AND v_estimate.surcharge_amount > v_surcharge_cap
+  THEN v_surcharge_cap
+  ELSE v_estimate.surcharge_amount
+END;
+v_capped_total := v_estimate.subtotal
+  + v_estimate.sales_tax_amount
+  + COALESCE(v_estimate.shop_supplies_amount, 0)
+  + COALESCE(v_estimate.park_fees_amount, 0)
+  + COALESCE(v_capped_surcharge, 0);
+
+UPDATE estimates
+SET status = 'approved', approved_by = p_user_id, approved_at = now(), updated_at = now()
+WHERE id = p_estimate_id;
+
+SELECT COALESCE(MAX(CAST(SUBSTRING(work_order_number FROM 3) AS INTEGER)), 0) + 1
+INTO v_next_number FROM work_orders;
+v_work_order_number := 'WO' || LPAD(v_next_number::text, 6, '0');
+
+INSERT INTO work_orders (
+work_order_number, estimate_id, yacht_id, vessel_id, customer_name, customer_email, customer_phone,
+is_retail_customer, status, total_hours_worked, subtotal, sales_tax_rate, sales_tax_amount,
+shop_supplies_rate, shop_supplies_amount, park_fees_rate, park_fees_amount,
+surcharge_rate, surcharge_amount, total_amount, notes, customer_notes, work_title, company_id, created_by,
+trip_inspection_id
+) VALUES (
+v_work_order_number, p_estimate_id, v_estimate.yacht_id, v_estimate.customer_vessel_id,
+v_estimate.customer_name, v_estimate.customer_email, v_estimate.customer_phone,
+v_estimate.is_retail_customer, 'pending', 0,
+v_estimate.subtotal, v_estimate.sales_tax_rate, v_estimate.sales_tax_amount,
+v_estimate.shop_supplies_rate, v_estimate.shop_supplies_amount,
+v_estimate.park_fees_rate, v_estimate.park_fees_amount,
+v_estimate.surcharge_rate, v_capped_surcharge,
+v_capped_total, v_estimate.notes, v_estimate.customer_notes, v_estimate.work_title, v_company_id, p_user_id,
+v_estimate.trip_inspection_id
+)
+RETURNING id INTO v_work_order_id;
+
+-- Check if a repair request is linked to this estimate with a paid deposit
+SELECT * INTO v_repair_request
+FROM repair_requests
+WHERE estimate_id = p_estimate_id
+ORDER BY
+CASE WHEN deposit_payment_status = 'paid' THEN 0 ELSE 1 END,
+deposit_paid_at DESC NULLS LAST
+LIMIT 1;
+
+IF FOUND THEN
+UPDATE repair_requests
+SET work_order_id = v_work_order_id, updated_at = now()
+WHERE id = v_repair_request.id AND work_order_id IS NULL;
+
+IF v_repair_request.deposit_payment_status = 'paid' AND v_repair_request.deposit_amount IS NOT NULL THEN
+UPDATE work_orders
+SET
+deposit_required = true,
+deposit_amount = v_repair_request.deposit_amount,
+deposit_payment_status = 'paid',
+deposit_paid_at = v_repair_request.deposit_paid_at,
+deposit_payment_method_type = v_repair_request.deposit_payment_method_type
+WHERE id = v_work_order_id;
+
+UPDATE estimates
+SET
+repair_request_deposit_status = 'paid',
+repair_request_deposit_amount = v_repair_request.deposit_amount,
+repair_request_deposit_paid_at = v_repair_request.deposit_paid_at,
+repair_request_deposit_method = v_repair_request.deposit_payment_method_type,
+updated_at = now()
+WHERE id = p_estimate_id
+AND (repair_request_deposit_status IS NULL OR repair_request_deposit_status != 'paid');
+END IF;
+END IF;
+
+INSERT INTO work_order_tasks (work_order_id, task_name, task_overview, task_order, apply_surcharge, is_completed, company_id)
+SELECT v_work_order_id, task_name, task_overview, task_order, apply_surcharge, false, v_company_id
+FROM estimate_tasks WHERE estimate_id = p_estimate_id;
+
+INSERT INTO work_order_line_items (
+work_order_id, task_id, line_type, description, quantity, unit_price, total_price,
+is_taxable, labor_code_id, part_id, line_order, work_details, package_header, company_id
+)
+SELECT
+v_work_order_id, wot.id, eli.line_type, eli.description, eli.quantity,
+eli.unit_price, eli.total_price, eli.is_taxable, eli.labor_code_id,
+eli.part_id, eli.line_order, eli.work_details, eli.package_header, v_company_id
+FROM estimate_line_items eli
+JOIN estimate_tasks et ON eli.task_id = et.id
+JOIN work_order_tasks wot ON wot.work_order_id = v_work_order_id AND wot.task_name = et.task_name AND wot.task_order = et.task_order;
+
+-- Create purchase orders for vendor parts
+FOR v_line_item IN
+SELECT eli.*, et.task_name
+FROM estimate_line_items eli
+JOIN estimate_tasks et ON eli.task_id = et.id
+WHERE eli.estimate_id = p_estimate_id
+AND eli.line_type = 'part'
+AND eli.part_id IS NOT NULL
+LOOP
+SELECT v.name, v.id, v.contact_name, v.email, v.phone, v.address, v.city, v.state, v.zip
+INTO v_vendor_name, v_vendor_id, v_vendor_contact, v_vendor_email, v_vendor_phone, v_vendor_address, v_vendor_city, v_vendor_state, v_vendor_zip
+FROM parts_inventory p
+LEFT JOIN vendors v ON p.vendor_id = v.id
+WHERE p.id = v_line_item.part_id;
+
+IF v_vendor_name IS NOT NULL THEN
+SELECT id INTO v_po_id FROM purchase_orders
+WHERE work_order_id = v_work_order_id AND vendor_name = v_vendor_name
+LIMIT 1;
+
+IF v_po_id IS NULL THEN
+SELECT COALESCE(MAX(CAST(SUBSTRING(po_number FROM 3) AS INTEGER)), 0) + 1
+INTO v_next_po_number FROM purchase_orders;
+v_po_number := 'PO' || LPAD(v_next_po_number::text, 6, '0');
+
+INSERT INTO purchase_orders (
+po_number, work_order_id, vendor_name, vendor_id, vendor_contact, vendor_email,
+vendor_phone, vendor_address, vendor_city, vendor_state, vendor_zip,
+yacht_name, status, company_id
+) VALUES (
+v_po_number, v_work_order_id, v_vendor_name, v_vendor_id, v_vendor_contact, v_vendor_email,
+v_vendor_phone, v_vendor_address, v_vendor_city, v_vendor_state, v_vendor_zip,
+v_yacht_name, 'pending', v_company_id
+)
+RETURNING id INTO v_po_id;
+END IF;
+
+SELECT part_number INTO v_part_number FROM parts_inventory WHERE id = v_line_item.part_id;
+
+INSERT INTO purchase_order_line_items (
+purchase_order_id, part_id, part_number, description, quantity, unit_cost, total_cost, company_id
+) VALUES (
+v_po_id, v_line_item.part_id, v_part_number, v_line_item.description,
+v_line_item.quantity, v_line_item.unit_price, v_line_item.total_price, v_company_id
+);
+END IF;
+END LOOP;
+
+v_inventory_result := process_estimate_inventory_deduction(p_estimate_id, v_work_order_id, v_yacht_name, p_user_id);
+
+RETURN jsonb_build_object(
+'success', true,
+'work_order_id', v_work_order_id,
+'work_order_number', v_work_order_number,
+'inventory_result', v_inventory_result
+);
+END;
+$$;
+
+-- Update convert_work_order_to_invoice to carry trip_inspection_id
+CREATE OR REPLACE FUNCTION convert_work_order_to_invoice(p_work_order_id UUID)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_work_order RECORD;
+  v_invoice_id UUID;
+  v_invoice_number TEXT;
+  v_line_items JSONB;
+  v_labor_total NUMERIC;
+  v_parts_total NUMERIC;
+  v_subtotal NUMERIC;
+  v_tax_rate NUMERIC := 0;
+  v_tax_amount NUMERIC;
+  v_total NUMERIC;
+BEGIN
+  SELECT wo.*, y.name as yacht_name
+  INTO v_work_order
+  FROM work_orders wo
+  LEFT JOIN yachts y ON wo.yacht_id = y.id
+  WHERE wo.id = p_work_order_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Work order not found: %', p_work_order_id;
+  END IF;
+
+  v_invoice_number := generate_estimating_invoice_number();
+
+  SELECT COALESCE(jsonb_agg(
+    jsonb_build_object(
+      'description', COALESCE(t.description, t.task_name),
+      'quantity', COALESCE(t.hours, 1),
+      'unit_price', COALESCE(t.rate, 0),
+      'amount', COALESCE(t.hours, 1) * COALESCE(t.rate, 0),
+      'type', 'labor'
+    )
+  ), '[]'::jsonb)
+  INTO v_line_items
+  FROM work_order_tasks t
+  WHERE t.work_order_id = p_work_order_id;
+
+  SELECT
+    COALESCE(SUM(CASE WHEN item->>'type' = 'labor' THEN (item->>'amount')::NUMERIC ELSE 0 END), 0),
+    COALESCE(SUM(CASE WHEN item->>'type' = 'parts' THEN (item->>'amount')::NUMERIC ELSE 0 END), 0)
+  INTO v_labor_total, v_parts_total
+  FROM jsonb_array_elements(v_line_items) item;
+
+  v_subtotal := v_labor_total + v_parts_total;
+  v_tax_amount := v_subtotal * v_tax_rate;
+  v_total := v_subtotal + v_tax_amount;
+
+  INSERT INTO estimating_invoices (
+    invoice_number,
+    client_name,
+    yacht_name,
+    invoice_date,
+    due_date,
+    line_items,
+    labor_total,
+    parts_total,
+    subtotal,
+    tax_rate,
+    tax_amount,
+    total,
+    payment_status,
+    work_order_id,
+    yacht_id,
+    trip_inspection_id
+  ) VALUES (
+    v_invoice_number,
+    v_work_order.client_name,
+    v_work_order.yacht_name,
+    CURRENT_DATE,
+    CURRENT_DATE,
+    v_line_items,
+    v_labor_total,
+    v_parts_total,
+    v_subtotal,
+    v_tax_rate,
+    v_tax_amount,
+    v_total,
+    'draft',
+    p_work_order_id,
+    v_work_order.yacht_id,
+    v_work_order.trip_inspection_id
+  )
+  RETURNING id INTO v_invoice_id;
+
+  RETURN v_invoice_id;
+END;
+$$;

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { supabase } from '../lib/supabase';
 import { Plus, FileText, AlertCircle, CreditCard as Edit2, Trash2, Check, X, ChevronDown, ChevronUp, Printer, CheckCircle, XCircle, Package, Archive, RotateCcw, Search, User, ClipboardList } from 'lucide-react';
-import { generateEstimatePDF } from '../utils/pdfGenerator';
+import { generateEstimatePDF, generateTripInspectionPDF } from '../utils/pdfGenerator';
 import { useNotification } from '../contexts/NotificationContext';
 
 const DEFAULT_CUSTOMER_NOTES = `I hereby authorize the above repair work to be done along with necessary materials. It is distinctly understood that all labor and materials so used shall be charged to this job at current billing rates. You and your employees may operate above equipment for purpose of testing, inspecting or delivering at my risk. An express mechanic's lien is acknowledged to secure the amount of repairs thereto. It is understood that this company assumes no responsibility for loss or damage by fire or theft or weather hazards incidental to equipment or materials placed with them for sale, repair or testing. If legal action is necessary to enforce this contract I will pay all reasonable attorney's fees and other costs incurred. All payments are C.O.D. unless prior arrangements are made. If equipment is not removed within 10 days after completion of service, storage charges will accrue at $15 per day.
@@ -120,7 +120,8 @@ export function Estimates({ userId }: EstimatesProps) {
     deposit_percentage: '',
     status: 'draft',
     deposit_amount: '',
-    work_title: ''
+    work_title: '',
+    trip_inspection_id: ''
   });
 
   const [tasks, setTasks] = useState<EstimateTask[]>([]);
@@ -191,6 +192,7 @@ export function Estimates({ userId }: EstimatesProps) {
   const [sendingToAdmin, setSendingToAdmin] = useState(false);
   const [existingRepairRequestId, setExistingRepairRequestId] = useState<string | null>(null);
   const [repairRequestDeposit, setRepairRequestDeposit] = useState<{ status: string | null; amount: number | null; paid_at: string | null; method: string | null } | null>(null);
+  const [availableInspections, setAvailableInspections] = useState<any[]>([]);
 
   useEffect(() => {
     loadData().then(() => {
@@ -216,6 +218,22 @@ export function Estimates({ userId }: EstimatesProps) {
       return () => clearTimeout(timer);
     }
   }, [formData, tasks, showForm, isSubmitting, editingId]);
+
+  useEffect(() => {
+    if (formData.yacht_id) {
+      supabase
+        .from('trip_inspections')
+        .select('id, inspection_date, inspection_type, overall_condition')
+        .eq('yacht_id', formData.yacht_id)
+        .order('inspection_date', { ascending: false })
+        .then(({ data }) => {
+          setAvailableInspections(data || []);
+        });
+    } else {
+      setAvailableInspections([]);
+      setFormData(prev => ({ ...prev, trip_inspection_id: '' }));
+    }
+  }, [formData.yacht_id]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -1132,7 +1150,8 @@ export function Estimates({ userId }: EstimatesProps) {
           work_title: formData.work_title || null,
           deposit_required: formData.deposit_required,
           deposit_percentage: formData.deposit_required && formData.deposit_type === 'percentage' ? parseFloat(formData.deposit_percentage) || null : null,
-          deposit_amount: formData.deposit_required && formData.deposit_type === 'fixed' ? parseFloat(formData.deposit_amount) || null : null
+          deposit_amount: formData.deposit_required && formData.deposit_type === 'fixed' ? parseFloat(formData.deposit_amount) || null : null,
+          trip_inspection_id: formData.trip_inspection_id || null
         };
 
         const { data, error: estimateError } = await supabase
@@ -1183,6 +1202,7 @@ export function Estimates({ userId }: EstimatesProps) {
           deposit_required: formData.deposit_required,
           deposit_percentage: formData.deposit_required && formData.deposit_type === 'percentage' ? parseFloat(formData.deposit_percentage) || null : null,
           deposit_amount: formData.deposit_required && formData.deposit_type === 'fixed' ? parseFloat(formData.deposit_amount) || null : null,
+          trip_inspection_id: formData.trip_inspection_id || null,
           company_id: userCompanyId
         };
 
@@ -1446,7 +1466,8 @@ export function Estimates({ userId }: EstimatesProps) {
         deposit_type: estimate.deposit_amount ? 'fixed' : 'percentage',
         deposit_percentage: estimate.deposit_percentage?.toString() || '',
         deposit_amount: estimate.deposit_amount?.toString() || '',
-        vessel_id: estimate.customer_vessel_id || ''
+        vessel_id: estimate.customer_vessel_id || '',
+        trip_inspection_id: estimate.trip_inspection_id || ''
       });
 
       // If retail customer, find matching customer and load their vessels
@@ -1775,7 +1796,33 @@ export function Estimates({ userId }: EstimatesProps) {
       const yachtName = estimateData.yachts?.name || null;
       const yachtMake = estimateData.yachts?.manufacturer || null;
       const yachtModel = estimateData.yachts?.model || null;
-      const pdf = await generateEstimatePDF(estimateData, tasksWithLineItems, yachtName, companyInfo, yachtMake, yachtModel, showPartNumbers);
+      let pdf = await generateEstimatePDF(estimateData, tasksWithLineItems, yachtName, companyInfo, yachtMake, yachtModel, showPartNumbers);
+
+      if (estimateData.trip_inspection_id) {
+        const { data: inspectionData } = await supabase
+          .from('trip_inspections')
+          .select('*, yachts(name)')
+          .eq('id', estimateData.trip_inspection_id)
+          .maybeSingle();
+
+        if (inspectionData) {
+          if (inspectionData.inspector_id) {
+            const { data: inspectorData } = await supabase
+              .from('user_profiles')
+              .select('first_name, last_name')
+              .eq('user_id', inspectionData.inspector_id)
+              .maybeSingle();
+            if (inspectorData) (inspectionData as any).user_profiles = inspectorData;
+          }
+
+          const { data: photosData } = await supabase
+            .from('inspection_photos')
+            .select('*')
+            .eq('inspection_id', inspectionData.id);
+
+          pdf = await generateTripInspectionPDF(inspectionData, photosData || [], pdf);
+        }
+      }
 
       const pdfBlob = pdf.output('blob');
       const pdfUrl = URL.createObjectURL(pdfBlob);
@@ -1897,7 +1944,33 @@ export function Estimates({ userId }: EstimatesProps) {
       const yachtName = estimateData.yachts?.name || null;
       const yachtMake = estimateData.yachts?.manufacturer || null;
       const yachtModel = estimateData.yachts?.model || null;
-      const pdf = await generateEstimatePDF(estimateData, tasksWithLineItems, yachtName, companyInfo, yachtMake, yachtModel);
+      let pdf = await generateEstimatePDF(estimateData, tasksWithLineItems, yachtName, companyInfo, yachtMake, yachtModel);
+
+      if (estimateData.trip_inspection_id) {
+        const { data: inspectionData } = await supabase
+          .from('trip_inspections')
+          .select('*, yachts(name)')
+          .eq('id', estimateData.trip_inspection_id)
+          .maybeSingle();
+
+        if (inspectionData) {
+          if (inspectionData.inspector_id) {
+            const { data: inspectorData } = await supabase
+              .from('user_profiles')
+              .select('first_name, last_name')
+              .eq('user_id', inspectionData.inspector_id)
+              .maybeSingle();
+            if (inspectorData) (inspectionData as any).user_profiles = inspectorData;
+          }
+
+          const { data: photosData } = await supabase
+            .from('inspection_photos')
+            .select('*')
+            .eq('inspection_id', inspectionData.id);
+
+          pdf = await generateTripInspectionPDF(inspectionData, photosData || [], pdf);
+        }
+      }
 
       const pdfBlob = pdf.output('blob');
       const fileName = `estimate_${estimateData.estimate_number}.pdf`;
@@ -2634,6 +2707,26 @@ export function Estimates({ userId }: EstimatesProps) {
                   <p className="mt-1 text-sm text-red-600">No active yachts found. Please check your permissions.</p>
                 )}
                 </div>
+
+                {formData.yacht_id && availableInspections.length > 0 && (
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Attach Trip Inspection <span className="text-xs text-gray-500">(optional)</span>
+                    </label>
+                    <select
+                      value={formData.trip_inspection_id}
+                      onChange={(e) => setFormData({ ...formData, trip_inspection_id: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
+                    >
+                      <option value="">No inspection attached</option>
+                      {availableInspections.map((insp) => (
+                        <option key={insp.id} value={insp.id}>
+                          {new Date(insp.inspection_date).toLocaleDateString()} - {insp.inspection_type || 'Inspection'} ({insp.overall_condition || 'N/A'})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 {formData.yacht_id && (
                   <div className="mt-4 bg-blue-50 p-4 rounded-lg border border-blue-200">

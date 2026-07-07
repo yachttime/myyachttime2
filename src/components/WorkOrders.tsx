@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { supabase } from '../lib/supabase';
 import { Plus, Wrench, AlertCircle, CreditCard as Edit2, Trash2, Check, X, ChevronDown, ChevronUp, Printer, CheckCircle, Clock, FileText, DollarSign, Mail, ExternalLink, RefreshCw, Eye, MousePointer, Download, Archive, RotateCcw, Package, ClipboardList } from 'lucide-react';
-import { generateWorkOrderPDF } from '../utils/pdfGenerator';
+import { generateWorkOrderPDF, generateTripInspectionPDF } from '../utils/pdfGenerator';
 import { useNotification } from '../contexts/NotificationContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useConfirm } from '../hooks/useConfirm';
@@ -1884,6 +1884,32 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
 
       const pdf = await generateWorkOrderPDF(workOrderWithEstimates, tasksWithLineItems, yachtName, companyInfo);
 
+      if (workOrderData.trip_inspection_id) {
+        const { data: inspectionData } = await supabase
+          .from('trip_inspections')
+          .select('*, yachts(name)')
+          .eq('id', workOrderData.trip_inspection_id)
+          .maybeSingle();
+
+        if (inspectionData) {
+          if (inspectionData.inspector_id) {
+            const { data: inspectorData } = await supabase
+              .from('user_profiles')
+              .select('first_name, last_name')
+              .eq('user_id', inspectionData.inspector_id)
+              .maybeSingle();
+            if (inspectorData) (inspectionData as any).user_profiles = inspectorData;
+          }
+
+          const { data: photosData } = await supabase
+            .from('inspection_photos')
+            .select('*')
+            .eq('inspection_id', inspectionData.id);
+
+          await generateTripInspectionPDF(inspectionData, photosData || [], pdf);
+        }
+      }
+
       const pdfBlob = pdf.output('blob');
       const pdfUrl = URL.createObjectURL(pdfBlob);
       window.open(pdfUrl, '_blank');
@@ -2220,6 +2246,32 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
       };
 
       const pdf = await generateWorkOrderPDF(workOrderWithEstimates, tasksWithLineItems, yachtName, companyInfo, showPartNumbers);
+
+      if (workOrderData.trip_inspection_id) {
+        const { data: inspectionData } = await supabase
+          .from('trip_inspections')
+          .select('*, yachts(name)')
+          .eq('id', workOrderData.trip_inspection_id)
+          .maybeSingle();
+
+        if (inspectionData) {
+          if (inspectionData.inspector_id) {
+            const { data: inspectorData } = await supabase
+              .from('user_profiles')
+              .select('first_name, last_name')
+              .eq('user_id', inspectionData.inspector_id)
+              .maybeSingle();
+            if (inspectorData) (inspectionData as any).user_profiles = inspectorData;
+          }
+
+          const { data: photosData } = await supabase
+            .from('inspection_photos')
+            .select('*')
+            .eq('inspection_id', inspectionData.id);
+
+          await generateTripInspectionPDF(inspectionData, photosData || [], pdf);
+        }
+      }
 
       const pdfBlob = pdf.output('blob');
       const fileName = `workorder_${workOrderData.work_order_number}.pdf`;

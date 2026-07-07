@@ -7,6 +7,7 @@ import autoTable from 'jspdf-autotable';
 import { Toast } from './Toast';
 import { useConfirm } from '../hooks/useConfirm';
 import { TaxSurchargeReport } from './TaxSurchargeReport';
+import { generateTripInspectionPDF } from '../utils/pdfGenerator';
 
 interface InvoicesProps {
   userId: string;
@@ -88,6 +89,7 @@ interface Invoice {
   repair_request_id?: string | null;
   repair_request_status?: string | null;
   repair_request_deposit_status?: string | null;
+  trip_inspection_id?: string | null;
 }
 
 interface WorkOrderTask {
@@ -1356,6 +1358,33 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(9);
         doc.text(noteLines, margin, yPos);
+      }
+
+      // Append trip inspection if attached
+      if (invoice.trip_inspection_id) {
+        const { data: inspectionData } = await supabase
+          .from('trip_inspections')
+          .select('*, yachts(name)')
+          .eq('id', invoice.trip_inspection_id)
+          .maybeSingle();
+
+        if (inspectionData) {
+          if (inspectionData.inspector_id) {
+            const { data: inspectorData } = await supabase
+              .from('user_profiles')
+              .select('first_name, last_name')
+              .eq('user_id', inspectionData.inspector_id)
+              .maybeSingle();
+            if (inspectorData) (inspectionData as any).user_profiles = inspectorData;
+          }
+
+          const { data: photosData } = await supabase
+            .from('inspection_photos')
+            .select('*')
+            .eq('inspection_id', inspectionData.id);
+
+          await generateTripInspectionPDF(inspectionData, photosData || [], doc);
+        }
       }
 
       // Open PDF in new tab for printing
