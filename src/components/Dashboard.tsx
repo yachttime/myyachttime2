@@ -8961,23 +8961,29 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                 </div>
               )}
 
+              <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700">
+                <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
+                <div className="space-y-3">
+                  <button
+                    onClick={() => window.open('https://share.hsforms.com/13sFPShojQni7ZaOfBJB5mAqgylg', '_blank')}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-all duration-300"
+                  >
+                    Update your trips deliverables
+                  </button>
+
+                  <button
+                    onClick={() => window.open('https://beachbagsanchors.com/', '_blank')}
+                    className="w-full mt-3 bg-amber-600 hover:bg-amber-700 text-white font-semibold py-3 rounded-lg transition-all duration-300"
+                  >
+                    Beach Bags Anchors
+                  </button>
+                </div>
+              </div>
+
               {isAntelopePoint() && (
                 <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700">
                   <h3 className="text-lg font-semibold mb-4">Antelope Point</h3>
                   <div className="space-y-3">
-                    <button
-                      onClick={() => window.open('https://share.hsforms.com/13sFPShojQni7ZaOfBJB5mAqgylg', '_blank')}
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-all duration-300"
-                    >
-                      Update your trips deliverables
-                    </button>
-
-                    <button
-                      onClick={() => window.open('https://beachbagsanchors.com/', '_blank')}
-                      className="w-full mt-3 bg-amber-600 hover:bg-amber-700 text-white font-semibold py-3 rounded-lg transition-all duration-300"
-                    >
-                      Beach Bags Anchors
-                    </button>
 
                     <div className="mt-6 pt-6 border-t border-slate-700">
                       <h4 className="font-semibold text-lg mb-3">Hours of Operation</h4>
