@@ -3157,7 +3157,7 @@ export function generateYachtInvoicesSummaryPDF(
     const dateStr = inv.invoice_date ? phxDate(inv.invoice_date) : '—';
     const status = inv.payment_status === 'paid' ? 'Paid' : inv.payment_status === 'pending' ? 'Pending' : inv.payment_status === 'refunded' ? 'Refunded' : inv.payment_status || '—';
     const paidAt = inv.paid_at ? phxDate(inv.paid_at) : '—';
-    const paymentId = inv.payment_status === 'paid' && inv.stripe_payment_intent_id ? inv.stripe_payment_intent_id : '—';
+    const paymentId = inv.payment_status === 'paid' && (inv.stripe_payment_intent_id || (inv as any).final_payment_stripe_payment_intent_id) ? (inv.stripe_payment_intent_id || (inv as any).final_payment_stripe_payment_intent_id) : '—';
     let amountDisplay = inv.invoice_amount || '—';
     if ((inv as any).credit_amount && Number((inv as any).credit_amount) > 0) {
       amountDisplay += `\n(Credit: $${Number((inv as any).credit_amount).toFixed(2)})`;
@@ -3170,7 +3170,7 @@ export function generateYachtInvoicesSummaryPDF(
     const amount = inv.total_amount != null ? `$${Number(inv.total_amount).toFixed(2)}` : '—';
     const status = inv.payment_status === 'paid' ? 'Paid' : inv.payment_status === 'pending' ? 'Pending' : inv.payment_status === 'refunded' ? 'Refunded' : inv.payment_status || '—';
     const paidAt = inv.paid_at ? phxDate(inv.paid_at) : '—';
-    const paymentId = inv.payment_status === 'paid' && inv.stripe_payment_intent_id ? inv.stripe_payment_intent_id : '—';
+    const paymentId = inv.payment_status === 'paid' && (inv.stripe_payment_intent_id || inv.final_payment_stripe_payment_intent_id) ? (inv.stripe_payment_intent_id || inv.final_payment_stripe_payment_intent_id) : '—';
     rows.push([dateStr, inv.work_title || inv.invoice_number || '—', amount, status, paidAt, paymentId]);
   }
 
