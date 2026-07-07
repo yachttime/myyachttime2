@@ -8973,9 +8973,23 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                   <button
                     onClick={() => window.open('https://beachbagsanchors.com/', '_blank')}
-                    className="w-full mt-3 bg-amber-600 hover:bg-amber-700 text-white font-semibold py-3 rounded-lg transition-all duration-300"
+                    className="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-3 rounded-lg transition-all duration-300"
                   >
                     Beach Bags Anchors
+                  </button>
+
+                  <button
+                    onClick={() => window.open('https://share.hsforms.com/13sFPShojQni7ZaOfBJB5mAqgylg', '_blank')}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg transition-all duration-300"
+                  >
+                    Book Your Trip With Cleaning
+                  </button>
+
+                  <button
+                    onClick={() => window.open('https://share.hsforms.com/13sFPShojQni7ZaOfBJB5mAqgylg', '_blank')}
+                    className="w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold py-3 rounded-lg transition-all duration-300"
+                  >
+                    Book Your Trip Without Cleaning
                   </button>
                 </div>
               </div>
