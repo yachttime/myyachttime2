@@ -8975,7 +8975,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     onClick={() => window.open('https://share.hsforms.com/1C8LKdgirS6iwfNNWCVBllgqgylg', '_blank')}
                     className="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold py-3 rounded-lg transition-all duration-300"
                   >
-                    Deliverables (ice, propane, etc)
+                    Deliverables (ice, propane, etc) APEX
                   </button>
 
                   <button
