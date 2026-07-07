@@ -8962,7 +8962,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               )}
 
               <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700">
-                <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
+                <h3 className="text-lg font-semibold mb-2">Quick Links</h3>
+                <p className="text-sm text-slate-300 mb-4">
+                  Buttons with APEX on them are for Yachts that are on Docks 3 &amp; 4. Trip requests must be submitted at least two weeks before the trip start date. Requests submitted after that are subject to a late fee. A minimum of 24 hours between trips is required so our team has adequate time to complete the turn service. Once a trip request is submitted, we will confirm whether space is available on our schedule. We can accommodate a maximum of 12 turn services per day.
+                </p>
                 <div className="space-y-3">
                   <button
                     onClick={() => window.open('https://beachbagsanchors.com/', '_blank')}
