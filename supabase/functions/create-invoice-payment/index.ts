@@ -89,14 +89,14 @@ Deno.serve(withErrorHandling(async (req: Request) => {
     }
 
     // Atomically claim the invoice by setting status to 'processing'.
-    // Only succeeds if status is still 'pending' — prevents race conditions
+    // Only succeeds if status is still 'pending' or 'partial' — prevents race conditions
     // where two simultaneous requests both pass the check above and each
     // create a separate Stripe payment link.
     const { data: claimed, error: claimError } = await supabase
       .from('yacht_invoices')
       .update({ payment_status: 'processing', updated_at: new Date().toISOString() })
       .eq('id', invoiceId)
-      .eq('payment_status', 'pending')
+      .in('payment_status', ['pending', 'partial'])
       .select('id')
       .maybeSingle();
 
@@ -140,6 +140,11 @@ Deno.serve(withErrorHandling(async (req: Request) => {
         parsed_amount: amount
       });
       throw new Error(`Invalid invoice amount. Please ensure the invoice has a valid amount set. Amount: ${invoice.invoice_amount}`);
+    }
+
+    // Subtract any credits/payments already applied
+    if (invoice.credit_amount && Number(invoice.credit_amount) > 0) {
+      amount = amount - Number(invoice.credit_amount);
     }
 
     const paymentMethodType = requestedPaymentMethod || invoice.payment_method_type || 'card';
