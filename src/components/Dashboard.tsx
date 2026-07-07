@@ -8965,13 +8965,6 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                 <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
                 <div className="space-y-3">
                   <button
-                    onClick={() => window.open('https://share.hsforms.com/13sFPShojQni7ZaOfBJB5mAqgylg', '_blank')}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-all duration-300"
-                  >
-                    Update your trips deliverables
-                  </button>
-
-                  <button
                     onClick={() => window.open('https://beachbagsanchors.com/', '_blank')}
                     className="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-3 rounded-lg transition-all duration-300"
                   >
@@ -8990,6 +8983,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     className="w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold py-3 rounded-lg transition-all duration-300"
                   >
                     Book your trip without cleaning package
+                  </button>
+
+                  <button
+                    onClick={() => window.open('https://share.hsforms.com/13sFPShojQni7ZaOfBJB5mAqgylg', '_blank')}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-all duration-300"
+                  >
+                    Update your trips deliverables
                   </button>
                 </div>
               </div>
