@@ -8975,14 +8975,14 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     onClick={() => window.open('https://share.hsforms.com/1saGMMmyZSRu6bgPwR2YC3Aqgylg', '_blank')}
                     className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg transition-all duration-300"
                   >
-                    Book your trip including cathedral Cleaning package
+                    Book your trip including cathedral Cleaning package APEX
                   </button>
 
                   <button
                     onClick={() => window.open('https://share.hsforms.com/1wLei4o0HTL6knc738ffwXQqgylg', '_blank')}
                     className="w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold py-3 rounded-lg transition-all duration-300"
                   >
-                    Book your trip without cleaning package
+                    Book your trip without cleaning package APEX
                   </button>
 
                   <button
