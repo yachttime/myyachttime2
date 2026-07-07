@@ -8989,7 +8989,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     onClick={() => window.open('https://share.hsforms.com/13sFPShojQni7ZaOfBJB5mAqgylg', '_blank')}
                     className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-all duration-300"
                   >
-                    Update your trips deliverables
+                    Update your trips deliverables APEX
                   </button>
                 </div>
               </div>
