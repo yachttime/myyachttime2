@@ -3158,7 +3158,11 @@ export function generateYachtInvoicesSummaryPDF(
     const status = inv.payment_status === 'paid' ? 'Paid' : inv.payment_status === 'pending' ? 'Pending' : inv.payment_status === 'refunded' ? 'Refunded' : inv.payment_status || '—';
     const paidAt = inv.paid_at ? phxDate(inv.paid_at) : '—';
     const paymentId = inv.payment_status === 'paid' && inv.stripe_payment_intent_id ? inv.stripe_payment_intent_id : '—';
-    rows.push([dateStr, inv.repair_title || '—', inv.invoice_amount || '—', status, paidAt, paymentId]);
+    let amountDisplay = inv.invoice_amount || '—';
+    if ((inv as any).credit_amount && Number((inv as any).credit_amount) > 0) {
+      amountDisplay += `\n(Credit: $${Number((inv as any).credit_amount).toFixed(2)})`;
+    }
+    rows.push([dateStr, inv.repair_title || '—', amountDisplay, status, paidAt, paymentId]);
   }
 
   for (const inv of estInvoices) {
