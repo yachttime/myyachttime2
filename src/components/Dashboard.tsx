@@ -2874,10 +2874,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       );
 
       const yachtInvoicesData = (yiResult.data || []).filter((yi: any) => {
-        // Exclude if repair_request already has a linked estimating invoice
         if (yi.repair_request_id && yi.repair_requests?.estimating_invoice_id) return false;
-        // Exclude if this payment ID already exists in the estimating invoices (duplicate)
         if (yi.stripe_payment_intent_id && estPaymentIds.has(yi.stripe_payment_intent_id)) return false;
+        if (yi.repair_title && yi.repair_title.startsWith('Work Order WO')) return false;
         return true;
       });
 
