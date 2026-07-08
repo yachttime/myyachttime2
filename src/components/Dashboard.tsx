@@ -2859,7 +2859,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       if (yiResult.error) throw yiResult.error;
 
       const estInvoicesData = (eiResult.data || [])
-        .filter((ei: any) => !ei.archived)
+        .filter((ei: any) => !ei.archived || ei.payment_status === 'paid')
         .map((ei: any) => ({
           ...ei,
           work_title: ei.work_orders?.work_title || null,
