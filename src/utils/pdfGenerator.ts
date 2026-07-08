@@ -3102,6 +3102,14 @@ export async function generateEstimatingInvoicePDF(
     const amountPaid = rawAmountPaid > 0 ? rawAmountPaid : displayTotal;
     doc.text('Amount Paid:', totalsX, yPos);
     doc.text(`-$${amountPaid.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' }); yPos += 0.2;
+    const stripeId = (invoice as any).final_payment_stripe_payment_intent_id || (invoice as any).stripe_payment_intent_id;
+    if (stripeId) {
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
+      doc.setTextColor(100, 116, 139);
+      doc.text(`Stripe: ${stripeId}`, totalsX, yPos);
+      doc.setTextColor(0, 0, 0);
+      yPos += 0.2;
+    }
     doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
     const balanceDue = !isNaN(rawBalanceDue) ? rawBalanceDue : Math.round((displayTotal - amountPaid) * 100) / 100;
     doc.text('Balance Due:', totalsX, yPos);
