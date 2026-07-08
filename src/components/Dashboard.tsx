@@ -277,6 +277,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [maintenanceError, setMaintenanceError] = useState('');
   const [maintenancePhoto, setMaintenancePhoto] = useState<File | null>(null);
   const [maintenancePhotoPreview, setMaintenancePhotoPreview] = useState<string | null>(null);
+  const [maintenanceLocation, setMaintenanceLocation] = useState('');
+  const [maintenanceContactName, setMaintenanceContactName] = useState('');
+  const [maintenanceContactPhone, setMaintenanceContactPhone] = useState('');
 
   const [selectedYachtForInspection, setSelectedYachtForInspection] = useState<string>('');
   const [inspectionType, setInspectionType] = useState<InspectionType>('check_in');
@@ -6567,11 +6570,15 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         photoUrl = urlData.publicUrl;
       }
 
+      const fullDescription = maintenanceSubject === 'Repair ASAP'
+        ? `${maintenanceDescription}\n\nCurrent Location: ${maintenanceLocation}\nContact: ${maintenanceContactName}\nPhone: ${maintenanceContactPhone}`
+        : maintenanceDescription;
+
       const { error: dbError } = await supabase.from('repair_requests').insert({
         submitted_by: user.id,
         yacht_id: effectiveYacht.id,
         title: maintenanceSubject,
-        description: maintenanceDescription,
+        description: fullDescription,
         file_url: photoUrl,
         file_name: photoUrl ? maintenancePhoto?.name || null : null,
         status: 'pending',
@@ -6585,7 +6592,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         ? `${userProfile.first_name} ${userProfile.last_name}`
         : userProfile?.email || user.email || 'Unknown';
 
-      const maintenanceMessage = `Maintenance Request: ${maintenanceSubject}\n\n${maintenanceDescription}`;
+      const maintenanceMessage = `Maintenance Request: ${maintenanceSubject}\n\n${fullDescription}`;
 
       const { error: notifError } = await supabase
         .from('admin_notifications')
@@ -6614,6 +6621,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       setMaintenanceDescription('');
       setMaintenancePhoto(null);
       setMaintenancePhotoPreview(null);
+      setMaintenanceLocation('');
+      setMaintenanceContactName('');
+      setMaintenanceContactPhone('');
       await loadMaintenanceRequests();
       await loadAdminNotifications();
 
@@ -9221,6 +9231,54 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                         </button>
                       </div>
                     </div>
+
+                    {maintenanceSubject === 'Repair ASAP' && (
+                      <div className="space-y-4 bg-amber-900/20 border border-amber-600/40 rounded-lg p-4">
+                        <p className="text-sm font-medium text-amber-300">ASAP Request Details</p>
+                        <div>
+                          <label htmlFor="maintenanceLocation" className="block text-sm font-medium mb-2">
+                            What is your current location?
+                          </label>
+                          <input
+                            id="maintenanceLocation"
+                            type="text"
+                            value={maintenanceLocation}
+                            onChange={(e) => setMaintenanceLocation(e.target.value)}
+                            placeholder="e.g. Dock 1 Slip 5, On the water near..."
+                            className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 transition-colors text-white placeholder-slate-400"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="maintenanceContactName" className="block text-sm font-medium mb-2">
+                            Who do we contact?
+                          </label>
+                          <input
+                            id="maintenanceContactName"
+                            type="text"
+                            value={maintenanceContactName}
+                            onChange={(e) => setMaintenanceContactName(e.target.value)}
+                            placeholder="Contact person name"
+                            className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 transition-colors text-white placeholder-slate-400"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="maintenanceContactPhone" className="block text-sm font-medium mb-2">
+                            Phone number to call
+                          </label>
+                          <input
+                            id="maintenanceContactPhone"
+                            type="tel"
+                            value={maintenanceContactPhone}
+                            onChange={(e) => setMaintenanceContactPhone(e.target.value)}
+                            placeholder="(555) 123-4567"
+                            className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 transition-colors text-white placeholder-slate-400"
+                            required
+                          />
+                        </div>
+                      </div>
+                    )}
 
                     <div>
                       <label htmlFor="description" className="block text-sm font-medium mb-2">
