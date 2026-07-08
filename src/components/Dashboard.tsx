@@ -2851,16 +2851,34 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           .order('invoice_date', { ascending: false }),
         supabase
           .from('estimating_invoices')
-          .select('*')
+          .select('*, work_orders!work_order_id(work_title, work_order_number)')
           .eq('yacht_id', yachtId)
           .order('invoice_date', { ascending: false })
       ]);
 
       if (yiResult.error) throw yiResult.error;
 
+      const estInvoicesData = (eiResult.data || [])
+        .filter((ei: any) => !ei.archived)
+        .map((ei: any) => ({
+          ...ei,
+          work_title: ei.work_orders?.work_title || null,
+          work_order_number: ei.work_orders?.work_order_number || null,
+        }));
+
+      // Build a set of Stripe payment intent IDs from estimating invoices to detect duplicates
+      const estPaymentIds = new Set(
+        estInvoicesData
+          .map((ei: any) => ei.final_payment_stripe_payment_intent_id || ei.stripe_payment_intent_id)
+          .filter(Boolean)
+      );
+
       const yachtInvoicesData = (yiResult.data || []).filter((yi: any) => {
-        if (!yi.repair_request_id) return true;
-        return !yi.repair_requests?.estimating_invoice_id;
+        // Exclude if repair_request already has a linked estimating invoice
+        if (yi.repair_request_id && yi.repair_requests?.estimating_invoice_id) return false;
+        // Exclude if this payment ID already exists in the estimating invoices (duplicate)
+        if (yi.stripe_payment_intent_id && estPaymentIds.has(yi.stripe_payment_intent_id)) return false;
+        return true;
       });
 
       setYachtInvoices(prev => ({
@@ -2870,7 +2888,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       setYachtEstimatingInvoices(prev => ({
         ...prev,
-        [yachtId]: eiResult.data || []
+        [yachtId]: estInvoicesData
       }));
     } catch (error) {
       console.error('Error loading yacht invoices:', error);

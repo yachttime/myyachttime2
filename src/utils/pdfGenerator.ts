@@ -3129,6 +3129,8 @@ export interface EstimatingInvoiceSummary {
   work_title?: string;
   paid_at?: string;
   stripe_payment_intent_id?: string;
+  final_payment_stripe_payment_intent_id?: string;
+  final_payment_paid_at?: string;
 }
 
 export function generateYachtInvoicesSummaryPDF(
@@ -3173,9 +3175,10 @@ export function generateYachtInvoicesSummaryPDF(
     const dateStr = inv.invoice_date ? phxDate(inv.invoice_date) : '—';
     const amount = inv.total_amount != null ? `$${Number(inv.total_amount).toFixed(2)}` : '—';
     const status = inv.payment_status === 'paid' ? 'Paid' : inv.payment_status === 'pending' ? 'Pending' : inv.payment_status === 'refunded' ? 'Refunded' : inv.payment_status || '—';
-    const paidAt = inv.paid_at ? phxDate(inv.paid_at) : '—';
-    const paymentId = inv.payment_status === 'paid' && (inv.stripe_payment_intent_id || inv.final_payment_stripe_payment_intent_id) ? (inv.stripe_payment_intent_id || inv.final_payment_stripe_payment_intent_id) : '—';
-    rows.push([dateStr, inv.work_title || inv.invoice_number || '—', amount, status, paidAt, paymentId]);
+    const paidAt = (inv.final_payment_paid_at || inv.paid_at) ? phxDate((inv.final_payment_paid_at || inv.paid_at)!) : '—';
+    const paymentId = inv.payment_status === 'paid' && (inv.final_payment_stripe_payment_intent_id || inv.stripe_payment_intent_id) ? (inv.final_payment_stripe_payment_intent_id || inv.stripe_payment_intent_id) : '—';
+    const description = inv.work_title || inv.invoice_number || '—';
+    rows.push([dateStr, description, amount, status, paidAt, paymentId]);
   }
 
   rows.sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime());
