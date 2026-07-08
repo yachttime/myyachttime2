@@ -29,6 +29,8 @@ export function EmailComposeModal({ isOpen, onClose, recipients, ccRecipients = 
   const [selectedRecipients, setSelectedRecipients] = useState<Set<string>>(new Set());
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [manualCc, setManualCc] = useState<string[]>([]);
+  const [ccInput, setCcInput] = useState('');
 
   useEffect(() => {
     if (isOpen) {
@@ -109,6 +111,34 @@ export function EmailComposeModal({ isOpen, onClose, recipients, ccRecipients = 
     setAttachments(attachments.filter((_, i) => i !== index));
   };
 
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  const addCcEmail = () => {
+    const trimmed = ccInput.trim();
+    if (!trimmed) return;
+    if (!emailRegex.test(trimmed)) {
+      alert('Please enter a valid email address');
+      return;
+    }
+    if (manualCc.includes(trimmed) || ccRecipients.includes(trimmed)) {
+      alert('This email is already in the CC list');
+      return;
+    }
+    setManualCc([...manualCc, trimmed]);
+    setCcInput('');
+  };
+
+  const removeCcEmail = (index: number) => {
+    setManualCc(manualCc.filter((_, i) => i !== index));
+  };
+
+  const handleCcKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addCcEmail();
+    }
+  };
+
   const formatFileSize = (bytes: number): string => {
     if (bytes < 1024) return bytes + ' B';
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
@@ -149,7 +179,7 @@ export function EmailComposeModal({ isOpen, onClose, recipients, ccRecipients = 
           },
           body: JSON.stringify({
             recipients: finalRecipients.map(r => r.email),
-            cc_recipients: ccRecipients,
+            cc_recipients: [...ccRecipients, ...manualCc],
             subject,
             message,
             yacht_name: yachtName,
@@ -169,6 +199,8 @@ export function EmailComposeModal({ isOpen, onClose, recipients, ccRecipients = 
       setMessage('');
       setSelectedRecipients(new Set());
       setAttachments([]);
+      setManualCc([]);
+      setCcInput('');
     } catch (error) {
       console.error('Error sending email:', error);
       alert(error instanceof Error ? error.message : 'Failed to send email');
@@ -180,7 +212,7 @@ export function EmailComposeModal({ isOpen, onClose, recipients, ccRecipients = 
   const handleClose = async () => {
     if (sending) return;
 
-    if (subject || message || attachments.length > 0) {
+    if (subject || message || attachments.length > 0 || manualCc.length > 0) {
       if (!await confirm({ message: 'Discard unsent email?', variant: 'warning' })) {
         return;
       }
@@ -190,6 +222,8 @@ export function EmailComposeModal({ isOpen, onClose, recipients, ccRecipients = 
     setMessage('');
     setSelectedRecipients(new Set());
     setAttachments([]);
+    setManualCc([]);
+    setCcInput('');
     onClose();
   };
 
@@ -280,6 +314,51 @@ export function EmailComposeModal({ isOpen, onClose, recipients, ccRecipients = 
                 </div>
               </>
             )}
+
+            <div className="mt-3">
+              <p className="text-sm text-slate-400 mb-2">
+                CC External {manualCc.length > 0 ? `(${manualCc.length})` : ''}
+              </p>
+              {manualCc.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {manualCc.map((email, index) => (
+                    <div
+                      key={index}
+                      className="bg-amber-500/20 text-amber-300 px-3 py-1 rounded-full text-sm border border-amber-500/30 flex items-center gap-1.5"
+                    >
+                      {email}
+                      <button
+                        type="button"
+                        onClick={() => removeCcEmail(index)}
+                        disabled={sending}
+                        className="hover:text-red-400 transition-colors disabled:opacity-50"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <input
+                  type="email"
+                  value={ccInput}
+                  onChange={(e) => setCcInput(e.target.value)}
+                  onKeyDown={handleCcKeyDown}
+                  placeholder="Enter email address to CC..."
+                  disabled={sending}
+                  className="flex-1 px-3 py-2 bg-slate-800/50 border border-slate-600 rounded-lg text-white text-sm placeholder-slate-500 focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+                <button
+                  type="button"
+                  onClick={addCcEmail}
+                  disabled={sending || !ccInput.trim()}
+                  className="px-3 py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-sm font-medium rounded-lg border border-amber-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Add
+                </button>
+              </div>
+            </div>
           </div>
 
           <div>
