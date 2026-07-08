@@ -9182,6 +9182,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               <form onSubmit={handleMaintenanceSubmit} className="space-y-6">
                 <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700">
                   <h3 className="text-xl font-semibold mb-4">New Maintenance Request</h3>
+
+                  <div className="bg-amber-900/30 border border-amber-600/50 rounded-lg p-4 mb-6">
+                    <p className="text-sm font-semibold text-amber-200">
+                      Please note that ASAP requests are based on AZ Marine's contracted hours of 7am to 6pm. Service calls outside that time frame, and up lake runs have to be approved by your Yacht Manager.
+                    </p>
+                  </div>
+
                   <div className="space-y-6">
                     <div>
                       <label className="block text-sm font-medium mb-2">
