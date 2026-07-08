@@ -3176,7 +3176,7 @@ export function generateYachtInvoicesSummaryPDF(
     const amount = inv.total_amount != null ? `$${Number(inv.total_amount).toFixed(2)}` : '—';
     const status = inv.payment_status === 'paid' ? 'Paid' : inv.payment_status === 'pending' ? 'Pending' : inv.payment_status === 'refunded' ? 'Refunded' : inv.payment_status || '—';
     const paidAt = (inv.final_payment_paid_at || inv.paid_at) ? phxDate((inv.final_payment_paid_at || inv.paid_at)!) : '—';
-    const paymentId = inv.payment_status === 'paid' && (inv.final_payment_stripe_payment_intent_id || inv.stripe_payment_intent_id) ? (inv.final_payment_stripe_payment_intent_id || inv.stripe_payment_intent_id) : '—';
+    const paymentId = (inv.final_payment_stripe_payment_intent_id || inv.stripe_payment_intent_id) ? (inv.final_payment_stripe_payment_intent_id || inv.stripe_payment_intent_id) : '—';
     const description = inv.invoice_number
       ? (inv.work_title ? `${inv.invoice_number} — ${inv.work_title}` : inv.invoice_number)
       : (inv.work_title || '—');
