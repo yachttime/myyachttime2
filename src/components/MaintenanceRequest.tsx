@@ -194,6 +194,12 @@ export const MaintenanceRequest = ({ onBack }: MaintenanceRequestProps) => {
         <div className="max-w-2xl mx-auto">
           <h2 className="text-3xl font-bold mb-8">Maintenance Request</h2>
 
+          <div className="bg-amber-900/30 border border-amber-600/50 rounded-lg p-4 mb-6">
+            <p className="text-sm font-semibold text-amber-200">
+              Please note that ASAP requests are based on AZ Marine's contracted hours of 7am to 6pm. Service calls outside that time frame, and up lake runs have to be approved by your Yacht Manager.
+            </p>
+          </div>
+
           <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 mb-6">
             {isStaff ? (
               <div className="mb-4">
