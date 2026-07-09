@@ -3141,6 +3141,7 @@ export interface EstimatingInvoiceSummary {
   final_payment_paid_at?: string;
   amount_paid?: number | string | null;
   balance_due?: number | string | null;
+  credit_amount?: number | string | null;
 }
 
 export function generateYachtInvoicesSummaryPDF(
@@ -3188,6 +3189,9 @@ export function generateYachtInvoicesSummaryPDF(
       const paid = Number(inv.amount_paid);
       const bal = inv.balance_due != null ? Number(inv.balance_due) : Number(inv.total_amount) - paid;
       amount += `\n(Paid: $${paid.toFixed(2)} | Bal: $${bal.toFixed(2)})`;
+    }
+    if (inv.credit_amount && Number(inv.credit_amount) > 0) {
+      amount += `\n(Credit: $${Number(inv.credit_amount).toFixed(2)})`;
     }
     const status = inv.payment_status === 'paid' ? 'Paid' : inv.payment_status === 'partial' ? 'Partial' : inv.payment_status === 'pending' ? 'Pending' : inv.payment_status === 'refunded' ? 'Refunded' : inv.payment_status || '—';
     const paidAt = (inv.final_payment_paid_at || inv.paid_at) ? phxDate((inv.final_payment_paid_at || inv.paid_at)!) : '—';
@@ -3250,6 +3254,15 @@ export function generateYachtInvoicesSummaryPDF(
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(0, 0, 0);
   doc.text(`Total: $${total.toFixed(2)}`, pageWidth - margin, finalY + 0.25, { align: 'right' });
+
+  const totalCredit = estInvoices.reduce((sum, inv) => sum + (Number(inv.credit_amount) || 0), 0);
+  if (totalCredit > 0) {
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(5, 150, 105);
+    doc.text(`Credit on Account: $${totalCredit.toFixed(2)}`, pageWidth - margin, finalY + 0.45, { align: 'right' });
+    doc.setTextColor(0, 0, 0);
+  }
 
   const pageCount = doc.getNumberOfPages();
   doc.setFontSize(8);
