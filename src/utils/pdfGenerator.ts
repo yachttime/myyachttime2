@@ -2909,7 +2909,7 @@ export async function generateEstimatingInvoicePDF(
     total_amount: number;
     notes?: string | null;
   },
-  lineItems: { line_type: string; description: string; work_details?: string | null; quantity: number; unit_price: number; total_price: number; task_name?: string | null }[],
+  lineItems: { line_type: string; description: string; work_details?: string | null; quantity: number; unit_price: number; total_price: number; task_name?: string | null; task_overview?: string | null }[],
   companyInfo?: {
     company_name?: string | null;
     logo_url?: string | null;
@@ -3025,7 +3025,9 @@ export async function generateEstimatingInvoicePDF(
     lineItems.forEach(item => {
       const taskName = item.task_name || '';
       if (taskName && taskName !== lastTask) {
-        tableData.push([{ content: taskName, colSpan: 5, styles: { fontStyle: 'bold', fillColor: [240, 240, 240] } }]);
+        const overview = item.task_overview ? item.task_overview.trim() : '';
+        const taskHeader = overview ? taskName + '\n' + overview : taskName;
+        tableData.push([{ content: taskHeader, colSpan: 5, styles: { fontStyle: 'bold', fillColor: [240, 240, 240] } }]);
         lastTask = taskName;
       }
       const descText = item.description

@@ -2787,6 +2787,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                 unit_price: Number(item.unit_price) || 0,
                 total_price: Number(item.total_price) || 0,
                 task_name: task.task_name || null,
+                task_overview: task.task_overview || null,
               });
             });
           });

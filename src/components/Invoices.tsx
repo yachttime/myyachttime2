@@ -1119,8 +1119,10 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
           workOrderTasks.forEach(task => {
             const taskItems = workOrderLineItems.filter(item => item.task_id === task.id);
             if (taskItems.length > 0) {
+              const overview = task.task_overview ? task.task_overview.trim() : '';
+              const taskHeader = overview ? task.task_name + '\n' + overview : task.task_name;
               tableData.push([
-                { content: task.task_name, colSpan: 5, styles: { fontStyle: 'bold', fillColor: [240, 240, 240] } }
+                { content: taskHeader, colSpan: 5, styles: { fontStyle: 'bold', fillColor: [240, 240, 240] } }
               ]);
               taskItems.forEach(item => {
                 const descText = item.description
