@@ -156,6 +156,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           .maybeSingle();
 
         if (yachtError) throw yachtError;
+
+        if (yachtData && yachtData.is_active === false && (profile.role === 'owner' || profile.role === 'manager')) {
+          await supabase.auth.signOut();
+          setUser(null);
+          setUserProfile(null);
+          setYacht(null);
+          setLoading(false);
+          throw new Error('Your vessel account is currently inactive. Please contact the marina for assistance.');
+        }
+
         setYacht(yachtData);
       } else {
         setYacht(null);
