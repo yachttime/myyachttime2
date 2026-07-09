@@ -149,6 +149,8 @@ export function DailyTasksView() {
   const [listStaffFilter, setListStaffFilter] = useState<string>('all');
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printStaffFilter, setPrintStaffFilter] = useState<string>('all');
+  const [printCalendarOnly, setPrintCalendarOnly] = useState(false);
+  const [calendarYachtIds, setCalendarYachtIds] = useState<Set<string>>(new Set());
   const [printTasks, setPrintTasks] = useState<DailyTask[]>([]);
   const [loadingPrint, setLoadingPrint] = useState(false);
   const taskSelectFragment = `
@@ -496,13 +498,25 @@ export function DailyTasksView() {
 
   const loadPrintTasks = async () => {
     setLoadingPrint(true);
-    const { data } = await supabase
-      .from('daily_tasks')
-      .select(taskSelectFragment)
-      .eq('is_completed', false)
-      .order('task_date', { ascending: true })
-      .order('created_at', { ascending: true });
-    setPrintTasks(data || []);
+    const today = new Date().toISOString().split('T')[0];
+    const [tasksRes, bookingsRes] = await Promise.all([
+      supabase
+        .from('daily_tasks')
+        .select(taskSelectFragment)
+        .eq('is_completed', false)
+        .order('task_date', { ascending: true })
+        .order('created_at', { ascending: true }),
+      supabase
+        .from('yacht_bookings')
+        .select('yacht_id')
+        .lte('start_date', today + 'T23:59:59')
+        .gte('end_date', today + 'T00:00:00'),
+    ]);
+    setPrintTasks(tasksRes.data || []);
+    const yachtIds = new Set<string>(
+      (bookingsRes.data || []).map((b: any) => b.yacht_id).filter(Boolean)
+    );
+    setCalendarYachtIds(yachtIds);
     setLoadingPrint(false);
   };
 
@@ -514,7 +528,10 @@ export function DailyTasksView() {
   };
 
   const buildPrintHTML = (tasks: DailyTask[], staffFilter: string) => {
-    const filtered = staffFilter === 'all' ? tasks : tasks.filter((t) => t.assigned_to === staffFilter);
+    let filtered = staffFilter === 'all' ? tasks : tasks.filter((t) => t.assigned_to === staffFilter);
+    if (printCalendarOnly) {
+      filtered = filtered.filter((t) => t.yacht_id && calendarYachtIds.has(t.yacht_id));
+    }
     const grouped: Record<string, DailyTask[]> = {};
     filtered.forEach((t) => {
       const key = t.assigned_to || 'unassigned';
@@ -1641,7 +1658,7 @@ export function DailyTasksView() {
               </button>
             </div>
 
-            <div className="p-5 border-b border-gray-100 flex flex-wrap gap-4">
+            <div className="p-5 border-b border-gray-100 flex flex-wrap gap-4 items-end">
               <div>
                 <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Staff Member</label>
                 <select
@@ -1657,6 +1674,18 @@ export function DailyTasksView() {
                   ))}
                 </select>
               </div>
+              <label className="flex items-center gap-2 cursor-pointer select-none pb-1">
+                <input
+                  type="checkbox"
+                  checked={printCalendarOnly}
+                  onChange={(e) => setPrintCalendarOnly(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-400"
+                />
+                <span className="text-sm text-gray-700 font-medium">Only yachts on calendar today</span>
+                {calendarYachtIds.size > 0 && (
+                  <span className="text-xs text-gray-400">({calendarYachtIds.size} yacht{calendarYachtIds.size !== 1 ? 's' : ''})</span>
+                )}
+              </label>
             </div>
 
             <div className="flex-1 overflow-y-auto p-5 bg-gray-50">
@@ -1665,9 +1694,12 @@ export function DailyTasksView() {
                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-slate-500" />
                 </div>
               ) : (() => {
-                const filtered = printStaffFilter === 'all'
+                let filtered = printStaffFilter === 'all'
                   ? printTasks
                   : printTasks.filter((t) => t.assigned_to === printStaffFilter);
+                if (printCalendarOnly) {
+                  filtered = filtered.filter((t) => t.yacht_id && calendarYachtIds.has(t.yacht_id));
+                }
 
                 const grouped: Record<string, DailyTask[]> = {};
                 filtered.forEach((t) => {
