@@ -2743,7 +2743,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           .from('estimating_invoice_line_items')
           .select('*')
           .eq('invoice_id', invoiceId)
-          .order('sort_order', { ascending: true }),
+          .order('line_order', { ascending: true }),
         supabase.from('company_info').select('*').maybeSingle(),
       ]);
 

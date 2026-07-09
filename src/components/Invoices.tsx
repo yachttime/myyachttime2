@@ -1123,9 +1123,12 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                 { content: task.task_name, colSpan: 5, styles: { fontStyle: 'bold', fillColor: [240, 240, 240] } }
               ]);
               taskItems.forEach(item => {
+                const descText = item.description
+                  ? item.description + (item.work_details ? '\n  \u2022 ' + item.work_details.trim() : '')
+                  : (item.work_details ? item.work_details.trim() : '');
                 tableData.push([
                   item.line_type.toUpperCase(),
-                  item.description + (item.work_details ? '\n' + item.work_details : ''),
+                  descText,
                   item.quantity.toString(),
                   `$${item.unit_price.toFixed(2)}`,
                   `$${item.total_price.toFixed(2)}`
@@ -1143,9 +1146,12 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
               ]);
               lastTaskName = taskName;
             }
+            const descText = item.description
+              ? item.description + (item.work_details ? '\n  \u2022 ' + item.work_details.trim() : '')
+              : (item.work_details ? item.work_details.trim() : '');
             tableData.push([
               item.line_type.toUpperCase(),
-              item.description + (item.work_details ? '\n' + item.work_details : ''),
+              descText,
               item.quantity.toString(),
               `$${item.unit_price.toFixed(2)}`,
               `$${item.total_price.toFixed(2)}`
@@ -3259,6 +3265,47 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                         </div>
                       );
                     })}
+                  </div>
+                </div>
+              )}
+
+              {workOrderTasks.length === 0 && estimatingLineItems.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Line Items</h3>
+                  <div className="border border-gray-200 rounded-lg overflow-hidden">
+                    <div className="divide-y divide-gray-200">
+                      {estimatingLineItems.map((item) => (
+                        <div key={item.id} className="px-4 py-3">
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-medium text-gray-500 uppercase bg-gray-100 px-2 py-1 rounded">
+                                  {item.line_type}
+                                </span>
+                                <span className="text-sm font-medium text-gray-900">
+                                  {item.description}
+                                </span>
+                              </div>
+                              {item.work_details && (
+                                <p className="text-sm text-gray-500 mt-1 ml-[3.75rem]">{item.work_details}</p>
+                              )}
+                              <div className="flex gap-4 mt-2 ml-[3.75rem] text-sm text-gray-500">
+                                <span>Qty: {item.quantity}</span>
+                                <span>Unit Price: ${item.unit_price.toFixed(2)}</span>
+                                {item.is_taxable && (
+                                  <span className="text-blue-600">Taxable</span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="text-right ml-4">
+                              <div className="text-base font-semibold text-gray-900">
+                                ${item.total_price.toFixed(2)}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}

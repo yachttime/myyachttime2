@@ -3028,9 +3028,12 @@ export async function generateEstimatingInvoicePDF(
         tableData.push([{ content: taskName, colSpan: 5, styles: { fontStyle: 'bold', fillColor: [240, 240, 240] } }]);
         lastTask = taskName;
       }
+      const descText = item.description
+        ? item.description + (item.work_details ? '\n  \u2022 ' + item.work_details.trim() : '')
+        : (item.work_details ? item.work_details.trim() : '');
       tableData.push([
         item.line_type.toUpperCase(),
-        item.description + (item.work_details ? '\n' + item.work_details : ''),
+        descText,
         item.quantity.toString(),
         `$${Number(item.unit_price).toFixed(2)}`,
         `$${Number(item.total_price).toFixed(2)}`
