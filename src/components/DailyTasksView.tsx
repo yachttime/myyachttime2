@@ -498,7 +498,6 @@ export function DailyTasksView() {
 
   const loadPrintTasks = async () => {
     setLoadingPrint(true);
-    const today = new Date().toISOString().split('T')[0];
     const [tasksRes, bookingsRes] = await Promise.all([
       supabase
         .from('daily_tasks')
@@ -506,17 +505,13 @@ export function DailyTasksView() {
         .eq('is_completed', false)
         .order('task_date', { ascending: true })
         .order('created_at', { ascending: true }),
-      supabase
-        .from('yacht_bookings')
-        .select('yacht_id')
-        .lte('start_date', today + 'T23:59:59.999Z')
-        .gte('end_date', today + 'T00:00:00.000Z'),
+      supabase.rpc('get_today_calendar_yacht_ids'),
     ]);
     setPrintTasks(tasksRes.data || []);
-    const ids: string[] = [];
-    (bookingsRes.data || []).forEach((b: any) => {
-      if (b.yacht_id && !ids.includes(b.yacht_id)) ids.push(b.yacht_id);
-    });
+    if (bookingsRes.error) {
+      console.error('Bookings query error:', bookingsRes.error);
+    }
+    const ids: string[] = (bookingsRes.data || []).map((b: any) => b.yacht_id);
     setCalendarYachtIds(ids);
     setLoadingPrint(false);
   };
@@ -530,7 +525,7 @@ export function DailyTasksView() {
 
   const buildPrintHTML = (tasks: DailyTask[], staffFilter: string) => {
     let filtered = staffFilter === 'all' ? tasks : tasks.filter((t) => t.assigned_to === staffFilter);
-    if (printCalendarOnly && calendarYachtIds.length > 0) {
+    if (printCalendarOnly) {
       filtered = filtered.filter((t) => t.yacht_id && calendarYachtIds.includes(t.yacht_id));
     }
     const grouped: Record<string, DailyTask[]> = {};
@@ -1698,7 +1693,7 @@ export function DailyTasksView() {
                 let filtered = printStaffFilter === 'all'
                   ? printTasks
                   : printTasks.filter((t) => t.assigned_to === printStaffFilter);
-                if (printCalendarOnly && calendarYachtIds.length > 0) {
+                if (printCalendarOnly) {
                   filtered = filtered.filter((t) => t.yacht_id && calendarYachtIds.includes(t.yacht_id));
                 }
 
