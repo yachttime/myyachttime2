@@ -3139,6 +3139,8 @@ export interface EstimatingInvoiceSummary {
   stripe_payment_intent_id?: string;
   final_payment_stripe_payment_intent_id?: string;
   final_payment_paid_at?: string;
+  amount_paid?: number | string | null;
+  balance_due?: number | string | null;
 }
 
 export function generateYachtInvoicesSummaryPDF(
@@ -3181,7 +3183,12 @@ export function generateYachtInvoicesSummaryPDF(
 
   for (const inv of estInvoices) {
     const dateStr = inv.invoice_date ? phxDate(inv.invoice_date) : '—';
-    const amount = inv.total_amount != null ? `$${Number(inv.total_amount).toFixed(2)}` : '—';
+    let amount = inv.total_amount != null ? `$${Number(inv.total_amount).toFixed(2)}` : '—';
+    if (inv.payment_status === 'partial' && inv.amount_paid) {
+      const paid = Number(inv.amount_paid);
+      const bal = inv.balance_due != null ? Number(inv.balance_due) : Number(inv.total_amount) - paid;
+      amount += `\n(Paid: $${paid.toFixed(2)} | Bal: $${bal.toFixed(2)})`;
+    }
     const status = inv.payment_status === 'paid' ? 'Paid' : inv.payment_status === 'partial' ? 'Partial' : inv.payment_status === 'pending' ? 'Pending' : inv.payment_status === 'refunded' ? 'Refunded' : inv.payment_status || '—';
     const paidAt = (inv.final_payment_paid_at || inv.paid_at) ? phxDate((inv.final_payment_paid_at || inv.paid_at)!) : '—';
     const paymentId = (inv.final_payment_stripe_payment_intent_id || inv.stripe_payment_intent_id) ? (inv.final_payment_stripe_payment_intent_id || inv.stripe_payment_intent_id) : '—';
