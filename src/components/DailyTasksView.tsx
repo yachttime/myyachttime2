@@ -635,7 +635,7 @@ export function DailyTasksView() {
 
   const handlePrint = () => {
     const html = buildPrintHTML(printTasks, printStaffFilter);
-    const fullHtml = `<!DOCTYPE html><html><head><title>Daily Tasks</title>
+    const fullHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Daily Tasks</title>
       <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: Arial, sans-serif; font-size: 12px; color: #1a1a1a; background: #fff; padding: 28px; }
@@ -649,7 +649,7 @@ export function DailyTasksView() {
       <script>window.onload = function() { window.print(); };<\/script>
       </body></html>`;
 
-    const blob = new Blob([fullHtml], { type: 'text/html' });
+    const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     window.open(url, '_blank');
     setTimeout(() => URL.revokeObjectURL(url), 60000);
