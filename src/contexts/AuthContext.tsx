@@ -343,6 +343,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const changePassword = async (newPassword: string) => {
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword
+    });
+
+    if (error) throw error;
+
     if (user) {
       await supabase
         .from('user_profiles')
@@ -350,14 +356,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .eq('user_id', user.id);
     }
 
-    const { error } = await supabase.auth.updateUser({
-      password: newPassword
-    });
-
-    if (error) throw error;
-
-    // Sign out after password change — Supabase invalidates the session on password update.
-    // The user will be sent to the sign-in page to log in with their new password.
     isPasswordRecoveryRef.current = false;
     setIsPasswordRecovery(false);
     await supabase.auth.signOut();
