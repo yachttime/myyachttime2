@@ -112,12 +112,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [showYachtOwnersEmailModal, setShowYachtOwnersEmailModal] = useState(false);
   const [yachtOwnersEmailData, setYachtOwnersEmailData] = useState<{ yacht: any; owners: Array<{ email: string; name: string }> } | null>(null);
   const [showManagementEmailModal, setShowManagementEmailModal] = useState(false);
-  const [managementEmailData, setManagementEmailData] = useState<{ yachtName: string; recipients: Array<{ email: string; name: string }> } | null>(null);
+  const [managementEmailData, setManagementEmailData] = useState<{ yachtName: string; recipients: Array<{ email: string; name: string }>; ccRecipients: string[] } | null>(null);
   const [signInVideo, setSignInVideo] = useState<{ title: string; video_url: string } | null>(null);
   const [showIntroVideoEmailModal, setShowIntroVideoEmailModal] = useState(false);
   const [introVideoEmailData, setIntroVideoEmailData] = useState<{ yachtName: string; recipients: Array<{ email: string; name: string }>; video: { title: string; video_url: string } | null } | null>(null);
   const [showEmailAllManagersModal, setShowEmailAllManagersModal] = useState(false);
   const [emailAllManagersRecipients, setEmailAllManagersRecipients] = useState<Array<{ email: string; name: string }>>([]);
+  const [emailAllManagersCcRecipients, setEmailAllManagersCcRecipients] = useState<string[]>([]);
   const [showEmailAllOwnersManagersModal, setShowEmailAllOwnersManagersModal] = useState(false);
   const [emailAllOwnersManagersRecipients, setEmailAllOwnersManagersRecipients] = useState<Array<{ email: string; name: string }>>([]);
 
@@ -1611,19 +1612,27 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       return;
     }
 
-    const recipients = managers
-      .map(u => ({
-        email: u.notification_email || u.email,
+    const recipients: Array<{ email: string; name: string }> = [];
+    const ccRecipients: string[] = [];
+
+    for (const u of managers) {
+      const primaryEmail = (u.notification_email || u.email || '').trim();
+      if (!primaryEmail) continue;
+      recipients.push({
+        email: primaryEmail,
         name: u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email,
-      }))
-      .filter(r => r.email && r.email.trim() !== '');
+      });
+      if (u.secondary_email && u.secondary_email.trim() !== '' && u.secondary_email !== primaryEmail) {
+        ccRecipients.push(u.secondary_email.trim());
+      }
+    }
 
     if (recipients.length === 0) {
       showError('No management team members with valid email addresses found');
       return;
     }
 
-    setManagementEmailData({ yachtName, recipients });
+    setManagementEmailData({ yachtName, recipients, ccRecipients });
     setShowManagementEmailModal(true);
   };
 
@@ -1631,6 +1640,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     const activeYachtIds = new Set(allYachts.filter(y => y.is_active !== false).map(y => y.id));
     const seen = new Set<string>();
     const recipients: Array<{ email: string; name: string }> = [];
+    const ccEmails: string[] = [];
     for (const u of allUsers) {
       if (!u.yacht_id || !activeYachtIds.has(u.yacht_id)) continue;
       if (!['manager', 'master'].includes(u.role)) continue;
@@ -1642,12 +1652,16 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         email: u.notification_email || u.email,
         name: u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : (u.email || ''),
       });
+      if (u.secondary_email && u.secondary_email.trim() !== '' && u.secondary_email.trim().toLowerCase() !== email) {
+        ccEmails.push(u.secondary_email.trim());
+      }
     }
     if (recipients.length === 0) {
       showError('No managers found for active yachts');
       return;
     }
     setEmailAllManagersRecipients(recipients);
+    setEmailAllManagersCcRecipients(ccEmails);
     setShowEmailAllManagersModal(true);
   };
 
@@ -23796,7 +23810,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           setManagementEmailData(null);
         }}
         recipients={managementEmailData?.recipients || []}
-        ccRecipients={[]}
+        ccRecipients={managementEmailData?.ccRecipients || []}
         yachtName={managementEmailData?.yachtName || ''}
         allowRecipientSelection={true}
       />
@@ -23825,9 +23839,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         onClose={() => {
           setShowEmailAllManagersModal(false);
           setEmailAllManagersRecipients([]);
+          setEmailAllManagersCcRecipients([]);
         }}
         recipients={emailAllManagersRecipients}
-        ccRecipients={[]}
+        ccRecipients={emailAllManagersCcRecipients}
         yachtName="All Active Yachts"
         allowRecipientSelection={true}
       />
