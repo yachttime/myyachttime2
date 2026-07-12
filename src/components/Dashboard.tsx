@@ -5563,6 +5563,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         throw new Error(result.error || 'Failed to send email');
       }
 
+      const invoiceYacht = selectedInvoiceForEmail.yacht_id;
       setShowEmailModal(false);
       setSelectedInvoiceForEmail(null);
       setEmailRecipient('');
@@ -5574,6 +5575,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       await loadChatMessages();
       await loadRepairRequests();
+      if (invoiceYacht) await loadYachtInvoices(invoiceYacht);
 
       const sentCount = recipients.length;
       showSuccess(sentCount > 1 ? `Payment link email sent to ${sentCount} billing managers!` : 'Payment link email sent successfully!');
