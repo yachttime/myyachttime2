@@ -51,6 +51,17 @@ Deno.serve(async (req: Request) => {
       throw new Error('Invalid email address');
     }
 
+    // Look up recipient's secondary_email for CC
+    const adminSupabase = createClient(supabaseUrl, supabaseServiceKey);
+    const { data: recipientProfile } = await adminSupabase
+      .from('user_profiles')
+      .select('secondary_email')
+      .or(`email.eq.${recipientEmail},notification_email.eq.${recipientEmail}`)
+      .limit(1)
+      .maybeSingle();
+    const recipientSecondaryEmail = recipientProfile?.secondary_email && recipientProfile.secondary_email !== recipientEmail
+      ? recipientProfile.secondary_email : null;
+
     // Fetch repair request details
     const { data: repairRequest, error: repairError } = await supabase
       .from('repair_requests')
@@ -310,6 +321,12 @@ Deno.serve(async (req: Request) => {
             <div style="margin-top:24px;padding:14px 18px;background:#fef3c7;border-left:4px solid #f59e0b;border-radius:4px;font-family:Arial,sans-serif;font-size:13px;color:#92400e;">
               <strong>Note to Surcharge Department:</strong><br>${surchargeCcNote.replace(/\n/g, '<br>')}
             </div>`;
+        }
+      }
+      if (recipientSecondaryEmail) {
+        const existingCc = emailPayload.cc || [];
+        if (!existingCc.includes(recipientSecondaryEmail)) {
+          emailPayload.cc = [...existingCc, recipientSecondaryEmail];
         }
       }
 

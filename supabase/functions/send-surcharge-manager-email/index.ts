@@ -329,6 +329,17 @@ Deno.serve(async (req: Request) => {
 
     const fromEmail = (Deno.env.get('RESEND_FROM_EMAIL') || 'notifications@myyachttime.com').trim();
     const salesCc = 'sales@azmarine.net';
+
+    // Look up manager's secondary_email for CC
+    const adminSupabase = createClient(supabaseUrl, supabaseServiceKey);
+    const { data: mgrProfile } = await adminSupabase
+      .from('user_profiles')
+      .select('secondary_email')
+      .or(`email.eq.${surchargeManagerEmail},notification_email.eq.${surchargeManagerEmail}`)
+      .limit(1)
+      .maybeSingle();
+    const mgrSecondaryCc = mgrProfile?.secondary_email && mgrProfile.secondary_email !== surchargeManagerEmail
+      ? mgrProfile.secondary_email : null;
     const subject = `Surcharge Notification — ${invoice.invoice_number} | ${yachtName} | $${surchargeAmount.toFixed(2)}`;
 
     const htmlContent = `
@@ -394,7 +405,7 @@ Deno.serve(async (req: Request) => {
     const emailPayload: any = {
       from: fromEmail,
       to: [surchargeManagerEmail],
-      cc: [salesCc],
+      cc: mgrSecondaryCc ? [salesCc, mgrSecondaryCc] : [salesCc],
       subject,
       html: htmlContent,
       attachments: [

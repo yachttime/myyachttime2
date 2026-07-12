@@ -74,7 +74,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: staffUsers, error: staffError } = await supabase
       .from('user_profiles')
-      .select('email_address, full_name')
+      .select('email_address, full_name, secondary_email')
       .eq('company_id', ticket.company_id)
       .eq('role', 'master')
       .not('email_address', 'is', null);
@@ -83,7 +83,7 @@ Deno.serve(async (req: Request) => {
       console.error('Error fetching staff users:', staffError);
     }
 
-    const staffEmails = staffUsers?.map(u => u.email_address).filter(Boolean) || [];
+    const staffEmails = staffUsers?.map(u => ({ email: u.email_address, cc: u.secondary_email && u.secondary_email !== u.email_address ? u.secondary_email : null })).filter(u => u.email) || [];
 
     if (staffEmails.length === 0) {
       console.log('No staff emails found to notify');
@@ -196,18 +196,18 @@ Deno.serve(async (req: Request) => {
 
     const emailResults = [];
 
-    for (const email of staffEmails) {
+    for (const recipient of staffEmails) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        console.error('Invalid email address:', email);
-        emailResults.push({ email, success: false, error: 'Invalid email format' });
+      if (!emailRegex.test(recipient.email)) {
+        console.error('Invalid email address:', recipient.email);
+        emailResults.push({ email: recipient.email, success: false, error: 'Invalid email format' });
         continue;
       }
 
       try {
         const emailPayload: any = {
           from: fromEmail,
-          to: [email],
+          to: [recipient.email],
           subject: `New Support Ticket #${ticket.ticket_number}: ${ticket.subject}`,
           html: htmlContent,
           tags: [
@@ -217,6 +217,9 @@ Deno.serve(async (req: Request) => {
             },
           ],
         };
+        if (recipient.cc) {
+          emailPayload.cc = [recipient.cc];
+        }
 
         const emailResponse = await fetch('https://api.resend.com/emails', {
           method: 'POST',
@@ -230,15 +233,15 @@ Deno.serve(async (req: Request) => {
         if (!emailResponse.ok) {
           const errorText = await emailResponse.text();
           console.error('Resend API error:', errorText);
-          emailResults.push({ email, success: false, error: errorText });
+          emailResults.push({ email: recipient.email, success: false, error: errorText });
         } else {
           const emailData = await emailResponse.json();
-          console.log('Email sent successfully to:', email, 'ID:', emailData.id);
-          emailResults.push({ email, success: true, emailId: emailData.id });
+          console.log('Email sent successfully to:', recipient.email, 'ID:', emailData.id);
+          emailResults.push({ email: recipient.email, success: true, emailId: emailData.id });
         }
       } catch (error) {
-        console.error('Error sending email to:', email, error);
-        emailResults.push({ email, success: false, error: error instanceof Error ? error.message : 'Unknown error' });
+        console.error('Error sending email to:', recipient.email, error);
+        emailResults.push({ email: recipient.email, success: false, error: error instanceof Error ? error.message : 'Unknown error' });
       }
     }
 

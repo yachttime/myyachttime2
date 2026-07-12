@@ -41,6 +41,22 @@ Deno.serve(async (req: Request) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Look up secondary_email for each manager to auto-CC
+    const { data: managerProfiles } = await supabase
+      .from('user_profiles')
+      .select('email, notification_email, secondary_email')
+      .in('email', managerEmails);
+
+    const managerSecondaryEmails: Map<string, string> = new Map();
+    if (managerProfiles) {
+      for (const profile of managerProfiles) {
+        const primaryEmail = profile.notification_email || profile.email;
+        if (profile.secondary_email && profile.secondary_email !== primaryEmail) {
+          managerSecondaryEmails.set(profile.email, profile.secondary_email);
+        }
+      }
+    }
+
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
 
     if (!resendApiKey) {
@@ -313,6 +329,14 @@ Deno.serve(async (req: Request) => {
 
         if (ccEmails && ccEmails.length > 0) {
           emailPayload.cc = ccEmails.filter(cc => cc !== email);
+        }
+        // Also CC the manager's secondary_email if present
+        const managerCc = managerSecondaryEmails.get(email);
+        if (managerCc) {
+          const existingCc = emailPayload.cc || [];
+          if (!existingCc.includes(managerCc)) {
+            emailPayload.cc = [...existingCc, managerCc];
+          }
         }
 
         // Attach estimate PDF first (most important), then repair photo

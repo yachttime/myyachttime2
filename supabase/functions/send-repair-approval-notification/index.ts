@@ -38,7 +38,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: staffUsers, error: staffError } = await supabase
       .from('user_profiles')
-      .select('user_id, first_name, last_name, email, phone, notification_email, notification_phone, email_notifications_enabled, sms_notifications_enabled, role')
+      .select('user_id, first_name, last_name, email, phone, notification_email, notification_phone, email_notifications_enabled, sms_notifications_enabled, role, secondary_email')
       .in('role', ['staff', 'master'])
       .eq('is_active', true);
 
@@ -58,7 +58,7 @@ Deno.serve(async (req: Request) => {
     const siteUrl = Deno.env.get('SITE_URL') || 'https://yourdomain.com';
     let fromEmail = (Deno.env.get('RESEND_FROM_EMAIL') || 'notifications@myyachttime.com').trim();
 
-    const emailRecipients: Array<{ email: string; name: string }> = [];
+    const emailRecipients: Array<{ email: string; name: string; cc?: string }> = [];
     const smsRecipients: Array<{ phone: string; name: string }> = [];
 
     for (const user of staffUsers) {
@@ -68,7 +68,8 @@ Deno.serve(async (req: Request) => {
         const emailAddress = user.notification_email || user.email;
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (emailAddress && emailRegex.test(emailAddress)) {
-          emailRecipients.push({ email: emailAddress, name: userName });
+          const cc = user.secondary_email && user.secondary_email !== emailAddress ? user.secondary_email : undefined;
+          emailRecipients.push({ email: emailAddress, name: userName, cc });
         }
       }
 
@@ -203,19 +204,24 @@ Deno.serve(async (req: Request) => {
         `;
 
         try {
+          const emailPayload: any = {
+            from: fromEmail,
+            to: [recipient.email],
+            subject: cfg.subject,
+            html: htmlContent,
+            tags: [{ name: 'category', value: `repair-${eventType}` }],
+          };
+          if (recipient.cc) {
+            emailPayload.cc = [recipient.cc];
+          }
+
           const emailResponse = await fetch('https://api.resend.com/emails', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${resendApiKey}`,
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-              from: fromEmail,
-              to: [recipient.email],
-              subject: cfg.subject,
-              html: htmlContent,
-              tags: [{ name: 'category', value: `repair-${eventType}` }],
-            }),
+            body: JSON.stringify(emailPayload),
           });
 
           if (emailResponse.ok) {

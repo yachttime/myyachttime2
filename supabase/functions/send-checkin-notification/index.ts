@@ -47,7 +47,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: staffUsers, error: staffError } = await supabase
       .from('user_profiles')
-      .select('user_id, first_name, last_name, email, phone, notification_email, notification_phone, email_notifications_enabled, sms_notifications_enabled, sms_consent_given, role')
+      .select('user_id, first_name, last_name, email, phone, notification_email, notification_phone, email_notifications_enabled, sms_notifications_enabled, sms_consent_given, role, secondary_email')
       .in('role', rolesToNotify)
       .eq('company_id', companyId)
       .eq('is_active', true);
@@ -62,7 +62,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const emailRecipients: Array<{ email: string; name: string }> = [];
+    const emailRecipients: Array<{ email: string; name: string; cc?: string }> = [];
     const smsRecipients: Array<{ phone: string; name: string }> = [];
 
     for (const user of staffUsers) {
@@ -74,7 +74,8 @@ Deno.serve(async (req: Request) => {
       if (user.email_notifications_enabled !== false) {
         const emailAddress = user.notification_email || user.email;
         if (emailAddress && emailRegex.test(emailAddress)) {
-          emailRecipients.push({ email: emailAddress, name: userName });
+          const cc = user.secondary_email && user.secondary_email !== emailAddress ? user.secondary_email : undefined;
+          emailRecipients.push({ email: emailAddress, name: userName, cc });
         }
       }
 
@@ -160,19 +161,24 @@ Deno.serve(async (req: Request) => {
         `;
 
         try {
+          const emailPayload: any = {
+            from: fromEmail,
+            to: [recipient.email],
+            subject,
+            html: htmlContent,
+            tags: [{ name: 'category', value: 'checkin-notification' }],
+          };
+          if (recipient.cc) {
+            emailPayload.cc = [recipient.cc];
+          }
+
           const emailResponse = await fetch('https://api.resend.com/emails', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${resendApiKey}`,
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-              from: fromEmail,
-              to: [recipient.email],
-              subject,
-              html: htmlContent,
-              tags: [{ name: 'category', value: 'checkin-notification' }],
-            }),
+            body: JSON.stringify(emailPayload),
           });
 
           if (emailResponse.ok) {
