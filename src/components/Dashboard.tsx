@@ -20686,7 +20686,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 <label className="block text-sm font-medium text-slate-300 mb-2">
                                   Role
                                 </label>
-                                {isManagerRole(effectiveRole) && selectedUser && selectedUser.role !== 'owner' ? (
+                                {effectiveRole === 'manager' && selectedUser && selectedUser.role !== 'owner' ? (
                                   <>
                                     <input
                                       type="text"
@@ -20716,7 +20716,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                         </>
                                       )}
                                     </select>
-                                    {isManagerRole(effectiveRole) && (
+                                    {effectiveRole === 'manager' && (
                                       <p className="text-xs text-slate-500 mt-1">You can only create yacht owners</p>
                                     )}
                                   </>
