@@ -161,8 +161,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   };
 
   // Extract YYYY-MM-DD in Arizona time from a timestamp string (avoids UTC midnight shifting day)
-  const toAZDateStr = (ts: string): string =>
-    new Date(ts).toLocaleDateString('en-CA', { timeZone: 'America/Phoenix' });
+  const toAZDateStr = (ts: string): string => {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(ts)) return ts;
+    return new Date(ts).toLocaleDateString('en-CA', { timeZone: 'America/Phoenix' });
+  };
 
   const isAntelopePoint = () => {
     if (!yacht?.marina_name) return false;
