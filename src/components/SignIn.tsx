@@ -214,6 +214,8 @@ export const SignIn = () => {
           const isTimeout =
             signInErr?.message?.toLowerCase().includes('timeout') ||
             signInErr?.message?.toLowerCase().includes('upstream') ||
+            signInErr?.message?.toLowerCase().includes('querying schema') ||
+            signInErr?.message?.toLowerCase().includes('schema cache') ||
             signInErr?.status === 504 ||
             signInErr?.status === 503;
 
@@ -257,7 +259,9 @@ export const SignIn = () => {
       } else if (
         message.toLowerCase().includes('timeout') ||
         message.toLowerCase().includes('upstream') ||
-        message.toLowerCase().includes('unavailable')
+        message.toLowerCase().includes('unavailable') ||
+        message.toLowerCase().includes('querying schema') ||
+        message.toLowerCase().includes('schema cache')
       ) {
         setError('The authentication service is not responding after multiple attempts. This is a temporary Supabase outage — please wait a minute and try again.');
       } else {

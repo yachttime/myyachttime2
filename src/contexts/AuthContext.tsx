@@ -178,6 +178,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         msg.includes('timeout') ||
         msg.includes('upstream') ||
         msg.includes('schema cache') ||
+        msg.includes('querying schema') ||
         msg.includes('unavailable') ||
         msg.includes('503') ||
         msg.includes('504') ||
@@ -272,6 +273,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           msg.includes('timeout') ||
           msg.includes('upstream') ||
           msg.includes('unavailable') ||
+          msg.includes('querying schema') ||
+          msg.includes('schema cache') ||
           msg.includes('504') ||
           msg.includes('503') ||
           msg.includes('502') ||
