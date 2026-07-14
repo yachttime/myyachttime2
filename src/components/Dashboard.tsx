@@ -179,6 +179,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     const nowMST = new Date(now.toLocaleString('en-US', { timeZone: 'America/Phoenix' }));
     const start = new Date(new Date(booking.start_date).toLocaleString('en-US', { timeZone: 'America/Phoenix' }));
     const end = new Date(new Date(booking.end_date).toLocaleString('en-US', { timeZone: 'America/Phoenix' }));
+    end.setHours(23, 59, 59, 999);
     return nowMST >= start && nowMST <= end;
   };
 
@@ -1093,11 +1094,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       const now = new Date();
       const userBookings = data?.filter(booking => booking.user_id === user.id) || [];
 
-      // First try to find an active booking (currently ongoing)
+      // First try to find an active booking (currently ongoing) using MST
+      const nowMST = new Date(now.toLocaleString('en-US', { timeZone: 'America/Phoenix' }));
       let current = userBookings.find(booking => {
-        const start = new Date(booking.start_date);
-        const end = new Date(booking.end_date);
-        return now >= start && now <= end;
+        const start = new Date(new Date(booking.start_date).toLocaleString('en-US', { timeZone: 'America/Phoenix' }));
+        const end = new Date(new Date(booking.end_date).toLocaleString('en-US', { timeZone: 'America/Phoenix' }));
+        end.setHours(23, 59, 59, 999);
+        return nowMST >= start && nowMST <= end;
       });
 
       // If no active booking, find the next upcoming booking
@@ -8833,7 +8836,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                       <button
                         onClick={handleCheckOut}
-                        disabled={activeBooking.checked_out || !activeBooking.checked_in || !isWithinBookingPeriod(activeBooking)}
+                        disabled={activeBooking.checked_out || !activeBooking.checked_in}
                         className="w-full bg-slate-700 hover:bg-slate-600 text-white font-semibold py-3 rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                       >
                         {activeBooking.checked_out ? (
