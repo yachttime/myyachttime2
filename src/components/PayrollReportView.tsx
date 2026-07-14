@@ -668,7 +668,7 @@ export function PayrollReportView() {
       let workOrderEntries: any[] = [];
       let inspectionEntries: any[] = [];
 
-      if (periodId) {
+      if (periodId && activePayPeriod?.is_processed) {
         const [regRes, woRes, inspRes] = await Promise.all([
           supabase.from('staff_time_entries').select('*')
             .in('user_id', userIds).is('work_order_id', null)
@@ -685,6 +685,42 @@ export function PayrollReportView() {
         if (woRes.error) throw woRes.error;
         regularEntries = regRes.data || [];
         workOrderEntries = woRes.data || [];
+        inspectionEntries = inspRes.data || [];
+      } else if (periodId && !activePayPeriod?.is_processed) {
+        // For unprocessed pay periods, show entries assigned to this period OR unassigned within date range
+        const [regAssigned, regUnassigned, woAssigned, woUnassigned, inspRes] = await Promise.all([
+          supabase.from('staff_time_entries').select('*')
+            .in('user_id', userIds).is('work_order_id', null)
+            .eq('pay_period_id', periodId).not('punch_out_time', 'is', null).order('punch_in_time'),
+          supabase.from('staff_time_entries').select('*')
+            .in('user_id', userIds).is('work_order_id', null)
+            .is('pay_period_id', null)
+            .gte('punch_in_time', startIso).lte('punch_in_time', endIso)
+            .not('punch_out_time', 'is', null).order('punch_in_time'),
+          supabase.from('staff_time_entries').select(woSelect)
+            .in('user_id', userIds).not('work_order_id', 'is', null)
+            .eq('pay_period_id', periodId)
+            .not('punch_out_time', 'is', null).order('punch_in_time'),
+          supabase.from('staff_time_entries').select(woSelect)
+            .in('user_id', userIds).not('work_order_id', 'is', null)
+            .is('pay_period_id', null)
+            .gte('punch_in_time', startIso).lte('punch_in_time', endIso)
+            .not('punch_out_time', 'is', null).order('punch_in_time'),
+          supabase.from('inspection_time_entries').select('*')
+            .in('user_id', userIds)
+            .gte('inspection_date', startIso).lte('inspection_date', endIso)
+        ]);
+        if (regAssigned.error) throw regAssigned.error;
+        if (regUnassigned.error) throw regUnassigned.error;
+        if (woAssigned.error) throw woAssigned.error;
+        if (woUnassigned.error) throw woUnassigned.error;
+        // Deduplicate by id
+        const regMap = new Map<string, any>();
+        [...(regAssigned.data || []), ...(regUnassigned.data || [])].forEach(e => regMap.set(e.id, e));
+        regularEntries = [...regMap.values()].sort((a, b) => a.punch_in_time.localeCompare(b.punch_in_time));
+        const woMap = new Map<string, any>();
+        [...(woAssigned.data || []), ...(woUnassigned.data || [])].forEach(e => woMap.set(e.id, e));
+        workOrderEntries = [...woMap.values()].sort((a, b) => a.punch_in_time.localeCompare(b.punch_in_time));
         inspectionEntries = inspRes.data || [];
       } else {
         const [regularEntriesResult, workOrderEntriesResult, inspectionEntriesResult] = await Promise.all([
