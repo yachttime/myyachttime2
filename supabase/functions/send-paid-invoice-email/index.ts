@@ -365,6 +365,37 @@ Deno.serve(async (req: Request) => {
 
     const fromEmail = (Deno.env.get('RESEND_FROM_EMAIL') || 'notifications@myyachttime.com').trim();
 
+    // Build CC list from billing managers with secondary_email
+    let ccEmails: string[] = [];
+    if (invoice.yacht_id) {
+      const adminSupabase = createClient(supabaseUrl, supabaseServiceKey);
+      const { data: ownerProfiles } = await adminSupabase
+        .from('user_profiles')
+        .select('secondary_email')
+        .eq('yacht_id', invoice.yacht_id)
+        .eq('role', 'owner')
+        .not('secondary_email', 'is', null);
+      if (ownerProfiles) {
+        for (const p of ownerProfiles) {
+          const cc = (p.secondary_email ?? '').trim();
+          if (cc && cc !== recipientEmail && !ccEmails.includes(cc)) ccEmails.push(cc);
+        }
+      }
+      const { data: billingMgrs } = await adminSupabase
+        .from('user_profiles')
+        .select('secondary_email')
+        .eq('yacht_id', invoice.yacht_id)
+        .eq('can_approve_billing', true)
+        .eq('is_active', true)
+        .not('secondary_email', 'is', null);
+      if (billingMgrs) {
+        for (const m of billingMgrs) {
+          const cc = (m.secondary_email ?? '').trim();
+          if (cc && cc !== recipientEmail && !ccEmails.includes(cc)) ccEmails.push(cc);
+        }
+      }
+    }
+
     const allRecipients = [recipientEmail];
     if (additionalRecipients && additionalRecipients.length > 0) {
       for (const r of additionalRecipients) {
@@ -373,7 +404,7 @@ Deno.serve(async (req: Request) => {
     }
 
     for (const addr of allRecipients) {
-      const emailPayload = {
+      const emailPayload: any = {
         from: fromEmail,
         to: [addr],
         subject,
@@ -381,6 +412,9 @@ Deno.serve(async (req: Request) => {
         attachments: [{ filename: `Invoice-${invoice.invoice_number}-Paid.pdf`, content: pdfBase64 }],
         tags: [{ name: 'category', value: 'paid-invoice-receipt' }, { name: 'invoice_id', value: invoiceId }],
       };
+      if (addr === recipientEmail && ccEmails.length > 0) {
+        emailPayload.cc = ccEmails;
+      }
 
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',

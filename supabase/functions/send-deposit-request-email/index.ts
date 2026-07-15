@@ -205,6 +205,24 @@ Deno.serve(async (req: Request) => {
             .map(p => p.secondary_email)
             .filter((email): email is string => !!email && email !== recipientEmail);
         }
+
+        // Also CC billing manager secondary emails
+        const { data: billingMgrs } = await supabase
+          .from('user_profiles')
+          .select('secondary_email')
+          .eq('yacht_id', repairRequest.yacht_id)
+          .eq('can_approve_billing', true)
+          .eq('is_active', true)
+          .not('secondary_email', 'is', null);
+
+        if (billingMgrs && billingMgrs.length > 0) {
+          for (const m of billingMgrs) {
+            const cc = (m.secondary_email ?? '').trim();
+            if (cc && cc !== recipientEmail && !ccEmails.includes(cc)) {
+              ccEmails.push(cc);
+            }
+          }
+        }
       }
 
       if (ccEmail && ccEmail.trim() && !ccEmails.includes(ccEmail.trim())) {

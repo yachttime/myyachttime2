@@ -190,6 +190,38 @@ Deno.serve(async (req: Request) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const fromEmail = (Deno.env.get('RESEND_FROM_EMAIL') || 'notifications@myyachttime.com').trim();
 
+    // Helper to get billing manager CC emails for a yacht
+    async function getBillingCcEmails(yachtId: string | null, excludeEmail: string): Promise<string[]> {
+      if (!yachtId) return [];
+      const ccEmails: string[] = [];
+      const { data: ownerProfiles } = await supabase
+        .from('user_profiles')
+        .select('secondary_email')
+        .eq('yacht_id', yachtId)
+        .eq('role', 'owner')
+        .not('secondary_email', 'is', null);
+      if (ownerProfiles) {
+        for (const p of ownerProfiles) {
+          const cc = (p.secondary_email ?? '').trim();
+          if (cc && cc !== excludeEmail && !ccEmails.includes(cc)) ccEmails.push(cc);
+        }
+      }
+      const { data: billingMgrs } = await supabase
+        .from('user_profiles')
+        .select('secondary_email')
+        .eq('yacht_id', yachtId)
+        .eq('can_approve_billing', true)
+        .eq('is_active', true)
+        .not('secondary_email', 'is', null);
+      if (billingMgrs) {
+        for (const m of billingMgrs) {
+          const cc = (m.secondary_email ?? '').trim();
+          if (cc && cc !== excludeEmail && !ccEmails.includes(cc)) ccEmails.push(cc);
+        }
+      }
+      return ccEmails;
+    }
+
     const { payment_type, payment_id } = await req.json();
 
     if (!payment_type || !payment_id) {
@@ -271,16 +303,20 @@ Deno.serve(async (req: Request) => {
         </div></body></html>
       `;
 
+      const depositCcEmails = await getBillingCcEmails(repairRequest.yacht_id, customerEmail);
+      const depositEmailBody: any = {
+        from: fromEmail,
+        to: [customerEmail],
+        subject: `Deposit Confirmed - ${repairRequest.title}`,
+        html,
+        tags: [{ name: 'category', value: 'deposit_confirmation' }, { name: 'repair_request_id', value: payment_id }],
+      };
+      if (depositCcEmails.length > 0) depositEmailBody.cc = depositCcEmails;
+
       const emailResponse = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${resendApiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          from: fromEmail,
-          to: [customerEmail],
-          subject: `Deposit Confirmed - ${repairRequest.title}`,
-          html,
-          tags: [{ name: 'category', value: 'deposit_confirmation' }, { name: 'repair_request_id', value: payment_id }],
-        }),
+        body: JSON.stringify(depositEmailBody),
       });
 
       if (!emailResponse.ok) throw new Error('Failed to send email');
@@ -402,17 +438,21 @@ Deno.serve(async (req: Request) => {
         </div></body></html>
       `;
 
+      const invoiceCcEmails = await getBillingCcEmails(invoice.yacht_id, customerEmail);
+      const invoiceEmailBody: any = {
+        from: fromEmail,
+        to: [customerEmail],
+        subject: `Payment Confirmed - Invoice ${invoice.invoice_number}`,
+        html,
+        attachments: [{ filename: `Receipt-Invoice-${invoice.invoice_number}.pdf`, content: pdfBase64 }],
+        tags: [{ name: 'category', value: 'payment_confirmation' }, { name: 'invoice_id', value: payment_id }],
+      };
+      if (invoiceCcEmails.length > 0) invoiceEmailBody.cc = invoiceCcEmails;
+
       const emailResponse = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${resendApiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          from: fromEmail,
-          to: [customerEmail],
-          subject: `Payment Confirmed - Invoice ${invoice.invoice_number}`,
-          html,
-          attachments: [{ filename: `Receipt-Invoice-${invoice.invoice_number}.pdf`, content: pdfBase64 }],
-          tags: [{ name: 'category', value: 'payment_confirmation' }, { name: 'invoice_id', value: payment_id }],
-        }),
+        body: JSON.stringify(invoiceEmailBody),
       });
 
       if (!emailResponse.ok) throw new Error('Failed to send email');
@@ -495,16 +535,20 @@ Deno.serve(async (req: Request) => {
         </div></body></html>
       `;
 
+      const yachtInvCcEmails = await getBillingCcEmails(invoice.yacht_id, customerEmail);
+      const yachtInvEmailBody: any = {
+        from: fromEmail,
+        to: [customerEmail],
+        subject: `Payment Confirmed - ${invoice.repair_title}`,
+        html,
+        tags: [{ name: 'category', value: 'payment_confirmation' }, { name: 'invoice_id', value: payment_id }],
+      };
+      if (yachtInvCcEmails.length > 0) yachtInvEmailBody.cc = yachtInvCcEmails;
+
       const emailResponse = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${resendApiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          from: fromEmail,
-          to: [customerEmail],
-          subject: `Payment Confirmed - ${invoice.repair_title}`,
-          html,
-          tags: [{ name: 'category', value: 'payment_confirmation' }, { name: 'invoice_id', value: payment_id }],
-        }),
+        body: JSON.stringify(yachtInvEmailBody),
       });
 
       if (!emailResponse.ok) throw new Error('Failed to send email');

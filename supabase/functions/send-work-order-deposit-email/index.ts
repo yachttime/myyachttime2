@@ -111,6 +111,41 @@ Deno.serve(async (req: Request) => {
     let fromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'notifications@myyachttime.com';
     fromEmail = fromEmail.trim();
 
+    // Build CC list from billing managers with secondary_email
+    let ccEmails: string[] = [];
+    if (workOrder.yacht_id) {
+      const adminSupabase = createClient(supabaseUrl, supabaseServiceKey);
+      const { data: ownerProfiles } = await adminSupabase
+        .from('user_profiles')
+        .select('secondary_email')
+        .eq('yacht_id', workOrder.yacht_id)
+        .eq('role', 'owner')
+        .not('secondary_email', 'is', null);
+      if (ownerProfiles) {
+        for (const p of ownerProfiles) {
+          const cc = (p.secondary_email ?? '').trim();
+          if (cc && cc !== recipientEmail && !ccEmails.includes(cc)) ccEmails.push(cc);
+        }
+      }
+      const { data: billingMgrs } = await adminSupabase
+        .from('user_profiles')
+        .select('secondary_email')
+        .eq('yacht_id', workOrder.yacht_id)
+        .eq('can_approve_billing', true)
+        .eq('is_active', true)
+        .not('secondary_email', 'is', null);
+      if (billingMgrs) {
+        for (const m of billingMgrs) {
+          const cc = (m.secondary_email ?? '').trim();
+          if (cc && cc !== recipientEmail && !ccEmails.includes(cc)) ccEmails.push(cc);
+        }
+      }
+    }
+
+    if (surchargeCcEmail && !ccEmails.includes(surchargeCcEmail)) {
+      ccEmails.push(surchargeCcEmail);
+    }
+
     const emailPayload: any = {
       from: fromEmail,
       to: [recipientEmail],
@@ -119,14 +154,15 @@ Deno.serve(async (req: Request) => {
       tags: [{ name: 'category', value: 'work-order-deposit-request' }],
     };
 
-    if (surchargeCcEmail) {
-      emailPayload.cc = [surchargeCcEmail];
-      if (surchargeCcNote) {
-        emailPayload.html = htmlContent + `
+    if (ccEmails.length > 0) {
+      emailPayload.cc = ccEmails;
+    }
+
+    if (surchargeCcEmail && surchargeCcNote) {
+      emailPayload.html = htmlContent + `
           <div style="margin-top:24px;padding:14px 18px;background:#fef3c7;border-left:4px solid #f59e0b;border-radius:4px;font-family:Arial,sans-serif;font-size:13px;color:#92400e;">
             <strong>Note to Surcharge Department:</strong><br>${surchargeCcNote.replace(/\n/g, '<br>')}
           </div>`;
-      }
     }
 
     const response = await fetch('https://api.resend.com/emails', {
