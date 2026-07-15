@@ -28,7 +28,7 @@ import CustomerManagement from './CustomerManagement';
 import { CompanyManagement } from './CompanyManagement';
 import SupportTickets from './SupportTickets';
 import { uploadFileToStorage, deleteFileFromStorage, isStorageUrl, UploadProgress, isTokenExpiredError } from '../utils/fileUpload';
-import { generateAllYachtTripsPDF, generateEstimatingInvoicePDF, generateYachtInvoicesSummaryPDF } from '../utils/pdfGenerator';
+import { generateAllYachtTripsPDF, generateEstimatingInvoicePDF, generateYachtInvoicesSummaryPDF, generateTripInspectionPDF } from '../utils/pdfGenerator';
 
 interface DashboardProps {
   onNavigate: (page: 'maintenance' | 'education' | 'staffCalendar') => void;
@@ -683,6 +683,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [selectedInspectionForPDF, setSelectedInspectionForPDF] = useState<TripInspection | null>(null);
   const [selectedHandoffForPDF, setSelectedHandoffForPDF] = useState<OwnerHandoffInspection | null>(null);
   const [loadingPdfId, setLoadingPdfId] = useState<string | null>(null);
+  const [printingAllYachtId, setPrintingAllYachtId] = useState<string | null>(null);
   const [reviewInspectionId, setReviewInspectionId] = useState<string | null>(null);
   const [reviewInspectionData, setReviewInspectionData] = useState<any | null>(null);
   const [reviewInspectionPhotos, setReviewInspectionPhotos] = useState<any[]>([]);
@@ -7446,6 +7447,76 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     }
   };
 
+  const printAllInspections = async (yachtId: string) => {
+    if (printingAllYachtId) return;
+    setPrintingAllYachtId(yachtId);
+    try {
+      const { data: inspections, error } = await supabase
+        .from('trip_inspections')
+        .select('*, yachts(name)')
+        .eq('yacht_id', yachtId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      if (!inspections || inspections.length === 0) return;
+
+      // Load inspector profiles for all inspections
+      const inspectorIds = [...new Set(inspections.map(i => i.inspector_id).filter(Boolean))];
+      const profileMap: Record<string, { first_name: string; last_name: string }> = {};
+      if (inspectorIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('user_profiles')
+          .select('user_id, first_name, last_name')
+          .in('user_id', inspectorIds);
+        if (profiles) {
+          profiles.forEach(p => { profileMap[p.user_id] = { first_name: p.first_name, last_name: p.last_name }; });
+        }
+      }
+
+      // Load photos for all inspections
+      const { data: allPhotos } = await supabase
+        .from('inspection_photos')
+        .select('*')
+        .in('inspection_id', inspections.map(i => i.id))
+        .order('created_at', { ascending: true });
+
+      const photosByInspection: Record<string, any[]> = {};
+      if (allPhotos) {
+        allPhotos.forEach(p => {
+          if (!photosByInspection[p.inspection_id]) photosByInspection[p.inspection_id] = [];
+          photosByInspection[p.inspection_id].push(p);
+        });
+      }
+
+      // Generate combined PDF
+      let doc: any = null;
+      for (const inspection of inspections) {
+        if (inspection.inspector_id && profileMap[inspection.inspector_id]) {
+          (inspection as any).user_profiles = profileMap[inspection.inspector_id];
+        }
+        const photos = photosByInspection[inspection.id] || [];
+        doc = await generateTripInspectionPDF(inspection, photos, doc || undefined);
+      }
+
+      if (doc) {
+        const yachtName = inspections[0].yachts?.name || 'Unknown';
+        const blob = doc.output('blob');
+        const url = URL.createObjectURL(blob);
+        const printWindow = window.open(url);
+        if (printWindow) {
+          printWindow.addEventListener('load', () => {
+            printWindow.print();
+          });
+        }
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+      }
+    } catch (err) {
+      console.error('Error printing all inspections:', err);
+    } finally {
+      setPrintingAllYachtId(null);
+    }
+  };
+
   const loadPendingInspectionCount = async () => {
     if (!isStaffRole(effectiveRole) && !isMasterRole(effectiveRole)) return;
     try {
@@ -13217,7 +13288,22 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                             {/* Inspection Reports */}
                             <div className="mt-4 pt-4 border-t border-slate-700">
-                              <h4 className="text-sm font-semibold text-slate-300 mb-3">Inspection Reports</h4>
+                              <div className="flex items-center justify-between mb-3">
+                                <h4 className="text-sm font-semibold text-slate-300">Inspection Reports</h4>
+                                {yachtInspectionDocs[yacht.id] && yachtInspectionDocs[yacht.id].length > 0 && (
+                                  <button
+                                    onClick={() => printAllInspections(yacht.id)}
+                                    disabled={printingAllYachtId === yacht.id}
+                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 text-xs font-medium transition-colors disabled:opacity-50"
+                                  >
+                                    {printingAllYachtId === yacht.id ? (
+                                      <><RefreshCw className="w-3 h-3 animate-spin" />Generating...</>
+                                    ) : (
+                                      <><Printer className="w-3 h-3" />Print All</>
+                                    )}
+                                  </button>
+                                )}
+                              </div>
                               {yachtInspectionDocs[yacht.id] == null ? (
                                 <div className="text-slate-500 text-xs text-center py-4">Loading...</div>
                               ) : yachtInspectionDocs[yacht.id].length === 0 ? (
