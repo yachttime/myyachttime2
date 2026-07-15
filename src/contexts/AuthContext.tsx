@@ -67,7 +67,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
 
         if (event === 'TOKEN_REFRESHED') {
-          setUser(session?.user ?? null);
           return;
         }
 
