@@ -161,7 +161,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
   const [surchargeCcNote, setSurchargeCcNote] = useState('');
   const [surchargeCcEnabled, setSurchargeCcEnabled] = useState(false);
   const [companySurchargeManagerEmail, setCompanySurchargeManagerEmail] = useState('');
-  const [paymentMethodModal, setPaymentMethodModal] = useState<{ invoice: Invoice; email: string; mode: 'generate' | 'regenerate'; allRecipients?: string[] } | null>(null);
+  const [paymentMethodModal, setPaymentMethodModal] = useState<{ invoice: Invoice; email: string; mode: 'generate' | 'regenerate'; allRecipients?: string[]; ccEmails?: string[] } | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'card' | 'ach' | 'both'>('card');
   const [editableRecipients, setEditableRecipients] = useState<string[]>([]);
   const [newRecipientInput, setNewRecipientInput] = useState('');
@@ -1440,10 +1440,11 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       }
 
       let allRecipients: string[] = [resolvedEmail];
+      let ccEmails: string[] = [];
       if (invoice.yacht_id) {
         const { data: billingMgrs } = await supabase
           .from('user_profiles')
-          .select('email, notification_email')
+          .select('email, notification_email, secondary_email')
           .eq('yacht_id', invoice.yacht_id)
           .eq('can_approve_billing', true)
           .eq('is_active', true);
@@ -1452,13 +1453,20 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
             .map((m: any) => (m.notification_email || m.email || '').trim())
             .filter((e: string) => e && e !== resolvedEmail);
           allRecipients = [resolvedEmail, ...extras];
+          for (const m of billingMgrs) {
+            const cc = ((m as any).secondary_email ?? '').trim();
+            const primary = ((m as any).notification_email || (m as any).email || '').trim();
+            if (cc && cc !== primary && cc !== resolvedEmail && !ccEmails.includes(cc)) {
+              ccEmails.push(cc);
+            }
+          }
         }
       }
 
       setSelectedPaymentMethod(invoice.final_payment_method_type as 'card' | 'ach' | 'both' || 'card');
       setEditableRecipients(allRecipients);
       setNewRecipientInput('');
-      setPaymentMethodModal({ invoice, email: resolvedEmail, mode: 'generate', allRecipients });
+      setPaymentMethodModal({ invoice, email: resolvedEmail, mode: 'generate', allRecipients, ccEmails });
     } catch (error: any) {
       console.error('Error in handleRequestPayment:', error);
       showToast(error.message || 'Failed to open payment dialog', 'error');
@@ -1733,7 +1741,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
     if (selectedInvoice.yacht_id) {
       const { data: billingMgrs } = await supabase
         .from('user_profiles')
-        .select('email, notification_email')
+        .select('email, notification_email, secondary_email')
         .eq('yacht_id', selectedInvoice.yacht_id)
         .eq('can_approve_billing', true)
         .eq('is_active', true);
@@ -1748,6 +1756,22 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
           return true;
         });
       }
+      // Gather CC emails from billing managers
+      const ccEmails: string[] = [];
+      if (billingMgrs) {
+        for (const m of billingMgrs) {
+          const cc = ((m as any).secondary_email ?? '').trim();
+          const primary = ((m as any).notification_email || (m as any).email || '').trim();
+          if (cc && cc !== primary && cc !== primaryEmail && !ccEmails.includes(cc)) {
+            ccEmails.push(cc);
+          }
+        }
+      }
+
+      setEditableRecipients(recipients);
+      setNewRecipientInput('');
+      setPaymentMethodModal({ invoice: selectedInvoice, email: primaryEmail, mode: 'regenerate', allRecipients: recipients, ccEmails });
+      return;
     }
 
     setEditableRecipients(recipients);
@@ -4487,6 +4511,14 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                     </button>
                   </div>
                 </div>
+                {paymentMethodModal.ccEmails && paymentMethodModal.ccEmails.length > 0 && (
+                  <div className="mt-2 pt-2 border-t border-slate-700/50">
+                    <p className="text-slate-400 text-xs font-medium mb-1">CC (auto-included):</p>
+                    {paymentMethodModal.ccEmails.map((cc, i) => (
+                      <p key={i} className="text-xs text-emerald-400/80 pl-1">{cc}</p>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div>
