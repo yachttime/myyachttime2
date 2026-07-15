@@ -552,7 +552,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [selectedInvoiceForEmail, setSelectedInvoiceForEmail] = useState<YachtInvoice | null>(null);
   const [emailRecipient, setEmailRecipient] = useState('');
   const [emailRecipientName, setEmailRecipientName] = useState('');
-  const [invoiceBillingManagers, setInvoiceBillingManagers] = useState<{ email: string; name: string; source: string }[]>([]);
+  const [invoiceBillingManagers, setInvoiceBillingManagers] = useState<{ email: string; name: string; source: string; ccEmail?: string }[]>([]);
   const [invoiceBillingManagersLoading, setInvoiceBillingManagersLoading] = useState(false);
   const [invoiceEmailAttachment, setInvoiceEmailAttachment] = useState<File | null>(null);
   const [invoiceEmailPaymentMethod, setInvoiceEmailPaymentMethod] = useState<'card' | 'ach' | 'both'>('card');
@@ -5426,12 +5426,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     if (invoice.yacht_id) {
       setInvoiceBillingManagersLoading(true);
       try {
-        const found: { email: string; name: string; source: string }[] = [];
+        const found: { email: string; name: string; source: string; ccEmail?: string }[] = [];
         const seenEmails = new Set<string>();
 
         const { data: profiles } = await supabase
           .from('user_profiles')
-          .select('first_name, last_name, email, notification_email')
+          .select('first_name, last_name, email, notification_email, secondary_email')
           .eq('yacht_id', invoice.yacht_id)
           .eq('can_approve_billing', true);
 
@@ -5440,7 +5440,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           if (email && !seenEmails.has(email.toLowerCase())) {
             seenEmails.add(email.toLowerCase());
             const name = [p.first_name, p.last_name].filter(Boolean).join(' ');
-            found.push({ email, name, source: 'user' });
+            found.push({ email, name, source: 'user', ccEmail: p.secondary_email || undefined });
           }
         }
 
@@ -5471,6 +5471,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         if (found.length === 1) {
           setEmailRecipient(found[0].email);
           setEmailRecipientName(found[0].name);
+        }
+        // Pre-populate CC field with billing manager secondary emails
+        const ccFromManagers = found
+          .map(f => f.ccEmail)
+          .filter((cc): cc is string => !!cc);
+        if (ccFromManagers.length > 0) {
+          setInvoiceEmailCcEmail(ccFromManagers.join(', '));
         }
       } catch (error) {
         console.error('Error fetching billing managers for invoice:', error);
@@ -22623,6 +22630,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                         <div className="min-w-0">
                           {mgr.name && <p className="text-sm text-white font-medium truncate">{mgr.name}</p>}
                           <p className="text-sm text-blue-300 truncate">{mgr.email}</p>
+                          {mgr.ccEmail && <p className="text-xs text-slate-400 truncate">CC: {mgr.ccEmail}</p>}
                         </div>
                         <button
                           type="button"
@@ -22635,7 +22643,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       </div>
                     ))}
                   </div>
-                  <p className="text-xs text-slate-500 mt-1">Email will be sent to all listed billing managers</p>
+                  <p className="text-xs text-slate-500 mt-1">Email will be sent to all listed billing managers{invoiceBillingManagers.some(m => m.ccEmail) ? ' (CC addresses included automatically)' : ''}</p>
                 </div>
               ) : (
                 <>
