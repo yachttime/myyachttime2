@@ -23,27 +23,37 @@ export function generateVesselAgreementPDF(agreement: VesselManagementAgreement)
     doc.setFontSize(fontSize);
     doc.setFont('helvetica', style);
 
+    const lines = doc.splitTextToSize(text, contentWidth);
+    const lineHeight = fontSize / 72 * 1.2;
+    const blockHeight = lines.length * lineHeight;
+
     if (yPos > 10.25) {
+      doc.addPage();
+      yPos = margin;
+    } else if (yPos + blockHeight > 10.5 && lines.length > 1) {
       doc.addPage();
       yPos = margin;
     }
 
-    const lines = doc.splitTextToSize(text, contentWidth);
-
     if (align === 'center') {
       lines.forEach((line: string) => {
+        if (yPos > 10.25) { doc.addPage(); yPos = margin; }
         const textWidth = doc.getTextWidth(line);
         doc.text(line, (pageWidth - textWidth) / 2, yPos);
-        yPos += fontSize / 72 * 1.2;
+        yPos += lineHeight;
       });
     } else if (align === 'right') {
       lines.forEach((line: string) => {
+        if (yPos > 10.25) { doc.addPage(); yPos = margin; }
         doc.text(line, pageWidth - margin, yPos, { align: 'right' });
-        yPos += fontSize / 72 * 1.2;
+        yPos += lineHeight;
       });
     } else {
-      doc.text(lines, margin, yPos);
-      yPos += (lines.length * fontSize / 72 * 1.2);
+      lines.forEach((line: string) => {
+        if (yPos > 10.25) { doc.addPage(); yPos = margin; }
+        doc.text(line, margin, yPos);
+        yPos += lineHeight;
+      });
     }
   };
 
