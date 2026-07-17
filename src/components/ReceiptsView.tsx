@@ -290,7 +290,7 @@ export function ReceiptsView() {
         <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
         <div className="text-sm text-blue-800">
           <p className="font-medium">Receipt Approval Required</p>
-          <p className="mt-0.5">Uploaded receipts must be approved by staff or a master before they are considered processed. Until approved, receipts remain in "Pending" status.</p>
+          <p className="mt-0.5">Uploaded receipts must be approved by a manager before they are considered processed. Until approved, receipts remain in "Pending" status. Pending receipts are subject to payroll deduction.</p>
         </div>
       </div>
 
