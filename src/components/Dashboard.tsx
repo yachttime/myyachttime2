@@ -1796,6 +1796,36 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     }
   };
 
+  const handleUserReactivate = async (userToReactivate: any) => {
+    if (!await confirm({ message: `Are you sure you want to reactivate ${userToReactivate.first_name} ${userToReactivate.last_name}? They will regain access to the system.`, variant: 'warning' })) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('user_profiles')
+        .update({ is_active: true })
+        .eq('id', userToReactivate.id);
+
+      if (error) throw error;
+
+      if (userToReactivate.yacht_id) {
+        await logYachtActivity(
+          userToReactivate.yacht_id,
+          'user_reactivated',
+          `User reactivated: ${userToReactivate.first_name} ${userToReactivate.last_name}`,
+          user?.id
+        );
+      }
+
+      await loadUsers();
+      showSuccess('User reactivated successfully');
+    } catch (error: any) {
+      console.error('Error reactivating user:', error);
+      showError('Failed to reactivate user: ' + (error.message || 'Unknown error'));
+    }
+  };
+
   const handleTransferOwnership = async () => {
     if (!transferModal) return;
     setTransferLoading(true);
@@ -21168,6 +21198,19 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               if (user.role === 'mechanic' || user.role === 'staff' || user.role === 'master') return true;
                               return false;
                             });
+                            const deactivatedUsers = allUsers.filter(user => {
+                              if (user.is_active !== false) return false;
+                              if (userSearchTerm) {
+                                const searchLower = userSearchTerm.toLowerCase();
+                                return (
+                                  user.first_name?.toLowerCase().includes(searchLower) ||
+                                  user.last_name?.toLowerCase().includes(searchLower) ||
+                                  user.email?.toLowerCase().includes(searchLower) ||
+                                  user.role?.toLowerCase().includes(searchLower)
+                                );
+                              }
+                              return true;
+                            });
                             const yachtAssignedUsers = filteredUsers.filter(user => {
                               if (!user.yacht_id || user.is_active === false) return false;
                               return user.role === 'owner' || user.role === 'manager';
@@ -21193,7 +21236,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             const hasResults = filteredUsers.length > 0 || Object.keys(yachtGroups).length > 0;
 
                             if (selectedUserGroup) {
-                              let groupUsers = selectedUserGroup === 'Staff' ? staffUsers : yachtGroups[selectedUserGroup] || [];
+                              let groupUsers = selectedUserGroup === 'Staff' ? staffUsers : selectedUserGroup === 'Deactivated' ? deactivatedUsers : yachtGroups[selectedUserGroup] || [];
 
                               // Sort users: by trip number first (if present), then alphabetically
                               groupUsers = [...groupUsers].sort((a, b) => {
@@ -21353,15 +21396,17 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   </button>
 
                                   <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 overflow-hidden mb-6">
-                                    <div className={`${selectedUserGroup === 'Staff' ? 'bg-gradient-to-r from-blue-500/20 to-cyan-500/20' : 'bg-gradient-to-r from-teal-500/20 to-emerald-500/20'} border-b border-slate-700 px-6 py-4`}>
+                                    <div className={`${selectedUserGroup === 'Staff' ? 'bg-gradient-to-r from-blue-500/20 to-cyan-500/20' : selectedUserGroup === 'Deactivated' ? 'bg-gradient-to-r from-red-500/20 to-rose-500/20' : 'bg-gradient-to-r from-teal-500/20 to-emerald-500/20'} border-b border-slate-700 px-6 py-4`}>
                                       <div className="flex items-center gap-3">
                                         {selectedUserGroup === 'Staff' ? (
                                           <Users className="w-6 h-6 text-blue-400" />
+                                        ) : selectedUserGroup === 'Deactivated' ? (
+                                          <UserX className="w-6 h-6 text-red-400" />
                                         ) : (
                                           <Ship className="w-6 h-6 text-teal-400" />
                                         )}
                                         <h3 className="text-xl font-bold text-white">{selectedUserGroup}</h3>
-                                        <span className={`ml-auto px-3 py-1 ${selectedUserGroup === 'Staff' ? 'bg-blue-500/30 text-blue-300' : 'bg-teal-500/30 text-teal-300'} rounded-full text-sm font-medium`}>
+                                        <span className={`ml-auto px-3 py-1 ${selectedUserGroup === 'Staff' ? 'bg-blue-500/30 text-blue-300' : selectedUserGroup === 'Deactivated' ? 'bg-red-500/30 text-red-300' : 'bg-teal-500/30 text-teal-300'} rounded-full text-sm font-medium`}>
                                           {groupUsers.length} {groupUsers.length === 1 ? 'member' : 'members'}
                                         </span>
                                       </div>
@@ -21465,13 +21510,23 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                               <Edit2 className="w-4 h-4" />
                                               Edit
                                             </button>
-                                            <button
-                                              onClick={() => handleUserDelete(user)}
-                                              className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
-                                            >
-                                              <UserX className="w-4 h-4" />
-                                              Deactivate
-                                            </button>
+                                            {selectedUserGroup === 'Deactivated' ? (
+                                              <button
+                                                onClick={() => handleUserReactivate(user)}
+                                                className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
+                                              >
+                                                <UserCheck className="w-4 h-4" />
+                                                Reactivate
+                                              </button>
+                                            ) : (
+                                              <button
+                                                onClick={() => handleUserDelete(user)}
+                                                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
+                                              >
+                                                <UserX className="w-4 h-4" />
+                                                Deactivate
+                                              </button>
+                                            )}
                                           </div>
                                         </div>
                                       </div>
@@ -21849,6 +21904,30 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                     </div>
                                   </div>
                                 ))}
+
+                                {/* Deactivated Users group card */}
+                                {deactivatedUsers.length > 0 && effectiveRole !== 'manager' && (
+                                  <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 overflow-hidden hover:border-red-500 transition-all duration-300 hover:scale-105 group">
+                                    <div className="bg-gradient-to-r from-red-500/20 to-rose-500/20 border-b border-slate-700 px-6 py-4">
+                                      <div className="flex items-center gap-3">
+                                        <UserX className="w-6 h-6 text-red-400" />
+                                        <h3 className="text-xl font-bold text-white">Deactivated</h3>
+                                      </div>
+                                      <p className="text-slate-400 text-sm mt-2">
+                                        {deactivatedUsers.length} {deactivatedUsers.length === 1 ? 'user' : 'users'}
+                                      </p>
+                                    </div>
+                                    <div className="p-6">
+                                      <button
+                                        onClick={() => setSelectedUserGroup('Deactivated')}
+                                        className="w-full px-6 py-3 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
+                                      >
+                                        View
+                                        <UserX className="w-4 h-4" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
 
                                 {/* Broadcast Emails group card — only show when no search filter */}
                                 {canAccessAllYachts(effectiveRole) && !userSearchTerm && (() => {
