@@ -101,12 +101,14 @@ const STATUS_STYLES: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-800',
   approved: 'bg-green-100 text-green-800',
   archived: 'bg-gray-100 text-gray-600',
+  not_approved: 'bg-red-100 text-red-800',
 };
 
 const STATUS_LABELS: Record<string, string> = {
   pending: 'Pending',
   approved: 'Approved',
   archived: 'Archived',
+  not_approved: 'Not Approved - Payroll Deduction',
 };
 
 export function ReceiptsView() {
@@ -227,6 +229,21 @@ export function ReceiptsView() {
     setTimeout(() => setMessage(null), 3000);
   };
 
+  const handleNotApproved = async (receipt: Receipt) => {
+    if (!user) return;
+    const { error } = await supabase
+      .from('receipts')
+      .update({ status: 'not_approved', payroll_deduction: true, approved_by: user.id, approved_at: new Date().toISOString() })
+      .eq('id', receipt.id);
+    if (error) {
+      setMessage({ type: 'error', text: 'Failed to mark receipt as not approved.' });
+    } else {
+      setMessage({ type: 'success', text: 'Receipt marked as Not Approved - subject to payroll deduction.' });
+      loadReceipts();
+    }
+    setTimeout(() => setMessage(null), 3000);
+  };
+
   const handleDelete = async () => {
     if (!deleteTarget) return;
     const { error } = await supabase.from('receipts').delete().eq('id', deleteTarget.id);
@@ -241,7 +258,6 @@ export function ReceiptsView() {
   };
 
   const canDelete = (receipt: Receipt) => {
-    if (isStaffOrMaster) return true;
     return receipt.user_id === user?.id && receipt.status === 'pending';
   };
 
@@ -338,6 +354,7 @@ export function ReceiptsView() {
               <option value="all">All Statuses</option>
               <option value="pending">Pending</option>
               <option value="approved">Approved</option>
+              <option value="not_approved">Not Approved</option>
               <option value="archived">Archived</option>
             </select>
           </div>
@@ -422,6 +439,7 @@ export function ReceiptsView() {
                     {receipt.status === 'pending' && <Clock className="w-3 h-3" />}
                     {receipt.status === 'approved' && <Check className="w-3 h-3" />}
                     {receipt.status === 'archived' && <Archive className="w-3 h-3" />}
+                    {receipt.status === 'not_approved' && <X className="w-3 h-3" />}
                     {STATUS_LABELS[receipt.status] || receipt.status}
                   </span>
                 </div>
@@ -467,6 +485,17 @@ export function ReceiptsView() {
                     </button>
                   )}
 
+                  {/* Not Approved button - only for staff/master on pending receipts */}
+                  {isStaffOrMaster && receipt.status === 'pending' && (
+                    <button
+                      onClick={() => handleNotApproved(receipt)}
+                      className="flex items-center gap-1 px-2.5 py-1.5 bg-red-50 text-red-700 rounded-md text-xs font-medium hover:bg-red-100 transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      Not Approved
+                    </button>
+                  )}
+
                   {/* Archive button - only for staff/master on approved receipts */}
                   {isStaffOrMaster && receipt.status === 'approved' && (
                     <button
@@ -478,15 +507,23 @@ export function ReceiptsView() {
                     </button>
                   )}
 
-                  {/* Delete button */}
+                  {/* Delete button - only for employee's own pending receipts */}
                   {canDelete(receipt) && (
                     <button
                       onClick={() => setDeleteTarget(receipt)}
-                      className="flex items-center gap-1 px-2.5 py-1.5 text-red-600 rounded-md text-xs font-medium hover:bg-red-50 transition-colors ml-auto"
+                      className="flex items-center gap-1 px-2.5 py-1.5 text-gray-500 rounded-md text-xs font-medium hover:bg-gray-50 transition-colors ml-auto"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                       Delete
                     </button>
+                  )}
+
+                  {/* Payroll deduction indicator */}
+                  {receipt.status === 'not_approved' && (
+                    <span className="flex items-center gap-1 px-2.5 py-1.5 text-red-700 text-xs font-medium ml-auto">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      Subject to Payroll Deduction
+                    </span>
                   )}
                 </div>
               </div>
