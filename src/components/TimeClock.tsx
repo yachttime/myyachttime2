@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Clock, Users, History, FileText, ClipboardList, LayoutGrid } from 'lucide-react';
+import { Clock, Users, History, FileText, ClipboardList, LayoutGrid, Receipt } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useRoleImpersonation } from '../contexts/RoleImpersonationContext';
 import { supabase, isMasterRole } from '../lib/supabase';
@@ -9,12 +9,13 @@ import { TimeEntryEditor } from './TimeEntryEditor';
 import { PayrollReportView } from './PayrollReportView';
 import { DailyTasksView } from './DailyTasksView';
 import { TimecardView } from './TimecardView';
+import { ReceiptsView } from './ReceiptsView';
 import { TimeEntry } from '../utils/timeClockHelpers';
 
 export function TimeClock() {
   const { userProfile } = useAuth();
   const { getEffectiveRole } = useRoleImpersonation();
-  const [activeSubTab, setActiveSubTab] = useState<'punch' | 'myTime' | 'allTime' | 'payroll' | 'dailyTasks' | 'timecard'>('punch');
+  const [activeSubTab, setActiveSubTab] = useState<'punch' | 'myTime' | 'allTime' | 'payroll' | 'dailyTasks' | 'timecard' | 'receipts'>('punch');
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -62,6 +63,17 @@ export function TimeClock() {
           >
             <ClipboardList className="w-4 h-4" />
             Daily Tasks
+          </button>
+          <button
+            onClick={() => setActiveSubTab('receipts')}
+            className={`pb-4 px-2 border-b-2 font-medium text-sm flex items-center gap-2 ${
+              activeSubTab === 'receipts'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <Receipt className="w-4 h-4" />
+            Receipts
           </button>
           {isMaster && (
             <>
@@ -128,6 +140,10 @@ export function TimeClock() {
 
         {activeSubTab === 'dailyTasks' && (
           <DailyTasksView />
+        )}
+
+        {activeSubTab === 'receipts' && (
+          <ReceiptsView />
         )}
       </div>
 
