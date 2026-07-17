@@ -15,6 +15,10 @@ import {
   CheckCircle,
   Image as ImageIcon,
   ExternalLink,
+  Check,
+  Archive,
+  Clock,
+  Info,
 } from 'lucide-react';
 import { supabase, isMasterRole } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -32,6 +36,10 @@ interface Receipt {
   customer_id: string | null;
   estimate_id: string | null;
   receipt_date: string;
+  status: string;
+  approved_by: string | null;
+  approved_at: string | null;
+  approval_notes: string | null;
   created_at: string;
   yachts?: { name: string } | null;
   customers?: { first_name: string | null; last_name: string | null; business_name: string | null } | null;
@@ -89,11 +97,23 @@ const TAG_ICONS: Record<TagType, React.ReactNode> = {
   fuel_company_boat: <Fuel className="w-3 h-3" />,
 };
 
+const STATUS_STYLES: Record<string, string> = {
+  pending: 'bg-yellow-100 text-yellow-800',
+  approved: 'bg-green-100 text-green-800',
+  archived: 'bg-gray-100 text-gray-600',
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  pending: 'Pending',
+  approved: 'Approved',
+  archived: 'Archived',
+};
+
 export function ReceiptsView() {
   const { user, userProfile } = useAuth();
   const { getEffectiveRole } = useRoleImpersonation();
   const effectiveRole = getEffectiveRole(userProfile?.role);
-  const isMaster = isMasterRole(effectiveRole);
+  const isStaffOrMaster = effectiveRole === 'staff' || effectiveRole === 'master';
 
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [loading, setLoading] = useState(true);
@@ -105,6 +125,7 @@ export function ReceiptsView() {
   // Filters
   const [filterEmployee, setFilterEmployee] = useState<string>('all');
   const [filterTagType, setFilterTagType] = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState<string>('pending');
   const [filterDateFrom, setFilterDateFrom] = useState<string>('');
   const [filterDateTo, setFilterDateTo] = useState<string>('');
 
@@ -113,8 +134,8 @@ export function ReceiptsView() {
 
   useEffect(() => {
     loadReceipts();
-    loadStaffOptions();
-  }, [filterEmployee, filterTagType, filterDateFrom, filterDateTo]);
+    if (isStaffOrMaster) loadStaffOptions();
+  }, [filterEmployee, filterTagType, filterStatus, filterDateFrom, filterDateTo]);
 
   const loadStaffOptions = async () => {
     const { data } = await supabase
@@ -144,6 +165,9 @@ export function ReceiptsView() {
     if (filterTagType !== 'all') {
       query = query.eq('tag_type', filterTagType);
     }
+    if (filterStatus !== 'all') {
+      query = query.eq('status', filterStatus);
+    }
     if (filterDateFrom) {
       query = query.gte('receipt_date', filterDateFrom);
     }
@@ -156,7 +180,6 @@ export function ReceiptsView() {
       console.error('Error loading receipts:', error);
     } else {
       setReceipts(data || []);
-      // Build user names map from unique user_ids
       const userIds = [...new Set((data || []).map(r => r.user_id))];
       if (userIds.length > 0) {
         const { data: profiles } = await supabase
@@ -175,6 +198,35 @@ export function ReceiptsView() {
     setLoading(false);
   };
 
+  const handleApprove = async (receipt: Receipt) => {
+    if (!user) return;
+    const { error } = await supabase
+      .from('receipts')
+      .update({ status: 'approved', approved_by: user.id, approved_at: new Date().toISOString() })
+      .eq('id', receipt.id);
+    if (error) {
+      setMessage({ type: 'error', text: 'Failed to approve receipt.' });
+    } else {
+      setMessage({ type: 'success', text: 'Receipt approved.' });
+      loadReceipts();
+    }
+    setTimeout(() => setMessage(null), 3000);
+  };
+
+  const handleArchive = async (receipt: Receipt) => {
+    const { error } = await supabase
+      .from('receipts')
+      .update({ status: 'archived' })
+      .eq('id', receipt.id);
+    if (error) {
+      setMessage({ type: 'error', text: 'Failed to archive receipt.' });
+    } else {
+      setMessage({ type: 'success', text: 'Receipt archived.' });
+      loadReceipts();
+    }
+    setTimeout(() => setMessage(null), 3000);
+  };
+
   const handleDelete = async () => {
     if (!deleteTarget) return;
     const { error } = await supabase.from('receipts').delete().eq('id', deleteTarget.id);
@@ -189,7 +241,8 @@ export function ReceiptsView() {
   };
 
   const canDelete = (receipt: Receipt) => {
-    return isMaster || receipt.user_id === user?.id;
+    if (isStaffOrMaster) return true;
+    return receipt.user_id === user?.id && receipt.status === 'pending';
   };
 
   const getTagLabel = (receipt: Receipt): string => {
@@ -232,6 +285,15 @@ export function ReceiptsView() {
         </button>
       </div>
 
+      {/* Info Banner */}
+      <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+        <div className="text-sm text-blue-800">
+          <p className="font-medium">Receipt Approval Required</p>
+          <p className="mt-0.5">Uploaded receipts must be approved by staff or a master before they are considered processed. Until approved, receipts remain in "Pending" status.</p>
+        </div>
+      </div>
+
       {/* Message */}
       {message && (
         <div className={`flex items-center gap-2 p-3 rounded-lg text-sm ${
@@ -248,20 +310,35 @@ export function ReceiptsView() {
           <Filter className="w-4 h-4 text-gray-500" />
           <span className="text-sm font-medium text-gray-700">Filters</span>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          {isStaffOrMaster && (
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Employee</label>
+              <select
+                value={filterEmployee}
+                onChange={(e) => setFilterEmployee(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="all">All Employees</option>
+                {staffOptions.map(s => (
+                  <option key={s.user_id} value={s.user_id}>
+                    {s.first_name} {s.last_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Employee</label>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Status</label>
             <select
-              value={filterEmployee}
-              onChange={(e) => setFilterEmployee(e.target.value)}
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
-              <option value="all">All Employees</option>
-              {staffOptions.map(s => (
-                <option key={s.user_id} value={s.user_id}>
-                  {s.first_name} {s.last_name}
-                </option>
-              ))}
+              <option value="all">All Statuses</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="archived">Archived</option>
             </select>
           </div>
           <div>
@@ -312,7 +389,9 @@ export function ReceiptsView() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {receipts.map(receipt => (
-            <div key={receipt.id} className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
+            <div key={receipt.id} className={`bg-white border rounded-lg overflow-hidden hover:shadow-md transition-shadow ${
+              receipt.status === 'archived' ? 'border-gray-200 opacity-75' : 'border-gray-200'
+            }`}>
               {/* Thumbnail */}
               <a
                 href={receipt.receipt_url}
@@ -336,6 +415,15 @@ export function ReceiptsView() {
                 )}
                 <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all flex items-center justify-center">
                   <ExternalLink className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+                {/* Status badge overlay */}
+                <div className="absolute top-2 left-2">
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_STYLES[receipt.status] || 'bg-gray-100 text-gray-800'}`}>
+                    {receipt.status === 'pending' && <Clock className="w-3 h-3" />}
+                    {receipt.status === 'approved' && <Check className="w-3 h-3" />}
+                    {receipt.status === 'archived' && <Archive className="w-3 h-3" />}
+                    {STATUS_LABELS[receipt.status] || receipt.status}
+                  </span>
                 </div>
               </a>
 
@@ -362,17 +450,42 @@ export function ReceiptsView() {
                 </div>
 
                 {/* Employee name */}
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-400">
-                    {userNames[receipt.user_id] || 'Unknown'}
-                  </span>
+                <div className="text-xs text-gray-400 mb-3">
+                  {userNames[receipt.user_id] || 'Unknown'}
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
+                  {/* Approve button - only for staff/master on pending receipts */}
+                  {isStaffOrMaster && receipt.status === 'pending' && (
+                    <button
+                      onClick={() => handleApprove(receipt)}
+                      className="flex items-center gap-1 px-2.5 py-1.5 bg-green-50 text-green-700 rounded-md text-xs font-medium hover:bg-green-100 transition-colors"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      Approve
+                    </button>
+                  )}
+
+                  {/* Archive button - only for staff/master on approved receipts */}
+                  {isStaffOrMaster && receipt.status === 'approved' && (
+                    <button
+                      onClick={() => handleArchive(receipt)}
+                      className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-50 text-gray-700 rounded-md text-xs font-medium hover:bg-gray-100 transition-colors"
+                    >
+                      <Archive className="w-3.5 h-3.5" />
+                      Archive
+                    </button>
+                  )}
+
+                  {/* Delete button */}
                   {canDelete(receipt) && (
                     <button
                       onClick={() => setDeleteTarget(receipt)}
-                      className="p-1 text-gray-400 hover:text-red-500 transition-colors"
-                      title="Delete receipt"
+                      className="flex items-center gap-1 px-2.5 py-1.5 text-red-600 rounded-md text-xs font-medium hover:bg-red-50 transition-colors ml-auto"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Delete
                     </button>
                   )}
                 </div>
