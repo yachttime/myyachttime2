@@ -507,14 +507,14 @@ export function ReceiptsView() {
                     </button>
                   )}
 
-                  {/* Delete button - only for employee's own pending receipts */}
+                  {/* Archive button - for employee's own pending receipts */}
                   {canDelete(receipt) && (
                     <button
-                      onClick={() => setDeleteTarget(receipt)}
+                      onClick={() => handleArchive(receipt)}
                       className="flex items-center gap-1 px-2.5 py-1.5 text-gray-500 rounded-md text-xs font-medium hover:bg-gray-50 transition-colors ml-auto"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      Delete
+                      <Archive className="w-3.5 h-3.5" />
+                      Archive
                     </button>
                   )}
 
