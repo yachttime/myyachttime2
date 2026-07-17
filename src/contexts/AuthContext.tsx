@@ -145,6 +145,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (profileError) throw profileError;
 
+      if (profile?.is_active === false) {
+        await supabase.auth.signOut();
+        setUser(null);
+        setUserProfile(null);
+        setYacht(null);
+        setLoading(false);
+        throw new Error('Your account has been deactivated. Please contact the marina for assistance.');
+      }
+
       setUserProfile(profile);
 
       if (profile?.yacht_id) {
