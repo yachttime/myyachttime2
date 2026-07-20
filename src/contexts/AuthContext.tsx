@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase, UserProfile, Yacht } from '../lib/supabase';
+import { withRetry, isRetryableError } from '../utils/retry';
 
 interface SignUpProfile {
   first_name: string;
@@ -130,83 +131,64 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const loadUserProfile = async (userId: string, attempt = 1) => {
-    const MAX_ATTEMPTS = 5;
-
-    const jitter = () => Math.floor(Math.random() * 500);
-    const backoff = (n: number) => Math.min(1000 * Math.pow(2, n - 1) + jitter(), 12000);
-
+  const loadUserProfile = async (userId: string) => {
     try {
-      const { data: profile, error: profileError } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      if (profileError) throw profileError;
-
-      if (profile?.is_active === false) {
-        await supabase.auth.signOut();
-        setUser(null);
-        setUserProfile(null);
-        setYacht(null);
-        setLoading(false);
-        throw new Error('Your account has been deactivated. Please contact the marina for assistance.');
-      }
-
-      setUserProfile(profile);
-
-      if (profile?.yacht_id) {
-        const { data: yachtData, error: yachtError } = await supabase
-          .from('yachts')
+      await withRetry(async () => {
+        const { data: profile, error: profileError } = await supabase
+          .from('user_profiles')
           .select('*')
-          .eq('id', profile.yacht_id)
+          .eq('user_id', userId)
           .maybeSingle();
 
-        if (yachtError) throw yachtError;
+        if (profileError) throw profileError;
 
-        if (yachtData && yachtData.is_active === false && (profile.role === 'owner' || profile.role === 'manager')) {
+        if (profile?.is_active === false) {
           await supabase.auth.signOut();
           setUser(null);
           setUserProfile(null);
           setYacht(null);
           setLoading(false);
-          throw new Error('Your vessel account is currently inactive. Please contact the marina for assistance.');
+          throw new Error('Your account has been deactivated. Please contact the marina for assistance.');
         }
 
-        setYacht(yachtData);
-      } else {
-        setYacht(null);
-      }
+        setUserProfile(profile);
 
-      setLoading(false);
-    } catch (error: any) {
-      const msg = (error?.message ?? '').toLowerCase();
-      const isRetryable =
-        msg.includes('timeout') ||
-        msg.includes('upstream') ||
-        msg.includes('schema cache') ||
-        msg.includes('querying schema') ||
-        msg.includes('unavailable') ||
-        msg.includes('503') ||
-        msg.includes('504') ||
-        msg.includes('502') ||
-        error?.name === 'AbortError' ||
-        error?.code === '57014' ||
-        error?.status === 504 ||
-        error?.status === 503 ||
-        error?.status === 502;
+        if (profile?.yacht_id) {
+          const { data: yachtData, error: yachtError } = await supabase
+            .from('yachts')
+            .select('*')
+            .eq('id', profile.yacht_id)
+            .maybeSingle();
 
-      if (isRetryable && attempt < MAX_ATTEMPTS) {
-        const delay = backoff(attempt);
-        console.warn(`Profile load attempt ${attempt} failed, retrying in ${delay}ms...`, error?.message);
-        setTimeout(() => loadUserProfile(userId, attempt + 1), delay);
-      } else {
-        if (!isRetryable) console.error('Error loading user profile:', error);
-        setUserProfile(null);
-        setYacht(null);
+          if (yachtError) throw yachtError;
+
+          if (yachtData && yachtData.is_active === false && (profile.role === 'owner' || profile.role === 'manager')) {
+            await supabase.auth.signOut();
+            setUser(null);
+            setUserProfile(null);
+            setYacht(null);
+            setLoading(false);
+            throw new Error('Your vessel account is currently inactive. Please contact the marina for assistance.');
+          }
+
+          setYacht(yachtData);
+        } else {
+          setYacht(null);
+        }
+
         setLoading(false);
-      }
+      }, {
+        maxAttempts: 5,
+        baseDelayMs: 1000,
+        capMs: 12000,
+        jitterMs: 500,
+        onRetry: (attempt, delay, error) => console.warn(`Profile load attempt ${attempt} failed, retrying in ${delay}ms...`, error?.message),
+      });
+    } catch (error: any) {
+      if (!isRetryableError(error)) console.error('Error loading user profile:', error);
+      setUserProfile(null);
+      setYacht(null);
+      setLoading(false);
     }
   };
 
@@ -244,18 +226,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const MAX_ATTEMPTS = 4;
     const BASE_TIMEOUT_MS = 20000;
-    const jitter = () => Math.floor(Math.random() * 600);
-    const backoff = (n: number) => Math.min(1500 * Math.pow(2, n - 1) + jitter(), 15000);
 
-    let lastError: any;
+    try {
+      await withRetry(async (attempt) => {
+        const timeoutMs = BASE_TIMEOUT_MS + (attempt - 1) * 5000;
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('upstream request timeout')), timeoutMs)
+        );
 
-    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-      const timeoutMs = BASE_TIMEOUT_MS + (attempt - 1) * 5000;
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('upstream request timeout')), timeoutMs)
-      );
-
-      try {
         const { data, error } = await Promise.race([
           supabase.auth.signInWithPassword({ email, password }),
           timeoutPromise,
@@ -272,33 +250,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               if (error && !error.message?.includes('upstream') && error.code !== '57014') console.error('Error updating sign in time:', error);
             });
         }
-        return;
-      } catch (err: any) {
-        lastError = err;
-
-        const msg = (err?.message ?? '').toLowerCase();
-        const isRetryable =
-          msg.includes('timeout') ||
-          msg.includes('upstream') ||
-          msg.includes('unavailable') ||
-          msg.includes('querying schema') ||
-          msg.includes('schema cache') ||
-          msg.includes('504') ||
-          msg.includes('503') ||
-          msg.includes('502') ||
-          err?.status === 504 ||
-          err?.status === 503 ||
-          err?.status === 502;
-
-        if (!isRetryable || attempt === MAX_ATTEMPTS) break;
-
-        const delay = backoff(attempt);
-        console.warn(`Sign in attempt ${attempt} failed, retrying in ${delay}ms...`, err?.message);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
+      }, {
+        maxAttempts: MAX_ATTEMPTS,
+        baseDelayMs: 1500,
+        capMs: 15000,
+        jitterMs: 600,
+        onRetry: (attempt, delay, err) => console.warn(`Sign in attempt ${attempt} failed, retrying in ${delay}ms...`, err?.message),
+      });
+    } catch (error: any) {
+      throw error;
     }
-
-    throw lastError;
   };
 
   const signOut = async () => {

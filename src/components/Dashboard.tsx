@@ -29,6 +29,9 @@ import { CompanyManagement } from './CompanyManagement';
 import SupportTickets from './SupportTickets';
 import { uploadFileToStorage, deleteFileFromStorage, isStorageUrl, UploadProgress, isTokenExpiredError } from '../utils/fileUpload';
 import { generateAllYachtTripsPDF, generateEstimatingInvoicePDF, generateYachtInvoicesSummaryPDF, generateTripInspectionPDF } from '../utils/pdfGenerator';
+import { convertTo12Hour, formatPhoneNumber, toAZDateStr, isAntelopePointMarina, isWithinBookingPeriod } from '../utils/dashboardHelpers';
+import AdminMenu from './admin/AdminMenu';
+import AdminViewWrapper from './admin/AdminViewWrapper';
 
 interface DashboardProps {
   onNavigate: (page: 'maintenance' | 'education' | 'staffCalendar') => void;
@@ -145,43 +148,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     sms_notifications_enabled: false,
   });
 
-  const convertTo12Hour = (time24: string): string => {
-    if (!time24) return '';
-    const [hours, minutes] = time24.split(':');
-    const hour = parseInt(hours, 10);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const hour12 = hour % 12 || 12;
-    return `${hour12}:${minutes} ${ampm}`;
-  };
-
-  const formatPhoneNumber = (value: string): string => {
-    const cleaned = value.replace(/\D/g, '');
-    if (cleaned.length <= 3) return cleaned;
-    if (cleaned.length <= 6) return `${cleaned.slice(0, 3)}-${cleaned.slice(3)}`;
-    return `${cleaned.slice(0, 3)}-${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
-  };
-
-  // Extract YYYY-MM-DD in Arizona time from a timestamp string (avoids UTC midnight shifting day)
-  const toAZDateStr = (ts: string): string => {
-    if (/^\d{4}-\d{2}-\d{2}$/.test(ts)) return ts;
-    return new Date(ts).toLocaleDateString('en-CA', { timeZone: 'America/Phoenix' });
-  };
-
-  const isAntelopePoint = () => {
-    if (!yacht?.marina_name) return false;
-    const marinaName = yacht.marina_name.toLowerCase().trim();
-    return marinaName.includes('antelope') || marinaName.includes('antilope');
-  };
-
-  const isWithinBookingPeriod = (booking: YachtBooking | null): boolean => {
-    if (!booking) return false;
-    const now = new Date();
-    const nowMST = new Date(now.toLocaleString('en-US', { timeZone: 'America/Phoenix' }));
-    const start = new Date(new Date(booking.start_date).toLocaleString('en-US', { timeZone: 'America/Phoenix' }));
-    const end = new Date(new Date(booking.end_date).toLocaleString('en-US', { timeZone: 'America/Phoenix' }));
-    end.setHours(23, 59, 59, 999);
-    return nowMST >= start && nowMST <= end;
-  };
+  const isAntelopePoint = () => isAntelopePointMarina(yacht?.marina_name);
 
   const [waterLevelData, setWaterLevelData] = useState<{elevation: string; date: string} | null>(null);
   const [waterLevelLoading, setWaterLevelLoading] = useState(true);
@@ -10002,221 +9969,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     <p className="text-slate-400">Manage yacht operations and inspections</p>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <button
-                      onClick={() => setAdminViewPersisted('mastercalendar')}
-                      className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
-                    >
-                      <div className="flex items-center gap-4 mb-4">
-                        <div className="bg-teal-500/20 p-4 rounded-xl group-hover:bg-teal-500/30 transition-colors">
-                          <Calendar className="w-8 h-8 text-teal-500" />
-                        </div>
-                      </div>
-                      <h3 className="text-xl font-bold mb-2">Master Calendar</h3>
-                      <p className="text-slate-400 text-sm">{isOwnerRole(effectiveRole) ? 'View your yacht trip schedule' : 'View all owner trips across all yachts'}</p>
-                    </button>
-
-                    {!isOwnerRole(effectiveRole) && (
-                      <button
-                        onClick={() => setAdminViewPersisted('messages')}
-                        className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
-                      >
-                        <div className="flex items-center gap-4 mb-4">
-                          <div className="bg-cyan-500/20 p-4 rounded-xl group-hover:bg-cyan-500/30 transition-colors">
-                            <Mail className="w-8 h-8 text-cyan-500" />
-                          </div>
-                        </div>
-                        <h3 className="text-xl font-bold mb-2">New Messages</h3>
-                        <p className="text-slate-400 text-sm">View all incoming messages and appointments</p>
-                      </button>
-                    )}
-
-                    {canAccessAllYachts(effectiveRole) && (
-                      <button
-                        onClick={() => setAdminViewPersisted('appointments')}
-                        className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
-                      >
-                        <div className="flex items-center gap-4 mb-4">
-                          <div className="bg-orange-500/20 p-4 rounded-xl group-hover:bg-orange-500/30 transition-colors">
-                            <CalendarPlus className="w-8 h-8 text-orange-500" />
-                          </div>
-                        </div>
-                        <h3 className="text-xl font-bold mb-2">Create Appointment</h3>
-                        <p className="text-slate-400 text-sm">Schedule customer appointments and repairs</p>
-                      </button>
-                    )}
-
-                    {canAccessAllYachts(effectiveRole) && (
-                      <button
-                        onClick={() => setAdminViewPersisted('staffappointment')}
-                        className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
-                      >
-                        <div className="flex items-center gap-4 mb-4">
-                          <div className="bg-blue-500/20 p-4 rounded-xl group-hover:bg-blue-500/30 transition-colors">
-                            <Users className="w-8 h-8 text-blue-500" />
-                          </div>
-                        </div>
-                        <h3 className="text-xl font-bold mb-2">Staff Appointment</h3>
-                        <p className="text-slate-400 text-sm">Schedule meetings with staff or contacts</p>
-                      </button>
-                    )}
-
-                    {canManageYacht(effectiveRole) && (
-                      <button
-                        onClick={() => setAdminViewPersisted('inspection')}
-                        className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
-                      >
-                        <div className="flex items-center justify-between gap-4 mb-4">
-                          <div className="bg-amber-500/20 p-4 rounded-xl group-hover:bg-amber-500/30 transition-colors">
-                            <ClipboardCheck className="w-8 h-8 text-amber-500" />
-                          </div>
-                          {(isStaffRole(effectiveRole) || isMasterRole(effectiveRole)) && pendingInspectionCount > 0 && (
-                            <span className="bg-amber-500 text-white text-xs font-bold px-2.5 py-1 rounded-full">{pendingInspectionCount} Pending</span>
-                          )}
-                        </div>
-                        <h3 className="text-xl font-bold mb-2">Trip Inspection Form</h3>
-                        <p className="text-slate-400 text-sm">Complete trip inspections for yacht trips</p>
-                      </button>
-                    )}
-
-                    {canManageYacht(effectiveRole) && (
-                      <button
-                        onClick={() => setAdminViewPersisted('ownerhandoff')}
-                        className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
-                      >
-                        <div className="flex items-center gap-4 mb-4">
-                          <div className="bg-emerald-500/20 p-4 rounded-xl group-hover:bg-emerald-500/30 transition-colors">
-                            <UserCheck className="w-8 h-8 text-emerald-500" />
-                          </div>
-                        </div>
-                        <h3 className="text-xl font-bold mb-2">Meet the Yacht Owner</h3>
-                        <p className="text-slate-400 text-sm">Complete pre-handoff checklist before owner arrival</p>
-                      </button>
-                    )}
-
-                    {isStaffOrManager(effectiveRole) && (
-                      <button
-                        onClick={() => setAdminViewPersisted('repairs')}
-                        className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
-                      >
-                        <div className="flex items-center gap-4 mb-4">
-                          <div className="bg-orange-500/20 p-4 rounded-xl group-hover:bg-orange-500/30 transition-colors">
-                            <FileUp className="w-8 h-8 text-orange-500" />
-                          </div>
-                        </div>
-                        <h3 className="text-xl font-bold mb-2">Repair Requests</h3>
-                        <p className="text-slate-400 text-sm">Upload files and request repair approvals</p>
-                      </button>
-                    )}
-
-                    {isStaffOrManager(effectiveRole) && (
-                      <button
-                        onClick={() => { loadAllMaintenanceRequests(); setAdminViewPersisted('maintenancerequests'); }}
-                        className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
-                      >
-                        <div className="flex items-center gap-4 mb-4">
-                          <div className="bg-amber-500/20 p-4 rounded-xl group-hover:bg-amber-500/30 transition-colors">
-                            <Wrench className="w-8 h-8 text-amber-500" />
-                          </div>
-                        </div>
-                        <h3 className="text-xl font-bold mb-2">Owner Maintenance Requests</h3>
-                        <p className="text-slate-400 text-sm">View maintenance requests submitted by yacht owners and managers</p>
-                      </button>
-                    )}
-
-                    {canManageYacht(effectiveRole) && (
-                      <button
-                        onClick={() => setAdminViewPersisted('ownertrips')}
-                        className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
-                      >
-                        <div className="flex items-center gap-4 mb-4">
-                          <div className="bg-green-500/20 p-4 rounded-xl group-hover:bg-green-500/30 transition-colors">
-                            <CalendarPlus className="w-8 h-8 text-green-500" />
-                          </div>
-                        </div>
-                        <h3 className="text-xl font-bold mb-2">Owner Trips</h3>
-                        <p className="text-slate-400 text-sm">Schedule and manage owner yacht trips</p>
-                      </button>
-                    )}
-
-                    {(isOwnerRole(effectiveRole) || canManageYacht(effectiveRole)) && (
-                      <button
-                        onClick={() => setAdminViewPersisted('ownerchat')}
-                        className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
-                      >
-                      <div className="flex items-center gap-4 mb-4">
-                        <div className="bg-purple-500/20 p-4 rounded-xl group-hover:bg-purple-500/30 transition-colors">
-                          <MessageCircle className="w-8 h-8 text-purple-500" />
-                        </div>
-                      </div>
-                        <h3 className="text-xl font-bold mb-2">Owner Chat</h3>
-                        <p className="text-slate-400 text-sm">{isOwnerRole(effectiveRole) ? 'Chat with all owners on your yacht' : 'Connect and chat with all yacht owners'}</p>
-                      </button>
-                    )}
-
-                    {isStaffOrManager(effectiveRole) && (
-                      <button
-                        onClick={() => setAdminViewPersisted('yachts')}
-                        className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
-                      >
-                        <div className="flex items-center justify-between gap-4 mb-4">
-                          <div className="bg-blue-500/20 p-4 rounded-xl group-hover:bg-blue-500/30 transition-colors">
-                            <Ship className="w-8 h-8 text-blue-500" />
-                          </div>
-                          {(isStaffRole(effectiveRole) || isMasterRole(effectiveRole)) && pendingInspectionCount > 0 && (
-                            <span className="bg-amber-500 text-white text-xs font-bold px-2.5 py-1 rounded-full">{pendingInspectionCount} Review{pendingInspectionCount > 1 ? 's' : ''} Pending</span>
-                          )}
-                        </div>
-                        <h3 className="text-xl font-bold mb-2">Yachts</h3>
-                        <p className="text-slate-400 text-sm">Manage yacht fleet and vessel information</p>
-                      </button>
-                    )}
-
-                    {isMasterRole(effectiveRole) && (
-                      <button
-                        onClick={() => setAdminViewPersisted('smartdevices')}
-                        className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
-                      >
-                        <div className="flex items-center gap-4 mb-4">
-                          <div className="bg-green-500/20 p-4 rounded-xl group-hover:bg-green-500/30 transition-colors">
-                            <Lock className="w-8 h-8 text-green-500" />
-                          </div>
-                        </div>
-                        <h3 className="text-xl font-bold mb-2">Smart Devices</h3>
-                        <p className="text-slate-400 text-sm">Manage smart locks and device credentials</p>
-                      </button>
-                    )}
-
-                    {isMasterRole(effectiveRole) && (
-                      <button
-                        onClick={() => setAdminViewPersisted('companies')}
-                        className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
-                      >
-                        <div className="flex items-center gap-4 mb-4">
-                          <div className="bg-amber-500/20 p-4 rounded-xl group-hover:bg-amber-500/30 transition-colors">
-                            <Building2 className="w-8 h-8 text-amber-500" />
-                          </div>
-                        </div>
-                        <h3 className="text-xl font-bold mb-2">Company Management</h3>
-                        <p className="text-slate-400 text-sm">Manage companies and multi-tenant settings</p>
-                      </button>
-                    )}
-
-                    {canManageYacht(effectiveRole) && (
-                      <button
-                        onClick={() => setAdminViewPersisted('users')}
-                        className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
-                      >
-                        <div className="flex items-center gap-4 mb-4">
-                          <div className="bg-blue-500/20 p-4 rounded-xl group-hover:bg-blue-500/30 transition-colors">
-                            <Users className="w-8 h-8 text-blue-500" />
-                          </div>
-                        </div>
-                        <h3 className="text-xl font-bold mb-2">User Management</h3>
-                        <p className="text-slate-400 text-sm">View and edit user profiles and assignments</p>
-                      </button>
-                    )}
-                  </div>
+                  <AdminMenu
+                    effectiveRole={effectiveRole}
+                    pendingInspectionCount={pendingInspectionCount}
+                    onNavigate={setAdminViewPersisted}
+                    onLoadMaintenanceRequests={loadAllMaintenanceRequests}
+                  />
                 </>
               ) : adminView === 'inspection' ? (
                 <>
@@ -20313,16 +20071,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                   </div>
                 </>
               ) : adminView === 'smartdevices' ? (
-                <>
-                  <button
-                    onClick={() => setAdminViewPersisted('menu')}
-                    className="flex items-center gap-2 text-slate-400 hover:text-green-500 transition-colors mb-4"
-                  >
-                    <span>← Back to Admin Menu</span>
-                  </button>
-
+                <AdminViewWrapper onBack={() => setAdminViewPersisted('menu')} backHoverColor="hover:text-green-500">
                   <SmartDeviceManagement />
-                </>
+                </AdminViewWrapper>
               ) : adminView === 'maintenancerequests' ? (
                 <>
                   <button
@@ -20420,16 +20171,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                   )}
                 </>
               ) : adminView === 'companies' ? (
-                <>
-                  <button
-                    onClick={() => setAdminViewPersisted('menu')}
-                    className="flex items-center gap-2 text-slate-400 hover:text-amber-500 transition-colors mb-4"
-                  >
-                    <span>← Back to Admin Menu</span>
-                  </button>
-
+                <AdminViewWrapper onBack={() => setAdminViewPersisted('menu')}>
                   <CompanyManagement />
-                </>
+                </AdminViewWrapper>
               ) : adminView === 'users' ? (
                 <>
                   <button

@@ -33,8 +33,7 @@ export default defineConfig({
     }
   ],
   optimizeDeps: {
-    exclude: ['lucide-react'],
-    include: ['react', 'react-dom', 'react/jsx-runtime'],
+    include: ['react', 'react-dom', 'react/jsx-runtime', 'lucide-react'],
     esbuildOptions: {
       loader: {
         '.js': 'jsx',
