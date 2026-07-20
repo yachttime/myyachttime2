@@ -32,6 +32,12 @@ import { generateAllYachtTripsPDF, generateEstimatingInvoicePDF, generateYachtIn
 import { convertTo12Hour, formatPhoneNumber, toAZDateStr, isAntelopePointMarina, isWithinBookingPeriod } from '../utils/dashboardHelpers';
 import AdminMenu from './admin/AdminMenu';
 import AdminViewWrapper from './admin/AdminViewWrapper';
+import MaintenanceRequestsView from './admin/MaintenanceRequestsView';
+import StaffAppointmentView from './admin/StaffAppointmentView';
+import OwnerChatView from './admin/OwnerChatView';
+import AppointmentsView from './admin/AppointmentsView';
+import OwnerTripsView from './admin/OwnerTripsView';
+import MessagesView from './admin/MessagesView';
 
 interface DashboardProps {
   onNavigate: (page: 'maintenance' | 'education' | 'staffCalendar') => void;
@@ -7171,6 +7177,99 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       setStaffAppointmentError(err.message || 'Failed to create staff appointment');
     } finally {
       setStaffAppointmentLoading(false);
+    }
+  };
+
+  const handleOwnerTripSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setOwnerTripLoading(true);
+    setOwnerTripError('');
+
+    try {
+      if (!selectedOwnerYachtId) {
+        throw new Error('Please select an owner with an assigned yacht');
+      }
+
+      if (!selectedOwnerUserId) {
+        throw new Error('Selected owner user ID not found');
+      }
+
+      const startDateTime = `${ownerTripForm.start_date}T${ownerTripForm.departure_time || '00:00'}:00`;
+      const endDateTime = `${ownerTripForm.end_date}T${ownerTripForm.arrival_time || '00:00'}:00`;
+
+      const selectedYacht = allYachts.find(y => y.id === selectedOwnerYachtId);
+      if (!selectedYacht) {
+        throw new Error('Selected owner\'s yacht not found');
+      }
+
+      const validOwners = ownerTripForm.owners.filter(o => o.owner_name.trim());
+      if (validOwners.length === 0) {
+        throw new Error('Please add at least one owner');
+      }
+
+      const { data: booking, error } = await supabase.from('yacht_bookings').insert({
+        yacht_id: selectedOwnerYachtId,
+        user_id: selectedOwnerUserId,
+        start_date: startDateTime,
+        end_date: endDateTime,
+        departure_time: ownerTripForm.departure_time,
+        arrival_time: ownerTripForm.arrival_time,
+        notes: 'Owner trip',
+        checked_in: false,
+        checked_out: false,
+        company_id: selectedYacht.company_id
+      }).select().single();
+
+      if (error) throw error;
+
+      const ownersData = validOwners.map(owner => ({
+        booking_id: booking.id,
+        owner_name: owner.owner_name,
+        owner_contact: owner.owner_contact || null
+      }));
+
+      const { error: ownersError } = await supabase
+        .from('yacht_booking_owners')
+        .insert(ownersData);
+
+      if (ownersError) throw ownersError;
+
+      const userName = userProfile?.first_name && userProfile?.last_name
+        ? `${userProfile.first_name} ${userProfile.last_name}`
+        : userProfile?.email || 'Unknown';
+      const ownerNames = validOwners.map(o => o.owner_name).join(', ');
+      await logYachtActivity(
+        selectedOwnerYachtId,
+        selectedYacht.name,
+        `Owner trip scheduled for ${ownerNames} from ${new Date(startDateTime).toLocaleDateString()} to ${new Date(endDateTime).toLocaleDateString()}`,
+        user?.id,
+        userName
+      );
+
+      setOwnerTripSuccess(true);
+      setOwnerTripForm({
+        start_date: '',
+        departure_time: '',
+        end_date: '',
+        arrival_time: '',
+        owners: [{ owner_name: '', owner_contact: '' }]
+      });
+
+      if (tripsYachtId === selectedOwnerYachtId) {
+        await loadYachtTrips(selectedOwnerYachtId);
+      }
+
+      setSelectedOwnerYachtId(null);
+      setSelectedOwnerUserId(null);
+      setShowOwnerTripForm(false);
+      loadBookings();
+      await loadMasterCalendar();
+
+      setTimeout(() => setOwnerTripSuccess(false), 3000);
+    } catch (err: any) {
+      setOwnerTripError(err.message || 'Failed to add owner trip');
+    } finally {
+      setOwnerTripLoading(false);
     }
   };
 
@@ -14737,336 +14836,26 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                   )}
                 </>
               ) : adminView === 'ownertrips' ? (
-                <>
-                  <button
-                    onClick={() => setAdminViewPersisted('menu')}
-                    className="flex items-center gap-2 text-slate-400 hover:text-green-500 transition-colors mb-4"
-                  >
-                    <span>← Back to Admin Menu</span>
-                  </button>
-
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-3">
-                      <CalendarPlus className="w-8 h-8 text-green-500" />
-                      <div>
-                        <h2 className="text-2xl font-bold">Owner Trips</h2>
-                        <p className="text-slate-400">Schedule owner yacht trips to calendar</p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => setShowOwnerTripForm(!showOwnerTripForm)}
-                      className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 shadow-lg"
-                    >
-                      {showOwnerTripForm ? 'Cancel' : '+ Add Owner Trip'}
-                    </button>
-                  </div>
-
-                  {showOwnerTripForm && (
-                    <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 mb-6">
-                      <h3 className="text-xl font-semibold mb-4">Add Owner Trip to Calendar</h3>
-                      <form onSubmit={async (e) => {
-                        e.preventDefault();
-                        setOwnerTripLoading(true);
-                        setOwnerTripError('');
-
-                        try {
-                          if (!selectedOwnerYachtId) {
-                            throw new Error('Please select an owner with an assigned yacht');
-                          }
-
-                          if (!selectedOwnerUserId) {
-                            throw new Error('Selected owner user ID not found');
-                          }
-
-                          const startDateTime = `${ownerTripForm.start_date}T${ownerTripForm.departure_time || '00:00'}:00`;
-                          const endDateTime = `${ownerTripForm.end_date}T${ownerTripForm.arrival_time || '00:00'}:00`;
-
-                          const selectedYacht = allYachts.find(y => y.id === selectedOwnerYachtId);
-                          if (!selectedYacht) {
-                            throw new Error('Selected owner\'s yacht not found');
-                          }
-
-                          const validOwners = ownerTripForm.owners.filter(o => o.owner_name.trim());
-                          if (validOwners.length === 0) {
-                            throw new Error('Please add at least one owner');
-                          }
-
-                          const { data: booking, error } = await supabase.from('yacht_bookings').insert({
-                            yacht_id: selectedOwnerYachtId,
-                            user_id: selectedOwnerUserId,
-                            start_date: startDateTime,
-                            end_date: endDateTime,
-                            departure_time: ownerTripForm.departure_time,
-                            arrival_time: ownerTripForm.arrival_time,
-                            notes: 'Owner trip',
-                            checked_in: false,
-                            checked_out: false,
-                            company_id: selectedYacht.company_id
-                          }).select().single();
-
-                          if (error) throw error;
-
-                          const ownersData = validOwners.map(owner => ({
-                            booking_id: booking.id,
-                            owner_name: owner.owner_name,
-                            owner_contact: owner.owner_contact || null
-                          }));
-
-                          const { error: ownersError } = await supabase
-                            .from('yacht_booking_owners')
-                            .insert(ownersData);
-
-                          if (ownersError) throw ownersError;
-
-                          const userName = userProfile?.first_name && userProfile?.last_name
-                            ? `${userProfile.first_name} ${userProfile.last_name}`
-                            : userProfile?.email || 'Unknown';
-                          const ownerNames = validOwners.map(o => o.owner_name).join(', ');
-                          await logYachtActivity(
-                            selectedOwnerYachtId,
-                            selectedYacht.name,
-                            `Owner trip scheduled for ${ownerNames} from ${new Date(startDateTime).toLocaleDateString()} to ${new Date(endDateTime).toLocaleDateString()}`,
-                            user?.id,
-                            userName
-                          );
-
-                          setOwnerTripSuccess(true);
-                          setOwnerTripForm({
-                            start_date: '',
-                            departure_time: '',
-                            end_date: '',
-                            arrival_time: '',
-                            owners: [{ owner_name: '', owner_contact: '' }]
-                          });
-
-                          // Reload yacht trips if that yacht's trips section is currently open
-                          if (tripsYachtId === selectedOwnerYachtId) {
-                            await loadYachtTrips(selectedOwnerYachtId);
-                          }
-
-                          setSelectedOwnerYachtId(null);
-                          setSelectedOwnerUserId(null);
-                          setShowOwnerTripForm(false);
-                          loadBookings();
-                          await loadMasterCalendar();
-
-                          setTimeout(() => setOwnerTripSuccess(false), 3000);
-                        } catch (err: any) {
-                          setOwnerTripError(err.message || 'Failed to add owner trip');
-                        } finally {
-                          setOwnerTripLoading(false);
-                        }
-                      }} className="space-y-4">
-                        <div className="mb-4">
-                          <div className="flex items-center justify-between mb-3">
-                            <label className="block text-sm font-medium">Owners on Trip *</label>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setOwnerTripForm({
-                                  ...ownerTripForm,
-                                  owners: [...ownerTripForm.owners, { owner_name: '', owner_contact: '' }]
-                                });
-                              }}
-                              className="flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white text-sm px-3 py-1 rounded transition-colors"
-                            >
-                              <Plus className="w-4 h-4" />
-                              Add Owner
-                            </button>
-                          </div>
-
-                          {ownerTripForm.owners.map((owner, index) => (
-                            <div key={index} className="mb-3 p-4 bg-slate-900/50 rounded-lg border border-slate-700">
-                              <div className="flex items-center justify-between mb-3">
-                                <span className="text-sm text-slate-400">Owner #{index + 1}</span>
-                                {ownerTripForm.owners.length > 1 && (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setOwnerTripForm({
-                                        ...ownerTripForm,
-                                        owners: ownerTripForm.owners.filter((_, i) => i !== index)
-                                      });
-                                    }}
-                                    className="text-red-400 hover:text-red-300"
-                                  >
-                                    <X className="w-4 h-4" />
-                                  </button>
-                                )}
-                              </div>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                <div>
-                                  <label className="block text-xs font-medium mb-1 text-slate-400">Name *</label>
-                                  <select
-                                    required
-                                    value={owner.owner_name}
-                                    onChange={(e) => {
-                                      const selectedUser = allUsers.find(u =>
-                                        `${u.first_name || ''} ${u.last_name || ''}`.trim() === e.target.value
-                                      );
-                                      const newOwners = [...ownerTripForm.owners];
-                                      newOwners[index] = {
-                                        owner_name: e.target.value,
-                                        owner_contact: selectedUser?.phone || owner.owner_contact
-                                      };
-                                      setOwnerTripForm({ ...ownerTripForm, owners: newOwners });
-
-                                      if (index === 0) {
-                                        setSelectedOwnerYachtId(selectedUser?.yacht_id || null);
-                                        setSelectedOwnerUserId(selectedUser?.user_id || null);
-                                      }
-                                    }}
-                                    className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-green-500"
-                                  >
-                                    <option value="" className="bg-slate-800 text-white">Select an owner</option>
-                                    {(() => {
-                                      const usersByYacht: { [key: string]: typeof allUsers } = {};
-                                      const usersWithoutYacht: typeof allUsers = [];
-
-                                      allUsers.forEach(user => {
-                                        if (user.is_active === false) return;
-                                        if (user.role === 'owner' || user.role === 'manager') {
-                                          const userYacht = allYachts.find(y => y.id === user.yacht_id);
-                                          if (userYacht && userYacht.is_active === false) return;
-                                          const yachtName = user.yachts?.name || 'Unassigned';
-                                          if (yachtName === 'Unassigned') {
-                                            usersWithoutYacht.push(user);
-                                          } else {
-                                            if (!usersByYacht[yachtName]) {
-                                              usersByYacht[yachtName] = [];
-                                            }
-                                            usersByYacht[yachtName].push(user);
-                                          }
-                                        }
-                                      });
-
-                                      return (
-                                        <>
-                                          {Object.entries(usersByYacht)
-                                            .sort(([a], [b]) => a.localeCompare(b))
-                                            .map(([yachtName, users]) => (
-                                              <optgroup key={yachtName} label={yachtName} className="bg-slate-800 text-slate-300">
-                                                {users.map((user) => {
-                                                  const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
-                                                  return fullName ? (
-                                                    <option key={user.id} value={fullName} className="bg-slate-800 text-white">
-                                                      {fullName}
-                                                    </option>
-                                                  ) : null;
-                                                })}
-                                              </optgroup>
-                                            ))}
-                                          {usersWithoutYacht.length > 0 && (
-                                            <optgroup label="Unassigned" className="bg-slate-800 text-slate-300">
-                                              {usersWithoutYacht.map((user) => {
-                                                const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
-                                                return fullName ? (
-                                                  <option key={user.id} value={fullName} className="bg-slate-800 text-white">
-                                                    {fullName}
-                                                  </option>
-                                                ) : null;
-                                              })}
-                                            </optgroup>
-                                          )}
-                                        </>
-                                      );
-                                    })()}
-                                  </select>
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-medium mb-1 text-slate-400">Contact *</label>
-                                  <input
-                                    type="text"
-                                    required
-                                    value={owner.owner_contact}
-                                    onChange={(e) => {
-                                      const newOwners = [...ownerTripForm.owners];
-                                      newOwners[index].owner_contact = e.target.value;
-                                      setOwnerTripForm({ ...ownerTripForm, owners: newOwners });
-                                    }}
-                                    className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-green-500"
-                                    placeholder="Email or phone"
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-sm font-medium mb-2">Start Date *</label>
-                            <input
-                              type="date"
-                              required
-                              value={ownerTripForm.start_date}
-                              onChange={(e) => {
-                                const startDate = new Date(e.target.value);
-                                const endDate = new Date(startDate);
-                                endDate.setDate(startDate.getDate() + 7);
-                                const endDateString = endDate.toISOString().split('T')[0];
-                                setOwnerTripForm({
-                                  ...ownerTripForm,
-                                  start_date: e.target.value,
-                                  end_date: endDateString
-                                });
-                              }}
-                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-green-500 [color-scheme:dark]"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium mb-2">Departure Time</label>
-                            <input
-                              type="time"
-                              value={ownerTripForm.departure_time}
-                              onChange={(e) => setOwnerTripForm({...ownerTripForm, departure_time: e.target.value})}
-                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-green-500 [color-scheme:dark]"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium mb-2">Return Date *</label>
-                            <input
-                              type="date"
-                              required
-                              value={ownerTripForm.end_date}
-                              onChange={(e) => setOwnerTripForm({...ownerTripForm, end_date: e.target.value})}
-                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-green-500 [color-scheme:dark]"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium mb-2">Arrival Time</label>
-                            <input
-                              type="time"
-                              value={ownerTripForm.arrival_time}
-                              onChange={(e) => setOwnerTripForm({...ownerTripForm, arrival_time: e.target.value})}
-                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-green-500 [color-scheme:dark]"
-                            />
-                          </div>
-                        </div>
-
-                        {ownerTripError && (
-                          <div className="bg-red-500/10 border border-red-500 text-red-500 px-4 py-3 rounded-lg text-sm">
-                            {ownerTripError}
-                          </div>
-                        )}
-
-                        <button
-                          type="submit"
-                          disabled={ownerTripLoading}
-                          className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-4 rounded-lg transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {ownerTripLoading ? 'Adding Trip...' : 'Add Owner Trip'}
-                        </button>
-                      </form>
-                    </div>
-                  )}
-
-                  {ownerTripSuccess && (
-                    <div className="bg-green-500/10 border border-green-500 text-green-500 px-4 py-3 rounded-lg text-sm mb-6">
-                      Owner trip added to calendar successfully!
-                    </div>
-                  )}
-                </>
+                <AdminViewWrapper onBack={() => setAdminViewPersisted('menu')} backHoverColor="hover:text-green-500">
+                  <OwnerTripsView
+                    showForm={showOwnerTripForm}
+                    onToggleForm={() => setShowOwnerTripForm(!showOwnerTripForm)}
+                    form={ownerTripForm}
+                    onFormChange={setOwnerTripForm}
+                    loading={ownerTripLoading}
+                    error={ownerTripError}
+                    success={ownerTripSuccess}
+                    allUsers={allUsers}
+                    allYachts={allYachts}
+                    userProfile={userProfile}
+                    currentUserId={user?.id}
+                    selectedOwnerYachtId={selectedOwnerYachtId}
+                    selectedOwnerUserId={selectedOwnerUserId}
+                    onSelectedYachtChange={setSelectedOwnerYachtId}
+                    onSelectedUserChange={setSelectedOwnerUserId}
+                    onSubmit={handleOwnerTripSubmit}
+                  />
+                </AdminViewWrapper>
               ) : adminView === 'repairs' ? (
                 <>
                   <button
@@ -17938,712 +17727,41 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                   )}
                 </>
               ) : adminView === 'ownerchat' ? (
-                <>
-                  <button
-                    onClick={() => setAdminViewPersisted('menu')}
-                    className="flex items-center gap-2 text-slate-400 hover:text-purple-500 transition-colors mb-4"
-                  >
-                    <span>← Back to Admin Menu</span>
-                  </button>
-
-                  <div className="flex items-center gap-3 mb-6">
-                    <MessageCircle className="w-8 h-8 text-purple-500" />
-                    <div>
-                      <h2 className="text-2xl font-bold">Owner Chat</h2>
-                      <p className="text-slate-400">{isOwnerRole(effectiveRole) ? `Chat with all owners on ${yacht?.name || 'your yacht'}` : 'View all owner chats across all yachts'}</p>
-                    </div>
-                  </div>
-
-                  {canAccessAllYachts(effectiveRole) ? (
-                    <div className="space-y-6">
-                      {selectedChatYachtId ? (
-                        <>
-                          <button
-                            onClick={() => setSelectedChatYachtId(null)}
-                            className="flex items-center gap-2 text-slate-400 hover:text-purple-500 transition-colors mb-4"
-                          >
-                            <span>← Back to All Yachts</span>
-                          </button>
-
-                          {(() => {
-                            const selectedYacht = allYachts.find(y => y.id === selectedChatYachtId);
-                            const yachtMessages = chatMessages
-                              .filter((msg: any) => msg.yacht_id === selectedChatYachtId)
-                              .filter((msg: any) =>
-                                !msg.message.includes('Check-In Alert:') &&
-                                !msg.message.includes('Check-Out Alert:') &&
-                                !msg.message.includes('Repair Request Approved:') &&
-                                !msg.message.includes('Repair Request Completed') &&
-                                !msg.message.includes('Repair Request Submitted:') &&
-                                !msg.message.includes('Invoice Sent:')
-                              );
-
-                            return (
-                              <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 overflow-hidden">
-                                <div className="bg-slate-900/50 border-b border-slate-700 px-6 py-4">
-                                  <div className="flex items-center gap-3">
-                                    <Ship className="w-6 h-6 text-purple-500" />
-                                    <h3 className="text-xl font-bold">{selectedYacht?.name}</h3>
-                                    <span className="ml-auto text-sm text-slate-400">
-                                      {yachtMessages.length} {yachtMessages.length === 1 ? 'message' : 'messages'}
-                                    </span>
-                                  </div>
-                                </div>
-
-                                <div className="h-[500px] overflow-y-auto p-6 space-y-4">
-                                  {yachtMessages.length === 0 ? (
-                                    <div className="flex items-center justify-center h-full">
-                                      <p className="text-slate-400">No messages yet</p>
-                                    </div>
-                                  ) : (
-                                    yachtMessages.map((msg: any) => {
-                                      const senderName = msg.user_profiles?.first_name && msg.user_profiles?.last_name
-                                        ? `${msg.user_profiles.first_name} ${msg.user_profiles.last_name}`
-                                        : 'Unknown User';
-
-                                      return (
-                                        <div key={msg.id} className="flex justify-start">
-                                          <div className="max-w-[70%] rounded-2xl p-4 bg-slate-700 text-slate-100">
-                                            <p className="text-xs font-semibold mb-1 opacity-80">
-                                              {senderName}
-                                            </p>
-                                            <p className="text-sm whitespace-pre-wrap break-words">{msg.message}</p>
-                                            <p className="text-xs mt-2 text-slate-400">
-                                              {new Date(msg.created_at).toLocaleString([], {
-                                                month: 'short',
-                                                day: 'numeric',
-                                                hour: '2-digit',
-                                                minute: '2-digit'
-                                              })}
-                                            </p>
-                                          </div>
-                                        </div>
-                                      );
-                                    })
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })()}
-
-                          <div className="bg-amber-500/10 border border-amber-500 text-amber-500 px-4 py-3 rounded-lg text-sm">
-                            Staff view: You can see all owner chats but cannot send messages. Only yacht owners can participate in these conversations.
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          {allYachts.length === 0 ? (
-                            <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-12 border border-slate-700 text-center">
-                              <Ship className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-                              <p className="text-slate-400 text-lg">No yachts found</p>
-                            </div>
-                          ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                              {allYachts.map((yacht) => {
-                                const yachtMessages = chatMessages
-                                  .filter((msg: any) => msg.yacht_id === yacht.id)
-                                  .filter((msg: any) =>
-                                    !msg.message.includes('Check-In Alert:') &&
-                                    !msg.message.includes('Check-Out Alert:') &&
-                                    !msg.message.includes('Repair Request Approved:') &&
-                                    !msg.message.includes('Repair Request Completed') &&
-                                    !msg.message.includes('Repair Request Submitted:') &&
-                                    !msg.message.includes('Invoice Sent:')
-                                  );
-
-                                return (
-                                  <button
-                                    key={yacht.id}
-                                    onClick={() => setSelectedChatYachtId(yacht.id)}
-                                    className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-purple-500 transition-all duration-300 hover:scale-105 text-left group"
-                                  >
-                                    <div className="flex items-center gap-4 mb-4">
-                                      <div className="bg-purple-500/20 p-4 rounded-xl group-hover:bg-purple-500/30 transition-colors">
-                                        <Ship className="w-8 h-8 text-purple-500" />
-                                      </div>
-                                    </div>
-                                    <h3 className="text-xl font-bold mb-2">{yacht.name}</h3>
-                                    <p className="text-slate-400 text-sm">
-                                      {yachtMessages.length} {yachtMessages.length === 1 ? 'message' : 'messages'}
-                                    </p>
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          )}
-
-                          <div className="bg-amber-500/10 border border-amber-500 text-amber-500 px-4 py-3 rounded-lg text-sm">
-                            Click on a yacht to view its owner chat conversations.
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  ) : (
-                    <>
-                      <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 overflow-hidden">
-                        <div className="h-[500px] overflow-y-auto p-6 space-y-4">
-                          {chatMessages.filter((msg: any) =>
-                            !msg.message.includes('Check-In Alert:') &&
-                            !msg.message.includes('Check-Out Alert:') &&
-                            !msg.message.includes('Repair Request Approved:') &&
-                            !msg.message.includes('Repair Request Completed') &&
-                            !msg.message.includes('Repair Request Submitted:') &&
-                            !msg.message.includes('Invoice Sent:') &&
-                            (userProfile?.role !== 'owner' || !yacht || msg.yacht_id === yacht.id)
-                          ).length === 0 ? (
-                            <div className="flex items-center justify-center h-full">
-                              <p className="text-slate-400">No messages yet. Start the conversation!</p>
-                            </div>
-                          ) : (
-                            chatMessages
-                              .filter((msg: any) =>
-                                !msg.message.includes('Check-In Alert:') &&
-                                !msg.message.includes('Check-Out Alert:') &&
-                                !msg.message.includes('Repair Request Approved:') &&
-                                !msg.message.includes('Repair Request Completed') &&
-                                !msg.message.includes('Repair Request Submitted:') &&
-                                !msg.message.includes('Invoice Sent:') &&
-                                (userProfile?.role !== 'owner' || !yacht || msg.yacht_id === yacht.id)
-                              )
-                              .map((msg: any) => {
-                              const isCurrentUser = msg.user_id === user?.id;
-                              const senderName = msg.user_profiles?.first_name && msg.user_profiles?.last_name
-                                ? `${msg.user_profiles.first_name} ${msg.user_profiles.last_name}`
-                                : 'Unknown User';
-
-                              return (
-                                <div
-                                  key={msg.id}
-                                  className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
-                                >
-                                  <div
-                                    className={`max-w-[70%] rounded-2xl p-4 ${
-                                      isCurrentUser
-                                        ? 'bg-purple-500 text-white'
-                                        : 'bg-slate-700 text-slate-100'
-                                    }`}
-                                  >
-                                    {!isCurrentUser && (
-                                      <p className="text-xs font-semibold mb-1 opacity-80">
-                                        {senderName}
-                                      </p>
-                                    )}
-                                    <p className="text-sm whitespace-pre-wrap break-words">{msg.message}</p>
-                                    <p className={`text-xs mt-2 ${isCurrentUser ? 'text-purple-200' : 'text-slate-400'}`}>
-                                      {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                    </p>
-                                  </div>
-                                </div>
-                              );
-                            })
-                          )}
-                        </div>
-
-                        <div className="border-t border-slate-700 p-4">
-                          <div className="flex gap-3">
-                            <input
-                              type="text"
-                              value={newMessage}
-                              onChange={(e) => setNewMessage(e.target.value)}
-                              onKeyPress={(e) => {
-                                if (e.key === 'Enter' && !e.shiftKey) {
-                                  e.preventDefault();
-                                  sendChatMessage();
-                                }
-                              }}
-                              placeholder="Type your message..."
-                              className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-amber-500 text-white placeholder-slate-400"
-                              disabled={chatLoading}
-                            />
-                            <button
-                              onClick={sendChatMessage}
-                              disabled={chatLoading || !newMessage.trim()}
-                              className="bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                            >
-                              <Send className="w-5 h-5" />
-                              Send
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {isOwnerRole(effectiveRole) ? (
-                        <div className="mt-4 bg-purple-500/10 border border-purple-500 text-purple-500 px-4 py-3 rounded-lg text-sm">
-                          You are chatting with all owners assigned to this yacht. Messages are visible to all owners on your yacht.
-                        </div>
-                      ) : (
-                        <div className="mt-4 bg-amber-500/10 border border-amber-500 text-amber-500 px-4 py-3 rounded-lg text-sm">
-                          Note: Only yacht owners can send messages in this chat.
-                        </div>
-                      )}
-                    </>
-                  )}
-                </>
+                <AdminViewWrapper onBack={() => setAdminViewPersisted('menu')} backHoverColor="hover:text-purple-500">
+                  <OwnerChatView
+                    effectiveRole={effectiveRole}
+                    userProfile={userProfile}
+                    yacht={effectiveYacht}
+                    currentUserId={user?.id}
+                    allYachts={allYachts}
+                    chatMessages={chatMessages}
+                    selectedChatYachtId={selectedChatYachtId}
+                    onSelectYacht={setSelectedChatYachtId}
+                    newMessage={newMessage}
+                    onNewMessageChange={setNewMessage}
+                    onSend={sendChatMessage}
+                    chatLoading={chatLoading}
+                  />
+                </AdminViewWrapper>
               ) : adminView === 'messages' ? (
-                <>
-                  <button
-                    onClick={() => setAdminViewPersisted('menu')}
-                    className="flex items-center gap-2 text-slate-400 hover:text-cyan-500 transition-colors mb-4"
-                  >
-                    <span>← Back to Admin Menu</span>
-                  </button>
-
-                  <div className="flex items-center gap-3 mb-6">
-                    <Mail className="w-8 h-8 text-cyan-500" />
-                    <div>
-                      <h2 className="text-2xl font-bold">New Messages</h2>
-                      <p className="text-slate-400">View all incoming messages and appointments</p>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-4 mb-6">
-                    <button
-                      onClick={() => setMessagesTab('yacht')}
-                      className={`flex-1 py-3 px-6 rounded-xl font-semibold transition-all duration-300 ${
-                        messagesTab === 'yacht'
-                          ? 'bg-cyan-500 text-white'
-                          : 'bg-slate-800/50 text-slate-400 hover:bg-slate-700'
-                      }`}
-                    >
-                      Yacht Messages
-                    </button>
-                    {isStaffRole(userProfile?.role) && (
-                      <button
-                        onClick={() => setMessagesTab('staff')}
-                        className={`flex-1 py-3 px-6 rounded-xl font-semibold transition-all duration-300 ${
-                          messagesTab === 'staff'
-                            ? 'bg-cyan-500 text-white'
-                            : 'bg-slate-800/50 text-slate-400 hover:bg-slate-700'
-                        }`}
-                      >
-                        Staff Messages
-                      </button>
-                    )}
-                  </div>
-
-                  {messagesTab === 'yacht' ? (
-                  <div className="space-y-6">
-                    {adminNotifications.length === 0 ? (
-                      <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-12 border border-slate-700 text-center">
-                        <Mail className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-                        <p className="text-slate-400 text-lg">No notifications yet</p>
-                      </div>
-                    ) : selectedMessagesYachtId ? (
-                      (() => {
-                        const messagesByYacht = adminNotifications.reduce((acc: any, msg: any) => {
-                          const yachtId = msg.yacht_id || 'unknown';
-                          if (!acc[yachtId]) {
-                            acc[yachtId] = {
-                              yacht: msg.yachts,
-                              messages: []
-                            };
-                          }
-                          acc[yachtId].messages.push(msg);
-                          return acc;
-                        }, {});
-
-                        const selectedData = messagesByYacht[selectedMessagesYachtId];
-
-                        return (
-                          <>
-                            <button
-                              onClick={() => setSelectedMessagesYachtId(null)}
-                              className="flex items-center gap-2 text-slate-400 hover:text-cyan-500 transition-colors mb-4"
-                            >
-                              <span>← Back to All Yachts</span>
-                            </button>
-
-                            <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 overflow-hidden">
-                              <div className="bg-slate-900/50 border-b border-slate-700 px-6 py-4">
-                                <div className="flex items-center justify-between gap-3">
-                                  <div className="flex items-center gap-3">
-                                    <Ship className="w-6 h-6 text-cyan-500" />
-                                    <h3 className="text-xl font-bold">{selectedData?.yacht?.name || 'Customer Pay Boats'}</h3>
-                                    <span className="text-sm text-slate-400">
-                                      {selectedData?.messages.length} {selectedData?.messages.length === 1 ? 'message' : 'messages'}
-                                    </span>
-                                  </div>
-                                  {selectedMessagesYachtId !== 'unknown' && (
-                                    <button
-                                      onClick={() => fetchYachtOwnersForEmail(selectedMessagesYachtId, selectedData?.yacht)}
-                                      className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-300"
-                                    >
-                                      <Mail className="w-4 h-4" />
-                                      Email Owners & Managers
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-
-                              <div className="p-6 space-y-4">
-                                {selectedData?.messages
-                                  .sort((a: any, b: any) => {
-                                    const aCompleted = a.completed_at && a.completed_by;
-                                    const bCompleted = b.completed_at && b.completed_by;
-                                    if (aCompleted === bCompleted) return 0;
-                                    return aCompleted ? 1 : -1;
-                                  })
-                                  .map((msg: any) => {
-                                  const senderName = msg.user_profiles?.first_name && msg.user_profiles?.last_name
-                                    ? `${msg.user_profiles.first_name} ${msg.user_profiles.last_name}`
-                                    : 'Unknown User';
-
-                                  const isCompleted = msg.completed_at && msg.completed_by;
-
-                                  return (
-                                    <div
-                                      key={msg.id}
-                                      className={`bg-slate-900/50 rounded-xl p-4 border border-slate-700 hover:border-cyan-500 transition-all duration-300 ${
-                                        isCompleted ? 'opacity-50' : ''
-                                      }`}
-                                    >
-                                      <div className="flex items-start justify-between mb-3">
-                                        <div className="flex items-center gap-3">
-                                          <div className="bg-cyan-500/20 p-2 rounded-lg">
-                                            <MessageCircle className="w-4 h-4 text-cyan-500" />
-                                          </div>
-                                          <div>
-                                            <h4 className="font-semibold">{senderName}</h4>
-                                          </div>
-                                        </div>
-                                        <div className="text-right">
-                                          <p className="text-xs text-slate-400">
-                                            {new Date(msg.created_at).toLocaleDateString()}
-                                          </p>
-                                          <p className="text-xs text-slate-500">
-                                            {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                          </p>
-                                        </div>
-                                      </div>
-                                      <div className="bg-slate-800/50 rounded-lg p-3">
-                                        <p className="text-slate-200 text-sm whitespace-pre-wrap break-words">{msg.message}</p>
-                                      </div>
-                                      {msg.notification_type === 'trip_inspection' && msg.reference_id && (
-                                        <div className="mt-3 flex flex-col gap-2">
-                                          {(isStaffRole(effectiveRole) || isMasterRole(effectiveRole)) && (
-                                            <button
-                                              onClick={() => openInspectionReview(msg.reference_id)}
-                                              disabled={loadingReviewId === msg.reference_id}
-                                              className="w-full bg-amber-500 hover:bg-amber-600 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-2 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 text-sm"
-                                            >
-                                              {loadingReviewId === msg.reference_id ? (
-                                                <><RefreshCw className="w-4 h-4 animate-spin" />Loading...</>
-                                              ) : (
-                                                <><ClipboardCheck className="w-4 h-4" />Review Inspection</>
-                                              )}
-                                            </button>
-                                          )}
-                                          <button
-                                            onClick={() => viewInspectionPDF(msg.reference_id)}
-                                            disabled={loadingPdfId === msg.reference_id}
-                                            className="w-full bg-cyan-500 hover:bg-cyan-600 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-2 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 text-sm"
-                                          >
-                                            {loadingPdfId === msg.reference_id ? (
-                                              <>
-                                                <svg className="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                                                </svg>
-                                                Loading Report...
-                                              </>
-                                            ) : (
-                                              <>
-                                                <ClipboardCheck className="w-4 h-4" />
-                                                View Inspection Report
-                                              </>
-                                            )}
-                                          </button>
-                                        </div>
-                                      )}
-                                      {msg.notification_type === 'owner_handoff' && msg.reference_id && (
-                                        <div className="mt-3">
-                                          <button
-                                            onClick={() => viewOwnerHandoffPDF(msg.reference_id)}
-                                            className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 text-sm"
-                                          >
-                                            <UserCheck className="w-4 h-4" />
-                                            View Owner Handoff Report
-                                          </button>
-                                        </div>
-                                      )}
-                                      {isCompleted && (
-                                        <div className="mt-3 text-center text-xs bg-green-500/10 border border-green-500/20 rounded-lg py-2 px-3">
-                                          <span className="text-green-400 font-semibold">✓ Task Complete</span>
-                                          <span className="text-slate-400"> on {new Date(msg.completed_at).toLocaleDateString()} at {new Date(msg.completed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                          {msg.completed_by_profile && (
-                                            <span className="text-slate-400"> by {msg.completed_by_profile.first_name} {msg.completed_by_profile.last_name}</span>
-                                          )}
-                                        </div>
-                                      )}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          </>
-                        );
-                      })()
-                    ) : (
-                      (() => {
-                        const messagesByYacht = adminNotifications.reduce((acc: any, msg: any) => {
-                          const yachtId = msg.yacht_id || 'unknown';
-                          if (!acc[yachtId]) {
-                            acc[yachtId] = {
-                              yacht: msg.yachts,
-                              messages: []
-                            };
-                          }
-                          acc[yachtId].messages.push(msg);
-                          return acc;
-                        }, {});
-
-                        return (
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {Object.entries(messagesByYacht).map(([yachtId, data]: [string, any]) => {
-                              const incompleteMessages = data.messages.filter((msg: any) => !msg.completed_at || !msg.completed_by).length;
-
-                              return (
-                                <button
-                                  key={yachtId}
-                                  onClick={() => setSelectedMessagesYachtId(yachtId)}
-                                  className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-cyan-500 transition-all duration-300 hover:scale-105 text-left group"
-                                >
-                                  <div className="flex items-center gap-4 mb-4">
-                                    <div className="bg-cyan-500/20 p-4 rounded-xl group-hover:bg-cyan-500/30 transition-colors">
-                                      <Ship className="w-8 h-8 text-cyan-500" />
-                                    </div>
-                                  </div>
-                                  <h3 className="text-xl font-bold mb-2">{data.yacht?.name || 'Customer Pay Boats'}</h3>
-                                  <p className="text-slate-400 text-sm">
-                                    {incompleteMessages} {incompleteMessages === 1 ? 'message' : 'messages'} pending
-                                  </p>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        );
-                      })()
-                    )}
-                  </div>
-                  ) : (
-                  <div className="space-y-6">
-                    {(() => {
-                      const unreadMessages = staffMessages.filter((msg: any) => !msg.completed_at || !msg.completed_by);
-                      const completedMessages = staffMessages.filter((msg: any) => msg.completed_at && msg.completed_by);
-
-                      const renderMessage = (msg: any, isCompleted: boolean) => {
-                        const senderName = msg.user_profiles?.first_name && msg.user_profiles?.last_name
-                          ? `${msg.user_profiles.first_name} ${msg.user_profiles.last_name}`
-                          : msg.user_profiles?.email || 'Unknown User';
-
-                        const isBulkEmail = msg.notification_type === 'bulk_email';
-
-                        return (
-                          <div
-                            key={msg.id}
-                            className={`bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-cyan-500 transition-all duration-300 ${
-                              isCompleted ? 'opacity-60' : ''
-                            }`}
-                          >
-                            <div className="flex items-start justify-between mb-4">
-                              <div className="flex items-center gap-3">
-                                <div className={`${isCompleted ? 'bg-slate-500/20' : isBulkEmail ? 'bg-blue-500/20' : 'bg-cyan-500/20'} p-3 rounded-xl`}>
-                                  {isBulkEmail ? (
-                                    <Mail className={`w-5 h-5 ${isCompleted ? 'text-slate-500' : 'text-blue-500'}`} />
-                                  ) : (
-                                    <MessageCircle className={`w-5 h-5 ${isCompleted ? 'text-slate-500' : 'text-cyan-500'}`} />
-                                  )}
-                                </div>
-                                <div>
-                                  <h4 className="font-semibold text-lg">{senderName}</h4>
-                                  <p className="text-xs text-slate-400">{isBulkEmail ? 'Bulk Email' : msg.notification_type}</p>
-                                  {msg.yacht_name && (
-                                    <p className="text-xs text-slate-500 flex items-center gap-1 mt-1">
-                                      <Ship className="w-3 h-3" />
-                                      {msg.yacht_name}
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="text-right">
-                                <p className="text-sm text-slate-300">
-                                  {new Date(msg.created_at).toLocaleDateString()}
-                                </p>
-                                <p className="text-xs text-slate-500">
-                                  {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </p>
-                              </div>
-                            </div>
-
-                            {isBulkEmail && msg.email_subject ? (
-                              <div className="space-y-3">
-                                <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700">
-                                  <p className="text-xs text-slate-400 mb-1">Subject:</p>
-                                  <p className="text-slate-200 font-semibold">{msg.email_subject}</p>
-                                </div>
-
-                                <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700">
-                                  <p className="text-xs text-slate-400 mb-2">Message:</p>
-                                  <p className="text-slate-200 whitespace-pre-wrap break-words">{msg.email_body}</p>
-                                </div>
-
-                                {msg.email_recipients && msg.email_recipients.length > 0 && (
-                                  <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700">
-                                    <p className="text-xs text-slate-400 mb-2">Recipients ({msg.email_recipients.length}):</p>
-                                    <div className="flex flex-wrap gap-2">
-                                      {msg.email_recipients.slice(0, 5).map((recipient: any, idx: number) => (
-                                        <span key={idx} className="text-xs bg-slate-700/50 px-2 py-1 rounded">
-                                          {recipient.name}
-                                        </span>
-                                      ))}
-                                      {msg.email_recipients.length > 5 && (
-                                        <span className="text-xs text-slate-400">+{msg.email_recipients.length - 5} more</span>
-                                      )}
-                                    </div>
-                                  </div>
-                                )}
-
-                                {msg.email_sent_at && (
-                                  <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700 space-y-2">
-                                    <p className="text-xs text-slate-400 mb-2">Email Status:</p>
-                                    <div className="flex flex-wrap gap-2">
-                                      <span className="text-xs bg-blue-500/20 text-blue-400 px-3 py-1 rounded-full">
-                                        Sent
-                                      </span>
-                                      {msg.email_delivered_at && (
-                                        <span className="text-xs bg-cyan-500/20 text-cyan-400 px-3 py-1 rounded-full flex items-center gap-1">
-                                          <CheckCircle className="w-3 h-3" />
-                                          Delivered
-                                        </span>
-                                      )}
-                                      {msg.email_opened_at && (
-                                        <span className="text-xs bg-indigo-500/20 text-indigo-400 px-3 py-1 rounded-full flex items-center gap-1">
-                                          <Eye className="w-3 h-3" />
-                                          Opened {msg.email_open_count > 1 ? `(${msg.email_open_count}x)` : ''}
-                                        </span>
-                                      )}
-                                      {msg.email_clicked_at && (
-                                        <span className="text-xs bg-purple-500/20 text-purple-400 px-3 py-1 rounded-full flex items-center gap-1">
-                                          <MousePointer className="w-3 h-3" />
-                                          Clicked {msg.email_click_count > 1 ? `(${msg.email_click_count}x)` : ''}
-                                        </span>
-                                      )}
-                                      {msg.email_bounced_at && (
-                                        <span className="text-xs bg-red-500/20 text-red-400 px-3 py-1 rounded-full flex items-center gap-1">
-                                          <AlertCircle className="w-3 h-3" />
-                                          Bounced
-                                        </span>
-                                      )}
-                                    </div>
-                                    <div className="text-xs text-slate-400 space-y-1 mt-3">
-                                      {msg.email_opened_at && (
-                                        <div className="flex items-center gap-2">
-                                          <Eye className="w-3 h-3" />
-                                          <span>First opened: {new Date(msg.email_opened_at).toLocaleDateString()} at {new Date(msg.email_opened_at).toLocaleTimeString()}</span>
-                                        </div>
-                                      )}
-                                      {msg.email_clicked_at && (
-                                        <div className="flex items-center gap-2">
-                                          <MousePointer className="w-3 h-3" />
-                                          <span>First clicked: {new Date(msg.email_clicked_at).toLocaleDateString()} at {new Date(msg.email_clicked_at).toLocaleTimeString()}</span>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700">
-                                <p className="text-slate-200 whitespace-pre-wrap break-words">{msg.message}</p>
-                              </div>
-                            )}
-
-                            {isCompleted && (
-                              <div className="mt-4 text-center text-xs bg-green-500/10 border border-green-500/20 rounded-lg py-2 px-3">
-                                <span className="text-green-400 font-semibold">✓ Task Complete</span>
-                                <span className="text-slate-400"> on {new Date(msg.completed_at).toLocaleDateString()} at {new Date(msg.completed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                {msg.completed_by_profile && (
-                                  <span className="text-slate-400"> by {msg.completed_by_profile.first_name} {msg.completed_by_profile.last_name}</span>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      };
-
-                      return (
-                        <>
-                          <div className="bg-slate-800/30 backdrop-blur-sm rounded-2xl border border-slate-700 overflow-hidden">
-                            <div className="bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border-b border-slate-700 p-6">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                  <div className="bg-cyan-500/20 p-3 rounded-xl">
-                                    <MessageCircle className="w-6 h-6 text-cyan-500" />
-                                  </div>
-                                  <h3 className="text-xl font-bold">Unread Messages</h3>
-                                </div>
-                                {unreadMessages.length > 0 && (
-                                  <span className="bg-cyan-500 text-white text-sm font-bold px-3 py-1 rounded-full">
-                                    {unreadMessages.length}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <div className="p-6">
-                              {unreadMessages.length === 0 ? (
-                                <div className="text-center py-8">
-                                  <div className="bg-slate-700/30 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <ClipboardCheck className="w-8 h-8 text-slate-600" />
-                                  </div>
-                                  <p className="text-slate-400 text-lg">All caught up!</p>
-                                  <p className="text-slate-500 text-sm mt-1">No unread messages</p>
-                                </div>
-                              ) : (
-                                <div className="space-y-4">
-                                  {unreadMessages.map((msg: any) => renderMessage(msg, false))}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="bg-slate-800/30 backdrop-blur-sm rounded-2xl border border-slate-700 overflow-hidden">
-                            <div className="bg-gradient-to-r from-slate-600/10 to-slate-500/10 border-b border-slate-700 p-6">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                  <div className="bg-slate-500/20 p-3 rounded-xl">
-                                    <ClipboardCheck className="w-6 h-6 text-slate-500" />
-                                  </div>
-                                  <h3 className="text-xl font-bold text-slate-300">Completed Messages</h3>
-                                </div>
-                                {completedMessages.length > 0 && (
-                                  <span className="bg-slate-600 text-white text-sm font-bold px-3 py-1 rounded-full">
-                                    {completedMessages.length}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <div className="p-6">
-                              {completedMessages.length === 0 ? (
-                                <div className="text-center py-8">
-                                  <div className="bg-slate-700/30 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <MessageCircle className="w-8 h-8 text-slate-600" />
-                                  </div>
-                                  <p className="text-slate-400 text-lg">No completed messages yet</p>
-                                  <p className="text-slate-500 text-sm mt-1">Completed tasks will appear here</p>
-                                </div>
-                              ) : (
-                                <div className="space-y-4">
-                                  {completedMessages.map((msg: any) => renderMessage(msg, true))}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </>
-                      );
-                    })()}
-                  </div>
-                  )}
-                </>
+                <AdminViewWrapper onBack={() => setAdminViewPersisted('menu')} backHoverColor="hover:text-cyan-500">
+                  <MessagesView
+                    effectiveRole={effectiveRole}
+                    userProfileRole={userProfile?.role}
+                    adminNotifications={adminNotifications}
+                    staffMessages={staffMessages}
+                    messagesTab={messagesTab}
+                    onTabChange={setMessagesTab}
+                    selectedMessagesYachtId={selectedMessagesYachtId}
+                    onSelectYacht={setSelectedMessagesYachtId}
+                    onEmailOwners={fetchYachtOwnersForEmail}
+                    onReviewInspection={openInspectionReview}
+                    loadingReviewId={loadingReviewId}
+                    onViewInspectionPDF={viewInspectionPDF}
+                    loadingPdfId={loadingPdfId}
+                    onViewOwnerHandoffPDF={viewOwnerHandoffPDF}
+                  />
+                </AdminViewWrapper>
               ) : adminView === 'mastercalendar' ? (
                 <>
                   <button
@@ -19710,466 +18828,43 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                   </div>
                 </>
               ) : adminView === 'appointments' ? (
-                <>
-                  <button
-                    onClick={() => setAdminViewPersisted('menu')}
-                    className="flex items-center gap-2 text-slate-400 hover:text-amber-500 transition-colors mb-4"
-                  >
-                    <span>← Back to Admin Menu</span>
-                  </button>
-
-                  <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 p-6">
-                    <div className="flex items-center gap-3 mb-6">
-                      <CalendarPlus className="w-8 h-8 text-orange-500" />
-                      <div>
-                        <h2 className="text-2xl font-bold">Create Appointment</h2>
-                        <p className="text-slate-400">Schedule a repair appointment</p>
-                      </div>
-                    </div>
-
-                    {appointmentSuccess && (
-                      <div className="mb-4 p-4 bg-green-500/20 border border-green-500 rounded-lg text-green-400">
-                        Appointment created successfully!
-                      </div>
-                    )}
-
-                    {appointmentError && (
-                      <div className="mb-4 p-4 bg-red-500/20 border border-red-500 rounded-lg text-red-400">
-                        {appointmentError}
-                      </div>
-                    )}
-
-                    <form onSubmit={handleAppointmentSubmit} className="space-y-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                          <label className="block text-sm font-medium text-slate-300 mb-2">
-                            Customer Name
-                          </label>
-                          {appointmentForm.useExistingCustomer ? (
-                            <div className="space-y-2">
-                              <select
-                                value={appointmentForm.customerId}
-                                onChange={(e) => {
-                                  const customerId = e.target.value;
-                                  const customer = allCustomers.find(c => c.id === customerId);
-                                  setAppointmentForm({
-                                    ...appointmentForm,
-                                    customerId,
-                                    name: customer?.name || '',
-                                    phone: customer?.phone || '',
-                                    email: customer?.email || ''
-                                  });
-                                }}
-                                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-white cursor-pointer"
-                                required
-                              >
-                                <option value="">Select existing customer...</option>
-                                {allCustomers.map(customer => (
-                                  <option key={customer.id} value={customer.id}>
-                                    {customer.name} {customer.type === 'yacht_owner' ? '(Yacht Owner)' : '(Walk-in)'}
-                                  </option>
-                                ))}
-                              </select>
-                              <button
-                                type="button"
-                                onClick={() => setAppointmentForm({ ...appointmentForm, useExistingCustomer: false, customerId: '', name: '', phone: '', email: '' })}
-                                className="text-sm text-orange-400 hover:text-orange-300"
-                              >
-                                + Add new customer
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="space-y-2">
-                              <input
-                                type="text"
-                                value={appointmentForm.name}
-                                onChange={(e) => setAppointmentForm({ ...appointmentForm, name: e.target.value })}
-                                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                                placeholder="Enter customer name"
-                                required
-                              />
-                              <button
-                                type="button"
-                                onClick={() => setAppointmentForm({ ...appointmentForm, useExistingCustomer: true })}
-                                className="text-sm text-orange-400 hover:text-orange-300"
-                              >
-                                ← Select from existing customers
-                              </button>
-                            </div>
-                          )}
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-slate-300 mb-2">
-                            Phone Number
-                          </label>
-                          <input
-                            type="tel"
-                            value={appointmentForm.phone}
-                            onChange={(e) => setAppointmentForm({ ...appointmentForm, phone: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                            required
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-slate-300 mb-2">
-                            Email Address
-                          </label>
-                          <input
-                            type="email"
-                            value={appointmentForm.email}
-                            onChange={(e) => setAppointmentForm({ ...appointmentForm, email: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                            required
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-slate-300 mb-2">
-                            Yacht <span className="text-slate-500">(Optional)</span>
-                          </label>
-                          <select
-                            value={appointmentForm.yacht_name}
-                            onChange={(e) => setAppointmentForm({ ...appointmentForm, yacht_name: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-white cursor-pointer"
-                          >
-                            <option value="">Select a yacht...</option>
-                            {allYachts.map(yacht => (
-                              <option key={yacht.id} value={yacht.name}>
-                                {yacht.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-slate-300 mb-2">
-                            Date
-                          </label>
-                          <input
-                            type="date"
-                            value={appointmentForm.date}
-                            onChange={(e) => setAppointmentForm({ ...appointmentForm, date: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                            required
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-slate-300 mb-2">
-                            Time
-                          </label>
-                          <input
-                            type="time"
-                            value={appointmentForm.time}
-                            onChange={(e) => setAppointmentForm({ ...appointmentForm, time: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                            required
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">
-                          Problem Description
-                        </label>
-                        <textarea
-                          value={appointmentForm.problem_description}
-                          onChange={(e) => setAppointmentForm({ ...appointmentForm, problem_description: e.target.value })}
-                          rows={4}
-                          className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none"
-                          required
-                        />
-                      </div>
-
-                      <div className="bg-slate-700/30 rounded-lg p-4 border border-slate-600">
-                        <label className="flex items-center gap-3 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={appointmentForm.createRepairRequest}
-                            onChange={(e) => setAppointmentForm({ ...appointmentForm, createRepairRequest: e.target.checked })}
-                            className="w-5 h-5 rounded bg-slate-700 border-slate-600 text-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-offset-0 focus:ring-offset-slate-800"
-                          />
-                          <div className="flex-1">
-                            <span className="text-slate-300 font-medium">Also create repair request</span>
-                            <p className="text-sm text-slate-400 mt-1">
-                              Automatically create a retail repair request with the appointment details for tracking and billing
-                            </p>
-                          </div>
-                        </label>
-                      </div>
-
-                      <div className="flex gap-4">
-                        <button
-                          type="submit"
-                          disabled={appointmentLoading}
-                          className="px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                        >
-                          {appointmentLoading ? (
-                            <>
-                              <RefreshCw className="w-4 h-4 animate-spin" />
-                              Creating...
-                            </>
-                          ) : (
-                            <>
-                              <CalendarPlus className="w-4 h-4" />
-                              Create Appointment
-                            </>
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setAdminViewPersisted('menu')}
-                          className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-lg transition-colors"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-                </>
+                <AdminViewWrapper onBack={() => setAdminViewPersisted('menu')}>
+                  <AppointmentsView
+                    form={appointmentForm}
+                    onFormChange={setAppointmentForm}
+                    onSubmit={handleAppointmentSubmit}
+                    loading={appointmentLoading}
+                    success={appointmentSuccess}
+                    error={appointmentError}
+                    allCustomers={allCustomers}
+                    allYachts={allYachts}
+                    onCancel={() => setAdminViewPersisted('menu')}
+                  />
+                </AdminViewWrapper>
               ) : adminView === 'staffappointment' ? (
-                <>
-                  <button
-                    onClick={() => setAdminViewPersisted('menu')}
-                    className="flex items-center gap-2 text-slate-400 hover:text-amber-500 transition-colors mb-4"
-                  >
-                    <span>← Back to Admin Menu</span>
-                  </button>
-
-                  <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 p-6">
-                    <div className="flex items-center gap-3 mb-6">
-                      <Users className="w-8 h-8 text-blue-500" />
-                      <div>
-                        <h2 className="text-2xl font-bold">Staff Appointment</h2>
-                        <p className="text-slate-400">Schedule a meeting with staff or contacts</p>
-                      </div>
-                    </div>
-
-                    {staffAppointmentSuccess && (
-                      <div className="mb-4 p-4 bg-green-500/20 border border-green-500 rounded-lg text-green-400">
-                        Staff appointment scheduled successfully!
-                      </div>
-                    )}
-
-                    {staffAppointmentError && (
-                      <div className="mb-4 p-4 bg-red-500/20 border border-red-500 rounded-lg text-red-400">
-                        {staffAppointmentError}
-                      </div>
-                    )}
-
-                    <form onSubmit={handleStaffAppointmentSubmit} className="space-y-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                          <label className="block text-sm font-medium text-slate-300 mb-2">
-                            Name
-                          </label>
-                          <input
-                            type="text"
-                            value={staffAppointmentForm.name}
-                            onChange={(e) => setStaffAppointmentForm({ ...staffAppointmentForm, name: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
-                            placeholder="Enter name"
-                            required
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-slate-300 mb-2">
-                            Phone Number <span className="text-slate-500">(Optional)</span>
-                          </label>
-                          <input
-                            type="tel"
-                            value={staffAppointmentForm.phone}
-                            onChange={(e) => setStaffAppointmentForm({ ...staffAppointmentForm, phone: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
-                            placeholder="Enter phone number"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-slate-300 mb-2">
-                            Email Address <span className="text-slate-500">(Optional)</span>
-                          </label>
-                          <input
-                            type="email"
-                            value={staffAppointmentForm.email}
-                            onChange={(e) => setStaffAppointmentForm({ ...staffAppointmentForm, email: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
-                            placeholder="Enter email address"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-slate-300 mb-2">
-                            Date
-                          </label>
-                          <input
-                            type="date"
-                            value={staffAppointmentForm.date}
-                            onChange={(e) => setStaffAppointmentForm({ ...staffAppointmentForm, date: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
-                            required
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-slate-300 mb-2">
-                            Time
-                          </label>
-                          <input
-                            type="time"
-                            value={staffAppointmentForm.time}
-                            onChange={(e) => setStaffAppointmentForm({ ...staffAppointmentForm, time: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400"
-                            required
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">
-                          Notes / Purpose <span className="text-slate-500">(Optional)</span>
-                        </label>
-                        <textarea
-                          value={staffAppointmentForm.notes}
-                          onChange={(e) => setStaffAppointmentForm({ ...staffAppointmentForm, notes: e.target.value })}
-                          rows={4}
-                          className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                          placeholder="Meeting purpose or additional notes"
-                        />
-                      </div>
-
-                      <div className="flex gap-4">
-                        <button
-                          type="submit"
-                          disabled={staffAppointmentLoading}
-                          className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                        >
-                          {staffAppointmentLoading ? (
-                            <>
-                              <RefreshCw className="w-4 h-4 animate-spin" />
-                              Creating...
-                            </>
-                          ) : (
-                            <>
-                              <CalendarPlus className="w-4 h-4" />
-                              Schedule Appointment
-                            </>
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setAdminViewPersisted('menu')}
-                          className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-lg transition-colors"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-                </>
+                <AdminViewWrapper onBack={() => setAdminViewPersisted('menu')}>
+                  <StaffAppointmentView
+                    form={staffAppointmentForm}
+                    onFormChange={setStaffAppointmentForm}
+                    onSubmit={handleStaffAppointmentSubmit}
+                    loading={staffAppointmentLoading}
+                    success={staffAppointmentSuccess}
+                    error={staffAppointmentError}
+                    onCancel={() => setAdminViewPersisted('menu')}
+                  />
+                </AdminViewWrapper>
               ) : adminView === 'smartdevices' ? (
                 <AdminViewWrapper onBack={() => setAdminViewPersisted('menu')} backHoverColor="hover:text-green-500">
                   <SmartDeviceManagement />
                 </AdminViewWrapper>
               ) : adminView === 'maintenancerequests' ? (
-                <>
-                  <button
-                    onClick={() => setAdminViewPersisted('menu')}
-                    className="flex items-center gap-2 text-slate-400 hover:text-amber-500 transition-colors mb-4"
-                  >
-                    <span>← Back to Admin Menu</span>
-                  </button>
-
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-3">
-                      <Wrench className="w-8 h-8 text-amber-500" />
-                      <div>
-                        <h2 className="text-2xl font-bold">Owner Maintenance Requests</h2>
-                        <p className="text-slate-400">Maintenance requests submitted by yacht owners and managers</p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={loadAllMaintenanceRequests}
-                      className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors text-sm"
-                    >
-                      <RefreshCw className="w-4 h-4" />
-                      Refresh
-                    </button>
-                  </div>
-
-                  {allMaintenanceRequests.length === 0 ? (
-                    <div className="bg-slate-800/50 rounded-2xl p-12 border border-slate-700 text-center">
-                      <Wrench className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-                      <p className="text-slate-400">No maintenance requests found.</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {allMaintenanceRequests.map((req) => (
-                        <div key={req.id} className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700">
-                          <div className="flex items-start justify-between gap-4 mb-3">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-3 flex-wrap mb-1">
-                                <h3 className="text-lg font-semibold">{req.subject}</h3>
-                                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                                  req.status === 'completed' ? 'bg-green-500/20 text-green-400' :
-                                  req.status === 'in_progress' ? 'bg-blue-500/20 text-blue-400' :
-                                  'bg-amber-500/20 text-amber-400'
-                                }`}>{req.status}</span>
-                              </div>
-                              <div className="flex items-center gap-4 text-sm text-slate-400 flex-wrap">
-                                {req.yachts?.name && (
-                                  <span className="flex items-center gap-1">
-                                    <Anchor className="w-3.5 h-3.5" />
-                                    {req.yachts.name}
-                                  </span>
-                                )}
-                                {req.user_profiles && (
-                                  <span className="flex items-center gap-1">
-                                    <User className="w-3.5 h-3.5" />
-                                    {req.user_profiles.first_name} {req.user_profiles.last_name}
-                                  </span>
-                                )}
-                                <span>{formatDate(req.created_at)}</span>
-                              </div>
-                            </div>
-                          </div>
-                          <p className="text-slate-300 text-sm whitespace-pre-wrap">{req.description}</p>
-                          {req.photo_url && (
-                            <div className="mt-3">
-                              <a href={req.photo_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-sm text-amber-400 hover:text-amber-300 transition-colors">
-                                <Image className="w-4 h-4" />
-                                View Photo
-                              </a>
-                            </div>
-                          )}
-                          <div className="mt-4">
-                            <select
-                              value={req.status}
-                              onChange={async (e) => {
-                                const newStatus = e.target.value;
-                                const { error } = await supabase
-                                  .from('maintenance_requests')
-                                  .update({ status: newStatus })
-                                  .eq('id', req.id);
-                                if (!error) {
-                                  setAllMaintenanceRequests(prev => prev.map(r => r.id === req.id ? { ...r, status: newStatus } : r));
-                                }
-                              }}
-                              className="bg-slate-900 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-amber-500"
-                            >
-                              <option value="pending">Pending</option>
-                              <option value="in_progress">In Progress</option>
-                              <option value="completed">Completed</option>
-                            </select>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </>
+                <AdminViewWrapper onBack={() => setAdminViewPersisted('menu')}>
+                  <MaintenanceRequestsView
+                    requests={allMaintenanceRequests}
+                    onRefresh={loadAllMaintenanceRequests}
+                    onUpdateStatus={(id, status) => setAllMaintenanceRequests(prev => prev.map(r => r.id === id ? { ...r, status } : r))}
+                  />
+                </AdminViewWrapper>
               ) : adminView === 'companies' ? (
                 <AdminViewWrapper onBack={() => setAdminViewPersisted('menu')}>
                   <CompanyManagement />
