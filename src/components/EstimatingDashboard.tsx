@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Package, Briefcase, Wrench, Settings, LayoutDashboard, Clock, DollarSign, AlertCircle, FileText as FileIcon, Receipt, ShoppingCart, TrendingUp } from 'lucide-react';
+import { FileText, Package, Briefcase, Wrench, Settings, LayoutDashboard, Clock, DollarSign, AlertCircle, FileText as FileIcon, Receipt, ShoppingCart, TrendingUp, RefreshCw } from 'lucide-react';
 import { Estimates } from './Estimates';
 import { WorkOrders } from './WorkOrders';
 import { Invoices } from './Invoices';
@@ -59,6 +59,8 @@ export function EstimatingDashboard({ userId, initialInvoiceId }: EstimatingDash
     ytdTotalSalesCount: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   const tabs = [
     { id: 'dashboard' as TabType, label: 'Dashboard', icon: LayoutDashboard },
@@ -363,6 +365,19 @@ export function EstimatingDashboard({ userId, initialInvoiceId }: EstimatingDash
                     {!loading && stats.unpaidInvoices === 0 && stats.processingInvoices === 0 && (
                       <p className="text-xs text-green-600 pl-6">All invoices paid</p>
                     )}
+                    <div className="mt-3 pl-6 flex items-center gap-3">
+                      <button
+                        onClick={syncStripeStatuses}
+                        disabled={syncing || loading}
+                        className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
+                        {syncing ? 'Syncing...' : 'Sync Stripe Statuses'}
+                      </button>
+                      {syncMessage && (
+                        <span className="text-xs text-gray-600">{syncMessage}</span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex items-center justify-between py-3 border-b border-gray-100">
