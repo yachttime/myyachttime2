@@ -175,6 +175,46 @@ export function EstimatingDashboard({ userId, initialInvoiceId }: EstimatingDash
     }
   }
 
+  async function syncStripeStatuses() {
+    try {
+      setSyncing(true);
+      setSyncMessage(null);
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setSyncMessage('Authentication required');
+        return;
+      }
+
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-all-invoice-statuses`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        if (result.updated > 0) {
+          setSyncMessage(`Synced ${result.checked} invoices, ${result.updated} updated`);
+          await fetchDashboardStats();
+        } else {
+          setSyncMessage(`Checked ${result.checked} invoices, all up to date`);
+        }
+      } else {
+        setSyncMessage(result.error || 'Sync failed');
+      }
+    } catch (error) {
+      console.error('Error syncing Stripe statuses:', error);
+      setSyncMessage('Failed to sync with Stripe');
+    } finally {
+      setSyncing(false);
+      setTimeout(() => setSyncMessage(null), 5000);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="border-b border-gray-200 bg-white">
