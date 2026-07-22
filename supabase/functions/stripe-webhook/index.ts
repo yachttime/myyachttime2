@@ -225,6 +225,18 @@ async function deactivatePaymentLink(stripeSecretKey: string, linkId: string): P
   }
 }
 
+function estimateAchFundsAvailableAt(createdTimestamp: number): string {
+  const created = new Date(createdTimestamp * 1000);
+  let businessDays = 5;
+  const estimated = new Date(created);
+  while (businessDays > 0) {
+    estimated.setDate(estimated.getDate() + 1);
+    const day = estimated.getDay();
+    if (day !== 0 && day !== 6) businessDays--;
+  }
+  return estimated.toISOString();
+}
+
 async function fetchPaymentIntentDetails(stripeSecretKey: string, paymentIntentId: string): Promise<{ paymentMethod: string; fundsAvailableAt: string | null }> {
   try {
     const piResponse = await fetch(
@@ -235,8 +247,15 @@ async function fetchPaymentIntentDetails(stripeSecretKey: string, paymentIntentI
       const piData = await piResponse.json();
       const pm = piData.charges?.data?.[0]?.payment_method_details?.type || 'card';
       const availableOn = piData.charges?.data?.[0]?.balance_transaction?.available_on;
-      const fundsAvailableAt = availableOn ? new Date(availableOn * 1000).toISOString() : null;
-      return { paymentMethod: pm, fundsAvailableAt };
+      // If charge has settled, use actual available_on date
+      if (availableOn) {
+        return { paymentMethod: pm, fundsAvailableAt: new Date(availableOn * 1000).toISOString() };
+      }
+      // ACH still processing — estimate 5 business days from PI creation
+      if (piData.status === "processing" || (piData.charges?.data?.[0]?.status === "pending")) {
+        return { paymentMethod: pm, fundsAvailableAt: estimateAchFundsAvailableAt(piData.created) };
+      }
+      return { paymentMethod: pm, fundsAvailableAt: null };
     }
   } catch (err) { console.error('Error fetching payment intent:', err); }
   return { paymentMethod: 'card', fundsAvailableAt: null };
