@@ -90,6 +90,7 @@ interface Invoice {
   repair_request_status?: string | null;
   repair_request_deposit_status?: string | null;
   trip_inspection_id?: string | null;
+  stripe_funds_available_at?: string | null;
 }
 
 interface WorkOrderTask {
@@ -3001,6 +3002,11 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                             {invoice.payment_status.charAt(0).toUpperCase() + invoice.payment_status.slice(1)}
                           </span>
                         )}
+                        {invoice.payment_status === 'processing' && invoice.stripe_funds_available_at && (
+                          <span className="block text-[10px] text-orange-600 mt-0.5">
+                            Funds available {new Date(invoice.stripe_funds_available_at).toLocaleDateString('en-US', { timeZone: 'America/Phoenix', month: 'short', day: 'numeric', year: 'numeric' })}
+                          </span>
+                        )}
                         {invoice.payment_status !== 'paid' && (
                           (invoice.repair_request_id && invoice.repair_request_deposit_status === 'paid') ||
                           (!invoice.repair_request_id && invoice.deposit_applied && invoice.deposit_applied > 0)
@@ -3488,6 +3494,11 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                           <span className="ml-auto bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
                             <RefreshCw className="w-3 h-3" />
                             Processing
+                            {selectedInvoice.stripe_funds_available_at && (
+                              <span className="font-normal text-orange-700 ml-1">
+                                · Funds available {new Date(selectedInvoice.stripe_funds_available_at).toLocaleDateString('en-US', { timeZone: 'America/Phoenix', month: 'short', day: 'numeric', year: 'numeric' })}
+                              </span>
+                            )}
                           </span>
                         )}
                         {selectedInvoice.payment_status === 'paid' && (

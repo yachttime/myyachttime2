@@ -15,6 +15,23 @@ interface SyncRequest {
   type?: string;
 }
 
+async function fetchPaymentIntentDetails(stripeSecretKey: string, paymentIntentId: string): Promise<{ paymentMethod: string; fundsAvailableAt: string | null }> {
+  try {
+    const piResponse = await fetch(
+      `https://api.stripe.com/v1/payment_intents/${paymentIntentId}?expand[]=charges.data.balance_transaction`,
+      { headers: { 'Authorization': `Bearer ${stripeSecretKey}` } }
+    );
+    if (piResponse.ok) {
+      const piData = await piResponse.json();
+      const pm = piData.charges?.data?.[0]?.payment_method_details?.type || 'card';
+      const availableOn = piData.charges?.data?.[0]?.balance_transaction?.available_on;
+      const fundsAvailableAt = availableOn ? new Date(availableOn * 1000).toISOString() : null;
+      return { paymentMethod: pm, fundsAvailableAt };
+    }
+  } catch (err) { console.error('Error fetching payment intent:', err); }
+  return { paymentMethod: 'card', fundsAvailableAt: null };
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, {
@@ -594,11 +611,17 @@ Deno.serve(async (req: Request) => {
       if (paidSessions.length === 0 && processingSessions.length > 0) {
         const processingSession = processingSessions[0];
         const paymentIntentId = processingSession.payment_intent;
+        let fundsAvailableAt: string | null = null;
+        if (paymentIntentId) {
+          const piDetails = await fetchPaymentIntentDetails(stripeSecretKey, paymentIntentId);
+          fundsAvailableAt = piDetails.fundsAvailableAt;
+        }
         await supabase
           .from('estimating_invoices')
           .update({
             payment_status: 'processing',
             stripe_payment_intent_id: paymentIntentId || null,
+            stripe_funds_available_at: fundsAvailableAt,
             updated_at: new Date().toISOString(),
           })
           .eq('id', estimating_invoice_id);
@@ -901,11 +924,17 @@ Deno.serve(async (req: Request) => {
       } else if (session.status === 'complete' && session.payment_status === 'unpaid') {
         // ACH / bank transfer submitted but not yet settled
         const paymentIntentId = session.payment_intent;
+        let fundsAvailableAt: string | null = null;
+        if (paymentIntentId) {
+          const piDetails = await fetchPaymentIntentDetails(stripeSecretKey, paymentIntentId);
+          fundsAvailableAt = piDetails.fundsAvailableAt;
+        }
         await supabase
           .from('yacht_invoices')
           .update({
             payment_status: 'processing',
             stripe_payment_intent_id: paymentIntentId || null,
+            stripe_funds_available_at: fundsAvailableAt,
             updated_at: new Date().toISOString(),
           })
           .eq('id', invoice_id);

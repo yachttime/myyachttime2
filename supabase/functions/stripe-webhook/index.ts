@@ -225,6 +225,23 @@ async function deactivatePaymentLink(stripeSecretKey: string, linkId: string): P
   }
 }
 
+async function fetchPaymentIntentDetails(stripeSecretKey: string, paymentIntentId: string): Promise<{ paymentMethod: string; fundsAvailableAt: string | null }> {
+  try {
+    const piResponse = await fetch(
+      `https://api.stripe.com/v1/payment_intents/${paymentIntentId}?expand[]=charges.data.balance_transaction`,
+      { headers: { 'Authorization': `Bearer ${stripeSecretKey}` } }
+    );
+    if (piResponse.ok) {
+      const piData = await piResponse.json();
+      const pm = piData.charges?.data?.[0]?.payment_method_details?.type || 'card';
+      const availableOn = piData.charges?.data?.[0]?.balance_transaction?.available_on;
+      const fundsAvailableAt = availableOn ? new Date(availableOn * 1000).toISOString() : null;
+      return { paymentMethod: pm, fundsAvailableAt };
+    }
+  } catch (err) { console.error('Error fetching payment intent:', err); }
+  return { paymentMethod: 'card', fundsAvailableAt: null };
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -550,17 +567,12 @@ Deno.serve(async (req: Request) => {
 
         let paymentMethod = session.payment_method_types?.[0] || 'card';
         const paymentIntentId = session.payment_intent;
+        let fundsAvailableAt: string | null = null;
 
         if (paymentIntentId) {
-          try {
-            const piResponse = await fetch(`https://api.stripe.com/v1/payment_intents/${paymentIntentId}`, {
-              headers: { 'Authorization': `Bearer ${stripeSecretKey}` },
-            });
-            if (piResponse.ok) {
-              const piData = await piResponse.json();
-              paymentMethod = piData.charges?.data?.[0]?.payment_method_details?.type || paymentMethod;
-            }
-          } catch (err) { console.error('Error fetching payment intent:', err); }
+          const piDetails = await fetchPaymentIntentDetails(stripeSecretKey, paymentIntentId);
+          paymentMethod = piDetails.paymentMethod;
+          fundsAvailableAt = piDetails.fundsAvailableAt;
         }
 
         // ACH bank transfer: session completes but payment_status is 'unpaid' while processing
@@ -573,6 +585,7 @@ Deno.serve(async (req: Request) => {
               payment_status: 'processing',
               stripe_payment_intent_id: paymentIntentId || null,
               final_payment_method_type: 'ach',
+              stripe_funds_available_at: fundsAvailableAt,
               updated_at: new Date().toISOString(),
             })
             .eq('id', invoiceId);
@@ -739,17 +752,12 @@ Deno.serve(async (req: Request) => {
 
       let paymentMethod = session.payment_method_types?.[0] || 'card';
       const paymentIntentId = session.payment_intent;
+      let fundsAvailableAt: string | null = null;
 
       if (paymentIntentId) {
-        try {
-          const piResponse = await fetch(`https://api.stripe.com/v1/payment_intents/${paymentIntentId}`, {
-            headers: { 'Authorization': `Bearer ${stripeSecretKey}` },
-          });
-          if (piResponse.ok) {
-            const piData = await piResponse.json();
-            paymentMethod = piData.charges?.data?.[0]?.payment_method_details?.type || paymentMethod;
-          }
-        } catch (err) { console.error('Error fetching payment intent:', err); }
+        const piDetails = await fetchPaymentIntentDetails(stripeSecretKey, paymentIntentId);
+        paymentMethod = piDetails.paymentMethod;
+        fundsAvailableAt = piDetails.fundsAvailableAt;
       }
 
       // ACH bank transfer: session completes but payment_status is 'unpaid' while processing
@@ -759,6 +767,7 @@ Deno.serve(async (req: Request) => {
           payment_status: 'processing',
           stripe_payment_intent_id: paymentIntentId || null,
           payment_method: paymentMethod,
+          stripe_funds_available_at: fundsAvailableAt,
           updated_at: new Date().toISOString(),
         }).eq('id', invoiceId);
 
