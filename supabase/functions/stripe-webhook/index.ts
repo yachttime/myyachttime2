@@ -520,7 +520,7 @@ Deno.serve(async (req: Request) => {
 
       // ── Estimating invoice payment ──────────────────────────────────────────
       if (paymentType === 'estimating_invoice_payment' && invoiceId) {
-        console.log('Processing payment for estimating invoice:', invoiceId);
+        console.log('Processing payment for estimating invoice:', invoiceId, 'session payment_status:', session.payment_status);
 
         const { data: existingInvoice } = await supabase
           .from('estimating_invoices')
@@ -550,7 +550,6 @@ Deno.serve(async (req: Request) => {
 
         let paymentMethod = session.payment_method_types?.[0] || 'card';
         const paymentIntentId = session.payment_intent;
-        const amountPaid = (session.amount_total || 0) / 100;
 
         if (paymentIntentId) {
           try {
@@ -563,6 +562,34 @@ Deno.serve(async (req: Request) => {
             }
           } catch (err) { console.error('Error fetching payment intent:', err); }
         }
+
+        // ACH bank transfer: session completes but payment_status is 'unpaid' while processing
+        // Mark as 'processing' — the async_payment_succeeded event will fire when the ACH settles
+        if (session.payment_status === 'unpaid' && session.status === 'complete') {
+          console.log('ACH payment submitted but still processing for invoice:', invoiceId);
+          await supabase
+            .from('estimating_invoices')
+            .update({
+              payment_status: 'processing',
+              stripe_payment_intent_id: paymentIntentId || null,
+              final_payment_method_type: 'ach',
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', invoiceId);
+
+          await supabase.from('admin_notifications').insert({
+            message: `ACH payment submitted for Invoice (processing in Stripe) - awaiting bank settlement`,
+            yacht_id: yachtId || null,
+            reference_id: invoiceId,
+            created_at: new Date().toISOString(),
+          });
+
+          return new Response(JSON.stringify({ received: true, status: 'processing' }), {
+            status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        const amountPaid = (session.amount_total || 0) / 100;
 
         const { data: invoice } = await supabase
           .from('estimating_invoices')
@@ -723,6 +750,28 @@ Deno.serve(async (req: Request) => {
             paymentMethod = piData.charges?.data?.[0]?.payment_method_details?.type || paymentMethod;
           }
         } catch (err) { console.error('Error fetching payment intent:', err); }
+      }
+
+      // ACH bank transfer: session completes but payment_status is 'unpaid' while processing
+      if (session.payment_status === 'unpaid' && session.status === 'complete') {
+        console.log('ACH payment submitted but still processing for legacy invoice:', invoiceId);
+        await supabase.from('yacht_invoices').update({
+          payment_status: 'processing',
+          stripe_payment_intent_id: paymentIntentId || null,
+          payment_method: paymentMethod,
+          updated_at: new Date().toISOString(),
+        }).eq('id', invoiceId);
+
+        await supabase.from('admin_notifications').insert({
+          message: `ACH payment submitted for invoice (processing in Stripe) - awaiting bank settlement`,
+          yacht_id: yachtId || null,
+          reference_id: invoiceId,
+          created_at: new Date().toISOString(),
+        });
+
+        return new Response(JSON.stringify({ received: true, status: 'processing' }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
 
       await supabase.from('yacht_invoices').update({
@@ -930,6 +979,34 @@ Deno.serve(async (req: Request) => {
           paid_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         }).eq('id', invoice.id);
+      }
+    }
+
+    // ── ACH async payment failed ───────────────────────────────────────────
+    if (event.type === 'checkout.session.async_payment_failed') {
+      const session = event.data.object;
+      const invoiceId = session.metadata?.invoice_id;
+      const paymentType = session.metadata?.payment_type;
+      const yachtId = session.metadata?.yacht_id;
+
+      if (paymentType === 'estimating_invoice_payment' && invoiceId) {
+        await supabase.from('estimating_invoices').update({
+          payment_status: 'unpaid',
+          stripe_payment_intent_id: null,
+          updated_at: new Date().toISOString(),
+        }).eq('id', invoiceId).eq('payment_status', 'processing');
+
+        await supabase.from('admin_notifications').insert({
+          message: `ACH payment FAILED for estimating invoice ${invoiceId.substring(0, 8)}. Invoice reverted to unpaid. Customer may need to retry.`,
+          yacht_id: yachtId || null,
+          reference_id: invoiceId,
+          created_at: new Date().toISOString(),
+        });
+      } else if (invoiceId) {
+        await supabase.from('yacht_invoices').update({
+          payment_status: 'failed',
+          updated_at: new Date().toISOString(),
+        }).eq('id', invoiceId);
       }
     }
 
