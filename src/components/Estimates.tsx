@@ -3235,7 +3235,6 @@ export function Estimates({ userId }: EstimatesProps) {
                                     type="number"
                                     required
                                     step="0.01"
-                                    min="0"
                                     value={lineItemFormData.quantity}
                                     onChange={(e) => setLineItemFormData({ ...lineItemFormData, quantity: e.target.value })}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
@@ -3247,7 +3246,6 @@ export function Estimates({ userId }: EstimatesProps) {
                                     type="number"
                                     required
                                     step="0.01"
-                                    min="0"
                                     value={lineItemFormData.unit_price}
                                     onChange={(e) => setLineItemFormData({ ...lineItemFormData, unit_price: e.target.value })}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"

@@ -3307,7 +3307,6 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                                         <td className="px-3 py-2 text-right align-top">
                                           <input
                                             type="number"
-                                            min="0"
                                             step="any"
                                             value={item.quantity}
                                             onChange={(e) => handleUpdateLineItemPrice(taskIndex, lineIndex, 'quantity', e.target.value)}
@@ -3319,7 +3318,6 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                                             <span className="text-gray-500 text-sm">$</span>
                                             <input
                                               type="number"
-                                              min="0"
                                               step="0.01"
                                               value={item.unit_price}
                                               onChange={(e) => handleUpdateLineItemPrice(taskIndex, lineIndex, 'unit_price', e.target.value)}
@@ -3553,7 +3551,6 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                                     type="number"
                                     required
                                     step="0.01"
-                                    min="0"
                                     value={lineItemFormData.quantity}
                                     onChange={(e) => setLineItemFormData({ ...lineItemFormData, quantity: e.target.value })}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
@@ -3565,7 +3562,6 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
                                     type="number"
                                     required
                                     step="0.01"
-                                    min="0"
                                     value={lineItemFormData.unit_price}
                                     onChange={(e) => setLineItemFormData({ ...lineItemFormData, unit_price: e.target.value })}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
