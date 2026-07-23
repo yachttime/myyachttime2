@@ -479,7 +479,7 @@ Deno.serve(async (req: Request) => {
             updated_at: new Date().toISOString(),
           })
           .eq('id', workOrderId)
-          .eq('deposit_payment_status', 'pending')
+          .in('deposit_payment_status', ['pending', 'not_required'])
           .select('work_order_number, deposit_stripe_checkout_session_id')
           .single();
 
