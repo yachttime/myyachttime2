@@ -134,6 +134,7 @@ export function DailyTasksView() {
   const [creatingTask, setCreatingTask] = useState(false);
 
   const [staffNotesEdit, setStaffNotesEdit] = useState<Record<string, string>>({});
+  const [adminNotesEdit, setAdminNotesEdit] = useState<Record<string, string>>({});
   const [timeSpentEdit, setTimeSpentEdit] = useState<Record<string, string>>({});
   const [taskDateEdit, setTaskDateEdit] = useState<Record<string, string>>({});
   const [assignedToEdit, setAssignedToEdit] = useState<Record<string, string>>({});
@@ -197,9 +198,11 @@ export function DailyTasksView() {
     } else {
       setTasks(activeRes.data || []);
       const initial: Record<string, string> = {};
+      const initialAdmin: Record<string, string> = {};
       const initialTime: Record<string, string> = {};
       (activeRes.data || []).forEach((t: DailyTask) => {
         initial[t.id] = t.staff_notes || '';
+        initialAdmin[t.id] = t.admin_notes || '';
         initialTime[t.id] = t.time_spent_minutes > 0
           ? String(Math.floor(t.time_spent_minutes / 60) * 60 === t.time_spent_minutes
               ? t.time_spent_minutes / 60
@@ -207,6 +210,7 @@ export function DailyTasksView() {
           : '';
       });
       setStaffNotesEdit(initial);
+      setAdminNotesEdit(initialAdmin);
       setTimeSpentEdit(initialTime);
     }
 
@@ -317,8 +321,11 @@ export function DailyTasksView() {
     const task = tasks.find((t) => t.id === taskId);
     const dateVal = taskDateEdit[taskId] ?? task?.task_date;
 
+    const adminNotes = adminNotesEdit[taskId] ?? task?.admin_notes ?? '';
+
     const updateData: Record<string, string | number | null> = {
       staff_notes: notes,
+      admin_notes: adminNotes,
       time_spent_minutes: minutes,
       ...(dateVal ? { task_date: dateVal } : {}),
     };
@@ -374,10 +381,13 @@ export function DailyTasksView() {
 
     const task = tasks.find((t) => t.id === taskId);
 
+    const adminNotes = adminNotesEdit[taskId] ?? task?.admin_notes ?? '';
+
     const { error: updateError } = await supabase
       .from('daily_tasks')
       .update({
         staff_notes: notes,
+        admin_notes: adminNotes,
         time_spent_minutes: minutes,
         is_completed: true,
         completed_at: new Date().toISOString(),
@@ -989,12 +999,16 @@ export function DailyTasksView() {
                       </div>
                     )}
 
-                    {task.admin_notes && (
-                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                        <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-1">Assignment Notes</p>
-                        <p className="text-sm text-gray-800 whitespace-pre-wrap">{task.admin_notes}</p>
-                      </div>
-                    )}
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                      <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-2">Assignment Notes</p>
+                      <textarea
+                        value={adminNotesEdit[task.id] ?? task.admin_notes}
+                        onChange={(e) => setAdminNotesEdit((prev) => ({ ...prev, [task.id]: e.target.value }))}
+                        rows={3}
+                        placeholder="Add assignment instructions or notes for staff..."
+                        className="w-full border border-amber-300 rounded-lg p-2.5 text-sm text-gray-800 bg-white resize-none focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                      />
+                    </div>
 
                     {task.photo_url && (
                       <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
