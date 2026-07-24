@@ -3,6 +3,22 @@ import {
   Ship, CheckCircle, Trash2, ClipboardList, ChevronUp, ChevronDown, Wrench,
 } from 'lucide-react';
 import { Yacht } from '../../lib/supabase';
+import { useState as _useState, useEffect as _useEffect } from 'react';
+
+function OilChangeNotesInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [local, setLocal] = _useState(value);
+  _useEffect(() => { setLocal(value); }, [value]);
+  return (
+    <textarea
+      value={local}
+      onChange={(e) => setLocal(e.target.value)}
+      onBlur={() => onChange(local)}
+      placeholder="Add guidance for the employee performing the oil change (e.g. which engine, oil type, special procedures)..."
+      className="w-full px-4 py-2 bg-slate-900/50 border border-slate-600 rounded-lg focus:outline-none focus:border-yellow-500 text-white min-h-[80px] resize-none"
+      rows={3}
+    />
+  );
+}
 
 export type CalendarViewType = 'day' | 'week' | 'month';
 export type AppointmentTypeFilter = 'all' | 'customer' | 'staff';
@@ -435,7 +451,7 @@ export default function MasterCalendarView(props: MasterCalendarViewProps) {
                     {p.editingBooking.oil_change_needed && (
                       <div>
                         <label className="block text-sm font-medium mb-2">Oil Change Instructions <span className="text-slate-500">(Optional)</span></label>
-                        <textarea value={p.editBookingForm.oil_change_notes} onChange={(e) => p.onEditBookingFormChange({ ...p.editBookingForm, oil_change_notes: e.target.value })} placeholder="Add guidance for the employee performing the oil change (e.g. which engine, oil type, special procedures)..." className="w-full px-4 py-2 bg-slate-900/50 border border-slate-600 rounded-lg focus:outline-none focus:border-yellow-500 text-white min-h-[80px] resize-none" rows={3} />
+                        <OilChangeNotesInput value={p.editBookingForm.oil_change_notes} onChange={(v) => p.onEditBookingFormChange({ ...p.editBookingForm, oil_change_notes: v })} />
                       </div>
                     )}
                   </div>
