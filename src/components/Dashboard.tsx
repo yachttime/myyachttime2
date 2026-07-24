@@ -585,7 +585,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     departure_time: '',
     end_date: '',
     arrival_time: '',
-    additionalOwners: [] as Array<{ id?: string; owner_name: string; owner_contact: string }>
+    additionalOwners: [] as Array<{ id?: string; owner_name: string; owner_contact: string }>,
+    oil_change_notes: ''
   });
   const [editBookingLoading, setEditBookingLoading] = useState(false);
   const [selectedChatYachtId, setSelectedChatYachtId] = useState<string | null>(null);
@@ -7867,6 +7868,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       end_date: endDate.toLocaleDateString('en-CA', { timeZone: 'America/Phoenix' }),
       arrival_time: endDate.toLocaleTimeString('en-US', { timeZone: 'America/Phoenix', hour: '2-digit', minute: '2-digit', hour12: false }),
       additionalOwners,
+      oil_change_notes: (booking as YachtBooking).oil_change_notes || '',
     });
   };
 
@@ -7876,20 +7878,26 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     try {
       const newOilChangeStatus = !editingBooking.oil_change_needed;
 
+      const updateData: Record<string, unknown> = { oil_change_needed: newOilChangeStatus };
+      if (!newOilChangeStatus) {
+        updateData.oil_change_notes = null;
+        setEditBookingForm(prev => ({ ...prev, oil_change_notes: '' }));
+      }
+
       const { error } = await supabase
         .from('yacht_bookings')
-        .update({ oil_change_needed: newOilChangeStatus })
+        .update(updateData)
         .eq('id', editingBooking.id);
 
       if (error) throw error;
 
-      setEditingBooking({ ...editingBooking, oil_change_needed: newOilChangeStatus });
+      setEditingBooking({ ...editingBooking, oil_change_needed: newOilChangeStatus, oil_change_notes: newOilChangeStatus ? (editingBooking as YachtBooking).oil_change_notes : null });
 
       // Update master calendar bookings immediately
       setMasterCalendarBookings(prevBookings =>
         prevBookings.map(booking =>
           booking.id === editingBooking.id
-            ? { ...booking, oil_change_needed: newOilChangeStatus }
+            ? { ...booking, oil_change_needed: newOilChangeStatus, oil_change_notes: newOilChangeStatus ? (booking as YachtBooking).oil_change_notes : null }
             : booking
         )
       );
@@ -7916,6 +7924,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         owner_contact: editBookingForm.owner_contact,
         start_date: startDateTime.toISOString(),
         end_date: endDateTime.toISOString(),
+        oil_change_notes: editBookingForm.oil_change_notes || null,
       };
       // user_id intentionally kept — owner_name overrides display when set
 

@@ -125,6 +125,7 @@ export interface YachtBooking {
   departure_time?: string;
   arrival_time?: string;
   oil_change_needed?: boolean;
+  oil_change_notes?: string | null;
   created_at: string;
   updated_at: string;
   yacht_booking_owners?: YachtBookingOwner[];

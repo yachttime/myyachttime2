@@ -17,6 +17,7 @@ export interface EditBookingForm {
   departure_time: string;
   arrival_time: string;
   additionalOwners: AdditionalOwner[];
+  oil_change_notes: string;
 }
 
 export interface EditAppointmentForm {
@@ -360,6 +361,15 @@ export default function MasterCalendarView(props: MasterCalendarViewProps) {
                                   {booking.checked_in && <div className="flex items-center gap-1 px-2 py-1 bg-green-500/20 border border-green-500/30 rounded text-xs text-green-400"><CheckCircle className="w-3 h-3" /><span>Checked In</span></div>}
                                   {booking.checked_out && <div className="flex items-center gap-1 px-2 py-1 bg-blue-500/20 border border-blue-500/30 rounded text-xs text-blue-400"><CheckCircle className="w-3 h-3" /><span>Checked Out</span></div>}
                                 </div>
+                                {booking.oil_change_needed && booking.oil_change_notes && (
+                                  <div className="mt-3 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                                    <div className="flex items-center gap-1.5 mb-1">
+                                      <Wrench className="w-3.5 h-3.5 text-yellow-400" />
+                                      <span className="text-xs font-semibold text-yellow-300">Oil Change Instructions</span>
+                                    </div>
+                                    <p className="text-sm text-yellow-100/90 whitespace-pre-wrap">{booking.oil_change_notes}</p>
+                                  </div>
+                                )}
                               </>
                             )}
                           </div>
@@ -420,8 +430,14 @@ export default function MasterCalendarView(props: MasterCalendarViewProps) {
                 let isDeparture = false;
                 if (p.editingBookingClickedDate) { const c = new Date(p.editingBookingClickedDate); c.setHours(0,0,0,0); isDeparture = c.getTime() === startDate.getTime(); }
                 return !isDeparture && (
-                  <div className="mb-4">
+                  <div className="mb-4 space-y-3">
                     <button type="button" onClick={p.onToggleOilChange} className={`w-full py-3 px-4 rounded-lg font-semibold transition-all ${p.editingBooking.oil_change_needed ? 'bg-yellow-500/20 border-2 border-yellow-500 text-yellow-300 hover:bg-yellow-500/30' : 'bg-red-500/20 border-2 border-red-500 text-red-300 hover:bg-red-500/30'}`}>{p.editingBooking.oil_change_needed ? '⚠️ Oil Change Needed' : '✓ Oil Change Not Needed'}</button>
+                    {p.editingBooking.oil_change_needed && (
+                      <div>
+                        <label className="block text-sm font-medium mb-2">Oil Change Instructions <span className="text-slate-500">(Optional)</span></label>
+                        <textarea value={p.editBookingForm.oil_change_notes} onChange={(e) => p.onEditBookingFormChange({ ...p.editBookingForm, oil_change_notes: e.target.value })} placeholder="Add guidance for the employee performing the oil change (e.g. which engine, oil type, special procedures)..." className="w-full px-4 py-2 bg-slate-900/50 border border-slate-600 rounded-lg focus:outline-none focus:border-yellow-500 text-white min-h-[80px] resize-none" rows={3} />
+                      </div>
+                    )}
                   </div>
                 );
               })()}
