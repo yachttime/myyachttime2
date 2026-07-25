@@ -8252,6 +8252,15 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           <span> ${formatCheckTimestamp(booking.check_out_at, booking.checked_out)}</span>
         </div>`;
 
+      const oilNotes = (!isDeparture && booking.oil_change_needed && booking.oil_change_notes)
+        ? `<tr style="border-bottom:1px solid #334155">
+          <td colspan="5" style="padding:6px 12px 8px;background:#422006;border-left:3px solid #eab308">
+            <div style="color:#fde047;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.03em;margin-bottom:2px">Oil Change Instructions</div>
+            <div style="color:#fef3c7;font-size:12px;white-space:pre-wrap">${String(booking.oil_change_notes).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+          </td>
+        </tr>`
+        : '';
+
       return `<tr style="border-bottom:1px solid #334155">
         <td style="padding:8px 12px;background:${col.bg};border-left:3px solid ${col.border}">
           <div style="color:${col.text};font-weight:600;font-size:13px">${yachtName}</div>
@@ -8261,7 +8270,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         <td class="data-cell" style="padding:8px 12px;font-size:13px;font-weight:600">${time}</td>
         <td class="data-cell" style="padding:8px 12px;font-size:13px">${startFormatted}</td>
         <td class="data-cell" style="padding:8px 12px">${checkInCell}</td>
-      </tr>`;
+      </tr>${oilNotes}`;
     };
 
     let bodyHtml = '';
