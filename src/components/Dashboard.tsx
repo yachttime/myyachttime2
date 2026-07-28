@@ -8975,7 +8975,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                         Stateline Launch Ramp Webcam
                       </a>
                       <a
-                        href="https://www.youtube.com/watch?v=N9tH-8UOFasll"
+                        href="https://www.youtube.com/watch?v=NEK2iTuyOX4"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
