@@ -297,8 +297,8 @@ export function PayrollReportView() {
 
     setLoadingDetail(period.id);
     try {
-      const endOfDay = new Date(new Date(period.period_end).setHours(23, 59, 59)).toISOString();
-      const startOfDay = new Date(period.period_start).toISOString();
+      const endOfDay = new Date(parseDateLocal(period.period_end).setHours(23, 59, 59)).toISOString();
+      const startOfDay = parseDateLocal(period.period_start).toISOString();
 
       let entries: any[] = [];
       let entriesError: any = null;
@@ -369,12 +369,12 @@ export function PayrollReportView() {
     if (!activePayPeriod) return;
     setAssigningPayroll(userId);
     try {
-      const endOfDay = new Date(new Date(activePayPeriod.period_end).setHours(23, 59, 59)).toISOString();
+      const endOfDay = new Date(parseDateLocal(activePayPeriod.period_end).setHours(23, 59, 59)).toISOString();
       const { error } = await supabase
         .from('staff_time_entries')
         .update({ pay_period_id: activePayPeriod.id })
         .eq('user_id', userId)
-        .gte('punch_in_time', new Date(activePayPeriod.period_start).toISOString())
+        .gte('punch_in_time', parseDateLocal(activePayPeriod.period_start).toISOString())
         .lte('punch_in_time', endOfDay)
         .not('punch_out_time', 'is', null);
 
@@ -442,13 +442,13 @@ export function PayrollReportView() {
     if (!activePayPeriod) return;
     setAssigningPayroll(userId);
     try {
-      const endOfDay = new Date(new Date(activePayPeriod.period_end).setHours(23, 59, 59)).toISOString();
+      const endOfDay = new Date(parseDateLocal(activePayPeriod.period_end).setHours(23, 59, 59)).toISOString();
       const { error } = await supabase
         .from('staff_time_entries')
         .update({ pay_period_id: null })
         .eq('user_id', userId)
         .eq('pay_period_id', activePayPeriod.id)
-        .gte('punch_in_time', new Date(activePayPeriod.period_start).toISOString())
+        .gte('punch_in_time', parseDateLocal(activePayPeriod.period_start).toISOString())
         .lte('punch_in_time', endOfDay);
 
       if (error) throw error;
@@ -478,8 +478,8 @@ export function PayrollReportView() {
     const { sourcePeriod, employee } = reassignModal;
     setReassigning(true);
     try {
-      const startOfDay = new Date(sourcePeriod.period_start).toISOString();
-      const endOfDay = new Date(new Date(sourcePeriod.period_end).setHours(23, 59, 59)).toISOString();
+      const startOfDay = parseDateLocal(sourcePeriod.period_start).toISOString();
+      const endOfDay = new Date(parseDateLocal(sourcePeriod.period_end).setHours(23, 59, 59)).toISOString();
 
       const { error: error1 } = await supabase
         .from('staff_time_entries')
@@ -528,8 +528,8 @@ export function PayrollReportView() {
   const handlePrintPayPeriod = async (period: PayPeriod) => {
     setPrintingPeriodId(period.id);
     try {
-      const endOfDay = new Date(new Date(period.period_end).setHours(23, 59, 59)).toISOString();
-      const startOfDay = new Date(period.period_start).toISOString();
+      const endOfDay = new Date(parseDateLocal(period.period_end).setHours(23, 59, 59)).toISOString();
+      const startOfDay = parseDateLocal(period.period_start).toISOString();
 
       let regularQuery = supabase
         .from('staff_time_entries')
@@ -657,8 +657,8 @@ export function PayrollReportView() {
 
     setLoading(true);
     try {
-      const startIso = new Date(startDate).toISOString();
-      const endIso = new Date(new Date(endDate).setHours(23, 59, 59)).toISOString();
+      const startIso = parseDateLocal(startDate).toISOString();
+      const endIso = new Date(parseDateLocal(endDate).setHours(23, 59, 59)).toISOString();
       const userIds = Array.from(selectedUsers);
       const periodId = activePayPeriod?.id;
 
