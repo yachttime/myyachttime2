@@ -2396,6 +2396,8 @@ export async function generatePayrollReportPDF(
   const contentWidth = pageWidth - (margin * 2);
   let yPos = margin;
 
+  const calendarDate = (d: string) => new Date(d).toLocaleDateString('en-US', { timeZone: 'UTC' });
+
   const addText = (text: string, fontSize: number = 10, style: 'normal' | 'bold' = 'normal', align: 'left' | 'center' | 'right' = 'left') => {
     doc.setFontSize(fontSize);
     doc.setFont('helvetica', style);
@@ -2425,9 +2427,9 @@ export async function generatePayrollReportPDF(
   };
 
   addText('PAYROLL REPORT', 16, 'bold', 'center');
-  addText(`Pay Period: ${phxDate(startDate)} - ${phxDate(endDate)}`, 12, 'normal', 'center');
+  addText(`Pay Period: ${calendarDate(startDate)} - ${calendarDate(endDate)}`, 12, 'normal', 'center');
   if (payDate) {
-    addText(`Payday: ${phxDate(payDate)}`, 12, 'normal', 'center');
+    addText(`Payday: ${calendarDate(payDate)}`, 12, 'normal', 'center');
   }
   addSpace(0.3);
 
@@ -2686,7 +2688,7 @@ export async function generatePayrollReportPDF(
     doc.text(`Page ${i} of ${pageCount}`, pageWidth - margin - 0.5, pageHeight - 0.3, { align: 'right' });
   }
 
-  const fileName = `Payroll_Report_${phxDate(startDate).replace(/\//g, '-')}_to_${phxDate(endDate).replace(/\//g, '-')}.pdf`;
+  const fileName = `Payroll_Report_${calendarDate(startDate).replace(/\//g, '-')}_to_${calendarDate(endDate).replace(/\//g, '-')}.pdf`;
   if (skipDownload) {
     return doc.output('blob');
   }
