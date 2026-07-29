@@ -9,36 +9,39 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { height: 100%; width: 100%; background: #0f172a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; overflow: hidden; }
-    #map { position: absolute; top: 0; left: 0; right: 0; bottom: 56px; background: #1e293b; }
+    #map { position: absolute; top: 0; left: 0; right: 0; bottom: 52px; background: #1e293b; }
     .controls {
-      position: absolute; bottom: 0; left: 0; right: 0; height: 56px;
+      position: absolute; bottom: 0; left: 0; right: 0; height: 52px;
       background: #1e293b; border-top: 1px solid #334155;
-      display: flex; align-items: center; gap: 12px; padding: 0 16px;
+      display: flex; align-items: center; gap: 10px; padding: 0 14px;
       z-index: 1000;
     }
     .btn {
       background: #334155; color: #e2e8f0; border: 1px solid #475569;
-      border-radius: 6px; padding: 8px 14px; cursor: pointer;
-      font-size: 14px; transition: background 0.2s; white-space: nowrap;
+      border-radius: 6px; padding: 7px 12px; cursor: pointer;
+      font-size: 13px; transition: background 0.2s; white-space: nowrap;
     }
     .btn:hover { background: #475569; }
     .btn:active { background: #3b82f6; }
-    .timestamp { color: #94a3b8; font-size: 13px; white-space: nowrap; }
+    .btn:disabled { opacity: 0.4; cursor: default; }
+    .timestamp { color: #94a3b8; font-size: 12px; white-space: nowrap; }
     .slider-wrap { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
-    .slider-wrap input[type=range] { flex: 1; min-width: 60px; accent-color: #3b82f6; }
-    .loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #94a3b8; font-size: 16px; z-index: 999; }
+    .slider-wrap input[type=range] { flex: 1; min-width: 50px; accent-color: #3b82f6; }
+    .loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #94a3b8; font-size: 15px; z-index: 999; }
     .legend {
-      position: absolute; top: 12px; right: 12px; z-index: 999;
+      position: absolute; top: 10px; right: 10px; z-index: 999;
       background: rgba(15, 23, 42, 0.85); border: 1px solid #334155;
-      border-radius: 8px; padding: 8px 10px; font-size: 11px; color: #cbd5e1;
+      border-radius: 8px; padding: 6px 8px; font-size: 10px; color: #cbd5e1;
     }
-    .legend-bar { display: flex; gap: 1px; margin-top: 4px; height: 10px; width: 140px; }
+    .legend-bar { display: flex; gap: 1px; margin-top: 3px; height: 8px; width: 120px; }
     .legend-bar span { flex: 1; }
+    .leaflet-control-attribution { font-size: 9px !important; background: rgba(30,41,59,0.8) !important; color: #64748b !important; }
+    .leaflet-control-attribution a { color: #94a3b8 !important; }
   </style>
 </head>
 <body>
   <div id="map"></div>
-  <div id="loading" class="loading">Loading radar data...</div>
+  <div id="loading" class="loading">Loading radar...</div>
   <div class="legend">
     <div>Light &nbsp;→&nbsp; Heavy</div>
     <div class="legend-bar">
@@ -49,35 +52,51 @@
     </div>
   </div>
   <div class="controls">
-    <button id="playBtn" class="btn">&#9658; Play</button>
-    <button id="prevBtn" class="btn">&#10094;</button>
-    <button id="nextBtn" class="btn">&#10095;</button>
+    <button id="playBtn" class="btn" disabled>&#9658; Play</button>
+    <button id="prevBtn" class="btn" disabled>&#10094;</button>
+    <button id="nextBtn" class="btn" disabled>&#10095;</button>
     <div class="slider-wrap">
-      <input type="range" id="frameSlider" min="0" max="0" value="0" />
+      <input type="range" id="frameSlider" min="0" max="0" value="0" disabled />
       <span id="timestamp" class="timestamp">--</span>
     </div>
   </div>
 <script>
-(function() {
-  var LAKE_POWELL_LAT = 36.9147;
-  var LAKE_POWELL_LON = -111.4558;
+window.addEventListener('load', function() {
+
+  if (typeof L === 'undefined') {
+    document.getElementById('loading').textContent = 'Map library failed to load';
+    return;
+  }
+
+  var CENTER_LAT = 36.9147;
+  var CENTER_LON = -111.4558;
   var ZOOM = 7;
 
   var map = L.map('map', {
     zoomControl: true,
     attributionControl: true,
-    minZoom: 5,
-    maxZoom: 10
-  }).setView([LAKE_POWELL_LAT, LAKE_POWELL_LON], ZOOM);
+    minZoom: 6,
+    maxZoom: 9,
+    fadeAnimation: false,
+    zoomAnimation: true
+  }).setView([CENTER_LAT, CENTER_LON], ZOOM);
 
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; OpenStreetMap &copy; CARTO',
-    maxZoom: 10
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap',
+    maxZoom: 9,
+    maxNativeZoom: 18
   }).addTo(map);
 
-  L.marker([LAKE_POWELL_LAT, LAKE_POWELL_LON]).addTo(map).bindPopup('Lake Powell / Page, AZ');
+  L.circleMarker([CENTER_LAT, CENTER_LON], {
+    radius: 5,
+    color: '#3b82f6',
+    fillColor: '#3b82f6',
+    fillOpacity: 1,
+    weight: 2
+  }).addTo(map).bindPopup('Lake Powell / Page, AZ');
 
-  setTimeout(function() { map.invalidateSize(); }, 200);
+  setTimeout(function() { map.invalidateSize(); }, 100);
+  setTimeout(function() { map.invalidateSize(); }, 500);
 
   var radarLayers = [];
   var frames = [];
@@ -103,26 +122,31 @@
       ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ' UTC';
   }
 
-  function showFrame(nextPosition) {
+  function showFrame(pos) {
     if (frames.length === 0) return;
-    nextPosition = (nextPosition + frames.length) % frames.length;
-    if (radarLayers[animationPosition]) {
-      map.removeLayer(radarLayers[animationPosition]);
+    pos = ((pos % frames.length) + frames.length) % frames.length;
+
+    var prevLayer = radarLayers[animationPosition];
+    if (prevLayer && map.hasLayer(prevLayer)) {
+      map.removeLayer(prevLayer);
     }
-    animationPosition = nextPosition;
-    if (!radarLayers[animationPosition]) {
-      var f = frames[animationPosition];
-      radarLayers[animationPosition] = L.tileLayer(f.path + '/256/{z}/{x}/{y}/' + colorScheme + '/' + smooth + '_' + snow + '.png', {
-        opacity: 0.7,
+
+    animationPosition = pos;
+
+    if (!radarLayers[pos]) {
+      var f = frames[pos];
+      radarLayers[pos] = L.tileLayer(f.path + '/256/{z}/{x}/{y}/' + colorScheme + '/' + smooth + '_' + snow + '.png', {
+        opacity: 0.65,
         tileSize: 256,
         zIndex: 200,
-        maxZoom: 10,
-        errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0v8AAAAASUVORK5CYII='
+        maxZoom: 9,
+        maxNativeZoom: 10
       });
     }
-    radarLayers[animationPosition].addTo(map);
-    slider.value = animationPosition;
-    timestampEl.textContent = formatTime(frames[animationPosition].time);
+
+    radarLayers[pos].addTo(map);
+    slider.value = pos;
+    timestampEl.textContent = formatTime(frames[pos].time);
   }
 
   function play() {
@@ -131,7 +155,7 @@
     playBtn.innerHTML = '&#10074;&#10074; Pause';
     playTimer = setInterval(function() {
       showFrame(animationPosition + 1);
-    }, 600);
+    }, 800);
   }
 
   function stop() {
@@ -140,11 +164,7 @@
     if (playTimer) { clearInterval(playTimer); playTimer = null; }
   }
 
-  function playStop() {
-    if (playing) { stop(); } else { play(); }
-  }
-
-  playBtn.addEventListener('click', playStop);
+  playBtn.addEventListener('click', function() { if (playing) stop(); else play(); });
   prevBtn.addEventListener('click', function() { stop(); showFrame(animationPosition - 1); });
   nextBtn.addEventListener('click', function() { stop(); showFrame(animationPosition + 1); });
   slider.addEventListener('input', function() { stop(); showFrame(parseInt(slider.value, 10)); });
@@ -153,36 +173,38 @@
     .then(function(r) { return r.json(); })
     .then(function(data) {
       var host = data.host;
-      var past = data.radar && data.radar.past ? data.radar.past : [];
-      var nowcast = data.radar && data.radar.nowcast ? data.radar.nowcast : [];
+      var past = (data.radar && data.radar.past) ? data.radar.past : [];
+      var nowcast = (data.radar && data.radar.nowcast) ? data.radar.nowcast : [];
 
       frames = [];
-      past.forEach(function(f) {
-        frames.push({ time: f.time, path: host + f.path });
-      });
-      if (nowcast.length > 0) {
-        nowcast.forEach(function(f) {
-          frames.push({ time: f.time, path: host + f.path });
-        });
+      for (var i = 0; i < past.length; i++) {
+        frames.push({ time: past[i].time, path: host + past[i].path });
+      }
+      for (var j = 0; j < nowcast.length; j++) {
+        frames.push({ time: nowcast[j].time, path: host + nowcast[j].path });
       }
 
       if (frames.length === 0) {
-        loadingEl.textContent = 'No radar data available';
+        loadingEl.textContent = 'No radar data available right now';
         return;
       }
 
       loadingEl.style.display = 'none';
       slider.max = frames.length - 1;
+      slider.disabled = false;
+      playBtn.disabled = false;
+      prevBtn.disabled = false;
+      nextBtn.disabled = false;
 
       map.invalidateSize();
       showFrame(frames.length - 1);
-      setTimeout(function() { play(); }, 500);
+
+      setTimeout(function() { play(); }, 1000);
     })
     .catch(function(err) {
-      loadingEl.textContent = 'Failed to load radar data';
-      console.error('Radar load error:', err);
+      loadingEl.textContent = 'Could not load radar data';
     });
-})();
+});
 </script>
 </body>
 </html>
