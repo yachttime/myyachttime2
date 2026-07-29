@@ -5,6 +5,10 @@
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=()
 
+/lake-powell-radar.html
+  Cache-Control: no-cache, no-store, must-revalidate
+  X-Frame-Options: SAMEORIGIN
+
 /sms-consent-form.html
   Cache-Control: public, max-age=3600
   X-Robots-Tag: noindex, nofollow

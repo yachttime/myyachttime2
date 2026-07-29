@@ -170,7 +170,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [nwsForecastLoading, setNwsForecastLoading] = useState(true);
   const [nwsForecastError, setNwsForecastError] = useState('');
   const [currentTime, setCurrentTime] = useState('');
-  const [radarRefreshKey, setRadarRefreshKey] = useState(Date.now());
+  const [radarRefreshKey, setRadarRefreshKey] = useState(0);
 
   useEffect(() => {
     const updateTime = () => {
@@ -9226,21 +9226,22 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                         </a>
                       </div>
                       <div className="rounded-xl overflow-hidden border border-slate-700 bg-slate-900 relative">
-                        <img
-                          src={`https://radar.weather.gov/ridge/standard/KFSX_loop.gif?_=${radarRefreshKey}`}
-                          alt="Flagstaff NEXRAD radar loop covering Lake Powell"
-                          className="w-full h-auto block"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.opacity = '0.3';
-                          }}
+                        <iframe
+                          key={radarRefreshKey}
+                          src="/lake-powell-radar.html"
+                          width="100%"
+                          height="450"
+                          frameBorder="0"
+                          title="Lake Powell Live Weather Radar"
+                          style={{ display: 'block' }}
                         />
                       </div>
                       <div className="flex items-center justify-between mt-1">
                         <p className="text-xs text-slate-500">
-                          Flagstaff NEXRAD radar — covers Lake Powell / Page, AZ
+                          Interactive animated radar centered on Lake Powell
                         </p>
                         <button
-                          onClick={() => setRadarRefreshKey(Date.now())}
+                          onClick={() => setRadarRefreshKey(k => k + 1)}
                           className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors"
                         >
                           <RefreshCw className="w-3 h-3" />
