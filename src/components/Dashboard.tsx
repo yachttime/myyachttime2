@@ -9302,26 +9302,37 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                 <div className="mt-6 pt-6 border-t border-slate-700">
                   <h4 className="text-sm font-semibold text-slate-300 mb-3">Minimum Access Levels</h4>
                   <div className="space-y-2">
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-slate-400">Wahweap Ramp</span>
-                      <span className="text-blue-300 font-medium">3550 ft</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-slate-400">Stateline Ramp</span>
-                      <span className="text-blue-300 font-medium">3520 ft</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-slate-400">Antelope Point Public Ramp</span>
-                      <span className="text-blue-300 font-medium">3588 ft</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-slate-400">Valet Ramp</span>
-                      <span className="text-blue-300 font-medium">3540 ft</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-slate-400">Castle Rock Cut</span>
-                      <span className="text-blue-300 font-medium">3583 ft</span>
-                    </div>
+                    {(() => {
+                      const currentElev = waterLevelData ? parseFloat(waterLevelData.elevation) : null;
+                      const ramps = [
+                        { name: 'Wahweap Ramp', min: 3550 },
+                        { name: 'Stateline Ramp', min: 3520 },
+                        { name: 'Antelope Point Public Ramp', min: 3588 },
+                        { name: 'Valet Ramp', min: 3540 },
+                        { name: 'Castle Rock Cut', min: 3583 }
+                      ];
+                      return ramps.map((ramp) => {
+                        const accessible = currentElev !== null && currentElev >= ramp.min;
+                        const colorClass = currentElev === null
+                          ? 'text-blue-300'
+                          : accessible
+                            ? 'text-green-400'
+                            : 'text-red-400';
+                        return (
+                          <div key={ramp.name} className="flex justify-between items-center text-sm">
+                            <span className="text-slate-400">{ramp.name}</span>
+                            <span className={`${colorClass} font-medium`}>
+                              {ramp.min} ft
+                              {currentElev !== null && (
+                                <span className="ml-2 text-xs">
+                                  {accessible ? '\u2713 Accessible' : '\u2717 Not Accessible'}
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                        );
+                      });
+                    })()}
                   </div>
                 </div>
 
