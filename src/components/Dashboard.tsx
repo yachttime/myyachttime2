@@ -9230,7 +9230,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           key={radarRefreshKey}
                           src="/lake-powell-radar.html"
                           width="100%"
-                          height="450"
+                          height="600"
                           frameBorder="0"
                           title="Lake Powell Live Weather Radar"
                           style={{ display: 'block' }}

@@ -72,17 +72,13 @@ window.addEventListener('load', function() {
   var CENTER_LON = -111.4558;
   var ZOOM = 8;
 
-  var BOUNDS = L.latLngBounds([35.5, -113.5], [38.3, -109.4]);
-
   var map = L.map('map', {
     zoomControl: true,
     attributionControl: true,
     minZoom: 6,
     maxZoom: 11,
     fadeAnimation: false,
-    zoomAnimation: true,
-    maxBounds: BOUNDS,
-    maxBoundsViscosity: 0.8
+    zoomAnimation: true
   }).setView([CENTER_LAT, CENTER_LON], ZOOM);
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
