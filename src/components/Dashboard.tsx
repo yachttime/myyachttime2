@@ -170,6 +170,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [nwsForecastLoading, setNwsForecastLoading] = useState(true);
   const [nwsForecastError, setNwsForecastError] = useState('');
   const [currentTime, setCurrentTime] = useState('');
+  const [radarRefreshKey, setRadarRefreshKey] = useState(Date.now());
 
   useEffect(() => {
     const updateTime = () => {
@@ -9219,23 +9220,33 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           <MapPin className="w-4 h-4 text-blue-400" />
                           <h4 className="text-sm font-semibold text-white">Live Weather Radar</h4>
                         </div>
-                        <a href="https://radar.weather.gov/" target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:text-blue-300">
+                        <a href="https://radar.weather.gov/?settings=v1_eyJhZ2VuZGEiOnRydWUsImJhY2tncm91bmQiOnRydWUsImNlbnRlcmVkIjpmYWxzZSwiY29udGludW91c0xvb3AiOnRydWUsImRvdWJsZVNob3J0IjpmYWxzZSwiZWMiOnRydWUsImZyYW1lIjpmYWxzZSwibG9vcCI6dHJ1ZSwibWVudSI6dHJ1ZSwicXVpY2tMaW5rc0lkIjoiS0ZTWCIsInJlZmxlY3RpdmllIjp0cnVlLCJzaG93VGltZU1lbnUiOnRydWUsInNob3djYXNlbGFiZWxzIjpmYWxzZSwic2hvd0dsYW5jZU1lbnUiOnRydWUsInRvcExlZnRDb250cm9scyI6dHJ1ZSwidW5pdHMiOiJlIiwidmlld01vZGUiOiJzdGFuZGFyZCIsInpvb21Db250cm9scyI6dHJ1ZX0=" target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1">
                           Full radar view
+                          <ExternalLink className="w-3 h-3" />
                         </a>
                       </div>
-                      <div className="rounded-xl overflow-hidden border border-slate-700 bg-slate-900">
-                        <iframe
-                          src="https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=default&metricWind=default&metricTemp=default&zoom=9&overlay=radar&product=radar&level=surface&lat=36.9147&lon=-111.4558&detailLat=36.9147&detailLon=-111.4558"
-                          width="100%"
-                          height="400"
-                          frameBorder="0"
-                          title="Lake Powell Weather Radar"
-                          style={{ display: 'block' }}
+                      <div className="rounded-xl overflow-hidden border border-slate-700 bg-slate-900 relative">
+                        <img
+                          src={`https://radar.weather.gov/ridge/standard/KFSX_loop.gif?_=${radarRefreshKey}`}
+                          alt="Flagstaff NEXRAD radar loop covering Lake Powell"
+                          className="w-full h-auto block"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.opacity = '0.3';
+                          }}
                         />
                       </div>
-                      <p className="text-xs text-slate-500 mt-1 text-center">
-                        Interactive radar — zoom and pan to track approaching storms over Lake Powell
-                      </p>
+                      <div className="flex items-center justify-between mt-1">
+                        <p className="text-xs text-slate-500">
+                          Flagstaff NEXRAD radar — covers Lake Powell / Page, AZ
+                        </p>
+                        <button
+                          onClick={() => setRadarRefreshKey(Date.now())}
+                          className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                        >
+                          <RefreshCw className="w-3 h-3" />
+                          Refresh
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ) : (
