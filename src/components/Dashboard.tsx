@@ -9181,7 +9181,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                         <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
                         <div>
                           <p className="text-sm font-semibold text-red-200">Storm Activity in Forecast</p>
-                          <p className="text-xs text-red-300 mt-0.5">Thunderstorms detected in the upcoming forecast. Secure loose items on deck, close hatches, and ensure your vessel is properly tied at the slip.</p>
+                          <p className="text-xs text-red-300 mt-0.5">Thunderstorms detected in the upcoming forecast. Secure loose items on deck, close hatches, and ensure your vessels anchor lines are secure.</p>
                         </div>
                       </div>
                     )}
