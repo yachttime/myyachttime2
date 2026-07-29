@@ -61,16 +61,23 @@
 (function() {
   var LAKE_POWELL_LAT = 36.9147;
   var LAKE_POWELL_LON = -111.4558;
-  var ZOOM = 8;
+  var ZOOM = 7;
 
-  var map = L.map('map', { zoomControl: true, attributionControl: true }).setView([LAKE_POWELL_LAT, LAKE_POWELL_LON], ZOOM);
+  var map = L.map('map', {
+    zoomControl: true,
+    attributionControl: true,
+    minZoom: 5,
+    maxZoom: 10
+  }).setView([LAKE_POWELL_LAT, LAKE_POWELL_LON], ZOOM);
 
   L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
     attribution: '&copy; OpenStreetMap &copy; CARTO',
-    maxZoom: 19
+    maxZoom: 10
   }).addTo(map);
 
   L.marker([LAKE_POWELL_LAT, LAKE_POWELL_LON]).addTo(map).bindPopup('Lake Powell / Page, AZ');
+
+  setTimeout(function() { map.invalidateSize(); }, 200);
 
   var radarLayers = [];
   var frames = [];
@@ -108,7 +115,9 @@
       radarLayers[animationPosition] = L.tileLayer(f.path + '/256/{z}/{x}/{y}/' + colorScheme + '/' + smooth + '_' + snow + '.png', {
         opacity: 0.7,
         tileSize: 256,
-        zIndex: 200
+        zIndex: 200,
+        maxZoom: 10,
+        errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0v8AAAAASUVORK5CYII='
       });
     }
     radarLayers[animationPosition].addTo(map);
@@ -165,8 +174,9 @@
       loadingEl.style.display = 'none';
       slider.max = frames.length - 1;
 
+      map.invalidateSize();
       showFrame(frames.length - 1);
-      play();
+      setTimeout(function() { play(); }, 500);
     })
     .catch(function(err) {
       loadingEl.textContent = 'Failed to load radar data';
