@@ -70,20 +70,24 @@ window.addEventListener('load', function() {
 
   var CENTER_LAT = 36.9147;
   var CENTER_LON = -111.4558;
-  var ZOOM = 7;
+  var ZOOM = 8;
+
+  var BOUNDS = L.latLngBounds([35.5, -113.5], [38.3, -109.4]);
 
   var map = L.map('map', {
     zoomControl: true,
     attributionControl: true,
     minZoom: 6,
-    maxZoom: 9,
+    maxZoom: 11,
     fadeAnimation: false,
-    zoomAnimation: true
+    zoomAnimation: true,
+    maxBounds: BOUNDS,
+    maxBoundsViscosity: 0.8
   }).setView([CENTER_LAT, CENTER_LON], ZOOM);
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap',
-    maxZoom: 9,
+    maxZoom: 11,
     maxNativeZoom: 18
   }).addTo(map);
 
@@ -139,8 +143,9 @@ window.addEventListener('load', function() {
         opacity: 0.65,
         tileSize: 256,
         zIndex: 200,
-        maxZoom: 9,
-        maxNativeZoom: 10
+        maxZoom: 11,
+        maxNativeZoom: 10,
+        errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0v8AAAAASUVORK5CYII='
       });
     }
 
