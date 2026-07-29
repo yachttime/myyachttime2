@@ -8970,139 +8970,6 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                   </div>
                 )}
 
-                {/* Current Weather Conditions - NWS Detailed Forecast & Radar */}
-                <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 mb-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      <Cloud className="w-5 h-5 text-blue-400" />
-                      <h3 className="text-lg font-semibold text-white">Current Weather Conditions</h3>
-                    </div>
-                    <span className="text-xs text-slate-400">Lake Powell • Page, AZ • NWS</span>
-                  </div>
-
-                  {nwsForecastLoading ? (
-                    <div className="text-center py-8 text-slate-400">Loading detailed forecast...</div>
-                  ) : nwsForecastError ? (
-                    <div className="text-center py-8 text-slate-400">
-                      {nwsForecastError}
-                      <div className="mt-2">
-                        <a href="https://forecast.weather.gov/MapClick.php?lat=36.9147&lon=-111.4558" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 text-sm underline">
-                          View forecast on NWS website
-                        </a>
-                      </div>
-                    </div>
-                  ) : nwsForecast && nwsForecast.length > 0 ? (
-                    <div className="space-y-4">
-                      {/* Current/Upcoming period - highlighted */}
-                      {(() => {
-                        const current = nwsForecast[0];
-                        return (
-                          <div className="bg-gradient-to-br from-blue-900/30 to-slate-900/30 rounded-xl p-4 border border-slate-600">
-                            <div className="flex items-start justify-between mb-3">
-                              <div className="flex-1">
-                                <div className="text-sm text-slate-400">{current.name}</div>
-                                <span className="text-4xl font-bold text-white">{current.temperature}°{current.temperatureUnit}</span>
-                                <div className="text-base text-blue-300 mt-1">{current.shortForecast}</div>
-                              </div>
-                              {current.icon && (
-                                <img src={current.icon} alt={current.shortForecast} className="w-16 h-16 flex-shrink-0" />
-                              )}
-                            </div>
-                            <div className="grid grid-cols-2 gap-2 mt-3">
-                              <div className="bg-slate-900/60 rounded-lg p-2 flex items-center gap-2">
-                                <Droplets className="w-4 h-4 text-blue-400 flex-shrink-0" />
-                                <div>
-                                  <div className="text-xs text-slate-400">Precip Chance</div>
-                                  <div className="text-sm text-white font-medium">{current.probabilityOfPrecipitation?.value ?? 0}%</div>
-                                </div>
-                              </div>
-                              <div className="bg-slate-900/60 rounded-lg p-2 flex items-center gap-2">
-                                <Wind className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                                <div>
-                                  <div className="text-xs text-slate-400">Wind</div>
-                                  <div className="text-sm text-white font-medium">{current.windSpeed} {current.windDirection}</div>
-                                </div>
-                              </div>
-                            </div>
-                            <p className="text-sm text-slate-300 mt-3 leading-relaxed">{current.detailedForecast}</p>
-                          </div>
-                        );
-                      })()}
-
-                      {/* Storm warning alert */}
-                      {nwsForecast.some(p =>
-                        (p.shortForecast || '').toLowerCase().includes('thunder') ||
-                        (p.shortForecast || '').toLowerCase().includes('storm') ||
-                        (p.detailedForecast || '').toLowerCase().includes('thunder') ||
-                        (p.detailedForecast || '').toLowerCase().includes('lightning')
-                      ) && (
-                        <div className="bg-red-900/30 border border-red-500/50 rounded-lg p-3 flex items-start gap-2">
-                          <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-semibold text-red-200">Storm Activity in Forecast</p>
-                            <p className="text-xs text-red-300 mt-0.5">Thunderstorms detected in the upcoming forecast. Secure loose items on deck, close hatches, and ensure your vessel is properly tied at the slip.</p>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Upcoming forecast periods */}
-                      <div>
-                        <h4 className="text-sm font-semibold text-slate-300 mb-2">Upcoming Forecast</h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                          {nwsForecast.slice(1, 7).map((period) => (
-                            <div key={period.number} className="bg-slate-900/50 rounded-lg p-3 border border-slate-700">
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="text-xs font-medium text-slate-300">{period.name}</span>
-                                {period.icon && <img src={period.icon} alt="" className="w-7 h-7" />}
-                              </div>
-                              <div className="text-xl font-bold text-white">{period.temperature}°{period.temperatureUnit}</div>
-                              <div className="text-xs text-slate-400 mt-0.5">{period.shortForecast}</div>
-                              <div className="flex items-center gap-3 mt-2 text-xs text-slate-500">
-                                <span className="flex items-center gap-1">
-                                  <Droplets className="w-3 h-3" />
-                                  {period.probabilityOfPrecipitation?.value ?? 0}%
-                                </span>
-                                <span className="flex items-center gap-1">
-                                  <Wind className="w-3 h-3" />
-                                  {period.windSpeed}
-                                </span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Live Weather Radar */}
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <MapPin className="w-4 h-4 text-blue-400" />
-                            <h4 className="text-sm font-semibold text-white">Live Weather Radar</h4>
-                          </div>
-                          <a href="https://radar.weather.gov/" target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:text-blue-300">
-                            Full radar view
-                          </a>
-                        </div>
-                        <div className="rounded-xl overflow-hidden border border-slate-700 bg-slate-900">
-                          <iframe
-                            src="https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=default&metricWind=default&metricTemp=default&zoom=9&overlay=radar&product=radar&level=surface&lat=36.9147&lon=-111.4558&detailLat=36.9147&detailLon=-111.4558"
-                            width="100%"
-                            height="400"
-                            frameBorder="0"
-                            title="Lake Powell Weather Radar"
-                            style={{ display: 'block' }}
-                          />
-                        </div>
-                        <p className="text-xs text-slate-500 mt-1 text-center">
-                          Interactive radar — zoom and pan to track approaching storms over Lake Powell
-                        </p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 text-slate-400">No forecast data available</div>
-                  )}
-                </div>
-
                 {!weatherLoading && weather && (
                   <div className="mb-4 space-y-3">
                     <div className="flex items-center gap-3">
@@ -9243,6 +9110,140 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                 )}
               </div>
 
+              {/* Current Weather Conditions - NWS Detailed Forecast & Radar */}
+              <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Cloud className="w-5 h-5 text-blue-400" />
+                    <h3 className="text-lg font-semibold text-white">Current Weather Conditions</h3>
+                  </div>
+                  <span className="text-xs text-slate-400">Lake Powell • Page, AZ • NWS</span>
+                </div>
+
+                {nwsForecastLoading ? (
+                  <div className="text-center py-8 text-slate-400">Loading detailed forecast...</div>
+                ) : nwsForecastError ? (
+                  <div className="text-center py-8 text-slate-400">
+                    {nwsForecastError}
+                    <div className="mt-2">
+                      <a href="https://forecast.weather.gov/MapClick.php?lat=36.9147&lon=-111.4558" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 text-sm underline">
+                        View forecast on NWS website
+                      </a>
+                    </div>
+                  </div>
+                ) : nwsForecast && nwsForecast.length > 0 ? (
+                  <div className="space-y-4">
+                    {/* Current/Upcoming period - highlighted */}
+                    {(() => {
+                      const current = nwsForecast[0];
+                      return (
+                        <div className="bg-gradient-to-br from-blue-900/30 to-slate-900/30 rounded-xl p-4 border border-slate-600">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex-1">
+                              <div className="text-sm text-slate-400">{current.name}</div>
+                              <span className="text-4xl font-bold text-white">{current.temperature}°{current.temperatureUnit}</span>
+                              <div className="text-base text-blue-300 mt-1">{current.shortForecast}</div>
+                            </div>
+                            {current.icon && (
+                              <img src={current.icon} alt={current.shortForecast} className="w-16 h-16 flex-shrink-0" />
+                            )}
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 mt-3">
+                            <div className="bg-slate-900/60 rounded-lg p-2 flex items-center gap-2">
+                              <Droplets className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                              <div>
+                                <div className="text-xs text-slate-400">Precip Chance</div>
+                                <div className="text-sm text-white font-medium">{current.probabilityOfPrecipitation?.value ?? 0}%</div>
+                              </div>
+                            </div>
+                            <div className="bg-slate-900/60 rounded-lg p-2 flex items-center gap-2">
+                              <Wind className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                              <div>
+                                <div className="text-xs text-slate-400">Wind</div>
+                                <div className="text-sm text-white font-medium">{current.windSpeed} {current.windDirection}</div>
+                              </div>
+                            </div>
+                          </div>
+                          <p className="text-sm text-slate-300 mt-3 leading-relaxed">{current.detailedForecast}</p>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Storm warning alert */}
+                    {nwsForecast.some(p =>
+                      (p.shortForecast || '').toLowerCase().includes('thunder') ||
+                      (p.shortForecast || '').toLowerCase().includes('storm') ||
+                      (p.detailedForecast || '').toLowerCase().includes('thunder') ||
+                      (p.detailedForecast || '').toLowerCase().includes('lightning')
+                    ) && (
+                      <div className="bg-red-900/30 border border-red-500/50 rounded-lg p-3 flex items-start gap-2">
+                        <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-sm font-semibold text-red-200">Storm Activity in Forecast</p>
+                          <p className="text-xs text-red-300 mt-0.5">Thunderstorms detected in the upcoming forecast. Secure loose items on deck, close hatches, and ensure your vessel is properly tied at the slip.</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Upcoming forecast periods */}
+                    <div>
+                      <h4 className="text-sm font-semibold text-slate-300 mb-2">Upcoming Forecast</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                        {nwsForecast.slice(1, 7).map((period) => (
+                          <div key={period.number} className="bg-slate-900/50 rounded-lg p-3 border border-slate-700">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs font-medium text-slate-300">{period.name}</span>
+                              {period.icon && <img src={period.icon} alt="" className="w-7 h-7" />}
+                            </div>
+                            <div className="text-xl font-bold text-white">{period.temperature}°{period.temperatureUnit}</div>
+                            <div className="text-xs text-slate-400 mt-0.5">{period.shortForecast}</div>
+                            <div className="flex items-center gap-3 mt-2 text-xs text-slate-500">
+                              <span className="flex items-center gap-1">
+                                <Droplets className="w-3 h-3" />
+                                {period.probabilityOfPrecipitation?.value ?? 0}%
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Wind className="w-3 h-3" />
+                                {period.windSpeed}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Live Weather Radar */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <MapPin className="w-4 h-4 text-blue-400" />
+                          <h4 className="text-sm font-semibold text-white">Live Weather Radar</h4>
+                        </div>
+                        <a href="https://radar.weather.gov/" target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:text-blue-300">
+                          Full radar view
+                        </a>
+                      </div>
+                      <div className="rounded-xl overflow-hidden border border-slate-700 bg-slate-900">
+                        <iframe
+                          src="https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=default&metricWind=default&metricTemp=default&zoom=9&overlay=radar&product=radar&level=surface&lat=36.9147&lon=-111.4558&detailLat=36.9147&detailLon=-111.4558"
+                          width="100%"
+                          height="400"
+                          frameBorder="0"
+                          title="Lake Powell Weather Radar"
+                          style={{ display: 'block' }}
+                        />
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1 text-center">
+                        Interactive radar — zoom and pan to track approaching storms over Lake Powell
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-slate-400">No forecast data available</div>
+                )}
+              </div>
+              </div>
+
               {/* Lake Powell Water Level */}
               <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700">
                 <div className="flex items-center justify-between mb-4">
@@ -9320,7 +9321,6 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                 >
                   View Historical Chart & Trends
                 </a>
-              </div>
               </div>
 
               {/* Smart Lock Controls */}
