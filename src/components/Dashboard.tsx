@@ -8973,6 +8973,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                 {!weatherLoading && weather && (
                   <div className="mb-4 space-y-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Thermometer className="w-5 h-5 text-amber-500" />
+                      <h3 className="text-lg font-semibold text-white">Current Temperature</h3>
+                    </div>
                     <div className="flex items-center gap-3">
                       <div className="flex items-center gap-2 bg-slate-700/50 rounded-lg px-3 py-2 w-fit">
                         <Thermometer className="w-4 h-4 text-amber-500" />
@@ -9116,7 +9120,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <Cloud className="w-5 h-5 text-blue-400" />
-                    <h3 className="text-lg font-semibold text-white">Current Weather Conditions</h3>
+                    <h3 className="text-lg font-semibold text-white">Weather Forecast &amp; Radar</h3>
                   </div>
                   <span className="text-xs text-slate-400">Lake Powell • Page, AZ • NWS</span>
                 </div>
