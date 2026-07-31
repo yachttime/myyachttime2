@@ -3100,8 +3100,10 @@ export async function generateEstimatingInvoicePDF(
     doc.text(`-$${Number(invoice.deposit_applied).toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' }); yPos += 0.2;
   }
   if (invoice.credit_card_fee && invoice.credit_card_fee > 0) {
-    doc.text('Credit Card Processing Fee (3%):', totalsX, yPos);
-    doc.text(`$${Number(invoice.credit_card_fee).toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' }); yPos += 0.2;
+    const ccFeeLines = doc.splitTextToSize('CC Processing Fee (3%):', totalsX - margin - 0.05);
+    doc.text(ccFeeLines, margin, yPos);
+    doc.text(`${Number(invoice.credit_card_fee).toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
+    yPos += ccFeeLines.length > 1 ? ccFeeLines.length * 0.14 : 0.2;
   }
 
   doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
