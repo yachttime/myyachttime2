@@ -29,7 +29,7 @@ import CustomerManagement from './CustomerManagement';
 import { CompanyManagement } from './CompanyManagement';
 import SupportTickets from './SupportTickets';
 import { uploadFileToStorage, deleteFileFromStorage, isStorageUrl, UploadProgress, isTokenExpiredError } from '../utils/fileUpload';
-import { generateAllYachtTripsPDF, generateEstimatingInvoicePDF, generateTripInspectionPDF } from '../utils/pdfGenerator';
+import { generateAllYachtTripsPDF, generateEstimatingInvoicePDF, generateTripInspectionPDF, generateEngineHoursReportPDF } from '../utils/pdfGenerator';
 import { convertTo12Hour, formatPhoneNumber, toAZDateStr, isAntelopePointMarina, isWithinBookingPeriod } from '../utils/dashboardHelpers';
 import AdminMenu from './admin/AdminMenu';
 import AdminViewWrapper from './admin/AdminViewWrapper';
@@ -717,6 +717,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [editingEngineHoursId, setEditingEngineHoursId] = useState<string | null>(null);
   const [engineHoursEditForm, setEngineHoursEditForm] = useState<{ port_engine_hours: string; stbd_engine_hours: string; port_gen_hours: string; stbd_gen_hours: string }>({ port_engine_hours: '', stbd_engine_hours: '', port_gen_hours: '', stbd_gen_hours: '' });
   const [savingEngineHours, setSavingEngineHours] = useState(false);
+  const [printingEngineHoursId, setPrintingEngineHoursId] = useState<string | null>(null);
   const [documentYachtId, setDocumentYachtId] = useState<string | null>(null);
   const [showDocumentForm, setShowDocumentForm] = useState(false);
   const [documentForm, setDocumentForm] = useState({
@@ -2695,7 +2696,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     }
   };
 
-  const loadYachtEngineHourHistory = async (yachtId: string) => {
+  const loadYachtEngineHourHistory = async (yachtId: string): Promise<any[]> => {
     setYachtEngineHourHistory(prev => ({ ...prev, [yachtId]: null as any }));
     try {
       const { data, error } = await supabase
@@ -2766,9 +2767,34 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         _ownerName: getOwnerForDate(r.created_at),
       }));
       setYachtEngineHourHistory(prev => ({ ...prev, [yachtId]: enriched }));
+      return enriched;
     } catch (error) {
       console.error('Error loading engine hour history:', error);
       setYachtEngineHourHistory(prev => ({ ...prev, [yachtId]: [] }));
+      return [];
+    }
+  };
+
+  const handlePrintEngineHours = async (yachtId: string, yachtName: string, engines: any[], generators: any[]) => {
+    if (printingEngineHoursId) return;
+    setPrintingEngineHoursId(yachtId);
+    try {
+      let history = yachtEngineHourHistory[yachtId];
+      if (!history) {
+        history = await loadYachtEngineHourHistory(yachtId);
+      }
+      if (!history || history.length === 0) {
+        showError(`No engine hours data found for ${yachtName}`);
+        return;
+      }
+      const pdf = generateEngineHoursReportPDF(yachtName, history, engines || [], generators || []);
+      const pdfUrl = URL.createObjectURL(pdf.output('blob'));
+      window.open(pdfUrl, '_blank');
+    } catch (error) {
+      console.error('Error generating engine hours PDF:', error);
+      showError('Failed to generate engine hours PDF');
+    } finally {
+      setPrintingEngineHoursId(null);
     }
   };
 
@@ -11263,7 +11289,21 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                             return (
                               <div className="pt-2 border-t border-slate-700/50">
-                                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Engine Hours — Trip History</p>
+                                <div className="flex items-center justify-between mb-1">
+                                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Engine Hours — Trip History</p>
+                                  <button
+                                    onClick={() => handlePrintEngineHours(yacht.id, yacht.name, yacht.yacht_engines || [], yacht.yacht_generators || [])}
+                                    disabled={printingEngineHoursId === yacht.id}
+                                    className="flex items-center gap-1 px-2 py-0.5 bg-slate-700 hover:bg-slate-600 text-white rounded text-xs transition-colors disabled:opacity-50"
+                                    title="Print engine hours report"
+                                  >
+                                    {printingEngineHoursId === yacht.id ? (
+                                      <><RefreshCw className="w-3 h-3 animate-spin" />Generating...</>
+                                    ) : (
+                                      <><Printer className="w-3 h-3" />Print</>
+                                    )}
+                                  </button>
+                                </div>
                                 {tripRows}
                                 {hasSeasonTotals && (
                                   <div className="mt-2 bg-orange-500/10 rounded-lg p-2 border border-orange-500/30">

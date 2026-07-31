@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { VesselManagementAgreement, UserProfile, Yacht, TripInspection, OwnerHandoffInspection, YachtBooking, YachtInvoice } from '../lib/supabase';
+import { VesselManagementAgreement, UserProfile, Yacht, TripInspection, OwnerHandoffInspection, YachtBooking, YachtInvoice, YachtEngine, YachtGenerator } from '../lib/supabase';
 
 const PHX = 'America/Phoenix';
 const phxDate = (d: Date | string) => new Date(d).toLocaleDateString('en-US', { timeZone: PHX });
@@ -3283,8 +3283,294 @@ export function generateYachtInvoicesSummaryPDF(
     doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(5, 150, 105);
-    doc.text(`Credit on Account: $${totalCredit.toFixed(2)}`, pageWidth - margin, finalY + 0.45, { align: 'right' });
+    doc.text(`Credit on Account: ${totalCredit.toFixed(2)}`, pageWidth - margin, finalY + 0.45, { align: 'right' });
     doc.setTextColor(0, 0, 0);
+  }
+
+  const pageCount = doc.getNumberOfPages();
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(100);
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.text(`Page ${i} of ${pageCount}`, pageWidth - margin, 8, { align: 'right' });
+  }
+
+  return doc;
+}
+
+export function generateEngineHoursReportPDF(
+  yachtName: string,
+  history: Array<{
+    id: string;
+    inspection_type: string;
+    created_at: string;
+    booking_id: string | null;
+    port_engine_hours: number | null;
+    stbd_engine_hours: number | null;
+    port_gen_hours: number | null;
+    stbd_gen_hours: number | null;
+    _ownerName?: string | null;
+  }>,
+  engines: YachtEngine[],
+  generators: YachtGenerator[]
+): jsPDF {
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'in', format: 'letter' });
+  const pageWidth = 11;
+  const margin = 0.5;
+  let yPos = margin;
+
+  doc.setFontSize(16);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`${yachtName} — Engine Hours History`, margin, yPos);
+  yPos += 0.25;
+
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(100, 116, 139);
+  doc.text(`Generated: ${phxDateTime(new Date())}`, margin, yPos);
+  yPos += 0.3;
+  doc.setTextColor(0, 0, 0);
+
+  const hasEngines = engines.length > 0;
+  const hasGens = generators.length > 0;
+
+  const sortedEngines = [...engines].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  const sortedGens = [...generators].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  const seasonStartPortEng: number | null = sortedEngines[0]?.season_start_hours ?? null;
+  const seasonStartStbdEng: number | null = sortedEngines[1]?.season_start_hours ?? null;
+  const seasonStartPortGen: number | null = sortedGens[0]?.season_start_hours ?? null;
+  const seasonStartStbdGen: number | null = sortedGens[1]?.season_start_hours ?? null;
+
+  const trips: Array<{ checkIn: any | null; checkOut: any | null; date: string; ownerName: string | null }> = [];
+  const used = new Set<string>();
+  const getOwnerName = (insp: any): string | null => insp?._ownerName || null;
+
+  for (const insp of history) {
+    if (used.has(insp.id)) continue;
+    if (insp.inspection_type === 'check_in') {
+      const partner = history.find(o =>
+        !used.has(o.id) &&
+        o.inspection_type === 'check_out' &&
+        o.id !== insp.id &&
+        (insp.booking_id ? o.booking_id === insp.booking_id : new Date(o.created_at) > new Date(insp.created_at))
+      );
+      used.add(insp.id);
+      if (partner) used.add(partner.id);
+      trips.push({ checkIn: insp, checkOut: partner || null, date: insp.created_at, ownerName: getOwnerName(insp) || getOwnerName(partner) || null });
+    } else if (insp.inspection_type === 'check_out') {
+      used.add(insp.id);
+      trips.push({ checkIn: null, checkOut: insp, date: insp.created_at, ownerName: getOwnerName(insp) });
+    } else {
+      used.add(insp.id);
+      trips.push({ checkIn: insp, checkOut: null, date: insp.created_at, ownerName: getOwnerName(insp) });
+    }
+  }
+
+  let prevPortEngOut: number | null = seasonStartPortEng;
+  let prevStbdEngOut: number | null = seasonStartStbdEng;
+  let prevPortGenOut: number | null = seasonStartPortGen;
+  let prevStbdGenOut: number | null = seasonStartStbdGen;
+
+  const yearTotals: Record<number, { portEng: number; stbdEng: number; portGen: number; stbdGen: number }> = {};
+  const rows: string[][] = [];
+  let tripNum = 0;
+
+  for (const trip of trips) {
+    const cin = trip.checkIn;
+    const cout = trip.checkOut;
+
+    const portEngIn = prevPortEngOut;
+    const stbdEngIn = prevStbdEngOut;
+    const portGenIn = prevPortGenOut;
+    const stbdGenIn = prevStbdGenOut;
+
+    const portEngOut = cin?.port_engine_hours ?? cout?.port_engine_hours ?? null;
+    const stbdEngOut = cin?.stbd_engine_hours ?? cout?.stbd_engine_hours ?? null;
+    const portGenOut = cin?.port_gen_hours ?? cout?.port_gen_hours ?? null;
+    const stbdGenOut = cin?.stbd_gen_hours ?? cout?.stbd_gen_hours ?? null;
+
+    if (portEngOut != null) prevPortEngOut = portEngOut;
+    if (stbdEngOut != null) prevStbdEngOut = stbdEngOut;
+    if (portGenOut != null) prevPortGenOut = portGenOut;
+    if (stbdGenOut != null) prevStbdGenOut = stbdGenOut;
+
+    const dPortEng = (portEngOut != null && portEngIn != null) ? portEngOut - portEngIn : null;
+    const dStbdEng = (stbdEngOut != null && stbdEngIn != null) ? stbdEngOut - stbdEngIn : null;
+    const dPortGen = (portGenOut != null && portGenIn != null) ? portGenOut - portGenIn : null;
+    const dStbdGen = (stbdGenOut != null && stbdGenIn != null) ? stbdGenOut - stbdGenIn : null;
+
+    const hasData = [portEngIn, portEngOut, stbdEngIn, stbdEngOut, portGenIn, portGenOut, stbdGenIn, stbdGenOut].some(v => v != null);
+    if (!hasData) continue;
+
+    tripNum++;
+    const tripDate = new Date(trip.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const year = new Date(trip.date).getFullYear();
+
+    let status = '';
+    if (cin && (portEngOut != null || stbdEngOut != null || portGenOut != null || stbdGenOut != null)) status = 'Complete';
+    else if (cin && portEngOut == null && stbdEngOut == null && portGenOut == null && stbdGenOut == null) status = 'In Progress';
+    else if (!cin && cout) status = 'Check-Out Only';
+
+    if (!yearTotals[year]) yearTotals[year] = { portEng: 0, stbdEng: 0, portGen: 0, stbdGen: 0 };
+    if (dPortEng != null && dPortEng > 0) yearTotals[year].portEng += dPortEng;
+    if (dStbdEng != null && dStbdEng > 0) yearTotals[year].stbdEng += dStbdEng;
+    if (dPortGen != null && dPortGen > 0) yearTotals[year].portGen += dPortGen;
+    if (dStbdGen != null && dStbdGen > 0) yearTotals[year].stbdGen += dStbdGen;
+
+    const fmt = (v: number | null) => v != null ? v.toFixed(1) : '—';
+    const fmtDelta = (v: number | null) => v != null ? `+${v.toFixed(1)}` : '—';
+
+    const row: string[] = [String(tripNum), tripDate, trip.ownerName || '—', status];
+    if (hasEngines) {
+      row.push(fmt(portEngIn), fmt(portEngOut), fmtDelta(dPortEng));
+      row.push(fmt(stbdEngIn), fmt(stbdEngOut), fmtDelta(dStbdEng));
+    }
+    if (hasGens) {
+      row.push(fmt(portGenIn), fmt(portGenOut), fmtDelta(dPortGen));
+      row.push(fmt(stbdGenIn), fmt(stbdGenOut), fmtDelta(dStbdGen));
+    }
+    rows.push(row);
+  }
+
+  if (rows.length === 0) {
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 116, 139);
+    doc.text('No engine hours data recorded for this vessel.', margin, yPos + 0.5);
+    return doc;
+  }
+
+  const head: string[] = ['Trip', 'Date', 'Owner', 'Status'];
+  if (hasEngines) head.push('PE Start', 'PE End', 'PE Used', 'SE Start', 'SE End', 'SE Used');
+  if (hasGens) head.push('PG Start', 'PG End', 'PG Used', 'SG Start', 'SG End', 'SG Used');
+
+  const colStyles: Record<number, any> = {
+    0: { cellWidth: 0.35, halign: 'center' },
+    1: { cellWidth: 0.85, halign: 'center' },
+    2: { cellWidth: 1.3, halign: 'left' },
+    3: { cellWidth: 0.7, halign: 'center' },
+  };
+
+  const readingStart = 4;
+  const numReadingGroups = (hasEngines ? 2 : 0) + (hasGens ? 2 : 0);
+  const totalReadingCols = numReadingGroups * 3;
+  const readingColWidth = (pageWidth - 2 * margin - 0.35 - 0.85 - 1.3 - 0.7) / Math.max(totalReadingCols, 1);
+  for (let i = 0; i < totalReadingCols; i++) {
+    colStyles[readingStart + i] = { cellWidth: readingColWidth, halign: 'center' };
+  }
+
+  autoTable(doc, {
+    startY: yPos,
+    head: [head],
+    body: rows,
+    theme: 'striped',
+    styles: { fontSize: 7, cellPadding: 0.04, font: 'helvetica', lineColor: [203, 213, 225], lineWidth: 0.01 },
+    headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center', fontSize: 7 },
+    alternateRowStyles: { fillColor: [249, 250, 251] },
+    columnStyles: colStyles,
+    margin: { left: margin, right: margin },
+    didParseCell: (data: any) => {
+      if (data.section === 'body') {
+        const colIdx = data.column.index;
+        if (colIdx >= readingStart && (colIdx - readingStart) % 3 === 2) {
+          const val = data.cell.raw as string;
+          if (val.startsWith('+')) {
+            const num = parseFloat(val);
+            data.cell.styles.textColor = num >= 0 ? [234, 88, 12] : [220, 38, 38];
+            data.cell.styles.fontStyle = 'bold';
+          } else {
+            data.cell.styles.textColor = [203, 213, 225];
+          }
+        }
+        if (colIdx === 3) {
+          const val = data.cell.raw as string;
+          if (val === 'Complete') data.cell.styles.textColor = [5, 150, 105];
+          else if (val === 'In Progress') data.cell.styles.textColor = [217, 119, 6];
+          else if (val === 'Check-Out Only') data.cell.styles.textColor = [100, 116, 139];
+        }
+      }
+    },
+  });
+
+  let finalY = (doc as any).lastAutoTable?.finalY ?? yPos + 1;
+
+  const sortedYears = Object.keys(yearTotals).map(Number).sort((a, b) => a - b);
+  const hasYearTotals = sortedYears.some(y =>
+    yearTotals[y].portEng > 0 || yearTotals[y].stbdEng > 0 || yearTotals[y].portGen > 0 || yearTotals[y].stbdGen > 0
+  );
+
+  if (hasYearTotals) {
+    if (finalY > 8) {
+      doc.addPage();
+      finalY = margin;
+    }
+    yPos = finalY + 0.35;
+
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 0, 0);
+    doc.text('End-of-Year Overview', margin, yPos);
+    yPos += 0.2;
+
+    const overviewHead: string[] = ['Year'];
+    if (hasEngines) overviewHead.push('Port Engine', 'Stbd Engine');
+    if (hasGens) overviewHead.push('Port Generator', 'Stbd Generator');
+
+    const overviewRows: string[][] = [];
+    let grandPortEng = 0, grandStbdEng = 0, grandPortGen = 0, grandStbdGen = 0;
+
+    for (const yr of sortedYears) {
+      const t = yearTotals[yr];
+      if (t.portEng === 0 && t.stbdEng === 0 && t.portGen === 0 && t.stbdGen === 0) continue;
+      grandPortEng += t.portEng;
+      grandStbdEng += t.stbdEng;
+      grandPortGen += t.portGen;
+      grandStbdGen += t.stbdGen;
+
+      const row: string[] = [String(yr)];
+      if (hasEngines) row.push(`+${t.portEng.toFixed(1)} hrs`, `+${t.stbdEng.toFixed(1)} hrs`);
+      if (hasGens) row.push(`+${t.portGen.toFixed(1)} hrs`, `+${t.stbdGen.toFixed(1)} hrs`);
+      overviewRows.push(row);
+    }
+
+    const grandRow: string[] = ['ALL YEARS'];
+    if (hasEngines) grandRow.push(`+${grandPortEng.toFixed(1)} hrs`, `+${grandStbdEng.toFixed(1)} hrs`);
+    if (hasGens) grandRow.push(`+${grandPortGen.toFixed(1)} hrs`, `+${grandStbdGen.toFixed(1)} hrs`);
+    overviewRows.push(grandRow);
+
+    const overviewColStyles: Record<number, any> = {
+      0: { cellWidth: 1.0, halign: 'center', fontStyle: 'bold' },
+    };
+    const overviewColCount = 1 + (hasEngines ? 2 : 0) + (hasGens ? 2 : 0);
+    const overviewColWidth = (pageWidth - 2 * margin - 1.0) / Math.max(overviewColCount - 1, 1);
+    for (let i = 1; i < overviewColCount; i++) {
+      overviewColStyles[i] = { cellWidth: overviewColWidth, halign: 'center' };
+    }
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [overviewHead],
+      body: overviewRows,
+      theme: 'striped',
+      styles: { fontSize: 9, cellPadding: 0.06, font: 'helvetica', lineColor: [203, 213, 225], lineWidth: 0.01 },
+      headStyles: { fillColor: [234, 88, 12], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center' },
+      alternateRowStyles: { fillColor: [255, 247, 237] },
+      columnStyles: overviewColStyles,
+      margin: { left: margin, right: margin },
+      didParseCell: (data: any) => {
+        if (data.section === 'body') {
+          const isLastRow = data.row.index === overviewRows.length - 1;
+          if (isLastRow) {
+            data.cell.styles.fillColor = [254, 215, 170];
+            data.cell.styles.fontStyle = 'bold';
+          }
+          if (data.column.index > 0) {
+            data.cell.styles.textColor = [234, 88, 12];
+          }
+        }
+      },
+    });
   }
 
   const pageCount = doc.getNumberOfPages();
