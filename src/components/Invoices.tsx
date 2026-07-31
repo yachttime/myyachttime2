@@ -1269,7 +1269,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       if (invoice.credit_card_fee && invoice.credit_card_fee > 0) {
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(10);
-        doc.text('Credit Card Processing Fee (3%):', totalsX, yPos);
+        doc.text('CC Processing Fee (3%):', totalsX, yPos);
         doc.text(`$${invoice.credit_card_fee.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
         yPos += 0.2;
       }
