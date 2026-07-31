@@ -2933,9 +2933,13 @@ export async function generateEstimatingInvoicePDF(
     phone?: string | null;
     email?: string | null;
     website?: string | null;
-  } | null
+  } | null,
+  existingDoc?: jsPDF
 ): Promise<jsPDF> {
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'in', format: 'letter' });
+  const doc = existingDoc || new jsPDF({ orientation: 'portrait', unit: 'in', format: 'letter' });
+  if (existingDoc) {
+    doc.addPage();
+  }
   const pageWidth = 8.5;
   const margin = 0.75;
   let yPos = margin;

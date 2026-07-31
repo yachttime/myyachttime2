@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import jsPDF from 'jspdf';
 import { Anchor, Calendar, CheckCircle, AlertCircle, BookOpen, LogOut, Wrench, Send, Play, Shield, ClipboardCheck, ClipboardList, Ship, CalendarPlus, FileUp, MessageCircle, Mail, CreditCard as Edit2, Trash2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, History, UserCheck, FileText, Upload, Download, X, Users, Save, RefreshCw, Clock, Thermometer, Camera, Receipt, Pencil, Lock, CreditCard, Eye, EyeOff, MousePointer, Ligature as FileSignature, Folder, Menu, Phone, Printer, Plus, QrCode, CircleUser as UserCircle2, DollarSign, Archive, Building2, MessageSquare, ShieldAlert, Paperclip, ExternalLink, User, Image, ArrowLeftRight, Copy, Link, Gauge, ZoomIn, UserX, Cloud, Wind, Droplets, AlertTriangle, MapPin } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCompany } from '../contexts/CompanyContext';
@@ -28,7 +29,7 @@ import CustomerManagement from './CustomerManagement';
 import { CompanyManagement } from './CompanyManagement';
 import SupportTickets from './SupportTickets';
 import { uploadFileToStorage, deleteFileFromStorage, isStorageUrl, UploadProgress, isTokenExpiredError } from '../utils/fileUpload';
-import { generateAllYachtTripsPDF, generateEstimatingInvoicePDF, generateYachtInvoicesSummaryPDF, generateTripInspectionPDF } from '../utils/pdfGenerator';
+import { generateAllYachtTripsPDF, generateEstimatingInvoicePDF, generateTripInspectionPDF } from '../utils/pdfGenerator';
 import { convertTo12Hour, formatPhoneNumber, toAZDateStr, isAntelopePointMarina, isWithinBookingPeriod } from '../utils/dashboardHelpers';
 import AdminMenu from './admin/AdminMenu';
 import AdminViewWrapper from './admin/AdminViewWrapper';
@@ -823,6 +824,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [qrCodeYacht, setQrCodeYacht] = useState<{ id: string; name: string } | null>(null);
   const [printingAllQR, setPrintingAllQR] = useState(false);
   const [printingAllTrips, setPrintingAllTrips] = useState(false);
+  const [printingAllInvoicesYachtId, setPrintingAllInvoicesYachtId] = useState<string | null>(null);
   const [showAgreementForm, setShowAgreementForm] = useState(false);
   const [showAgreementViewer, setShowAgreementViewer] = useState(false);
   const [selectedAgreement, setSelectedAgreement] = useState<VesselManagementAgreement | null>(null);
@@ -2876,6 +2878,110 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     } catch (error) {
       console.error('Error generating invoice PDF:', error);
       showError('Failed to generate invoice PDF');
+    }
+  };
+
+  const handlePrintAllInvoices = async (yachtId: string, yachtName: string, year: number) => {
+    if (printingAllInvoicesYachtId) return;
+    setPrintingAllInvoicesYachtId(yachtId);
+    try {
+      const [invResult, companyResult] = await Promise.all([
+        supabase
+          .from('estimating_invoices')
+          .select('*, work_orders!estimating_invoices_work_order_id_fkey(work_order_number), yachts!estimating_invoices_yacht_id_fkey(name)')
+          .eq('yacht_id', yachtId)
+          .order('invoice_date', { ascending: true }),
+        supabase.from('company_info').select('*').maybeSingle(),
+      ]);
+
+      if (invResult.error) throw invResult.error;
+
+      const yearInvoices = (invResult.data || []).filter((ei: any) => {
+        const y = ei.invoice_date ? new Date(ei.invoice_date).getFullYear() : new Date().getFullYear();
+        return y === year && (!ei.archived || ei.payment_status === 'paid');
+      });
+
+      if (yearInvoices.length === 0) {
+        showError(`No invoices found for ${yachtName} in ${year}`);
+        return;
+      }
+
+      let combinedDoc: jsPDF | null = null;
+
+      for (const inv of yearInvoices) {
+        const invoiceForPDF = {
+          ...inv,
+          work_order_number: inv.work_orders?.work_order_number || null,
+          yacht_name: inv.yachts?.name || inv.yacht_name || yachtName,
+        };
+
+        let lineItems: any[] = [];
+
+        if (inv.work_order_id) {
+          const [tasksResult, woLineItemsResult] = await Promise.all([
+            supabase
+              .from('work_order_tasks')
+              .select('*')
+              .eq('work_order_id', inv.work_order_id)
+              .order('task_order', { ascending: true }),
+            supabase
+              .from('work_order_line_items')
+              .select('*')
+              .eq('work_order_id', inv.work_order_id)
+              .order('line_order', { ascending: true }),
+          ]);
+
+          const tasks = tasksResult.data || [];
+          const woLineItems = woLineItemsResult.data || [];
+
+          if (tasks.length > 0 && woLineItems.length > 0) {
+            tasks.forEach((task: any) => {
+              const taskItems = woLineItems.filter((item: any) => item.task_id === task.id);
+              taskItems.forEach((item: any) => {
+                lineItems.push({
+                  line_type: item.line_type || 'labor',
+                  description: item.description || '',
+                  work_details: item.work_details || null,
+                  quantity: Number(item.quantity) || 1,
+                  unit_price: Number(item.unit_price) || 0,
+                  total_price: Number(item.total_price) || 0,
+                  task_name: task.task_name || null,
+                  task_overview: task.task_overview || null,
+                });
+              });
+            });
+          }
+        }
+
+        if (lineItems.length === 0) {
+          const { data: estLineItems } = await supabase
+            .from('estimating_invoice_line_items')
+            .select('*')
+            .eq('invoice_id', inv.id)
+            .order('line_order', { ascending: true });
+          lineItems = (estLineItems || []).map((li: any) => ({
+            line_type: li.line_type || 'labor',
+            description: li.description || '',
+            work_details: li.work_details || null,
+            quantity: Number(li.quantity) || 1,
+            unit_price: Number(li.unit_price) || 0,
+            total_price: Number(li.total_price) || 0,
+            task_name: li.task_name || null,
+          }));
+        }
+
+        combinedDoc = await generateEstimatingInvoicePDF(invoiceForPDF, lineItems, companyResult.data, combinedDoc || undefined);
+      }
+
+      if (combinedDoc) {
+        const pdfUrl = URL.createObjectURL(combinedDoc.output('blob'));
+        window.open(pdfUrl, '_blank');
+      }
+    } catch (error) {
+      console.error('Error generating all invoices PDF:', error);
+      showError('Failed to generate all invoices PDF');
+    } finally {
+      setPrintingAllInvoicesYachtId(null);
     }
   };
 
@@ -12400,24 +12506,16 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   })()}
                                 </select>
                                 <button
-                                  onClick={() => {
-                                    const invoices = (yachtInvoices[yacht.id] || []).filter(
-                                      inv => inv.invoice_year === selectedInvoiceYear
-                                    );
-                                    const estInvoices = (yachtEstimatingInvoices[yacht.id] || []).filter(inv => {
-                                      const y = inv.invoice_date ? new Date(inv.invoice_date).getFullYear() : new Date().getFullYear();
-                                      return y === selectedInvoiceYear;
-                                    });
-                                    const pdf = generateYachtInvoicesSummaryPDF(yacht.name, selectedInvoiceYear, invoices, estInvoices);
-                                    const blob = pdf.output('blob');
-                                    const url = URL.createObjectURL(blob);
-                                    window.open(url, '_blank');
-                                  }}
-                                  className="flex items-center gap-1 px-2 py-1 bg-slate-700 hover:bg-slate-600 text-white rounded text-xs transition-colors whitespace-nowrap"
+                                  onClick={() => handlePrintAllInvoices(yacht.id, yacht.name, selectedInvoiceYear)}
+                                  disabled={printingAllInvoicesYachtId === yacht.id}
+                                  className="flex items-center gap-1 px-2 py-1 bg-slate-700 hover:bg-slate-600 text-white rounded text-xs transition-colors whitespace-nowrap disabled:opacity-50"
                                   title="Print all invoices for this year"
                                 >
-                                  <Printer className="w-3 h-3" />
-                                  Print All
+                                  {printingAllInvoicesYachtId === yacht.id ? (
+                                    <><RefreshCw className="w-3 h-3 animate-spin" />Generating...</>
+                                  ) : (
+                                    <><Printer className="w-3 h-3" />Print All</>
+                                  )}
                                 </button>
                               </div>
                             </div>
