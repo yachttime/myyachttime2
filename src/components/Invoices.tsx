@@ -202,7 +202,6 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
   }>({ customer_name: '', customer_email: '', customer_phone: '', invoice_date: '', due_date: '', notes: '', shop_supplies_amount: '', park_fees_amount: '', surcharge_amount: '', tax_rate: '' });
   const [editLineItems, setEditLineItems] = useState<Array<WorkOrderLineItem & { _deleted?: boolean; _new?: boolean; task_name?: string | null }>>([]);
   const [editSaving, setEditSaving] = useState(false);
-  const [syncingFromWorkOrder, setSyncingFromWorkOrder] = useState(false);
 
   const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToast({ message, type });
@@ -1110,58 +1109,32 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       yPos = Math.max(yPos, leftStartY + 0.6);
       yPos += 0.2;
 
-      // Line items table - prefer work order line items, fall back to estimating invoice line items
-      const hasWorkOrderItems = workOrderTasks.length > 0 && workOrderLineItems.length > 0;
+      // Line items table — always from the invoice's own snapshot
       const hasEstimatingItems = estimatingLineItems.length > 0;
 
-      if (hasWorkOrderItems || hasEstimatingItems) {
+      if (hasEstimatingItems) {
         const tableData: any[] = [];
 
-        if (hasWorkOrderItems) {
-          workOrderTasks.forEach(task => {
-            const taskItems = workOrderLineItems.filter(item => item.task_id === task.id);
-            if (taskItems.length > 0) {
-              const overview = task.task_overview ? task.task_overview.trim() : '';
-              const taskHeader = overview ? task.task_name + '\n' + overview : task.task_name;
-              tableData.push([
-                { content: taskHeader, colSpan: 5, styles: { fontStyle: 'bold', fillColor: [240, 240, 240] } }
-              ]);
-              taskItems.forEach(item => {
-                const descText = item.description
-                  ? item.description + (item.work_details ? '\n  \u2022 ' + item.work_details.trim() : '')
-                  : (item.work_details ? item.work_details.trim() : '');
-                tableData.push([
-                  item.line_type.toUpperCase(),
-                  descText,
-                  item.quantity.toString(),
-                  `$${item.unit_price.toFixed(2)}`,
-                  `$${item.total_price.toFixed(2)}`
-                ]);
-              });
-            }
-          });
-        } else {
-          let lastTaskName = '';
-          estimatingLineItems.forEach((item: any) => {
-            const taskName = item.task_name || '';
-            if (taskName && taskName !== lastTaskName) {
-              tableData.push([
-                { content: taskName, colSpan: 5, styles: { fontStyle: 'bold', fillColor: [240, 240, 240] } }
-              ]);
-              lastTaskName = taskName;
-            }
-            const descText = item.description
-              ? item.description + (item.work_details ? '\n  \u2022 ' + item.work_details.trim() : '')
-              : (item.work_details ? item.work_details.trim() : '');
+        let lastTaskName = '';
+        estimatingLineItems.forEach((item: any) => {
+          const taskName = item.task_name || '';
+          if (taskName && taskName !== lastTaskName) {
             tableData.push([
-              item.line_type.toUpperCase(),
-              descText,
-              item.quantity.toString(),
-              `$${item.unit_price.toFixed(2)}`,
-              `$${item.total_price.toFixed(2)}`
+              { content: taskName, colSpan: 5, styles: { fontStyle: 'bold', fillColor: [240, 240, 240] } }
             ]);
-          });
-        }
+            lastTaskName = taskName;
+          }
+          const descText = item.description
+            ? item.description + (item.work_details ? '\n  \u2022 ' + item.work_details.trim() : '')
+            : (item.work_details ? item.work_details.trim() : '');
+          tableData.push([
+            item.line_type.toUpperCase(),
+            descText,
+            item.quantity.toString(),
+            `${item.unit_price.toFixed(2)}`,
+            `${item.total_price.toFixed(2)}`
+          ]);
+        });
 
         autoTable(doc, {
           startY: yPos,
@@ -2297,113 +2270,6 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
     }
   }
 
-  async function handleSyncFromWorkOrder() {
-    if (!selectedInvoice || !selectedInvoice.work_order_id) return;
-
-    const confirmed = await confirm({
-      title: 'Sync from Work Order',
-      message: `This will replace the invoice's line items with the current work order line items and recalculate the subtotal, tax, and total. This is useful when items were added to the work order after the invoice was created. Continue?`,
-      confirmLabel: 'Sync & Recalculate',
-      cancelLabel: 'Cancel',
-    });
-    if (!confirmed) return;
-
-    setSyncingFromWorkOrder(true);
-    try {
-      const workOrderId = selectedInvoice.work_order_id;
-      const invoiceId = selectedInvoice.id;
-
-      const { data: woItems, error: woErr } = await supabase
-        .from('work_order_line_items')
-        .select('id, task_id, line_type, description, quantity, unit_price, total_price, is_taxable, line_order, work_details')
-        .eq('work_order_id', workOrderId)
-        .order('task_id', { ascending: true })
-        .order('line_order', { ascending: true });
-      if (woErr) throw woErr;
-
-      const CHARGE_TYPES = ['shop_supplies', 'park_fees', 'surcharge'];
-      const billableItems = (woItems || []).filter(i => !CHARGE_TYPES.includes(i.line_type));
-
-      const { data: tasks } = await supabase
-        .from('work_order_tasks')
-        .select('id, task_name')
-        .eq('work_order_id', workOrderId);
-      const taskNameMap: Record<string, string> = {};
-      (tasks || []).forEach(t => { taskNameMap[t.id] = t.task_name; });
-
-      await supabase.from('estimating_invoice_line_items').delete().eq('invoice_id', invoiceId);
-
-      const insertRows = billableItems.map((item, idx) => ({
-        invoice_id: invoiceId,
-        task_name: taskNameMap[item.task_id] || item.description || '',
-        line_type: item.line_type,
-        description: item.description,
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-        total_price: parseFloat((item.quantity * item.unit_price).toFixed(2)),
-        is_taxable: item.is_taxable,
-        line_order: idx + 1,
-      }));
-
-      if (insertRows.length > 0) {
-        const { error: insErr } = await supabase.from('estimating_invoice_line_items').insert(insertRows);
-        if (insErr) throw insErr;
-      }
-
-      const newSubtotal = parseFloat(billableItems.reduce((sum, i) => sum + i.quantity * i.unit_price, 0).toFixed(2));
-      const discountAmt = parseFloat((selectedInvoice.discount_amount ?? 0).toFixed(2));
-      const discountedSubtotal = parseFloat(Math.max(0, newSubtotal - discountAmt).toFixed(2));
-      const taxableAmount = parseFloat(billableItems.filter(i => i.is_taxable).reduce((sum, i) => sum + i.quantity * i.unit_price, 0).toFixed(2));
-      const taxableAfterDiscount = discountedSubtotal > 0 && newSubtotal > 0
-        ? parseFloat((taxableAmount * (discountedSubtotal / newSubtotal)).toFixed(2))
-        : taxableAmount;
-      const taxRateVal = Number(selectedInvoice.tax_rate);
-      const taxAmount = parseFloat((taxableAfterDiscount * taxRateVal).toFixed(2));
-      const shopSupplies = selectedInvoice.shop_supplies_amount ?? 0;
-      const parkFees = selectedInvoice.park_fees_amount ?? 0;
-      const surcharge = selectedInvoice.surcharge_amount ?? 0;
-      const newTotal = parseFloat((discountedSubtotal + taxAmount + shopSupplies + parkFees + surcharge).toFixed(2));
-      const depositApplied = selectedInvoice.deposit_applied ?? 0;
-      const amountPaid = selectedInvoice.amount_paid ?? 0;
-      const newBalanceDue = Math.max(0, newTotal - depositApplied - amountPaid);
-
-      const { error: updErr } = await supabase
-        .from('estimating_invoices')
-        .update({
-          subtotal: newSubtotal,
-          tax_amount: taxAmount,
-          total_amount: newTotal,
-          balance_due: newBalanceDue,
-        })
-        .eq('id', invoiceId);
-      if (updErr) throw updErr;
-
-      showToast(`Invoice synced from work order. New total: ${newTotal.toFixed(2)}`, 'success');
-
-      if (activeTab === 'active') {
-        await fetchInvoices();
-      } else {
-        await fetchArchivedInvoices();
-      }
-
-      const { data: fresh } = await supabase
-        .from('estimating_invoices')
-        .select('*, work_orders!estimating_invoices_work_order_id_fkey(work_order_number), yachts!estimating_invoices_yacht_id_fkey(name)')
-        .eq('id', invoiceId)
-        .maybeSingle();
-      if (fresh) {
-        setSelectedInvoice({ ...fresh, work_order_number: fresh.work_orders?.work_order_number, yacht_name: fresh.yachts?.name });
-        await fetchWorkOrderDetails(workOrderId);
-        await fetchEstimatingLineItems(invoiceId);
-      }
-    } catch (err: any) {
-      console.error('Error syncing from work order:', err);
-      showToast(err.message || 'Failed to sync from work order', 'error');
-    } finally {
-      setSyncingFromWorkOrder(false);
-    }
-  }
-
   function handleOpenEdit() {
     if (!selectedInvoice) return;
     const inv = selectedInvoice;
@@ -2426,8 +2292,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       tax_rate: inv.tax_rate != null ? String((Number(inv.tax_rate) * 100).toFixed(4)) : '0',
     });
     const CHARGE_TYPES = ['shop_supplies', 'park_fees', 'surcharge'];
-    const sourceItems = inv.work_order_id ? workOrderLineItems : estimatingLineItems;
-    const allItems = sourceItems.filter(i => !CHARGE_TYPES.includes(i.line_type));
+    const allItems = estimatingLineItems.filter(i => !CHARGE_TYPES.includes(i.line_type));
     setEditLineItems(allItems.map(item => ({ ...item, _deleted: false, _new: false })));
     setShowEditModal(true);
   }
@@ -2456,18 +2321,17 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       const amountPaid = selectedInvoice.amount_paid ?? 0;
       const newBalanceDue = Math.max(0, newTotal - depositApplied - amountPaid);
 
-      const isWorkOrderInvoice = !!selectedInvoice.work_order_id;
-      const lineItemTable = isWorkOrderInvoice ? 'work_order_line_items' : 'estimating_invoice_line_items';
-
       const saveableItems = editLineItems.filter(i => !CHARGE_TYPES.includes(i.line_type));
 
       for (const item of saveableItems) {
         const totalPrice = parseFloat((item.quantity * item.unit_price).toFixed(2));
         if (item._deleted && !item._new) {
-          const { error: delErr } = await supabase.from(lineItemTable).delete().eq('id', item.id);
+          const { error: delErr } = await supabase.from('estimating_invoice_line_items').delete().eq('id', item.id);
           if (delErr) console.error('Delete line item error:', delErr);
         } else if (item._new && !item._deleted) {
           const insertData: Record<string, unknown> = {
+            invoice_id: selectedInvoice.id,
+            task_name: (item as any).task_name || item.description || '',
             line_type: item.line_type,
             description: item.description,
             quantity: item.quantity,
@@ -2477,17 +2341,10 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
             line_order: item.line_order,
             work_details: item.work_details || null,
           };
-          if (isWorkOrderInvoice) {
-            insertData.work_order_id = selectedInvoice.work_order_id;
-            insertData.task_id = item.task_id || null;
-          } else {
-            insertData.invoice_id = selectedInvoice.id;
-            insertData.task_name = (item as any).task_name || item.description || '';
-          }
-          const { error: insErr } = await supabase.from(lineItemTable).insert(insertData);
+          const { error: insErr } = await supabase.from('estimating_invoice_line_items').insert(insertData);
           if (insErr) console.error('Insert line item error:', insErr);
         } else if (!item._deleted && !item._new) {
-          const { error: updErr } = await supabase.from(lineItemTable).update({
+          const { error: updErr } = await supabase.from('estimating_invoice_line_items').update({
             description: item.description,
             quantity: item.quantity,
             unit_price: item.unit_price,
@@ -2538,10 +2395,9 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       if (fresh) {
         const freshInvoice = { ...fresh, work_order_number: fresh.work_orders?.work_order_number, yacht_name: fresh.yachts?.name };
         setSelectedInvoice(freshInvoice);
+        await fetchEstimatingLineItems(selectedInvoice.id);
         if (selectedInvoice.work_order_id) {
           await fetchWorkOrderDetails(selectedInvoice.work_order_id);
-        } else {
-          await fetchEstimatingLineItems(selectedInvoice.id);
         }
       }
     } catch (err: any) {
@@ -3230,16 +3086,6 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                   <Pencil className="w-4 h-4" />
                   Edit Invoice
                 </button>
-                {selectedInvoice.work_order_id && (
-                  <button
-                    onClick={handleSyncFromWorkOrder}
-                    disabled={syncingFromWorkOrder}
-                    className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg flex items-center gap-2 text-sm font-medium transition-colors disabled:opacity-50"
-                  >
-                    {syncingFromWorkOrder ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                    Sync from Work Order
-                  </button>
-                )}
                 <button
                   onClick={() => handlePrintInvoice(selectedInvoice)}
                   className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors"
@@ -3339,122 +3185,55 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                 </div>
               </div>
 
-              {/* Line Items Section */}
-              {workOrderTasks.length > 0 && (
-                <div className="mb-6">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Line Items</h3>
-                  <div className="space-y-6">
-                    {workOrderTasks.map((task) => {
-                      const taskLineItems = workOrderLineItems.filter(item => item.task_id === task.id);
-                      if (taskLineItems.length === 0) return null;
-
-                      return (
-                        <div key={task.id} className="border border-gray-200 rounded-lg overflow-hidden">
-                          <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
-                            <h4 className="font-semibold text-gray-900">{task.task_name}</h4>
-                            {task.task_overview && (
-                              <p className="text-sm text-gray-600 mt-1">{task.task_overview}</p>
-                            )}
-                          </div>
-                          <div className="divide-y divide-gray-200">
-                            {taskLineItems.map((item) => (
-                              <div key={item.id} className="px-4 py-3">
-                                <div className="flex justify-between items-start">
-                                  <div className="flex-1">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-xs font-medium text-gray-500 uppercase bg-gray-100 px-2 py-1 rounded">
-                                        {item.line_type}
-                                      </span>
-                                      <span className="text-sm font-medium text-gray-900">
-                                        {item.description}
-                                      </span>
-                                    </div>
-                                    {item.work_details && (
-                                      <p className="text-sm text-gray-500 mt-1 ml-[3.75rem]">{item.work_details}</p>
-                                    )}
-                                    <div className="flex gap-4 mt-2 ml-[3.75rem] text-sm text-gray-500">
-                                      <span>Qty: {item.quantity}</span>
-                                      <span>Unit Price: ${item.unit_price.toFixed(2)}</span>
-                                      {item.is_taxable && (
-                                        <span className="text-blue-600">Taxable</span>
-                                      )}
-                                    </div>
-                                    {item.line_type === 'labor' && item.employee_name && (
-                                      <div className="flex items-center gap-2 mt-2 ml-[3.75rem]">
-                                        <Users className="w-3.5 h-3.5 text-gray-400" />
-                                        <span className="text-sm text-gray-700">{item.employee_name}</span>
-                                        {item.time_entry_sent_at ? (
-                                          <span className="inline-flex items-center gap-1 text-xs font-medium bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
-                                            <CheckCircle className="w-3 h-3" />
-                                            Sent to Time Clock
-                                          </span>
-                                        ) : (
-                                          <span className="inline-flex items-center gap-1 text-xs font-medium bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
-                                            <Clock className="w-3 h-3" />
-                                            Not Paid
-                                          </span>
-                                        )}
-                                      </div>
-                                    )}
-                                    {item.line_type === 'labor' && !item.employee_name && (
-                                      <div className="flex items-center gap-2 mt-2 ml-[3.75rem]">
-                                        <Users className="w-3.5 h-3.5 text-gray-400" />
-                                        <span className="text-xs text-gray-400 italic">No employee assigned</span>
-                                      </div>
-                                    )}
-                                  </div>
-                                  <div className="text-right ml-4">
-                                    <div className="text-base font-semibold text-gray-900">
-                                      ${item.total_price.toFixed(2)}
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {workOrderTasks.length === 0 && estimatingLineItems.length > 0 && (
+              {/* Line Items Section — always from the invoice's own snapshot */}
+              {estimatingLineItems.length > 0 && (
                 <div className="mb-6">
                   <h3 className="text-lg font-medium text-gray-900 mb-4">Line Items</h3>
                   <div className="border border-gray-200 rounded-lg overflow-hidden">
                     <div className="divide-y divide-gray-200">
-                      {estimatingLineItems.map((item) => (
-                        <div key={item.id} className="px-4 py-3">
-                          <div className="flex justify-between items-start">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs font-medium text-gray-500 uppercase bg-gray-100 px-2 py-1 rounded">
-                                  {item.line_type}
-                                </span>
-                                <span className="text-sm font-medium text-gray-900">
-                                  {item.description}
-                                </span>
+                      {estimatingLineItems.map((item, idx) => {
+                        const taskName = (item as any).task_name;
+                        const prevTaskName = idx > 0 ? (estimatingLineItems[idx - 1] as any).task_name : null;
+                        const showTaskHeader = taskName && taskName !== prevTaskName;
+                        return (
+                          <div key={item.id}>
+                            {showTaskHeader && (
+                              <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+                                <h4 className="font-semibold text-gray-900 text-sm">{taskName}</h4>
                               </div>
-                              {item.work_details && (
-                                <p className="text-sm text-gray-500 mt-1 ml-[3.75rem]">{item.work_details}</p>
-                              )}
-                              <div className="flex gap-4 mt-2 ml-[3.75rem] text-sm text-gray-500">
-                                <span>Qty: {item.quantity}</span>
-                                <span>Unit Price: ${item.unit_price.toFixed(2)}</span>
-                                {item.is_taxable && (
-                                  <span className="text-blue-600">Taxable</span>
-                                )}
-                              </div>
-                            </div>
-                            <div className="text-right ml-4">
-                              <div className="text-base font-semibold text-gray-900">
-                                ${item.total_price.toFixed(2)}
+                            )}
+                            <div className="px-4 py-3">
+                              <div className="flex justify-between items-start">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs font-medium text-gray-500 uppercase bg-gray-100 px-2 py-1 rounded">
+                                      {item.line_type}
+                                    </span>
+                                    <span className="text-sm font-medium text-gray-900">
+                                      {item.description}
+                                    </span>
+                                  </div>
+                                  {item.work_details && (
+                                    <p className="text-sm text-gray-500 mt-1 ml-[3.75rem]">{item.work_details}</p>
+                                  )}
+                                  <div className="flex gap-4 mt-2 ml-[3.75rem] text-sm text-gray-500">
+                                    <span>Qty: {item.quantity}</span>
+                                    <span>Unit Price: ${item.unit_price.toFixed(2)}</span>
+                                    {item.is_taxable && (
+                                      <span className="text-blue-600">Taxable</span>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="text-right ml-4">
+                                  <div className="text-base font-semibold text-gray-900">
+                                    ${item.total_price.toFixed(2)}
+                                  </div>
+                                </div>
                               </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
