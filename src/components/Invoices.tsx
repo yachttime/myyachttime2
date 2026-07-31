@@ -1269,9 +1269,10 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       if (invoice.credit_card_fee && invoice.credit_card_fee > 0) {
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(10);
-        doc.text('CC Processing Fee (3%):', totalsX, yPos);
-        doc.text(`$${invoice.credit_card_fee.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
-        yPos += 0.2;
+        const ccFeeLines = doc.splitTextToSize('CC Processing Fee (3%):', totalsX - margin - 0.05);
+        doc.text(ccFeeLines, margin, yPos);
+        doc.text(`${invoice.credit_card_fee.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
+        yPos += ccFeeLines.length > 1 ? ccFeeLines.length * 0.14 : 0.2;
       }
 
       doc.setFont('helvetica', 'bold');
