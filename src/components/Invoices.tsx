@@ -202,6 +202,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
   }>({ customer_name: '', customer_email: '', customer_phone: '', invoice_date: '', due_date: '', notes: '', shop_supplies_amount: '', park_fees_amount: '', surcharge_amount: '', tax_rate: '' });
   const [editLineItems, setEditLineItems] = useState<Array<WorkOrderLineItem & { _deleted?: boolean; _new?: boolean; task_name?: string | null }>>([]);
   const [editSaving, setEditSaving] = useState(false);
+  const [syncingFromWorkOrder, setSyncingFromWorkOrder] = useState(false);
 
   const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToast({ message, type });
@@ -2296,6 +2297,113 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
     }
   }
 
+  async function handleSyncFromWorkOrder() {
+    if (!selectedInvoice || !selectedInvoice.work_order_id) return;
+
+    const confirmed = await confirm({
+      title: 'Sync from Work Order',
+      message: `This will replace the invoice's line items with the current work order line items and recalculate the subtotal, tax, and total. This is useful when items were added to the work order after the invoice was created. Continue?`,
+      confirmLabel: 'Sync & Recalculate',
+      cancelLabel: 'Cancel',
+    });
+    if (!confirmed) return;
+
+    setSyncingFromWorkOrder(true);
+    try {
+      const workOrderId = selectedInvoice.work_order_id;
+      const invoiceId = selectedInvoice.id;
+
+      const { data: woItems, error: woErr } = await supabase
+        .from('work_order_line_items')
+        .select('id, task_id, line_type, description, quantity, unit_price, total_price, is_taxable, line_order, work_details')
+        .eq('work_order_id', workOrderId)
+        .order('task_id', { ascending: true })
+        .order('line_order', { ascending: true });
+      if (woErr) throw woErr;
+
+      const CHARGE_TYPES = ['shop_supplies', 'park_fees', 'surcharge'];
+      const billableItems = (woItems || []).filter(i => !CHARGE_TYPES.includes(i.line_type));
+
+      const { data: tasks } = await supabase
+        .from('work_order_tasks')
+        .select('id, task_name')
+        .eq('work_order_id', workOrderId);
+      const taskNameMap: Record<string, string> = {};
+      (tasks || []).forEach(t => { taskNameMap[t.id] = t.task_name; });
+
+      await supabase.from('estimating_invoice_line_items').delete().eq('invoice_id', invoiceId);
+
+      const insertRows = billableItems.map((item, idx) => ({
+        invoice_id: invoiceId,
+        task_name: taskNameMap[item.task_id] || item.description || '',
+        line_type: item.line_type,
+        description: item.description,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        total_price: parseFloat((item.quantity * item.unit_price).toFixed(2)),
+        is_taxable: item.is_taxable,
+        line_order: idx + 1,
+      }));
+
+      if (insertRows.length > 0) {
+        const { error: insErr } = await supabase.from('estimating_invoice_line_items').insert(insertRows);
+        if (insErr) throw insErr;
+      }
+
+      const newSubtotal = parseFloat(billableItems.reduce((sum, i) => sum + i.quantity * i.unit_price, 0).toFixed(2));
+      const discountAmt = parseFloat((selectedInvoice.discount_amount ?? 0).toFixed(2));
+      const discountedSubtotal = parseFloat(Math.max(0, newSubtotal - discountAmt).toFixed(2));
+      const taxableAmount = parseFloat(billableItems.filter(i => i.is_taxable).reduce((sum, i) => sum + i.quantity * i.unit_price, 0).toFixed(2));
+      const taxableAfterDiscount = discountedSubtotal > 0 && newSubtotal > 0
+        ? parseFloat((taxableAmount * (discountedSubtotal / newSubtotal)).toFixed(2))
+        : taxableAmount;
+      const taxRateVal = Number(selectedInvoice.tax_rate);
+      const taxAmount = parseFloat((taxableAfterDiscount * taxRateVal).toFixed(2));
+      const shopSupplies = selectedInvoice.shop_supplies_amount ?? 0;
+      const parkFees = selectedInvoice.park_fees_amount ?? 0;
+      const surcharge = selectedInvoice.surcharge_amount ?? 0;
+      const newTotal = parseFloat((discountedSubtotal + taxAmount + shopSupplies + parkFees + surcharge).toFixed(2));
+      const depositApplied = selectedInvoice.deposit_applied ?? 0;
+      const amountPaid = selectedInvoice.amount_paid ?? 0;
+      const newBalanceDue = Math.max(0, newTotal - depositApplied - amountPaid);
+
+      const { error: updErr } = await supabase
+        .from('estimating_invoices')
+        .update({
+          subtotal: newSubtotal,
+          tax_amount: taxAmount,
+          total_amount: newTotal,
+          balance_due: newBalanceDue,
+        })
+        .eq('id', invoiceId);
+      if (updErr) throw updErr;
+
+      showToast(`Invoice synced from work order. New total: ${newTotal.toFixed(2)}`, 'success');
+
+      if (activeTab === 'active') {
+        await fetchInvoices();
+      } else {
+        await fetchArchivedInvoices();
+      }
+
+      const { data: fresh } = await supabase
+        .from('estimating_invoices')
+        .select('*, work_orders!estimating_invoices_work_order_id_fkey(work_order_number), yachts!estimating_invoices_yacht_id_fkey(name)')
+        .eq('id', invoiceId)
+        .maybeSingle();
+      if (fresh) {
+        setSelectedInvoice({ ...fresh, work_order_number: fresh.work_orders?.work_order_number, yacht_name: fresh.yachts?.name });
+        await fetchWorkOrderDetails(workOrderId);
+        await fetchEstimatingLineItems(invoiceId);
+      }
+    } catch (err: any) {
+      console.error('Error syncing from work order:', err);
+      showToast(err.message || 'Failed to sync from work order', 'error');
+    } finally {
+      setSyncingFromWorkOrder(false);
+    }
+  }
+
   function handleOpenEdit() {
     if (!selectedInvoice) return;
     const inv = selectedInvoice;
@@ -3122,6 +3230,16 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                   <Pencil className="w-4 h-4" />
                   Edit Invoice
                 </button>
+                {selectedInvoice.work_order_id && (
+                  <button
+                    onClick={handleSyncFromWorkOrder}
+                    disabled={syncingFromWorkOrder}
+                    className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg flex items-center gap-2 text-sm font-medium transition-colors disabled:opacity-50"
+                  >
+                    {syncingFromWorkOrder ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                    Sync from Work Order
+                  </button>
+                )}
                 <button
                   onClick={() => handlePrintInvoice(selectedInvoice)}
                   className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors"
