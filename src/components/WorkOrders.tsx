@@ -1089,6 +1089,14 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
 
       if (workOrderError) throw workOrderError;
 
+      // Delete existing line items first, then tasks — explicit delete instead of relying on CASCADE alone
+      const { error: deleteLineItemsError } = await supabase
+        .from('work_order_line_items')
+        .delete()
+        .eq('work_order_id', editingId);
+
+      if (deleteLineItemsError) throw deleteLineItemsError;
+
       const { error: deleteTasksError } = await supabase
         .from('work_order_tasks')
         .delete()

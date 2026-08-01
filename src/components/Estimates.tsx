@@ -194,7 +194,11 @@ export function Estimates({ userId }: EstimatesProps) {
   const [repairRequestDeposit, setRepairRequestDeposit] = useState<{ status: string | null; amount: number | null; paid_at: string | null; method: string | null } | null>(null);
   const [availableInspections, setAvailableInspections] = useState<any[]>([]);
 
+  const draftLoadedRef = React.useRef(false);
+
   useEffect(() => {
+    if (draftLoadedRef.current) return;
+    draftLoadedRef.current = true;
     loadData().then(() => {
       loadDraft(handleEditEstimate);
     });
@@ -1164,7 +1168,8 @@ export function Estimates({ userId }: EstimatesProps) {
         if (estimateError) throw estimateError;
         estimate = data;
 
-        // Delete existing tasks and line items
+        // Delete existing line items first, then tasks — explicit delete instead of relying on CASCADE alone
+        await supabase.from('estimate_line_items').delete().eq('estimate_id', currentEditingId);
         await supabase.from('estimate_tasks').delete().eq('estimate_id', currentEditingId);
       } else {
         // Create new estimate
