@@ -1124,7 +1124,7 @@ export function Estimates({ userId }: EstimatesProps) {
       const currentEditingId = editingIdRef.current;
 
       if (currentEditingId) {
-        // Update existing estimate
+        // Update existing estimate header
         const estimateData = {
           yacht_id: formData.is_retail_customer ? null : formData.yacht_id,
           customer_vessel_id: formData.is_retail_customer ? (formData.vessel_id || null) : null,
@@ -1168,9 +1168,42 @@ export function Estimates({ userId }: EstimatesProps) {
         if (estimateError) throw estimateError;
         estimate = data;
 
-        // Delete existing line items first, then tasks — explicit delete instead of relying on CASCADE alone
-        await supabase.from('estimate_line_items').delete().eq('estimate_id', currentEditingId);
-        await supabase.from('estimate_tasks').delete().eq('estimate_id', currentEditingId);
+        // Atomically replace all tasks and line items via a single SECURITY DEFINER function.
+        // This prevents the duplication bug where a silent delete failure causes new items
+        // to stack on top of old ones.
+        const tasksJson = tasks.map((task, i) => ({
+          task_name: task.task_name,
+          task_overview: task.task_overview,
+          task_order: i,
+          apply_surcharge: task.apply_surcharge,
+          lineItems: task.lineItems.map((item: any) => ({
+            line_type: item.line_type,
+            description: item.description,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            total_price: item.total_price,
+            is_taxable: item.is_taxable ?? true,
+            labor_code_id: item.labor_code_id || '',
+            part_id: item.part_id || '',
+            mercury_part_id: item.mercury_part_id || '',
+            marine_wholesale_part_id: item.marine_wholesale_part_id || '',
+            part_source: item.part_source || '',
+            core_charge_amount: item.core_charge_amount || '',
+            container_charge_amount: item.container_charge_amount || '',
+            accounting_code_id: item.accounting_code_id || '',
+            work_details: item.work_details || '',
+            package_header: item.package_header || ''
+          }))
+        }));
+
+        const { error: replaceError } = await supabase
+          .rpc('replace_estimate_line_items', {
+            p_estimate_id: currentEditingId,
+            p_user_id: userId,
+            p_tasks: tasksJson
+          });
+
+        if (replaceError) throw new Error(`Failed to save line items: ${replaceError.message}`);
       } else {
         // Create new estimate
         const estimateNumber = await generateEstimateNumber();
@@ -1221,56 +1254,60 @@ export function Estimates({ userId }: EstimatesProps) {
         estimate = data;
       }
 
-      // Insert tasks and their line items
-      const taskCompanyId = estimate.company_id || userCompanyId;
-      for (let i = 0; i < tasks.length; i++) {
-        const task = tasks[i];
-        const taskId = crypto.randomUUID();
+      // For new estimates, insert tasks and line items.
+      // For existing estimates, the atomic replace_estimate_line_items function
+      // already handled this — so skip the insert loop entirely.
+      if (!currentEditingId) {
+        const taskCompanyId = estimate.company_id || userCompanyId;
+        for (let i = 0; i < tasks.length; i++) {
+          const task = tasks[i];
+          const taskId = crypto.randomUUID();
 
-        const { error: taskError } = await supabase
-          .from('estimate_tasks')
-          .insert({
-            id: taskId,
-            estimate_id: estimate.id,
-            task_name: task.task_name,
-            task_overview: task.task_overview,
-            task_order: i,
-            apply_surcharge: task.apply_surcharge,
-            company_id: taskCompanyId
-          });
+          const { error: taskError } = await supabase
+            .from('estimate_tasks')
+            .insert({
+              id: taskId,
+              estimate_id: estimate.id,
+              task_name: task.task_name,
+              task_overview: task.task_overview,
+              task_order: i,
+              apply_surcharge: task.apply_surcharge,
+              company_id: taskCompanyId
+            });
 
-        if (taskError) throw new Error(`Failed to save task "${task.task_name}": ${taskError.message}`);
+          if (taskError) throw new Error(`Failed to save task "${task.task_name}": ${taskError.message}`);
 
-        if (task.lineItems.length > 0) {
-          const lineItemsToInsert = task.lineItems.map((item: any, index) => ({
-            estimate_id: estimate.id,
-            task_id: taskId,
-            line_type: item.line_type,
-            description: item.description,
-            quantity: item.quantity,
-            unit_price: item.unit_price,
-            total_price: item.total_price,
-            is_taxable: item.is_taxable ?? true,
-            labor_code_id: item.labor_code_id || null,
-            part_id: item.part_id || null,
-            mercury_part_id: item.mercury_part_id || null,
-            marine_wholesale_part_id: item.marine_wholesale_part_id || null,
-            part_source: item.part_source || null,
-            core_charge_amount: item.core_charge_amount || null,
-            container_charge_amount: item.container_charge_amount || null,
-            accounting_code_id: item.accounting_code_id || null,
-            work_details: item.work_details || null,
-            package_header: item.package_header || null,
-            line_order: index,
-            company_id: taskCompanyId
-          }));
+          if (task.lineItems.length > 0) {
+            const lineItemsToInsert = task.lineItems.map((item: any, index) => ({
+              estimate_id: estimate.id,
+              task_id: taskId,
+              line_type: item.line_type,
+              description: item.description,
+              quantity: item.quantity,
+              unit_price: item.unit_price,
+              total_price: item.total_price,
+              is_taxable: item.is_taxable ?? true,
+              labor_code_id: item.labor_code_id || null,
+              part_id: item.part_id || null,
+              mercury_part_id: item.mercury_part_id || null,
+              marine_wholesale_part_id: item.marine_wholesale_part_id || null,
+              part_source: item.part_source || null,
+              core_charge_amount: item.core_charge_amount || null,
+              container_charge_amount: item.container_charge_amount || null,
+              accounting_code_id: item.accounting_code_id || null,
+              work_details: item.work_details || null,
+              package_header: item.package_header || null,
+              line_order: index,
+              company_id: taskCompanyId
+            }));
 
-          const { error: lineItemsError } = await supabase
-            .from('estimate_line_items')
-            .insert(lineItemsToInsert);
+            const { error: lineItemsError } = await supabase
+              .from('estimate_line_items')
+              .insert(lineItemsToInsert);
 
-          if (lineItemsError) {
-            throw new Error(`Failed to save line items for task "${task.task_name}": ${lineItemsError.message}`);
+            if (lineItemsError) {
+              throw new Error(`Failed to save line items for task "${task.task_name}": ${lineItemsError.message}`);
+            }
           }
         }
       }

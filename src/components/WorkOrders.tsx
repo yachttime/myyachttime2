@@ -1089,97 +1089,43 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
 
       if (workOrderError) throw workOrderError;
 
-      // Delete existing line items by task_id (more reliable than by work_order_id due to RLS),
-      // then delete tasks, then delete any orphaned line items by work_order_id as a fallback
-      const existingTaskIds = tasks
-        .map(t => t.id)
-        .filter((id): id is string => !!id);
+      // Atomically replace all tasks and line items via a single SECURITY DEFINER function.
+      // This prevents the duplication bug where a silent delete failure causes new items
+      // to stack on top of old ones.
+      const tasksJson = tasks.map((task, i) => ({
+        task_name: task.task_name,
+        task_overview: task.task_overview,
+        task_order: i,
+        apply_surcharge: task.apply_surcharge,
+        assignedEmployees: (task.assignedEmployees || []).map((eid: string) => ({ employee_id: eid })),
+        lineItems: task.lineItems.map((item) => ({
+          line_type: item.line_type,
+          description: item.description,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          total_price: item.total_price,
+          is_taxable: item.is_taxable ?? true,
+          labor_code_id: item.labor_code_id || '',
+          part_id: item.part_id || '',
+          part_source: item.part_source || '',
+          mercury_part_id: item.mercury_part_id || '',
+          marine_wholesale_part_id: item.marine_wholesale_part_id || '',
+          work_details: item.work_details || '',
+          package_header: item.package_header || '',
+          assigned_employee_id: item.assigned_employee_id || '',
+          time_entry_sent_at: item.time_entry_sent_at || '',
+          time_entry_id: item.time_entry_id || ''
+        }))
+      }));
 
-      if (existingTaskIds.length > 0) {
-        const { error: deleteLineItemsError } = await supabase
-          .from('work_order_line_items')
-          .delete()
-          .in('task_id', existingTaskIds);
+      const { error: replaceError } = await supabase
+        .rpc('replace_work_order_line_items', {
+          p_work_order_id: editingId,
+          p_user_id: userId,
+          p_tasks: tasksJson
+        });
 
-        if (deleteLineItemsError) throw deleteLineItemsError;
-      }
-
-      // Fallback: delete any remaining line items by work_order_id
-      const { error: deleteOrphanLineItemsError } = await supabase
-        .from('work_order_line_items')
-        .delete()
-        .eq('work_order_id', editingId);
-
-      if (deleteOrphanLineItemsError) throw deleteOrphanLineItemsError;
-
-      const { error: deleteTasksError } = await supabase
-        .from('work_order_tasks')
-        .delete()
-        .eq('work_order_id', editingId);
-
-      if (deleteTasksError) throw deleteTasksError;
-
-      for (let i = 0; i < tasks.length; i++) {
-        const task = tasks[i];
-
-        const { data: workOrderTask, error: taskError } = await supabase
-          .from('work_order_tasks')
-          .insert({
-            work_order_id: workOrder.id,
-            task_name: task.task_name,
-            task_overview: task.task_overview,
-            task_order: i,
-            apply_surcharge: task.apply_surcharge
-          })
-          .select()
-          .single();
-
-        if (taskError) throw taskError;
-
-        if (task.lineItems.length > 0) {
-          const lineItemsToInsert = task.lineItems.map((item, index) => ({
-            work_order_id: workOrder.id,
-            task_id: workOrderTask.id,
-            line_type: item.line_type,
-            description: item.description,
-            quantity: item.quantity,
-            unit_price: item.unit_price,
-            total_price: item.total_price,
-            is_taxable: item.is_taxable ?? true,
-            labor_code_id: item.labor_code_id || null,
-            part_id: item.part_id || null,
-            part_source: item.part_source || null,
-            mercury_part_id: item.mercury_part_id || null,
-            marine_wholesale_part_id: item.marine_wholesale_part_id || null,
-            work_details: item.work_details || null,
-            package_header: item.package_header || null,
-            line_order: index,
-            assigned_employee_id: item.line_type === 'labor' ? (item.assigned_employee_id || null) : null,
-            time_entry_sent_at: item.time_entry_sent_at || null,
-            time_entry_id: item.time_entry_id || null
-          }));
-
-          const { error: lineItemsError } = await supabase
-            .from('work_order_line_items')
-            .insert(lineItemsToInsert);
-
-          if (lineItemsError) throw lineItemsError;
-        }
-
-        if (task.assignedEmployees && task.assignedEmployees.length > 0) {
-          const assignmentsToInsert = task.assignedEmployees.map(employeeId => ({
-            task_id: workOrderTask.id,
-            employee_id: employeeId,
-            assigned_by: userId
-          }));
-
-          const { error: assignmentsError } = await supabase
-            .from('work_order_task_assignments')
-            .insert(assignmentsToInsert);
-
-          if (assignmentsError) throw assignmentsError;
-        }
-      }
+      if (replaceError) throw new Error(`Failed to save line items: ${replaceError.message}`);
 
       showSuccess('Work order updated successfully!');
 
