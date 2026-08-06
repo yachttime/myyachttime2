@@ -87,6 +87,31 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    // Verify the password actually works by attempting a real login.
+    // This catches silent failures where updateUserById returns success
+    // but the password was not actually stored.
+    const verifyClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    );
+    const targetEmail = updatedUser.user.email ?? '';
+    if (targetEmail) {
+      const { data: verifyData, error: verifyError } = await verifyClient.auth.signInWithPassword({
+        email: targetEmail,
+        password: new_password,
+      });
+      if (verifyError || !verifyData.session) {
+        const detail = verifyError?.message ?? 'No session returned';
+        return new Response(JSON.stringify({
+          error: `Password update reported success but login verification failed: ${detail}. The password may not have been saved — please try again or contact support.`,
+        }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     const { error: profileError } = await supabaseAdmin
       .from('user_profiles')
       .update({ must_change_password: true })
@@ -163,7 +188,7 @@ Deno.serve(async (req: Request) => {
       console.error('Failed to send notification email:', emailErr);
     }
 
-    return new Response(JSON.stringify({ success: true, message: 'Password reset successfully' }), {
+    return new Response(JSON.stringify({ success: true, verified: true, message: 'Password reset and verified successfully' }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

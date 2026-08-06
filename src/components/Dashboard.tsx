@@ -2254,10 +2254,14 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || 'Failed to reset password');
+        throw new Error(result.error || 'Failed to reset password — the server did not confirm the change.');
       }
 
-      setResetPasswordSuccess(`Password reset successfully for ${selectedUser.first_name} ${selectedUser.last_name} (${selectedUser.email}). They will be prompted to change it on next login.`);
+      if (!result.verified) {
+        throw new Error('Password was set but could not be verified. Please try again or contact support.');
+      }
+
+      setResetPasswordSuccess(`Password verified and working for ${selectedUser.first_name} ${selectedUser.last_name} (${selectedUser.email}). They can now sign in and will be prompted to change it on first login.`);
       setResetPasswordValue('');
       setShowResetPassword(false);
     } catch (err: any) {
