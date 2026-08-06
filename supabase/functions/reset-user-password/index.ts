@@ -65,10 +65,13 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const { data: passwordUpdated, error: updateError } = await supabaseAdmin.rpc('update_user_password', {
-      p_user_id: target_user_id,
-      p_new_password: new_password,
-    });
+    // Use the official Supabase admin API to update the password.
+    // This handles bcrypt hashing natively and reliably — the custom
+    // update_user_password database function was silently failing.
+    const { data: updatedUser, error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+      target_user_id,
+      { password: new_password }
+    );
 
     if (updateError) {
       return new Response(JSON.stringify({ error: updateError.message }), {
@@ -77,7 +80,7 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    if (passwordUpdated !== true) {
+    if (!updatedUser?.user) {
       return new Response(JSON.stringify({ error: 'The selected user account could not be found. No password was changed.' }), {
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
