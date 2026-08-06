@@ -65,7 +65,7 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const { error: updateError } = await supabaseAdmin.rpc('update_user_password', {
+    const { data: passwordUpdated, error: updateError } = await supabaseAdmin.rpc('update_user_password', {
       p_user_id: target_user_id,
       p_new_password: new_password,
     });
@@ -73,6 +73,13 @@ Deno.serve(async (req: Request) => {
     if (updateError) {
       return new Response(JSON.stringify({ error: updateError.message }), {
         status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (passwordUpdated !== true) {
+      return new Response(JSON.stringify({ error: 'The selected user account could not be found. No password was changed.' }), {
+        status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }

@@ -2257,7 +2257,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         throw new Error(result.error || 'Failed to reset password');
       }
 
-      setResetPasswordSuccess(`Password reset successfully. ${selectedUser.first_name} will be prompted to change it on next login.`);
+      setResetPasswordSuccess(`Password reset successfully for ${selectedUser.first_name} ${selectedUser.last_name} (${selectedUser.email}). They will be prompted to change it on next login.`);
       setResetPasswordValue('');
       setShowResetPassword(false);
     } catch (err: any) {
