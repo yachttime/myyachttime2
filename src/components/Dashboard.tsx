@@ -6922,6 +6922,72 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     setInspectionPhotos(prev => prev.map((p, i) => i === index ? { ...p, caption } : p));
   };
 
+  const handleInspectionYachtChange = async (yachtId: string) => {
+    setSelectedYachtForInspection(yachtId);
+    setOwnerNameForInspection('');
+    if (!yachtId || !selectedCompany?.id) return;
+
+    try {
+      const now = new Date();
+      const nowMST = new Date(now.toLocaleString('en-US', { timeZone: 'America/Phoenix' }));
+
+      const { data } = await supabase
+        .from('yacht_bookings')
+        .select(`
+          *,
+          user_profiles!yacht_bookings_user_id_user_profiles_fkey (
+            first_name,
+            last_name
+          ),
+          yacht_booking_owners (
+            owner_name
+          )
+        `)
+        .eq('yacht_id', yachtId)
+        .eq('company_id', selectedCompany.id)
+        .order('start_date', { ascending: false });
+
+      if (!data || data.length === 0) return;
+
+      const bookings = data as any[];
+
+      const withEndOfDay = (b: any) => {
+        const end = new Date(new Date(b.end_date).toLocaleString('en-US', { timeZone: 'America/Phoenix' }));
+        end.setHours(23, 59, 59, 999);
+        return end;
+      };
+
+      let trip = bookings.find(b => {
+        const start = new Date(new Date(b.start_date).toLocaleString('en-US', { timeZone: 'America/Phoenix' }));
+        return nowMST >= start && nowMST <= withEndOfDay(b);
+      });
+
+      if (!trip) {
+        const upcoming = bookings
+          .filter(b => new Date(new Date(b.start_date).toLocaleString('en-US', { timeZone: 'America/Phoenix' })) > nowMST)
+          .sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime());
+        trip = upcoming[0] || bookings[0];
+      }
+
+      if (!trip) return;
+
+      let name = '';
+      if (trip.yacht_booking_owners && trip.yacht_booking_owners.length > 0) {
+        name = trip.yacht_booking_owners.map((o: any) => o.owner_name).filter(Boolean).join(', ');
+      }
+      if (!name && trip.owner_name) {
+        name = trip.owner_name;
+      }
+      if (!name && trip.user_profiles) {
+        name = `${trip.user_profiles.first_name || ''} ${trip.user_profiles.last_name || ''}`.trim();
+      }
+
+      if (name) setOwnerNameForInspection(name);
+    } catch (err) {
+      console.error('Error auto-filling owner name for inspection:', err);
+    }
+  };
+
   const handleInspectionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !selectedYachtForInspection || !selectedMechanicId) return;
@@ -10458,7 +10524,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     allYachts={allYachts}
                     mechanics={mechanics}
                     selectedYacht={selectedYachtForInspection}
-                    onYachtChange={setSelectedYachtForInspection}
+                    onYachtChange={handleInspectionYachtChange}
                     selectedMechanic={selectedMechanicId}
                     onMechanicChange={setSelectedMechanicId}
                     ownerName={ownerNameForInspection}
