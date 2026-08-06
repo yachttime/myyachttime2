@@ -7760,6 +7760,51 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     }
   };
 
+  const enrichInspectionOwnerName = async (inspection: any): Promise<void> => {
+    if (!inspection || inspection.owner_name || !inspection.yacht_id) return;
+    try {
+      const { data: bookings } = await supabase
+        .from('yacht_bookings')
+        .select('id, start_date, end_date, owner_name, user_id, yacht_booking_owners(owner_name)')
+        .eq('yacht_id', inspection.yacht_id);
+      if (!bookings || bookings.length === 0) return;
+
+      const missingIds = [...new Set(bookings.filter((b: any) => !b.owner_name && b.user_id).map((b: any) => b.user_id))];
+      const bProfileMap: Record<string, string> = {};
+      if (missingIds.length > 0) {
+        const { data: bProfiles } = await supabase.from('user_profiles').select('user_id, first_name, last_name').in('user_id', missingIds);
+        for (const p of bProfiles || []) {
+          const n = [(p as any).first_name, (p as any).last_name].filter(Boolean).join(' ').trim();
+          if (n) bProfileMap[(p as any).user_id] = n;
+        }
+      }
+
+      const d = new Date(inspection.created_at); d.setHours(0, 0, 0, 0);
+      const candidates: Array<{ b: any; dist: number }> = [];
+      for (const b of bookings as any[]) {
+        const start = new Date(b.start_date); start.setHours(0, 0, 0, 0);
+        const sm1 = new Date(start); sm1.setDate(sm1.getDate() - 1);
+        const ep1 = new Date(b.end_date); ep1.setHours(0, 0, 0, 0); ep1.setDate(ep1.getDate() + 1);
+        if (d >= sm1 && d <= ep1) {
+          const end = new Date(b.end_date); end.setHours(0, 0, 0, 0);
+          candidates.push({ b, dist: Math.abs((d.getTime() - end.getTime()) / 86400000) });
+        }
+      }
+      if (candidates.length > 0) {
+        candidates.sort((a, b) => a.dist - b.dist);
+        const best = candidates[0].b;
+        let name = '';
+        if (best.yacht_booking_owners && best.yacht_booking_owners.length > 0) {
+          name = best.yacht_booking_owners.map((o: any) => o.owner_name).filter(Boolean).join(', ');
+        }
+        if (!name) name = best.owner_name?.trim() || bProfileMap[best.user_id] || '';
+        if (name) inspection.owner_name = name;
+      }
+    } catch (err) {
+      console.error('Error deriving owner name for inspection:', err);
+    }
+  };
+
   const viewInspectionPDF = async (inspectionId: string) => {
     if (loadingPdfId) return;
     setLoadingPdfId(inspectionId);
@@ -7785,6 +7830,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         }
       }
 
+      await enrichInspectionOwnerName(inspection);
       setSelectedInspectionForPDF(inspection);
     } catch (err) {
       console.error('Error loading inspection:', err);
@@ -7840,6 +7886,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         if (inspection.inspector_id && profileMap[inspection.inspector_id]) {
           (inspection as any).user_profiles = profileMap[inspection.inspector_id];
         }
+        await enrichInspectionOwnerName(inspection);
         const photos = photosByInspection[inspection.id] || [];
         doc = await generateTripInspectionPDF(inspection, photos, doc || undefined);
       }
@@ -11672,6 +11719,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                 }
                                               }
 
+                                              await enrichInspectionOwnerName(inspectionData);
                                               setSelectedInspectionForPDF(inspectionData as any);
                                             } catch (err) {
                                               console.error('Error:', err);
@@ -12142,6 +12190,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                       .maybeSingle();
                                                     if (inspectorData) inspectionData.user_profiles = inspectorData;
                                                   }
+                                                  await enrichInspectionOwnerName(inspectionData);
                                                   setSelectedInspectionForPDF(inspectionData as any);
                                                 } catch (err) {
                                                   console.error('Error:', err);
