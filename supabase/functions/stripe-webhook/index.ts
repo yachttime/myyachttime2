@@ -701,7 +701,12 @@ Deno.serve(async (req: Request) => {
             };
 
             const pdfBytes = await buildReceiptPDF(updatedInvoice, tasks, lineItems, mergedCompany);
-            const pdfBase64 = btoa(String.fromCharCode(...pdfBytes));
+            let binary = '';
+            const chunkSize = 8192;
+            for (let i = 0; i < pdfBytes.length; i += chunkSize) {
+              binary += String.fromCharCode(...pdfBytes.subarray(i, i + chunkSize));
+            }
+            const pdfBase64 = btoa(binary);
 
             const emailResponse = await fetch('https://api.resend.com/emails', {
               method: 'POST',
