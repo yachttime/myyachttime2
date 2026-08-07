@@ -297,8 +297,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
 
     setQbExporting(prev => ({ ...prev, [invoice.id]: true }));
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('Not authenticated');
+      const accessToken = await getValidSession();
 
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -306,7 +305,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       const response = await fetch(`${supabaseUrl}/functions/v1/quickbooks-push-estimating-invoice`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${session.access_token}`,
+          'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
           'Apikey': anonKey,
         },
@@ -1586,17 +1585,14 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
 
     setSyncPaymentLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        throw new Error('Not authenticated');
-      }
+      const accessToken = await getValidSession();
 
       const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-stripe-payment`;
 
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${session.access_token}`,
+          'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -1626,14 +1622,13 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
     if (!selectedInvoice || !syncPiInput.trim()) return;
     setSyncPiLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) throw new Error('Not authenticated');
+      const accessToken = await getValidSession();
 
       const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-stripe-payment`;
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${session.access_token}`,
+          'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -1678,8 +1673,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
     setSyncAllLoading(true);
     setSyncAllResult(null);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) throw new Error('Not authenticated');
+      const accessToken = await getValidSession();
 
       const unpaidWithStripe = invoices.filter(
         inv => inv.payment_status !== 'paid' && (inv.final_payment_stripe_payment_intent_id || inv.final_payment_stripe_checkout_session_id || inv.stripe_payment_intent_id)
@@ -1693,7 +1687,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
           const response = await fetch(apiUrl, {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${session.access_token}`,
+              'Authorization': `Bearer ${accessToken}`,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({ estimating_invoice_id: inv.id })
@@ -1773,16 +1767,13 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
 
     setRegenerateLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        throw new Error('Not authenticated');
-      }
+      const accessToken = await getValidSession();
 
       const deleteApiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-invoice-payment-link`;
       const deleteResponse = await fetch(deleteApiUrl, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${session.access_token}`,
+          'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -1794,8 +1785,6 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       if (!deleteResult.success) {
         throw new Error(deleteResult.error || 'Failed to delete old payment link');
       }
-
-      const accessToken = await getValidSession();
 
       const createApiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-estimating-invoice-payment`;
       const createResponse = await fetch(createApiUrl, {
@@ -1883,7 +1872,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${session.access_token}`,
+          'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -2099,8 +2088,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
     if (!paidInvoiceEmailTarget || !paidInvoiceEmailRecipient.trim()) return;
     setSendingPaidInvoiceEmail(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) throw new Error('Not authenticated');
+      const accessToken = await getValidSession();
 
       const additionalEmails = paidInvoiceEmailAdditional
         .split(',')
