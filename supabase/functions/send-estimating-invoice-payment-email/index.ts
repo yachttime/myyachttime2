@@ -1,6 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.57.4';
 import PDFDocument from 'npm:pdfkit@0.15.0';
-import { appendTripInspectionPDF } from '../_shared/tripInspectionPdf.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -35,8 +34,8 @@ interface WorkOrderLineItem {
   line_order: number;
 }
 
-async function buildInvoicePDF(invoice: any, tasks: WorkOrderTask[], lineItems: WorkOrderLineItem[], companyInfo: any, tripInspection?: any, tripInspectionPhotos?: any[]): Promise<Uint8Array> {
-  return new Promise(async (resolve, reject) => {
+async function buildInvoicePDF(invoice: any, tasks: WorkOrderTask[], lineItems: WorkOrderLineItem[], companyInfo: any): Promise<Uint8Array> {
+  return new Promise((resolve, reject) => {
     const chunks: Uint8Array[] = [];
     const doc = new PDFDocument({ margin: 54, size: 'LETTER' });
 
@@ -248,10 +247,6 @@ async function buildInvoicePDF(invoice: any, tasks: WorkOrderTask[], lineItems: 
       doc.font('Helvetica').fontSize(9).text(invoice.notes, margin, rowY, { width: contentWidth });
     }
 
-    if (tripInspection) {
-      await appendTripInspectionPDF(doc, tripInspection, tripInspectionPhotos || []);
-    }
-
     doc.end();
   });
 }
@@ -359,35 +354,8 @@ Deno.serve(async (req: Request) => {
       lineItems = lineItemsRes.data || [];
     }
 
-    // Fetch trip inspection if attached
-    let tripInspection: any = null;
-    let tripInspectionPhotos: any[] = [];
-    if (invoice.trip_inspection_id) {
-      const [inspectionRes, photosRes] = await Promise.all([
-        supabase
-          .from('trip_inspections')
-          .select('*, yachts(name)')
-          .eq('id', invoice.trip_inspection_id)
-          .maybeSingle(),
-        supabase
-          .from('inspection_photos')
-          .select('*')
-          .eq('inspection_id', invoice.trip_inspection_id),
-      ]);
-      tripInspection = inspectionRes.data;
-      if (tripInspection?.inspector_id) {
-        const { data: inspectorData } = await supabase
-          .from('user_profiles')
-          .select('first_name, last_name')
-          .eq('user_id', tripInspection.inspector_id)
-          .maybeSingle();
-        if (inspectorData) tripInspection.user_profiles = inspectorData;
-      }
-      tripInspectionPhotos = photosRes.data || [];
-    }
-
     // Build PDF
-    const pdfBytes = await buildInvoicePDF(invoice, tasks, lineItems, mergedCompany, tripInspection, tripInspectionPhotos);
+    const pdfBytes = await buildInvoicePDF(invoice, tasks, lineItems, mergedCompany);
     const pdfBase64 = btoa(String.fromCharCode(...pdfBytes));
 
     const subject = `Invoice ${invoice.invoice_number} - Payment Request`;

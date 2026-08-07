@@ -481,10 +481,11 @@ export async function generateTripInspectionPDF(
   doc.text(`Inspector: ${inspectorName}`, M + CW * 0.35, 0.68);
   doc.text(`Date: ${dateStr}`, M + CW * 0.70, 0.68);
 
-  // Owner name row — always show the row, even if name is unknown
+  // Owner name row
   const ownerNameVal = (anyI.owner_name as string | null) || '';
-  const ownerLabel = ownerNameVal ? `Owner: ${ownerNameVal}` : 'Owner: (not recorded)';
-  doc.text(ownerLabel, M, 0.92);
+  if (ownerNameVal) {
+    doc.text(`Owner: ${ownerNameVal}`, M, 0.92);
+  }
 
   // Accent stripe under header
   fillRect(0, 1.18, PW, 0.04, TEAL);
