@@ -158,7 +158,7 @@ Deno.serve(async (req: Request) => {
             <a href="${repairRequest.deposit_payment_link_url}" style="color: #3b82f6; word-break: break-all;">${repairRequest.deposit_payment_link_url}</a></p>
 
             <p style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px; border-radius: 4px; font-size: 14px;">
-              <strong>Important:</strong> This payment link is valid for 30 days. Work will begin once the deposit is received.
+              <strong>Important:</strong> This payment link is valid for 48 hours. Work will begin once the deposit is received.
             </p>
 
             <p>Once your deposit is received, we will begin work on your repair immediately. The remaining balance will be due upon completion.</p>

@@ -225,7 +225,7 @@ Deno.serve(withErrorHandling(async (req: Request) => {
 
     const paymentLink = await paymentLinkResponse.json();
 
-    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    const expiresAt = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString();
 
     const updateData: Record<string, unknown> = {
       final_payment_stripe_checkout_session_id: paymentLink.id,

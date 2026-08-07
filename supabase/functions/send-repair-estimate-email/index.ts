@@ -271,7 +271,7 @@ Deno.serve(async (req: Request) => {
             AZ Marine Service Team</p>
           </div>
           <div class="footer">
-            <p>This estimate is valid for 30 days from the date above.</p>
+            <p>This estimate is valid for 48 hours from the date above.</p>
             <p>&copy; ${new Date().getFullYear()} AZ Marine</p>
           </div>
         </div>

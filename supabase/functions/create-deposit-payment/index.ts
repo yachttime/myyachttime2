@@ -194,9 +194,9 @@ Deno.serve(withErrorHandling(async (req: Request) => {
       throw new Error(`Invalid deposit amount in cents: ${amountInCents}`);
     }
 
-    // Calculate expiration date (30 days from now)
+    // Calculate expiration date (48 hours from now)
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 30);
+    expiresAt.setDate(expiresAt.getDate() + 2);
     const expirationTimestamp = Math.floor(expiresAt.getTime() / 1000);
 
     // First, create a Stripe Product
