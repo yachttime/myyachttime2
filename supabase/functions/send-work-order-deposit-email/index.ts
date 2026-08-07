@@ -92,7 +92,7 @@ Deno.serve(async (req: Request) => {
             <p style="font-size: 14px; color: #666;">Or copy and paste this link into your browser:<br>
             <a href="${workOrder.deposit_payment_link_url}" style="color: #0891b2; word-break: break-all;">${workOrder.deposit_payment_link_url}</a></p>
             <p style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px; border-radius: 4px; font-size: 14px;">
-              <strong>Important:</strong> This payment link is valid for 48 hours. Work will begin once the deposit is received.
+              <strong>Important:</strong> This payment link is valid for 30 days. Work will begin once the deposit is received.
             </p>
             <p>If you have any questions, please contact us.</p>
             <p>Thank you for your business.</p>
