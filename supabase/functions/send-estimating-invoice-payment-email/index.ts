@@ -261,14 +261,18 @@ Deno.serve(async (req: Request) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
 
-    const authHeader = req.headers.get('Authorization')!;
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new Error('Unauthorized: missing or invalid auth header');
+    }
     const supabase = createClient(supabaseUrl, supabaseServiceKey, {
       global: { headers: { Authorization: authHeader } },
     });
 
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) {
-      throw new Error('Unauthorized');
+      console.error('Auth check failed:', JSON.stringify({ userError: userError?.message, hasUser: !!user }));
+      throw new Error(`Unauthorized: ${userError?.message || 'no user returned'}`);
     }
 
     const { invoiceId, recipientEmail, recipientName, additionalRecipients, surchargeCcEmail, surchargeCcNote }: EmailRequest = await req.json();
@@ -309,7 +313,7 @@ Deno.serve(async (req: Request) => {
                       profile?.role === 'manager';
 
     if (!hasAccess) {
-      throw new Error('Unauthorized to send this invoice');
+      throw new Error(`Unauthorized to send this invoice: role is ${profile?.role ?? 'null'}`);
     }
 
     const { data: companyInfo } = await supabase
