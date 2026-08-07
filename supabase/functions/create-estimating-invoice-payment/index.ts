@@ -20,7 +20,10 @@ Deno.serve(withErrorHandling(async (req: Request) => {
       throw new Error('Stripe secret key not configured');
     }
 
-    const authHeader = req.headers.get('Authorization')!;
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new Error('Unauthorized: missing or invalid auth header');
+    }
     const supabase = createClient(supabaseUrl, supabaseServiceKey, {
       global: {
         headers: { Authorization: authHeader },
@@ -29,7 +32,8 @@ Deno.serve(withErrorHandling(async (req: Request) => {
 
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) {
-      throw new Error('Unauthorized');
+      console.error('Auth check failed:', JSON.stringify({ userError: userError?.message, hasUser: !!user }));
+      throw new Error(`Unauthorized: ${userError?.message || 'no user returned'}`);
     }
 
     const body = await parseRequestBody<InvoicePaymentRequest>(req);
@@ -57,17 +61,21 @@ Deno.serve(withErrorHandling(async (req: Request) => {
       .from('estimating_invoices')
       .select('*, yachts(name), work_orders(work_order_number)')
       .eq('id', invoiceId)
-      .single();
+      .maybeSingle();
 
     if (invoiceError || !invoice) {
       throw new Error('Invoice not found');
     }
 
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from('user_profiles')
       .select('role, yacht_id')
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
+
+    if (profileError) {
+      console.error('Profile lookup error:', profileError.message);
+    }
 
     const hasAccess = profile?.role === 'master' ||
                       profile?.role === 'staff' ||
@@ -75,7 +83,7 @@ Deno.serve(withErrorHandling(async (req: Request) => {
                       (profile?.role === 'manager' && profile?.yacht_id === invoice.yacht_id);
 
     if (!hasAccess) {
-      throw new Error('Unauthorized to access this invoice');
+      throw new Error(`Unauthorized to access this invoice: user ${user.id} role is ${profile?.role ?? 'null'}, invoice yacht_id is ${invoice.yacht_id ?? 'null'}`);
     }
 
     const balanceDue = invoice.balance_due || (invoice.total_amount - invoice.deposit_applied - invoice.amount_paid);

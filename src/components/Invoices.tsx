@@ -1449,20 +1449,33 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
     }
   }
 
+  async function getValidSession(): Promise<string> {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      const expiresAt = session.expires_at ?? 0;
+      const now = Math.floor(Date.now() / 1000);
+      if (expiresAt - now < 60) {
+        const { data: { session: refreshed } } = await supabase.auth.refreshSession();
+        if (refreshed?.access_token) return refreshed.access_token;
+      }
+      return session.access_token;
+    }
+    const { data: { session: refreshed } } = await supabase.auth.refreshSession();
+    if (!refreshed?.access_token) throw new Error('Not authenticated');
+    return refreshed.access_token;
+  }
+
   async function generatePaymentLink(invoice: Invoice, recipientEmail: string, paymentMethodType: 'card' | 'ach' | 'both' = 'card', overrideRecipients?: string[]) {
     setPaymentLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        throw new Error('Not authenticated');
-      }
+      const accessToken = await getValidSession();
 
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-estimating-invoice-payment`,
         {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${session.access_token}`,
+            'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
@@ -1515,7 +1528,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
           {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${session.access_token}`,
+              'Authorization': `Bearer ${accessToken}`,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
@@ -1782,11 +1795,13 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
         throw new Error(deleteResult.error || 'Failed to delete old payment link');
       }
 
+      const accessToken = await getValidSession();
+
       const createApiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-estimating-invoice-payment`;
       const createResponse = await fetch(createApiUrl, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${session.access_token}`,
+          'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -1816,7 +1831,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
             {
               method: 'POST',
               headers: {
-                'Authorization': `Bearer ${session.access_token}`,
+                'Authorization': `Bearer ${accessToken}`,
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
@@ -1861,10 +1876,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
 
     setDeleteLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        throw new Error('Not authenticated');
-      }
+      const accessToken = await getValidSession();
 
       const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-invoice-payment-link`;
 
@@ -1899,8 +1911,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
 
   async function handleEmailPaymentLinkWithEmail(invoice: Invoice, recipientEmail: string) {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) throw new Error('Not authenticated');
+      const accessToken = await getValidSession();
 
       await supabase.from('estimating_invoices').update({ customer_email: recipientEmail }).eq('id', invoice.id);
 
@@ -1909,7 +1920,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
         {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${session.access_token}`,
+            'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ invoiceId: invoice.id, recipientEmail })
@@ -1988,8 +1999,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
 
     setSendingEmailModal(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) throw new Error('Not authenticated');
+      const accessToken = await getValidSession();
 
       const [primary, ...additional] = billingManagers;
 
@@ -1998,7 +2008,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
         {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${session.access_token}`,
+            'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
@@ -2103,7 +2113,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
         {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${session.access_token}`,
+            'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({

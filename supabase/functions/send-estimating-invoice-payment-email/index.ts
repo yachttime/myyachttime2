@@ -290,7 +290,7 @@ Deno.serve(async (req: Request) => {
       .from('estimating_invoices')
       .select('*, yachts(name), work_orders(work_order_number, id)')
       .eq('id', invoiceId)
-      .single();
+      .maybeSingle();
 
     if (invoiceError || !invoice) {
       throw new Error('Invoice not found');
