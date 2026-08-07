@@ -84,19 +84,26 @@ Deno.serve(withErrorHandling(async (req: Request) => {
       throw new Error('Invoice is already paid');
     }
 
-    if (invoice.payment_status === 'processing') {
+    // Allow re-claiming a "processing" invoice if no Stripe payment intent exists
+    // and the payment link has expired (older than 30 days) — this prevents invoices
+    // from getting permanently stuck in "processing" when a customer never pays.
+    const canReclaim = invoice.payment_status === 'processing'
+      && !invoice.stripe_payment_intent_id
+      && invoice.payment_link_expires_at
+      && new Date(invoice.payment_link_expires_at) < new Date();
+
+    if (invoice.payment_status === 'processing' && !canReclaim) {
       throw new Error('A payment is already being processed for this invoice. Please wait for it to complete.');
     }
 
     // Atomically claim the invoice by setting status to 'processing'.
-    // Only succeeds if status is still 'pending' or 'partial' — prevents race conditions
-    // where two simultaneous requests both pass the check above and each
-    // create a separate Stripe payment link.
+    // Only succeeds if status is still 'pending', 'partial', or 'processing' with an expired link.
+    // This prevents race conditions where two simultaneous requests both create separate Stripe payment links.
     const { data: claimed, error: claimError } = await supabase
       .from('yacht_invoices')
       .update({ payment_status: 'processing', updated_at: new Date().toISOString() })
       .eq('id', invoiceId)
-      .in('payment_status', ['pending', 'partial'])
+      .in('payment_status', canReclaim ? ['processing'] : ['pending', 'partial'])
       .select('id')
       .maybeSingle();
 
