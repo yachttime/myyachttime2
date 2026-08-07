@@ -1460,9 +1460,16 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       return session.access_token;
     }
     const { data: { session: refreshed } } = await supabase.auth.refreshSession();
-    if (!refreshed?.access_token) throw new Error('Not authenticated');
-    return refreshed.access_token;
+    if (refreshed?.access_token) return refreshed.access_token;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data: { session: retried } } = await supabase.auth.refreshSession();
+      if (retried?.access_token) return retried.access_token;
+    }
+    throw new Error('Your session has expired. Please sign out and sign back in, then try again.');
   }
+
+  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
   async function generatePaymentLink(invoice: Invoice, recipientEmail: string, paymentMethodType: 'card' | 'ach' | 'both' = 'card', overrideRecipients?: string[]) {
     setPaymentLoading(true);
@@ -1475,6 +1482,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${accessToken}`,
+            'Apikey': supabaseAnonKey,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
@@ -1528,6 +1536,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${accessToken}`,
+              'Apikey': supabaseAnonKey,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
@@ -1593,6 +1602,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
+          'Apikey': supabaseAnonKey,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -1629,6 +1639,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
+          'Apikey': supabaseAnonKey,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -1688,6 +1699,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${accessToken}`,
+              'Apikey': supabaseAnonKey,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({ estimating_invoice_id: inv.id })
@@ -1774,6 +1786,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
+          'Apikey': supabaseAnonKey,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -1791,6 +1804,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
+          'Apikey': supabaseAnonKey,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -1821,6 +1835,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
               method: 'POST',
               headers: {
                 'Authorization': `Bearer ${accessToken}`,
+                'Apikey': supabaseAnonKey,
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
@@ -1873,6 +1888,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
+          'Apikey': supabaseAnonKey,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -1910,6 +1926,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${accessToken}`,
+            'Apikey': supabaseAnonKey,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ invoiceId: invoice.id, recipientEmail })
@@ -1998,6 +2015,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${accessToken}`,
+            'Apikey': supabaseAnonKey,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
@@ -2102,6 +2120,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${accessToken}`,
+            'Apikey': supabaseAnonKey,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({

@@ -3025,6 +3025,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
+          'Apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
         },
         body: JSON.stringify({ invoiceId, paymentMethodType: 'ach' }),
       });
@@ -3583,6 +3584,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
+          'Apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ invoiceId }),
