@@ -11442,6 +11442,24 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               <Gauge className="w-4 h-4" />
                               {engineHoursYachtId === yacht.id ? 'Hide Hours' : 'Engine Hours'}
                             </button>
+                            <button
+                              onClick={async () => {
+                                let history = yachtEngineHourHistory[yacht.id];
+                                if (!history) {
+                                  history = await loadYachtEngineHourHistory(yacht.id);
+                                }
+                                if (history && history.length > 0) {
+                                  handlePrintEngineHours(yacht.id, yacht.name, yacht.yacht_engines || [], yacht.yacht_generators || []);
+                                } else {
+                                  showError(`No engine hours data found for ${yacht.name}`);
+                                }
+                              }}
+                              className="flex items-center justify-center gap-2 px-4 py-2 bg-teal-700 hover:bg-teal-800 text-white rounded-lg transition-colors text-sm"
+                              title="Print engine hours summary"
+                            >
+                              <Printer className="w-4 h-4" />
+                              Print Hours
+                            </button>
                             {shouldShowAgreementsButton(yacht.id) && (
                               <div className="flex flex-col gap-1">
                                 <button
