@@ -56,7 +56,7 @@ Deno.serve(async (req: Request) => {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
+        JSON.stringify({ error: 'Your session has expired. Please sign in again and try sending the email again.' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -68,7 +68,7 @@ Deno.serve(async (req: Request) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) {
       return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
+        JSON.stringify({ error: 'Your session has expired. Please sign in again and try sending the email again.' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -81,7 +81,7 @@ Deno.serve(async (req: Request) => {
 
     if (!profile || !['staff', 'manager', 'master', 'mechanic'].includes(profile.role)) {
       return new Response(
-        JSON.stringify({ error: 'Unauthorized: Only staff, mechanics, managers, and master users can send bulk emails' }),
+        JSON.stringify({ error: 'Your account does not have permission to send emails. Only staff, mechanics, managers, and master users can send emails.' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

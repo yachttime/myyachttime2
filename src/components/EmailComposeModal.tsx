@@ -166,10 +166,10 @@ export function EmailComposeModal({ isOpen, onClose, recipients, ccRecipients = 
       const { data: { session } } = await supabase.auth.getSession();
 
       if (!session) {
-        throw new Error('Not authenticated');
+        throw new Error('Your session has expired. Please sign in again and try sending the email again.');
       }
 
-      const response = await fetch(
+      let response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-bulk-email`,
         {
           method: 'POST',
@@ -188,9 +188,41 @@ export function EmailComposeModal({ isOpen, onClose, recipients, ccRecipients = 
         }
       );
 
+      if (response.status === 401) {
+        const { data: refreshedSession } = await supabase.auth.refreshSession();
+        if (refreshedSession?.access_token) {
+          response = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-bulk-email`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${refreshedSession.access_token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                recipients: finalRecipients.map(r => r.email),
+                cc_recipients: [...ccRecipients, ...manualCc],
+                subject,
+                message,
+                yacht_name: yachtName,
+                attachments: attachments.length > 0 ? attachments : undefined,
+              }),
+            }
+          );
+        }
+      }
+
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to send emails');
+        let errorMessage = 'Failed to send emails';
+        try {
+          const errorBody = await response.json();
+          if (errorBody && typeof errorBody.error === 'string') {
+            errorMessage = errorBody.error;
+          }
+        } catch {
+          // response body wasn't JSON; keep default message
+        }
+        throw new Error(errorMessage);
       }
 
       alert(`Email sent successfully to ${finalRecipients.length} recipient${finalRecipients.length > 1 ? 's' : ''}!`);
@@ -203,7 +235,12 @@ export function EmailComposeModal({ isOpen, onClose, recipients, ccRecipients = 
       setCcInput('');
     } catch (error) {
       console.error('Error sending email:', error);
-      alert(error instanceof Error ? error.message : 'Failed to send email');
+      const msg = error instanceof Error ? error.message : 'Failed to send email';
+      if (msg.toLowerCase().includes('session')) {
+        alert(`${msg}\n\nClick OK, then sign in again. Your email content will be preserved so you can resend it after signing back in.`);
+      } else {
+        alert(msg);
+      }
     } finally {
       setSending(false);
     }
