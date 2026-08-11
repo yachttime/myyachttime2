@@ -2782,6 +2782,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const handlePrintEngineHours = async (yachtId: string, yachtName: string, engines: any[], generators: any[]) => {
     if (printingEngineHoursId) return;
     setPrintingEngineHoursId(yachtId);
+    const popup = window.open('', '_blank');
     try {
       let history = yachtEngineHourHistory[yachtId];
       if (!history) {
@@ -2789,14 +2790,20 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       }
       if (!history || history.length === 0) {
         showError(`No engine hours data found for ${yachtName}`);
+        popup?.close();
         return;
       }
       const pdf = generateEngineHoursReportPDF(yachtName, history, engines || [], generators || []);
       const pdfUrl = URL.createObjectURL(pdf.output('blob'));
-      window.open(pdfUrl, '_blank');
+      if (popup) {
+        popup.location.href = pdfUrl;
+      } else {
+        window.open(pdfUrl, '_blank');
+      }
     } catch (error) {
       console.error('Error generating engine hours PDF:', error);
       showError('Failed to generate engine hours PDF');
+      popup?.close();
     } finally {
       setPrintingEngineHoursId(null);
     }
