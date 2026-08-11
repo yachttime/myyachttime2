@@ -3332,8 +3332,10 @@ export function generateEngineHoursReportPDF(
   yPos += 0.3;
   doc.setTextColor(0, 0, 0);
 
-  const hasEngines = engines.length > 0;
-  const hasGens = generators.length > 0;
+  const historyHasEngineHours = history.some(h => h.port_engine_hours != null || h.stbd_engine_hours != null);
+  const historyHasGenHours = history.some(h => h.port_gen_hours != null || h.stbd_gen_hours != null);
+  const hasEngines = engines.length > 0 || historyHasEngineHours;
+  const hasGens = generators.length > 0 || historyHasGenHours;
 
   const sortedEngines = [...engines].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
   const sortedGens = [...generators].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
