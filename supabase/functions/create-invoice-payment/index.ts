@@ -273,7 +273,7 @@ Deno.serve(withErrorHandling(async (req: Request) => {
 
     const paymentLinkData = await paymentLinkResponse.json();
 
-    const expiresAt = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString();
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
     await supabase
       .from('yacht_invoices')
@@ -283,6 +283,7 @@ Deno.serve(withErrorHandling(async (req: Request) => {
         payment_link_expires_at: expiresAt,
         updated_at: new Date().toISOString(),
         credit_card_fee: creditCardFee,
+        payment_status: invoice.payment_status,
       })
       .eq('id', invoiceId);
 
@@ -296,6 +297,14 @@ Deno.serve(withErrorHandling(async (req: Request) => {
     });
   } catch (error) {
     console.error('Error creating payment:', error);
+    // Restore the original payment_status if we claimed the invoice
+    if (invoice && invoice.payment_status) {
+      await supabase
+        .from('yacht_invoices')
+        .update({ payment_status: invoice.payment_status, updated_at: new Date().toISOString() })
+        .eq('id', invoiceId)
+        .eq('payment_status', 'processing');
+    }
     throw error;
   }
 }));
