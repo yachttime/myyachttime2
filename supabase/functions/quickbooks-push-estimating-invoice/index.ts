@@ -310,12 +310,23 @@ Deno.serve(async (req: Request) => {
     const partsAccountId = defaultPartsMapping?.qbo_account_id || incomeAccountId;
     const laborAccountId = defaultLaborMapping?.qbo_account_id || incomeAccountId;
     const surchargeAccountId = surchargeMapping?.qbo_account_id || incomeAccountId;
+    const taxAccountId = taxMapping?.qbo_account_id;
 
-    const [partsItemId, laborItemId, servicesItemId] = await Promise.all([
+    const itemPromises: Promise<string>[] = [
       getOrCreateQBItem('AZ Marine Parts', partsAccountId),
       getOrCreateQBItem('AZ Marine Labor', laborAccountId),
       getOrCreateQBItem('AZ Marine Services', incomeAccountId),
-    ]);
+    ];
+
+    if (taxAccountId) {
+      itemPromises.push(getOrCreateQBItem('AZ Marine Sales Tax', taxAccountId));
+    }
+
+    const resolvedItems = await Promise.all(itemPromises);
+    const partsItemId = resolvedItems[0];
+    const laborItemId = resolvedItems[1];
+    const servicesItemId = resolvedItems[2];
+    const taxItemId = resolvedItems[3] || null;
 
     // Build QB invoice line items from estimating invoice line items
     const lineItems = invoice.estimating_invoice_line_items || [];
@@ -399,8 +410,13 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Add tax as an explicit line item so QB total matches our invoice exactly
+    // Add tax as an explicit line item so QB total matches our invoice exactly.
+    // Route to a dedicated Sales Tax item that posts to Sales Tax Payable (liability),
+    // not to a sales/income account.
     if (invoice.tax_amount && parseFloat(invoice.tax_amount) > 0) {
+      if (!taxItemId) {
+        throw new Error('Sales Tax Payable account is not mapped. Please map it in the QuickBooks Account Mapping page (Default Accounts > Sales Tax Payable) before pushing invoices with tax.');
+      }
       qbLineItems.push({
         Amount: parseFloat(invoice.tax_amount),
         DetailType: 'SalesItemLineDetail',
@@ -408,7 +424,7 @@ Deno.serve(async (req: Request) => {
         SalesItemLineDetail: {
           UnitPrice: parseFloat(invoice.tax_amount),
           Qty: 1,
-          ItemRef: { value: servicesItemId },
+          ItemRef: { value: taxItemId },
           TaxCodeRef: { value: 'NON' },
         },
       });
