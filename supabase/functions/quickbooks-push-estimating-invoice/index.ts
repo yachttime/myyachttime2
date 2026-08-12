@@ -328,27 +328,70 @@ Deno.serve(async (req: Request) => {
     const servicesItemId = resolvedItems[2];
     const taxItemId = resolvedItems[3] || null;
 
-    // Build QB invoice line items from estimating invoice line items
+    // Build QB invoice line items as gross totals per line type (parts, labor, other)
+    // instead of individual line items — keeps QuickBooks clean and fast to reconcile.
+    // Full per-line detail remains in the app; QB only gets the summary.
     const lineItems = invoice.estimating_invoice_line_items || [];
     const qbLineItems: any[] = [];
 
+    let partsTotal = 0;
+    let laborTotal = 0;
+    let otherTotal = 0;
+    let partsCount = 0;
+    let laborCount = 0;
+
     for (const item of lineItems) {
-      // Skip zero-quantity or zero-amount lines — QuickBooks rejects them
       if (!item.quantity || parseFloat(item.quantity) === 0) continue;
+      const amount = parseFloat(item.total_price) || 0;
 
-      const description = [item.task_name, item.description].filter(Boolean).join(' - ');
-      const itemId = (item.line_type === 'parts' || item.line_type === 'part') ? partsItemId
-        : item.line_type === 'labor' ? laborItemId
-        : servicesItemId;
+      if (item.line_type === 'parts' || item.line_type === 'part') {
+        partsTotal += amount;
+        partsCount++;
+      } else if (item.line_type === 'labor') {
+        laborTotal += amount;
+        laborCount++;
+      } else {
+        otherTotal += amount;
+      }
+    }
 
+    if (partsTotal > 0) {
       qbLineItems.push({
-        Amount: item.total_price || 0,
+        Amount: parseFloat(partsTotal.toFixed(2)),
         DetailType: 'SalesItemLineDetail',
-        Description: description || item.line_type || 'Service',
+        Description: `Parts (${partsCount} line${partsCount !== 1 ? 's' : ''})`,
         SalesItemLineDetail: {
-          UnitPrice: item.unit_price || 0,
-          Qty: item.quantity || 1,
-          ItemRef: { value: itemId },
+          UnitPrice: parseFloat(partsTotal.toFixed(2)),
+          Qty: 1,
+          ItemRef: { value: partsItemId },
+          TaxCodeRef: { value: 'NON' },
+        },
+      });
+    }
+
+    if (laborTotal > 0) {
+      qbLineItems.push({
+        Amount: parseFloat(laborTotal.toFixed(2)),
+        DetailType: 'SalesItemLineDetail',
+        Description: `Labor (${laborCount} line${laborCount !== 1 ? 's' : ''})`,
+        SalesItemLineDetail: {
+          UnitPrice: parseFloat(laborTotal.toFixed(2)),
+          Qty: 1,
+          ItemRef: { value: laborItemId },
+          TaxCodeRef: { value: 'NON' },
+        },
+      });
+    }
+
+    if (otherTotal > 0) {
+      qbLineItems.push({
+        Amount: parseFloat(otherTotal.toFixed(2)),
+        DetailType: 'SalesItemLineDetail',
+        Description: 'Other Services',
+        SalesItemLineDetail: {
+          UnitPrice: parseFloat(otherTotal.toFixed(2)),
+          Qty: 1,
+          ItemRef: { value: servicesItemId },
           TaxCodeRef: { value: 'NON' },
         },
       });
@@ -444,7 +487,7 @@ Deno.serve(async (req: Request) => {
       TxnDate: txnDate,
       DueDate: dueDate,
       DocNumber: invoice.invoice_number,
-      PrivateNote: `Estimating Invoice ID: ${invoice.id}`,
+      PrivateNote: `Estimating Invoice ID: ${invoice.id} | Summary: ${partsCount} parts line${partsCount !== 1 ? 's' : ''}, ${laborCount} labor line${laborCount !== 1 ? 's' : ''} — see app for detail`,
     };
 
     // Mark as exported pending
