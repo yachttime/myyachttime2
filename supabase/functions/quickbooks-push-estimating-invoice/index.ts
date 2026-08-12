@@ -567,11 +567,165 @@ Deno.serve(async (req: Request) => {
         qbErrorMessage = createInvoiceResult.errorText || 'Failed to create invoice in QuickBooks';
       }
 
-      // Handle duplicate doc number: link to the existing QB invoice
+      // Handle duplicate doc number: fetch the existing QB invoice and send a full update
       if (isDuplicateDocNumber && existingTxnId) {
+        // Fetch the existing invoice from QB to get its SyncToken (required for updates)
+        const fetchResult = await makeQuickBooksAPICall({
+          url: `https://quickbooks.api.intuit.com/v3/company/${connection.realm_id}/invoice/${existingTxnId}`,
+          method: 'GET',
+          accessToken,
+          requestType: 'fetch_estimating_invoice',
+          companyId: profile.company_id,
+          connectionId: connection.id,
+          referenceType: 'estimating_invoice',
+          referenceId: invoiceId,
+          supabaseUrl,
+          serviceRoleKey,
+        });
+
+        if (!fetchResult.success || !fetchResult.data?.Invoice) {
+          // Existing invoice not found in QB — create new with modified doc number
+          const retryPayload = { ...invoicePayload, DocNumber: `${invoice.invoice_number}-R` };
+          const retryResult = await makeQuickBooksAPICall({
+            url: `https://quickbooks.api.intuit.com/v3/company/${connection.realm_id}/invoice`,
+            method: 'POST',
+            accessToken,
+            body: retryPayload,
+            requestType: 'create_estimating_invoice',
+            companyId: profile.company_id,
+            connectionId: connection.id,
+            referenceType: 'estimating_invoice',
+            referenceId: invoiceId,
+            supabaseUrl,
+            serviceRoleKey,
+          });
+
+          if (!retryResult.success || !retryResult.data?.Invoice?.Id) {
+            let retryErr = 'Unknown error';
+            try {
+              const rawRetry = retryResult.errorText || '';
+              const retryData = rawRetry ? JSON.parse(rawRetry) : null;
+              if (retryData?.Fault?.Error?.[0]?.Detail) retryErr = retryData.Fault.Error[0].Detail;
+              else if (rawRetry) retryErr = rawRetry;
+            } catch (_) {}
+            await supabase.from('estimating_invoices').update({
+              quickbooks_export_status: 'error',
+              quickbooks_export_error: `Retry with modified doc number failed: ${retryErr.substring(0, 450)}`,
+            }).eq('id', invoiceId);
+            throw new Error(`Failed to create invoice in QuickBooks (retry): ${retryErr}`);
+          }
+
+          const retryQboId = retryResult.data.Invoice.Id;
+          // If invoice is paid, create QB payment linked to the new invoice
+          if (invoice.payment_status === 'paid') {
+            const paidAt = invoice.paid_at || invoice.final_payment_paid_at || invoice.check_payment_recorded_at;
+            const paymentDate = paidAt ? new Date(paidAt).toISOString().split('T')[0] : txnDate;
+            const totalPaid = invoice.total_amount || 0;
+            await makeQuickBooksAPICall({
+              url: `https://quickbooks.api.intuit.com/v3/company/${connection.realm_id}/payment`,
+              method: 'POST',
+              accessToken,
+              body: {
+                CustomerRef: { value: qboCustomerId },
+                TotalAmt: totalPaid,
+                Line: [{ Amount: totalPaid, LinkedTxn: [{ TxnId: retryQboId, TxnType: 'Invoice' }] }],
+                TxnDate: paymentDate,
+              },
+              requestType: 'create_payment_for_estimating_invoice',
+              companyId: profile.company_id,
+              connectionId: connection.id,
+              referenceType: 'estimating_invoice',
+              referenceId: invoiceId,
+              supabaseUrl,
+              serviceRoleKey,
+            });
+          }
+          await supabase.from('estimating_invoices').update({
+            quickbooks_export_status: 'exported',
+            quickbooks_invoice_id: retryQboId,
+            quickbooks_export_date: new Date().toISOString(),
+            quickbooks_export_error: null,
+            quickbooks_invoice_synced_at: new Date().toISOString(),
+          }).eq('id', invoiceId);
+          return new Response(
+            JSON.stringify({
+              success: true,
+              message: `Invoice exported to QuickBooks with modified doc number ${invoice.invoice_number}-R (original was deleted in QuickBooks).`,
+              qboInvoiceId: retryQboId,
+              encrypted_session: currentEncryptedSession,
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // We have the existing invoice with SyncToken — send a full update
+        const syncToken = fetchResult.data.Invoice.SyncToken;
+        const updatePayload = {
+          ...invoicePayload,
+          Id: existingTxnId,
+          SyncToken: syncToken,
+          sparse: false,
+        };
+
+        const updateResult = await makeQuickBooksAPICall({
+          url: `https://quickbooks.api.intuit.com/v3/company/${connection.realm_id}/invoice`,
+          method: 'POST',
+          accessToken,
+          body: updatePayload,
+          requestType: 'update_estimating_invoice',
+          companyId: profile.company_id,
+          connectionId: connection.id,
+          referenceType: 'estimating_invoice',
+          referenceId: invoiceId,
+          supabaseUrl,
+          serviceRoleKey,
+        });
+
+        if (!updateResult.success || !updateResult.data?.Invoice?.Id) {
+          let updateErr = 'Unknown error';
+          try {
+            const rawUpdate = updateResult.errorText || '';
+            const updateData = rawUpdate ? JSON.parse(rawUpdate) : null;
+            if (updateData?.Fault?.Error?.[0]?.Detail) updateErr = updateData.Fault.Error[0].Detail;
+            else if (rawUpdate) updateErr = rawUpdate;
+          } catch (_) {}
+          await supabase.from('estimating_invoices').update({
+            quickbooks_export_status: 'error',
+            quickbooks_export_error: `Update of existing QB invoice failed: ${updateErr.substring(0, 450)}`,
+          }).eq('id', invoiceId);
+          throw new Error(`Failed to update existing QuickBooks invoice: ${updateErr}`);
+        }
+
+        const updatedQboId = updateResult.data.Invoice.Id;
+
+        // If invoice is paid, create QB payment linked to the updated invoice
+        if (invoice.payment_status === 'paid') {
+          const paidAt = invoice.paid_at || invoice.final_payment_paid_at || invoice.check_payment_recorded_at;
+          const paymentDate = paidAt ? new Date(paidAt).toISOString().split('T')[0] : txnDate;
+          const totalPaid = invoice.total_amount || 0;
+          await makeQuickBooksAPICall({
+            url: `https://quickbooks.api.intuit.com/v3/company/${connection.realm_id}/payment`,
+            method: 'POST',
+            accessToken,
+            body: {
+              CustomerRef: { value: qboCustomerId },
+              TotalAmt: totalPaid,
+              Line: [{ Amount: totalPaid, LinkedTxn: [{ TxnId: updatedQboId, TxnType: 'Invoice' }] }],
+              TxnDate: paymentDate,
+            },
+            requestType: 'create_payment_for_estimating_invoice',
+            companyId: profile.company_id,
+            connectionId: connection.id,
+            referenceType: 'estimating_invoice',
+            referenceId: invoiceId,
+            supabaseUrl,
+            serviceRoleKey,
+          });
+        }
+
         await supabase.from('estimating_invoices').update({
           quickbooks_export_status: 'exported',
-          quickbooks_invoice_id: existingTxnId,
+          quickbooks_invoice_id: updatedQboId,
           quickbooks_export_date: new Date().toISOString(),
           quickbooks_export_error: null,
           quickbooks_invoice_synced_at: new Date().toISOString(),
@@ -580,8 +734,8 @@ Deno.serve(async (req: Request) => {
         return new Response(
           JSON.stringify({
             success: true,
-            message: `Invoice already exists in QuickBooks (ID: ${existingTxnId}). Linked successfully.`,
-            qboInvoiceId: existingTxnId,
+            message: `Invoice updated in QuickBooks (existing invoice ID: ${updatedQboId}). Current line items and amounts have been synced.`,
+            qboInvoiceId: updatedQboId,
             encrypted_session: currentEncryptedSession,
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
