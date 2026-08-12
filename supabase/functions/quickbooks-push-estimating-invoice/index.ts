@@ -439,6 +439,25 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    // If no parts/labor/other lines were produced (e.g. older invoices with no
+    // line items stored), send the invoice subtotal as a single Services line so
+    // the core amount is not missing from QuickBooks. This fires independently of
+    // the shop-supplies / surcharge / park-fees lines below, which only cover extras.
+    if (partsTotal === 0 && laborTotal === 0 && otherTotal === 0 && invoice.subtotal && parseFloat(invoice.subtotal) > 0) {
+      const subtotalAmount = parseFloat(invoice.subtotal);
+      qbLineItems.push({
+        Amount: parseFloat(subtotalAmount.toFixed(2)),
+        DetailType: 'SalesItemLineDetail',
+        Description: `Services (${invoice.invoice_number})`,
+        SalesItemLineDetail: {
+          UnitPrice: parseFloat(subtotalAmount.toFixed(2)),
+          Qty: 1,
+          ItemRef: { value: servicesItemId },
+          TaxCodeRef: { value: 'NON' },
+        },
+      });
+    }
+
     if (qbLineItems.length === 0) {
       qbLineItems.push({
         Amount: invoice.total_amount || 0,
