@@ -8058,6 +8058,56 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     }
   };
 
+  const deriveOwnerNameFromBookings = async (yachtId: string, referenceDate: string): Promise<string | null> => {
+    const { data: bookings } = await supabase
+      .from('yacht_bookings')
+      .select('id, start_date, end_date, owner_name, user_id')
+      .eq('yacht_id', yachtId);
+    if (!bookings || bookings.length === 0) return null;
+
+    const missingIds = [...new Set(bookings.filter((b: any) => !b.owner_name && b.user_id).map((b: any) => b.user_id))];
+    const bProfileMap: Record<string, string> = {};
+    if (missingIds.length > 0) {
+      const { data: bProfiles } = await supabase.from('user_profiles').select('user_id, first_name, last_name').in('user_id', missingIds);
+      for (const p of bProfiles || []) {
+        const n = [(p as any).first_name, (p as any).last_name].filter(Boolean).join(' ').trim();
+        if (n) bProfileMap[(p as any).user_id] = n;
+      }
+    }
+
+    const d = new Date(referenceDate); d.setHours(0, 0, 0, 0);
+    const candidates: Array<{ b: any; dist: number }> = [];
+    for (const b of bookings as any[]) {
+      const start = new Date(b.start_date); start.setHours(0, 0, 0, 0);
+      const sm1 = new Date(start); sm1.setDate(sm1.getDate() - 1);
+      const ep1 = new Date(b.end_date); ep1.setHours(0, 0, 0, 0); ep1.setDate(ep1.getDate() + 1);
+      if (d >= sm1 && d <= ep1) {
+        const end = new Date(b.end_date); end.setHours(0, 0, 0, 0);
+        candidates.push({ b, dist: Math.abs((d.getTime() - end.getTime()) / 86400000) });
+      }
+    }
+    if (candidates.length > 0) {
+      candidates.sort((a, b) => a.dist - b.dist);
+      const best = candidates[0].b;
+      return best.owner_name?.trim() || bProfileMap[best.user_id] || null;
+    }
+    return null;
+  };
+
+  const handleYachtSelectedForInspection = useCallback(async (yachtId: string) => {
+    setSelectedYachtForInspection(yachtId);
+    if (!yachtId) {
+      setOwnerNameForInspection('');
+      return;
+    }
+    try {
+      const derived = await deriveOwnerNameFromBookings(yachtId, new Date().toISOString());
+      setOwnerNameForInspection(derived || '');
+    } catch {
+      // leave empty if lookup fails
+    }
+  }, []);
+
   const viewInspectionPDF = async (inspectionId: string) => {
     if (loadingPdfId) return;
     setLoadingPdfId(inspectionId);
@@ -8081,6 +8131,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         if (profile) {
           (inspection as any).user_profiles = profile;
         }
+      }
+
+      // Derive owner name from booking date proximity if not stored
+      if (!inspection.owner_name && inspection.yacht_id) {
+        const derived = await deriveOwnerNameFromBookings(inspection.yacht_id, inspection.created_at);
+        if (derived) (inspection as any).owner_name = derived;
       }
 
       setSelectedInspectionForPDF(inspection);
@@ -8137,6 +8193,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       for (const inspection of inspections) {
         if (inspection.inspector_id && profileMap[inspection.inspector_id]) {
           (inspection as any).user_profiles = profileMap[inspection.inspector_id];
+        }
+        // Derive owner name from booking date proximity if not stored
+        if (!inspection.owner_name && inspection.yacht_id) {
+          const derived = await deriveOwnerNameFromBookings(inspection.yacht_id, inspection.created_at);
+          if (derived) (inspection as any).owner_name = derived;
         }
         const photos = photosByInspection[inspection.id] || [];
         doc = await generateTripInspectionPDF(inspection, photos, doc || undefined);
@@ -8204,37 +8265,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       }
       // Derive owner name from booking date proximity if not stored
       if (!data.owner_name && data.yacht_id) {
-        const { data: bookings } = await supabase
-          .from('yacht_bookings')
-          .select('id, start_date, end_date, owner_name, user_id')
-          .eq('yacht_id', data.yacht_id);
-        if (bookings && bookings.length > 0) {
-          const missingIds = [...new Set((bookings).filter((b: any) => !b.owner_name && b.user_id).map((b: any) => b.user_id))];
-          const bProfileMap: Record<string, string> = {};
-          if (missingIds.length > 0) {
-            const { data: bProfiles } = await supabase.from('user_profiles').select('user_id, first_name, last_name').in('user_id', missingIds);
-            for (const p of bProfiles || []) {
-              const n = [(p as any).first_name, (p as any).last_name].filter(Boolean).join(' ').trim();
-              if (n) bProfileMap[(p as any).user_id] = n;
-            }
-          }
-          const d = new Date(data.created_at); d.setHours(0, 0, 0, 0);
-          const candidates: Array<{ b: any; dist: number }> = [];
-          for (const b of bookings as any[]) {
-            const start = new Date(b.start_date); start.setHours(0, 0, 0, 0);
-            const sm1 = new Date(start); sm1.setDate(sm1.getDate() - 1);
-            const ep1 = new Date(b.end_date); ep1.setHours(0, 0, 0, 0); ep1.setDate(ep1.getDate() + 1);
-            if (d >= sm1 && d <= ep1) {
-              const end = new Date(b.end_date); end.setHours(0, 0, 0, 0);
-              candidates.push({ b, dist: Math.abs((d.getTime() - end.getTime()) / 86400000) });
-            }
-          }
-          if (candidates.length > 0) {
-            candidates.sort((a, b) => a.dist - b.dist);
-            const best = candidates[0].b;
-            (data as any).owner_name = best.owner_name?.trim() || bProfileMap[best.user_id] || null;
-          }
-        }
+        const derived = await deriveOwnerNameFromBookings(data.yacht_id, data.created_at);
+        if (derived) (data as any).owner_name = derived;
       }
       // Load photos
       const { data: photos } = await supabase
@@ -10822,7 +10854,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     allYachts={allYachts}
                     mechanics={mechanics}
                     selectedYacht={selectedYachtForInspection}
-                    onYachtChange={setSelectedYachtForInspection}
+                    onYachtChange={handleYachtSelectedForInspection}
                     selectedMechanic={selectedMechanicId}
                     onMechanicChange={setSelectedMechanicId}
                     ownerName={ownerNameForInspection}
