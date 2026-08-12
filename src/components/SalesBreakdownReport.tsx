@@ -10,6 +10,7 @@ interface BreakdownRow {
   customer_name: string;
   invoice_date: string;
   payment_status: string;
+  archived: boolean;
   parts_total: number;
   labor_total: number;
   shop_supplies: number;
@@ -64,7 +65,6 @@ export function SalesBreakdownReport({ onClose }: Props) {
         .select('id, invoice_number, customer_name, invoice_date, payment_status, subtotal, tax_amount, total_amount, shop_supplies_amount, park_fees_amount, surcharge_amount, discount_amount, archived')
         .gte('invoice_date', dateFrom)
         .lte('invoice_date', dateTo)
-        .eq('archived', false)
         .order('invoice_date', { ascending: true });
 
       if (invError) throw invError;
@@ -101,6 +101,7 @@ export function SalesBreakdownReport({ onClose }: Props) {
         customer_name: inv.customer_name || '—',
         invoice_date: inv.invoice_date,
         payment_status: inv.payment_status,
+        archived: inv.archived ?? false,
         parts_total: totalsByInvoice[inv.id]?.parts || 0,
         labor_total: totalsByInvoice[inv.id]?.labor || 0,
         shop_supplies: Number(inv.shop_supplies_amount) || 0,
@@ -182,7 +183,7 @@ export function SalesBreakdownReport({ onClose }: Props) {
     y += 20;
 
     const tableRows = rows.map(row => [
-      row.invoice_number,
+      row.archived ? `${row.invoice_number} (Arch)` : row.invoice_number,
       formatDate(row.invoice_date),
       row.customer_name,
       `$${row.parts_total.toFixed(2)}`,
@@ -351,8 +352,13 @@ export function SalesBreakdownReport({ onClose }: Props) {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {rows.map((row) => (
-                  <tr key={row.id} className="hover:bg-gray-50">
-                    <td className="px-3 py-3 text-sm font-medium text-blue-700">{row.invoice_number}</td>
+                  <tr key={row.id} className={`hover:bg-gray-50 ${row.archived ? 'opacity-60' : ''}`}>
+                    <td className="px-3 py-3 text-sm font-medium text-blue-700">
+                      {row.invoice_number}
+                      {row.archived && (
+                        <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-200 text-gray-600">Archived</span>
+                      )}
+                    </td>
                     <td className="px-3 py-3 text-sm text-gray-700">{formatDate(row.invoice_date)}</td>
                     <td className="px-3 py-3 text-sm font-medium text-gray-900">{row.customer_name}</td>
                     <td className="px-3 py-3 text-sm text-gray-900 text-right">${row.parts_total.toFixed(2)}</td>
