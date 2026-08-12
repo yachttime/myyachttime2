@@ -7,6 +7,7 @@ import autoTable from 'jspdf-autotable';
 import { Toast } from './Toast';
 import { useConfirm } from '../hooks/useConfirm';
 import { TaxSurchargeReport } from './TaxSurchargeReport';
+import { SalesBreakdownReport } from './SalesBreakdownReport';
 import { generateTripInspectionPDF } from '../utils/pdfGenerator';
 
 interface InvoicesProps {
@@ -158,6 +159,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
   const [qbBankAccounts, setQbBankAccounts] = useState<{ qbo_account_id: string; account_name: string; account_number: string | null }[]>([]);
   const { confirm, ConfirmDialog } = useConfirm();
   const [showTaxReport, setShowTaxReport] = useState(false);
+  const [showSalesBreakdown, setShowSalesBreakdown] = useState(false);
   const [surchargeCcEmail, setSurchargeCcEmail] = useState('');
   const [surchargeCcNote, setSurchargeCcNote] = useState('');
   const [surchargeCcEnabled, setSurchargeCcEnabled] = useState(false);
@@ -2760,6 +2762,13 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
             <BarChart2 className="w-4 h-4" />
             Tax &amp; Surcharge Report
           </button>
+          <button
+            onClick={() => setShowSalesBreakdown(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 text-sm font-medium"
+          >
+            <BarChart2 className="w-4 h-4" />
+            Sales Breakdown (QB Reconciliation)
+          </button>
         </div>
       </div>
 
@@ -4692,6 +4701,10 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
 
       {showTaxReport && (
         <TaxSurchargeReport onClose={() => setShowTaxReport(false)} />
+      )}
+
+      {showSalesBreakdown && (
+        <SalesBreakdownReport onClose={() => setShowSalesBreakdown(false)} />
       )}
     </div>
   );
