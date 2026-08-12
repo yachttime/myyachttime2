@@ -127,7 +127,7 @@ Deno.serve(async (req: Request) => {
     const defaultIncomeMapping = mappings?.find(m => m.mapping_type === 'income' && m.internal_code_id === null);
     const defaultPartsMapping = mappings?.find(m => m.mapping_type === 'parts' && m.internal_code_id === null);
     const defaultLaborMapping = mappings?.find(m => m.mapping_type === 'labor' && m.internal_code_id === null);
-    const taxMapping = mappings?.find(m => m.mapping_type === 'tax');
+
     const surchargeMapping = mappings?.find(m => m.mapping_type === 'surcharge');
 
     const incomeAccountId = defaultIncomeMapping?.qbo_account_id;
@@ -272,7 +272,11 @@ Deno.serve(async (req: Request) => {
     // Fetch or create QB Service Items for parts, labor, and general services.
     // QB invoices require SalesItemLineDetail.ItemRef to reference a valid QB Item (product/service),
     // NOT an account ID. We maintain 3 service items: Parts, Labor, and Services.
-    const getOrCreateQBItem = async (name: string, incomeAccountRef: string): Promise<string> => {
+    const getOrCreateQBItem = async (
+      name: string,
+      incomeAccountRef: string,
+      itemType: string = 'Service',
+    ): Promise<string> => {
       const searchRes = await makeQuickBooksAPICall({
         url: `https://quickbooks.api.intuit.com/v3/company/${connection.realm_id}/query?query=${encodeURIComponent(`SELECT * FROM Item WHERE Name = '${name}'`)}`,
         method: 'GET',
@@ -292,7 +296,7 @@ Deno.serve(async (req: Request) => {
         accessToken,
         body: {
           Name: name,
-          Type: 'Service',
+          Type: itemType,
           IncomeAccountRef: { value: incomeAccountRef },
         },
         requestType: 'create_item',
@@ -302,7 +306,12 @@ Deno.serve(async (req: Request) => {
         serviceRoleKey,
       });
       if (!createRes.success) {
-        throw new Error(`Failed to create QB Item "${name}": ${JSON.stringify(createRes.data)}`);
+        let detail = createRes.errorText || JSON.stringify(createRes.data) || 'Unknown error';
+        try {
+          const parsed = JSON.parse(detail);
+          if (parsed?.Fault?.Error?.[0]?.Detail) detail = parsed.Fault.Error[0].Detail;
+        } catch (_) {}
+        throw new Error(`Failed to create QB Item "${name}": ${detail}`);
       }
       return createRes.data.Item.Id;
     };
@@ -310,7 +319,7 @@ Deno.serve(async (req: Request) => {
     const partsAccountId = defaultPartsMapping?.qbo_account_id || incomeAccountId;
     const laborAccountId = defaultLaborMapping?.qbo_account_id || incomeAccountId;
     const surchargeAccountId = surchargeMapping?.qbo_account_id || incomeAccountId;
-    const taxAccountId = taxMapping?.qbo_account_id;
+
 
     const itemPromises: Promise<string>[] = [
       getOrCreateQBItem('AZ Marine Parts', partsAccountId),
@@ -318,15 +327,12 @@ Deno.serve(async (req: Request) => {
       getOrCreateQBItem('AZ Marine Services', incomeAccountId),
     ];
 
-    if (taxAccountId) {
-      itemPromises.push(getOrCreateQBItem('AZ Marine Sales Tax', taxAccountId));
-    }
+
 
     const resolvedItems = await Promise.all(itemPromises);
     const partsItemId = resolvedItems[0];
     const laborItemId = resolvedItems[1];
     const servicesItemId = resolvedItems[2];
-    const taxItemId = resolvedItems[3] || null;
 
     // Build QB invoice line items as gross totals per line type (parts, labor, other)
     // instead of individual line items — keeps QuickBooks clean and fast to reconcile.
@@ -473,12 +479,10 @@ Deno.serve(async (req: Request) => {
     }
 
     // Add tax as an explicit line item so QB total matches our invoice exactly.
-    // Route to a dedicated Sales Tax item that posts to Sales Tax Payable (liability),
-    // not to a sales/income account.
+    // Uses the existing Services item — QuickBooks does not allow creating an
+    // Item that posts to the system-managed Sales Tax Payable account (error 6430).
+    // The line is clearly labelled "Sales Tax" so it is identifiable in QuickBooks.
     if (invoice.tax_amount && parseFloat(invoice.tax_amount) > 0) {
-      if (!taxItemId) {
-        throw new Error('Sales Tax Payable account is not mapped. Please map it in the QuickBooks Account Mapping page (Default Accounts > Sales Tax Payable) before pushing invoices with tax.');
-      }
       qbLineItems.push({
         Amount: parseFloat(invoice.tax_amount),
         DetailType: 'SalesItemLineDetail',
@@ -486,7 +490,7 @@ Deno.serve(async (req: Request) => {
         SalesItemLineDetail: {
           UnitPrice: parseFloat(invoice.tax_amount),
           Qty: 1,
-          ItemRef: { value: taxItemId },
+          ItemRef: { value: servicesItemId },
           TaxCodeRef: { value: 'NON' },
         },
       });
