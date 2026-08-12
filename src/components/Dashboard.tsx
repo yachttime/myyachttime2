@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import jsPDF from 'jspdf';
 import { Anchor, Calendar, CheckCircle, AlertCircle, BookOpen, LogOut, Wrench, Send, Play, Shield, ClipboardCheck, ClipboardList, Ship, CalendarPlus, FileUp, MessageCircle, Mail, CreditCard as Edit2, Trash2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, History, UserCheck, FileText, Upload, Download, X, Users, Save, RefreshCw, Clock, Thermometer, Camera, Receipt, Pencil, Lock, CreditCard, Eye, EyeOff, MousePointer, Ligature as FileSignature, Folder, Menu, Phone, Printer, Plus, QrCode, CircleUser as UserCircle2, DollarSign, Archive, Building2, MessageSquare, ShieldAlert, Paperclip, ExternalLink, User, Image, ArrowLeftRight, Copy, Link, Gauge, ZoomIn, UserX, Cloud, Wind, Droplets, AlertTriangle, MapPin } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -30,6 +30,10 @@ import { CompanyManagement } from './CompanyManagement';
 import SupportTickets from './SupportTickets';
 import { uploadFileToStorage, deleteFileFromStorage, isStorageUrl, UploadProgress, isTokenExpiredError } from '../utils/fileUpload';
 import { generateAllYachtTripsPDF, generateEstimatingInvoicePDF, generateTripInspectionPDF, generateEngineHoursReportPDF } from '../utils/pdfGenerator';
+import {
+  getQueue, addItem, updateItem, removeItem, getReadyItems,
+  OfflineInspectionItem, OfflinePhoto,
+} from '../utils/offlineInspectionQueue';
 import { convertTo12Hour, formatPhoneNumber, toAZDateStr, isAntelopePointMarina, isWithinBookingPeriod } from '../utils/dashboardHelpers';
 import AdminMenu from './admin/AdminMenu';
 import AdminViewWrapper from './admin/AdminViewWrapper';
@@ -403,6 +407,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     uploading?: boolean;
     error?: string;
   }>>([]);
+
+  const [offlineQueue, setOfflineQueue] = useState<OfflineInspectionItem[]>([]);
+  const [queueUploading, setQueueUploading] = useState(false);
+  const [resumingQueueItemId, setResumingQueueItemId] = useState<string | null>(null);
+  const queueUploadAttemptedRef = useRef(false);
 
   const [adminView, setAdminView] = useState<'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies' | 'maintenancerequests'>(() => {
     try {
@@ -7048,6 +7057,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       await loadYachtHistory(selectedYachtForInspection);
 
       setInspectionSuccess(true);
+      // If this was opened from the offline queue, remove it since it was submitted directly
+      if (resumingQueueItemId) {
+        removeItem(resumingQueueItemId);
+        setResumingQueueItemId(null);
+        refreshOfflineQueue();
+      }
       setSelectedYachtForInspection('');
       setSelectedMechanicId('');
       setOwnerNameForInspection('');
@@ -7149,6 +7164,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       }
 
       setHandoffSuccess(true);
+      // If this was opened from the offline queue, remove it since it was submitted directly
+      if (resumingQueueItemId) {
+        removeItem(resumingQueueItemId);
+        setResumingQueueItemId(null);
+        refreshOfflineQueue();
+      }
       setSelectedYachtForHandoff('');
       setSelectedMechanicForHandoff('');
       setHandoffForm({
@@ -7184,6 +7205,340 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       setHandoffLoading(false);
     }
   };
+
+  // --- Offline inspection queue: load, online/offline detection, auto-upload ---
+
+  const refreshOfflineQueue = useCallback(() => {
+    setOfflineQueue(getQueue());
+  }, []);
+
+  const uploadQueueItem = useCallback(async (item: OfflineInspectionItem): Promise<boolean> => {
+    updateItem(item.id, { status: 'uploading', error: undefined });
+    refreshOfflineQueue();
+    try {
+      const yacht = allYachts.find(y => y.id === item.yachtId);
+      if (!yacht) throw new Error('Yacht not found (may have been removed)');
+
+      if (item.kind === 'trip') {
+        const form = item.formData as Record<string, unknown>;
+        const { data: inserted, error: dbError } = await supabase.from('trip_inspections').insert({
+          booking_id: null,
+          yacht_id: item.yachtId,
+          inspector_id: item.inspectorId,
+          inspection_type: item.inspectionType,
+          ...form,
+          owner_name: item.ownerName || null,
+          port_engine_hours: form.port_engine_hours !== '' && form.port_engine_hours != null ? parseFloat(String(form.port_engine_hours)) : null,
+          stbd_engine_hours: form.stbd_engine_hours !== '' && form.stbd_engine_hours != null ? parseFloat(String(form.stbd_engine_hours)) : null,
+          port_gen_hours: form.port_gen_hours !== '' && form.port_gen_hours != null ? parseFloat(String(form.port_gen_hours)) : null,
+          stbd_gen_hours: form.stbd_gen_hours !== '' && form.stbd_gen_hours != null ? parseFloat(String(form.stbd_gen_hours)) : null,
+          company_id: yacht.company_id,
+        }).select().single();
+        if (dbError) throw dbError;
+
+        // Upload photos from base64 data
+        for (const photo of item.photos) {
+          try {
+            const resp = await fetch(photo.dataUrl);
+            const blob = await resp.blob();
+            const ext = blob.type.split('/')[1] || 'jpg';
+            const path = `${user?.id}/${inserted.id}/${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${ext}`;
+            const { error: uploadError } = await supabase.storage.from('inspection-photos').upload(path, blob, { contentType: blob.type });
+            if (uploadError) throw uploadError;
+            const { data: urlData } = supabase.storage.from('inspection-photos').getPublicUrl(path);
+            const { error: photoInsertError } = await supabase.from('inspection_photos').insert({
+              inspection_id: inserted.id,
+              photo_url: urlData.publicUrl,
+              caption: photo.caption,
+              category: photo.category,
+              company_id: yacht.company_id,
+              created_by: user?.id,
+            });
+            if (photoInsertError) throw photoInsertError;
+          } catch (photoErr: any) {
+            console.error('Photo upload failed:', photoErr);
+          }
+        }
+
+        // Send notification (fire-and-forget)
+        const inspectionTimeStr = new Date().toLocaleString('en-US', { timeZone: 'America/Phoenix', month: 'numeric', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' MST';
+        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-checkin-notification`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ownerName: item.inspectorName, yachtName: yacht.name, checkInTime: inspectionTimeStr, eventType: 'trip_inspection', companyId: yacht.company_id, inspectorId: item.inspectorId }),
+        }).catch(err => console.error('Notification error:', err));
+
+        // Credit 2.0 inspection hours
+        supabase.from('inspection_time_entries').insert({
+          user_id: item.inspectorId, yacht_id: item.yachtId, inspection_id: inserted.id,
+          inspection_type: 'trip_inspection', hours: 2.0, inspection_date: new Date().toISOString(),
+          company_id: yacht.company_id,
+        }).then(({ error }) => { if (error) console.error('Failed to log inspection hours:', error); });
+
+        await loadAdminNotifications();
+        await loadYachtHistory(item.yachtId);
+      } else {
+        // Owner handoff inspection
+        const { data: inserted, error: dbError } = await supabase.from('owner_handoff_inspections').insert({
+          yacht_id: item.yachtId,
+          inspector_id: item.inspectorId,
+          ...item.formData,
+          company_id: yacht.company_id,
+        }).select().single();
+        if (dbError) throw dbError;
+
+        if (yacht && inserted) {
+          await logYachtActivity(yacht.id, yacht.name, `Owner handoff inspection completed by ${item.inspectorName}`, user?.id, item.inspectorName, inserted.id, 'owner_handoff');
+          await supabase.from('admin_notifications').insert({
+            user_id: item.inspectorId, yacht_id: yacht.id, notification_type: 'owner_handoff',
+            reference_id: inserted.id, message: `Meet the Yacht Owner inspection completed for ${yacht.name} by ${item.inspectorName}`,
+            company_id: yacht.company_id,
+          });
+          supabase.from('inspection_time_entries').insert({
+            user_id: item.inspectorId, yacht_id: yacht.id, inspection_id: inserted.id,
+            inspection_type: 'owner_handoff', hours: 2.0, inspection_date: new Date().toISOString(),
+            company_id: yacht.company_id,
+          }).then(({ error }) => { if (error) console.error('Failed to log inspection hours:', error); });
+          await loadAdminNotifications();
+        }
+      }
+
+      removeItem(item.id);
+      refreshOfflineQueue();
+      return true;
+    } catch (err: any) {
+      updateItem(item.id, { status: 'failed', error: err.message || 'Upload failed' });
+      refreshOfflineQueue();
+      return false;
+    }
+  }, [allYachts, user, refreshOfflineQueue]);
+
+  const uploadAllReady = useCallback(async () => {
+    const ready = getReadyItems();
+    if (ready.length === 0) return;
+    setQueueUploading(true);
+    for (const item of ready) {
+      await uploadQueueItem(item);
+    }
+    setQueueUploading(false);
+  }, [uploadQueueItem]);
+
+  // Load queue on mount and auto-upload when online
+  useEffect(() => {
+    refreshOfflineQueue();
+    const handleOnline = () => {
+      if (!queueUploadAttemptedRef.current) {
+        queueUploadAttemptedRef.current = true;
+        uploadAllReady();
+      }
+    };
+    window.addEventListener('online', handleOnline);
+    if (navigator.onLine && !queueUploadAttemptedRef.current) {
+      queueUploadAttemptedRef.current = true;
+      uploadAllReady();
+    }
+    return () => window.removeEventListener('online', handleOnline);
+  }, [refreshOfflineQueue, uploadAllReady]);
+
+  const handleSaveInspectionDraft = useCallback(() => {
+    if (!selectedYachtForInspection || !selectedMechanicId) {
+      setInspectionError('Please select a yacht and inspector before saving a draft.');
+      return;
+    }
+    const yacht = allYachts.find(y => y.id === selectedYachtForInspection);
+    const inspector = allUsers.find((u: any) => u.user_id === selectedMechanicId);
+    const inspectorName = inspector ? `${inspector.first_name || ''} ${inspector.last_name || ''}`.trim() : 'Unknown';
+    addItem({
+      kind: 'trip', status: 'draft',
+      yachtId: selectedYachtForInspection, yachtName: yacht?.name || 'Unknown',
+      inspectorId: selectedMechanicId, inspectorName,
+      ownerName: ownerNameForInspection, inspectionType,
+      formData: { ...inspectionForm },
+      photos: inspectionPhotos.filter(p => p.preview).map(p => ({ dataUrl: p.preview, category: p.category, caption: p.caption })),
+      companyId: yacht?.company_id,
+    });
+    refreshOfflineQueue();
+    setInspectionSuccess(true);
+    setTimeout(() => setInspectionSuccess(false), 2000);
+  }, [selectedYachtForInspection, selectedMechanicId, allYachts, allUsers, ownerNameForInspection, inspectionType, inspectionForm, inspectionPhotos, refreshOfflineQueue]);
+
+  const handleSaveInspectionAndContinue = useCallback(async () => {
+    if (!selectedYachtForInspection || !selectedMechanicId) {
+      setInspectionError('Please select a yacht and inspector before saving.');
+      return;
+    }
+    if (!inspectionForm.port_engine_hours || inspectionForm.port_engine_hours === '') {
+      setInspectionError('Port Engine Hours is required.');
+      return;
+    }
+    if (!inspectionForm.stbd_engine_hours || inspectionForm.stbd_engine_hours === '') {
+      setInspectionError('Starboard Engine Hours is required.');
+      return;
+    }
+    if (!inspectionForm.port_gen_hours || inspectionForm.port_gen_hours === '') {
+      setInspectionError('Port Generator Hours is required.');
+      return;
+    }
+    if (!inspectionForm.stbd_gen_hours || inspectionForm.stbd_gen_hours === '') {
+      setInspectionError('Starboard Generator Hours is required.');
+      return;
+    }
+
+    const yacht = allYachts.find(y => y.id === selectedYachtForInspection);
+    const inspector = allUsers.find((u: any) => u.user_id === selectedMechanicId);
+    const inspectorName = inspector ? `${inspector.first_name || ''} ${inspector.last_name || ''}`.trim() : 'Unknown';
+    const photos: OfflinePhoto[] = [];
+    for (const p of inspectionPhotos) {
+      if (p.preview) photos.push({ dataUrl: p.preview, category: p.category, caption: p.caption });
+    }
+    addItem({
+      kind: 'trip', status: 'ready',
+      yachtId: selectedYachtForInspection, yachtName: yacht?.name || 'Unknown',
+      inspectorId: selectedMechanicId, inspectorName,
+      ownerName: ownerNameForInspection, inspectionType,
+      formData: { ...inspectionForm },
+      photos, companyId: yacht?.company_id,
+    });
+    refreshOfflineQueue();
+
+    // Reset form for next inspection
+    setSelectedYachtForInspection('');
+    setSelectedMechanicId('');
+    setOwnerNameForInspection('');
+    setInspectionPhotos([]);
+    setInspectionForm({
+      hull_condition: '' as ConditionRating, hull_notes: '', deck_condition: '' as ConditionRating, deck_notes: '',
+      cabin_condition: '' as ConditionRating, cabin_notes: '', galley_condition: '' as ConditionRating, galley_notes: '',
+      head_condition: '' as ConditionRating, head_notes: '', navigation_equipment: '' as ConditionRating, navigation_notes: '',
+      safety_equipment: '' as ConditionRating, safety_notes: '', engine_condition: '' as ConditionRating, engine_notes: '',
+      fuel_level: 100, water_level: 100, overall_condition: '' as ConditionRating, additional_notes: '', issues_found: false,
+      inverter_system: '' as ConditionRating, inverter_notes: '',
+      master_bathroom: '' as ConditionRating, master_bathroom_notes: '',
+      secondary_bathroom: '' as ConditionRating, secondary_bathroom_notes: '',
+      lower_sinks: '' as ConditionRating, lower_sinks_notes: '',
+      kitchen_sink: '' as ConditionRating, kitchen_sink_notes: '',
+      garbage_disposal: '' as ConditionRating, garbage_disposal_notes: '',
+      stove_top: '' as ConditionRating, stove_top_notes: '',
+      dishwasher: '' as ConditionRating, dishwasher_notes: '',
+      trash_compactor: '' as ConditionRating, trash_compactor_notes: '',
+      volt_fans: '' as ConditionRating, volt_fans_notes: '',
+      ac_filters: '' as ConditionRating, ac_filters_notes: '',
+      ac_water_pumps: '' as ConditionRating, ac_water_pumps_notes: '',
+      water_filters: '' as ConditionRating, water_filters_notes: '',
+      water_pumps_controls: '' as ConditionRating, water_pumps_controls_notes: '',
+      upper_deck_bathroom: '' as ConditionRating, upper_deck_bathroom_notes: '',
+      upper_kitchen_sink: '' as ConditionRating, upper_kitchen_sink_notes: '',
+      upper_disposal: '' as ConditionRating, upper_disposal_notes: '',
+      icemaker: '' as ConditionRating, icemaker_notes: '',
+      upper_stove_top: '' as ConditionRating, upper_stove_top_notes: '',
+      propane: '' as ConditionRating, propane_notes: '',
+      windless_port: '' as ConditionRating, windless_port_notes: '',
+      windless_starboard: '' as ConditionRating, windless_starboard_notes: '',
+      anchor_lines: '' as ConditionRating, anchor_lines_notes: '',
+      upper_ac_filter: '' as ConditionRating, upper_ac_filter_notes: '',
+      port_engine_oil: '' as ConditionRating, port_engine_oil_notes: '',
+      port_generator_oil: '' as ConditionRating, port_generator_oil_notes: '',
+      starboard_generator_oil: '' as ConditionRating, starboard_generator_oil_notes: '',
+      starboard_engine_oil: '' as ConditionRating, starboard_engine_oil_notes: '',
+      sea_strainers: '' as ConditionRating, sea_strainers_notes: '',
+      engine_batteries: '' as ConditionRating, engine_batteries_notes: '',
+      port_engine_hours: '', stbd_engine_hours: '', port_gen_hours: '', stbd_gen_hours: '',
+    });
+    setInspectionSuccess(true);
+    setTimeout(() => setInspectionSuccess(false), 2000);
+
+    // Try uploading immediately if online
+    if (navigator.onLine) {
+      uploadAllReady();
+    }
+  }, [selectedYachtForInspection, selectedMechanicId, allYachts, allUsers, ownerNameForInspection, inspectionType, inspectionForm, inspectionPhotos, refreshOfflineQueue, uploadAllReady]);
+
+  const handleSaveHandoffDraft = useCallback(() => {
+    if (!selectedYachtForHandoff || !selectedMechanicForHandoff) {
+      setHandoffError('Please select a yacht and inspector before saving a draft.');
+      return;
+    }
+    const yacht = allYachts.find(y => y.id === selectedYachtForHandoff);
+    const inspector = mechanics.find(m => m.user_id === selectedMechanicForHandoff);
+    const inspectorName = inspector ? `${inspector.first_name || ''} ${inspector.last_name || ''}`.trim() : 'Unknown';
+    addItem({
+      kind: 'handoff', status: 'draft',
+      yachtId: selectedYachtForHandoff, yachtName: yacht?.name || 'Unknown',
+      inspectorId: selectedMechanicForHandoff, inspectorName,
+      ownerName: '', inspectionType: 'check_in',
+      formData: { ...handoffForm },
+      photos: [], companyId: yacht?.company_id,
+    });
+    refreshOfflineQueue();
+    setHandoffSuccess(true);
+    setTimeout(() => setHandoffSuccess(false), 2000);
+  }, [selectedYachtForHandoff, selectedMechanicForHandoff, allYachts, mechanics, handoffForm, refreshOfflineQueue]);
+
+  const handleSaveHandoffAndContinue = useCallback(async () => {
+    if (!selectedYachtForHandoff || !selectedMechanicForHandoff) {
+      setHandoffError('Please select a yacht and inspector before saving.');
+      return;
+    }
+    const yacht = allYachts.find(y => y.id === selectedYachtForHandoff);
+    const inspector = mechanics.find(m => m.user_id === selectedMechanicForHandoff);
+    const inspectorName = inspector ? `${inspector.first_name || ''} ${inspector.last_name || ''}`.trim() : 'Unknown';
+    addItem({
+      kind: 'handoff', status: 'ready',
+      yachtId: selectedYachtForHandoff, yachtName: yacht?.name || 'Unknown',
+      inspectorId: selectedMechanicForHandoff, inspectorName,
+      ownerName: '', inspectionType: 'check_in',
+      formData: { ...handoffForm },
+      photos: [], companyId: yacht?.company_id,
+    });
+    refreshOfflineQueue();
+
+    // Reset form
+    setSelectedYachtForHandoff('');
+    setSelectedMechanicForHandoff('');
+    setHandoffForm({
+      trip_issues: '', trip_issues_notes: '', boat_damage: '', boat_damage_notes: '',
+      shore_cords_inverters: '', shore_cords_inverters_notes: '', engine_generator_fuel: '', engine_generator_fuel_notes: '',
+      toy_tank_fuel: '', toy_tank_fuel_notes: '', propane_tanks: '', propane_tanks_notes: '',
+      boat_cleaned: '', boat_cleaned_notes: '', repairs_completed: '', repairs_completed_notes: '',
+      owners_called: '', owners_called_notes: '', additional_notes: '', issues_found: false,
+    });
+    setHandoffSuccess(true);
+    setTimeout(() => setHandoffSuccess(false), 2000);
+
+    if (navigator.onLine) {
+      uploadAllReady();
+    }
+  }, [selectedYachtForHandoff, selectedMechanicForHandoff, allYachts, mechanics, handoffForm, refreshOfflineQueue, uploadAllReady]);
+
+  const handleOpenQueueItem = useCallback((item: OfflineInspectionItem) => {
+    if (item.kind === 'trip') {
+      setAdminViewPersisted('inspection');
+      setSelectedYachtForInspection(item.yachtId);
+      setSelectedMechanicId(item.inspectorId);
+      setOwnerNameForInspection(item.ownerName);
+      setInspectionType(item.inspectionType);
+      setInspectionForm(item.formData as typeof inspectionForm);
+      setInspectionPhotos(item.photos.map(p => ({ url: '', storagePath: '', preview: p.dataUrl, category: p.category, caption: p.caption })));
+    } else {
+      setAdminViewPersisted('ownerhandoff');
+      setSelectedYachtForHandoff(item.yachtId);
+      setSelectedMechanicForHandoff(item.inspectorId);
+      setHandoffForm(item.formData as typeof handoffForm);
+    }
+    setResumingQueueItemId(item.id);
+  }, []);
+
+  const handleDeleteQueueItem = useCallback((id: string) => {
+    removeItem(id);
+    refreshOfflineQueue();
+    if (resumingQueueItemId === id) setResumingQueueItemId(null);
+  }, [refreshOfflineQueue, resumingQueueItemId]);
+
+  const handleUploadOne = useCallback(async (item: OfflineInspectionItem) => {
+    setQueueUploading(true);
+    await uploadQueueItem(item);
+    setQueueUploading(false);
+  }, [uploadQueueItem]);
 
   const handleAppointmentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -10476,6 +10831,14 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     onPhotoAdd={handleInspectionPhotoAdd}
                     onPhotoRemove={handleInspectionPhotoRemove}
                     onPhotoCaptionChange={handleInspectionPhotoCaptionChange}
+                    onSaveDraft={handleSaveInspectionDraft}
+                    onSaveAndContinue={handleSaveInspectionAndContinue}
+                    queueItems={offlineQueue}
+                    onOpenQueueItem={handleOpenQueueItem}
+                    onUploadOne={handleUploadOne}
+                    onUploadAll={uploadAllReady}
+                    onDeleteQueueItem={handleDeleteQueueItem}
+                    queueUploading={queueUploading}
                   />
                 </AdminViewWrapper>
               ) : adminView === 'ownerhandoff' ? (
@@ -10500,6 +10863,14 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     onYachtChange={setSelectedYachtForHandoff}
                     selectedMechanic={selectedMechanicForHandoff}
                     onMechanicChange={setSelectedMechanicForHandoff}
+                    onSaveDraft={handleSaveHandoffDraft}
+                    onSaveAndContinue={handleSaveHandoffAndContinue}
+                    queueItems={offlineQueue}
+                    onOpenQueueItem={handleOpenQueueItem}
+                    onUploadOne={handleUploadOne}
+                    onUploadAll={uploadAllReady}
+                    onDeleteQueueItem={handleDeleteQueueItem}
+                    queueUploading={queueUploading}
                   />
                 </AdminViewWrapper>
               ) : adminView === 'yachts' ? (

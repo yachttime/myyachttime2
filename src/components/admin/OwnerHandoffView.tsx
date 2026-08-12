@@ -1,5 +1,7 @@
-import { UserCheck } from 'lucide-react';
+import { UserCheck, Save, UploadCloud } from 'lucide-react';
 import { Yacht } from '../../lib/supabase';
+import type { OfflineInspectionItem } from '../../utils/offlineInspectionQueue';
+import PendingQueuePanel from './PendingQueuePanel';
 
 export interface OwnerHandoffForm {
   trip_issues: string;
@@ -44,6 +46,14 @@ interface OwnerHandoffViewProps {
   onYachtChange: (id: string) => void;
   selectedMechanic: string;
   onMechanicChange: (id: string) => void;
+  onSaveDraft: () => void;
+  onSaveAndContinue: () => void;
+  queueItems: OfflineInspectionItem[];
+  onOpenQueueItem: (item: OfflineInspectionItem) => void;
+  onUploadOne: (item: OfflineInspectionItem) => void;
+  onUploadAll: () => void;
+  onDeleteQueueItem: (id: string) => void;
+  queueUploading: boolean;
 }
 
 function RatingField({
@@ -121,11 +131,26 @@ const ratingOptions = {
 export default function OwnerHandoffView({
   form, onFormChange, onSubmit, loading, error, success,
   allYachts, mechanics, selectedYacht, onYachtChange, selectedMechanic, onMechanicChange,
+  onSaveDraft, onSaveAndContinue, queueItems, onOpenQueueItem, onUploadOne, onUploadAll,
+  onDeleteQueueItem, queueUploading,
 }: OwnerHandoffViewProps) {
   const set = (patch: Partial<OwnerHandoffForm>) => onFormChange({ ...form, ...patch });
 
+  const handoffQueueItems = queueItems.filter(i => i.kind === 'handoff');
+
   return (
     <form onSubmit={onSubmit} className="space-y-6">
+      {handoffQueueItems.length > 0 && (
+        <PendingQueuePanel
+          items={handoffQueueItems}
+          onOpen={onOpenQueueItem}
+          onUploadOne={onUploadOne}
+          onUploadAll={onUploadAll}
+          onDelete={onDeleteQueueItem}
+          uploading={queueUploading}
+        />
+      )}
+
       <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700">
         <h3 className="text-xl font-semibold mb-4">Inspection Details</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -299,14 +324,34 @@ export default function OwnerHandoffView({
         </div>
       )}
 
-      <button
-        type="submit"
-        disabled={loading}
-        className="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-900 font-semibold py-4 rounded-lg transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-      >
-        <UserCheck className="w-5 h-5" />
-        {loading ? 'Submitting...' : 'Submit Owner Handoff Inspection'}
-      </button>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <button
+          type="submit"
+          disabled={loading}
+          className="sm:col-span-1 bg-emerald-500 hover:bg-emerald-600 text-slate-900 font-semibold py-4 rounded-lg transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        >
+          <UserCheck className="w-5 h-5" />
+          {loading ? 'Submitting...' : 'Submit'}
+        </button>
+        <button
+          type="button"
+          onClick={onSaveDraft}
+          disabled={loading}
+          className="sm:col-span-1 bg-slate-600 hover:bg-slate-500 text-white font-semibold py-4 rounded-lg transition-all duration-300 shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          <Save className="w-5 h-5" />
+          Save as Draft
+        </button>
+        <button
+          type="button"
+          onClick={onSaveAndContinue}
+          disabled={loading}
+          className="sm:col-span-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 rounded-lg transition-all duration-300 shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          <UploadCloud className="w-5 h-5" />
+          Save & Continue
+        </button>
+      </div>
     </form>
   );
 }

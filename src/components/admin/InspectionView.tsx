@@ -1,5 +1,7 @@
-import { ClipboardCheck, Camera, CheckCircle, X } from 'lucide-react';
+import { ClipboardCheck, Camera, CheckCircle, X, Save, UploadCloud } from 'lucide-react';
 import { Yacht } from '../../lib/supabase';
+import type { OfflineInspectionItem } from '../../utils/offlineInspectionQueue';
+import PendingQueuePanel from './PendingQueuePanel';
 
 type ConditionRating = 'ok' | 'needs service' | 'excellent' | 'poor';
 
@@ -225,12 +227,22 @@ interface InspectionViewProps {
   onPhotoAdd: (files: FileList | null, category: InspectionPhoto['category']) => void;
   onPhotoRemove: (idx: number) => void;
   onPhotoCaptionChange: (idx: number, caption: string) => void;
+  onSaveDraft: () => void;
+  onSaveAndContinue: () => void;
+  queueItems: OfflineInspectionItem[];
+  onOpenQueueItem: (item: OfflineInspectionItem) => void;
+  onUploadOne: (item: OfflineInspectionItem) => void;
+  onUploadAll: () => void;
+  onDeleteQueueItem: (id: string) => void;
+  queueUploading: boolean;
 }
 
 export default function InspectionView({
   form, onFormChange, onSubmit, loading, error, success,
   allYachts, mechanics, selectedYacht, onYachtChange, selectedMechanic, onMechanicChange,
   ownerName, onOwnerNameChange, photos, onPhotoAdd, onPhotoRemove, onPhotoCaptionChange,
+  onSaveDraft, onSaveAndContinue, queueItems, onOpenQueueItem, onUploadOne, onUploadAll,
+  onDeleteQueueItem, queueUploading,
 }: InspectionViewProps) {
   const set = (patch: Partial<InspectionForm>) => onFormChange({ ...form, ...patch });
   const photosUploading = photos.some(p => p.uploading);
@@ -249,8 +261,21 @@ export default function InspectionView({
     />
   );
 
+  const tripQueueItems = queueItems.filter(i => i.kind === 'trip');
+
   return (
     <form onSubmit={onSubmit} className="space-y-6">
+      {tripQueueItems.length > 0 && (
+        <PendingQueuePanel
+          items={tripQueueItems}
+          onOpen={onOpenQueueItem}
+          onUploadOne={onUploadOne}
+          onUploadAll={onUploadAll}
+          onDelete={onDeleteQueueItem}
+          uploading={queueUploading}
+        />
+      )}
+
       <Section title="Inspection Details">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
@@ -499,14 +524,34 @@ export default function InspectionView({
         </div>
       )}
 
-      <button
-        type="submit"
-        disabled={loading || photosUploading}
-        className="w-full bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold py-4 rounded-lg transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-      >
-        <ClipboardCheck className="w-5 h-5" />
-        {photosUploading ? 'Uploading Photos...' : loading ? 'Submitting...' : `Submit Inspection${uploadedCount > 0 ? ` (${uploadedCount} photo${uploadedCount !== 1 ? 's' : ''})` : ''}`}
-      </button>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <button
+          type="submit"
+          disabled={loading || photosUploading}
+          className="sm:col-span-1 bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold py-4 rounded-lg transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        >
+          <ClipboardCheck className="w-5 h-5" />
+          {photosUploading ? 'Uploading Photos...' : loading ? 'Submitting...' : 'Submit'}
+        </button>
+        <button
+          type="button"
+          onClick={onSaveDraft}
+          disabled={loading}
+          className="sm:col-span-1 bg-slate-600 hover:bg-slate-500 text-white font-semibold py-4 rounded-lg transition-all duration-300 shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          <Save className="w-5 h-5" />
+          Save as Draft
+        </button>
+        <button
+          type="button"
+          onClick={onSaveAndContinue}
+          disabled={loading || photosUploading}
+          className="sm:col-span-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 rounded-lg transition-all duration-300 shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          <UploadCloud className="w-5 h-5" />
+          Save & Continue
+        </button>
+      </div>
     </form>
   );
 }
