@@ -191,15 +191,14 @@ export function SalesBreakdownReport({ onClose }: Props) {
       `$${row.shop_supplies.toFixed(2)}`,
       `$${row.park_fees.toFixed(2)}`,
       `$${row.surcharge.toFixed(2)}`,
-      `$${row.subtotal.toFixed(2)}`,
-      row.discount_amount > 0 ? `-$${row.discount_amount.toFixed(2)}` : '—',
-      `$${row.tax_amount.toFixed(2)}`,
-      `$${row.total_amount.toFixed(2)}`,
+      `${row.subtotal.toFixed(2)}`,
+      row.discount_amount > 0 ? `-${row.discount_amount.toFixed(2)}` : '—',
+      `${(row.total_amount - row.tax_amount).toFixed(2)}`,
     ]);
 
     autoTable(doc, {
       startY: y,
-      head: [['Invoice #', 'Date', 'Customer', 'Parts', 'Labor', 'Shop Supplies', 'Park Fees', 'Surcharge', 'Subtotal', 'Discount', 'Tax', 'Grand Total']],
+      head: [['Invoice #', 'Date', 'Customer', 'Parts', 'Labor', 'Shop Supplies', 'Park Fees', 'Surcharge', 'Subtotal', 'Discount', 'Grand Total']],
       body: tableRows,
       margin: { left: margin, right: margin },
       styles: { fontSize: 7, cellPadding: 3, textColor: [30, 30, 30] as [number, number, number] },
@@ -216,8 +215,7 @@ export function SalesBreakdownReport({ onClose }: Props) {
         7: { cellWidth: 50, halign: 'right' as const },
         8: { cellWidth: 52, halign: 'right' as const },
         9: { cellWidth: 45, halign: 'right' as const },
-        10: { cellWidth: 42, halign: 'right' as const },
-        11: { cellWidth: 55, halign: 'right' as const },
+        10: { cellWidth: 55, halign: 'right' as const },
       },
       foot: [[
         { content: 'TOTALS', colSpan: 3, styles: { fontStyle: 'bold' as const, halign: 'right' as const } },
@@ -226,10 +224,9 @@ export function SalesBreakdownReport({ onClose }: Props) {
         `$${sum('shop_supplies').toFixed(2)}`,
         `$${sum('park_fees').toFixed(2)}`,
         `$${sum('surcharge').toFixed(2)}`,
-        `$${sum('subtotal').toFixed(2)}`,
-        `-$${sum('discount_amount').toFixed(2)}`,
-        `$${sum('tax_amount').toFixed(2)}`,
-        `$${sum('total_amount').toFixed(2)}`,
+        `${sum('subtotal').toFixed(2)}`,
+        `-${sum('discount_amount').toFixed(2)}`,
+        `${(sum('total_amount') - sum('tax_amount')).toFixed(2)}`,
       ]],
       footStyles: { fillColor: [241, 245, 249] as [number, number, number], textColor: [30, 30, 30] as [number, number, number], fontSize: 8, fontStyle: 'bold' as const },
     });
@@ -303,10 +300,6 @@ export function SalesBreakdownReport({ onClose }: Props) {
                 <div className="text-xs text-gray-500">Total Subtotal</div>
                 <div className="text-lg font-bold text-gray-900">${sum('subtotal').toFixed(2)}</div>
               </div>
-              <div className="text-right border-r border-gray-200 pr-6">
-                <div className="text-xs text-gray-500">Total Tax</div>
-                <div className="text-lg font-bold text-gray-900">${sum('tax_amount').toFixed(2)}</div>
-              </div>
               <div className="text-right">
                 <div className="text-xs text-gray-500">Grand Total</div>
                 <div className="text-lg font-bold text-gray-900">${sum('total_amount').toFixed(2)}</div>
@@ -345,7 +338,6 @@ export function SalesBreakdownReport({ onClose }: Props) {
                   <th className="px-3 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Surcharge</th>
                   <th className="px-3 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Subtotal</th>
                   <th className="px-3 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Discount</th>
-                  <th className="px-3 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Tax</th>
                   <th className="px-3 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Grand Total</th>
                   <th className="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
                 </tr>
@@ -370,8 +362,7 @@ export function SalesBreakdownReport({ onClose }: Props) {
                     <td className="px-3 py-3 text-sm text-gray-700 text-right">
                       {row.discount_amount > 0 ? <span className="text-red-600">-${row.discount_amount.toFixed(2)}</span> : <span className="text-gray-300">—</span>}
                     </td>
-                    <td className="px-3 py-3 text-sm text-gray-900 text-right">${row.tax_amount.toFixed(2)}</td>
-                    <td className="px-3 py-3 text-sm font-bold text-gray-900 text-right">${row.total_amount.toFixed(2)}</td>
+                    <td className="px-3 py-3 text-sm font-bold text-gray-900 text-right">${(row.total_amount - row.tax_amount).toFixed(2)}</td>
                     <td className="px-3 py-3">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getStatusColor(row.payment_status)}`}>
                         {row.payment_status.charAt(0).toUpperCase() + row.payment_status.slice(1)}
@@ -392,8 +383,7 @@ export function SalesBreakdownReport({ onClose }: Props) {
                   <td className="px-3 py-3 text-sm font-bold text-gray-900 text-right">${sum('surcharge').toFixed(2)}</td>
                   <td className="px-3 py-3 text-sm font-bold text-gray-900 text-right">${sum('subtotal').toFixed(2)}</td>
                   <td className="px-3 py-3 text-sm font-bold text-red-600 text-right">-${sum('discount_amount').toFixed(2)}</td>
-                  <td className="px-3 py-3 text-sm font-bold text-gray-900 text-right">${sum('tax_amount').toFixed(2)}</td>
-                  <td className="px-3 py-3 text-sm font-bold text-gray-900 text-right">${sum('total_amount').toFixed(2)}</td>
+                  <td className="px-3 py-3 text-sm font-bold text-gray-900 text-right">${(sum('total_amount') - sum('tax_amount')).toFixed(2)}</td>
                   <td />
                 </tr>
               </tfoot>
