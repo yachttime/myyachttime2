@@ -302,7 +302,7 @@ export function SalesBreakdownReport({ onClose }: Props) {
               </div>
               <div className="text-right">
                 <div className="text-xs text-gray-500">Grand Total</div>
-                <div className="text-lg font-bold text-gray-900">${sum('total_amount').toFixed(2)}</div>
+                <div className="text-lg font-bold text-gray-900">${(sum('total_amount') - sum('tax_amount')).toFixed(2)}</div>
                 <div className="text-xs text-gray-400">{rows.length} invoice{rows.length !== 1 ? 's' : ''}</div>
               </div>
             </div>
