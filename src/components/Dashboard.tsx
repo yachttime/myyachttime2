@@ -918,7 +918,6 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     loadStaffMessages();
     loadYachtPartners();
     checkSmartDevices();
-    loadPendingInspectionCount();
   }, [user, yacht, effectiveRole, effectiveYacht, impersonatedYacht, selectedCompany, isLoadingCompanies]);
 
   useEffect(() => {
@@ -11378,7 +11377,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       <div key={yacht.id} className={`bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-blue-500 transition-all flex flex-col ${!yacht.is_active ? 'opacity-60' : ''}`}>
                         <div className="flex items-start justify-between mb-4">
                           <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
+                            <div className="flex flex-wrap items-center gap-2 mb-1">
                               <h3 className="text-xl font-bold text-white">{yacht.name}</h3>
                               <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
                                 yacht.is_active
