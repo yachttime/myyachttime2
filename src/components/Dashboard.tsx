@@ -8223,7 +8223,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   };
 
   const loadPendingInspectionCount = async () => {
-    if (!isStaffRole(effectiveRole) && !isMasterRole(effectiveRole)) return;
+    if (!isStaffRole(effectiveRole) && !isManagerRole(effectiveRole) && !isMasterRole(effectiveRole)) return;
     try {
       const companyId = selectedCompany?.id || userProfile?.company_id;
       if (!companyId) return;
@@ -11365,7 +11365,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   {yachtUnpaidCounts[yacht.id].processingCount} Processing
                                 </span>
                               )}
-                              {(isStaffRole(effectiveRole) || isMasterRole(effectiveRole)) && pendingInspectionsByYacht[yacht.id] > 0 && (
+                              {(isStaffRole(effectiveRole) || isManagerRole(effectiveRole) || isMasterRole(effectiveRole)) && pendingInspectionsByYacht[yacht.id] > 0 && (
                                 <span className="px-2 py-0.5 rounded text-xs font-semibold bg-amber-500/20 text-amber-400 flex items-center gap-1">
                                   <ClipboardCheck className="w-3 h-3" />
                                   {pendingInspectionsByYacht[yacht.id]} Review{pendingInspectionsByYacht[yacht.id] > 1 ? 's' : ''}
