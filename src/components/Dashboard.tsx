@@ -2398,7 +2398,35 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       }
       setAllYachts(data || []);
       if (data && data.length > 0) {
-        loadUnpaidInvoiceCounts(data.map((y: any) => y.id));
+        const yachtIds = data.map((y: any) => y.id);
+        loadUnpaidInvoiceCounts(yachtIds);
+
+        if (isStaffRole(effectiveRole) || isMasterRole(effectiveRole)) {
+          try {
+            const { data: pendingData, error: pendingErr } = await supabase
+              .from('trip_inspections')
+              .select('id, yacht_id')
+              .eq('review_status', 'pending_review')
+              .in('yacht_id', yachtIds);
+
+            if (pendingErr) throw pendingErr;
+
+            const byYacht: Record<string, number> = {};
+            let total = 0;
+            for (const row of pendingData || []) {
+              if (row.yacht_id) {
+                byYacht[row.yacht_id] = (byYacht[row.yacht_id] || 0) + 1;
+                total++;
+              }
+            }
+            setPendingInspectionsByYacht(byYacht);
+            setPendingInspectionCount(total);
+          } catch (err: any) {
+            if (err?.name !== 'AbortError') {
+              console.error('Error loading pending review counts:', err);
+            }
+          }
+        }
       }
     } catch (error) {
       console.error('Error loading yachts:', error);
