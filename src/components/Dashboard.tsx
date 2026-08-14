@@ -8227,11 +8227,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     try {
       const companyId = selectedCompany?.id || userProfile?.company_id;
       if (!companyId) return;
-      const { data, count } = await supabase
+      const { data, count, error } = await supabase
         .from('trip_inspections')
         .select('id, yacht_id', { count: 'exact' })
         .eq('review_status', 'pending_review')
         .eq('company_id', companyId);
+      if (error) throw error;
       setPendingInspectionCount(count || 0);
       const byYacht: Record<string, number> = {};
       for (const row of data || []) {
