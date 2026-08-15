@@ -716,6 +716,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [submittingReview, setSubmittingReview] = useState(false);
   const [pendingInspectionCount, setPendingInspectionCount] = useState(0);
   const [pendingInspectionsByYacht, setPendingInspectionsByYacht] = useState<Record<string, number>>({});
+  const [inspectionCountByYacht, setInspectionCountByYacht] = useState<Record<string, number>>({});
   const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
   const [yachtHistoryLogs, setYachtHistoryLogs] = useState<Record<string, YachtHistoryLog[]>>({});
   const [expandedYachtId, setExpandedYachtId] = useState<string | null>(null);
@@ -918,6 +919,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     loadStaffMessages();
     loadYachtPartners();
     checkSmartDevices();
+    loadPendingInspectionCount();
   }, [user, yacht, effectiveRole, effectiveYacht, impersonatedYacht, selectedCompany, isLoadingCompanies]);
 
   useEffect(() => {
@@ -2397,35 +2399,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       }
       setAllYachts(data || []);
       if (data && data.length > 0) {
-        const yachtIds = data.map((y: any) => y.id);
-        loadUnpaidInvoiceCounts(yachtIds);
-
-        if (isStaffRole(effectiveRole) || isMasterRole(effectiveRole)) {
-          try {
-            const { data: pendingData, error: pendingErr } = await supabase
-              .from('trip_inspections')
-              .select('id, yacht_id')
-              .eq('review_status', 'pending_review')
-              .in('yacht_id', yachtIds);
-
-            if (pendingErr) throw pendingErr;
-
-            const byYacht: Record<string, number> = {};
-            let total = 0;
-            for (const row of pendingData || []) {
-              if (row.yacht_id) {
-                byYacht[row.yacht_id] = (byYacht[row.yacht_id] || 0) + 1;
-                total++;
-              }
-            }
-            setPendingInspectionsByYacht(byYacht);
-            setPendingInspectionCount(total);
-          } catch (err: any) {
-            if (err?.name !== 'AbortError') {
-              console.error('Error loading pending review counts:', err);
-            }
-          }
-        }
+        loadUnpaidInvoiceCounts(data.map((y: any) => y.id));
       }
     } catch (error) {
       console.error('Error loading yachts:', error);
@@ -8254,26 +8228,28 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     try {
       const companyId = selectedCompany?.id || userProfile?.company_id;
       if (!companyId) return;
-      const { data, error } = await supabase
+      const { data, count } = await supabase
         .from('trip_inspections')
-        .select('id, yacht_id')
+        .select('id, yacht_id', { count: 'exact' })
         .eq('review_status', 'pending_review')
         .eq('company_id', companyId);
-      if (error) throw error;
+      setPendingInspectionCount(count || 0);
       const byYacht: Record<string, number> = {};
-      let total = 0;
       for (const row of data || []) {
-        if (row.yacht_id) {
-          byYacht[row.yacht_id] = (byYacht[row.yacht_id] || 0) + 1;
-          total++;
-        }
+        if (row.yacht_id) byYacht[row.yacht_id] = (byYacht[row.yacht_id] || 0) + 1;
       }
       setPendingInspectionsByYacht(byYacht);
-      setPendingInspectionCount(total);
-    } catch (err: any) {
-      if (err?.name !== 'AbortError') {
-        console.error('Error loading pending inspection count:', err);
+      const { data: allInspections } = await supabase
+        .from('trip_inspections')
+        .select('id, yacht_id')
+        .eq('company_id', companyId);
+      const totalCounts: Record<string, number> = {};
+      for (const row of allInspections || []) {
+        if (row.yacht_id) totalCounts[row.yacht_id] = (totalCounts[row.yacht_id] || 0) + 1;
       }
+      setInspectionCountByYacht(totalCounts);
+    } catch {
+      // silently ignore
     }
   };
 
@@ -11377,7 +11353,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       <div key={yacht.id} className={`bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-blue-500 transition-all flex flex-col ${!yacht.is_active ? 'opacity-60' : ''}`}>
                         <div className="flex items-start justify-between mb-4">
                           <div className="flex-1">
-                            <div className="flex flex-wrap items-center gap-2 mb-1">
+                            <div className="flex items-center gap-2 mb-1">
                               <h3 className="text-xl font-bold text-white">{yacht.name}</h3>
                               <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
                                 yacht.is_active
@@ -11396,6 +11372,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 <span className="px-2 py-0.5 rounded text-xs font-semibold bg-orange-500/20 text-orange-400 flex items-center gap-1">
                                   <RefreshCw className="w-3 h-3" />
                                   {yachtUnpaidCounts[yacht.id].processingCount} Processing
+                                </span>
+                              )}
+                              {(isStaffRole(effectiveRole) || isMasterRole(effectiveRole)) && inspectionCountByYacht[yacht.id] > 0 && (
+                                <span className="px-2 py-0.5 rounded text-xs font-semibold bg-blue-500/20 text-blue-400 flex items-center gap-1">
+                                  <ClipboardCheck className="w-3 h-3" />
+                                  {inspectionCountByYacht[yacht.id]} Inspection{inspectionCountByYacht[yacht.id] > 1 ? 's' : ''}
                                 </span>
                               )}
                               {(isStaffRole(effectiveRole) || isMasterRole(effectiveRole)) && pendingInspectionsByYacht[yacht.id] > 0 && (
