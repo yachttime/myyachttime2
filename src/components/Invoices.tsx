@@ -2174,9 +2174,8 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
 
       const currentAmountPaid = selectedInvoice.amount_paid ?? 0;
       const totalAmount = selectedInvoice.total_amount;
-      const depositApplied = selectedInvoice.deposit_applied ?? 0;
       const newAmountPaid = currentAmountPaid + amount;
-      const newBalanceDue = Math.max(0, totalAmount - depositApplied - newAmountPaid);
+      const newBalanceDue = Math.max(0, totalAmount - newAmountPaid);
       const isFullPayment = newBalanceDue <= 0;
 
       const { error: paymentError } = await supabase
@@ -2257,12 +2256,15 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
     if (!ok) return;
     setFixDepositLoading(true);
     try {
-      const newBalanceDue = Math.max(0, invoice.total_amount - depositAmount - (invoice.amount_paid ?? 0));
+      const newAmountPaid = (invoice.amount_paid ?? 0) + depositAmount;
+      const newBalanceDue = Math.max(0, invoice.total_amount - newAmountPaid);
       const { error } = await supabase
         .from('estimating_invoices')
         .update({
           deposit_applied: depositAmount,
+          amount_paid: newAmountPaid,
           balance_due: newBalanceDue,
+          payment_status: newBalanceDue <= 0 ? 'paid' : 'partial',
           updated_at: new Date().toISOString(),
         })
         .eq('id', invoice.id);
@@ -2339,7 +2341,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       const newTotal = parseFloat((discountedSubtotal + taxAmount + shopSupplies + parkFees + surcharge).toFixed(2));
       const depositApplied = selectedInvoice.deposit_applied ?? 0;
       const amountPaid = selectedInvoice.amount_paid ?? 0;
-      const newBalanceDue = Math.max(0, newTotal - depositApplied - amountPaid);
+      const newBalanceDue = Math.max(0, newTotal - amountPaid);
 
       const saveableItems = editLineItems.filter(i => !CHARGE_TYPES.includes(i.line_type));
 
