@@ -631,10 +631,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
     const quantity = parseFloat(lineItemFormData.quantity);
     const unit_price = parseFloat(lineItemFormData.unit_price);
 
-    const updatedTasks = [...tasks];
-    if (!updatedTasks[activeTaskIndex].lineItems) {
-      updatedTasks[activeTaskIndex].lineItems = [];
-    }
+    const updatedTasks = tasks.map((t, i) => i === activeTaskIndex ? { ...t, lineItems: t.lineItems ? [...t.lineItems] : [] } : t);
 
     const newLineItem: WorkOrderLineItem = {
       line_type: lineItemFormData.line_type,
@@ -654,7 +651,10 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
       work_details: lineItemFormData.work_details || null
     };
 
-    updatedTasks[activeTaskIndex].lineItems.push(newLineItem);
+    updatedTasks[activeTaskIndex] = {
+      ...updatedTasks[activeTaskIndex],
+      lineItems: [...updatedTasks[activeTaskIndex].lineItems, newLineItem]
+    };
     setTasks(updatedTasks);
 
     setLineItemFormData({
@@ -678,22 +678,32 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
   };
 
   const handleRemoveLineItem = (taskIndex: number, lineIndex: number) => {
-    const updatedTasks = [...tasks];
-    updatedTasks[taskIndex].lineItems = updatedTasks[taskIndex].lineItems.filter((_, i) => i !== lineIndex);
+    const updatedTasks = tasks.map((t, i) =>
+      i === taskIndex ? { ...t, lineItems: t.lineItems.filter((_, j) => j !== lineIndex) } : t
+    );
     setTasks(updatedTasks);
   };
 
   const handleUpdateLineItemPrice = (taskIndex: number, lineIndex: number, field: 'quantity' | 'unit_price', value: string) => {
-    const updatedTasks = [...tasks];
-    const item = { ...updatedTasks[taskIndex].lineItems[lineIndex] };
-    const parsed = parseFloat(value);
-    if (field === 'quantity') {
-      item.quantity = isNaN(parsed) ? 0 : parsed;
-    } else {
-      item.unit_price = isNaN(parsed) ? 0 : parsed;
-    }
-    item.total_price = item.quantity * item.unit_price;
-    updatedTasks[taskIndex].lineItems[lineIndex] = item;
+    const updatedTasks = tasks.map((t, i) =>
+      i === taskIndex
+        ? {
+            ...t,
+            lineItems: t.lineItems.map((item, j) => {
+              if (j !== lineIndex) return item;
+              const updated = { ...item };
+              const parsed = parseFloat(value);
+              if (field === 'quantity') {
+                updated.quantity = isNaN(parsed) ? 0 : parsed;
+              } else {
+                updated.unit_price = isNaN(parsed) ? 0 : parsed;
+              }
+              updated.total_price = updated.quantity * updated.unit_price;
+              return updated;
+            })
+          }
+        : t
+    );
     setTasks(updatedTasks);
   };
 
@@ -715,17 +725,13 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
       if (packageLaborRes.error) throw packageLaborRes.error;
       if (packagePartsRes.error) throw packagePartsRes.error;
 
-      const updatedTasks = [...tasks];
-      if (!updatedTasks[activeTaskIndex].lineItems) {
-        updatedTasks[activeTaskIndex].lineItems = [];
-      }
-
-      const currentLineOrder = updatedTasks[activeTaskIndex].lineItems.length;
+      const existingItems = tasks[activeTaskIndex].lineItems || [];
+      const currentLineOrder = existingItems.length;
       const selectedPkg = packages.find(p => p.id === selectedPackageId);
       const packageName = selectedPkg?.name || 'Package';
       const packageDescription = selectedPkg?.description || null;
 
-      updatedTasks[activeTaskIndex].lineItems.push({
+      const newItems: any[] = [{
         line_type: 'labor',
         description: '',
         quantity: 0,
@@ -737,10 +743,10 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
         line_order: currentLineOrder,
         work_details: packageDescription,
         package_header: packageName
-      });
+      }];
 
       packageLaborRes.data?.forEach((labor: any, index: number) => {
-        updatedTasks[activeTaskIndex].lineItems.push({
+        newItems.push({
           line_type: 'labor',
           description: labor.description || labor.labor_code?.name || '',
           quantity: labor.hours,
@@ -762,7 +768,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
             : (part.part?.part_number && part.part?.name)
               ? `${part.part.part_number} - ${part.part.name}`
               : part.part_number_display || part.description_display || '';
-        updatedTasks[activeTaskIndex].lineItems.push({
+        newItems.push({
           line_type: 'part',
           description: partDescription,
           quantity: part.quantity,
@@ -775,6 +781,12 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
           work_details: null
         });
       });
+
+      const updatedTasks = tasks.map((t, i) =>
+        i === activeTaskIndex
+          ? { ...t, lineItems: [...(t.lineItems || []), ...newItems] }
+          : t
+      );
 
       setTasks(updatedTasks);
       setShowPackageModal(false);
@@ -790,11 +802,18 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
   const handleSavePackageHeaderEdit = () => {
     if (!editingPackageHeader) return;
     const { taskIndex, lineIndex } = editingPackageHeader;
-    const updatedTasks = [...tasks];
-    updatedTasks[taskIndex].lineItems[lineIndex] = {
-      ...updatedTasks[taskIndex].lineItems[lineIndex],
-      package_header: packageHeaderEditValue.trim() || 'Package'
-    };
+    const updatedTasks = tasks.map((t, i) =>
+      i === taskIndex
+        ? {
+            ...t,
+            lineItems: t.lineItems.map((item, j) =>
+              j === lineIndex
+                ? { ...item, package_header: packageHeaderEditValue.trim() || 'Package' }
+                : item
+            )
+          }
+        : t
+    );
     setTasks(updatedTasks);
     setEditingPackageHeader(null);
     setPackageHeaderEditValue('');
