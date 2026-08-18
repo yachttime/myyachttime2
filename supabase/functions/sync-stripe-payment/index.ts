@@ -215,7 +215,7 @@ Deno.serve(async (req: Request) => {
 
         const amountFromStripe = (paymentIntent.amount_received || paymentIntent.amount || 0) / 100;
         const newAmountPaid = Math.max(amountFromStripe, estInvoice.amount_paid || 0);
-        const balanceDue = Math.max(0, (estInvoice.total_amount || 0) - (estInvoice.deposit_applied || 0) - newAmountPaid);
+        const balanceDue = Math.max(0, (estInvoice.total_amount || 0) - newAmountPaid);
         const paidAt = paymentIntent.created
           ? new Date(paymentIntent.created * 1000).toISOString()
           : new Date().toISOString();
@@ -670,7 +670,7 @@ Deno.serve(async (req: Request) => {
 
       const totalPaid = paidSessions.reduce((sum: number, s: any) => sum + (s.amount_total || 0), 0) / 100;
       const newAmountPaid = (estInvoice.amount_paid || 0) + totalPaid;
-      const balanceDue = Math.max(0, (estInvoice.total_amount || 0) - (estInvoice.deposit_applied || 0) - newAmountPaid);
+      const balanceDue = Math.max(0, (estInvoice.total_amount || 0) - newAmountPaid);
       const newStatus = balanceDue <= 0 ? 'paid' : 'partial';
 
       await supabase

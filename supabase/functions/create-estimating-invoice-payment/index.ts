@@ -86,7 +86,7 @@ Deno.serve(withErrorHandling(async (req: Request) => {
       throw new Error(`Unauthorized to access this invoice: user ${user.id} role is ${profile?.role ?? 'null'}, invoice yacht_id is ${invoice.yacht_id ?? 'null'}`);
     }
 
-    const balanceDue = invoice.balance_due || (invoice.total_amount - invoice.deposit_applied - invoice.amount_paid);
+    const balanceDue = invoice.balance_due || (invoice.total_amount - invoice.amount_paid);
 
     if (balanceDue <= 0) {
       throw new Error('Invoice is already paid in full');
