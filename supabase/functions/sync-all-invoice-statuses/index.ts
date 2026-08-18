@@ -89,7 +89,7 @@ Deno.serve(async (req: Request) => {
           }
 
           const newAmountPaid = (invoice.amount_paid || 0) + amountPaid;
-          const newBalanceDue = Math.max(0, (invoice.total_amount || 0) - newAmountPaid);
+          const newBalanceDue = Math.max(0, (invoice.total_amount || 0) - (invoice.deposit_applied || 0) - newAmountPaid);
           const newStatus = newBalanceDue <= 0 ? 'paid' : 'partial';
 
           await supabase

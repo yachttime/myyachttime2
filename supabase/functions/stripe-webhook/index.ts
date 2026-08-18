@@ -630,7 +630,7 @@ Deno.serve(async (req: Request) => {
           .single();
 
         const newAmountPaid = (invoice?.amount_paid || 0) + amountPaid;
-        const newBalanceDue = Math.max(0, invoice?.total_amount - newAmountPaid);
+        const newBalanceDue = Math.max(0, invoice?.total_amount - invoice?.deposit_applied - newAmountPaid);
         const newPaymentStatus = newBalanceDue <= 0 ? 'paid' : newAmountPaid > 0 ? 'partial' : 'unpaid';
 
         await supabase
@@ -932,7 +932,7 @@ Deno.serve(async (req: Request) => {
           const amountPaid = (session.amount_total || 0) / 100;
           const paymentIntentId = session.payment_intent;
           const newAmountPaid = (existingInvoice.amount_paid || 0) + amountPaid;
-          const newBalanceDue = Math.max(0, existingInvoice.total_amount - newAmountPaid);
+          const newBalanceDue = Math.max(0, existingInvoice.total_amount - (existingInvoice.deposit_applied || 0) - newAmountPaid);
           const newPaymentStatus = newBalanceDue <= 0 ? 'paid' : 'partial';
 
           await supabase.from('estimating_invoices').update({
