@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Building2, Plus, CreditCard as Edit2, Eye, Users, DollarSign, Search, CheckCircle, XCircle, Upload, MapPin, User } from 'lucide-react';
+import { Building2, Plus, CreditCard as Edit2, Eye, Users, DollarSign, Search, CheckCircle, XCircle, Upload, MapPin, User, Activity } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useCompany } from '../contexts/CompanyContext';
 import { useNotification } from '../contexts/NotificationContext';
@@ -31,6 +31,7 @@ interface Company {
   timezone: string;
   default_tax_rate: number;
   is_active: boolean;
+  offers_monitoring: boolean;
   created_at: string;
 }
 
@@ -77,6 +78,7 @@ export function CompanyManagement() {
     website: '',
     timezone: 'America/New_York',
     default_tax_rate: 0,
+    offers_monitoring: false,
   });
   const [saving, setSaving] = useState(false);
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -258,6 +260,7 @@ export function CompanyManagement() {
       website: '',
       timezone: 'America/New_York',
       default_tax_rate: 0,
+      offers_monitoring: false,
     });
     setShowAddModal(true);
   };
@@ -292,6 +295,7 @@ export function CompanyManagement() {
       website: company.website || '',
       timezone: company.timezone,
       default_tax_rate: company.default_tax_rate,
+      offers_monitoring: company.offers_monitoring,
     });
 
     // Load surcharge manager email from company_settings
@@ -362,6 +366,7 @@ export function CompanyManagement() {
             logo_url: logoUrl,
             timezone: formData.timezone,
             default_tax_rate: formData.default_tax_rate,
+            offers_monitoring: (formData as any).offers_monitoring ?? false,
           })
           .eq('id', selectedCompany.id);
 
@@ -406,6 +411,7 @@ export function CompanyManagement() {
             timezone: formData.timezone,
             default_tax_rate: formData.default_tax_rate,
             is_active: true,
+            offers_monitoring: (formData as any).offers_monitoring ?? false,
           })
           .select()
           .single();
@@ -975,6 +981,25 @@ export function CompanyManagement() {
                         className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 text-white"
                       />
                       <p className="text-xs text-slate-400 mt-1">When set, this email will automatically be CC'd on any invoice email that includes a surcharge.</p>
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <div className="flex items-center justify-between bg-slate-700/50 rounded-lg p-4">
+                        <div className="flex items-center gap-3">
+                          <Activity className="w-5 h-5 text-cyan-400" />
+                          <div>
+                            <label className="block text-sm font-medium">Vessel Monitoring Provider</label>
+                            <p className="text-xs text-slate-400 mt-0.5">Allow this company to offer vessel monitoring as an add-on service</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => { updateFormData({ offers_monitoring: !formData.offers_monitoring } as any); }}
+                          className={`relative w-12 h-6 rounded-full transition-colors ${formData.offers_monitoring ? 'bg-cyan-600' : 'bg-slate-600'}`}
+                        >
+                          <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${formData.offers_monitoring ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>

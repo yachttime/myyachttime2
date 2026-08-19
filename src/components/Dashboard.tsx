@@ -13,6 +13,7 @@ import { OwnerHandoffPDFView } from './OwnerHandoffPDFView';
 import { FileUploadDropzone } from './FileUploadDropzone';
 import { SmartLockControls } from './SmartLockControls';
 import { SmartDeviceManagement } from './SmartDeviceManagement';
+import { VesselMonitoring } from './VesselMonitoring';
 import { VesselManagementAgreementForm } from './VesselManagementAgreementForm';
 import { VesselAgreementViewer } from './VesselAgreementViewer';
 import { PrintableUserList } from './PrintableUserList';
@@ -76,7 +77,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   };
 
   // Helper function to set admin view and persist to localStorage
-  const setAdminViewPersisted = (view: 'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies' | 'maintenancerequests') => {
+  const setAdminViewPersisted = (view: 'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies' | 'maintenancerequests' | 'vesselmonitoring') => {
     setAdminView(view);
     try {
       localStorage.setItem('adminView', view);
@@ -413,11 +414,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [resumingQueueItemId, setResumingQueueItemId] = useState<string | null>(null);
   const queueUploadAttemptedRef = useRef(false);
 
-  const [adminView, setAdminView] = useState<'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies' | 'maintenancerequests'>(() => {
+  const [adminView, setAdminView] = useState<'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies' | 'maintenancerequests' | 'vesselmonitoring'>(() => {
     try {
       const stored = localStorage.getItem('adminView');
-      if (stored && ['menu', 'inspection', 'yachts', 'ownertrips', 'repairs', 'ownerchat', 'messages', 'mastercalendar', 'ownerhandoff', 'users', 'appointments', 'staffappointment', 'smartdevices', 'companies'].includes(stored)) {
-        return stored as 'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies';
+      if (stored && ['menu', 'inspection', 'yachts', 'ownertrips', 'repairs', 'ownerchat', 'messages', 'mastercalendar', 'ownerhandoff', 'users', 'appointments', 'staffappointment', 'smartdevices', 'companies', 'vesselmonitoring'].includes(stored)) {
+        return stored as 'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies' | 'maintenancerequests' | 'vesselmonitoring';
       }
       return 'menu';
     } catch {
@@ -939,6 +940,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   useEffect(() => {
     if (!effectiveRole) return;
     const masterOnlyViews = ['appointments', 'staffappointment', 'smartdevices', 'companies'];
+    // vesselmonitoring is available to staff and master (not owner)
     const staffOnlyViews = ['inspection', 'yachts', 'repairs', 'ownertrips', 'ownerchat', 'messages', 'ownerhandoff', 'users'];
     if (masterOnlyViews.includes(adminView) && !isMasterRole(effectiveRole)) {
       setAdminViewPersisted('menu');
@@ -16717,6 +16719,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               ) : adminView === 'smartdevices' ? (
                 <AdminViewWrapper onBack={() => setAdminViewPersisted('menu')} backHoverColor="hover:text-green-500">
                   <SmartDeviceManagement />
+                </AdminViewWrapper>
+              ) : adminView === 'vesselmonitoring' ? (
+                <AdminViewWrapper onBack={() => setAdminViewPersisted('menu')} backHoverColor="hover:text-cyan-500">
+                  <VesselMonitoring effectiveRole={effectiveRole} />
                 </AdminViewWrapper>
               ) : adminView === 'maintenancerequests' ? (
                 <AdminViewWrapper onBack={() => setAdminViewPersisted('menu')}>
