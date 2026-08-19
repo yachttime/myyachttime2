@@ -25,6 +25,16 @@
   testing one module at a time. Merged together, they need distinct
   bus objects, which is what's implemented below.
 
+  WIFI CREDENTIALS:
+  The firmware reads WiFi SSID and password from a file on the microSD
+  card (/wifi_config.txt, format: SSID|password). This file is written
+  automatically — when the yacht's WiFi info is updated in the dashboard,
+  the edge function returns the new credentials in its response, and the
+  firmware rewrites the SD file and reconnects. On first boot with no SD
+  config file, the FALLBACK_WIFI_SSID/PASSWORD constants below are used
+  (set these to the marina's guest WiFi or whatever gets the device on
+  the network initially so it can pull the real credentials).
+
   STILL NEEDS FIELD CALIBRATION (see relevant sections):
     - PC817 active-high vs active-low polarity (Module 1 origin)
     - VOLTMETER_SCALE_FACTOR (Module 3 origin)
@@ -47,8 +57,16 @@
 // ============================================================
 // SHARED: WiFi, telemetry, SD buffering
 // ============================================================
-const char* WIFI_SSID     = "YOUR_WIFI_SSID";
-const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
+
+// Fallback WiFi used on first boot before the device has pulled the
+// yacht's real credentials from the edge function. Set to the marina
+// guest WiFi or whatever gets the device online initially.
+const char* FALLBACK_WIFI_SSID     = "MARINA_GUEST";
+const char* FALLBACK_WIFI_PASSWORD = "marina123";
+
+// Active WiFi credentials — loaded from SD on boot, updated remotely.
+String wifiSSID     = FALLBACK_WIFI_SSID;
+String wifiPassword = FALLBACK_WIFI_PASSWORD;
 
 const char* TELEMETRY_ENDPOINT =
     "https://YOUR_PROJECT.supabase.co/functions/v1/vessel-monitor-telemetry";
@@ -59,12 +77,64 @@ const char* DEVICE_SERIAL   = "YOUR_DEVICE_SERIAL";
 #define SD_SPI_SCK_PIN  18
 #define SD_SPI_MOSI_PIN 23
 #define SD_SPI_MISO_PIN 38
-const char* BUFFER_FILE = "/buffer.jsonl";
+const char* BUFFER_FILE  = "/buffer.jsonl";
+const char* WIFI_CFG_FILE = "/wifi_config.txt";
 bool sdReady = false;
 
+// Loads WiFi SSID|password from the SD config file. Falls back to the
+// hardcoded constants if the file is missing or unreadable.
+void loadWiFiConfig() {
+  if (!sdReady || !SD.exists(WIFI_CFG_FILE)) {
+    Serial.println("No WiFi config on SD — using fallback credentials");
+    wifiSSID     = FALLBACK_WIFI_SSID;
+    wifiPassword = FALLBACK_WIFI_PASSWORD;
+    return;
+  }
+  File f = SD.open(WIFI_CFG_FILE, FILE_READ);
+  if (!f) {
+    Serial.println("Failed to open WiFi config — using fallback");
+    wifiSSID     = FALLBACK_WIFI_SSID;
+    wifiPassword = FALLBACK_WIFI_PASSWORD;
+    return;
+  }
+  String line = f.readStringUntil('\n');
+  f.close();
+  line.trim();
+  int sep = line.indexOf('|');
+  if (sep < 0 || sep == 0 || sep == (int)line.length() - 1) {
+    Serial.println("Malformed WiFi config — using fallback");
+    wifiSSID     = FALLBACK_WIFI_SSID;
+    wifiPassword = FALLBACK_WIFI_PASSWORD;
+    return;
+  }
+  wifiSSID     = line.substring(0, sep);
+  wifiPassword = line.substring(sep + 1);
+  Serial.printf("Loaded WiFi config from SD: SSID=%s\n", wifiSSID.c_str());
+}
+
+// Saves updated WiFi credentials to the SD config file.
+void saveWiFiConfig(const String& ssid, const String& password) {
+  if (!sdReady) {
+    Serial.println("Can't save WiFi config — SD not available");
+    return;
+  }
+  SD.remove(WIFI_CFG_FILE);
+  File f = SD.open(WIFI_CFG_FILE, FILE_WRITE);
+  if (!f) {
+    Serial.println("Failed to write WiFi config");
+    return;
+  }
+  f.print(ssid);
+  f.print('|');
+  f.println(password);
+  f.close();
+  Serial.printf("Saved WiFi config to SD: SSID=%s\n", ssid.c_str());
+}
+
 void setupWiFi() {
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  Serial.print("Connecting to WiFi");
+  WiFi.begin(wifiSSID.c_str(), wifiPassword.c_str());
+  Serial.print("Connecting to WiFi: ");
+  Serial.println(wifiSSID);
   unsigned long start = millis();
   while (WiFi.status() != WL_CONNECTED && millis() - start < 15000) {
     delay(500);
@@ -96,7 +166,53 @@ bool setupSDBuffer() {
   return true;
 }
 
+// Extracts a JSON string value by key from a simple flat JSON response.
+// Handles null values and basic escaping. Not a full parser — just
+// enough for the wifi object in the edge function response.
+String extractJsonString(const String& json, const char* key) {
+  String pattern = String("\"") + key + "\":";
+  int idx = json.indexOf(pattern);
+  if (idx < 0) return "";
+  idx += pattern.length();
+  while (idx < (int)json.length() && json[idx] == ' ') idx++;
+  if (idx >= (int)json.length()) return "";
+  if (json[idx] == 'n') return "";  // null
+  if (json[idx] != '"') return "";
+  idx++;
+  String result = "";
+  while (idx < (int)json.length() && json[idx] != '"') {
+    if (json[idx] == '\\' && idx + 1 < (int)json.length()) {
+      idx++;
+    }
+    result += json[idx];
+    idx++;
+  }
+  return result;
+}
+
+// Checks the edge function response for updated WiFi credentials. If the
+// yacht's WiFi info has changed in the dashboard, saves the new creds to
+// SD and reconnects. Called after every successful telemetry POST.
+void checkWifiUpdate(const String& response) {
+  String newSsid = extractJsonString(response, "ssid");
+  String newPass = extractJsonString(response, "password");
+  if (newSsid.length() == 0) return;  // no wifi object or null ssid
+  if (newSsid == wifiSSID && newPass == wifiPassword) return;  // unchanged
+
+  Serial.printf("WiFi credentials updated remotely: %s -> %s\n",
+                wifiSSID.c_str(), newSsid.c_str());
+  saveWiFiConfig(newSsid, newPass);
+  wifiSSID     = newSsid;
+  wifiPassword = newPass;
+
+  // Reconnect with the new credentials
+  WiFi.disconnect(true);
+  delay(500);
+  setupWiFi();
+}
+
 // Sends a telemetry payload to the edge function. Returns true on 2xx.
+// Also checks the response for updated WiFi credentials from the yacht.
 bool sendToTelemetry(const String& jsonPayload) {
   if (WiFi.status() != WL_CONNECTED) return false;
 
@@ -106,6 +222,10 @@ bool sendToTelemetry(const String& jsonPayload) {
   http.addHeader("X-Device-Key", DEVICE_API_KEY);
 
   int httpCode = http.POST(jsonPayload);
+  if (httpCode >= 200 && httpCode < 300) {
+    String response = http.getString();
+    checkWifiUpdate(response);
+  }
   http.end();
   return (httpCode >= 200 && httpCode < 300);
 }
@@ -572,6 +692,7 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(ANEMOMETER_PIN), onAnemometerPulse, FALLING);
 
   sdReady = setupSDBuffer();
+  loadWiFiConfig();
   setupWiFi();
   setupEXTIO2();
   setupINA226();

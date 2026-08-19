@@ -50,10 +50,10 @@ Deno.serve(async (req: Request) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Find the device by api_key
+    // Find the device by api_key, join yacht to get WiFi credentials
     const { data: device, error: deviceError } = await supabase
       .from("vessel_monitor_devices")
-      .select("id, yacht_id, company_id, device_serial, api_key")
+      .select("id, yacht_id, company_id, device_serial, api_key, yachts(wifi_name, wifi_password)")
       .eq("api_key", deviceKey)
       .maybeSingle();
 
@@ -257,8 +257,22 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    // Include the yacht's current WiFi credentials so the firmware can
+    // auto-update its SD-stored config when the dashboard changes them.
+    // The firmware compares these against what it has on SD and rewrites
+    // the config file + reconnects WiFi when they differ.
+    const yachtWifi = (device as any)?.yachts;
+
     return new Response(
-      JSON.stringify({ success: true, readings: readingsToInsert.length, alerts: alertsToInsert.length }),
+      JSON.stringify({
+        success: true,
+        readings: readingsToInsert.length,
+        alerts: alertsToInsert.length,
+        wifi: yachtWifi ? {
+          ssid: yachtWifi.wifi_name || null,
+          password: yachtWifi.wifi_password || null,
+        } : null,
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
