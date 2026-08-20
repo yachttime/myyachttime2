@@ -69,9 +69,9 @@ String wifiSSID     = FALLBACK_WIFI_SSID;
 String wifiPassword = FALLBACK_WIFI_PASSWORD;
 
 const char* TELEMETRY_ENDPOINT =
-    "https://YOUR_PROJECT.supabase.co/functions/v1/vessel-monitor-telemetry";
-const char* DEVICE_API_KEY = "YOUR_DEVICE_API_KEY";
-const char* DEVICE_SERIAL   = "YOUR_DEVICE_SERIAL";
+    "https://eqiecntollhgfxmmbize.supabase.co/functions/v1/vessel-monitor-telemetry";
+const char* DEVICE_API_KEY = "e4411330-5c9f-4d81-ab8b-7e4083ab10d6";
+const char* DEVICE_SERIAL   = "k034326040100309";
 
 #define SD_SPI_CS_PIN   4
 #define SD_SPI_SCK_PIN  18
