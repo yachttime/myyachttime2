@@ -31,6 +31,7 @@
 
 #include <M5Unified.h>
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <Wire.h>
 #include <SPI.h>
@@ -40,7 +41,7 @@
 // ============================================================
 // SHARED: WiFi, Telemetry endpoint, SD buffering
 // ============================================================
-const char* WIFI_SSID     = "AZMarine";
+const char* WIFI_SSID     = "AZ Marine";
 const char* WIFI_PASSWORD = "9286376500";
 
 // ORION's actual architecture: a single Supabase edge function endpoint,
@@ -106,13 +107,32 @@ bool setupSDBuffer() {
 // to match.
 bool sendToSupabase(const char* endpoint, const String& jsonPayload) {
   if (WiFi.status() != WL_CONNECTED) return false;
+
+  // HTTPS requires an explicit secure client — without this, HTTPClient can
+  // hang indefinitely trying to negotiate TLS instead of failing cleanly,
+  // which is what caused the "stuck" behavior. setInsecure() skips
+  // certificate validation (fine for getting this working now; a properly
+  // pinned root CA would be the more secure long-term choice).
+  WiFiClientSecure client;
+  client.setInsecure();
+  client.setTimeout(10000);  // don't hang forever if the server's slow/unreachable
+
   HTTPClient http;
-  http.begin(TELEMETRY_URL);
+  http.setTimeout(10000);
+  if (!http.begin(client, TELEMETRY_URL)) {
+    Serial.println("HTTPClient begin() failed");
+    return false;
+  }
   http.addHeader("Content-Type", "application/json");
   http.addHeader("X-Device-Key", DEVICE_API_KEY);
   String body = String("{\"device_serial\":\"") + DEVICE_SERIAL +
                 "\",\"data\":" + jsonPayload + "}";
   int httpCode = http.POST(body);
+  if (httpCode > 0) {
+    Serial.printf("Telemetry POST -> HTTP %d\n", httpCode);
+  } else {
+    Serial.printf("Telemetry POST failed: %s\n", http.errorToString(httpCode).c_str());
+  }
   http.end();
   return (httpCode >= 200 && httpCode < 300);
 }
