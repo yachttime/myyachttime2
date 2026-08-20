@@ -9718,8 +9718,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       );
                     })()}
 
-                    {/* Storm warning alert */}
-                    {nwsForecast.some(p =>
+                    {/* Storm warning alert — only for today/tonight */}
+                    {nwsForecast.slice(0, 2).some(p =>
                       (p.shortForecast || '').toLowerCase().includes('thunder') ||
                       (p.shortForecast || '').toLowerCase().includes('storm') ||
                       (p.detailedForecast || '').toLowerCase().includes('thunder') ||
@@ -9728,8 +9728,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       <div className="bg-red-900/30 border border-red-500/50 rounded-lg p-3 flex items-start gap-2">
                         <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
                         <div>
-                          <p className="text-sm font-semibold text-red-200">Storm Activity in Forecast</p>
-                          <p className="text-xs text-red-300 mt-0.5">Thunderstorms detected in the upcoming forecast. Secure loose items on deck, close hatches, and ensure your vessels anchor lines are secure.</p>
+                          <p className="text-sm font-semibold text-red-200">Storm Activity Today</p>
+                          <p className="text-xs text-red-300 mt-0.5">Thunderstorms detected in today's forecast. Secure loose items on deck, close hatches, and ensure your vessels anchor lines are secure.</p>
                         </div>
                       </div>
                     )}
@@ -9738,8 +9738,14 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     <div>
                       <h4 className="text-sm font-semibold text-slate-300 mb-2">Upcoming Forecast</h4>
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                        {nwsForecast.slice(1, 7).map((period) => (
-                          <div key={period.number} className="bg-slate-900/50 rounded-lg p-3 border border-slate-700">
+                        {nwsForecast.slice(1, 7).map((period) => {
+                          const isStormDay =
+                            (period.shortForecast || '').toLowerCase().includes('thunder') ||
+                            (period.shortForecast || '').toLowerCase().includes('storm') ||
+                            (period.detailedForecast || '').toLowerCase().includes('thunder') ||
+                            (period.detailedForecast || '').toLowerCase().includes('lightning');
+                          return (
+                          <div key={period.number} className={`rounded-lg p-3 border ${isStormDay ? 'bg-amber-900/30 border-amber-600/50' : 'bg-slate-900/50 border-slate-700'}`}>
                             <div className="flex items-center justify-between mb-1">
                               <span className="text-xs font-medium text-slate-300">{period.name}</span>
                               {period.icon && <img src={period.icon} alt="" className="w-7 h-7" />}
@@ -9756,8 +9762,15 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 {period.windSpeed}
                               </span>
                             </div>
+                            {isStormDay && (
+                              <div className="flex items-center gap-1 mt-2 text-xs text-amber-400">
+                                <AlertTriangle className="w-3 h-3" />
+                                <span>Thunderstorms possible</span>
+                              </div>
+                            )}
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
 
