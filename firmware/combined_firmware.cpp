@@ -61,8 +61,8 @@
 // Fallback WiFi used on first boot before the device has pulled the
 // yacht's real credentials from the edge function. Set to the marina
 // guest WiFi or whatever gets the device online initially.
-const char* FALLBACK_WIFI_SSID     = "MARINA_GUEST";
-const char* FALLBACK_WIFI_PASSWORD = "marina123";
+const char* FALLBACK_WIFI_SSID     = "AZMarine";
+const char* FALLBACK_WIFI_PASSWORD = "9286376500";
 
 // Active WiFi credentials — loaded from SD on boot, updated remotely.
 String wifiSSID     = FALLBACK_WIFI_SSID;
