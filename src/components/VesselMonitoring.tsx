@@ -121,22 +121,32 @@ const PORT_LABELS: Record<string, { name: string; type: string }> = {
 
 const DEFAULT_SENSORS: Record<string, { sensor_type: string; sensor_name: string; unit_of_measure: string }[]> = {
   A: [
-    { sensor_type: 'bilge_pump', sensor_name: 'Bilge Pump', unit_of_measure: 'on/off' },
-    { sensor_type: 'water_pump', sensor_name: 'Water Pump', unit_of_measure: 'on/off' },
-    { sensor_type: 'ac_pump', sensor_name: 'AC Pump', unit_of_measure: 'on/off' },
+    { sensor_type: 'bilge_pump', sensor_name: 'Port Engine Room Bilge Pump', unit_of_measure: 'on/off' },
+    { sensor_type: 'bilge_pump', sensor_name: 'Starboard Engine Room Bilge Pump', unit_of_measure: 'on/off' },
+    { sensor_type: 'bilge_pump', sensor_name: 'Aft Bilge Pump', unit_of_measure: 'on/off' },
+    { sensor_type: 'bilge_pump', sensor_name: 'Midship Bilge Pump', unit_of_measure: 'on/off' },
+    { sensor_type: 'bilge_pump', sensor_name: 'High Water Alarm', unit_of_measure: 'on/off' },
+    { sensor_type: 'ac_pump', sensor_name: 'A/C Water Pump', unit_of_measure: 'on/off' },
+    { sensor_type: 'water_pump', sensor_name: 'Fresh Water Pump', unit_of_measure: 'on/off' },
   ],
   B: [
-    { sensor_type: 'battery_bank', sensor_name: 'Port Battery Bank', unit_of_measure: 'V' },
-    { sensor_type: 'battery_bank', sensor_name: 'Starboard Battery Bank', unit_of_measure: 'V' },
-    { sensor_type: 'engine_alternator', sensor_name: 'Engine Alternator', unit_of_measure: 'V' },
-    { sensor_type: 'environment', sensor_name: 'Engine Room Temp', unit_of_measure: '°F' },
+    { sensor_type: 'battery_bank', sensor_name: 'Port Engine Battery', unit_of_measure: 'V' },
+    { sensor_type: 'battery_bank', sensor_name: 'Starboard Engine Battery', unit_of_measure: 'V' },
+    { sensor_type: 'battery_bank', sensor_name: 'Port Generator Battery', unit_of_measure: 'V' },
+    { sensor_type: 'battery_bank', sensor_name: 'Starboard Generator Battery', unit_of_measure: 'V' },
+    { sensor_type: 'battery_bank', sensor_name: 'Inverter Battery Bank', unit_of_measure: 'V' },
+    { sensor_type: 'battery_bank', sensor_name: '12V System Battery', unit_of_measure: 'V' },
+    { sensor_type: 'engine_alternator', sensor_name: 'Port Engine Alternator', unit_of_measure: 'V' },
+    { sensor_type: 'engine_alternator', sensor_name: 'Starboard Engine Alternator', unit_of_measure: 'V' },
+    { sensor_type: 'engine_alternator', sensor_name: 'Port Generator Alternator', unit_of_measure: 'V' },
+    { sensor_type: 'engine_alternator', sensor_name: 'Starboard Generator Alternator', unit_of_measure: 'V' },
+    { sensor_type: 'wind_vane', sensor_name: 'Wind Vane Direction', unit_of_measure: 'degrees' },
   ],
   C: [
-    { sensor_type: 'gps', sensor_name: 'GPS', unit_of_measure: 'knots' },
+    { sensor_type: 'gps', sensor_name: 'GPS Location', unit_of_measure: 'mph' },
   ],
   D: [
-    { sensor_type: 'anemometer', sensor_name: 'Anemometer', unit_of_measure: 'knots' },
-    { sensor_type: 'wind_vane', sensor_name: 'Wind Vane', unit_of_measure: 'degrees' },
+    { sensor_type: 'anemometer', sensor_name: 'Wind Speed', unit_of_measure: 'mph' },
   ],
 };
 

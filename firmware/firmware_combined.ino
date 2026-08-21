@@ -19,11 +19,24 @@
   bus objects, which is what's implemented below.
 
   TELEMETRY FORMAT:
-  Each reading is sent as a single-port, single-sensor POST to the
-  vessel-monitor-telemetry edge function. The body looks like:
-    {"device_serial":"...","ports":[{"port":"A","sensors":[{...}]}]}
-  The edge function auto-creates sensors and ports on first sighting,
-  then updates current_value / last_reading_at on subsequent posts.
+  All readings POST to the vessel-monitor-telemetry edge function as a
+  JSON body with this structure (one port / one sensor per POST for
+  event-driven readings; the edge function handles auto-creating
+  sensors and ports as needed):
+    {
+      "device_serial": "...",
+      "ports": [{
+        "port": "A",
+        "sensors": [{
+          "sensor_type": "bilge_pump",
+          "sensor_name": "Port Engine Room Bilge Pump",
+          "value": "active",
+          "numeric_value": 1,
+          "unit_of_measure": "on/off",
+          "status": "normal"
+        }]
+      }]
+    }
 
   STILL NEEDS FIELD CALIBRATION (see relevant sections):
     - PC817 active-high vs active-low polarity (Module 1 origin)
@@ -54,6 +67,7 @@ const char* WIFI_PASSWORD = "9286376500";
 const char* TELEMETRY_URL   = "https://eqiecntollhgfxmmbize.supabase.co/functions/v1/vessel-monitor-telemetry";
 const char* DEVICE_API_KEY  = "e4411330-5c9f-4d81-ab8b-7e4083ab10d6";
 const char* DEVICE_SERIAL   = "k034326040100309";
+const char* FIRMWARE_VERSION = "2.0.0";
 
 #define SD_SPI_CS_PIN   4
 #define SD_SPI_SCK_PIN  18
@@ -90,15 +104,9 @@ bool setupSDBuffer() {
   return true;
 }
 
-// Builds the full edge-function payload for a single sensor reading and
-// POSTs it. The edge function expects:
-//   {"device_serial":"...","ports":[{"port":"A","sensors":[{"sensor_type":"...","sensor_name":"...","value":"...","numeric_value":1.2,"unit_of_measure":"...","status":"normal"}]}]}
-// Each call sends exactly one port with one sensor — the edge function
-// handles auto-creation and updates on a per-sensor basis.
-bool sendToSupabase(const char* port, const char* sensorType,
-                     const char* sensorName, const char* value,
-                     float numericValue, const char* unit,
-                     const char* status) {
+// Sends a full JSON telemetry body to the edge function. The body must
+// already contain device_serial and the ports/sensors structure.
+bool sendToSupabase(const String& jsonBody) {
   if (WiFi.status() != WL_CONNECTED) return false;
 
   WiFiClientSecure client;
@@ -113,20 +121,9 @@ bool sendToSupabase(const char* port, const char* sensorType,
   }
   http.addHeader("Content-Type", "application/json");
   http.addHeader("X-Device-Key", DEVICE_API_KEY);
-
-  // Build the JSON body manually to avoid ArduinoJson dependency.
-  String body = String("{\"device_serial\":\"") + DEVICE_SERIAL +
-                "\",\"ports\":[{\"port\":\"" + port + "\"," +
-                "\"sensors\":[{\"sensor_type\":\"" + sensorType + "\"," +
-                "\"sensor_name\":\"" + sensorName + "\"," +
-                "\"value\":\"" + value + "\"," +
-                "\"numeric_value\":" + String(numericValue, 4) + "," +
-                "\"unit_of_measure\":\"" + unit + "\"," +
-                "\"status\":\"" + status + "\"}]}]}";
-
-  int httpCode = http.POST(body);
+  int httpCode = http.POST(jsonBody);
   if (httpCode > 0) {
-    Serial.printf("Telemetry POST [%s/%s] -> HTTP %d\n", port, sensorName, httpCode);
+    Serial.printf("Telemetry POST -> HTTP %d\n", httpCode);
   } else {
     Serial.printf("Telemetry POST failed: %s\n", http.errorToString(httpCode).c_str());
   }
@@ -134,50 +131,37 @@ bool sendToSupabase(const char* port, const char* sensorType,
   return (httpCode >= 200 && httpCode < 300);
 }
 
-// Buffered reading stored as a compact pipe-delimited line so flushBuffer
-// can reconstruct the full payload. Format:
-//   port|sensorType|sensorName|value|numericValue|unit|status
-void bufferReading(const char* port, const char* sensorType,
-                   const char* sensorName, const char* value,
-                   float numericValue, const char* unit,
-                   const char* status) {
+// Builds a complete telemetry payload for a single sensor reading and
+// sends it (or buffers to SD if WiFi is down).
+void sendSensorReading(const char* port, const char* sensorType,
+                       const char* sensorName, const String& value,
+                       float numericValue, const char* unit,
+                       const char* status = "normal") {
+  String body = String("{\"device_serial\":\"") + DEVICE_SERIAL +
+                "\",\"firmware_version\":\"" + FIRMWARE_VERSION +
+                "\",\"ports\":[{\"port\":\"" + port +
+                "\",\"sensors\":[{\"sensor_type\":\"" + sensorType +
+                "\",\"sensor_name\":\"" + sensorName +
+                "\",\"value\":\"" + value +
+                "\",\"numeric_value\":" + String(numericValue, 2) +
+                ",\"unit_of_measure\":\"" + unit +
+                "\",\"status\":\"" + status + "\"}]}]}";
+
+  if (sendToSupabase(body)) return;
   if (!sdReady) {
     Serial.println("Send failed, no SD — reading dropped");
     return;
   }
   File f = SD.open(BUFFER_FILE, FILE_APPEND);
   if (f) {
-    f.print(port);
-    f.print("|");
-    f.print(sensorType);
-    f.print("|");
-    f.print(sensorName);
-    f.print("|");
-    f.print(value);
-    f.print("|");
-    f.print(numericValue, 4);
-    f.print("|");
-    f.print(unit);
-    f.print("|");
-    f.println(status);
+    f.println(body);
     f.close();
     Serial.println("Buffered reading to SD");
   }
 }
 
-// Attempts to send a reading immediately; falls back to SD buffer on failure.
-void sendReading(const char* port, const char* sensorType,
-                 const char* sensorName, const char* value,
-                 float numericValue, const char* unit,
-                 const char* status) {
-  if (sendToSupabase(port, sensorType, sensorName, value, numericValue, unit, status)) return;
-  bufferReading(port, sensorType, sensorName, value, numericValue, unit, status);
-}
-
 const char* BUFFER_TEMP_FILE = "/buffer_tmp.jsonl";
 
-// Streams the buffer file line-by-line. Each line is a pipe-delimited
-// reading that gets reconstructed into the full ports-format payload.
 void flushBuffer() {
   if (!sdReady || WiFi.status() != WL_CONNECTED || !SD.exists(BUFFER_FILE)) return;
 
@@ -202,28 +186,7 @@ void flushBuffer() {
       continue;
     }
 
-    // Parse: port|sensorType|sensorName|value|numericValue|unit|status
-    int sep1 = line.indexOf('|');
-    if (sep1 < 0) continue;
-    int sep2 = line.indexOf('|', sep1 + 1);
-    int sep3 = line.indexOf('|', sep2 + 1);
-    int sep4 = line.indexOf('|', sep3 + 1);
-    int sep5 = line.indexOf('|', sep4 + 1);
-    int sep6 = line.indexOf('|', sep5 + 1);
-    if (sep6 < 0) continue;
-
-    String bPort       = line.substring(0, sep1);
-    String bSensorType = line.substring(sep1 + 1, sep2);
-    String bSensorName = line.substring(sep2 + 1, sep3);
-    String bValue      = line.substring(sep3 + 1, sep4);
-    String bNumeric    = line.substring(sep4 + 1, sep5);
-    String bUnit       = line.substring(sep5 + 1, sep6);
-    String bStatus     = line.substring(sep6 + 1);
-
-    if (sendToSupabase(bPort.c_str(), bSensorType.c_str(),
-                       bSensorName.c_str(), bValue.c_str(),
-                       bNumeric.toFloat(), bUnit.c_str(),
-                       bStatus.c_str())) {
+    if (sendToSupabase(line)) {
       sentCount++;
     } else {
       hitFailure = true;
@@ -254,15 +217,22 @@ void flushBuffer() {
 
 struct MonitoredChannel {
   uint8_t bit;
-  const char* name;
   const char* sensorType;
+  const char* name;
+  const char* unit;
   bool lastState;
+  bool lastInitialized;
 };
-MonitoredChannel channels[3] = {
-  {0, "Forward Bilge",        "bilge_pump", false},
-  {1, "Aft Bilge",            "bilge_pump", false},
-  {2, "Grundfos Pump (CU301)", "water_pump", false},
+MonitoredChannel channels[7] = {
+  {0, "bilge_pump", "Port Engine Room Bilge Pump",      "on/off", false, false},
+  {1, "bilge_pump", "Starboard Engine Room Bilge Pump",  "on/off", false, false},
+  {2, "bilge_pump", "Aft Bilge Pump",                    "on/off", false, false},
+  {3, "bilge_pump", "Midship Bilge Pump",                "on/off", false, false},
+  {4, "bilge_pump", "High Water Alarm",                  "on/off", false, false},
+  {5, "ac_pump",    "A/C Water Pump",                    "on/off", false, false},
+  {6, "water_pump", "Fresh Water Pump",                  "on/off", false, false},
 };
+const int NUM_CHANNELS = 7;
 
 void setupEXTIO2() {
   Wire.beginTransmission(EXTIO2_I2C_ADDR);
@@ -285,17 +255,25 @@ const unsigned long BILGE_CHECK_INTERVAL_MS = 1000;
 
 void handleBilgePump() {
   uint8_t portState = readEXTIO2();
-  for (int i = 0; i < 3; i++) {
+  for (int i = 0; i < NUM_CHANNELS; i++) {
     // Polarity assumed active-low (PC817 open-collector) — VERIFY against
     // real hardware and flip if needed.
     bool active = !((portState >> channels[i].bit) & 0x01);
-    if (active != channels[i].lastState) {
-      const char* valStr = active ? "active" : "inactive";
-      float numVal = active ? 1.0f : 0.0f;
-      const char* status = active ? "warning" : "normal";
-      sendReading("A", channels[i].sensorType, channels[i].name,
-                  valStr, numVal, "on/off", status);
+    if (!channels[i].lastInitialized || active != channels[i].lastState) {
+      const char* statusStr = active ? "normal" : "offline";
+      if (channels[i].bit == 4 && active) statusStr = "critical";
+
+      sendSensorReading(
+        "A",
+        channels[i].sensorType,
+        channels[i].name,
+        active ? "active" : "inactive",
+        active ? 1.0f : 0.0f,
+        channels[i].unit,
+        statusStr
+      );
       channels[i].lastState = active;
+      channels[i].lastInitialized = true;
     }
   }
 }
@@ -322,12 +300,12 @@ struct BatteryBank {
   uint8_t hubChannel;
 };
 BatteryBank banks[6] = {
-  {"Engine 1 Starting Battery",    false, 1},
-  {"Engine 2 Starting Battery",    false, 2},
-  {"Generator 1 Starting Battery", false, 3},
-  {"Generator 2 Starting Battery", false, 4},
+  {"Port Engine Battery",          false, 1},
+  {"Starboard Engine Battery",     false, 2},
+  {"Port Generator Battery",       false, 3},
+  {"Starboard Generator Battery",  false, 4},
   {"Inverter Battery Bank",        false, 5},
-  {"House 12V Battery Bank",       true,  0},
+  {"12V System Battery",           true,  0},
 };
 
 bool selectHubChannel(uint8_t hubAddr, uint8_t channel) {
@@ -388,15 +366,21 @@ void handleBatteryBanks() {
   } else {
     float voltage, current;
     if (readINA226(voltage, current)) {
-      String valStr = String(voltage, 2) + "V / " + String(current, 2) + "A";
+      String valueStr = String(voltage, 2) + "V / " + String(current, 2) + "A";
 
-      // Determine status: below 11.8V is critical, below 12.2V is warning
       const char* status = "normal";
-      if (voltage < 11.8f) status = "critical";
+      if (voltage < 11.5f) status = "critical";
       else if (voltage < 12.2f) status = "warning";
 
-      sendReading("B", "battery_bank", banks[batteryIndex].name,
-                  valStr.c_str(), voltage, "V", status);
+      sendSensorReading(
+        "B",
+        "battery_bank",
+        banks[batteryIndex].name,
+        valueStr,
+        voltage,
+        "V",
+        status
+      );
     }
   }
   batteryIndex = (batteryIndex + 1) % 6;
@@ -412,20 +396,19 @@ void handleBatteryBanks() {
 const float VOLTMETER_SCALE_FACTOR = 1.0f;  // TODO: calibrate against known voltage
 
 struct VoltagePoint {
-  const char* name;
   const char* sensorType;
+  const char* name;
   bool onSecondaryHub;
   uint8_t hubChannel;
   uint8_t adsChannel;
 };
 VoltagePoint points[5] = {
-  {"Engine 1 Alternator",    "engine_alternator", false, 6, 0},
-  {"Engine 2 Alternator",    "engine_alternator", false, 6, 1},
-  {"Generator 1 Alternator", "engine_alternator", true,  1, 0},
-  {"Generator 2 Alternator", "engine_alternator", true,  1, 1},
-  {"Wind Vane Direction",    "wind_vane",         true,  2, 0},
+  {"engine_alternator", "Port Engine Alternator",         false, 6, 0},
+  {"engine_alternator", "Starboard Engine Alternator",    false, 6, 1},
+  {"engine_alternator", "Port Generator Alternator",      true,  1, 0},
+  {"engine_alternator", "Starboard Generator Alternator", true,  1, 1},
+  {"wind_vane",         "Wind Vane Direction",             true,  2, 0},
 };
-// NOTE: hubChannel values are placeholders — cross-check against actual wiring.
 
 bool routeToPoint(const VoltagePoint& pt);
 
@@ -485,20 +468,28 @@ void handleVoltagePoints() {
     if (readADS1115(points[voltageIndex].adsChannel, rawVolts)) {
       bool isDirection = (voltageIndex == 4);
       if (isDirection) {
-        const char* dirStr = windVaneVoltageToDirection(rawVolts);
-        sendReading("B", "wind_vane", points[voltageIndex].name,
-                    dirStr, rawVolts, "direction", "normal");
+        const char* dir = windVaneVoltageToDirection(rawVolts);
+        sendSensorReading(
+          "B",
+          "wind_vane",
+          points[voltageIndex].name,
+          dir,
+          rawVolts,
+          "degrees",
+          "normal"
+        );
       } else {
         float scaled = rawVolts * VOLTMETER_SCALE_FACTOR;
-        String valStr = String(scaled, 2) + "V";
-
-        // Alternator should produce 13.8-14.4V when running; below 12.5V is warning
-        const char* status = "normal";
-        if (scaled < 12.0f) status = "critical";
-        else if (scaled < 12.5f) status = "warning";
-
-        sendReading("B", "engine_alternator", points[voltageIndex].name,
-                    valStr.c_str(), scaled, "V", status);
+        String valueStr = String(scaled, 2) + "V";
+        sendSensorReading(
+          "B",
+          points[voltageIndex].sensorType,
+          points[voltageIndex].name,
+          valueStr,
+          scaled,
+          "V",
+          "normal"
+        );
       }
     }
   }
@@ -534,17 +525,25 @@ void handleGPS() {
   if (millis() - lastGpsPush > GPS_PUSH_INTERVAL_MS) {
     lastGpsPush = millis();
     if (gps.location.isValid() && gps.location.isUpdated()) {
-      float lat = gps.location.lat();
-      float lng = gps.location.lng();
-      float speed = gps.speed.isValid() ? gps.speed.mph() : 0.0f;
-      float heading = gps.course.isValid() ? gps.course.deg() : 0.0f;
+      String valueStr = String(gps.location.lat(), 6) + "," + String(gps.location.lng(), 6);
+      float speedMph = gps.speed.isValid() ? gps.speed.mph() : 0.0f;
+      float headingDeg = gps.course.isValid() ? gps.course.deg() : 0.0f;
 
-      String valStr = String(lat, 6) + ", " + String(lng, 6) +
-                      " | " + String(speed, 1) + " mph | " +
-                      String(heading, 1) + " deg";
+      String body = String("{\"device_serial\":\"") + DEVICE_SERIAL +
+                    "\",\"firmware_version\":\"" + FIRMWARE_VERSION +
+                    "\",\"ports\":[{\"port\":\"C\",\"sensors\":[{\"sensor_type\":\"gps\""
+                    ",\"sensor_name\":\"GPS Location\""
+                    ",\"value\":\"" + valueStr + "\"" +
+                    ",\"numeric_value\":" + String(speedMph, 1) +
+                    ",\"unit_of_measure\":\"mph\"" +
+                    ",\"status\":\"normal\""
+                    ",\"heading_deg\":" + String(headingDeg, 1) +
+                    "}]}]}";
 
-      sendReading("C", "gps", "GPS Location",
-                  valStr.c_str(), lat, "lat/lng", "normal");
+      if (!sendToSupabase(body) && sdReady) {
+        File f = SD.open(BUFFER_FILE, FILE_APPEND);
+        if (f) { f.println(body); f.close(); }
+      }
     } else {
       Serial.println("No valid GPS fix yet");
     }
@@ -561,15 +560,15 @@ void handleWindSpeed() {
     float pulsesPerSecond = count / (WIND_CALC_INTERVAL_MS / 1000.0f);
     float windMph = pulsesPerSecond * MPH_PER_PULSE_PER_SEC;
 
-    String valStr = String(windMph, 1) + " mph";
-
-    // High wind thresholds
-    const char* status = "normal";
-    if (windMph >= 38.0f) status = "critical";
-    else if (windMph >= 25.0f) status = "warning";
-
-    sendReading("D", "anemometer", "Wind Speed",
-                valStr.c_str(), windMph, "mph", status);
+    sendSensorReading(
+      "D",
+      "anemometer",
+      "Wind Speed",
+      String(windMph, 1) + " mph",
+      windMph,
+      "mph",
+      "normal"
+    );
     lastWindCalc = millis();
   }
 }
@@ -600,7 +599,7 @@ void setup() {
   setupEXTIO2();
   setupINA226();
 
-  Serial.println("Combined firmware online: bilge/pump, battery, alternators/wind vane, GPS, wind speed.");
+  Serial.println("Combined firmware v2.0.0 online: bilge/pump, battery, alternators/wind vane, GPS, wind speed.");
 }
 
 void loop() {
