@@ -119,6 +119,27 @@ const PORT_LABELS: Record<string, { name: string; type: string }> = {
   D: { name: 'Anemometer / Wind', type: 'gpio' },
 };
 
+const DEFAULT_SENSORS: Record<string, { sensor_type: string; sensor_name: string; unit_of_measure: string }[]> = {
+  A: [
+    { sensor_type: 'bilge_pump', sensor_name: 'Bilge Pump', unit_of_measure: 'on/off' },
+    { sensor_type: 'water_pump', sensor_name: 'Water Pump', unit_of_measure: 'on/off' },
+    { sensor_type: 'ac_pump', sensor_name: 'AC Pump', unit_of_measure: 'on/off' },
+  ],
+  B: [
+    { sensor_type: 'battery_bank', sensor_name: 'Port Battery Bank', unit_of_measure: 'V' },
+    { sensor_type: 'battery_bank', sensor_name: 'Starboard Battery Bank', unit_of_measure: 'V' },
+    { sensor_type: 'engine_alternator', sensor_name: 'Engine Alternator', unit_of_measure: 'V' },
+    { sensor_type: 'environment', sensor_name: 'Engine Room Temp', unit_of_measure: '°F' },
+  ],
+  C: [
+    { sensor_type: 'gps', sensor_name: 'GPS', unit_of_measure: 'knots' },
+  ],
+  D: [
+    { sensor_type: 'anemometer', sensor_name: 'Anemometer', unit_of_measure: 'knots' },
+    { sensor_type: 'wind_vane', sensor_name: 'Wind Vane', unit_of_measure: 'degrees' },
+  ],
+};
+
 export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole }) {
   const { isMaster, selectedCompany } = useCompany();
   const [view, setView] = useState<'fleet' | 'yacht' | 'enroll' | 'devices'>('fleet');
@@ -289,14 +310,27 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
     } else {
       const { error: err, data: newDevice } = await supabase.from('vessel_monitor_devices').insert(payload).select().single();
       if (err) { setError(err.message); setSubmitLoading(false); return; }
-      // Create default ports
+      // Create default ports and sensors
       for (const [label, info] of Object.entries(PORT_LABELS)) {
-        await supabase.from('vessel_monitor_ports').insert({
+        const { data: port } = await supabase.from('vessel_monitor_ports').insert({
           device_id: newDevice.id,
           port_label: label,
           port_name: info.name,
           port_type: info.type,
-        });
+        }).select().single();
+
+        for (const def of DEFAULT_SENSORS[label] || []) {
+          await supabase.from('vessel_monitor_sensors').insert({
+            device_id: newDevice.id,
+            port_id: port?.id || null,
+            yacht_id: deviceForm.yacht_id,
+            company_id: yacht.company_id,
+            sensor_type: def.sensor_type,
+            sensor_name: def.sensor_name,
+            unit_of_measure: def.unit_of_measure,
+            status: 'offline',
+          });
+        }
       }
     }
     setShowDeviceModal(false);
@@ -638,12 +672,11 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
           </div>
         )}
 
-        {/* Sensor Ports */}
-        {yachtSensors.length > 0 && (
+        {/* Sensor Ports — always show all 4 port categories when a device exists */}
+        {selectedYachtDevices.length > 0 && (
           <div className="space-y-6 mb-6">
             {Object.entries(PORT_LABELS).map(([portLabel, portInfo]) => {
               const portSensors = sensorsByPort[portLabel];
-              if (portSensors.length === 0) return null;
               return (
                 <div key={portLabel} className="bg-slate-800/30 rounded-xl border border-slate-700 overflow-hidden">
                   <div className="bg-slate-800/80 px-4 py-3 border-b border-slate-700">
@@ -653,29 +686,44 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
                     </h3>
                   </div>
                   <div className="divide-y divide-slate-700">
-                    {portSensors.map(sensor => {
-                      const Icon = SENSOR_ICONS[sensor.sensor_type] || Gauge;
-                      return (
-                        <div key={sensor.id} className="flex items-center justify-between px-4 py-3">
-                          <div className="flex items-center gap-3">
-                            <div className={`p-2 rounded-lg ${STATUS_COLORS[sensor.status]}`}>
-                              <Icon className="w-5 h-5" />
-                            </div>
-                            <div>
-                              <p className="font-medium text-sm">{sensor.sensor_name}</p>
-                              <p className="text-xs text-slate-400 capitalize">{sensor.sensor_type.replace(/_/g, ' ')}</p>
-                            </div>
+                    {portSensors.length === 0 ? (
+                      <div className="flex items-center justify-between px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 rounded-lg text-slate-400 bg-slate-500/10 border border-slate-500/30">
+                            <WifiOff className="w-5 h-5" />
                           </div>
-                          <div className="text-right">
-                            <p className="font-mono font-bold">{sensor.current_value || '--'}{sensor.unit_of_measure ? ` ${sensor.unit_of_measure}` : ''}</p>
-                            <span className={`text-xs px-2 py-0.5 rounded-full border ${STATUS_COLORS[sensor.status]} capitalize`}>{sensor.status}</span>
-                            {sensor.last_reading_at && (
-                              <p className="text-xs text-slate-500 mt-0.5">{new Date(sensor.last_reading_at).toLocaleTimeString()}</p>
-                            )}
+                          <div>
+                            <p className="font-medium text-sm text-slate-400">No sensors reporting</p>
+                            <p className="text-xs text-slate-500">Waiting for device telemetry</p>
                           </div>
                         </div>
-                      );
-                    })}
+                        <span className="text-xs px-2 py-0.5 rounded-full border text-slate-400 bg-slate-500/10 border-slate-500/30 capitalize">Offline</span>
+                      </div>
+                    ) : (
+                      portSensors.map(sensor => {
+                        const Icon = SENSOR_ICONS[sensor.sensor_type] || Gauge;
+                        return (
+                          <div key={sensor.id} className="flex items-center justify-between px-4 py-3">
+                            <div className="flex items-center gap-3">
+                              <div className={`p-2 rounded-lg ${STATUS_COLORS[sensor.status]}`}>
+                                <Icon className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <p className="font-medium text-sm">{sensor.sensor_name}</p>
+                                <p className="text-xs text-slate-400 capitalize">{sensor.sensor_type.replace(/_/g, ' ')}</p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-mono font-bold">{sensor.current_value || '--'}{sensor.unit_of_measure ? ` ${sensor.unit_of_measure}` : ''}</p>
+                              <span className={`text-xs px-2 py-0.5 rounded-full border ${STATUS_COLORS[sensor.status]} capitalize`}>{sensor.status}</span>
+                              {sensor.last_reading_at && (
+                                <p className="text-xs text-slate-500 mt-0.5">{new Date(sensor.last_reading_at).toLocaleTimeString()}</p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
                   </div>
                 </div>
               );
