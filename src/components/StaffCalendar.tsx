@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, memo } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, User, X, Check, Clock, AlertCircle, Plus, Briefcase, Sun, BarChart3, CreditCard as Edit3 } from 'lucide-react';
 import { supabase, StaffTimeOffRequest, StaffSchedule, UserProfile, canAccessAllYachts, isStaffRole } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -50,6 +50,40 @@ function getCurrentSeasonStatus(): { inSeason: boolean; label: string; dateRange
   };
 }
 
+function getFederalHolidays(year: number) {
+  const holidays: { date: string; name: string }[] = [];
+
+  const getNthWeekdayOfMonth = (year: number, month: number, weekday: number, n: number) => {
+    const firstDay = new Date(year, month, 1);
+    const firstWeekday = firstDay.getDay();
+    const offset = (weekday - firstWeekday + 7) % 7;
+    const day = 1 + offset + (n - 1) * 7;
+    return new Date(year, month, day);
+  };
+
+  const getLastWeekdayOfMonth = (year: number, month: number, weekday: number) => {
+    const lastDay = new Date(year, month + 1, 0);
+    const lastWeekday = lastDay.getDay();
+    const offset = (lastWeekday - weekday + 7) % 7;
+    const day = lastDay.getDate() - offset;
+    return new Date(year, month, day);
+  };
+
+  holidays.push({ date: `${year}-01-01`, name: "New Year's Day" });
+  holidays.push({ date: getNthWeekdayOfMonth(year, 0, 1, 3).toISOString().split('T')[0], name: "MLK Jr. Day" });
+  holidays.push({ date: getNthWeekdayOfMonth(year, 1, 1, 3).toISOString().split('T')[0], name: "Presidents' Day" });
+  holidays.push({ date: getLastWeekdayOfMonth(year, 4, 1).toISOString().split('T')[0], name: "Memorial Day" });
+  holidays.push({ date: `${year}-06-19`, name: "Juneteenth" });
+  holidays.push({ date: `${year}-07-04`, name: "Independence Day" });
+  holidays.push({ date: getNthWeekdayOfMonth(year, 8, 1, 1).toISOString().split('T')[0], name: "Labor Day" });
+  holidays.push({ date: getNthWeekdayOfMonth(year, 9, 1, 2).toISOString().split('T')[0], name: "Columbus Day" });
+  holidays.push({ date: `${year}-11-11`, name: "Veterans Day" });
+  holidays.push({ date: getNthWeekdayOfMonth(year, 10, 4, 4).toISOString().split('T')[0], name: "Thanksgiving" });
+  holidays.push({ date: `${year}-12-25`, name: "Christmas Day" });
+
+  return holidays;
+}
+
 interface StaffCalendarProps {
   onBack: () => void;
 }
@@ -81,6 +115,72 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
   const canAccessCalendar = isStaffRole(effectiveRole);
   const canManageSchedules = canAccessCalendar;
   const isMaster = effectiveRole === 'master';
+
+  const holidaysMap = useMemo(() => {
+    const year = currentDate.getFullYear();
+    const holidays = getFederalHolidays(year);
+    const map = new Map<string, string>();
+    holidays.forEach(h => map.set(h.date, h.name));
+    return map;
+  }, [currentDate]);
+
+  const timeOffByDate = useMemo(() => {
+    const map = new Map<string, StaffTimeOffRequest[]>();
+    timeOffRequests.forEach(r => {
+      const start = r.start_date;
+      const end = r.end_date;
+      const startD = new Date(start);
+      const endD = new Date(end);
+      for (let d = new Date(startD); d <= endD; d.setDate(d.getDate() + 1)) {
+        const key = d.toISOString().split('T')[0];
+        if (!map.has(key)) map.set(key, []);
+        map.get(key)!.push(r);
+      }
+    });
+    return map;
+  }, [timeOffRequests]);
+
+  const allTimeOffByDate = useMemo(() => {
+    const map = new Map<string, StaffTimeOffRequest[]>();
+    allTimeOffRequests.forEach(r => {
+      const startD = new Date(r.start_date);
+      const endD = new Date(r.end_date);
+      for (let d = new Date(startD); d <= endD; d.setDate(d.getDate() + 1)) {
+        const key = d.toISOString().split('T')[0];
+        if (!map.has(key)) map.set(key, []);
+        map.get(key)!.push(r);
+      }
+    });
+    return map;
+  }, [allTimeOffRequests]);
+
+  const allOverridesByDate = useMemo(() => {
+    const map = new Map<string, StaffScheduleOverride[]>();
+    allScheduleOverrides.forEach(o => {
+      const key = o.override_date;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(o);
+    });
+    return map;
+  }, [allScheduleOverrides]);
+
+  const schedulesByUserId = useMemo(() => {
+    const map = new Map<string, StaffSchedule[]>();
+    staffSchedules.forEach(s => {
+      if (!map.has(s.user_id)) map.set(s.user_id, []);
+      map.get(s.user_id)!.push(s);
+    });
+    return map;
+  }, [staffSchedules]);
+
+  const schedulesByDayOfWeek = useMemo(() => {
+    const map = new Map<number, StaffSchedule[]>();
+    staffSchedules.forEach(s => {
+      if (!map.has(s.day_of_week)) map.set(s.day_of_week, []);
+      map.get(s.day_of_week)!.push(s);
+    });
+    return map;
+  }, [staffSchedules]);
 
   if (!canAccessCalendar) {
     return (
@@ -333,126 +433,83 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
     }
   };
 
-  const getFederalHolidays = (year: number) => {
-    const holidays: { date: string; name: string }[] = [];
-
-    const getNthWeekdayOfMonth = (year: number, month: number, weekday: number, n: number) => {
-      const firstDay = new Date(year, month, 1);
-      const firstWeekday = firstDay.getDay();
-      const offset = (weekday - firstWeekday + 7) % 7;
-      const day = 1 + offset + (n - 1) * 7;
-      return new Date(year, month, day);
-    };
-
-    const getLastWeekdayOfMonth = (year: number, month: number, weekday: number) => {
-      const lastDay = new Date(year, month + 1, 0);
-      const lastWeekday = lastDay.getDay();
-      const offset = (lastWeekday - weekday + 7) % 7;
-      const day = lastDay.getDate() - offset;
-      return new Date(year, month, day);
-    };
-
-    holidays.push({ date: `${year}-01-01`, name: "New Year's Day" });
-    holidays.push({ date: getNthWeekdayOfMonth(year, 0, 1, 3).toISOString().split('T')[0], name: "MLK Jr. Day" });
-    holidays.push({ date: getNthWeekdayOfMonth(year, 1, 1, 3).toISOString().split('T')[0], name: "Presidents' Day" });
-    holidays.push({ date: getLastWeekdayOfMonth(year, 4, 1).toISOString().split('T')[0], name: "Memorial Day" });
-    holidays.push({ date: `${year}-06-19`, name: "Juneteenth" });
-    holidays.push({ date: `${year}-07-04`, name: "Independence Day" });
-    holidays.push({ date: getNthWeekdayOfMonth(year, 8, 1, 1).toISOString().split('T')[0], name: "Labor Day" });
-    holidays.push({ date: getNthWeekdayOfMonth(year, 9, 1, 2).toISOString().split('T')[0], name: "Columbus Day" });
-    holidays.push({ date: `${year}-11-11`, name: "Veterans Day" });
-    holidays.push({ date: getNthWeekdayOfMonth(year, 10, 4, 4).toISOString().split('T')[0], name: "Thanksgiving" });
-    holidays.push({ date: `${year}-12-25`, name: "Christmas Day" });
-
-    return holidays;
-  };
-
-  const getHolidayForDate = (day: number) => {
+  const getHolidayForDate = useCallback((day: number) => {
     const dateStr = new Date(currentDate.getFullYear(), currentDate.getMonth(), day)
       .toISOString()
       .split('T')[0];
+    const name = holidaysMap.get(dateStr);
+    return name ? { date: dateStr, name } : undefined;
+  }, [currentDate, holidaysMap]);
 
-    const holidays = getFederalHolidays(currentDate.getFullYear());
-    return holidays.find(h => h.date === dateStr);
-  };
+  const daysInMonth = useMemo(() => {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonthNum = lastDay.getDate();
+    const startingDayOfWeek = firstDay.getDay();
 
-  const isToday = (day: number) => {
+    const days: (number | null)[] = [];
+    for (let i = 0; i < startingDayOfWeek; i++) {
+      days.push(null);
+    }
+    for (let i = 1; i <= daysInMonthNum; i++) {
+      days.push(i);
+    }
+    return days;
+  }, [currentDate]);
+
+  const isToday = useCallback((day: number) => {
     const today = new Date();
     return (
       day === today.getDate() &&
       currentDate.getMonth() === today.getMonth() &&
       currentDate.getFullYear() === today.getFullYear()
     );
-  };
+  }, [currentDate]);
 
-  const getDaysInMonth = () => {
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const daysInMonth = lastDay.getDate();
-    const startingDayOfWeek = firstDay.getDay();
+  const getRequestsForDate = useCallback((day: number) => {
+    const dateStr = new Date(currentDate.getFullYear(), currentDate.getMonth(), day)
+      .toISOString()
+      .split('T')[0];
+    return timeOffByDate.get(dateStr) || [];
+  }, [currentDate, timeOffByDate]);
 
-    const days = [];
-    for (let i = 0; i < startingDayOfWeek; i++) {
-      days.push(null);
-    }
-    for (let i = 1; i <= daysInMonth; i++) {
-      days.push(i);
-    }
-    return days;
-  };
-
-  const getRequestsForDate = (day: number) => {
+  const getStaffOffForDate = useCallback((day: number) => {
     const dateStr = new Date(currentDate.getFullYear(), currentDate.getMonth(), day)
       .toISOString()
       .split('T')[0];
 
-    return timeOffRequests.filter(request => {
-      return dateStr >= request.start_date && dateStr <= request.end_date;
-    });
-  };
-
-  const getStaffOffForDate = (day: number) => {
-    const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
-    const dateStr = date.toISOString().split('T')[0];
-
-    // Get all staff with approved time off (excluding partial day requests)
-    const staffWithTimeOff = allTimeOffRequests.filter(request =>
+    const staffWithTimeOff = (allTimeOffByDate.get(dateStr) || []).filter(request =>
       request.status === 'approved' &&
       !request.is_partial_day &&
-      dateStr >= request.start_date &&
-      dateStr <= request.end_date &&
       request.user_profiles
     );
 
-    // Get all staff with schedule overrides marking them as off
-    const dateOverrides = allScheduleOverrides.filter(override =>
-      override.override_date === dateStr &&
+    const dateOverrides = (allOverridesByDate.get(dateStr) || []).filter(override =>
       (override.status === 'sick_leave' || override.status === 'approved_day_off') &&
       override.user_profiles
     );
 
     return [...staffWithTimeOff, ...dateOverrides];
-  };
+  }, [currentDate, allTimeOffByDate, allOverridesByDate]);
 
-  const getPartialDayInfoForUser = (userId: string, day: number): string | null => {
-    const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
-    const dateStr = date.toISOString().split('T')[0];
+  const getPartialDayInfoForUser = useCallback((userId: string, day: number): string | null => {
+    const dateStr = new Date(currentDate.getFullYear(), currentDate.getMonth(), day)
+      .toISOString()
+      .split('T')[0];
 
-    const partialDayRequest = allTimeOffRequests.find(request =>
+    const partialDayRequest = (allTimeOffByDate.get(dateStr) || []).find(request =>
       request.user_id === userId &&
       request.status === 'approved' &&
-      request.is_partial_day &&
-      dateStr >= request.start_date &&
-      dateStr <= request.end_date
+      request.is_partial_day
     );
 
     if (!partialDayRequest || !partialDayRequest.start_time || !partialDayRequest.end_time) {
       return null;
     }
 
-    const formatTime = (timeStr: string) => {
+    const fmtTime = (timeStr: string) => {
       const [hours, minutes] = timeStr.split(':');
       const hour = parseInt(hours);
       const ampm = hour >= 12 ? 'PM' : 'AM';
@@ -460,10 +517,10 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
       return `${displayHour}:${minutes} ${ampm}`;
     };
 
-    return `Off ${formatTime(partialDayRequest.start_time)}-${formatTime(partialDayRequest.end_time)}`;
-  };
+    return `Off ${fmtTime(partialDayRequest.start_time)}-${fmtTime(partialDayRequest.end_time)}`;
+  }, [currentDate, allTimeOffByDate]);
 
-  const getSchedulesForDate = (day: number) => {
+  const getSchedulesForDate = useCallback((day: number) => {
     const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
     const dateStr = date.toISOString().split('T')[0];
     const dayOfWeek = date.getDay();
@@ -472,47 +529,43 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
     const isDateInSeason = isInSeason(date);
     const isDateWeekend = isWeekend(dayOfWeek);
 
-    // Get overrides for this date from ALL overrides
-    const dateOverrides = allScheduleOverrides.filter(override => override.override_date === dateStr);
+    const dateOverrides = allOverridesByDate.get(dateStr) || [];
+    const dateAllTimeOff = allTimeOffByDate.get(dateStr) || [];
 
-    return staffSchedules.filter(schedule => {
-      // Check if there's an approved time-off request for this user on this date from ALL requests
-      // Exclude partial day time off - they should still show as working
-      const hasApprovedFullDayTimeOff = allTimeOffRequests.some(request =>
+    const daySchedules = schedulesByDayOfWeek.get(dayOfWeek) || [];
+
+    return daySchedules.filter(schedule => {
+      const hasApprovedFullDayTimeOff = dateAllTimeOff.some(request =>
         request.user_id === schedule.user_id &&
         request.status === 'approved' &&
-        !request.is_partial_day &&
-        dateStr >= request.start_date &&
-        dateStr <= request.end_date
+        !request.is_partial_day
       );
 
       if (hasApprovedFullDayTimeOff) {
         return false;
       }
 
-      // Check if there's an override for this user on this date
       const override = dateOverrides.find(o => o.user_id === schedule.user_id);
 
-      // If override exists and is sick_leave or approved_day_off, hide this employee
       if (override && (override.status === 'sick_leave' || override.status === 'approved_day_off')) {
         return false;
       }
 
-      // If override exists and is 'working', show this employee regardless of regular schedule
       if (override && override.status === 'working') {
         return true;
       }
 
-      if (!schedule.is_working_day || schedule.day_of_week !== dayOfWeek) {
+      if (!schedule.is_working_day) {
         return false;
       }
 
       const scheduleCreatedDate = new Date(schedule.created_at);
       scheduleCreatedDate.setHours(0, 0, 0, 0);
-      date.setHours(0, 0, 0, 0);
+      const dateOnly = new Date(date);
+      dateOnly.setHours(0, 0, 0, 0);
 
-      const isAfterScheduleCreated = date >= scheduleCreatedDate;
-      const isCurrentYear = date.getFullYear() === currentYear;
+      const isAfterScheduleCreated = dateOnly >= scheduleCreatedDate;
+      const isCurrentYear = dateOnly.getFullYear() === currentYear;
 
       if (!isAfterScheduleCreated || !isCurrentYear) {
         return false;
@@ -531,21 +584,22 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
 
       return true;
     });
-  };
+  }, [currentDate, allOverridesByDate, allTimeOffByDate, schedulesByDayOfWeek, user]);
 
-  const getDateColor = (day: number) => {
+  const getDateColor = useCallback((day: number) => {
     const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
     const dayOfWeek = date.getDay();
 
-    const holiday = getHolidayForDate(day);
-    if (holiday) {
+    const dateStr = date.toISOString().split('T')[0];
+    const holidayName = holidaysMap.get(dateStr);
+    if (holidayName) {
       return 'bg-blue-500 hover:bg-blue-600';
     }
 
     const dateInSeason = isInSeason(date);
     const dateIsWeekend = isWeekend(dayOfWeek);
 
-    const requestsForDate = getRequestsForDate(day);
+    const requestsForDate = timeOffByDate.get(dateStr) || [];
     const hasApprovedTimeOff = requestsForDate.some(r => r.status === 'approved');
     const hasPendingRequest = requestsForDate.some(r => r.status === 'pending');
     const hasRejectedRequest = requestsForDate.some(r => r.status === 'rejected');
@@ -562,10 +616,9 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
       return 'bg-red-500 hover:bg-red-600';
     }
 
-    const weekendSchedules = staffSchedules.filter(s =>
-      isWeekend(s.day_of_week) &&
-      s.day_of_week === dayOfWeek &&
-      s.is_working_day
+    const daySchedules = schedulesByDayOfWeek.get(dayOfWeek) || [];
+    const weekendSchedules = daySchedules.filter(s =>
+      isWeekend(s.day_of_week) && s.is_working_day
     );
 
     if (dateIsWeekend && !dateInSeason && weekendSchedules.length > 0) {
@@ -586,7 +639,7 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
     }
 
     return 'bg-slate-600 hover:bg-slate-700';
-  };
+  }, [currentDate, holidaysMap, timeOffByDate, schedulesByDayOfWeek, getSchedulesForDate]);
 
   const previousMonth = () => {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
@@ -596,17 +649,19 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
   };
 
-  const getPendingRequestsCount = () => {
-    return allTimeOffRequests.filter(r => r.status === 'pending').length;
-  };
+  const pendingRequestsCount = useMemo(() =>
+    allTimeOffRequests.filter(r => r.status === 'pending').length,
+    [allTimeOffRequests]
+  );
 
-  const getPendingWeekendApprovalsCount = () => {
-    return staffSchedules.filter(s =>
+  const pendingWeekendApprovalsCount = useMemo(() =>
+    staffSchedules.filter(s =>
       s.approval_status === 'pending' &&
       s.is_working_day &&
       isWeekend(s.day_of_week)
-    ).length;
-  };
+    ).length,
+    [staffSchedules]
+  );
 
   const formatTimeOffType = (type: string) => {
     return type.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
@@ -706,6 +761,8 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
     return stats;
   };
 
+  const staffStats = useMemo(() => calculateStaffStats(), [allStaff, allTimeOffRequests, allScheduleOverrides]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white flex items-center justify-center">
@@ -735,22 +792,22 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
             Staff Calendar
           </h1>
           <div className="flex gap-2">
-            {isStaff && getPendingWeekendApprovalsCount() > 0 && (
+            {isStaff && pendingWeekendApprovalsCount > 0 && (
               <button
                 onClick={() => setShowWeekendApprovalPanel(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
               >
                 <Sun className="w-5 h-5" />
-                Weekend Approvals ({getPendingWeekendApprovalsCount()})
+                Weekend Approvals ({pendingWeekendApprovalsCount})
               </button>
             )}
-            {canManageSchedules && getPendingRequestsCount() > 0 && (
+            {canManageSchedules && pendingRequestsCount > 0 && (
               <button
                 onClick={() => setShowApprovalPanel(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 rounded-lg transition-colors"
               >
                 <AlertCircle className="w-5 h-5" />
-                Pending Approvals ({getPendingRequestsCount()})
+                Pending Approvals ({pendingRequestsCount})
               </button>
             )}
             {canManageSchedules && (
@@ -908,7 +965,7 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
               </div>
             ))}
 
-            {getDaysInMonth().map((day, index) => {
+            {daysInMonth.map((day, index) => {
               const holiday = day ? getHolidayForDate(day) : null;
               const schedulesWorking = day ? getSchedulesForDate(day) : [];
               const staffOff = day ? getStaffOffForDate(day) : [];
@@ -1037,7 +1094,7 @@ export function StaffCalendar({ onBack }: StaffCalendarProps) {
                   </tr>
                 </thead>
                 <tbody>
-                  {Object.entries(calculateStaffStats()).map(([userId, stats]) => {
+                  {Object.entries(staffStats).map(([userId, stats]) => {
                     const totalDaysOff = stats.approvedDays + stats.sickDays + stats.requestedDays;
                     return (
                       <tr key={userId} className="border-b border-slate-700 hover:bg-slate-700/50">
@@ -2419,35 +2476,26 @@ function DateScheduleEditModal({ date, staff, scheduleOverrides, onClose, onSucc
     }
   };
 
-  const updateStaffStatus = (userId: string, status: typeof overrideStates[string]['status']) => {
-    setOverrideStates({
-      ...overrideStates,
-      [userId]: {
-        ...overrideStates[userId],
-        status
-      }
-    });
-  };
+  const updateStaffStatus = useCallback((userId: string, status: typeof overrideStates[string]['status']) => {
+    setOverrideStates(prev => ({
+      ...prev,
+      [userId]: { ...prev[userId], status }
+    }));
+  }, []);
 
-  const updateStaffNotes = (userId: string, notes: string) => {
-    setOverrideStates({
-      ...overrideStates,
-      [userId]: {
-        ...overrideStates[userId],
-        notes
-      }
-    });
-  };
+  const updateStaffNotes = useCallback((userId: string, notes: string) => {
+    setOverrideStates(prev => ({
+      ...prev,
+      [userId]: { ...prev[userId], notes }
+    }));
+  }, []);
 
-  const updateStaffTime = (userId: string, field: 'start_time' | 'end_time', value: string) => {
-    setOverrideStates({
-      ...overrideStates,
-      [userId]: {
-        ...overrideStates[userId],
-        [field]: value
-      }
-    });
-  };
+  const updateStaffTime = useCallback((userId: string, field: 'start_time' | 'end_time', value: string) => {
+    setOverrideStates(prev => ({
+      ...prev,
+      [userId]: { ...prev[userId], [field]: value }
+    }));
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -2465,15 +2513,6 @@ function DateScheduleEditModal({ date, staff, scheduleOverrides, onClose, onSucc
       case 'sick_leave': return 'Sick Leave';
       default: return 'Default Schedule';
     }
-  };
-
-  const formatTime = (time: string | null) => {
-    if (!time) return '';
-    const [hours, minutes] = time.split(':');
-    const hour = parseInt(hours);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const displayHour = hour % 12 || 12;
-    return `${displayHour}:${minutes} ${ampm}`;
   };
 
   return (
@@ -2501,123 +2540,18 @@ function DateScheduleEditModal({ date, staff, scheduleOverrides, onClose, onSucc
         </div>
 
         <div className="space-y-3">
-          {staff.map(staffMember => {
-            const state = overrideStates[staffMember.user_id] || { status: 'default', notes: '', start_time: '', end_time: '' };
-            return (
-              <div key={staffMember.user_id} className="bg-slate-700 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <User className="w-5 h-5 text-slate-400" />
-                    <div>
-                      <h4 className="font-semibold">
-                        {staffMember.first_name} {staffMember.last_name}
-                      </h4>
-                      <p className="text-xs text-slate-400 capitalize">{staffMember.role}</p>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <div className={`px-3 py-1 rounded text-sm font-medium ${getStatusColor(state.status)}`}>
-                      {getStatusLabel(state.status)}
-                    </div>
-                    {state.start_time && state.end_time && (
-                      <div className="text-xs text-slate-400 flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {formatTime(state.start_time)} - {formatTime(state.end_time)}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
-                  <button
-                    onClick={() => updateStaffStatus(staffMember.user_id, 'default')}
-                    className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
-                      state.status === 'default'
-                        ? 'bg-slate-500 text-white'
-                        : 'bg-slate-600 text-slate-300 hover:bg-slate-500'
-                    }`}
-                  >
-                    Default
-                  </button>
-                  <button
-                    onClick={() => updateStaffStatus(staffMember.user_id, 'working')}
-                    className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
-                      state.status === 'working'
-                        ? 'bg-teal-600 text-white'
-                        : 'bg-slate-600 text-slate-300 hover:bg-teal-700'
-                    }`}
-                  >
-                    Working
-                  </button>
-                  <button
-                    onClick={() => updateStaffStatus(staffMember.user_id, 'approved_day_off')}
-                    className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
-                      state.status === 'approved_day_off'
-                        ? 'bg-green-600 text-white'
-                        : 'bg-slate-600 text-slate-300 hover:bg-green-700'
-                    }`}
-                  >
-                    Day Off
-                  </button>
-                  <button
-                    onClick={() => updateStaffStatus(staffMember.user_id, 'sick_leave')}
-                    className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
-                      state.status === 'sick_leave'
-                        ? 'bg-red-600 text-white'
-                        : 'bg-slate-600 text-slate-300 hover:bg-red-700'
-                    }`}
-                  >
-                    Sick
-                  </button>
-                </div>
-
-                {state.status !== 'default' && (
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-xs text-slate-400 mb-1">Notes (Optional)</label>
-                      <input
-                        type="text"
-                        value={state.notes}
-                        onChange={e => updateStaffNotes(staffMember.user_id, e.target.value)}
-                        placeholder="Add notes..."
-                        className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs text-slate-400 mb-1">
-                        <Clock className="w-3 h-3 inline mr-1" />
-                        Work Hours (Optional - for partial days)
-                      </label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <label className="block text-xs text-slate-500 mb-1">Start Time</label>
-                          <input
-                            type="time"
-                            value={state.start_time}
-                            onChange={e => updateStaffTime(staffMember.user_id, 'start_time', e.target.value)}
-                            className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs text-slate-500 mb-1">End Time</label>
-                          <input
-                            type="time"
-                            value={state.end_time}
-                            onChange={e => updateStaffTime(staffMember.user_id, 'end_time', e.target.value)}
-                            className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                          />
-                        </div>
-                      </div>
-                      <p className="text-xs text-slate-500 mt-1">
-                        Leave empty for full day status. Add times to track partial day work (e.g., half-day).
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+          {staff.map(staffMember => (
+            <StaffOverrideCard
+              key={staffMember.user_id}
+              staffMember={staffMember}
+              state={overrideStates[staffMember.user_id] || { status: 'default', notes: '', start_time: '', end_time: '' }}
+              getStatusColor={getStatusColor}
+              getStatusLabel={getStatusLabel}
+              onStatusChange={updateStaffStatus}
+              onNotesChange={updateStaffNotes}
+              onTimeChange={updateStaffTime}
+            />
+          ))}
         </div>
 
         <div className="flex gap-3 mt-6 pt-4 border-t border-slate-600">
@@ -2639,3 +2573,155 @@ function DateScheduleEditModal({ date, staff, scheduleOverrides, onClose, onSucc
     </div>
   );
 }
+
+interface StaffOverrideState {
+  status: 'working' | 'approved_day_off' | 'sick_leave' | 'default';
+  notes: string;
+  start_time: string;
+  end_time: string;
+  overrideId?: string;
+}
+
+const StaffOverrideCard = memo(function StaffOverrideCard({
+  staffMember,
+  state,
+  getStatusColor,
+  getStatusLabel,
+  onStatusChange,
+  onNotesChange,
+  onTimeChange
+}: {
+  staffMember: UserProfile;
+  state: StaffOverrideState;
+  getStatusColor: (status: string) => string;
+  getStatusLabel: (status: string) => string;
+  onStatusChange: (userId: string, status: StaffOverrideState['status']) => void;
+  onNotesChange: (userId: string, notes: string) => void;
+  onTimeChange: (userId: string, field: 'start_time' | 'end_time', value: string) => void;
+}) {
+  const formatTime = (time: string | null) => {
+    if (!time) return '';
+    const [hours, minutes] = time.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour % 12 || 12;
+    return `${displayHour}:${minutes} ${ampm}`;
+  };
+
+  const userId = staffMember.user_id;
+
+  return (
+    <div className="bg-slate-700 rounded-lg p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-3">
+          <User className="w-5 h-5 text-slate-400" />
+          <div>
+            <h4 className="font-semibold">
+              {staffMember.first_name} {staffMember.last_name}
+            </h4>
+            <p className="text-xs text-slate-400 capitalize">{staffMember.role}</p>
+          </div>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <div className={`px-3 py-1 rounded text-sm font-medium ${getStatusColor(state.status)}`}>
+            {getStatusLabel(state.status)}
+          </div>
+          {state.start_time && state.end_time && (
+            <div className="text-xs text-slate-400 flex items-center gap-1">
+              <Clock className="w-3 h-3" />
+              {formatTime(state.start_time)} - {formatTime(state.end_time)}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
+        <button
+          onClick={() => onStatusChange(userId, 'default')}
+          className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
+            state.status === 'default'
+              ? 'bg-slate-500 text-white'
+              : 'bg-slate-600 text-slate-300 hover:bg-slate-500'
+          }`}
+        >
+          Default
+        </button>
+        <button
+          onClick={() => onStatusChange(userId, 'working')}
+          className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
+            state.status === 'working'
+              ? 'bg-teal-600 text-white'
+              : 'bg-slate-600 text-slate-300 hover:bg-teal-700'
+          }`}
+        >
+          Working
+        </button>
+        <button
+          onClick={() => onStatusChange(userId, 'approved_day_off')}
+          className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
+            state.status === 'approved_day_off'
+              ? 'bg-green-600 text-white'
+              : 'bg-slate-600 text-slate-300 hover:bg-green-700'
+          }`}
+        >
+          Day Off
+        </button>
+        <button
+          onClick={() => onStatusChange(userId, 'sick_leave')}
+          className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
+            state.status === 'sick_leave'
+              ? 'bg-red-600 text-white'
+              : 'bg-slate-600 text-slate-300 hover:bg-red-700'
+          }`}
+        >
+          Sick
+        </button>
+      </div>
+
+      {state.status !== 'default' && (
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs text-slate-400 mb-1">Notes (Optional)</label>
+            <input
+              type="text"
+              value={state.notes}
+              onChange={e => onNotesChange(userId, e.target.value)}
+              placeholder="Add notes..."
+              className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs text-slate-400 mb-1">
+              <Clock className="w-3 h-3 inline mr-1" />
+              Work Hours (Optional - for partial days)
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">Start Time</label>
+                <input
+                  type="time"
+                  value={state.start_time}
+                  onChange={e => onTimeChange(userId, 'start_time', e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">End Time</label>
+                <input
+                  type="time"
+                  value={state.end_time}
+                  onChange={e => onTimeChange(userId, 'end_time', e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+            <p className="text-xs text-slate-500 mt-1">
+              Leave empty for full day status. Add times to track partial day work (e.g., half-day).
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+});
