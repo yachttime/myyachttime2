@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useRef, useCallback, useMemo, ReactNode } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase, UserProfile, Yacht } from '../lib/supabase';
 import { withRetry, isRetryableError } from '../utils/retry';
@@ -192,7 +192,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const signUp = async (email: string, password: string, role: 'owner' | 'manager' | 'staff', profile: SignUpProfile) => {
+  const signUp = useCallback(async (email: string, password: string, role: 'owner' | 'manager' | 'staff', profile: SignUpProfile) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -215,9 +215,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         yacht_id: profile.yacht_id,
       });
     }
-  };
+  }, []);
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = useCallback(async (email: string, password: string) => {
     try {
       localStorage.removeItem('activeTab');
       localStorage.removeItem('adminView');
@@ -260,9 +260,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch (error: any) {
       throw error;
     }
-  };
+  }, []);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     // Always clear local state and auth session first — DB update must never block logout
     setUser(null);
     setUserProfile(null);
@@ -296,15 +296,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         console.error('Sign out error:', error);
       }
     }
-  };
+  }, [user]);
 
-  const refreshProfile = async () => {
+  const refreshProfile = useCallback(async () => {
     if (user) {
       await loadUserProfile(user.id);
     }
-  };
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const isTokenExpired = () => {
+  const isTokenExpired = useCallback(() => {
     if (!user) return true;
 
     const expiresAt = user.exp;
@@ -312,9 +312,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const now = Math.floor(Date.now() / 1000);
     return now >= expiresAt;
-  };
+  }, [user]);
 
-  const changePassword = async (newPassword: string) => {
+  const changePassword = useCallback(async (newPassword: string) => {
     const { error } = await supabase.auth.updateUser({
       password: newPassword
     });
@@ -331,9 +331,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     isPasswordRecoveryRef.current = false;
     setIsPasswordRecovery(false);
     await supabase.auth.signOut();
-  };
+  }, [user]);
 
-  const value = {
+  const value = useMemo(() => ({
     user,
     userProfile,
     yacht,
@@ -345,7 +345,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     refreshProfile,
     isTokenExpired,
     changePassword,
-  };
+  }), [user, userProfile, yacht, loading, isPasswordRecovery, signIn, signUp, signOut, refreshProfile, isTokenExpired, changePassword]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 
@@ -98,12 +98,12 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
   };
 
   // Refresh companies list
-  const refreshCompanies = async () => {
+  const refreshCompanies = useCallback(async () => {
     await fetchCompanies();
-  };
+  }, [user, userProfile, isMaster]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Select a company (masters only)
-  const selectCompany = (companyId: string) => {
+  const selectCompany = useCallback((companyId: string) => {
     if (!isMaster) return;
 
     const company = companies.find(c => c.id === companyId);
@@ -111,14 +111,14 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
       setSelectedCompany(company);
       localStorage.setItem('selectedCompanyId', companyId);
     }
-  };
+  }, [isMaster, companies]);
 
   // Load companies on mount and when user/profile changes
   useEffect(() => {
     fetchCompanies();
-  }, [user, userProfile, isMaster]);
+  }, [user, userProfile, isMaster]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const value: CompanyContextType = {
+  const value = useMemo<CompanyContextType>(() => ({
     companies,
     selectedCompany,
     userCompany,
@@ -126,7 +126,7 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
     isMaster,
     selectCompany,
     refreshCompanies,
-  };
+  }), [companies, selectedCompany, userCompany, isLoadingCompanies, isMaster, selectCompany, refreshCompanies]);
 
   return <CompanyContext.Provider value={value}>{children}</CompanyContext.Provider>;
 }

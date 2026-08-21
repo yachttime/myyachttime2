@@ -14,6 +14,7 @@ import { FileUploadDropzone } from './FileUploadDropzone';
 import { SmartLockControls } from './SmartLockControls';
 import { SmartDeviceManagement } from './SmartDeviceManagement';
 import { VesselMonitoring } from './VesselMonitoring';
+import { LiveClock } from './LiveClock';
 import { VesselManagementAgreementForm } from './VesselManagementAgreementForm';
 import { VesselAgreementViewer } from './VesselAgreementViewer';
 import { PrintableUserList } from './PrintableUserList';
@@ -175,25 +176,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [nwsForecast, setNwsForecast] = useState<any[] | null>(null);
   const [nwsForecastLoading, setNwsForecastLoading] = useState(true);
   const [nwsForecastError, setNwsForecastError] = useState('');
-  const [currentTime, setCurrentTime] = useState('');
   const [radarRefreshKey, setRadarRefreshKey] = useState(0);
-
-  useEffect(() => {
-    const updateTime = () => {
-      const now = new Date();
-      const formatter = new Intl.DateTimeFormat('en-US', {
-        timeZone: 'America/Phoenix',
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true
-      });
-      setCurrentTime(formatter.format(now));
-    };
-
-    updateTime();
-    const interval = setInterval(updateTime, 1000);
-    return () => clearInterval(interval);
-  }, []);
 
   useEffect(() => {
     const fetchWaterLevel = async () => {
@@ -1006,7 +989,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     return () => {
       channel.unsubscribe();
     };
-  }, [user]);
+  }, [user, loadRepairRequests]);
 
   // Set up realtime subscription for staff_messages to track new bulk emails and updates
   useEffect(() => {
@@ -1030,7 +1013,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     return () => {
       channel.unsubscribe();
     };
-  }, [user]);
+  }, [user, loadStaffMessages]);
 
   // Realtime subscription for admin_notifications — alerts staff immediately on check-ins and other events
   useEffect(() => {
@@ -1064,7 +1047,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     return () => {
       channel.unsubscribe();
     };
-  }, [user]);
+  }, [user, loadAdminNotifications, showInfo]);
 
   const loadBookings = async () => {
     const userIsStaff = isStaffRole(effectiveRole);
@@ -3723,7 +3706,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     }
   };
 
-  const loadRepairRequests = async () => {
+  const loadRepairRequests = useCallback(async () => {
     try {
       const companyId = selectedCompany?.id || userProfile?.company_id;
       if (!user || !companyId) {
@@ -3858,7 +3841,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     } catch (error) {
       console.error('Error loading repair requests:', error);
     }
-  };
+  }, [user, selectedCompany, userProfile, effectiveRole, effectiveYacht, isImpersonatingYacht]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleRepairApproval = async (notes?: string) => {
     if (!approvalAction) return;
@@ -6274,7 +6257,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     }
   };
 
-  const loadAdminNotifications = async () => {
+  const loadAdminNotifications = useCallback(async () => {
     try {
       if (!user || !selectedCompany?.id) {
         setAdminNotifications([]);
@@ -6353,9 +6336,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     } catch (error) {
       console.error('Error loading admin notifications:', error);
     }
-  };
+  }, [user, selectedCompany, effectiveRole, effectiveYacht]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const loadStaffMessages = async () => {
+  const loadStaffMessages = useCallback(async () => {
     try {
       if (!user || !selectedCompany?.id) {
         setStaffMessages([]);
@@ -6404,7 +6387,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     } catch (error) {
       console.error('Error loading staff messages:', error);
     }
-  };
+  }, [user, selectedCompany]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadYachtPartners = async () => {
     try {
@@ -9529,13 +9512,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           <div className="text-xs text-slate-400">Page, AZ</div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 bg-slate-700/50 rounded-lg px-3 py-2 w-fit">
-                        <Clock className="w-4 h-4 text-blue-500" />
-                        <div>
-                          <div className="text-xl font-bold text-white">{currentTime}</div>
-                          <div className="text-xs text-slate-400">MST</div>
-                        </div>
-                      </div>
+                      <LiveClock />
                     </div>
                     <div className="flex gap-3">
                       <a
