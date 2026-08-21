@@ -989,7 +989,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     return () => {
       channel.unsubscribe();
     };
-  }, [user, loadRepairRequests]);
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Set up realtime subscription for staff_messages to track new bulk emails and updates
   useEffect(() => {
@@ -1013,7 +1013,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     return () => {
       channel.unsubscribe();
     };
-  }, [user, loadStaffMessages]);
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Realtime subscription for admin_notifications — alerts staff immediately on check-ins and other events
   useEffect(() => {
@@ -1047,7 +1047,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     return () => {
       channel.unsubscribe();
     };
-  }, [user, loadAdminNotifications, showInfo]);
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadBookings = async () => {
     const userIsStaff = isStaffRole(effectiveRole);
