@@ -31,7 +31,7 @@ import CustomerManagement from './CustomerManagement';
 import { CompanyManagement } from './CompanyManagement';
 import SupportTickets from './SupportTickets';
 import { uploadFileToStorage, deleteFileFromStorage, isStorageUrl, UploadProgress, isTokenExpiredError } from '../utils/fileUpload';
-import { generateAllYachtTripsPDF, generateEstimatingInvoicePDF, generateTripInspectionPDF, generateEngineHoursReportPDF } from '../utils/pdfGenerator';
+import { generateAllYachtTripsPDF, generateEstimatingInvoicePDF, generateTripInspectionPDF, generateEngineHoursReportPDF, generateOffSeasonEstimatesPDF } from '../utils/pdfGenerator';
 import {
   getQueue, addItem, updateItem, removeItem, getReadyItems,
   OfflineInspectionItem, OfflinePhoto,
@@ -838,6 +838,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [showYachtsPrintView, setShowYachtsPrintView] = useState(false);
   const [agreementPaymentMap, setAgreementPaymentMap] = useState<Record<string, string>>({});
   const [showFleetTripDatesReport, setShowFleetTripDatesReport] = useState(false);
+  const [offseasonYachtId, setOffseasonYachtId] = useState<string | null>(null);
+  const [offseasonEstimates, setOffseasonEstimates] = useState<Record<string, any[]>>({});
+  const [offseasonLoading, setOffseasonLoading] = useState<Record<string, boolean>>({});
+  const [offseasonPrinting, setOffseasonPrinting] = useState<string | null>(null);
+  const [offseasonSending, setOffseasonSending] = useState<string | null>(null);
 
   useEffect(() => {
     const handleQRScannedYacht = async () => {
@@ -2581,6 +2586,162 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     } else {
       setTripsYachtId(yachtId);
       await loadYachtTrips(yachtId);
+    }
+  };
+
+  const loadOffSeasonEstimates = async (yachtId: string) => {
+    setOffseasonLoading(prev => ({ ...prev, [yachtId]: true }));
+    try {
+      const { data, error } = await supabase
+        .from('estimates')
+        .select('*, yachts(name, manufacturer, model)')
+        .eq('yacht_id', yachtId)
+        .eq('is_offseason', true)
+        .eq('archived', false)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const estimatesWithTasks = await Promise.all(
+        (data || []).map(async (est: any) => {
+          const { data: tasks } = await supabase
+            .from('estimate_tasks')
+            .select('*')
+            .eq('estimate_id', est.id)
+            .order('task_order');
+          const tasksWithItems = await Promise.all(
+            (tasks || []).map(async (task: any) => {
+              const { data: lineItems } = await supabase
+                .from('estimate_line_items')
+                .select('*')
+                .eq('task_id', task.id)
+                .order('line_order');
+              return { ...task, lineItems: lineItems || [] };
+            })
+          );
+          return { ...est, _tasks: tasksWithItems };
+        })
+      );
+
+      setOffseasonEstimates(prev => ({ ...prev, [yachtId]: estimatesWithTasks }));
+    } catch (error) {
+      console.error('Error loading off-season estimates:', error);
+      setOffseasonEstimates(prev => ({ ...prev, [yachtId]: [] }));
+    } finally {
+      setOffseasonLoading(prev => ({ ...prev, [yachtId]: false }));
+    }
+  };
+
+  const toggleOffSeasonEstimates = async (yachtId: string) => {
+    if (offseasonYachtId === yachtId) {
+      setOffseasonYachtId(null);
+    } else {
+      setOffseasonYachtId(yachtId);
+      await loadOffSeasonEstimates(yachtId);
+    }
+  };
+
+  const handlePrintOffSeasonEstimates = async (yachtId: string, yachtName: string) => {
+    setOffseasonPrinting(yachtId);
+    try {
+      let estimates = offseasonEstimates[yachtId];
+      if (!estimates) {
+        await loadOffSeasonEstimates(yachtId);
+        estimates = offseasonEstimates[yachtId];
+      }
+      if (!estimates || estimates.length === 0) {
+        showError(`No off-season estimates found for ${yachtName}`);
+        return;
+      }
+      const { data: companyInfo } = await supabase
+        .from('company_info')
+        .select('*')
+        .maybeSingle();
+      const pdf = await generateOffSeasonEstimatesPDF(estimates, yachtName, companyInfo);
+      const pdfUrl = URL.createObjectURL(pdf.output('blob'));
+      window.open(pdfUrl, '_blank');
+    } catch (error) {
+      console.error('Error generating off-season PDF:', error);
+      showError('Failed to generate off-season PDF');
+    } finally {
+      setOffseasonPrinting(null);
+    }
+  };
+
+  const handleSendOffSeasonToManagers = async (yachtId: string, yachtName: string) => {
+    setOffseasonSending(yachtId);
+    try {
+      let estimates = offseasonEstimates[yachtId];
+      if (!estimates) {
+        await loadOffSeasonEstimates(yachtId);
+        estimates = offseasonEstimates[yachtId];
+      }
+      if (!estimates || estimates.length === 0) {
+        showError(`No off-season estimates found for ${yachtName}`);
+        return;
+      }
+
+      const { data: managers } = await supabase
+        .from('user_profiles')
+        .select('first_name, last_name, email, notification_email')
+        .eq('yacht_id', yachtId)
+        .eq('can_approve_repairs', true)
+        .eq('is_active', true);
+
+      const repairManagers = (managers || [])
+        .map((m: any) => ({
+          email: (m.notification_email || m.email || '').trim(),
+          name: `${m.first_name || ''} ${m.last_name || ''}`.trim(),
+        }))
+        .filter((m: any) => m.email);
+
+      if (repairManagers.length === 0) {
+        showError('No repair managers found for this yacht');
+        return;
+      }
+
+      const { data: companyInfo } = await supabase
+        .from('company_info')
+        .select('*')
+        .maybeSingle();
+
+      const pdf = await generateOffSeasonEstimatesPDF(estimates, yachtName, companyInfo);
+      const pdfBlob = pdf.output('blob');
+      const pdfBase64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const result = reader.result as string;
+          resolve(result.split(',')[1]);
+        };
+        reader.readAsDataURL(pdfBlob);
+      });
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-offseason-estimates-email`;
+      let sent = 0;
+      for (const manager of repairManagers) {
+        const resp = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session?.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            yachtName,
+            recipientEmail: manager.email,
+            recipientName: manager.name,
+            pdfBase64,
+            estimateCount: estimates.length,
+          }),
+        });
+        if (resp.ok) sent++;
+      }
+      showSuccess(`Off-season summary sent to ${sent} manager(s)`);
+    } catch (error: any) {
+      console.error('Error sending off-season estimates:', error);
+      showError('Failed to send: ' + (error.message || 'Unknown error'));
+    } finally {
+      setOffseasonSending(null);
     }
   };
 
@@ -11878,6 +12039,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               <Printer className="w-4 h-4" />
                               Print Hours
                             </button>
+                            <button
+                              onClick={() => toggleOffSeasonEstimates(yacht.id)}
+                              className="flex items-center justify-center gap-2 px-4 py-2 bg-teal-700 hover:bg-teal-800 text-white rounded-lg transition-colors text-sm"
+                            >
+                              <Wrench className="w-4 h-4" />
+                              {offseasonYachtId === yacht.id ? 'Hide' : 'Off-Season'}
+                            </button>
                             {shouldShowAgreementsButton(yacht.id) && (
                               <div className="flex flex-col gap-1">
                                 <button
@@ -12242,6 +12410,64 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 Scroll to see all {yachtTrips[yacht.id].length} trips
                               </div>
                             )}
+                          </div>
+                        )}
+
+                        {offseasonYachtId === yacht.id && (
+                          <div className="mt-4 pt-4 border-t border-slate-700">
+                            <div className="flex items-center justify-between mb-3">
+                              <h4 className="text-sm font-semibold text-slate-300">Off-Season Repairs</h4>
+                              <div className="flex items-center gap-2">
+                                {offseasonEstimates[yacht.id]?.length > 0 && (
+                                  <>
+                                    <button
+                                      onClick={() => handlePrintOffSeasonEstimates(yacht.id, yacht.name)}
+                                      disabled={offseasonPrinting === yacht.id}
+                                      className="text-xs px-2 py-1 bg-cyan-600 hover:bg-cyan-700 text-white rounded transition-colors flex items-center gap-1 disabled:opacity-50"
+                                    >
+                                      {offseasonPrinting === yacht.id ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Printer className="w-3 h-3" />}
+                                      Print
+                                    </button>
+                                    <button
+                                      onClick={() => handleSendOffSeasonToManagers(yacht.id, yacht.name)}
+                                      disabled={offseasonSending === yacht.id}
+                                      className="text-xs px-2 py-1 bg-teal-600 hover:bg-teal-700 text-white rounded transition-colors flex items-center gap-1 disabled:opacity-50"
+                                    >
+                                      {offseasonSending === yacht.id ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                                      Send to Manager
+                                    </button>
+                                  </>
+                                )}
+                                <span className="text-xs text-slate-400 bg-slate-700 px-2 py-1 rounded">
+                                  {offseasonLoading[yacht.id] ? 'Loading...' : `${offseasonEstimates[yacht.id]?.length || 0} estimate${(offseasonEstimates[yacht.id]?.length || 0) === 1 ? '' : 's'}`}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="space-y-2 max-h-80 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800">
+                              {offseasonLoading[yacht.id] ? (
+                                <div className="text-slate-500 text-xs text-center py-4">Loading off-season estimates...</div>
+                              ) : offseasonEstimates[yacht.id]?.length > 0 ? (
+                                offseasonEstimates[yacht.id].map((est: any) => (
+                                  <div key={est.id} className="bg-slate-900/50 rounded-lg p-3 text-xs">
+                                    <div className="flex items-start justify-between gap-2">
+                                      <div className="flex-1">
+                                        <div className="text-slate-300 font-medium mb-1">{est.estimate_number}</div>
+                                        {est.work_title && <div className="text-slate-400">{est.work_title}</div>}
+                                        <div className="text-slate-500 flex items-center gap-2 mt-1">
+                                          <span className="capitalize">{est.status}</span>
+                                          <span>• ${est.total_amount?.toFixed(2) || '0.00'}</span>
+                                          <span>• {new Date(est.created_at).toLocaleDateString()}</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))
+                              ) : (
+                                <div className="text-slate-500 text-xs text-center py-4">
+                                  No off-season estimates yet
+                                </div>
+                              )}
+                            </div>
                           </div>
                         )}
 

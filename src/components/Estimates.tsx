@@ -45,6 +45,7 @@ interface Estimate {
   repair_request_deposit_paid_at: string | null;
   repair_request_deposit_method: string | null;
   repair_requests?: { id: string; status: string; deposit_payment_status: string | null; deposit_amount: number | null; deposit_paid_at: string | null; deposit_payment_method_type: string | null }[];
+  is_offseason: boolean;
 }
 
 interface EstimateTask {
@@ -93,6 +94,7 @@ export function Estimates({ userId }: EstimatesProps) {
     setEditingId(id);
   };
   const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
+  const [offseasonFilter, setOffseasonFilter] = useState(false);
 
   const [formData, setFormData] = useState({
     is_retail_customer: false,
@@ -121,7 +123,8 @@ export function Estimates({ userId }: EstimatesProps) {
     status: 'draft',
     deposit_amount: '',
     work_title: '',
-    trip_inspection_id: ''
+    trip_inspection_id: '',
+    is_offseason: false
   });
 
   const [tasks, setTasks] = useState<EstimateTask[]>([]);
@@ -1172,7 +1175,8 @@ export function Estimates({ userId }: EstimatesProps) {
           deposit_required: formData.deposit_required,
           deposit_percentage: formData.deposit_required && formData.deposit_type === 'percentage' ? parseFloat(formData.deposit_percentage) || null : null,
           deposit_amount: formData.deposit_required && formData.deposit_type === 'fixed' ? parseFloat(formData.deposit_amount) || null : null,
-          trip_inspection_id: formData.trip_inspection_id || null
+          trip_inspection_id: formData.trip_inspection_id || null,
+          is_offseason: formData.is_offseason
         };
 
         const { data, error: estimateError } = await supabase
@@ -1258,7 +1262,8 @@ export function Estimates({ userId }: EstimatesProps) {
           deposit_percentage: formData.deposit_required && formData.deposit_type === 'percentage' ? parseFloat(formData.deposit_percentage) || null : null,
           deposit_amount: formData.deposit_required && formData.deposit_type === 'fixed' ? parseFloat(formData.deposit_amount) || null : null,
           trip_inspection_id: formData.trip_inspection_id || null,
-          company_id: userCompanyId
+          company_id: userCompanyId,
+          is_offseason: formData.is_offseason
         };
 
         const { data, error: estimateError } = await supabase
@@ -1400,7 +1405,8 @@ export function Estimates({ userId }: EstimatesProps) {
       apply_park_fees: true,
       notes: '',
       customer_notes: DEFAULT_CUSTOMER_NOTES,
-      work_title: ''
+      work_title: '',
+      is_offseason: false
     });
     setCustomerSearch('');
     setShowCustomerDropdown(false);
@@ -1526,7 +1532,8 @@ export function Estimates({ userId }: EstimatesProps) {
         deposit_percentage: estimate.deposit_percentage?.toString() || '',
         deposit_amount: estimate.deposit_amount?.toString() || '',
         vessel_id: estimate.customer_vessel_id || '',
-        trip_inspection_id: estimate.trip_inspection_id || ''
+        trip_inspection_id: estimate.trip_inspection_id || '',
+        is_offseason: estimate.is_offseason || false
       });
 
       // If retail customer, find matching customer and load their vessels
@@ -2329,6 +2336,19 @@ export function Estimates({ userId }: EstimatesProps) {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
                 placeholder="e.g., Annual Service, Engine Repair, Survey Items..."
               />
+            </div>
+
+            <div className="flex items-center gap-3 bg-teal-50 border border-teal-200 rounded-lg px-4 py-3">
+              <label className="flex items-center gap-3 cursor-pointer select-none">
+                <div
+                  onClick={() => setFormData({ ...formData, is_offseason: !formData.is_offseason })}
+                  className={`relative inline-flex items-center w-11 h-6 rounded-full transition-colors ${formData.is_offseason ? 'bg-teal-600' : 'bg-gray-300'}`}
+                >
+                  <span className={`inline-block w-4 h-4 bg-white rounded-full shadow transition-transform ${formData.is_offseason ? 'translate-x-6' : 'translate-x-1'}`} />
+                </div>
+                <span className="text-sm font-medium text-gray-700">Off-Season Repair</span>
+              </label>
+              <p className="text-xs text-gray-500">Tag this estimate as off-season work. The tag is removed automatically once approved.</p>
             </div>
 
             <div>
@@ -3757,6 +3777,16 @@ export function Estimates({ userId }: EstimatesProps) {
                 <Archive className="w-4 h-4 inline mr-2" />
                 Archived
               </button>
+              <button
+                onClick={() => setOffseasonFilter(v => !v)}
+                className={`px-6 py-3 text-sm font-medium ml-auto ${
+                  offseasonFilter
+                    ? 'text-teal-600 border-b-2 border-teal-600'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Off-Season Only
+              </button>
             </div>
           </div>
 
@@ -3775,7 +3805,7 @@ export function Estimates({ userId }: EstimatesProps) {
               </tr>
             </thead>
           <tbody className="divide-y divide-gray-200">
-            {estimates.map((estimate) => (
+            {estimates.filter(e => !offseasonFilter || e.is_offseason).map((estimate) => (
               <tr key={estimate.id} className="hover:bg-gray-50">
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center gap-2">
@@ -3832,6 +3862,11 @@ export function Estimates({ userId }: EstimatesProps) {
                     {estimate.repair_requests && estimate.repair_requests.length > 0 && (
                       <span className="px-2 py-1 text-xs font-medium rounded-full w-fit bg-amber-100 text-amber-800">
                         sent to admin
+                      </span>
+                    )}
+                    {estimate.is_offseason && (
+                      <span className="px-2 py-1 text-xs font-medium rounded-full w-fit bg-teal-100 text-teal-800">
+                        off-season
                       </span>
                     )}
                     {(estimate.repair_request_deposit_status === 'paid' || estimate.repair_requests?.some(r => r.deposit_payment_status === 'paid')) && (

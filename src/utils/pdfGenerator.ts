@@ -3586,3 +3586,247 @@ export function generateEngineHoursReportPDF(
 
   return doc;
 }
+
+export async function generateOffSeasonEstimatesPDF(
+  estimates: any[],
+  yachtName: string,
+  companyInfo?: any
+): Promise<jsPDF> {
+  const pageWidth = 8.5;
+  const margin = 0.75;
+  const contentWidth = pageWidth - (margin * 2);
+
+  const combinedDoc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'in',
+    format: 'letter',
+  });
+
+  // Cover page
+  let cYPos = margin;
+  combinedDoc.setFontSize(20);
+  combinedDoc.setFont('helvetica', 'bold');
+  combinedDoc.text('Off-Season Repair Summary', pageWidth / 2, cYPos, { align: 'center' });
+  cYPos += 0.4;
+
+  combinedDoc.setFontSize(14);
+  combinedDoc.setFont('helvetica', 'normal');
+  combinedDoc.text(yachtName, pageWidth / 2, cYPos, { align: 'center' });
+  cYPos += 0.3;
+
+  combinedDoc.setFontSize(10);
+  combinedDoc.text(`Generated: ${new Date().toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}`, pageWidth / 2, cYPos, { align: 'center' });
+  cYPos += 0.2;
+
+  if (companyInfo?.company_name) {
+    combinedDoc.setFontSize(9);
+    combinedDoc.text(companyInfo.company_name, pageWidth / 2, cYPos, { align: 'center' });
+    cYPos += 0.15;
+  }
+
+  cYPos += 0.3;
+  combinedDoc.setFontSize(11);
+  combinedDoc.setFont('helvetica', 'bold');
+  combinedDoc.text(`${estimates.length} Off-Season Estimate${estimates.length !== 1 ? 's' : ''}`, pageWidth / 2, cYPos, { align: 'center' });
+  cYPos += 0.3;
+
+  const summaryData = estimates.map((est, i) => [
+    String(i + 1),
+    est.estimate_number || '—',
+    est.work_title || '—',
+    est.status || '—',
+    `${(est.total_amount || 0).toFixed(2)}`,
+  ]);
+
+  if (summaryData.length > 0) {
+    autoTable(combinedDoc, {
+      startY: cYPos,
+      head: [['#', 'Estimate #', 'Work Title', 'Status', 'Total']],
+      body: summaryData,
+      theme: 'striped',
+      headStyles: { fontSize: 9, fillColor: [13, 148, 136] },
+      styles: { fontSize: 9, cellPadding: 0.06 },
+      margin: { left: margin, right: margin },
+      didDrawPage: (data: any) => {
+        cYPos = data.cursor.y + 0.2;
+      },
+    });
+  }
+
+  // Each estimate on a new page
+  for (let i = 0; i < estimates.length; i++) {
+    const est = estimates[i];
+    const tasks = est._tasks || [];
+    combinedDoc.addPage();
+    let eYPos = margin;
+
+    // Company header
+    if (companyInfo?.logo_url) {
+      try {
+        const response = await fetch(companyInfo.logo_url);
+        const blob = await response.blob();
+        const reader = new FileReader();
+        await new Promise((resolve) => {
+          reader.onloadend = () => {
+            try {
+              const base64data = reader.result as string;
+              const img = new Image();
+              img.onload = () => {
+                try {
+                  const maxLogoWidth = 1.8;
+                  const maxLogoHeight = 1.3;
+                  const aspectRatio = img.width / img.height;
+                  let lw = maxLogoWidth;
+                  let lh = lw / aspectRatio;
+                  if (lh > maxLogoHeight) { lh = maxLogoHeight; lw = lh * aspectRatio; }
+                  combinedDoc.addImage(base64data, 'PNG', margin, eYPos, lw, lh);
+                  eYPos = Math.max(eYPos + lh, eYPos + 0.8);
+                  resolve(true);
+                } catch { resolve(false); }
+              };
+              img.onerror = () => resolve(false);
+              img.src = base64data;
+            } catch { resolve(false); }
+          };
+          reader.onerror = () => resolve(false);
+          reader.readAsDataURL(blob);
+        });
+      } catch { /* skip logo */ }
+    } else {
+      if (companyInfo?.company_name) {
+        combinedDoc.setFontSize(11);
+        combinedDoc.setFont('helvetica', 'bold');
+        combinedDoc.text(companyInfo.company_name, pageWidth / 2, eYPos, { align: 'center' });
+        eYPos += 0.13;
+      }
+      eYPos += 0.1;
+    }
+
+    // Estimate header
+    combinedDoc.setFontSize(12);
+    combinedDoc.setFont('helvetica', 'bold');
+    combinedDoc.text(`Estimate #: ${est.estimate_number}`, margin, eYPos);
+    eYPos += 0.13;
+    combinedDoc.setFontSize(9);
+    combinedDoc.setFont('helvetica', 'normal');
+    combinedDoc.text(`Date: ${new Date(est.created_at).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}`, margin, eYPos);
+    eYPos += 0.13;
+    combinedDoc.text(`Status: ${(est.status || '').charAt(0).toUpperCase() + (est.status || '').slice(1)}`, margin, eYPos);
+    eYPos += 0.2;
+
+    // Vessel/customer info
+    combinedDoc.setFontSize(10);
+    combinedDoc.setFont('helvetica', 'bold');
+    combinedDoc.text(`Vessel: ${yachtName}`, margin, eYPos);
+    eYPos += 0.13;
+    if (est.work_title) {
+      combinedDoc.setFont('helvetica', 'normal');
+      combinedDoc.setFontSize(9);
+      combinedDoc.text(`Work Title: ${est.work_title}`, margin, eYPos);
+      eYPos += 0.13;
+    }
+    if (est.customer_name) {
+      combinedDoc.text(`Customer: ${est.customer_name}`, margin, eYPos);
+      eYPos += 0.13;
+    }
+    if (est.manager_name) {
+      combinedDoc.text(`Repair Approval Manager: ${est.manager_name}`, margin, eYPos);
+      eYPos += 0.13;
+    }
+    eYPos += 0.15;
+
+    // Tasks and line items
+    for (const task of tasks) {
+      if (eYPos > 9.5) { combinedDoc.addPage(); eYPos = margin; }
+      combinedDoc.setFontSize(10);
+      combinedDoc.setFont('helvetica', 'bold');
+      combinedDoc.text(task.task_name || 'Task', margin, eYPos);
+      eYPos += 0.13;
+
+      if (task.task_overview) {
+        combinedDoc.setFontSize(8);
+        combinedDoc.setFont('helvetica', 'normal');
+        const overviewLines = combinedDoc.splitTextToSize(task.task_overview, contentWidth);
+        for (const line of overviewLines) {
+          if (eYPos > 10.25) { combinedDoc.addPage(); eYPos = margin; }
+          combinedDoc.text(line, margin, eYPos);
+          eYPos += 0.11;
+        }
+        eYPos += 0.05;
+      }
+
+      const lineItems = task.lineItems || [];
+      if (lineItems.length > 0) {
+        const tableBody = lineItems.map((item: any) => [
+          item.description || '—',
+          String(item.quantity || ''),
+          `${(item.unit_price || 0).toFixed(2)}`,
+          `${(item.total_price || 0).toFixed(2)}`,
+        ]);
+
+        autoTable(combinedDoc, {
+          startY: eYPos,
+          head: [['Description', 'Qty', 'Unit Price', 'Total']],
+          body: tableBody,
+          theme: 'striped',
+          headStyles: { fontSize: 8, fillColor: [13, 148, 136] },
+          styles: { fontSize: 8, cellPadding: 0.05 },
+          margin: { left: margin, right: margin },
+          didDrawPage: (data: any) => {
+            eYPos = data.cursor.y + 0.1;
+          },
+        });
+      }
+      eYPos += 0.1;
+    }
+
+    // Totals
+    if (eYPos > 9.8) { combinedDoc.addPage(); eYPos = margin; }
+    const totalsData: string[][] = [
+      ['Subtotal', `${(est.subtotal || 0).toFixed(2)}`],
+    ];
+    if (est.discount_amount && est.discount_amount > 0) {
+      totalsData.push(['Discount', `-${est.discount_amount.toFixed(2)}`]);
+    }
+    if (est.sales_tax_amount && est.sales_tax_amount > 0) {
+      totalsData.push(['Sales Tax', `${est.sales_tax_amount.toFixed(2)}`]);
+    }
+    if (est.shop_supplies_amount && est.shop_supplies_amount > 0) {
+      totalsData.push(['Shop Supplies', `${est.shop_supplies_amount.toFixed(2)}`]);
+    }
+    if (est.park_fees_amount && est.park_fees_amount > 0) {
+      totalsData.push(['Park Fees', `${est.park_fees_amount.toFixed(2)}`]);
+    }
+    if (est.surcharge_amount && est.surcharge_amount > 0) {
+      totalsData.push(['Surcharge', `${est.surcharge_amount.toFixed(2)}`]);
+    }
+    totalsData.push(['TOTAL', `${(est.total_amount || 0).toFixed(2)}`]);
+
+    autoTable(combinedDoc, {
+      startY: eYPos,
+      body: totalsData,
+      theme: 'plain',
+      styles: { fontSize: 9, cellPadding: 0.05 },
+      columnStyles: {
+        0: { halign: 'left' },
+        1: { halign: 'right', fontStyle: 'bold' },
+      },
+      margin: { left: margin + 3, right: margin },
+      didDrawPage: (data: any) => {
+        eYPos = data.cursor.y + 0.15;
+      },
+    });
+  }
+
+  // Page numbers
+  const pageCount = combinedDoc.getNumberOfPages();
+  combinedDoc.setFontSize(8);
+  combinedDoc.setFont('helvetica', 'normal');
+  combinedDoc.setTextColor(100);
+  for (let i = 1; i <= pageCount; i++) {
+    combinedDoc.setPage(i);
+    combinedDoc.text(`Page ${i} of ${pageCount}`, pageWidth - margin, 8, { align: 'right' });
+  }
+
+  return combinedDoc;
+}
