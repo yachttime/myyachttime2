@@ -14,9 +14,16 @@
   so this sketch uses Wire (bus A, EXT.IO2) and Wire1 (bus B, PaHub/
   INA226/Voltmeter) as two SEPARATE buses running simultaneously. The
   standalone Module 1 and 2 files each called plain Wire.begin() with
-  just a comment noting which pins applied — that only works when       
+  just a comment noting which pins applied — that only works when
   testing one module at a time. Merged together, they need distinct
   bus objects, which is what's implemented below.
+
+  TELEMETRY FORMAT:
+  Each reading is sent as a single-port, single-sensor POST to the
+  vessel-monitor-telemetry edge function. The body looks like:
+    {"device_serial":"...","ports":[{"port":"A","sensors":[{...}]}]}
+  The edge function auto-creates sensors and ports on first sighting,
+  then updates current_value / last_reading_at on subsequent posts.
 
   STILL NEEDS FIELD CALIBRATION (see relevant sections):
     - PC817 active-high vs active-low polarity (Module 1 origin)
@@ -44,19 +51,9 @@
 const char* WIFI_SSID     = "AZ Marine";
 const char* WIFI_PASSWORD = "9286376500";
 
-// ORION's actual architecture: a single Supabase edge function endpoint,
-// authenticated with a per-device API key (X-Device-Key header) rather
-// than the generic multi-table REST + anon key pattern this file used
-// before. All readings — sensor and location — post to the same URL.
 const char* TELEMETRY_URL   = "https://eqiecntollhgfxmmbize.supabase.co/functions/v1/vessel-monitor-telemetry";
 const char* DEVICE_API_KEY  = "e4411330-5c9f-4d81-ab8b-7e4083ab10d6";
 const char* DEVICE_SERIAL   = "k034326040100309";
-
-// Kept for now since bufferOrSend() call sites still pass one of these —
-// both point at the same telemetry endpoint under this architecture, so
-// the specific value no longer changes where the request goes.
-const char* SENSOR_READINGS_EP   = "";
-const char* LOCATION_READINGS_EP = "";
 
 #define SD_SPI_CS_PIN   4
 #define SD_SPI_SCK_PIN  18
@@ -66,8 +63,7 @@ const char* BUFFER_FILE = "/buffer.jsonl";
 bool sdReady = false;
 
 void setupWiFi() {
-  WiFi.mode(WIFI_STA);  // fixes "cannot set config" error on some boards —
-                        // must explicitly set station mode before begin()
+  WiFi.mode(WIFI_STA);
   WiFi.disconnect(true);
   delay(100);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
@@ -85,11 +81,6 @@ void setupWiFi() {
 }
 
 bool setupSDBuffer() {
-  // Uses the plain shared SPI object — matches M5Stack's own official SD
-  // example for the Tough, which is confirmed working. An earlier version
-  // of this code used a separate dedicated SPIClass(VSPI) instance, which
-  // turned out to conflict with the display's use of the same physical
-  // VSPI peripheral and caused SD detection to fail. Reverted.
   SPI.begin(SD_SPI_SCK_PIN, SD_SPI_MISO_PIN, SD_SPI_MOSI_PIN, SD_SPI_CS_PIN);
   if (!SD.begin(SD_SPI_CS_PIN, SPI, 25000000)) {
     Serial.println("SD card not detected — buffering disabled");
@@ -99,23 +90,20 @@ bool setupSDBuffer() {
   return true;
 }
 
-// NOTE: exact expected field names inside "data" are a best guess (mirrors
-// the sensor_name/value or lat/lng shape the rest of this firmware already
-// builds). If the edge function rejects this with a schema error, check the
-// error response — Supabase edge functions usually return a clear message
-// about what field is missing or malformed — and adjust the wrapping below
-// to match.
-bool sendToSupabase(const char* endpoint, const String& jsonPayload) {
+// Builds the full edge-function payload for a single sensor reading and
+// POSTs it. The edge function expects:
+//   {"device_serial":"...","ports":[{"port":"A","sensors":[{"sensor_type":"...","sensor_name":"...","value":"...","numeric_value":1.2,"unit_of_measure":"...","status":"normal"}]}]}
+// Each call sends exactly one port with one sensor — the edge function
+// handles auto-creation and updates on a per-sensor basis.
+bool sendToSupabase(const char* port, const char* sensorType,
+                     const char* sensorName, const char* value,
+                     float numericValue, const char* unit,
+                     const char* status) {
   if (WiFi.status() != WL_CONNECTED) return false;
 
-  // HTTPS requires an explicit secure client — without this, HTTPClient can
-  // hang indefinitely trying to negotiate TLS instead of failing cleanly,
-  // which is what caused the "stuck" behavior. setInsecure() skips
-  // certificate validation (fine for getting this working now; a properly
-  // pinned root CA would be the more secure long-term choice).
   WiFiClientSecure client;
   client.setInsecure();
-  client.setTimeout(10000);  // don't hang forever if the server's slow/unreachable
+  client.setTimeout(10000);
 
   HTTPClient http;
   http.setTimeout(10000);
@@ -125,11 +113,20 @@ bool sendToSupabase(const char* endpoint, const String& jsonPayload) {
   }
   http.addHeader("Content-Type", "application/json");
   http.addHeader("X-Device-Key", DEVICE_API_KEY);
+
+  // Build the JSON body manually to avoid ArduinoJson dependency.
   String body = String("{\"device_serial\":\"") + DEVICE_SERIAL +
-                "\",\"data\":" + jsonPayload + "}";
+                "\",\"ports\":[{\"port\":\"" + port + "\"," +
+                "\"sensors\":[{\"sensor_type\":\"" + sensorType + "\"," +
+                "\"sensor_name\":\"" + sensorName + "\"," +
+                "\"value\":\"" + value + "\"," +
+                "\"numeric_value\":" + String(numericValue, 4) + "," +
+                "\"unit_of_measure\":\"" + unit + "\"," +
+                "\"status\":\"" + status + "\"}]}]}";
+
   int httpCode = http.POST(body);
   if (httpCode > 0) {
-    Serial.printf("Telemetry POST -> HTTP %d\n", httpCode);
+    Serial.printf("Telemetry POST [%s/%s] -> HTTP %d\n", port, sensorName, httpCode);
   } else {
     Serial.printf("Telemetry POST failed: %s\n", http.errorToString(httpCode).c_str());
   }
@@ -137,30 +134,50 @@ bool sendToSupabase(const char* endpoint, const String& jsonPayload) {
   return (httpCode >= 200 && httpCode < 300);
 }
 
-void bufferOrSend(const char* endpoint, const String& jsonPayload) {
-  if (sendToSupabase(endpoint, jsonPayload)) return;
+// Buffered reading stored as a compact pipe-delimited line so flushBuffer
+// can reconstruct the full payload. Format:
+//   port|sensorType|sensorName|value|numericValue|unit|status
+void bufferReading(const char* port, const char* sensorType,
+                   const char* sensorName, const char* value,
+                   float numericValue, const char* unit,
+                   const char* status) {
   if (!sdReady) {
     Serial.println("Send failed, no SD — reading dropped");
     return;
   }
   File f = SD.open(BUFFER_FILE, FILE_APPEND);
   if (f) {
-    f.print(endpoint);
+    f.print(port);
     f.print("|");
-    f.println(jsonPayload);
+    f.print(sensorType);
+    f.print("|");
+    f.print(sensorName);
+    f.print("|");
+    f.print(value);
+    f.print("|");
+    f.print(numericValue, 4);
+    f.print("|");
+    f.print(unit);
+    f.print("|");
+    f.println(status);
     f.close();
     Serial.println("Buffered reading to SD");
   }
 }
 
+// Attempts to send a reading immediately; falls back to SD buffer on failure.
+void sendReading(const char* port, const char* sensorType,
+                 const char* sensorName, const char* value,
+                 float numericValue, const char* unit,
+                 const char* status) {
+  if (sendToSupabase(port, sensorType, sensorName, value, numericValue, unit, status)) return;
+  bufferReading(port, sensorType, sensorName, value, numericValue, unit, status);
+}
+
 const char* BUFFER_TEMP_FILE = "/buffer_tmp.jsonl";
 
-// Streams the buffer file line-by-line instead of loading it all into an
-// array — the earlier array-based version crashed with a stack overflow
-// once enough readings had buffered up (500, then even 20, String objects
-// held at once was still fragile), and separately risked silently losing
-// any lines beyond whatever batch size was read. This version handles a
-// buffer file of any length safely and never drops a reading.
+// Streams the buffer file line-by-line. Each line is a pipe-delimited
+// reading that gets reconstructed into the full ports-format payload.
 void flushBuffer() {
   if (!sdReady || WiFi.status() != WL_CONNECTED || !SD.exists(BUFFER_FILE)) return;
 
@@ -180,17 +197,33 @@ void flushBuffer() {
     if (line.length() == 0) continue;
 
     if (hitFailure) {
-      // Already hit a failure this pass — carry every remaining line
-      // forward untouched, preserving order for the next attempt.
       out.println(line);
       keptCount++;
       continue;
     }
 
-    int sep = line.indexOf('|');
-    if (sep < 0) continue;  // malformed line, drop it
+    // Parse: port|sensorType|sensorName|value|numericValue|unit|status
+    int sep1 = line.indexOf('|');
+    if (sep1 < 0) continue;
+    int sep2 = line.indexOf('|', sep1 + 1);
+    int sep3 = line.indexOf('|', sep2 + 1);
+    int sep4 = line.indexOf('|', sep3 + 1);
+    int sep5 = line.indexOf('|', sep4 + 1);
+    int sep6 = line.indexOf('|', sep5 + 1);
+    if (sep6 < 0) continue;
 
-    if (sendToSupabase(line.substring(0, sep).c_str(), line.substring(sep + 1))) {
+    String bPort       = line.substring(0, sep1);
+    String bSensorType = line.substring(sep1 + 1, sep2);
+    String bSensorName = line.substring(sep2 + 1, sep3);
+    String bValue      = line.substring(sep3 + 1, sep4);
+    String bNumeric    = line.substring(sep4 + 1, sep5);
+    String bUnit       = line.substring(sep5 + 1, sep6);
+    String bStatus     = line.substring(sep6 + 1);
+
+    if (sendToSupabase(bPort.c_str(), bSensorType.c_str(),
+                       bSensorName.c_str(), bValue.c_str(),
+                       bNumeric.toFloat(), bUnit.c_str(),
+                       bStatus.c_str())) {
       sentCount++;
     } else {
       hitFailure = true;
@@ -222,12 +255,13 @@ void flushBuffer() {
 struct MonitoredChannel {
   uint8_t bit;
   const char* name;
+  const char* sensorType;
   bool lastState;
 };
 MonitoredChannel channels[3] = {
-  {0, "Forward Bilge",        false},
-  {1, "Aft Bilge",              false},
-  {2, "Grundfos Pump (CU301)",  false},
+  {0, "Forward Bilge",        "bilge_pump", false},
+  {1, "Aft Bilge",            "bilge_pump", false},
+  {2, "Grundfos Pump (CU301)", "water_pump", false},
 };
 
 void setupEXTIO2() {
@@ -256,9 +290,11 @@ void handleBilgePump() {
     // real hardware and flip if needed.
     bool active = !((portState >> channels[i].bit) & 0x01);
     if (active != channels[i].lastState) {
-      String payload = String("{\"sensor_name\":\"") + channels[i].name +
-                        "\",\"value\":{\"active\":" + (active ? "true" : "false") + "}}";
-      bufferOrSend(SENSOR_READINGS_EP, payload);
+      const char* valStr = active ? "active" : "inactive";
+      float numVal = active ? 1.0f : 0.0f;
+      const char* status = active ? "warning" : "normal";
+      sendReading("A", channels[i].sensorType, channels[i].name,
+                  valStr, numVal, "on/off", status);
       channels[i].lastState = active;
     }
   }
@@ -300,9 +336,6 @@ bool selectHubChannel(uint8_t hubAddr, uint8_t channel) {
   return Wire1.endTransmission() == 0;
 }
 
-// Explicit forward declaration — works around an Arduino IDE auto-prototype
-// quirk where custom struct types used as function parameters aren't yet
-// known at the point the IDE inserts its own auto-generated prototypes.
 bool routeToBank(const BatteryBank& bank);
 
 bool routeToBank(const BatteryBank& bank) {
@@ -347,7 +380,7 @@ bool readINA226(float& busVoltage, float& current) {
 
 unsigned long lastBatteryCheck = 0;
 const unsigned long BATTERY_CHECK_INTERVAL_MS = 30000;
-int batteryIndex = 0;  // stagger banks one at a time across loop() calls
+int batteryIndex = 0;
 
 void handleBatteryBanks() {
   if (!routeToBank(banks[batteryIndex])) {
@@ -355,10 +388,15 @@ void handleBatteryBanks() {
   } else {
     float voltage, current;
     if (readINA226(voltage, current)) {
-      String payload = String("{\"sensor_name\":\"") + banks[batteryIndex].name +
-                        "\",\"value\":{\"voltage\":" + String(voltage, 2) +
-                        ",\"current\":" + String(current, 2) + "}}";
-      bufferOrSend(SENSOR_READINGS_EP, payload);
+      String valStr = String(voltage, 2) + "V / " + String(current, 2) + "A";
+
+      // Determine status: below 11.8V is critical, below 12.2V is warning
+      const char* status = "normal";
+      if (voltage < 11.8f) status = "critical";
+      else if (voltage < 12.2f) status = "warning";
+
+      sendReading("B", "battery_bank", banks[batteryIndex].name,
+                  valStr.c_str(), voltage, "V", status);
     }
   }
   batteryIndex = (batteryIndex + 1) % 6;
@@ -375,20 +413,20 @@ const float VOLTMETER_SCALE_FACTOR = 1.0f;  // TODO: calibrate against known vol
 
 struct VoltagePoint {
   const char* name;
+  const char* sensorType;
   bool onSecondaryHub;
   uint8_t hubChannel;
   uint8_t adsChannel;
 };
 VoltagePoint points[5] = {
-  {"Engine 1 Alternator",    false, 6, 0},
-  {"Engine 2 Alternator",    false, 6, 1},
-  {"Generator 1 Alternator", true,  1, 0},
-  {"Generator 2 Alternator", true,  1, 1},
-  {"Wind Vane Direction",    true,  2, 0},
+  {"Engine 1 Alternator",    "engine_alternator", false, 6, 0},
+  {"Engine 2 Alternator",    "engine_alternator", false, 6, 1},
+  {"Generator 1 Alternator", "engine_alternator", true,  1, 0},
+  {"Generator 2 Alternator", "engine_alternator", true,  1, 1},
+  {"Wind Vane Direction",    "wind_vane",         true,  2, 0},
 };
 // NOTE: hubChannel values are placeholders — cross-check against actual wiring.
 
-// Same auto-prototype workaround as routeToBank() above.
 bool routeToPoint(const VoltagePoint& pt);
 
 bool routeToPoint(const VoltagePoint& pt) {
@@ -446,17 +484,22 @@ void handleVoltagePoints() {
     float rawVolts;
     if (readADS1115(points[voltageIndex].adsChannel, rawVolts)) {
       bool isDirection = (voltageIndex == 4);
-      String payload;
       if (isDirection) {
-        payload = String("{\"sensor_name\":\"") + points[voltageIndex].name +
-                  "\",\"value\":{\"direction\":\"" + windVaneVoltageToDirection(rawVolts) +
-                  "\",\"raw_volts\":" + String(rawVolts, 3) + "}}";
+        const char* dirStr = windVaneVoltageToDirection(rawVolts);
+        sendReading("B", "wind_vane", points[voltageIndex].name,
+                    dirStr, rawVolts, "direction", "normal");
       } else {
         float scaled = rawVolts * VOLTMETER_SCALE_FACTOR;
-        payload = String("{\"sensor_name\":\"") + points[voltageIndex].name +
-                  "\",\"value\":{\"voltage\":" + String(scaled, 2) + "}}";
+        String valStr = String(scaled, 2) + "V";
+
+        // Alternator should produce 13.8-14.4V when running; below 12.5V is warning
+        const char* status = "normal";
+        if (scaled < 12.0f) status = "critical";
+        else if (scaled < 12.5f) status = "warning";
+
+        sendReading("B", "engine_alternator", points[voltageIndex].name,
+                    valStr.c_str(), scaled, "V", status);
       }
-      bufferOrSend(SENSOR_READINGS_EP, payload);
     }
   }
   voltageIndex = (voltageIndex + 1) % 5;
@@ -478,7 +521,7 @@ const unsigned long GPS_PUSH_INTERVAL_MS = 30000;
 volatile unsigned long pulseCount = 0;
 unsigned long lastWindCalc = 0;
 const unsigned long WIND_CALC_INTERVAL_MS = 5000;
-const float MPH_PER_PULSE_PER_SEC = 1.492f;  // SparkFun published spec
+const float MPH_PER_PULSE_PER_SEC = 1.492f;
 
 void IRAM_ATTR onAnemometerPulse() {
   pulseCount++;
@@ -491,11 +534,17 @@ void handleGPS() {
   if (millis() - lastGpsPush > GPS_PUSH_INTERVAL_MS) {
     lastGpsPush = millis();
     if (gps.location.isValid() && gps.location.isUpdated()) {
-      String payload = String("{\"lat\":") + String(gps.location.lat(), 6) +
-                        ",\"lng\":" + String(gps.location.lng(), 6) +
-                        ",\"speed_mph\":" + String(gps.speed.isValid() ? gps.speed.mph() : 0.0, 1) +
-                        ",\"heading_deg\":" + String(gps.course.isValid() ? gps.course.deg() : 0.0, 1) + "}";
-      bufferOrSend(LOCATION_READINGS_EP, payload);
+      float lat = gps.location.lat();
+      float lng = gps.location.lng();
+      float speed = gps.speed.isValid() ? gps.speed.mph() : 0.0f;
+      float heading = gps.course.isValid() ? gps.course.deg() : 0.0f;
+
+      String valStr = String(lat, 6) + ", " + String(lng, 6) +
+                      " | " + String(speed, 1) + " mph | " +
+                      String(heading, 1) + " deg";
+
+      sendReading("C", "gps", "GPS Location",
+                  valStr.c_str(), lat, "lat/lng", "normal");
     } else {
       Serial.println("No valid GPS fix yet");
     }
@@ -512,9 +561,15 @@ void handleWindSpeed() {
     float pulsesPerSecond = count / (WIND_CALC_INTERVAL_MS / 1000.0f);
     float windMph = pulsesPerSecond * MPH_PER_PULSE_PER_SEC;
 
-    String payload = String("{\"sensor_name\":\"Wind Speed\",\"value\":{\"mph\":") +
-                      String(windMph, 1) + "}}";
-    bufferOrSend(SENSOR_READINGS_EP, payload);
+    String valStr = String(windMph, 1) + " mph";
+
+    // High wind thresholds
+    const char* status = "normal";
+    if (windMph >= 38.0f) status = "critical";
+    else if (windMph >= 25.0f) status = "warning";
+
+    sendReading("D", "anemometer", "Wind Speed",
+                valStr.c_str(), windMph, "mph", status);
     lastWindCalc = millis();
   }
 }
@@ -531,16 +586,8 @@ void setup() {
   Serial.begin(115200);
   delay(200);
 
-  // SD init runs FIRST, immediately after M5.begin() — matches M5Stack's
-  // own official example's timing. Some SD cards need their SPI init
-  // sequence within a short window after power-up or they silently fall
-  // back to native mode and stop responding to SPI. Running this after
-  // several other peripherals' setup (as an earlier version of this file
-  // did) was likely causing exactly that — confirmed by diagnostic testing
-  // where SD detection failed only when checked last, not first.
   sdReady = setupSDBuffer();
 
-  // Two separate I2C buses — see header comment for why this matters
   Wire.begin(32, 33);    // PORT.A -> EXT.IO2
   Wire1.begin(26, 36);   // PORT.B -> PaHub cascade
 
@@ -563,19 +610,16 @@ void loop() {
     setupWiFi();
   }
 
-  // Bilge/pump: checked every loop pass, internally rate-limited
   if (millis() - lastBilgeCheck > BILGE_CHECK_INTERVAL_MS) {
     handleBilgePump();
     lastBilgeCheck = millis();
   }
 
-  // Battery banks: one bank per interval, cycling through all 6
   if (millis() - lastBatteryCheck > BATTERY_CHECK_INTERVAL_MS) {
     handleBatteryBanks();
     lastBatteryCheck = millis();
   }
 
-  // Alternators/wind vane: one point per interval, cycling through all 5
   if (millis() - lastVoltageCheck > VOLTAGE_CHECK_INTERVAL_MS) {
     handleVoltagePoints();
     lastVoltageCheck = millis();
