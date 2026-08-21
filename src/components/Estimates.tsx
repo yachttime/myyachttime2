@@ -94,7 +94,7 @@ export function Estimates({ userId }: EstimatesProps) {
     setEditingId(id);
   };
   const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
-  const [offseasonFilter, setOffseasonFilter] = useState(false);
+  const [offseasonFilter, setOffseasonFilter] = useState<'all' | 'hide_offseason' | 'offseason_only'>('hide_offseason');
 
   const [formData, setFormData] = useState({
     is_retail_customer: false,
@@ -3778,14 +3778,14 @@ export function Estimates({ userId }: EstimatesProps) {
                 Archived
               </button>
               <button
-                onClick={() => setOffseasonFilter(v => !v)}
+                onClick={() => setOffseasonFilter(prev => prev === 'hide_offseason' ? 'offseason_only' : prev === 'offseason_only' ? 'all' : 'hide_offseason')}
                 className={`px-6 py-3 text-sm font-medium ml-auto ${
-                  offseasonFilter
+                  offseasonFilter !== 'all'
                     ? 'text-teal-600 border-b-2 border-teal-600'
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
-                Off-Season Only
+                {offseasonFilter === 'hide_offseason' ? 'Hide Off-Season' : offseasonFilter === 'offseason_only' ? 'Off-Season Only' : 'Show All'}
               </button>
             </div>
           </div>
@@ -3805,7 +3805,11 @@ export function Estimates({ userId }: EstimatesProps) {
               </tr>
             </thead>
           <tbody className="divide-y divide-gray-200">
-            {estimates.filter(e => !offseasonFilter || e.is_offseason).map((estimate) => (
+            {estimates.filter(e => {
+              if (offseasonFilter === 'offseason_only') return e.is_offseason;
+              if (offseasonFilter === 'hide_offseason') return !e.is_offseason;
+              return true;
+            }).map((estimate) => (
               <tr key={estimate.id} className="hover:bg-gray-50">
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center gap-2">
