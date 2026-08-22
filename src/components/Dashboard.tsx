@@ -8457,13 +8457,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       if (error) throw error;
 
       showSuccess('Inspection approved');
+      const approvedYachtId = reviewInspectionData?.yacht_id;
       setReviewInspectionId(null);
       setReviewInspectionData(null);
       setReviewNotes('');
 
-      // Refresh inspection docs for the yacht
-      if (reviewInspectionData?.yacht_id) {
-        loadYachtInspectionDocs(reviewInspectionData.yacht_id);
+      if (approvedYachtId) {
+        loadYachtInspectionDocs(approvedYachtId);
       }
       loadPendingInspectionCount();
     } catch (err: any) {
