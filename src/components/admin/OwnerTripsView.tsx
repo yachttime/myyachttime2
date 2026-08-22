@@ -121,14 +121,18 @@ export default function OwnerTripsView({
                           const usersByYacht: { [key: string]: typeof allUsers } = {};
                           const usersWithoutYacht: typeof allUsers = [];
 
+                          const isManager = userProfile?.role === 'manager';
+                          const managerYachtId = userProfile?.yacht_id;
+
                           allUsers.forEach(user => {
                             if (user.is_active === false) return;
                             if (user.role === 'owner' || user.role === 'manager') {
+                              if (isManager && user.yacht_id !== managerYachtId) return;
                               const userYacht = allYachts.find(y => y.id === user.yacht_id);
                               if (userYacht && userYacht.is_active === false) return;
                               const yachtName = user.yachts?.name || 'Unassigned';
                               if (yachtName === 'Unassigned') {
-                                usersWithoutYacht.push(user);
+                                if (!isManager) usersWithoutYacht.push(user);
                               } else {
                                 if (!usersByYacht[yachtName]) {
                                   usersByYacht[yachtName] = [];
