@@ -21,6 +21,8 @@ interface OwnerTripsViewProps {
   allUsers: any[];
   allYachts: Yacht[];
   userProfile: UserProfile | null;
+  effectiveRole?: string;
+  effectiveYachtId?: string | null;
   currentUserId?: string;
   selectedOwnerYachtId: string | null;
   selectedOwnerUserId: string | null;
@@ -31,7 +33,7 @@ interface OwnerTripsViewProps {
 
 export default function OwnerTripsView({
   showForm, onToggleForm, form, onFormChange, loading, error, success,
-  allUsers, allYachts, onSelectedYachtChange, onSelectedUserChange, onSubmit,
+  allUsers, allYachts, userProfile, effectiveRole, effectiveYachtId, onSelectedYachtChange, onSelectedUserChange, onSubmit,
 }: OwnerTripsViewProps) {
   return (
     <>
@@ -121,8 +123,8 @@ export default function OwnerTripsView({
                           const usersByYacht: { [key: string]: typeof allUsers } = {};
                           const usersWithoutYacht: typeof allUsers = [];
 
-                          const isManager = userProfile?.role === 'manager';
-                          const managerYachtId = userProfile?.yacht_id;
+                          const isManager = (effectiveRole || userProfile?.role) === 'manager';
+                          const managerYachtId = effectiveYachtId || userProfile?.yacht_id;
 
                           allUsers.forEach(user => {
                             if (user.is_active === false) return;

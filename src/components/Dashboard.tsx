@@ -13926,6 +13926,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     allUsers={allUsers}
                     allYachts={allYachts}
                     userProfile={userProfile}
+                    effectiveRole={effectiveRole}
+                    effectiveYachtId={effectiveYacht?.id}
                     currentUserId={user?.id}
                     selectedOwnerYachtId={selectedOwnerYachtId}
                     selectedOwnerUserId={selectedOwnerUserId}
