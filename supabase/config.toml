@@ -1,0 +1,2 @@
+[functions.send-owner-repair-notification]
+verify_jwt = false

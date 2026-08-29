@@ -13,6 +13,8 @@ interface OwnerRepairNotificationRequest {
   repairDescription?: string;
   yachtName: string;
   submitterName: string;
+  isAsap?: boolean;
+  companyId?: string;
 }
 
 Deno.serve(async (req: Request) => {
@@ -22,7 +24,7 @@ Deno.serve(async (req: Request) => {
 
   try {
     const payload: OwnerRepairNotificationRequest = await req.json();
-    const { repairRequestId, repairTitle, repairDescription, yachtName, submitterName } = payload;
+    const { repairRequestId, repairTitle, repairDescription, yachtName, submitterName, isAsap, companyId } = payload;
 
     if (!repairRequestId) {
       throw new Error('Repair request ID is required');
@@ -32,11 +34,17 @@ Deno.serve(async (req: Request) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { data: staffUsers, error: staffError } = await supabase
+    let staffQuery = supabase
       .from('user_profiles')
       .select('user_id, first_name, last_name, email, phone, notification_email, notification_phone, email_notifications_enabled, sms_notifications_enabled, role, secondary_email')
       .in('role', ['staff', 'master'])
       .eq('is_active', true);
+
+    if (companyId) {
+      staffQuery = staffQuery.eq('company_id', companyId);
+    }
+
+    const { data: staffUsers, error: staffError } = await staffQuery;
 
     if (staffError) throw staffError;
 
@@ -79,8 +87,9 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    const subject = `Owner Repair Request: ${repairTitle} — ${yachtName}`;
-    const smsBody = `NEW OWNER REQUEST: "${repairTitle}" submitted for ${yachtName} by ${submitterName}. Log in to review.`;
+    const priorityPrefix = isAsap ? '[ASAP] ' : '';
+    const subject = `${priorityPrefix}Owner Repair Request: ${repairTitle} — ${yachtName}`;
+    const smsBody = `${isAsap ? 'ASAP ' : ''}NEW OWNER REQUEST: "${repairTitle}" submitted for ${yachtName} by ${submitterName}. Log in to review.`;
 
     let emailsSent = 0;
     let smsSent = 0;
