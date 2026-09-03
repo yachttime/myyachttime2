@@ -27,7 +27,7 @@ import { StaffCalendar } from './StaffCalendar';
 import { TimeClock } from './TimeClock';
 import { EstimatingDashboard } from './EstimatingDashboard';
 import { PasswordChange } from './PasswordChange';
-import CustomerManagement from './CustomerManagement';
+import CustomerManagement, { CustomerPrefill } from './CustomerManagement';
 import { CompanyManagement } from './CompanyManagement';
 import SupportTickets from './SupportTickets';
 import { uploadFileToStorage, deleteFileFromStorage, isStorageUrl, UploadProgress, isTokenExpiredError } from '../utils/fileUpload';
@@ -464,6 +464,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [yachtSuccess, setYachtSuccess] = useState(false);
   const [yachtError, setYachtError] = useState('');
   const [showYachtForm, setShowYachtForm] = useState(false);
+  const [customerPrefill, setCustomerPrefill] = useState<CustomerPrefill | null>(null);
   const [editingYacht, setEditingYacht] = useState<Yacht | null>(null);
   const [showOwnerTripForm, setShowOwnerTripForm] = useState(false);
   const [ownerTripForm, setOwnerTripForm] = useState({
@@ -11011,7 +11012,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
           {activeTab === 'customers' && (
             <div className="bg-white rounded-2xl border border-slate-300 overflow-hidden">
-              <CustomerManagement />
+              <CustomerManagement prefillCustomer={customerPrefill} onPrefillConsumed={() => setCustomerPrefill(null)} />
             </div>
           )}
 
@@ -17202,6 +17203,23 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     onEmailGroup={(yachtName, users) => { const recipients: Array<{ email: string; name: string }> = []; const ccEmails: string[] = []; users.forEach((user: any) => { const primaryEmail = user.notification_email || user.email; const userName = user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : user.email; if (primaryEmail) recipients.push({ email: primaryEmail, name: userName }); if (user.secondary_email && user.secondary_email !== primaryEmail) ccEmails.push(user.secondary_email); }); if (recipients.length === 0) { alert('No email addresses found for yacht members'); return; } setBulkEmailRecipients(recipients); setBulkEmailCcRecipients(ccEmails); setBulkEmailYachtName(yachtName); setShowBulkEmailModal(true); }}
                     onEmailManagementTeam={fetchManagementTeamForEmail}
                     onSendIntroVideo={sendIntroVideoToOwners}
+                    onSendToCustomerDB={(ownerUser) => {
+                      setCustomerPrefill({
+                        first_name: ownerUser.first_name || '',
+                        last_name: ownerUser.last_name || '',
+                        email: ownerUser.email || '',
+                        phone: ownerUser.phone || '',
+                        secondary_phone: ownerUser.secondary_phone || '',
+                        street: ownerUser.street || '',
+                        city: ownerUser.city || '',
+                        state: ownerUser.state || '',
+                        zip_code: ownerUser.zip_code || '',
+                        source_user_id: ownerUser.user_id,
+                        source_user_name: `${ownerUser.first_name} ${ownerUser.last_name}`.trim(),
+                      });
+                      setAdminViewPersisted('menu');
+                      setActiveTabPersisted('customers');
+                    }}
                   />
                 </AdminViewWrapper>
               ) : null}

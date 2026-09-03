@@ -21,6 +21,7 @@ interface Customer {
   notes?: string;
   is_active: boolean;
   created_at: string;
+  source_user_id?: string | null;
 }
 
 interface VesselEngine {
@@ -108,7 +109,21 @@ interface CustomerHistory {
   repair_requests_total: number;
 }
 
-export default function CustomerManagement() {
+export interface CustomerPrefill {
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
+  secondary_phone: string;
+  street: string;
+  city: string;
+  state: string;
+  zip_code: string;
+  source_user_id: string;
+  source_user_name: string;
+}
+
+export default function CustomerManagement({ prefillCustomer, onPrefillConsumed }: { prefillCustomer?: CustomerPrefill | null; onPrefillConsumed?: () => void; }) {
   const { user, userProfile } = useAuth();
   const { getEffectiveRole } = useRoleImpersonation();
   const effectiveRole = getEffectiveRole(userProfile?.role);
@@ -171,6 +186,9 @@ export default function CustomerManagement() {
     zip_code: '',
     notes: '',
   });
+  const [sourceUserId, setSourceUserId] = useState<string | null>(null);
+  const [sourceUserName, setSourceUserName] = useState<string>('');
+  const [duplicateWarning, setDuplicateWarning] = useState<string>('');
 
   const [newVessel, setNewVessel] = useState({
     vessel_name: '',
@@ -192,6 +210,46 @@ export default function CustomerManagement() {
       loadCustomers();
     }
   }, [user]);
+
+  useEffect(() => {
+    if (prefillCustomer) {
+      setNewCustomer({
+        customer_type: 'individual',
+        first_name: prefillCustomer.first_name || '',
+        last_name: prefillCustomer.last_name || '',
+        business_name: '',
+        email: prefillCustomer.email || '',
+        phone: prefillCustomer.phone || '',
+        secondary_phone: prefillCustomer.secondary_phone || '',
+        address_line1: prefillCustomer.street || '',
+        address_line2: '',
+        city: prefillCustomer.city || '',
+        state: prefillCustomer.state || '',
+        zip_code: prefillCustomer.zip_code || '',
+        notes: `Imported from yacht owner: ${prefillCustomer.source_user_name}`,
+      });
+      setSourceUserId(prefillCustomer.source_user_id || null);
+      setSourceUserName(prefillCustomer.source_user_name || '');
+      setDuplicateWarning('');
+      setShowAddCustomer(true);
+
+      (async () => {
+        if (prefillCustomer.email) {
+          const { data } = await supabase
+            .from('customers')
+            .select('id, first_name, last_name, business_name')
+            .ilike('email', prefillCustomer.email)
+            .maybeSingle();
+          if (data) {
+            const existingName = data.business_name || `${data.first_name || ''} ${data.last_name || ''}`.trim();
+            setDuplicateWarning(`A customer with this email already exists: ${existingName}. You can still save this as a new record, or go back and search for the existing customer.`);
+          }
+        }
+      })();
+
+      if (onPrefillConsumed) onPrefillConsumed();
+    }
+  }, [prefillCustomer]);
 
   useEffect(() => {
     if (searchTerm === '') {
@@ -284,6 +342,7 @@ export default function CustomerManagement() {
           ...newCustomer,
           created_by: user?.id,
           company_id: userProfile?.company_id || null,
+          source_user_id: sourceUserId || null,
         })
         .select()
         .single();
@@ -307,7 +366,10 @@ export default function CustomerManagement() {
         zip_code: '',
         notes: '',
       });
-      setSuccessMessage('Customer added successfully!');
+      setSourceUserId(null);
+      setSourceUserName('');
+      setDuplicateWarning('');
+      setSuccessMessage(sourceUserName ? `${sourceUserName} added as a customer! Scroll down to add their personal boat.` : 'Customer added successfully!');
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error) {
       console.error('Error adding customer:', error);
@@ -715,7 +777,12 @@ export default function CustomerManagement() {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <h3 className="font-semibold text-gray-900">{getCustomerDisplayName(customer)}</h3>
-                  <p className="text-sm text-gray-600 capitalize">{customer.customer_type}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm text-gray-600 capitalize">{customer.customer_type}</p>
+                    {customer.source_user_id && (
+                      <span className="px-1.5 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full font-medium">Yacht Owner</span>
+                    )}
+                  </div>
                   {customer.email && (
                     <p className="text-sm text-gray-500 mt-1">{customer.email}</p>
                   )}
@@ -743,9 +810,14 @@ export default function CustomerManagement() {
             <div className="space-y-6">
               <div className="bg-white border border-gray-200 rounded-lg p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-2xl font-bold text-gray-900">
-                    {getCustomerDisplayName(selectedCustomer)}
-                  </h2>
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-2xl font-bold text-gray-900">
+                      {getCustomerDisplayName(selectedCustomer)}
+                    </h2>
+                    {selectedCustomer.source_user_id && (
+                      <span className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded-full font-medium">Imported from Yacht Owner</span>
+                    )}
+                  </div>
                   <button
                     onClick={() => setEditingCustomer(selectedCustomer)}
                     className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
@@ -1090,6 +1162,16 @@ export default function CustomerManagement() {
             </div>
 
             <div className="p-6 space-y-4">
+              {sourceUserName && (
+                <div className="bg-blue-50 border border-blue-300 rounded-lg p-3 text-sm text-blue-800">
+                  <strong>Imported from yacht owner:</strong> {sourceUserName}. Review the information below and click Save to create this customer.
+                </div>
+              )}
+              {duplicateWarning && (
+                <div className="bg-amber-50 border border-amber-400 rounded-lg p-3 text-sm text-amber-800">
+                  <strong>Heads up:</strong> {duplicateWarning}
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Customer Type</label>
                 <div className="flex gap-4">
