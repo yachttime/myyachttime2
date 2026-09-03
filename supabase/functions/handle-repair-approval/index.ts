@@ -55,11 +55,19 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    const acceptHeader = req.headers.get('Accept') || '';
+    const wantsJson = acceptHeader.includes('application/json');
+
+    function errorResponse(title: string, message: string, status: number): Response {
+      if (wantsJson) {
+        return new Response(JSON.stringify({ error: message }), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      return new Response(generateErrorPage(title, message), { status, headers: htmlHeaders });
+    }
+
     // Check if this specific token is already used
     if (tokenData.used_at) {
-      return new Response(generateErrorPage('Link Already Used', 'This approval link has already been used. The repair request has been processed.'), {
-        status: 400, headers: htmlHeaders,
-      });
+      return errorResponse('Link Already Used', 'This approval link has already been used. The repair request has been processed.', 400);
     }
 
     // Check if ANY token for this repair request has already been used
@@ -71,17 +79,12 @@ Deno.serve(async (req: Request) => {
 
     if (existingTokens && existingTokens.length > 0) {
       const usedAction = existingTokens[0].action_type === 'approve' ? 'approved' : 'denied';
-      return new Response(
-        generateErrorPage('Request Already Processed', `This repair request has already been ${usedAction}. Please check your email or log in to MyYachtTime for the current status.`),
-        { status: 400, headers: htmlHeaders }
-      );
+      return errorResponse('Request Already Processed', `This repair request has already been ${usedAction}. Please check your email or log in to MyYachtTime for the current status.`, 400);
     }
 
     // Check if token has expired
     if (new Date(tokenData.expires_at) < new Date()) {
-      return new Response(generateErrorPage('Link Expired', 'This approval link has expired. Please log in to MyYachtTime to approve or deny this request.'), {
-        status: 400, headers: htmlHeaders,
-      });
+      return errorResponse('Link Expired', 'This approval link has expired. Please log in to MyYachtTime to approve or deny this request.', 400);
     }
 
     // Fetch repair request details for display
@@ -120,6 +123,19 @@ Deno.serve(async (req: Request) => {
     if (req.method === 'POST') {
       const now = new Date().toISOString();
 
+      // Look up the manager's user_id from their email so approved_by is set correctly
+      let approverUserId: string | null = null;
+      if (tokenData.manager_email) {
+        const { data: managerProfile } = await supabaseAdmin
+          .from('user_profiles')
+          .select('user_id')
+          .eq('email', tokenData.manager_email)
+          .maybeSingle();
+        if (managerProfile?.user_id) {
+          approverUserId = managerProfile.user_id;
+        }
+      }
+
       await supabaseAdmin
         .from('repair_request_approval_tokens')
         .update({ used_at: now })
@@ -128,7 +144,11 @@ Deno.serve(async (req: Request) => {
       const newStatus = tokenData.action_type === 'approve' ? 'approved' : 'rejected';
       const { error: updateError } = await supabaseAdmin
         .from('repair_requests')
-        .update({ status: newStatus })
+        .update({
+          status: newStatus,
+          approved_by: approverUserId,
+          approval_notes: `Responded via email by ${tokenData.manager_email || 'unknown'}`,
+        })
         .eq('id', tokenData.repair_request_id);
 
       if (updateError) {
@@ -153,8 +173,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // ── GET: Return JSON for the static page to consume ────────────────────
-    const acceptHeader = req.headers.get('Accept') || '';
-    if (acceptHeader.includes('application/json')) {
+    if (wantsJson) {
       return new Response(
         JSON.stringify({ action, actionLabel, displayName, title, description, estimateDisplay }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
