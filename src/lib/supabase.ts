@@ -23,11 +23,32 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 
 export type UserRole = 'owner' | 'manager' | 'staff' | 'mechanic' | 'master';
 
-export interface YachtEngine {
+export interface ServiceParts {
+  fuel_type?: string;
+  oil_filter_part_number?: string;
+  oil_filter_alt1?: string;
+  oil_filter_alt2?: string;
+  fuel_filter_part_number?: string;
+  fuel_filter_alt1?: string;
+  fuel_filter_alt2?: string;
+  impeller_part_number?: string;
+  belt1_part_number?: string;
+  belt2_part_number?: string;
+  oil_weight?: string;
+  oil_quantity?: string;
+  spark_plug_part_number?: string;
+  distributor_cap_part_number?: string;
+  rotor_part_number?: string;
+  plug_wires_part_number?: string;
+}
+
+export interface YachtEngine extends ServiceParts {
   id: string;
   yacht_id: string;
   label: string;
   description: string;
+  model_number?: string;
+  serial_number?: string;
   season_start_hours: number | null;
   sort_order: number;
   company_id?: string;
@@ -35,11 +56,13 @@ export interface YachtEngine {
   updated_at: string;
 }
 
-export interface YachtGenerator {
+export interface YachtGenerator extends ServiceParts {
   id: string;
   yacht_id: string;
   label: string;
   description: string;
+  model_number?: string;
+  serial_number?: string;
   season_start_hours: number | null;
   sort_order: number;
   company_id?: string;

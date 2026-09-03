@@ -2360,7 +2360,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       let query = supabase
         .from('yachts')
-        .select('*, yacht_engines(id, label, description, season_start_hours, sort_order), yacht_generators(id, label, description, season_start_hours, sort_order)')
+        .select('*, yacht_engines(*), yacht_generators(*)')
         .eq('company_id', selectedCompany.id);
 
       // Master role: see ALL yachts (active and inactive) for selected company
@@ -11267,9 +11267,27 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   yacht_id: newYacht.id,
                                   label: e.label.trim(),
                                   description: e.description.trim(),
+                                  model_number: e.model_number?.trim() || '',
+                                  serial_number: e.serial_number?.trim() || '',
                                   season_start_hours: e.season_start_hours ? parseFloat(e.season_start_hours) : null,
                                   sort_order: i,
-                                  company_id: userProfile?.company_id
+                                  company_id: userProfile?.company_id,
+                                  fuel_type: e.fuel_type || 'diesel',
+                                  oil_filter_part_number: e.oil_filter_part_number?.trim() || '',
+                                  oil_filter_alt1: e.oil_filter_alt1?.trim() || '',
+                                  oil_filter_alt2: e.oil_filter_alt2?.trim() || '',
+                                  fuel_filter_part_number: e.fuel_filter_part_number?.trim() || '',
+                                  fuel_filter_alt1: e.fuel_filter_alt1?.trim() || '',
+                                  fuel_filter_alt2: e.fuel_filter_alt2?.trim() || '',
+                                  impeller_part_number: e.impeller_part_number?.trim() || '',
+                                  belt1_part_number: e.belt1_part_number?.trim() || '',
+                                  belt2_part_number: e.belt2_part_number?.trim() || '',
+                                  oil_weight: e.oil_weight?.trim() || '',
+                                  oil_quantity: e.oil_quantity?.trim() || '',
+                                  spark_plug_part_number: e.spark_plug_part_number?.trim() || '',
+                                  distributor_cap_part_number: e.distributor_cap_part_number?.trim() || '',
+                                  rotor_part_number: e.rotor_part_number?.trim() || '',
+                                  plug_wires_part_number: e.plug_wires_part_number?.trim() || '',
                                 }))
                               );
                             }
@@ -11279,9 +11297,27 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   yacht_id: newYacht.id,
                                   label: g.label.trim(),
                                   description: g.description.trim(),
+                                  model_number: g.model_number?.trim() || '',
+                                  serial_number: g.serial_number?.trim() || '',
                                   season_start_hours: g.season_start_hours ? parseFloat(g.season_start_hours) : null,
                                   sort_order: i,
-                                  company_id: userProfile?.company_id
+                                  company_id: userProfile?.company_id,
+                                  fuel_type: g.fuel_type || 'diesel',
+                                  oil_filter_part_number: g.oil_filter_part_number?.trim() || '',
+                                  oil_filter_alt1: g.oil_filter_alt1?.trim() || '',
+                                  oil_filter_alt2: g.oil_filter_alt2?.trim() || '',
+                                  fuel_filter_part_number: g.fuel_filter_part_number?.trim() || '',
+                                  fuel_filter_alt1: g.fuel_filter_alt1?.trim() || '',
+                                  fuel_filter_alt2: g.fuel_filter_alt2?.trim() || '',
+                                  impeller_part_number: g.impeller_part_number?.trim() || '',
+                                  belt1_part_number: g.belt1_part_number?.trim() || '',
+                                  belt2_part_number: g.belt2_part_number?.trim() || '',
+                                  oil_weight: g.oil_weight?.trim() || '',
+                                  oil_quantity: g.oil_quantity?.trim() || '',
+                                  spark_plug_part_number: g.spark_plug_part_number?.trim() || '',
+                                  distributor_cap_part_number: g.distributor_cap_part_number?.trim() || '',
+                                  rotor_part_number: g.rotor_part_number?.trim() || '',
+                                  plug_wires_part_number: g.plug_wires_part_number?.trim() || '',
                                 }))
                               );
                             }
@@ -11423,21 +11459,63 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                         <div className="border-t border-slate-700 pt-4">
                           <div className="flex items-center justify-between mb-3">
                             <h4 className="text-sm font-semibold text-slate-300">Engines</h4>
-                            <button type="button" onClick={() => setEnginesForm([...enginesForm, { label: '', description: '', season_start_hours: '' }])} className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">+ Add Engine</button>
+                            <button type="button" onClick={() => setEnginesForm([...enginesForm, { label: '', description: '', model_number: '', serial_number: '', season_start_hours: '', fuel_type: 'diesel', oil_filter_part_number: '', oil_filter_alt1: '', oil_filter_alt2: '', fuel_filter_part_number: '', fuel_filter_alt1: '', fuel_filter_alt2: '', impeller_part_number: '', belt1_part_number: '', belt2_part_number: '', oil_weight: '', oil_quantity: '', spark_plug_part_number: '', distributor_cap_part_number: '', rotor_part_number: '', plug_wires_part_number: '' }])} className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">+ Add Engine</button>
                           </div>
                           {enginesForm.length === 0 && <p className="text-xs text-slate-500 mb-3">No engines added yet.</p>}
                           {enginesForm.map((eng, i) => (
-                            <div key={i} className="bg-slate-900/50 rounded-lg p-3 mb-2 grid grid-cols-1 gap-2">
+                            <div key={i} className="bg-slate-900/50 rounded-lg p-3 mb-2 space-y-2">
                               <div className="grid grid-cols-2 gap-2">
                                 <input type="text" value={eng.label} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], label: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" placeholder="Label (e.g. Port Engine)" />
                                 <input type="text" value={eng.description} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], description: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" placeholder="Description (e.g. Cat C18 1000HP)" />
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <input type="text" value={eng.model_number || ''} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], model_number: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" placeholder="Model Number" />
+                                <input type="text" value={eng.serial_number || ''} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], serial_number: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" placeholder="Serial Number" />
                               </div>
                               <div className="flex items-center gap-2">
                                 <div className="flex-1">
                                   <label className="block text-xs text-slate-400 mb-1">Season Start Hours</label>
                                   <input type="number" step="0.1" min="0" value={eng.season_start_hours} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], season_start_hours: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" placeholder="e.g. 1250.5" />
                                 </div>
+                                <div className="flex-1">
+                                  <label className="block text-xs text-slate-400 mb-1">Fuel Type</label>
+                                  <select value={eng.fuel_type || 'diesel'} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], fuel_type: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500">
+                                    <option value="diesel">Diesel</option>
+                                    <option value="gas">Gas</option>
+                                  </select>
+                                </div>
                                 <button type="button" onClick={() => setEnginesForm(enginesForm.filter((_, j) => j !== i))} className="mt-5 p-2 text-red-400 hover:text-red-300 hover:bg-slate-700 rounded-lg transition-colors"><X className="w-4 h-4" /></button>
+                              </div>
+                              <div className="border-t border-slate-700 pt-2 space-y-2">
+                                <p className="text-xs font-semibold text-slate-400">Service Parts</p>
+                                <div className="grid grid-cols-3 gap-2">
+                                  <input type="text" value={eng.oil_filter_part_number || ''} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], oil_filter_part_number: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500" placeholder="Oil Filter P/N" />
+                                  <input type="text" value={eng.oil_filter_alt1 || ''} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], oil_filter_alt1: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500" placeholder="Oil Filter Alt 1" />
+                                  <input type="text" value={eng.oil_filter_alt2 || ''} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], oil_filter_alt2: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500" placeholder="Oil Filter Alt 2" />
+                                </div>
+                                <div className="grid grid-cols-3 gap-2">
+                                  <input type="text" value={eng.fuel_filter_part_number || ''} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], fuel_filter_part_number: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500" placeholder="Fuel Filter P/N" />
+                                  <input type="text" value={eng.fuel_filter_alt1 || ''} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], fuel_filter_alt1: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500" placeholder="Fuel Filter Alt 1" />
+                                  <input type="text" value={eng.fuel_filter_alt2 || ''} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], fuel_filter_alt2: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500" placeholder="Fuel Filter Alt 2" />
+                                </div>
+                                <div className="grid grid-cols-3 gap-2">
+                                  <input type="text" value={eng.impeller_part_number || ''} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], impeller_part_number: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500" placeholder="Impeller P/N" />
+                                  <input type="text" value={eng.belt1_part_number || ''} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], belt1_part_number: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500" placeholder="Belt 1 P/N" />
+                                  <input type="text" value={eng.belt2_part_number || ''} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], belt2_part_number: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500" placeholder="Belt 2 P/N" />
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <input type="text" value={eng.oil_weight || ''} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], oil_weight: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500" placeholder="Oil Weight (e.g. 15W-40)" />
+                                  <input type="text" value={eng.oil_quantity || ''} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], oil_quantity: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500" placeholder="Oil Quantity (e.g. 8 qts)" />
+                                </div>
+                                {eng.fuel_type === 'gas' && (
+                                  <div className="grid grid-cols-2 gap-2 border-t border-slate-700 pt-2">
+                                    <p className="col-span-2 text-xs font-semibold text-slate-400">Gas Ignition Parts</p>
+                                    <input type="text" value={eng.spark_plug_part_number || ''} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], spark_plug_part_number: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500" placeholder="Spark Plug P/N" />
+                                    <input type="text" value={eng.distributor_cap_part_number || ''} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], distributor_cap_part_number: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500" placeholder="Distributor Cap P/N" />
+                                    <input type="text" value={eng.rotor_part_number || ''} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], rotor_part_number: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500" placeholder="Rotor P/N" />
+                                    <input type="text" value={eng.plug_wires_part_number || ''} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], plug_wires_part_number: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500" placeholder="Plug Wires P/N" />
+                                  </div>
+                                )}
                               </div>
                             </div>
                           ))}
@@ -11446,21 +11524,63 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                         <div className="border-t border-slate-700 pt-4">
                           <div className="flex items-center justify-between mb-3">
                             <h4 className="text-sm font-semibold text-slate-300">Generators</h4>
-                            <button type="button" onClick={() => setGeneratorsForm([...generatorsForm, { label: '', description: '', season_start_hours: '' }])} className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">+ Add Generator</button>
+                            <button type="button" onClick={() => setGeneratorsForm([...generatorsForm, { label: '', description: '', model_number: '', serial_number: '', season_start_hours: '', fuel_type: 'diesel', oil_filter_part_number: '', oil_filter_alt1: '', oil_filter_alt2: '', fuel_filter_part_number: '', fuel_filter_alt1: '', fuel_filter_alt2: '', impeller_part_number: '', belt1_part_number: '', belt2_part_number: '', oil_weight: '', oil_quantity: '', spark_plug_part_number: '', distributor_cap_part_number: '', rotor_part_number: '', plug_wires_part_number: '' }])} className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">+ Add Generator</button>
                           </div>
                           {generatorsForm.length === 0 && <p className="text-xs text-slate-500 mb-3">No generators added yet.</p>}
                           {generatorsForm.map((gen, i) => (
-                            <div key={i} className="bg-slate-900/50 rounded-lg p-3 mb-2 grid grid-cols-1 gap-2">
+                            <div key={i} className="bg-slate-900/50 rounded-lg p-3 mb-2 space-y-2">
                               <div className="grid grid-cols-2 gap-2">
                                 <input type="text" value={gen.label} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], label: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" placeholder="Label (e.g. Port Generator)" />
                                 <input type="text" value={gen.description} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], description: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" placeholder="Description (e.g. Northern Lights 27kW)" />
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <input type="text" value={gen.model_number || ''} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], model_number: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" placeholder="Model Number" />
+                                <input type="text" value={gen.serial_number || ''} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], serial_number: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" placeholder="Serial Number" />
                               </div>
                               <div className="flex items-center gap-2">
                                 <div className="flex-1">
                                   <label className="block text-xs text-slate-400 mb-1">Season Start Hours</label>
                                   <input type="number" step="0.1" min="0" value={gen.season_start_hours} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], season_start_hours: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" placeholder="e.g. 850.0" />
                                 </div>
+                                <div className="flex-1">
+                                  <label className="block text-xs text-slate-400 mb-1">Fuel Type</label>
+                                  <select value={gen.fuel_type || 'diesel'} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], fuel_type: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500">
+                                    <option value="diesel">Diesel</option>
+                                    <option value="gas">Gas</option>
+                                  </select>
+                                </div>
                                 <button type="button" onClick={() => setGeneratorsForm(generatorsForm.filter((_, j) => j !== i))} className="mt-5 p-2 text-red-400 hover:text-red-300 hover:bg-slate-700 rounded-lg transition-colors"><X className="w-4 h-4" /></button>
+                              </div>
+                              <div className="border-t border-slate-700 pt-2 space-y-2">
+                                <p className="text-xs font-semibold text-slate-400">Service Parts</p>
+                                <div className="grid grid-cols-3 gap-2">
+                                  <input type="text" value={gen.oil_filter_part_number || ''} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], oil_filter_part_number: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500" placeholder="Oil Filter P/N" />
+                                  <input type="text" value={gen.oil_filter_alt1 || ''} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], oil_filter_alt1: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500" placeholder="Oil Filter Alt 1" />
+                                  <input type="text" value={gen.oil_filter_alt2 || ''} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], oil_filter_alt2: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500" placeholder="Oil Filter Alt 2" />
+                                </div>
+                                <div className="grid grid-cols-3 gap-2">
+                                  <input type="text" value={gen.fuel_filter_part_number || ''} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], fuel_filter_part_number: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500" placeholder="Fuel Filter P/N" />
+                                  <input type="text" value={gen.fuel_filter_alt1 || ''} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], fuel_filter_alt1: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500" placeholder="Fuel Filter Alt 1" />
+                                  <input type="text" value={gen.fuel_filter_alt2 || ''} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], fuel_filter_alt2: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500" placeholder="Fuel Filter Alt 2" />
+                                </div>
+                                <div className="grid grid-cols-3 gap-2">
+                                  <input type="text" value={gen.impeller_part_number || ''} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], impeller_part_number: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500" placeholder="Impeller P/N" />
+                                  <input type="text" value={gen.belt1_part_number || ''} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], belt1_part_number: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500" placeholder="Belt 1 P/N" />
+                                  <input type="text" value={gen.belt2_part_number || ''} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], belt2_part_number: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500" placeholder="Belt 2 P/N" />
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <input type="text" value={gen.oil_weight || ''} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], oil_weight: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500" placeholder="Oil Weight (e.g. 15W-40)" />
+                                  <input type="text" value={gen.oil_quantity || ''} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], oil_quantity: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500" placeholder="Oil Quantity (e.g. 8 qts)" />
+                                </div>
+                                {gen.fuel_type === 'gas' && (
+                                  <div className="grid grid-cols-2 gap-2 border-t border-slate-700 pt-2">
+                                    <p className="col-span-2 text-xs font-semibold text-slate-400">Gas Ignition Parts</p>
+                                    <input type="text" value={gen.spark_plug_part_number || ''} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], spark_plug_part_number: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500" placeholder="Spark Plug P/N" />
+                                    <input type="text" value={gen.distributor_cap_part_number || ''} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], distributor_cap_part_number: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500" placeholder="Distributor Cap P/N" />
+                                    <input type="text" value={gen.rotor_part_number || ''} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], rotor_part_number: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500" placeholder="Rotor P/N" />
+                                    <input type="text" value={gen.plug_wires_part_number || ''} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], plug_wires_part_number: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500" placeholder="Plug Wires P/N" />
+                                  </div>
+                                )}
                               </div>
                             </div>
                           ))}
@@ -11614,33 +11734,73 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           {yacht.yacht_engines && yacht.yacht_engines.length > 0 && (
                             <div className="pt-1 border-t border-slate-700/50">
                               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Engines — Season Start</p>
-                              {[...(yacht.yacht_engines)].sort((a, b) => a.sort_order - b.sort_order).map((eng) => (
-                                <div key={eng.id} className="flex justify-between items-start gap-2 py-0.5">
-                                  <div>
-                                    <span className="text-slate-300 font-medium">{eng.label}</span>
-                                    {eng.description && <span className="text-slate-500 ml-1">— {eng.description}</span>}
+                              {[...(yacht.yacht_engines)].sort((a, b) => a.sort_order - b.sort_order).map((eng) => {
+                                const hasServiceParts = eng.oil_filter_part_number || eng.fuel_filter_part_number || eng.impeller_part_number || eng.belt1_part_number || eng.oil_weight;
+                                return (
+                                <div key={eng.id} className="py-0.5">
+                                  <div className="flex justify-between items-start gap-2">
+                                    <div>
+                                      <span className="text-slate-300 font-medium">{eng.label}</span>
+                                      {eng.description && <span className="text-slate-500 ml-1">— {eng.description}</span>}
+                                      {eng.fuel_type && <span className="text-slate-600 ml-1 text-xs">({eng.fuel_type})</span>}
+                                    </div>
+                                    {eng.season_start_hours != null && (
+                                      <span className="text-blue-400 font-medium whitespace-nowrap text-xs">{eng.season_start_hours} hrs</span>
+                                    )}
                                   </div>
-                                  {eng.season_start_hours != null && (
-                                    <span className="text-blue-400 font-medium whitespace-nowrap text-xs">{eng.season_start_hours} hrs</span>
+                                  {hasServiceParts && (
+                                    <div className="mt-1 ml-2 text-xs text-slate-500 grid grid-cols-2 gap-x-3 gap-y-0.5">
+                                      {eng.oil_filter_part_number && <div><span className="text-slate-600">Oil Filter:</span> {eng.oil_filter_part_number}{eng.oil_filter_alt1 && <span className="text-slate-600"> / {eng.oil_filter_alt1}</span>}{eng.oil_filter_alt2 && <span className="text-slate-600"> / {eng.oil_filter_alt2}</span>}</div>}
+                                      {eng.fuel_filter_part_number && <div><span className="text-slate-600">Fuel Filter:</span> {eng.fuel_filter_part_number}{eng.fuel_filter_alt1 && <span className="text-slate-600"> / {eng.fuel_filter_alt1}</span>}{eng.fuel_filter_alt2 && <span className="text-slate-600"> / {eng.fuel_filter_alt2}</span>}</div>}
+                                      {eng.impeller_part_number && <div><span className="text-slate-600">Impeller:</span> {eng.impeller_part_number}</div>}
+                                      {eng.belt1_part_number && <div><span className="text-slate-600">Belt 1:</span> {eng.belt1_part_number}</div>}
+                                      {eng.belt2_part_number && <div><span className="text-slate-600">Belt 2:</span> {eng.belt2_part_number}</div>}
+                                      {eng.oil_weight && <div><span className="text-slate-600">Oil:</span> {eng.oil_weight}{eng.oil_quantity && <span> ({eng.oil_quantity})</span>}</div>}
+                                      {eng.fuel_type === 'gas' && eng.spark_plug_part_number && <div><span className="text-slate-600">Spark Plugs:</span> {eng.spark_plug_part_number}</div>}
+                                      {eng.fuel_type === 'gas' && eng.distributor_cap_part_number && <div><span className="text-slate-600">Dist. Cap:</span> {eng.distributor_cap_part_number}</div>}
+                                      {eng.fuel_type === 'gas' && eng.rotor_part_number && <div><span className="text-slate-600">Rotor:</span> {eng.rotor_part_number}</div>}
+                                      {eng.fuel_type === 'gas' && eng.plug_wires_part_number && <div><span className="text-slate-600">Plug Wires:</span> {eng.plug_wires_part_number}</div>}
+                                    </div>
                                   )}
                                 </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           )}
                           {yacht.yacht_generators && yacht.yacht_generators.length > 0 && (
                             <div className="pt-1 border-t border-slate-700/50">
                               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Generators — Season Start</p>
-                              {[...(yacht.yacht_generators)].sort((a, b) => a.sort_order - b.sort_order).map((gen) => (
-                                <div key={gen.id} className="flex justify-between items-start gap-2 py-0.5">
-                                  <div>
-                                    <span className="text-slate-300 font-medium">{gen.label}</span>
-                                    {gen.description && <span className="text-slate-500 ml-1">— {gen.description}</span>}
+                              {[...(yacht.yacht_generators)].sort((a, b) => a.sort_order - b.sort_order).map((gen) => {
+                                const hasServiceParts = gen.oil_filter_part_number || gen.fuel_filter_part_number || gen.impeller_part_number || gen.belt1_part_number || gen.oil_weight;
+                                return (
+                                <div key={gen.id} className="py-0.5">
+                                  <div className="flex justify-between items-start gap-2">
+                                    <div>
+                                      <span className="text-slate-300 font-medium">{gen.label}</span>
+                                      {gen.description && <span className="text-slate-500 ml-1">— {gen.description}</span>}
+                                      {gen.fuel_type && <span className="text-slate-600 ml-1 text-xs">({gen.fuel_type})</span>}
+                                    </div>
+                                    {gen.season_start_hours != null && (
+                                      <span className="text-blue-400 font-medium whitespace-nowrap text-xs">{gen.season_start_hours} hrs</span>
+                                    )}
                                   </div>
-                                  {gen.season_start_hours != null && (
-                                    <span className="text-blue-400 font-medium whitespace-nowrap text-xs">{gen.season_start_hours} hrs</span>
+                                  {hasServiceParts && (
+                                    <div className="mt-1 ml-2 text-xs text-slate-500 grid grid-cols-2 gap-x-3 gap-y-0.5">
+                                      {gen.oil_filter_part_number && <div><span className="text-slate-600">Oil Filter:</span> {gen.oil_filter_part_number}{gen.oil_filter_alt1 && <span className="text-slate-600"> / {gen.oil_filter_alt1}</span>}{gen.oil_filter_alt2 && <span className="text-slate-600"> / {gen.oil_filter_alt2}</span>}</div>}
+                                      {gen.fuel_filter_part_number && <div><span className="text-slate-600">Fuel Filter:</span> {gen.fuel_filter_part_number}{gen.fuel_filter_alt1 && <span className="text-slate-600"> / {gen.fuel_filter_alt1}</span>}{gen.fuel_filter_alt2 && <span className="text-slate-600"> / {gen.fuel_filter_alt2}</span>}</div>}
+                                      {gen.impeller_part_number && <div><span className="text-slate-600">Impeller:</span> {gen.impeller_part_number}</div>}
+                                      {gen.belt1_part_number && <div><span className="text-slate-600">Belt 1:</span> {gen.belt1_part_number}</div>}
+                                      {gen.belt2_part_number && <div><span className="text-slate-600">Belt 2:</span> {gen.belt2_part_number}</div>}
+                                      {gen.oil_weight && <div><span className="text-slate-600">Oil:</span> {gen.oil_weight}{gen.oil_quantity && <span> ({gen.oil_quantity})</span>}</div>}
+                                      {gen.fuel_type === 'gas' && gen.spark_plug_part_number && <div><span className="text-slate-600">Spark Plugs:</span> {gen.spark_plug_part_number}</div>}
+                                      {gen.fuel_type === 'gas' && gen.distributor_cap_part_number && <div><span className="text-slate-600">Dist. Cap:</span> {gen.distributor_cap_part_number}</div>}
+                                      {gen.fuel_type === 'gas' && gen.rotor_part_number && <div><span className="text-slate-600">Rotor:</span> {gen.rotor_part_number}</div>}
+                                      {gen.fuel_type === 'gas' && gen.plug_wires_part_number && <div><span className="text-slate-600">Plug Wires:</span> {gen.plug_wires_part_number}</div>}
+                                    </div>
                                   )}
                                 </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           )}
                           {/* Engine Hour History — per trip */}
@@ -12171,8 +12331,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   wifi_name: yacht.wifi_name || '',
                                   wifi_password: yacht.wifi_password || ''
                                 });
-                                setEnginesForm((yacht.yacht_engines || []).sort((a, b) => a.sort_order - b.sort_order).map(e => ({ id: e.id, label: e.label, description: e.description, season_start_hours: e.season_start_hours != null ? String(e.season_start_hours) : '' })));
-                                setGeneratorsForm((yacht.yacht_generators || []).sort((a, b) => a.sort_order - b.sort_order).map(g => ({ id: g.id, label: g.label, description: g.description, season_start_hours: g.season_start_hours != null ? String(g.season_start_hours) : '' })));
+                                setEnginesForm((yacht.yacht_engines || []).sort((a, b) => a.sort_order - b.sort_order).map(e => ({ id: e.id, label: e.label, description: e.description, model_number: e.model_number || '', serial_number: e.serial_number || '', season_start_hours: e.season_start_hours != null ? String(e.season_start_hours) : '', fuel_type: e.fuel_type || 'diesel', oil_filter_part_number: e.oil_filter_part_number || '', oil_filter_alt1: e.oil_filter_alt1 || '', oil_filter_alt2: e.oil_filter_alt2 || '', fuel_filter_part_number: e.fuel_filter_part_number || '', fuel_filter_alt1: e.fuel_filter_alt1 || '', fuel_filter_alt2: e.fuel_filter_alt2 || '', impeller_part_number: e.impeller_part_number || '', belt1_part_number: e.belt1_part_number || '', belt2_part_number: e.belt2_part_number || '', oil_weight: e.oil_weight || '', oil_quantity: e.oil_quantity || '', spark_plug_part_number: e.spark_plug_part_number || '', distributor_cap_part_number: e.distributor_cap_part_number || '', rotor_part_number: e.rotor_part_number || '', plug_wires_part_number: e.plug_wires_part_number || '' })));
+                                setGeneratorsForm((yacht.yacht_generators || []).sort((a, b) => a.sort_order - b.sort_order).map(g => ({ id: g.id, label: g.label, description: g.description, model_number: g.model_number || '', serial_number: g.serial_number || '', season_start_hours: g.season_start_hours != null ? String(g.season_start_hours) : '', fuel_type: g.fuel_type || 'diesel', oil_filter_part_number: g.oil_filter_part_number || '', oil_filter_alt1: g.oil_filter_alt1 || '', oil_filter_alt2: g.oil_filter_alt2 || '', fuel_filter_part_number: g.fuel_filter_part_number || '', fuel_filter_alt1: g.fuel_filter_alt1 || '', fuel_filter_alt2: g.fuel_filter_alt2 || '', impeller_part_number: g.impeller_part_number || '', belt1_part_number: g.belt1_part_number || '', belt2_part_number: g.belt2_part_number || '', oil_weight: g.oil_weight || '', oil_quantity: g.oil_quantity || '', spark_plug_part_number: g.spark_plug_part_number || '', distributor_cap_part_number: g.distributor_cap_part_number || '', rotor_part_number: g.rotor_part_number || '', plug_wires_part_number: g.plug_wires_part_number || '' })));
                               }}
                               className="flex items-center justify-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors text-sm"
                             >
