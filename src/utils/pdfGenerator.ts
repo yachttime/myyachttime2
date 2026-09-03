@@ -2896,6 +2896,17 @@ export function generateFleetTripDatesReportPDF(rows: FleetTripDatesRow[]): jsPD
   return doc;
 }
 
+export interface InvoicePaymentRecord {
+  id: string;
+  amount: number;
+  payment_method: string;
+  payment_method_type?: string | null;
+  reference_number: string | null;
+  notes: string | null;
+  payment_date: string;
+  stripe_payment_intent_id?: string | null;
+}
+
 export async function generateEstimatingInvoicePDF(
   invoice: {
     invoice_number: string;
@@ -2920,6 +2931,7 @@ export async function generateEstimatingInvoicePDF(
     amount_paid?: number | null;
     total_amount: number;
     notes?: string | null;
+    credit_amount?: number | null;
   },
   lineItems: { line_type: string; description: string; work_details?: string | null; quantity: number; unit_price: number; total_price: number; task_name?: string | null; task_overview?: string | null }[],
   companyInfo?: {
@@ -2934,7 +2946,11 @@ export async function generateEstimatingInvoicePDF(
     email?: string | null;
     website?: string | null;
   } | null,
-  existingDoc?: jsPDF
+  existingDoc?: jsPDF,
+  paymentRecords?: {
+    deposits: InvoicePaymentRecord[];
+    finalPayments: InvoicePaymentRecord[];
+  }
 ): Promise<jsPDF> {
   const doc = existingDoc || new jsPDF({ orientation: 'portrait', unit: 'in', format: 'letter' });
   if (existingDoc) {
@@ -3099,9 +3115,24 @@ export async function generateEstimatingInvoicePDF(
     doc.text('Surcharge:', totalsX, yPos);
     doc.text(`$${Number(invoice.surcharge_amount).toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' }); yPos += 0.2;
   }
-  if (invoice.deposit_applied && invoice.deposit_applied > 0) {
+  if (paymentRecords && paymentRecords.deposits.length > 0) {
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+    paymentRecords.deposits.forEach((dep, idx) => {
+      const depAmt = parseFloat(String(dep.amount || 0));
+      const methodLabel = dep.payment_method === 'check'
+        ? `Check #${dep.reference_number || ''}`
+        : (dep.payment_method === 'stripe' ? 'Stripe' : (dep.payment_method || ''));
+      const notesSuffix = dep.notes ? ` — ${dep.notes}` : '';
+      const label = `Deposit #${idx + 1} (${methodLabel}):${notesSuffix}`;
+      const labelLines = doc.splitTextToSize(label, totalsX - margin - 0.05);
+      doc.text(labelLines, margin, yPos);
+      doc.text(`-${depAmt.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
+      yPos += labelLines.length > 1 ? labelLines.length * 0.14 : 0.2;
+    });
+  } else if (invoice.deposit_applied && invoice.deposit_applied > 0) {
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
     doc.text('Deposit Applied:', totalsX, yPos);
-    doc.text(`-$${Number(invoice.deposit_applied).toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' }); yPos += 0.2;
+    doc.text(`-${Number(invoice.deposit_applied).toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' }); yPos += 0.2;
   }
   if (invoice.credit_card_fee && invoice.credit_card_fee > 0) {
     const ccFeeLines = doc.splitTextToSize('CC Processing Fee (3%):', totalsX - margin - 0.05);
@@ -3122,9 +3153,29 @@ export async function generateEstimatingInvoicePDF(
   if (invoice.payment_status === 'paid' || rawAmountPaid > 0) {
     yPos += 0.2;
     doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+
+    if (paymentRecords && paymentRecords.finalPayments.length > 0) {
+      paymentRecords.finalPayments.forEach((fp, idx) => {
+        const fpAmt = parseFloat(String(fp.amount || 0));
+        const methodLabel = fp.payment_method === 'stripe'
+          ? (fp.payment_method_type === 'ach' ? 'ACH / Bank Transfer' : fp.payment_method_type === 'card' ? 'Card' : 'Stripe')
+          : fp.payment_method === 'check'
+          ? `Check${fp.reference_number ? ` #${fp.reference_number}` : ''}`
+          : (fp.payment_method || 'Payment');
+        const dateStr = new Date(fp.payment_date).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' });
+        const noteSuffix = fp.notes ? ` — ${fp.notes}` : '';
+        const label = `Payment #${idx + 1} (${methodLabel}) — ${dateStr}:${noteSuffix}`;
+        const labelLines = doc.splitTextToSize(label, totalsX - margin - 0.05);
+        doc.text(labelLines, margin, yPos);
+        doc.text(`-${fpAmt.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
+        yPos += labelLines.length > 1 ? labelLines.length * 0.14 : 0.2;
+      });
+      yPos += 0.05;
+    }
+
     const amountPaid = rawAmountPaid > 0 ? rawAmountPaid : displayTotal;
     doc.text('Amount Paid:', totalsX, yPos);
-    doc.text(`-$${amountPaid.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' }); yPos += 0.2;
+    doc.text(`-${amountPaid.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' }); yPos += 0.2;
     const stripeId = (invoice as any).final_payment_stripe_payment_intent_id || (invoice as any).stripe_payment_intent_id;
     if (stripeId) {
       doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
@@ -3136,7 +3187,16 @@ export async function generateEstimatingInvoicePDF(
     doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
     const balanceDue = !isNaN(rawBalanceDue) ? rawBalanceDue : Math.round((displayTotal - amountPaid) * 100) / 100;
     doc.text('Balance Due:', totalsX, yPos);
-    doc.text(`$${balanceDue.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
+    doc.text(`${balanceDue.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
+    const rawCreditAmount = Number((invoice as any).credit_amount) || 0;
+    if (rawCreditAmount > 0) {
+      yPos += 0.2;
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+      doc.setTextColor(22, 163, 74);
+      doc.text('Credit from Overpayment:', totalsX, yPos);
+      doc.text(`${rawCreditAmount.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
+      doc.setTextColor(0, 0, 0);
+    }
   }
 
   if (invoice.notes) {

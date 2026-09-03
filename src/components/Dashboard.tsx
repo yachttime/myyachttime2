@@ -31,7 +31,7 @@ import CustomerManagement from './CustomerManagement';
 import { CompanyManagement } from './CompanyManagement';
 import SupportTickets from './SupportTickets';
 import { uploadFileToStorage, deleteFileFromStorage, isStorageUrl, UploadProgress, isTokenExpiredError } from '../utils/fileUpload';
-import { generateAllYachtTripsPDF, generateEstimatingInvoicePDF, generateTripInspectionPDF, generateEngineHoursReportPDF, generateOffSeasonEstimatesPDF } from '../utils/pdfGenerator';
+import { generateAllYachtTripsPDF, generateEstimatingInvoicePDF, generateTripInspectionPDF, generateEngineHoursReportPDF, generateOffSeasonEstimatesPDF, InvoicePaymentRecord } from '../utils/pdfGenerator';
 import {
   getQueue, addItem, updateItem, removeItem, getReadyItems,
   OfflineInspectionItem, OfflinePhoto,
@@ -3065,7 +3065,31 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         }));
       }
 
-      const pdf = await generateEstimatingInvoicePDF(invoiceForPDF, lineItems, companyResult.data);
+      let paymentRecords: { deposits: InvoicePaymentRecord[]; finalPayments: InvoicePaymentRecord[] } | undefined;
+      if (inv.deposit_applied && inv.deposit_applied > 0) {
+        const depositsQuery = inv.work_order_id
+          ? supabase.from('estimating_payments').select('id, amount, payment_method, reference_number, notes, payment_date').eq('work_order_id', inv.work_order_id).eq('payment_type', 'deposit').order('payment_date', { ascending: true })
+          : supabase.from('estimating_payments').select('id, amount, payment_method, reference_number, notes, payment_date').eq('invoice_id', inv.id).eq('payment_type', 'deposit').order('payment_date', { ascending: true });
+        const { data: depData } = await depositsQuery;
+        if (depData && depData.length > 0) {
+          if (!paymentRecords) paymentRecords = { deposits: [], finalPayments: [] };
+          paymentRecords.deposits = depData as InvoicePaymentRecord[];
+        }
+      }
+      if (inv.amount_paid && inv.amount_paid > 0) {
+        const { data: fpData } = await supabase
+          .from('estimating_payments')
+          .select('id, amount, payment_method, payment_method_type, reference_number, notes, payment_date, stripe_payment_intent_id')
+          .eq('invoice_id', inv.id)
+          .eq('payment_type', 'invoice_payment')
+          .order('payment_date', { ascending: true });
+        if (fpData && fpData.length > 0) {
+          if (!paymentRecords) paymentRecords = { deposits: [], finalPayments: [] };
+          paymentRecords.finalPayments = fpData as InvoicePaymentRecord[];
+        }
+      }
+
+      const pdf = await generateEstimatingInvoicePDF(invoiceForPDF, lineItems, companyResult.data, undefined, paymentRecords);
       const pdfUrl = URL.createObjectURL(pdf.output('blob'));
       window.open(pdfUrl, '_blank');
     } catch (error) {
@@ -3163,7 +3187,31 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           }));
         }
 
-        combinedDoc = await generateEstimatingInvoicePDF(invoiceForPDF, lineItems, companyResult.data, combinedDoc || undefined);
+        let paymentRecords: { deposits: InvoicePaymentRecord[]; finalPayments: InvoicePaymentRecord[] } | undefined;
+        if (inv.deposit_applied && inv.deposit_applied > 0) {
+          const depositsQuery = inv.work_order_id
+            ? supabase.from('estimating_payments').select('id, amount, payment_method, reference_number, notes, payment_date').eq('work_order_id', inv.work_order_id).eq('payment_type', 'deposit').order('payment_date', { ascending: true })
+            : supabase.from('estimating_payments').select('id, amount, payment_method, reference_number, notes, payment_date').eq('invoice_id', inv.id).eq('payment_type', 'deposit').order('payment_date', { ascending: true });
+          const { data: depData } = await depositsQuery;
+          if (depData && depData.length > 0) {
+            if (!paymentRecords) paymentRecords = { deposits: [], finalPayments: [] };
+            paymentRecords.deposits = depData as InvoicePaymentRecord[];
+          }
+        }
+        if (inv.amount_paid && inv.amount_paid > 0) {
+          const { data: fpData } = await supabase
+            .from('estimating_payments')
+            .select('id, amount, payment_method, payment_method_type, reference_number, notes, payment_date, stripe_payment_intent_id')
+            .eq('invoice_id', inv.id)
+            .eq('payment_type', 'invoice_payment')
+            .order('payment_date', { ascending: true });
+          if (fpData && fpData.length > 0) {
+            if (!paymentRecords) paymentRecords = { deposits: [], finalPayments: [] };
+            paymentRecords.finalPayments = fpData as InvoicePaymentRecord[];
+          }
+        }
+
+        combinedDoc = await generateEstimatingInvoicePDF(invoiceForPDF, lineItems, companyResult.data, combinedDoc || undefined, paymentRecords);
       }
 
       if (combinedDoc) {
