@@ -549,9 +549,14 @@ export default function UsersView(props: UsersViewProps) {
         <div className="p-6">
           {(p.selectedUser || p.isCreatingNewUser) ? renderEditForm() : (
             <div>
-              {p.selectedUserGroup ? renderGroupDetail() : (hasResults ? renderGroupsGrid() : (
+              {p.selectedUserGroup ? renderGroupDetail() : (p.userSearchTerm && filteredUsers.length > 0 ? (
+                <div>
+                  <p className="text-slate-400 text-sm mb-4">{filteredUsers.length} result{filteredUsers.length !== 1 ? 's' : ''} for &quot;{p.userSearchTerm}&quot;</p>
+                  <div className="space-y-4">{filteredUsers.map(renderUserCard)}</div>
+                </div>
+              ) : (hasResults ? renderGroupsGrid() : (
                 <div className="text-center py-12"><Users className="w-16 h-16 text-slate-600 mx-auto mb-4" /><p className="text-slate-400">No users found matching your search.</p></div>
-              ))}
+              )))}
             </div>
           )}
         </div>
