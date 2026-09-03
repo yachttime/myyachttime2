@@ -92,6 +92,7 @@ interface Invoice {
   repair_request_deposit_status?: string | null;
   trip_inspection_id?: string | null;
   stripe_funds_available_at?: string | null;
+  credit_amount?: number | null;
 }
 
 interface WorkOrderTask {
@@ -1192,7 +1193,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
         (invoice.surcharge_amount && invoice.surcharge_amount > 0 ? 1 : 0) +
         depositLineCount +
         (invoice.credit_card_fee && invoice.credit_card_fee > 0 ? 1 : 0) +
-        (invoice.payment_status === 'paid' || (invoice.amount_paid !== null && invoice.amount_paid > 0) ? 2 + finalPaymentLineCount : 0);
+        (invoice.payment_status === 'paid' || (invoice.amount_paid !== null && invoice.amount_paid > 0) ? 2 + finalPaymentLineCount + (invoice.credit_amount && invoice.credit_amount > 0 ? 1 : 0) : 0);
       const totalsBlockHeight = totalsLineCount * 0.2 + 0.2 + (invoice.notes ? 0.6 : 0);
 
       if (yPos + totalsBlockHeight > pageHeight - bottomMargin) {
@@ -1305,7 +1306,8 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
               ? `Check${fp.reference_number ? ` #${fp.reference_number}` : ''}`
               : (fp.payment_method || 'Payment');
             const dateStr = new Date(fp.payment_date).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' });
-            const label = `Payment #${idx + 1} (${methodLabel}) — ${dateStr}:`;
+            const noteSuffix = fp.notes ? ` — ${fp.notes}` : '';
+            const label = `Payment #${idx + 1} (${methodLabel}) — ${dateStr}:${noteSuffix}`;
             const labelLines = doc.splitTextToSize(label, totalsX - margin - 0.05);
             doc.text(labelLines, margin, yPos);
             doc.text(`-$${fpAmt.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
@@ -1316,7 +1318,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
 
         const amountPaid = invoice.amount_paid ?? computedTotal;
         doc.text('Amount Paid:', totalsX, yPos);
-        doc.text(`-$${amountPaid.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
+        doc.text(`-${amountPaid.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
         yPos += 0.2;
         const stripeId = invoice.final_payment_stripe_payment_intent_id || invoice.stripe_payment_intent_id;
         if (stripeId) {
@@ -1331,7 +1333,16 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
         doc.setFontSize(12);
         const remaining = Math.max(0, computedTotal - amountPaid);
         doc.text('Balance Due:', totalsX, yPos);
-        doc.text(`$${remaining.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
+        doc.text(`${remaining.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
+        if (invoice.credit_amount && invoice.credit_amount > 0) {
+          yPos += 0.2;
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(10);
+          doc.setTextColor(22, 163, 74);
+          doc.text('Credit from Overpayment:', totalsX, yPos);
+          doc.text(`${invoice.credit_amount.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
+          doc.setTextColor(0, 0, 0);
+        }
       }
 
       // Notes
