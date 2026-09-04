@@ -47,6 +47,27 @@ export type EngineGenFormEntry = {
   distributor_cap_part_number: string;
   rotor_part_number: string;
   plug_wires_part_number: string;
+  include_oil_filter: boolean;
+  include_fuel_filter: boolean;
+  include_impeller: boolean;
+  include_belt1: boolean;
+  include_belt2: boolean;
+  include_spark_plug: boolean;
+  include_distributor_cap: boolean;
+  include_rotor: boolean;
+  include_plug_wires: boolean;
+  include_oil_weight: boolean;
+  include_oil_quantity: boolean;
+  include_oil_filter_alt1: boolean;
+  include_oil_filter_alt2: boolean;
+  include_fuel_filter_alt1: boolean;
+  include_fuel_filter_alt2: boolean;
+  include_impeller_alt1: boolean;
+  include_impeller_alt2: boolean;
+  include_belt1_alt1: boolean;
+  include_belt1_alt2: boolean;
+  include_belt2_alt1: boolean;
+  include_belt2_alt2: boolean;
 };
 
 export const EMPTY_SERVICE_PARTS = {
@@ -72,6 +93,27 @@ export const EMPTY_SERVICE_PARTS = {
   distributor_cap_part_number: '',
   rotor_part_number: '',
   plug_wires_part_number: '',
+  include_oil_filter: true,
+  include_fuel_filter: true,
+  include_impeller: true,
+  include_belt1: true,
+  include_belt2: true,
+  include_spark_plug: true,
+  include_distributor_cap: true,
+  include_rotor: true,
+  include_plug_wires: true,
+  include_oil_weight: true,
+  include_oil_quantity: true,
+  include_oil_filter_alt1: true,
+  include_oil_filter_alt2: true,
+  include_fuel_filter_alt1: true,
+  include_fuel_filter_alt2: true,
+  include_impeller_alt1: true,
+  include_impeller_alt2: true,
+  include_belt1_alt1: true,
+  include_belt1_alt2: true,
+  include_belt2_alt1: true,
+  include_belt2_alt2: true,
 };
 
 export const EMPTY_ENGINE_GEN_ENTRY: Omit<EngineGenFormEntry, 'id'> = {
@@ -194,6 +236,27 @@ export default function EditYachtModal({
           distributor_cap_part_number: eng.distributor_cap_part_number.trim(),
           rotor_part_number: eng.rotor_part_number.trim(),
           plug_wires_part_number: eng.plug_wires_part_number.trim(),
+          include_oil_filter: eng.include_oil_filter !== false,
+          include_fuel_filter: eng.include_fuel_filter !== false,
+          include_impeller: eng.include_impeller !== false,
+          include_belt1: eng.include_belt1 !== false,
+          include_belt2: eng.include_belt2 !== false,
+          include_spark_plug: eng.include_spark_plug !== false,
+          include_distributor_cap: eng.include_distributor_cap !== false,
+          include_rotor: eng.include_rotor !== false,
+          include_plug_wires: eng.include_plug_wires !== false,
+          include_oil_weight: eng.include_oil_weight !== false,
+          include_oil_quantity: eng.include_oil_quantity !== false,
+          include_oil_filter_alt1: eng.include_oil_filter_alt1 !== false,
+          include_oil_filter_alt2: eng.include_oil_filter_alt2 !== false,
+          include_fuel_filter_alt1: eng.include_fuel_filter_alt1 !== false,
+          include_fuel_filter_alt2: eng.include_fuel_filter_alt2 !== false,
+          include_impeller_alt1: eng.include_impeller_alt1 !== false,
+          include_impeller_alt2: eng.include_impeller_alt2 !== false,
+          include_belt1_alt1: eng.include_belt1_alt1 !== false,
+          include_belt1_alt2: eng.include_belt1_alt2 !== false,
+          include_belt2_alt1: eng.include_belt2_alt1 !== false,
+          include_belt2_alt2: eng.include_belt2_alt2 !== false,
         };
         if (eng.id) {
           await supabase.from('yacht_engines').update(payload).eq('id', eng.id);
@@ -242,6 +305,27 @@ export default function EditYachtModal({
           distributor_cap_part_number: gen.distributor_cap_part_number.trim(),
           rotor_part_number: gen.rotor_part_number.trim(),
           plug_wires_part_number: gen.plug_wires_part_number.trim(),
+          include_oil_filter: gen.include_oil_filter !== false,
+          include_fuel_filter: gen.include_fuel_filter !== false,
+          include_impeller: gen.include_impeller !== false,
+          include_belt1: gen.include_belt1 !== false,
+          include_belt2: gen.include_belt2 !== false,
+          include_spark_plug: gen.include_spark_plug !== false,
+          include_distributor_cap: gen.include_distributor_cap !== false,
+          include_rotor: gen.include_rotor !== false,
+          include_plug_wires: gen.include_plug_wires !== false,
+          include_oil_weight: gen.include_oil_weight !== false,
+          include_oil_quantity: gen.include_oil_quantity !== false,
+          include_oil_filter_alt1: gen.include_oil_filter_alt1 !== false,
+          include_oil_filter_alt2: gen.include_oil_filter_alt2 !== false,
+          include_fuel_filter_alt1: gen.include_fuel_filter_alt1 !== false,
+          include_fuel_filter_alt2: gen.include_fuel_filter_alt2 !== false,
+          include_impeller_alt1: gen.include_impeller_alt1 !== false,
+          include_impeller_alt2: gen.include_impeller_alt2 !== false,
+          include_belt1_alt1: gen.include_belt1_alt1 !== false,
+          include_belt1_alt2: gen.include_belt1_alt2 !== false,
+          include_belt2_alt1: gen.include_belt2_alt1 !== false,
+          include_belt2_alt2: gen.include_belt2_alt2 !== false,
         };
         if (gen.id) {
           await supabase.from('yacht_generators').update(payload).eq('id', gen.id);
@@ -358,8 +442,8 @@ export default function EditYachtModal({
                   <p className="text-xs font-semibold text-slate-400">Service Parts</p>
                   <div className="grid grid-cols-3 gap-1 mb-0.5">
                     <p className="text-[10px] font-medium text-slate-500 leading-tight">Oil Filter P/N</p>
-                    <p className="text-[10px] font-medium text-slate-500 leading-tight">Oil Filter Alt 1</p>
-                    <p className="text-[10px] font-medium text-slate-500 leading-tight">Oil Filter Alt 2</p>
+                    <label className="text-[10px] font-medium text-slate-500 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_oil_filter_alt1} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], include_oil_filter_alt1: e.target.checked}; setEnginesForm(a); } } className="w-3 h-3" />Oil Filter Alt 1</label>
+                    <label className="text-[10px] font-medium text-slate-500 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_oil_filter_alt2} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], include_oil_filter_alt2: e.target.checked}; setEnginesForm(a); } } className="w-3 h-3" />Oil Filter Alt 2</label>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <PartNumberSearchInput value={eng.oil_filter_part_number} onChange={(v) => { const a = [...enginesForm]; a[i] = {...a[i], oil_filter_part_number: v}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Oil Filter P/N" />
@@ -368,8 +452,8 @@ export default function EditYachtModal({
                   </div>
                   <div className="grid grid-cols-3 gap-1 mb-0.5">
                     <p className="text-[10px] font-medium text-slate-500 leading-tight">Fuel Filter P/N</p>
-                    <p className="text-[10px] font-medium text-slate-500 leading-tight">Fuel Filter Alt 1</p>
-                    <p className="text-[10px] font-medium text-slate-500 leading-tight">Fuel Filter Alt 2</p>
+                    <label className="text-[10px] font-medium text-slate-500 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_fuel_filter_alt1} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], include_fuel_filter_alt1: e.target.checked}; setEnginesForm(a); } } className="w-3 h-3" />Fuel Filter Alt 1</label>
+                    <label className="text-[10px] font-medium text-slate-500 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_fuel_filter_alt2} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], include_fuel_filter_alt2: e.target.checked}; setEnginesForm(a); } } className="w-3 h-3" />Fuel Filter Alt 2</label>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <PartNumberSearchInput value={eng.fuel_filter_part_number} onChange={(v) => { const a = [...enginesForm]; a[i] = {...a[i], fuel_filter_part_number: v}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Fuel Filter P/N" />
@@ -378,8 +462,8 @@ export default function EditYachtModal({
                   </div>
                   <div className="grid grid-cols-3 gap-1 mb-0.5">
                     <p className="text-[10px] font-medium text-slate-500 leading-tight">Impeller P/N</p>
-                    <p className="text-[10px] font-medium text-slate-500 leading-tight">Impeller Alt 1</p>
-                    <p className="text-[10px] font-medium text-slate-500 leading-tight">Impeller Alt 2</p>
+                    <label className="text-[10px] font-medium text-slate-500 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_impeller_alt1} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], include_impeller_alt1: e.target.checked}; setEnginesForm(a); } } className="w-3 h-3" />Impeller Alt 1</label>
+                    <label className="text-[10px] font-medium text-slate-500 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_impeller_alt2} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], include_impeller_alt2: e.target.checked}; setEnginesForm(a); } } className="w-3 h-3" />Impeller Alt 2</label>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <PartNumberSearchInput value={eng.impeller_part_number} onChange={(v) => { const a = [...enginesForm]; a[i] = {...a[i], impeller_part_number: v}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Impeller P/N" />
@@ -388,8 +472,8 @@ export default function EditYachtModal({
                   </div>
                   <div className="grid grid-cols-3 gap-1 mb-0.5">
                     <p className="text-[10px] font-medium text-slate-500 leading-tight">Belt 1 P/N</p>
-                    <p className="text-[10px] font-medium text-slate-500 leading-tight">Belt 1 Alt 1</p>
-                    <p className="text-[10px] font-medium text-slate-500 leading-tight">Belt 1 Alt 2</p>
+                    <label className="text-[10px] font-medium text-slate-500 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_belt1_alt1} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], include_belt1_alt1: e.target.checked}; setEnginesForm(a); } } className="w-3 h-3" />Belt 1 Alt 1</label>
+                    <label className="text-[10px] font-medium text-slate-500 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_belt1_alt2} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], include_belt1_alt2: e.target.checked}; setEnginesForm(a); } } className="w-3 h-3" />Belt 1 Alt 2</label>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <PartNumberSearchInput value={eng.belt1_part_number} onChange={(v) => { const a = [...enginesForm]; a[i] = {...a[i], belt1_part_number: v}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Belt 1 P/N" />
@@ -398,8 +482,8 @@ export default function EditYachtModal({
                   </div>
                   <div className="grid grid-cols-3 gap-1 mb-0.5">
                     <p className="text-[10px] font-medium text-slate-500 leading-tight">Belt 2 P/N</p>
-                    <p className="text-[10px] font-medium text-slate-500 leading-tight">Belt 2 Alt 1</p>
-                    <p className="text-[10px] font-medium text-slate-500 leading-tight">Belt 2 Alt 2</p>
+                    <label className="text-[10px] font-medium text-slate-500 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_belt2_alt1} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], include_belt2_alt1: e.target.checked}; setEnginesForm(a); } } className="w-3 h-3" />Belt 2 Alt 1</label>
+                    <label className="text-[10px] font-medium text-slate-500 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_belt2_alt2} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], include_belt2_alt2: e.target.checked}; setEnginesForm(a); } } className="w-3 h-3" />Belt 2 Alt 2</label>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <PartNumberSearchInput value={eng.belt2_part_number} onChange={(v) => { const a = [...enginesForm]; a[i] = {...a[i], belt2_part_number: v}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Belt 2 P/N" />
@@ -470,8 +554,8 @@ export default function EditYachtModal({
                   <p className="text-xs font-semibold text-slate-400">Service Parts</p>
                   <div className="grid grid-cols-3 gap-1 mb-0.5">
                     <p className="text-[10px] font-medium text-slate-500 leading-tight">Oil Filter P/N</p>
-                    <p className="text-[10px] font-medium text-slate-500 leading-tight">Oil Filter Alt 1</p>
-                    <p className="text-[10px] font-medium text-slate-500 leading-tight">Oil Filter Alt 2</p>
+                    <label className="text-[10px] font-medium text-slate-500 leading-tight flex items-center gap-1"><input type="checkbox" checked={gen.include_oil_filter_alt1} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], include_oil_filter_alt1: e.target.checked}; setGeneratorsForm(a); } } className="w-3 h-3" />Oil Filter Alt 1</label>
+                    <label className="text-[10px] font-medium text-slate-500 leading-tight flex items-center gap-1"><input type="checkbox" checked={gen.include_oil_filter_alt2} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], include_oil_filter_alt2: e.target.checked}; setGeneratorsForm(a); } } className="w-3 h-3" />Oil Filter Alt 2</label>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <PartNumberSearchInput value={gen.oil_filter_part_number} onChange={(v) => { const a = [...generatorsForm]; a[i] = {...a[i], oil_filter_part_number: v}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Oil Filter P/N" />
@@ -480,8 +564,8 @@ export default function EditYachtModal({
                   </div>
                   <div className="grid grid-cols-3 gap-1 mb-0.5">
                     <p className="text-[10px] font-medium text-slate-500 leading-tight">Fuel Filter P/N</p>
-                    <p className="text-[10px] font-medium text-slate-500 leading-tight">Fuel Filter Alt 1</p>
-                    <p className="text-[10px] font-medium text-slate-500 leading-tight">Fuel Filter Alt 2</p>
+                    <label className="text-[10px] font-medium text-slate-500 leading-tight flex items-center gap-1"><input type="checkbox" checked={gen.include_fuel_filter_alt1} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], include_fuel_filter_alt1: e.target.checked}; setGeneratorsForm(a); } } className="w-3 h-3" />Fuel Filter Alt 1</label>
+                    <label className="text-[10px] font-medium text-slate-500 leading-tight flex items-center gap-1"><input type="checkbox" checked={gen.include_fuel_filter_alt2} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], include_fuel_filter_alt2: e.target.checked}; setGeneratorsForm(a); } } className="w-3 h-3" />Fuel Filter Alt 2</label>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <PartNumberSearchInput value={gen.fuel_filter_part_number} onChange={(v) => { const a = [...generatorsForm]; a[i] = {...a[i], fuel_filter_part_number: v}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Fuel Filter P/N" />
@@ -490,8 +574,8 @@ export default function EditYachtModal({
                   </div>
                   <div className="grid grid-cols-3 gap-1 mb-0.5">
                     <p className="text-[10px] font-medium text-slate-500 leading-tight">Impeller P/N</p>
-                    <p className="text-[10px] font-medium text-slate-500 leading-tight">Impeller Alt 1</p>
-                    <p className="text-[10px] font-medium text-slate-500 leading-tight">Impeller Alt 2</p>
+                    <label className="text-[10px] font-medium text-slate-500 leading-tight flex items-center gap-1"><input type="checkbox" checked={gen.include_impeller_alt1} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], include_impeller_alt1: e.target.checked}; setGeneratorsForm(a); } } className="w-3 h-3" />Impeller Alt 1</label>
+                    <label className="text-[10px] font-medium text-slate-500 leading-tight flex items-center gap-1"><input type="checkbox" checked={gen.include_impeller_alt2} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], include_impeller_alt2: e.target.checked}; setGeneratorsForm(a); } } className="w-3 h-3" />Impeller Alt 2</label>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <PartNumberSearchInput value={gen.impeller_part_number} onChange={(v) => { const a = [...generatorsForm]; a[i] = {...a[i], impeller_part_number: v}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Impeller P/N" />
@@ -500,8 +584,8 @@ export default function EditYachtModal({
                   </div>
                   <div className="grid grid-cols-3 gap-1 mb-0.5">
                     <p className="text-[10px] font-medium text-slate-500 leading-tight">Belt 1 P/N</p>
-                    <p className="text-[10px] font-medium text-slate-500 leading-tight">Belt 1 Alt 1</p>
-                    <p className="text-[10px] font-medium text-slate-500 leading-tight">Belt 1 Alt 2</p>
+                    <label className="text-[10px] font-medium text-slate-500 leading-tight flex items-center gap-1"><input type="checkbox" checked={gen.include_belt1_alt1} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], include_belt1_alt1: e.target.checked}; setGeneratorsForm(a); } } className="w-3 h-3" />Belt 1 Alt 1</label>
+                    <label className="text-[10px] font-medium text-slate-500 leading-tight flex items-center gap-1"><input type="checkbox" checked={gen.include_belt1_alt2} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], include_belt1_alt2: e.target.checked}; setGeneratorsForm(a); } } className="w-3 h-3" />Belt 1 Alt 2</label>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <PartNumberSearchInput value={gen.belt1_part_number} onChange={(v) => { const a = [...generatorsForm]; a[i] = {...a[i], belt1_part_number: v}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Belt 1 P/N" />
@@ -510,8 +594,8 @@ export default function EditYachtModal({
                   </div>
                   <div className="grid grid-cols-3 gap-1 mb-0.5">
                     <p className="text-[10px] font-medium text-slate-500 leading-tight">Belt 2 P/N</p>
-                    <p className="text-[10px] font-medium text-slate-500 leading-tight">Belt 2 Alt 1</p>
-                    <p className="text-[10px] font-medium text-slate-500 leading-tight">Belt 2 Alt 2</p>
+                    <label className="text-[10px] font-medium text-slate-500 leading-tight flex items-center gap-1"><input type="checkbox" checked={gen.include_belt2_alt1} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], include_belt2_alt1: e.target.checked}; setGeneratorsForm(a); } } className="w-3 h-3" />Belt 2 Alt 1</label>
+                    <label className="text-[10px] font-medium text-slate-500 leading-tight flex items-center gap-1"><input type="checkbox" checked={gen.include_belt2_alt2} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], include_belt2_alt2: e.target.checked}; setGeneratorsForm(a); } } className="w-3 h-3" />Belt 2 Alt 2</label>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <PartNumberSearchInput value={gen.belt2_part_number} onChange={(v) => { const a = [...generatorsForm]; a[i] = {...a[i], belt2_part_number: v}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Belt 2 P/N" />

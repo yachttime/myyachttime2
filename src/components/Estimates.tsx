@@ -78,26 +78,24 @@ interface EstimatesProps {
 }
 
 interface ServicePartEntry {
-  fieldName: string;
+  key: string;
   label: string;
-  primary: string | null;
-  alt1: string | null;
-  alt2: string | null;
+  partNumber: string;
   isTaxable: boolean;
 }
 
-const SERVICE_PART_FIELDS: { fieldName: string; label: string }[] = [
-  { fieldName: 'oil_filter_part_number', label: 'Oil Filter' },
-  { fieldName: 'fuel_filter_part_number', label: 'Fuel Filter' },
-  { fieldName: 'impeller_part_number', label: 'Impeller' },
-  { fieldName: 'belt1_part_number', label: 'Belt 1' },
-  { fieldName: 'belt2_part_number', label: 'Belt 2' },
-  { fieldName: 'spark_plug_part_number', label: 'Spark Plugs' },
-  { fieldName: 'distributor_cap_part_number', label: 'Distributor Cap' },
-  { fieldName: 'rotor_part_number', label: 'Rotor' },
-  { fieldName: 'plug_wires_part_number', label: 'Plug Wires' },
-  { fieldName: 'oil_weight', label: 'Oil Weight' },
-  { fieldName: 'oil_quantity', label: 'Oil Quantity' },
+const SERVICE_PART_FIELDS: { fieldName: string; altFields: string[]; label: string; includeField: string; altIncludeFields: string[] }[] = [
+  { fieldName: 'oil_filter_part_number', altFields: ['oil_filter_alt1', 'oil_filter_alt2'], label: 'Oil Filter', includeField: 'include_oil_filter', altIncludeFields: ['include_oil_filter_alt1', 'include_oil_filter_alt2'] },
+  { fieldName: 'fuel_filter_part_number', altFields: ['fuel_filter_alt1', 'fuel_filter_alt2'], label: 'Fuel Filter', includeField: 'include_fuel_filter', altIncludeFields: ['include_fuel_filter_alt1', 'include_fuel_filter_alt2'] },
+  { fieldName: 'impeller_part_number', altFields: ['impeller_alt1', 'impeller_alt2'], label: 'Impeller', includeField: 'include_impeller', altIncludeFields: ['include_impeller_alt1', 'include_impeller_alt2'] },
+  { fieldName: 'belt1_part_number', altFields: ['belt1_alt1', 'belt1_alt2'], label: 'Belt 1', includeField: 'include_belt1', altIncludeFields: ['include_belt1_alt1', 'include_belt1_alt2'] },
+  { fieldName: 'belt2_part_number', altFields: ['belt2_alt1', 'belt2_alt2'], label: 'Belt 2', includeField: 'include_belt2', altIncludeFields: ['include_belt2_alt1', 'include_belt2_alt2'] },
+  { fieldName: 'spark_plug_part_number', altFields: [], label: 'Spark Plugs', includeField: 'include_spark_plug', altIncludeFields: [] },
+  { fieldName: 'distributor_cap_part_number', altFields: [], label: 'Distributor Cap', includeField: 'include_distributor_cap', altIncludeFields: [] },
+  { fieldName: 'rotor_part_number', altFields: [], label: 'Rotor', includeField: 'include_rotor', altIncludeFields: [] },
+  { fieldName: 'plug_wires_part_number', altFields: [], label: 'Plug Wires', includeField: 'include_plug_wires', altIncludeFields: [] },
+  { fieldName: 'oil_weight', altFields: [], label: 'Oil Weight', includeField: 'include_oil_weight', altIncludeFields: [] },
+  { fieldName: 'oil_quantity', altFields: [], label: 'Oil Quantity', includeField: 'include_oil_quantity', altIncludeFields: [] },
 ];
 
 export function Estimates({ userId }: EstimatesProps) {
@@ -224,7 +222,7 @@ export function Estimates({ userId }: EstimatesProps) {
   const [showVesselPartsSummary, setShowVesselPartsSummary] = useState(false);
   const [showServicePartsModal, setShowServicePartsModal] = useState(false);
   const [servicePartsTarget, setServicePartsTarget] = useState<{ type: 'engine' | 'generator'; label: string; parts: ServicePartEntry[] } | null>(null);
-  const [servicePartsSelections, setServicePartsSelections] = useState<Record<string, { include: boolean; variant: string }>>({});
+  const [servicePartsSelections, setServicePartsSelections] = useState<Record<string, boolean>>({});
   const [servicePartsQuickMode, setServicePartsQuickMode] = useState(false);
 
   const draftLoadedRef = React.useRef(false);
@@ -944,20 +942,27 @@ export function Estimates({ userId }: EstimatesProps) {
   const extractServiceParts = (record: any): ServicePartEntry[] => {
     const result: ServicePartEntry[] = [];
     for (const field of SERVICE_PART_FIELDS) {
-      const hasPartNumberSuffix = field.fieldName.endsWith('_part_number');
-      const base = hasPartNumberSuffix ? field.fieldName.replace('_part_number', '') : field.fieldName;
-      const primary = record[field.fieldName] || null;
-      const alt1 = hasPartNumberSuffix ? (record[`${base}_alt1`] || null) : null;
-      const alt2 = hasPartNumberSuffix ? (record[`${base}_alt2`] || null) : null;
-      if (primary || alt1 || alt2) {
+      const isIncluded = record[field.includeField] !== false;
+      if (isIncluded && record[field.fieldName]) {
         result.push({
-          fieldName: field.fieldName,
+          key: field.fieldName,
           label: field.label,
-          primary,
-          alt1,
-          alt2,
+          partNumber: record[field.fieldName],
           isTaxable: true,
         });
+      }
+      for (let ai = 0; ai < field.altFields.length; ai++) {
+        const altField = field.altFields[ai];
+        const altIncludeField = field.altIncludeFields[ai];
+        const altIncluded = record[altIncludeField] !== false;
+        if (altIncluded && record[altField]) {
+          result.push({
+            key: altField,
+            label: `${field.label} Alt ${ai + 1}`,
+            partNumber: record[altField],
+            isTaxable: true,
+          });
+        }
       }
     }
     return result;
@@ -980,9 +985,9 @@ export function Estimates({ userId }: EstimatesProps) {
       showSuccess('No service parts saved for this ' + type);
       return;
     }
-    const initialSelections: Record<string, { include: boolean; variant: string }> = {};
+    const initialSelections: Record<string, boolean> = {};
     for (const part of extractedParts) {
-      initialSelections[part.fieldName] = { include: true, variant: 'primary' };
+      initialSelections[part.key] = true;
     }
     setServicePartsSelections(initialSelections);
     setServicePartsTarget({ type, label, parts: extractedParts });
@@ -997,9 +1002,8 @@ export function Estimates({ userId }: EstimatesProps) {
     const newItems: EstimateLineItem[] = [];
 
     for (const part of servicePartsTarget.parts) {
-      const selection = servicePartsSelections[part.fieldName];
-      if (!selection || !selection.include) continue;
-      const partNumber = selection.variant === 'alt1' ? part.alt1 : selection.variant === 'alt2' ? part.alt2 : part.primary;
+      if (!servicePartsSelections[part.key]) continue;
+      const partNumber = part.partNumber;
       if (!partNumber) continue;
 
       const matchedPart = findMatchingInventoryPart(partNumber);
@@ -1045,9 +1049,9 @@ export function Estimates({ userId }: EstimatesProps) {
       showSuccess('No service parts saved for this ' + type);
       return;
     }
-    const initialSelections: Record<string, { include: boolean; variant: string }> = {};
+    const initialSelections: Record<string, boolean> = {};
     for (const part of extractedParts) {
-      initialSelections[part.fieldName] = { include: true, variant: 'primary' };
+      initialSelections[part.key] = true;
     }
     setServicePartsSelections(initialSelections);
     setServicePartsTarget({ type, label, parts: extractedParts });
@@ -1066,9 +1070,8 @@ export function Estimates({ userId }: EstimatesProps) {
     };
     let lineOrder = 0;
     for (const part of servicePartsTarget.parts) {
-      const selection = servicePartsSelections[part.fieldName];
-      if (!selection || !selection.include) continue;
-      const partNumber = selection.variant === 'alt1' ? part.alt1 : selection.variant === 'alt2' ? part.alt2 : part.primary;
+      if (!servicePartsSelections[part.key]) continue;
+      const partNumber = part.partNumber;
       if (!partNumber) continue;
       const matchedPart = findMatchingInventoryPart(partNumber);
       const unitPrice = matchedPart ? matchedPart.unit_price : 0;
@@ -4544,44 +4547,25 @@ export function Estimates({ userId }: EstimatesProps) {
             </div>
             <div className="p-6 space-y-3">
               <p className="text-sm text-gray-600">
-                Select which parts to add and choose which part number variant to use for each.
+                Check the parts you want to include. Each part number variant is listed separately.
               </p>
               {servicePartsTarget.parts.map((part) => {
-                const selection = servicePartsSelections[part.fieldName] || { include: true, variant: 'primary' };
-                const variants: { value: string; label: string; number: string | null }[] = [
-                  { value: 'primary', label: 'Primary', number: part.primary },
-                  { value: 'alt1', label: 'Alt 1', number: part.alt1 },
-                  { value: 'alt2', label: 'Alt 2', number: part.alt2 },
-                ].filter(v => v.number);
+                const checked = servicePartsSelections[part.key] !== false;
                 return (
-                  <div key={part.fieldName} className="flex items-center gap-3 p-2.5 border border-gray-200 rounded-lg bg-gray-50">
-                    <label className="flex items-center gap-2 min-w-[140px]">
+                  <div key={part.key} className="flex items-center gap-3 p-2.5 border border-gray-200 rounded-lg bg-gray-50">
+                    <label className="flex items-center gap-2 flex-1">
                       <input
                         type="checkbox"
-                        checked={selection.include}
+                        checked={checked}
                         onChange={(e) => setServicePartsSelections(prev => ({
                           ...prev,
-                          [part.fieldName]: { ...prev[part.fieldName], include: e.target.checked }
+                          [part.key]: e.target.checked
                         }))}
                         className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                       />
                       <span className="text-sm font-medium text-gray-800">{part.label}</span>
                     </label>
-                    <select
-                      value={selection.variant}
-                      onChange={(e) => setServicePartsSelections(prev => ({
-                        ...prev,
-                        [part.fieldName]: { ...prev[part.fieldName], variant: e.target.value }
-                      }))}
-                      disabled={!selection.include}
-                      className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded bg-white text-gray-900 disabled:bg-gray-100"
-                    >
-                      {variants.map(v => (
-                        <option key={v.value} value={v.value}>
-                          {v.number} ({v.label})
-                        </option>
-                      ))}
-                    </select>
+                    <span className="text-sm text-gray-600 font-mono">{part.partNumber}</span>
                   </div>
                 );
               })}

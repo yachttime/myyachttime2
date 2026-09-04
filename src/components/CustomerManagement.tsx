@@ -162,10 +162,10 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
     gate_code: '',
     notes: '',
   });
-  const [newVesselEngines, setNewVesselEngines] = useState<Array<{ label: string; model_number: string; serial_number: string; season_start_hours: string; fuel_type: string; oil_filter_part_number: string; oil_filter_alt1: string; oil_filter_alt2: string; fuel_filter_part_number: string; fuel_filter_alt1: string; fuel_filter_alt2: string; impeller_part_number: string; impeller_alt1: string; impeller_alt2: string; belt1_part_number: string; belt1_alt1: string; belt1_alt2: string; belt2_part_number: string; belt2_alt1: string; belt2_alt2: string; oil_weight: string; oil_quantity: string; spark_plug_part_number: string; distributor_cap_part_number: string; rotor_part_number: string; plug_wires_part_number: string }>>([]);
-  const [newVesselGenerators, setNewVesselGenerators] = useState<Array<{ label: string; model_number: string; serial_number: string; season_start_hours: string; fuel_type: string; oil_filter_part_number: string; oil_filter_alt1: string; oil_filter_alt2: string; fuel_filter_part_number: string; fuel_filter_alt1: string; fuel_filter_alt2: string; impeller_part_number: string; impeller_alt1: string; impeller_alt2: string; belt1_part_number: string; belt1_alt1: string; belt1_alt2: string; belt2_part_number: string; belt2_alt1: string; belt2_alt2: string; oil_weight: string; oil_quantity: string; spark_plug_part_number: string; distributor_cap_part_number: string; rotor_part_number: string; plug_wires_part_number: string }>>([]);
-  const [editVesselEngines, setEditVesselEngines] = useState<Array<{ id?: string; label: string; model_number: string; serial_number: string; season_start_hours: string; fuel_type: string; oil_filter_part_number: string; oil_filter_alt1: string; oil_filter_alt2: string; fuel_filter_part_number: string; fuel_filter_alt1: string; fuel_filter_alt2: string; impeller_part_number: string; impeller_alt1: string; impeller_alt2: string; belt1_part_number: string; belt1_alt1: string; belt1_alt2: string; belt2_part_number: string; belt2_alt1: string; belt2_alt2: string; oil_weight: string; oil_quantity: string; spark_plug_part_number: string; distributor_cap_part_number: string; rotor_part_number: string; plug_wires_part_number: string }>>([]);
-  const [editVesselGenerators, setEditVesselGenerators] = useState<Array<{ id?: string; label: string; model_number: string; serial_number: string; season_start_hours: string; fuel_type: string; oil_filter_part_number: string; oil_filter_alt1: string; oil_filter_alt2: string; fuel_filter_part_number: string; fuel_filter_alt1: string; fuel_filter_alt2: string; impeller_part_number: string; impeller_alt1: string; impeller_alt2: string; belt1_part_number: string; belt1_alt1: string; belt1_alt2: string; belt2_part_number: string; belt2_alt1: string; belt2_alt2: string; oil_weight: string; oil_quantity: string; spark_plug_part_number: string; distributor_cap_part_number: string; rotor_part_number: string; plug_wires_part_number: string }>>([]);
+  const [newVesselEngines, setNewVesselEngines] = useState<Array<{ label: string; model_number: string; serial_number: string; season_start_hours: string; fuel_type: string; oil_filter_part_number: string; oil_filter_alt1: string; oil_filter_alt2: string; fuel_filter_part_number: string; fuel_filter_alt1: string; fuel_filter_alt2: string; impeller_part_number: string; impeller_alt1: string; impeller_alt2: string; belt1_part_number: string; belt1_alt1: string; belt1_alt2: string; belt2_part_number: string; belt2_alt1: string; belt2_alt2: string; oil_weight: string; oil_quantity: string; spark_plug_part_number: string; distributor_cap_part_number: string; rotor_part_number: string; plug_wires_part_number: string; include_oil_filter: boolean; include_fuel_filter: boolean; include_impeller: boolean; include_belt1: boolean; include_belt2: boolean; include_spark_plug: boolean; include_distributor_cap: boolean; include_rotor: boolean; include_plug_wires: boolean; include_oil_weight: boolean; include_oil_quantity: boolean; include_oil_filter_alt1: boolean; include_oil_filter_alt2: boolean; include_fuel_filter_alt1: boolean; include_fuel_filter_alt2: boolean; include_impeller_alt1: boolean; include_impeller_alt2: boolean; include_belt1_alt1: boolean; include_belt1_alt2: boolean; include_belt2_alt1: boolean; include_belt2_alt2: boolean }>>([]);
+  const [newVesselGenerators, setNewVesselGenerators] = useState<Array<{ label: string; model_number: string; serial_number: string; season_start_hours: string; fuel_type: string; oil_filter_part_number: string; oil_filter_alt1: string; oil_filter_alt2: string; fuel_filter_part_number: string; fuel_filter_alt1: string; fuel_filter_alt2: string; impeller_part_number: string; impeller_alt1: string; impeller_alt2: string; belt1_part_number: string; belt1_alt1: string; belt1_alt2: string; belt2_part_number: string; belt2_alt1: string; belt2_alt2: string; oil_weight: string; oil_quantity: string; spark_plug_part_number: string; distributor_cap_part_number: string; rotor_part_number: string; plug_wires_part_number: string; include_oil_filter: boolean; include_fuel_filter: boolean; include_impeller: boolean; include_belt1: boolean; include_belt2: boolean; include_spark_plug: boolean; include_distributor_cap: boolean; include_rotor: boolean; include_plug_wires: boolean; include_oil_weight: boolean; include_oil_quantity: boolean; include_oil_filter_alt1: boolean; include_oil_filter_alt2: boolean; include_fuel_filter_alt1: boolean; include_fuel_filter_alt2: boolean; include_impeller_alt1: boolean; include_impeller_alt2: boolean; include_belt1_alt1: boolean; include_belt1_alt2: boolean; include_belt2_alt1: boolean; include_belt2_alt2: boolean }>>([]);
+  const [editVesselEngines, setEditVesselEngines] = useState<Array<{ id?: string; label: string; model_number: string; serial_number: string; season_start_hours: string; fuel_type: string; oil_filter_part_number: string; oil_filter_alt1: string; oil_filter_alt2: string; fuel_filter_part_number: string; fuel_filter_alt1: string; fuel_filter_alt2: string; impeller_part_number: string; impeller_alt1: string; impeller_alt2: string; belt1_part_number: string; belt1_alt1: string; belt1_alt2: string; belt2_part_number: string; belt2_alt1: string; belt2_alt2: string; oil_weight: string; oil_quantity: string; spark_plug_part_number: string; distributor_cap_part_number: string; rotor_part_number: string; plug_wires_part_number: string; include_oil_filter: boolean; include_fuel_filter: boolean; include_impeller: boolean; include_belt1: boolean; include_belt2: boolean; include_spark_plug: boolean; include_distributor_cap: boolean; include_rotor: boolean; include_plug_wires: boolean; include_oil_weight: boolean; include_oil_quantity: boolean; include_oil_filter_alt1: boolean; include_oil_filter_alt2: boolean; include_fuel_filter_alt1: boolean; include_fuel_filter_alt2: boolean; include_impeller_alt1: boolean; include_impeller_alt2: boolean; include_belt1_alt1: boolean; include_belt1_alt2: boolean; include_belt2_alt1: boolean; include_belt2_alt2: boolean }>>([]);
+  const [editVesselGenerators, setEditVesselGenerators] = useState<Array<{ id?: string; label: string; model_number: string; serial_number: string; season_start_hours: string; fuel_type: string; oil_filter_part_number: string; oil_filter_alt1: string; oil_filter_alt2: string; fuel_filter_part_number: string; fuel_filter_alt1: string; fuel_filter_alt2: string; impeller_part_number: string; impeller_alt1: string; impeller_alt2: string; belt1_part_number: string; belt1_alt1: string; belt1_alt2: string; belt2_part_number: string; belt2_alt1: string; belt2_alt2: string; oil_weight: string; oil_quantity: string; spark_plug_part_number: string; distributor_cap_part_number: string; rotor_part_number: string; plug_wires_part_number: string; include_oil_filter: boolean; include_fuel_filter: boolean; include_impeller: boolean; include_belt1: boolean; include_belt2: boolean; include_spark_plug: boolean; include_distributor_cap: boolean; include_rotor: boolean; include_plug_wires: boolean; include_oil_weight: boolean; include_oil_quantity: boolean; include_oil_filter_alt1: boolean; include_oil_filter_alt2: boolean; include_fuel_filter_alt1: boolean; include_fuel_filter_alt2: boolean; include_impeller_alt1: boolean; include_impeller_alt2: boolean; include_belt1_alt1: boolean; include_belt1_alt2: boolean; include_belt2_alt1: boolean; include_belt2_alt2: boolean }>>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [customerVessels, setCustomerVessels] = useState<Vessel[]>([]);
   const [customerHistory, setCustomerHistory] = useState<CustomerHistory | null>(null);
@@ -479,6 +479,27 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
             distributor_cap_part_number: e.distributor_cap_part_number.trim(),
             rotor_part_number: e.rotor_part_number.trim(),
             plug_wires_part_number: e.plug_wires_part_number.trim(),
+            include_oil_filter: e.include_oil_filter !== false,
+            include_fuel_filter: e.include_fuel_filter !== false,
+            include_impeller: e.include_impeller !== false,
+            include_belt1: e.include_belt1 !== false,
+            include_belt2: e.include_belt2 !== false,
+            include_spark_plug: e.include_spark_plug !== false,
+            include_distributor_cap: e.include_distributor_cap !== false,
+            include_rotor: e.include_rotor !== false,
+            include_plug_wires: e.include_plug_wires !== false,
+            include_oil_weight: e.include_oil_weight !== false,
+            include_oil_quantity: e.include_oil_quantity !== false,
+            include_oil_filter_alt1: e.include_oil_filter_alt1 !== false,
+            include_oil_filter_alt2: e.include_oil_filter_alt2 !== false,
+            include_fuel_filter_alt1: e.include_fuel_filter_alt1 !== false,
+            include_fuel_filter_alt2: e.include_fuel_filter_alt2 !== false,
+            include_impeller_alt1: e.include_impeller_alt1 !== false,
+            include_impeller_alt2: e.include_impeller_alt2 !== false,
+            include_belt1_alt1: e.include_belt1_alt1 !== false,
+            include_belt1_alt2: e.include_belt1_alt2 !== false,
+            include_belt2_alt1: e.include_belt2_alt1 !== false,
+            include_belt2_alt2: e.include_belt2_alt2 !== false,
             sort_order: i,
             company_id: userProfile?.company_id || null,
           }))
@@ -514,6 +535,27 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
             distributor_cap_part_number: g.distributor_cap_part_number.trim(),
             rotor_part_number: g.rotor_part_number.trim(),
             plug_wires_part_number: g.plug_wires_part_number.trim(),
+            include_oil_filter: g.include_oil_filter !== false,
+            include_fuel_filter: g.include_fuel_filter !== false,
+            include_impeller: g.include_impeller !== false,
+            include_belt1: g.include_belt1 !== false,
+            include_belt2: g.include_belt2 !== false,
+            include_spark_plug: g.include_spark_plug !== false,
+            include_distributor_cap: g.include_distributor_cap !== false,
+            include_rotor: g.include_rotor !== false,
+            include_plug_wires: g.include_plug_wires !== false,
+            include_oil_weight: g.include_oil_weight !== false,
+            include_oil_quantity: g.include_oil_quantity !== false,
+            include_oil_filter_alt1: g.include_oil_filter_alt1 !== false,
+            include_oil_filter_alt2: g.include_oil_filter_alt2 !== false,
+            include_fuel_filter_alt1: g.include_fuel_filter_alt1 !== false,
+            include_fuel_filter_alt2: g.include_fuel_filter_alt2 !== false,
+            include_impeller_alt1: g.include_impeller_alt1 !== false,
+            include_impeller_alt2: g.include_impeller_alt2 !== false,
+            include_belt1_alt1: g.include_belt1_alt1 !== false,
+            include_belt1_alt2: g.include_belt1_alt2 !== false,
+            include_belt2_alt1: g.include_belt2_alt1 !== false,
+            include_belt2_alt2: g.include_belt2_alt2 !== false,
             sort_order: i,
             company_id: userProfile?.company_id || null,
           }))
@@ -608,6 +650,27 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
           distributor_cap_part_number: eng.distributor_cap_part_number.trim(),
           rotor_part_number: eng.rotor_part_number.trim(),
           plug_wires_part_number: eng.plug_wires_part_number.trim(),
+            include_oil_filter: eng.include_oil_filter !== false,
+            include_fuel_filter: eng.include_fuel_filter !== false,
+            include_impeller: eng.include_impeller !== false,
+            include_belt1: eng.include_belt1 !== false,
+            include_belt2: eng.include_belt2 !== false,
+            include_spark_plug: eng.include_spark_plug !== false,
+            include_distributor_cap: eng.include_distributor_cap !== false,
+            include_rotor: eng.include_rotor !== false,
+            include_plug_wires: eng.include_plug_wires !== false,
+            include_oil_weight: eng.include_oil_weight !== false,
+            include_oil_quantity: eng.include_oil_quantity !== false,
+            include_oil_filter_alt1: eng.include_oil_filter_alt1 !== false,
+            include_oil_filter_alt2: eng.include_oil_filter_alt2 !== false,
+            include_fuel_filter_alt1: eng.include_fuel_filter_alt1 !== false,
+            include_fuel_filter_alt2: eng.include_fuel_filter_alt2 !== false,
+            include_impeller_alt1: eng.include_impeller_alt1 !== false,
+            include_impeller_alt2: eng.include_impeller_alt2 !== false,
+            include_belt1_alt1: eng.include_belt1_alt1 !== false,
+            include_belt1_alt2: eng.include_belt1_alt2 !== false,
+            include_belt2_alt1: eng.include_belt2_alt1 !== false,
+            include_belt2_alt2: eng.include_belt2_alt2 !== false,
           sort_order: i,
         };
         if (eng.id) {
@@ -654,6 +717,27 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
           distributor_cap_part_number: gen.distributor_cap_part_number.trim(),
           rotor_part_number: gen.rotor_part_number.trim(),
           plug_wires_part_number: gen.plug_wires_part_number.trim(),
+            include_oil_filter: gen.include_oil_filter !== false,
+            include_fuel_filter: gen.include_fuel_filter !== false,
+            include_impeller: gen.include_impeller !== false,
+            include_belt1: gen.include_belt1 !== false,
+            include_belt2: gen.include_belt2 !== false,
+            include_spark_plug: gen.include_spark_plug !== false,
+            include_distributor_cap: gen.include_distributor_cap !== false,
+            include_rotor: gen.include_rotor !== false,
+            include_plug_wires: gen.include_plug_wires !== false,
+            include_oil_weight: gen.include_oil_weight !== false,
+            include_oil_quantity: gen.include_oil_quantity !== false,
+            include_oil_filter_alt1: gen.include_oil_filter_alt1 !== false,
+            include_oil_filter_alt2: gen.include_oil_filter_alt2 !== false,
+            include_fuel_filter_alt1: gen.include_fuel_filter_alt1 !== false,
+            include_fuel_filter_alt2: gen.include_fuel_filter_alt2 !== false,
+            include_impeller_alt1: gen.include_impeller_alt1 !== false,
+            include_impeller_alt2: gen.include_impeller_alt2 !== false,
+            include_belt1_alt1: gen.include_belt1_alt1 !== false,
+            include_belt1_alt2: gen.include_belt1_alt2 !== false,
+            include_belt2_alt1: gen.include_belt2_alt1 !== false,
+            include_belt2_alt2: gen.include_belt2_alt2 !== false,
           sort_order: i,
         };
         if (gen.id) {
@@ -1016,6 +1100,27 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
                                 distributor_cap_part_number: e.distributor_cap_part_number || '',
                                 rotor_part_number: e.rotor_part_number || '',
                                 plug_wires_part_number: e.plug_wires_part_number || '',
+                                include_oil_filter: e.include_oil_filter !== false,
+                                include_fuel_filter: e.include_fuel_filter !== false,
+                                include_impeller: e.include_impeller !== false,
+                                include_belt1: e.include_belt1 !== false,
+                                include_belt2: e.include_belt2 !== false,
+                                include_spark_plug: e.include_spark_plug !== false,
+                                include_distributor_cap: e.include_distributor_cap !== false,
+                                include_rotor: e.include_rotor !== false,
+                                include_plug_wires: e.include_plug_wires !== false,
+                                include_oil_weight: e.include_oil_weight !== false,
+                                include_oil_quantity: e.include_oil_quantity !== false,
+                                include_oil_filter_alt1: e.include_oil_filter_alt1 !== false,
+                                include_oil_filter_alt2: e.include_oil_filter_alt2 !== false,
+                                include_fuel_filter_alt1: e.include_fuel_filter_alt1 !== false,
+                                include_fuel_filter_alt2: e.include_fuel_filter_alt2 !== false,
+                                include_impeller_alt1: e.include_impeller_alt1 !== false,
+                                include_impeller_alt2: e.include_impeller_alt2 !== false,
+                                include_belt1_alt1: e.include_belt1_alt1 !== false,
+                                include_belt1_alt2: e.include_belt1_alt2 !== false,
+                                include_belt2_alt1: e.include_belt2_alt1 !== false,
+                                include_belt2_alt2: e.include_belt2_alt2 !== false
                               }))
                             );
                             setEditVesselGenerators(
@@ -1047,6 +1152,27 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
                                 distributor_cap_part_number: g.distributor_cap_part_number || '',
                                 rotor_part_number: g.rotor_part_number || '',
                                 plug_wires_part_number: g.plug_wires_part_number || '',
+                                include_oil_filter: g.include_oil_filter !== false,
+                                include_fuel_filter: g.include_fuel_filter !== false,
+                                include_impeller: g.include_impeller !== false,
+                                include_belt1: g.include_belt1 !== false,
+                                include_belt2: g.include_belt2 !== false,
+                                include_spark_plug: g.include_spark_plug !== false,
+                                include_distributor_cap: g.include_distributor_cap !== false,
+                                include_rotor: g.include_rotor !== false,
+                                include_plug_wires: g.include_plug_wires !== false,
+                                include_oil_weight: g.include_oil_weight !== false,
+                                include_oil_quantity: g.include_oil_quantity !== false,
+                                include_oil_filter_alt1: g.include_oil_filter_alt1 !== false,
+                                include_oil_filter_alt2: g.include_oil_filter_alt2 !== false,
+                                include_fuel_filter_alt1: g.include_fuel_filter_alt1 !== false,
+                                include_fuel_filter_alt2: g.include_fuel_filter_alt2 !== false,
+                                include_impeller_alt1: g.include_impeller_alt1 !== false,
+                                include_impeller_alt2: g.include_impeller_alt2 !== false,
+                                include_belt1_alt1: g.include_belt1_alt1 !== false,
+                                include_belt1_alt2: g.include_belt1_alt2 !== false,
+                                include_belt2_alt1: g.include_belt2_alt1 !== false,
+                                include_belt2_alt2: g.include_belt2_alt2 !== false
                               }))
                             );
                           }}
@@ -1523,7 +1649,7 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
               <div className="border-t border-gray-200 pt-4">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-sm font-semibold text-gray-700">Engines</h4>
-                  <button type="button" onClick={() => setNewVesselEngines([...newVesselEngines, { label: '', model_number: '', serial_number: '', season_start_hours: '', fuel_type: 'diesel', oil_filter_part_number: '', oil_filter_alt1: '', oil_filter_alt2: '', fuel_filter_part_number: '', fuel_filter_alt1: '', fuel_filter_alt2: '', impeller_part_number: '', impeller_alt1: '', impeller_alt2: '', belt1_part_number: '', belt1_alt1: '', belt1_alt2: '', belt2_part_number: '', belt2_alt1: '', belt2_alt2: '', oil_weight: '', oil_quantity: '', spark_plug_part_number: '', distributor_cap_part_number: '', rotor_part_number: '', plug_wires_part_number: '' }])} className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">+ Add Engine</button>
+                  <button type="button" onClick={() => setNewVesselEngines([...newVesselEngines, { label: '', model_number: '', serial_number: '', season_start_hours: '', fuel_type: 'diesel', oil_filter_part_number: '', oil_filter_alt1: '', oil_filter_alt2: '', fuel_filter_part_number: '', fuel_filter_alt1: '', fuel_filter_alt2: '', impeller_part_number: '', impeller_alt1: '', impeller_alt2: '', belt1_part_number: '', belt1_alt1: '', belt1_alt2: '', belt2_part_number: '', belt2_alt1: '', belt2_alt2: '', oil_weight: '', oil_quantity: '', spark_plug_part_number: '', distributor_cap_part_number: '', rotor_part_number: '', plug_wires_part_number: '', include_oil_filter: true, include_fuel_filter: true, include_impeller: true, include_belt1: true, include_belt2: true, include_spark_plug: true, include_distributor_cap: true, include_rotor: true, include_plug_wires: true, include_oil_weight: true, include_oil_quantity: true, include_oil_filter_alt1: true, include_oil_filter_alt2: true, include_fuel_filter_alt1: true, include_fuel_filter_alt2: true, include_impeller_alt1: true, include_impeller_alt2: true, include_belt1_alt1: true, include_belt1_alt2: true, include_belt2_alt1: true, include_belt2_alt2: true }])} className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">+ Add Engine</button>
                 </div>
                 {newVesselEngines.length === 0 && <p className="text-xs text-gray-400 mb-2">No engines added yet.</p>}
                 {newVesselEngines.map((eng, i) => (
@@ -1556,9 +1682,9 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
                     <div className="border-t border-gray-200 pt-2 space-y-2">
                       <p className="text-xs font-semibold text-gray-500">Service Parts</p>
                       <div className="grid grid-cols-3 gap-1 mb-0.5">
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Oil Filter P/N</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Oil Filter Alt 1</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Oil Filter Alt 2</p>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_oil_filter} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_oil_filter: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Oil Filter P/N</label>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_oil_filter_alt1} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_oil_filter_alt1: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Oil Filter Alt 1</label>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_oil_filter_alt2} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_oil_filter_alt2: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Oil Filter Alt 2</label>
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         <PartNumberSearchInput value={eng.oil_filter_part_number} onChange={(v) => { const a = [...newVesselEngines]; a[i] = { ...a[i], oil_filter_part_number: v }; setNewVesselEngines(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Oil Filter P/N" />
@@ -1566,9 +1692,9 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
                         <PartNumberSearchInput value={eng.oil_filter_alt2} onChange={(v) => { const a = [...newVesselEngines]; a[i] = { ...a[i], oil_filter_alt2: v }; setNewVesselEngines(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Oil Filter Alt 2" />
                       </div>
                       <div className="grid grid-cols-3 gap-1 mb-0.5">
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Fuel Filter P/N</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Fuel Filter Alt 1</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Fuel Filter Alt 2</p>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_fuel_filter} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_fuel_filter: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Fuel Filter P/N</label>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_fuel_filter_alt1} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_fuel_filter_alt1: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Fuel Filter Alt 1</label>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_fuel_filter_alt2} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_fuel_filter_alt2: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Fuel Filter Alt 2</label>
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         <PartNumberSearchInput value={eng.fuel_filter_part_number} onChange={(v) => { const a = [...newVesselEngines]; a[i] = { ...a[i], fuel_filter_part_number: v }; setNewVesselEngines(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Fuel Filter P/N" />
@@ -1576,9 +1702,9 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
                         <PartNumberSearchInput value={eng.fuel_filter_alt2} onChange={(v) => { const a = [...newVesselEngines]; a[i] = { ...a[i], fuel_filter_alt2: v }; setNewVesselEngines(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Fuel Filter Alt 2" />
                       </div>
                       <div className="grid grid-cols-3 gap-1 mb-0.5">
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Impeller P/N</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Impeller Alt 1</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Impeller Alt 2</p>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_impeller} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_impeller: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Impeller P/N</label>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_impeller_alt1} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_impeller_alt1: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Impeller Alt 1</label>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_impeller_alt2} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_impeller_alt2: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Impeller Alt 2</label>
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         <PartNumberSearchInput value={eng.impeller_part_number} onChange={(v) => { const a = [...newVesselEngines]; a[i] = { ...a[i], impeller_part_number: v }; setNewVesselEngines(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Impeller P/N" />
@@ -1586,9 +1712,9 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
                         <PartNumberSearchInput value={eng.impeller_alt2} onChange={(v) => { const a = [...newVesselEngines]; a[i] = { ...a[i], impeller_alt2: v }; setNewVesselEngines(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Impeller Alt 2" />
                       </div>
                       <div className="grid grid-cols-3 gap-1 mb-0.5">
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 1 P/N</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 1 Alt 1</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 1 Alt 2</p>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_belt1} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_belt1: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Belt 1 P/N</label>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_belt1_alt1} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_belt1_alt1: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Belt 1 Alt 1</label>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_belt1_alt2} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_belt1_alt2: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Belt 1 Alt 2</label>
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         <PartNumberSearchInput value={eng.belt1_part_number} onChange={(v) => { const a = [...newVesselEngines]; a[i] = { ...a[i], belt1_part_number: v }; setNewVesselEngines(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Belt 1 P/N" />
@@ -1596,9 +1722,9 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
                         <PartNumberSearchInput value={eng.belt1_alt2} onChange={(v) => { const a = [...newVesselEngines]; a[i] = { ...a[i], belt1_alt2: v }; setNewVesselEngines(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Belt 1 Alt 2" />
                       </div>
                       <div className="grid grid-cols-3 gap-1 mb-0.5">
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 2 P/N</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 2 Alt 1</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 2 Alt 2</p>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_belt2} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_belt2: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Belt 2 P/N</label>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_belt2_alt1} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_belt2_alt1: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Belt 2 Alt 1</label>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_belt2_alt2} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_belt2_alt2: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Belt 2 Alt 2</label>
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         <PartNumberSearchInput value={eng.belt2_part_number} onChange={(v) => { const a = [...newVesselEngines]; a[i] = { ...a[i], belt2_part_number: v }; setNewVesselEngines(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Belt 2 P/N" />
@@ -1606,8 +1732,8 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
                         <PartNumberSearchInput value={eng.belt2_alt2} onChange={(v) => { const a = [...newVesselEngines]; a[i] = { ...a[i], belt2_alt2: v }; setNewVesselEngines(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Belt 2 Alt 2" />
                       </div>
                       <div className="grid grid-cols-2 gap-1 mb-0.5">
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Oil Weight (e.g. 15W-40)</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Oil Quantity (e.g. 8 qts)</p>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_oil_weight} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_oil_weight: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Oil Weight (e.g. 15W-40)</label>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_oil_quantity} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_oil_quantity: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Oil Quantity (e.g. 8 qts)</label>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <PartNumberSearchInput value={eng.oil_weight} onChange={(v) => { const a = [...newVesselEngines]; a[i] = { ...a[i], oil_weight: v }; setNewVesselEngines(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Oil Weight (e.g. 15W-40)" />
@@ -1617,14 +1743,14 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
                         <div className="grid grid-cols-2 gap-2 border-t border-gray-200 pt-2">
                           <p className="col-span-2 text-xs font-semibold text-gray-500">Gas Ignition Parts</p>
                           <div className="grid grid-cols-2 gap-1 mb-0.5">
-                            <p className="text-[10px] font-medium text-gray-600 leading-tight">Spark Plug P/N</p>
-                            <p className="text-[10px] font-medium text-gray-600 leading-tight">Distributor Cap P/N</p>
+                            <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_spark_plug} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_spark_plug: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Spark Plug P/N</label>
+                            <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_distributor_cap} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_distributor_cap: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Distributor Cap P/N</label>
                           </div>
                           <PartNumberSearchInput value={eng.spark_plug_part_number} onChange={(v) => { const a = [...newVesselEngines]; a[i] = { ...a[i], spark_plug_part_number: v }; setNewVesselEngines(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Spark Plug P/N" />
                           <PartNumberSearchInput value={eng.distributor_cap_part_number} onChange={(v) => { const a = [...newVesselEngines]; a[i] = { ...a[i], distributor_cap_part_number: v }; setNewVesselEngines(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Distributor Cap P/N" />
                           <div className="grid grid-cols-2 gap-1 mb-0.5">
-                            <p className="text-[10px] font-medium text-gray-600 leading-tight">Rotor P/N</p>
-                            <p className="text-[10px] font-medium text-gray-600 leading-tight">Plug Wires P/N</p>
+                            <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_rotor} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_rotor: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Rotor P/N</label>
+                            <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_plug_wires} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_plug_wires: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Plug Wires P/N</label>
                           </div>
                           <PartNumberSearchInput value={eng.rotor_part_number} onChange={(v) => { const a = [...newVesselEngines]; a[i] = { ...a[i], rotor_part_number: v }; setNewVesselEngines(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Rotor P/N" />
                           <PartNumberSearchInput value={eng.plug_wires_part_number} onChange={(v) => { const a = [...newVesselEngines]; a[i] = { ...a[i], plug_wires_part_number: v }; setNewVesselEngines(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Plug Wires P/N" />
@@ -1638,7 +1764,7 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
               <div className="border-t border-gray-200 pt-4">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-sm font-semibold text-gray-700">Generators</h4>
-                  <button type="button" onClick={() => setNewVesselGenerators([...newVesselGenerators, { label: '', model_number: '', serial_number: '', season_start_hours: '', fuel_type: 'diesel', oil_filter_part_number: '', oil_filter_alt1: '', oil_filter_alt2: '', fuel_filter_part_number: '', fuel_filter_alt1: '', fuel_filter_alt2: '', impeller_part_number: '', impeller_alt1: '', impeller_alt2: '', belt1_part_number: '', belt1_alt1: '', belt1_alt2: '', belt2_part_number: '', belt2_alt1: '', belt2_alt2: '', oil_weight: '', oil_quantity: '', spark_plug_part_number: '', distributor_cap_part_number: '', rotor_part_number: '', plug_wires_part_number: '' }])} className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">+ Add Generator</button>
+                  <button type="button" onClick={() => setNewVesselGenerators([...newVesselGenerators, { label: '', model_number: '', serial_number: '', season_start_hours: '', fuel_type: 'diesel', oil_filter_part_number: '', oil_filter_alt1: '', oil_filter_alt2: '', fuel_filter_part_number: '', fuel_filter_alt1: '', fuel_filter_alt2: '', impeller_part_number: '', impeller_alt1: '', impeller_alt2: '', belt1_part_number: '', belt1_alt1: '', belt1_alt2: '', belt2_part_number: '', belt2_alt1: '', belt2_alt2: '', oil_weight: '', oil_quantity: '', spark_plug_part_number: '', distributor_cap_part_number: '', rotor_part_number: '', plug_wires_part_number: '', include_oil_filter: true, include_fuel_filter: true, include_impeller: true, include_belt1: true, include_belt2: true, include_spark_plug: true, include_distributor_cap: true, include_rotor: true, include_plug_wires: true, include_oil_weight: true, include_oil_quantity: true, include_oil_filter_alt1: true, include_oil_filter_alt2: true, include_fuel_filter_alt1: true, include_fuel_filter_alt2: true, include_impeller_alt1: true, include_impeller_alt2: true, include_belt1_alt1: true, include_belt1_alt2: true, include_belt2_alt1: true, include_belt2_alt2: true }])} className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">+ Add Generator</button>
                 </div>
                 {newVesselGenerators.length === 0 && <p className="text-xs text-gray-400 mb-2">No generators added yet.</p>}
                 {newVesselGenerators.map((gen, i) => (
@@ -1671,9 +1797,9 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
                     <div className="border-t border-gray-200 pt-2 space-y-2">
                       <p className="text-xs font-semibold text-gray-500">Service Parts</p>
                       <div className="grid grid-cols-3 gap-1 mb-0.5">
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Oil Filter P/N</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Oil Filter Alt 1</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Oil Filter Alt 2</p>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={gen.include_oil_filter} onChange={(e) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], include_oil_filter: e.target.checked }; setNewVesselGenerators(a); } } className="w-3 h-3" />Oil Filter P/N</label>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_oil_filter_alt1} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_oil_filter_alt1: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Oil Filter Alt 1</label>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_oil_filter_alt2} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_oil_filter_alt2: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Oil Filter Alt 2</label>
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         <PartNumberSearchInput value={gen.oil_filter_part_number} onChange={(v) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], oil_filter_part_number: v }; setNewVesselGenerators(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Oil Filter P/N" />
@@ -1681,9 +1807,9 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
                         <PartNumberSearchInput value={gen.oil_filter_alt2} onChange={(v) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], oil_filter_alt2: v }; setNewVesselGenerators(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Oil Filter Alt 2" />
                       </div>
                       <div className="grid grid-cols-3 gap-1 mb-0.5">
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Fuel Filter P/N</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Fuel Filter Alt 1</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Fuel Filter Alt 2</p>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={gen.include_fuel_filter} onChange={(e) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], include_fuel_filter: e.target.checked }; setNewVesselGenerators(a); } } className="w-3 h-3" />Fuel Filter P/N</label>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_fuel_filter_alt1} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_fuel_filter_alt1: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Fuel Filter Alt 1</label>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_fuel_filter_alt2} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_fuel_filter_alt2: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Fuel Filter Alt 2</label>
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         <PartNumberSearchInput value={gen.fuel_filter_part_number} onChange={(v) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], fuel_filter_part_number: v }; setNewVesselGenerators(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Fuel Filter P/N" />
@@ -1691,9 +1817,9 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
                         <PartNumberSearchInput value={gen.fuel_filter_alt2} onChange={(v) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], fuel_filter_alt2: v }; setNewVesselGenerators(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Fuel Filter Alt 2" />
                       </div>
                       <div className="grid grid-cols-3 gap-1 mb-0.5">
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Impeller P/N</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Impeller Alt 1</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Impeller Alt 2</p>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={gen.include_impeller} onChange={(e) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], include_impeller: e.target.checked }; setNewVesselGenerators(a); } } className="w-3 h-3" />Impeller P/N</label>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_impeller_alt1} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_impeller_alt1: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Impeller Alt 1</label>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_impeller_alt2} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_impeller_alt2: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Impeller Alt 2</label>
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         <PartNumberSearchInput value={gen.impeller_part_number} onChange={(v) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], impeller_part_number: v }; setNewVesselGenerators(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Impeller P/N" />
@@ -1701,9 +1827,9 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
                         <PartNumberSearchInput value={gen.impeller_alt2} onChange={(v) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], impeller_alt2: v }; setNewVesselGenerators(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Impeller Alt 2" />
                       </div>
                       <div className="grid grid-cols-3 gap-1 mb-0.5">
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 1 P/N</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 1 Alt 1</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 1 Alt 2</p>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={gen.include_belt1} onChange={(e) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], include_belt1: e.target.checked }; setNewVesselGenerators(a); } } className="w-3 h-3" />Belt 1 P/N</label>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_belt1_alt1} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_belt1_alt1: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Belt 1 Alt 1</label>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_belt1_alt2} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_belt1_alt2: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Belt 1 Alt 2</label>
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         <PartNumberSearchInput value={gen.belt1_part_number} onChange={(v) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], belt1_part_number: v }; setNewVesselGenerators(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Belt 1 P/N" />
@@ -1711,9 +1837,9 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
                         <PartNumberSearchInput value={gen.belt1_alt2} onChange={(v) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], belt1_alt2: v }; setNewVesselGenerators(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Belt 1 Alt 2" />
                       </div>
                       <div className="grid grid-cols-3 gap-1 mb-0.5">
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 2 P/N</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 2 Alt 1</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 2 Alt 2</p>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={gen.include_belt2} onChange={(e) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], include_belt2: e.target.checked }; setNewVesselGenerators(a); } } className="w-3 h-3" />Belt 2 P/N</label>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_belt2_alt1} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_belt2_alt1: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Belt 2 Alt 1</label>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_belt2_alt2} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_belt2_alt2: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Belt 2 Alt 2</label>
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         <PartNumberSearchInput value={gen.belt2_part_number} onChange={(v) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], belt2_part_number: v }; setNewVesselGenerators(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Belt 2 P/N" />
@@ -1721,8 +1847,8 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
                         <PartNumberSearchInput value={gen.belt2_alt2} onChange={(v) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], belt2_alt2: v }; setNewVesselGenerators(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Belt 2 Alt 2" />
                       </div>
                       <div className="grid grid-cols-2 gap-1 mb-0.5">
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Oil Weight (e.g. 15W-40)</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Oil Quantity (e.g. 8 qts)</p>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={gen.include_oil_weight} onChange={(e) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], include_oil_weight: e.target.checked }; setNewVesselGenerators(a); } } className="w-3 h-3" />Oil Weight (e.g. 15W-40)</label>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={gen.include_oil_quantity} onChange={(e) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], include_oil_quantity: e.target.checked }; setNewVesselGenerators(a); } } className="w-3 h-3" />Oil Quantity (e.g. 8 qts)</label>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <PartNumberSearchInput value={gen.oil_weight} onChange={(v) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], oil_weight: v }; setNewVesselGenerators(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Oil Weight (e.g. 15W-40)" />
@@ -1732,14 +1858,14 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
                         <div className="grid grid-cols-2 gap-2 border-t border-gray-200 pt-2">
                           <p className="col-span-2 text-xs font-semibold text-gray-500">Gas Ignition Parts</p>
                           <div className="grid grid-cols-2 gap-1 mb-0.5">
-                            <p className="text-[10px] font-medium text-gray-600 leading-tight">Spark Plug P/N</p>
-                            <p className="text-[10px] font-medium text-gray-600 leading-tight">Distributor Cap P/N</p>
+                            <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={gen.include_spark_plug} onChange={(e) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], include_spark_plug: e.target.checked }; setNewVesselGenerators(a); } } className="w-3 h-3" />Spark Plug P/N</label>
+                            <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={gen.include_distributor_cap} onChange={(e) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], include_distributor_cap: e.target.checked }; setNewVesselGenerators(a); } } className="w-3 h-3" />Distributor Cap P/N</label>
                           </div>
                           <PartNumberSearchInput value={gen.spark_plug_part_number} onChange={(v) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], spark_plug_part_number: v }; setNewVesselGenerators(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Spark Plug P/N" />
                           <PartNumberSearchInput value={gen.distributor_cap_part_number} onChange={(v) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], distributor_cap_part_number: v }; setNewVesselGenerators(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Distributor Cap P/N" />
                           <div className="grid grid-cols-2 gap-1 mb-0.5">
-                            <p className="text-[10px] font-medium text-gray-600 leading-tight">Rotor P/N</p>
-                            <p className="text-[10px] font-medium text-gray-600 leading-tight">Plug Wires P/N</p>
+                            <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={gen.include_rotor} onChange={(e) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], include_rotor: e.target.checked }; setNewVesselGenerators(a); } } className="w-3 h-3" />Rotor P/N</label>
+                            <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={gen.include_plug_wires} onChange={(e) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], include_plug_wires: e.target.checked }; setNewVesselGenerators(a); } } className="w-3 h-3" />Plug Wires P/N</label>
                           </div>
                           <PartNumberSearchInput value={gen.rotor_part_number} onChange={(v) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], rotor_part_number: v }; setNewVesselGenerators(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Rotor P/N" />
                           <PartNumberSearchInput value={gen.plug_wires_part_number} onChange={(v) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], plug_wires_part_number: v }; setNewVesselGenerators(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Plug Wires P/N" />
@@ -1834,7 +1960,7 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
               <div className="border-t border-gray-200 pt-4">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-sm font-semibold text-gray-700">Engines</h4>
-                  <button type="button" onClick={() => setEditVesselEngines([...editVesselEngines, { label: '', model_number: '', serial_number: '', season_start_hours: '', fuel_type: 'diesel', oil_filter_part_number: '', oil_filter_alt1: '', oil_filter_alt2: '', fuel_filter_part_number: '', fuel_filter_alt1: '', fuel_filter_alt2: '', impeller_part_number: '', impeller_alt1: '', impeller_alt2: '', belt1_part_number: '', belt1_alt1: '', belt1_alt2: '', belt2_part_number: '', belt2_alt1: '', belt2_alt2: '', oil_weight: '', oil_quantity: '', spark_plug_part_number: '', distributor_cap_part_number: '', rotor_part_number: '', plug_wires_part_number: '' }])} className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">+ Add Engine</button>
+                  <button type="button" onClick={() => setEditVesselEngines([...editVesselEngines, { label: '', model_number: '', serial_number: '', season_start_hours: '', fuel_type: 'diesel', oil_filter_part_number: '', oil_filter_alt1: '', oil_filter_alt2: '', fuel_filter_part_number: '', fuel_filter_alt1: '', fuel_filter_alt2: '', impeller_part_number: '', impeller_alt1: '', impeller_alt2: '', belt1_part_number: '', belt1_alt1: '', belt1_alt2: '', belt2_part_number: '', belt2_alt1: '', belt2_alt2: '', oil_weight: '', oil_quantity: '', spark_plug_part_number: '', distributor_cap_part_number: '', rotor_part_number: '', plug_wires_part_number: '', include_oil_filter: true, include_fuel_filter: true, include_impeller: true, include_belt1: true, include_belt2: true, include_spark_plug: true, include_distributor_cap: true, include_rotor: true, include_plug_wires: true, include_oil_weight: true, include_oil_quantity: true, include_oil_filter_alt1: true, include_oil_filter_alt2: true, include_fuel_filter_alt1: true, include_fuel_filter_alt2: true, include_impeller_alt1: true, include_impeller_alt2: true, include_belt1_alt1: true, include_belt1_alt2: true, include_belt2_alt1: true, include_belt2_alt2: true }])} className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">+ Add Engine</button>
                 </div>
                 {editVesselEngines.length === 0 && <p className="text-xs text-gray-400 mb-2">No engines added yet.</p>}
                 {editVesselEngines.map((eng, i) => (
@@ -1867,9 +1993,9 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
                     <div className="border-t border-gray-200 pt-2 space-y-2">
                       <p className="text-xs font-semibold text-gray-500">Service Parts</p>
                       <div className="grid grid-cols-3 gap-1 mb-0.5">
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Oil Filter P/N</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Oil Filter Alt 1</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Oil Filter Alt 2</p>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_oil_filter} onChange={(e) => { const a = [...editVesselEngines]; a[i] = { ...a[i], include_oil_filter: e.target.checked }; setEditVesselEngines(a); } } className="w-3 h-3" />Oil Filter P/N</label>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_oil_filter_alt1} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_oil_filter_alt1: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Oil Filter Alt 1</label>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_oil_filter_alt2} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_oil_filter_alt2: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Oil Filter Alt 2</label>
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         <PartNumberSearchInput value={eng.oil_filter_part_number} onChange={(v) => { const a = [...editVesselEngines]; a[i] = { ...a[i], oil_filter_part_number: v }; setEditVesselEngines(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Oil Filter P/N" />
@@ -1877,9 +2003,9 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
                         <PartNumberSearchInput value={eng.oil_filter_alt2} onChange={(v) => { const a = [...editVesselEngines]; a[i] = { ...a[i], oil_filter_alt2: v }; setEditVesselEngines(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Oil Filter Alt 2" />
                       </div>
                       <div className="grid grid-cols-3 gap-1 mb-0.5">
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Fuel Filter P/N</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Fuel Filter Alt 1</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Fuel Filter Alt 2</p>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_fuel_filter} onChange={(e) => { const a = [...editVesselEngines]; a[i] = { ...a[i], include_fuel_filter: e.target.checked }; setEditVesselEngines(a); } } className="w-3 h-3" />Fuel Filter P/N</label>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_fuel_filter_alt1} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_fuel_filter_alt1: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Fuel Filter Alt 1</label>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_fuel_filter_alt2} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_fuel_filter_alt2: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Fuel Filter Alt 2</label>
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         <PartNumberSearchInput value={eng.fuel_filter_part_number} onChange={(v) => { const a = [...editVesselEngines]; a[i] = { ...a[i], fuel_filter_part_number: v }; setEditVesselEngines(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Fuel Filter P/N" />
@@ -1887,9 +2013,9 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
                         <PartNumberSearchInput value={eng.fuel_filter_alt2} onChange={(v) => { const a = [...editVesselEngines]; a[i] = { ...a[i], fuel_filter_alt2: v }; setEditVesselEngines(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Fuel Filter Alt 2" />
                       </div>
                       <div className="grid grid-cols-3 gap-1 mb-0.5">
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Impeller P/N</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Impeller Alt 1</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Impeller Alt 2</p>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_impeller} onChange={(e) => { const a = [...editVesselEngines]; a[i] = { ...a[i], include_impeller: e.target.checked }; setEditVesselEngines(a); } } className="w-3 h-3" />Impeller P/N</label>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_impeller_alt1} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_impeller_alt1: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Impeller Alt 1</label>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_impeller_alt2} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_impeller_alt2: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Impeller Alt 2</label>
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         <PartNumberSearchInput value={eng.impeller_part_number} onChange={(v) => { const a = [...editVesselEngines]; a[i] = { ...a[i], impeller_part_number: v }; setEditVesselEngines(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Impeller P/N" />
@@ -1897,9 +2023,9 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
                         <PartNumberSearchInput value={eng.impeller_alt2} onChange={(v) => { const a = [...editVesselEngines]; a[i] = { ...a[i], impeller_alt2: v }; setEditVesselEngines(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Impeller Alt 2" />
                       </div>
                       <div className="grid grid-cols-3 gap-1 mb-0.5">
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 1 P/N</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 1 Alt 1</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 1 Alt 2</p>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_belt1} onChange={(e) => { const a = [...editVesselEngines]; a[i] = { ...a[i], include_belt1: e.target.checked }; setEditVesselEngines(a); } } className="w-3 h-3" />Belt 1 P/N</label>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_belt1_alt1} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_belt1_alt1: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Belt 1 Alt 1</label>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_belt1_alt2} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_belt1_alt2: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Belt 1 Alt 2</label>
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         <PartNumberSearchInput value={eng.belt1_part_number} onChange={(v) => { const a = [...editVesselEngines]; a[i] = { ...a[i], belt1_part_number: v }; setEditVesselEngines(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Belt 1 P/N" />
@@ -1907,9 +2033,9 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
                         <PartNumberSearchInput value={eng.belt1_alt2} onChange={(v) => { const a = [...editVesselEngines]; a[i] = { ...a[i], belt1_alt2: v }; setEditVesselEngines(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Belt 1 Alt 2" />
                       </div>
                       <div className="grid grid-cols-3 gap-1 mb-0.5">
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 2 P/N</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 2 Alt 1</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 2 Alt 2</p>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_belt2} onChange={(e) => { const a = [...editVesselEngines]; a[i] = { ...a[i], include_belt2: e.target.checked }; setEditVesselEngines(a); } } className="w-3 h-3" />Belt 2 P/N</label>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_belt2_alt1} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_belt2_alt1: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Belt 2 Alt 1</label>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_belt2_alt2} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_belt2_alt2: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Belt 2 Alt 2</label>
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         <PartNumberSearchInput value={eng.belt2_part_number} onChange={(v) => { const a = [...editVesselEngines]; a[i] = { ...a[i], belt2_part_number: v }; setEditVesselEngines(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Belt 2 P/N" />
@@ -1917,8 +2043,8 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
                         <PartNumberSearchInput value={eng.belt2_alt2} onChange={(v) => { const a = [...editVesselEngines]; a[i] = { ...a[i], belt2_alt2: v }; setEditVesselEngines(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Belt 2 Alt 2" />
                       </div>
                       <div className="grid grid-cols-2 gap-1 mb-0.5">
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Oil Weight (e.g. 15W-40)</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Oil Quantity (e.g. 8 qts)</p>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={gen.include_oil_weight} onChange={(e) => { const a = [...editVesselGenerators]; a[i] = { ...a[i], include_oil_weight: e.target.checked }; setEditVesselGenerators(a); } } className="w-3 h-3" />Oil Weight (e.g. 15W-40)</label>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={gen.include_oil_quantity} onChange={(e) => { const a = [...editVesselGenerators]; a[i] = { ...a[i], include_oil_quantity: e.target.checked }; setEditVesselGenerators(a); } } className="w-3 h-3" />Oil Quantity (e.g. 8 qts)</label>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <PartNumberSearchInput value={eng.oil_weight} onChange={(v) => { const a = [...editVesselEngines]; a[i] = { ...a[i], oil_weight: v }; setEditVesselEngines(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Oil Weight (e.g. 15W-40)" />
@@ -1928,14 +2054,14 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
                         <div className="grid grid-cols-2 gap-2 border-t border-gray-200 pt-2">
                           <p className="col-span-2 text-xs font-semibold text-gray-500">Gas Ignition Parts</p>
                           <div className="grid grid-cols-2 gap-1 mb-0.5">
-                            <p className="text-[10px] font-medium text-gray-600 leading-tight">Spark Plug P/N</p>
-                            <p className="text-[10px] font-medium text-gray-600 leading-tight">Distributor Cap P/N</p>
+                            <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={gen.include_spark_plug} onChange={(e) => { const a = [...editVesselGenerators]; a[i] = { ...a[i], include_spark_plug: e.target.checked }; setEditVesselGenerators(a); } } className="w-3 h-3" />Spark Plug P/N</label>
+                            <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={gen.include_distributor_cap} onChange={(e) => { const a = [...editVesselGenerators]; a[i] = { ...a[i], include_distributor_cap: e.target.checked }; setEditVesselGenerators(a); } } className="w-3 h-3" />Distributor Cap P/N</label>
                           </div>
                           <PartNumberSearchInput value={eng.spark_plug_part_number} onChange={(v) => { const a = [...editVesselEngines]; a[i] = { ...a[i], spark_plug_part_number: v }; setEditVesselEngines(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Spark Plug P/N" />
                           <PartNumberSearchInput value={eng.distributor_cap_part_number} onChange={(v) => { const a = [...editVesselEngines]; a[i] = { ...a[i], distributor_cap_part_number: v }; setEditVesselEngines(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Distributor Cap P/N" />
                           <div className="grid grid-cols-2 gap-1 mb-0.5">
-                            <p className="text-[10px] font-medium text-gray-600 leading-tight">Rotor P/N</p>
-                            <p className="text-[10px] font-medium text-gray-600 leading-tight">Plug Wires P/N</p>
+                            <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={gen.include_rotor} onChange={(e) => { const a = [...editVesselGenerators]; a[i] = { ...a[i], include_rotor: e.target.checked }; setEditVesselGenerators(a); } } className="w-3 h-3" />Rotor P/N</label>
+                            <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={gen.include_plug_wires} onChange={(e) => { const a = [...editVesselGenerators]; a[i] = { ...a[i], include_plug_wires: e.target.checked }; setEditVesselGenerators(a); } } className="w-3 h-3" />Plug Wires P/N</label>
                           </div>
                           <PartNumberSearchInput value={eng.rotor_part_number} onChange={(v) => { const a = [...editVesselEngines]; a[i] = { ...a[i], rotor_part_number: v }; setEditVesselEngines(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Rotor P/N" />
                           <PartNumberSearchInput value={eng.plug_wires_part_number} onChange={(v) => { const a = [...editVesselEngines]; a[i] = { ...a[i], plug_wires_part_number: v }; setEditVesselEngines(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Plug Wires P/N" />
@@ -1949,7 +2075,7 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
               <div className="border-t border-gray-200 pt-4">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-sm font-semibold text-gray-700">Generators</h4>
-                  <button type="button" onClick={() => setEditVesselGenerators([...editVesselGenerators, { label: '', model_number: '', serial_number: '', season_start_hours: '', fuel_type: 'diesel', oil_filter_part_number: '', oil_filter_alt1: '', oil_filter_alt2: '', fuel_filter_part_number: '', fuel_filter_alt1: '', fuel_filter_alt2: '', impeller_part_number: '', impeller_alt1: '', impeller_alt2: '', belt1_part_number: '', belt1_alt1: '', belt1_alt2: '', belt2_part_number: '', belt2_alt1: '', belt2_alt2: '', oil_weight: '', oil_quantity: '', spark_plug_part_number: '', distributor_cap_part_number: '', rotor_part_number: '', plug_wires_part_number: '' }])} className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">+ Add Generator</button>
+                  <button type="button" onClick={() => setEditVesselGenerators([...editVesselGenerators, { label: '', model_number: '', serial_number: '', season_start_hours: '', fuel_type: 'diesel', oil_filter_part_number: '', oil_filter_alt1: '', oil_filter_alt2: '', fuel_filter_part_number: '', fuel_filter_alt1: '', fuel_filter_alt2: '', impeller_part_number: '', impeller_alt1: '', impeller_alt2: '', belt1_part_number: '', belt1_alt1: '', belt1_alt2: '', belt2_part_number: '', belt2_alt1: '', belt2_alt2: '', oil_weight: '', oil_quantity: '', spark_plug_part_number: '', distributor_cap_part_number: '', rotor_part_number: '', plug_wires_part_number: '', include_oil_filter: true, include_fuel_filter: true, include_impeller: true, include_belt1: true, include_belt2: true, include_spark_plug: true, include_distributor_cap: true, include_rotor: true, include_plug_wires: true, include_oil_weight: true, include_oil_quantity: true, include_oil_filter_alt1: true, include_oil_filter_alt2: true, include_fuel_filter_alt1: true, include_fuel_filter_alt2: true, include_impeller_alt1: true, include_impeller_alt2: true, include_belt1_alt1: true, include_belt1_alt2: true, include_belt2_alt1: true, include_belt2_alt2: true }])} className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">+ Add Generator</button>
                 </div>
                 {editVesselGenerators.length === 0 && <p className="text-xs text-gray-400 mb-2">No generators added yet.</p>}
                 {editVesselGenerators.map((gen, i) => (
@@ -1982,9 +2108,9 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
                     <div className="border-t border-gray-200 pt-2 space-y-2">
                       <p className="text-xs font-semibold text-gray-500">Service Parts</p>
                       <div className="grid grid-cols-3 gap-1 mb-0.5">
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Oil Filter P/N</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Oil Filter Alt 1</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Oil Filter Alt 2</p>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={gen.include_oil_filter} onChange={(e) => { const a = [...editVesselGenerators]; a[i] = { ...a[i], include_oil_filter: e.target.checked }; setEditVesselGenerators(a); } } className="w-3 h-3" />Oil Filter P/N</label>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_oil_filter_alt1} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_oil_filter_alt1: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Oil Filter Alt 1</label>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_oil_filter_alt2} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_oil_filter_alt2: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Oil Filter Alt 2</label>
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         <PartNumberSearchInput value={gen.oil_filter_part_number} onChange={(v) => { const a = [...editVesselGenerators]; a[i] = { ...a[i], oil_filter_part_number: v }; setEditVesselGenerators(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Oil Filter P/N" />
@@ -1992,9 +2118,9 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
                         <PartNumberSearchInput value={gen.oil_filter_alt2} onChange={(v) => { const a = [...editVesselGenerators]; a[i] = { ...a[i], oil_filter_alt2: v }; setEditVesselGenerators(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Oil Filter Alt 2" />
                       </div>
                       <div className="grid grid-cols-3 gap-1 mb-0.5">
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Fuel Filter P/N</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Fuel Filter Alt 1</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Fuel Filter Alt 2</p>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={gen.include_fuel_filter} onChange={(e) => { const a = [...editVesselGenerators]; a[i] = { ...a[i], include_fuel_filter: e.target.checked }; setEditVesselGenerators(a); } } className="w-3 h-3" />Fuel Filter P/N</label>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_fuel_filter_alt1} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_fuel_filter_alt1: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Fuel Filter Alt 1</label>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_fuel_filter_alt2} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_fuel_filter_alt2: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Fuel Filter Alt 2</label>
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         <PartNumberSearchInput value={gen.fuel_filter_part_number} onChange={(v) => { const a = [...editVesselGenerators]; a[i] = { ...a[i], fuel_filter_part_number: v }; setEditVesselGenerators(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Fuel Filter P/N" />
@@ -2002,9 +2128,9 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
                         <PartNumberSearchInput value={gen.fuel_filter_alt2} onChange={(v) => { const a = [...editVesselGenerators]; a[i] = { ...a[i], fuel_filter_alt2: v }; setEditVesselGenerators(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Fuel Filter Alt 2" />
                       </div>
                       <div className="grid grid-cols-3 gap-1 mb-0.5">
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Impeller P/N</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Impeller Alt 1</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Impeller Alt 2</p>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={gen.include_impeller} onChange={(e) => { const a = [...editVesselGenerators]; a[i] = { ...a[i], include_impeller: e.target.checked }; setEditVesselGenerators(a); } } className="w-3 h-3" />Impeller P/N</label>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_impeller_alt1} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_impeller_alt1: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Impeller Alt 1</label>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_impeller_alt2} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_impeller_alt2: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Impeller Alt 2</label>
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         <PartNumberSearchInput value={gen.impeller_part_number} onChange={(v) => { const a = [...editVesselGenerators]; a[i] = { ...a[i], impeller_part_number: v }; setEditVesselGenerators(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Impeller P/N" />
@@ -2012,9 +2138,9 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
                         <PartNumberSearchInput value={gen.impeller_alt2} onChange={(v) => { const a = [...editVesselGenerators]; a[i] = { ...a[i], impeller_alt2: v }; setEditVesselGenerators(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Impeller Alt 2" />
                       </div>
                       <div className="grid grid-cols-3 gap-1 mb-0.5">
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 1 P/N</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 1 Alt 1</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 1 Alt 2</p>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={gen.include_belt1} onChange={(e) => { const a = [...editVesselGenerators]; a[i] = { ...a[i], include_belt1: e.target.checked }; setEditVesselGenerators(a); } } className="w-3 h-3" />Belt 1 P/N</label>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_belt1_alt1} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_belt1_alt1: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Belt 1 Alt 1</label>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_belt1_alt2} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_belt1_alt2: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Belt 1 Alt 2</label>
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         <PartNumberSearchInput value={gen.belt1_part_number} onChange={(v) => { const a = [...editVesselGenerators]; a[i] = { ...a[i], belt1_part_number: v }; setEditVesselGenerators(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Belt 1 P/N" />
@@ -2022,9 +2148,9 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
                         <PartNumberSearchInput value={gen.belt1_alt2} onChange={(v) => { const a = [...editVesselGenerators]; a[i] = { ...a[i], belt1_alt2: v }; setEditVesselGenerators(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Belt 1 Alt 2" />
                       </div>
                       <div className="grid grid-cols-3 gap-1 mb-0.5">
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 2 P/N</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 2 Alt 1</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 2 Alt 2</p>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={gen.include_belt2} onChange={(e) => { const a = [...editVesselGenerators]; a[i] = { ...a[i], include_belt2: e.target.checked }; setEditVesselGenerators(a); } } className="w-3 h-3" />Belt 2 P/N</label>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_belt2_alt1} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_belt2_alt1: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Belt 2 Alt 1</label>
+                        <label className="text-[10px] font-medium text-gray-600 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_belt2_alt2} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], include_belt2_alt2: e.target.checked }; setNewVesselEngines(a); } } className="w-3 h-3" />Belt 2 Alt 2</label>
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         <PartNumberSearchInput value={gen.belt2_part_number} onChange={(v) => { const a = [...editVesselGenerators]; a[i] = { ...a[i], belt2_part_number: v }; setEditVesselGenerators(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Belt 2 P/N" />
