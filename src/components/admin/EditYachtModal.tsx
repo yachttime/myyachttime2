@@ -202,7 +202,8 @@ export default function EditYachtModal({
       const keepEngineIds = enginesForm.filter(e => e.id).map(e => e.id!);
       const deleteEngineIds = existingEngineIds.filter(id => !keepEngineIds.includes(id));
       if (deleteEngineIds.length > 0) {
-        await supabase.from('yacht_engines').delete().in('id', deleteEngineIds);
+        const { error: delEngErr } = await supabase.from('yacht_engines').delete().in('id', deleteEngineIds);
+        if (delEngErr) throw new Error(`Failed to delete removed engines: ${delEngErr.message}`);
       }
       for (let i = 0; i < enginesForm.length; i++) {
         const eng = enginesForm[i];
@@ -261,9 +262,11 @@ export default function EditYachtModal({
           include_belt2_alt2: eng.include_belt2_alt2 !== false,
         };
         if (eng.id) {
-          await supabase.from('yacht_engines').update(payload).eq('id', eng.id);
+          const { error: engErr } = await supabase.from('yacht_engines').update(payload).eq('id', eng.id);
+          if (engErr) throw new Error(`Engine "${eng.label}": ${engErr.message}`);
         } else {
-          await supabase.from('yacht_engines').insert(payload);
+          const { error: engErr } = await supabase.from('yacht_engines').insert(payload);
+          if (engErr) throw new Error(`Engine "${eng.label}": ${engErr.message}`);
         }
       }
 
@@ -271,7 +274,8 @@ export default function EditYachtModal({
       const keepGenIds = generatorsForm.filter(g => g.id).map(g => g.id!);
       const deleteGenIds = existingGenIds.filter(id => !keepGenIds.includes(id));
       if (deleteGenIds.length > 0) {
-        await supabase.from('yacht_generators').delete().in('id', deleteGenIds);
+        const { error: delGenErr } = await supabase.from('yacht_generators').delete().in('id', deleteGenIds);
+        if (delGenErr) throw new Error(`Failed to delete removed generators: ${delGenErr.message}`);
       }
       for (let i = 0; i < generatorsForm.length; i++) {
         const gen = generatorsForm[i];
@@ -330,9 +334,11 @@ export default function EditYachtModal({
           include_belt2_alt2: gen.include_belt2_alt2 !== false,
         };
         if (gen.id) {
-          await supabase.from('yacht_generators').update(payload).eq('id', gen.id);
+          const { error: genErr } = await supabase.from('yacht_generators').update(payload).eq('id', gen.id);
+          if (genErr) throw new Error(`Generator "${gen.label}": ${genErr.message}`);
         } else {
-          await supabase.from('yacht_generators').insert(payload);
+          const { error: genErr } = await supabase.from('yacht_generators').insert(payload);
+          if (genErr) throw new Error(`Generator "${gen.label}": ${genErr.message}`);
         }
       }
 
