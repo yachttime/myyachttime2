@@ -3,7 +3,7 @@ import { Search } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 interface PartNumberSearchInputProps {
-  value: string;
+  value?: string;
   onChange: (value: string) => void;
   placeholder: string;
   className?: string;
@@ -16,7 +16,7 @@ interface PartSearchResult {
   price: string;
 }
 
-export default function PartNumberSearchInput({ value, onChange, placeholder, className }: PartNumberSearchInputProps) {
+export default function PartNumberSearchInput({ value = '', onChange, placeholder, className }: PartNumberSearchInputProps) {
   const [showDropdown, setShowDropdown] = useState(false);
   const [results, setResults] = useState<PartSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
