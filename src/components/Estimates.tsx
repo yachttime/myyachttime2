@@ -225,6 +225,7 @@ export function Estimates({ userId }: EstimatesProps) {
   const [showServicePartsModal, setShowServicePartsModal] = useState(false);
   const [servicePartsTarget, setServicePartsTarget] = useState<{ type: 'engine' | 'generator'; label: string; parts: ServicePartEntry[] } | null>(null);
   const [servicePartsSelections, setServicePartsSelections] = useState<Record<string, { include: boolean; variant: string }>>({});
+  const [servicePartsQuickMode, setServicePartsQuickMode] = useState(false);
 
   const draftLoadedRef = React.useRef(false);
 
@@ -943,10 +944,11 @@ export function Estimates({ userId }: EstimatesProps) {
   const extractServiceParts = (record: any): ServicePartEntry[] => {
     const result: ServicePartEntry[] = [];
     for (const field of SERVICE_PART_FIELDS) {
-      const base = field.fieldName.replace('_part_number', '');
+      const hasPartNumberSuffix = field.fieldName.endsWith('_part_number');
+      const base = hasPartNumberSuffix ? field.fieldName.replace('_part_number', '') : field.fieldName;
       const primary = record[field.fieldName] || null;
-      const alt1 = record[`${base}_alt1`] || null;
-      const alt2 = record[`${base}_alt2`] || null;
+      const alt1 = hasPartNumberSuffix ? (record[`${base}_alt1`] || null) : null;
+      const alt2 = hasPartNumberSuffix ? (record[`${base}_alt2`] || null) : null;
       if (primary || alt1 || alt2) {
         result.push({
           fieldName: field.fieldName,
@@ -984,6 +986,7 @@ export function Estimates({ userId }: EstimatesProps) {
     }
     setServicePartsSelections(initialSelections);
     setServicePartsTarget({ type, label, parts: extractedParts });
+    setServicePartsQuickMode(false);
     setShowServicePartsModal(true);
   };
 
@@ -1042,23 +1045,37 @@ export function Estimates({ userId }: EstimatesProps) {
       showSuccess('No service parts saved for this ' + type);
       return;
     }
+    const initialSelections: Record<string, { include: boolean; variant: string }> = {};
+    for (const part of extractedParts) {
+      initialSelections[part.fieldName] = { include: true, variant: 'primary' };
+    }
+    setServicePartsSelections(initialSelections);
+    setServicePartsTarget({ type, label, parts: extractedParts });
+    setServicePartsQuickMode(true);
+    setShowServicePartsModal(true);
+  };
+
+  const handleConfirmQuickFullService = () => {
+    if (!servicePartsTarget) return;
     const newTask: EstimateTask = {
-      task_name: `${label} Service`,
-      task_overview: `Full service for ${label} (${type})`,
+      task_name: `${servicePartsTarget.label} Service`,
+      task_overview: `Full service for ${servicePartsTarget.label} (${servicePartsTarget.type})`,
       task_order: tasks.length,
       apply_surcharge: true,
       lineItems: []
     };
     let lineOrder = 0;
-    for (const part of extractedParts) {
-      const partNumber = part.primary;
+    for (const part of servicePartsTarget.parts) {
+      const selection = servicePartsSelections[part.fieldName];
+      if (!selection || !selection.include) continue;
+      const partNumber = selection.variant === 'alt1' ? part.alt1 : selection.variant === 'alt2' ? part.alt2 : part.primary;
       if (!partNumber) continue;
       const matchedPart = findMatchingInventoryPart(partNumber);
       const unitPrice = matchedPart ? matchedPart.unit_price : 0;
       const isTaxable = matchedPart ? matchedPart.is_taxable : true;
       newTask.lineItems.push({
         line_type: 'part',
-        description: `${partNumber} - ${part.label} (${label})`,
+        description: `${partNumber} - ${part.label} (${servicePartsTarget.label})`,
         quantity: 1,
         unit_price: unitPrice,
         total_price: unitPrice,
@@ -1071,13 +1088,17 @@ export function Estimates({ userId }: EstimatesProps) {
       lineOrder++;
     }
     if (newTask.lineItems.length === 0) {
-      showSuccess('No service parts with part numbers found');
+      showSuccess('No parts selected to add');
       return;
     }
     const newTaskIndex = tasks.length;
     setTasks([...tasks, newTask]);
     setExpandedTasks(new Set([...expandedTasks, newTaskIndex]));
-    showSuccess(`Created "${label} Service" task with ${newTask.lineItems.length} parts`);
+    setShowServicePartsModal(false);
+    setServicePartsTarget(null);
+    setServicePartsSelections({});
+    setServicePartsQuickMode(false);
+    showSuccess(`Created "${servicePartsTarget.label} Service" task with ${newTask.lineItems.length} parts`);
   };
 
   const handleLaborCodeChange = (laborCodeId: string) => {
@@ -4514,6 +4535,7 @@ export function Estimates({ userId }: EstimatesProps) {
                   setShowServicePartsModal(false);
                   setServicePartsTarget(null);
                   setServicePartsSelections({});
+                  setServicePartsQuickMode(false);
                 }}
                 className="text-gray-600 hover:text-gray-600"
               >
@@ -4563,7 +4585,7 @@ export function Estimates({ userId }: EstimatesProps) {
                   </div>
                 );
               })}
-              {tasks.length > 0 && (
+              {!servicePartsQuickMode && tasks.length > 0 && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Add to which task?</label>
                   <select
@@ -4587,23 +4609,34 @@ export function Estimates({ userId }: EstimatesProps) {
                   setShowServicePartsModal(false);
                   setServicePartsTarget(null);
                   setServicePartsSelections({});
+                  setServicePartsQuickMode(false);
                 }}
                 className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
               >
                 Cancel
               </button>
-              <button
-                type="button"
-                disabled={tasks.length === 0}
-                onClick={() => {
-                  const selectEl = document.getElementById('service-parts-task-select') as HTMLSelectElement | null;
-                  const taskIdx = selectEl ? parseInt(selectEl.value) : 0;
-                  handleAddServicePartsToTask(taskIdx);
-                }}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {tasks.length === 0 ? 'Add a task first' : 'Add Selected Parts'}
-              </button>
+              {servicePartsQuickMode ? (
+                <button
+                  type="button"
+                  onClick={handleConfirmQuickFullService}
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                >
+                  Create Service Task
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={tasks.length === 0}
+                  onClick={() => {
+                    const selectEl = document.getElementById('service-parts-task-select') as HTMLSelectElement | null;
+                    const taskIdx = selectEl ? parseInt(selectEl.value) : 0;
+                    handleAddServicePartsToTask(taskIdx);
+                  }}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {tasks.length === 0 ? 'Add a task first' : 'Add Selected Parts'}
+                </button>
+              )}
             </div>
           </div>
         </div>,

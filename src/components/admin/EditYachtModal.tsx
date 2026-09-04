@@ -411,7 +411,7 @@ export default function EditYachtModal({
                     <p className="text-[10px] font-medium text-slate-500 leading-tight">Oil Quantity (e.g. 8 qts)</p>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    <input type="text" value={eng.oil_weight} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], oil_weight: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Oil Weight (e.g. 15W-40)" />
+                    <PartNumberSearchInput value={eng.oil_weight} onChange={(v) => { const a = [...enginesForm]; a[i] = {...a[i], oil_weight: v}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Oil Weight (e.g. 15W-40)" />
                     <input type="text" value={eng.oil_quantity} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], oil_quantity: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Oil Quantity (e.g. 8 qts)" />
                   </div>
                   {eng.fuel_type === 'gas' && (
@@ -523,7 +523,7 @@ export default function EditYachtModal({
                     <p className="text-[10px] font-medium text-slate-500 leading-tight">Oil Quantity (e.g. 8 qts)</p>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    <input type="text" value={gen.oil_weight} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], oil_weight: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Oil Weight (e.g. 15W-40)" />
+                    <PartNumberSearchInput value={gen.oil_weight} onChange={(v) => { const a = [...generatorsForm]; a[i] = {...a[i], oil_weight: v}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Oil Weight (e.g. 15W-40)" />
                     <input type="text" value={gen.oil_quantity} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], oil_quantity: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Oil Quantity (e.g. 8 qts)" />
                   </div>
                   {gen.fuel_type === 'gas' && (

@@ -1610,7 +1610,7 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
                         <p className="text-[10px] font-medium text-gray-600 leading-tight">Oil Quantity (e.g. 8 qts)</p>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
-                        <input type="text" value={eng.oil_weight} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], oil_weight: e.target.value }; setNewVesselEngines(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Oil Weight (e.g. 15W-40)" />
+                        <PartNumberSearchInput value={eng.oil_weight} onChange={(v) => { const a = [...newVesselEngines]; a[i] = { ...a[i], oil_weight: v }; setNewVesselEngines(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Oil Weight (e.g. 15W-40)" />
                         <input type="text" value={eng.oil_quantity} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], oil_quantity: e.target.value }; setNewVesselEngines(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Oil Quantity (e.g. 8 qts)" />
                       </div>
                       {eng.fuel_type === 'gas' && (
@@ -1725,7 +1725,7 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
                         <p className="text-[10px] font-medium text-gray-600 leading-tight">Oil Quantity (e.g. 8 qts)</p>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
-                        <input type="text" value={gen.oil_weight} onChange={(e) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], oil_weight: e.target.value }; setNewVesselGenerators(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Oil Weight (e.g. 15W-40)" />
+                        <PartNumberSearchInput value={gen.oil_weight} onChange={(v) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], oil_weight: v }; setNewVesselGenerators(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Oil Weight (e.g. 15W-40)" />
                         <input type="text" value={gen.oil_quantity} onChange={(e) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], oil_quantity: e.target.value }; setNewVesselGenerators(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Oil Quantity (e.g. 8 qts)" />
                       </div>
                       {gen.fuel_type === 'gas' && (
@@ -1921,7 +1921,7 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
                         <p className="text-[10px] font-medium text-gray-600 leading-tight">Oil Quantity (e.g. 8 qts)</p>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
-                        <input type="text" value={eng.oil_weight} onChange={(e) => { const a = [...editVesselEngines]; a[i] = { ...a[i], oil_weight: e.target.value }; setEditVesselEngines(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Oil Weight (e.g. 15W-40)" />
+                        <PartNumberSearchInput value={eng.oil_weight} onChange={(v) => { const a = [...editVesselEngines]; a[i] = { ...a[i], oil_weight: v }; setEditVesselEngines(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Oil Weight (e.g. 15W-40)" />
                         <input type="text" value={eng.oil_quantity} onChange={(e) => { const a = [...editVesselEngines]; a[i] = { ...a[i], oil_quantity: e.target.value }; setEditVesselEngines(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Oil Quantity (e.g. 8 qts)" />
                       </div>
                       {eng.fuel_type === 'gas' && (
@@ -2036,7 +2036,7 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
                         <p className="text-[10px] font-medium text-gray-600 leading-tight">Oil Quantity (e.g. 8 qts)</p>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
-                        <input type="text" value={gen.oil_weight} onChange={(e) => { const a = [...editVesselGenerators]; a[i] = { ...a[i], oil_weight: e.target.value }; setEditVesselGenerators(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Oil Weight (e.g. 15W-40)" />
+                        <PartNumberSearchInput value={gen.oil_weight} onChange={(v) => { const a = [...editVesselGenerators]; a[i] = { ...a[i], oil_weight: v }; setEditVesselGenerators(a); }} className="w-full py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Oil Weight (e.g. 15W-40)" />
                         <input type="text" value={gen.oil_quantity} onChange={(e) => { const a = [...editVesselGenerators]; a[i] = { ...a[i], oil_quantity: e.target.value }; setEditVesselGenerators(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Oil Quantity (e.g. 8 qts)" />
                       </div>
                       {gen.fuel_type === 'gas' && (
