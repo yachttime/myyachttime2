@@ -51,6 +51,7 @@ import MasterCalendarView from './admin/MasterCalendarView';
 import UsersView from './admin/UsersView';
 import RetailRepairsArchive from './admin/RetailRepairsArchive';
 import EditYachtModal, { EMPTY_YACHT_FORM, EMPTY_ENGINE_GEN_ENTRY, EngineGenFormEntry } from './admin/EditYachtModal';
+import EngineCatalogManager from './admin/EngineCatalogManager';
 
 interface DashboardProps {
   onNavigate: (page: 'maintenance' | 'education' | 'staffCalendar') => void;
@@ -78,7 +79,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   };
 
   // Helper function to set admin view and persist to localStorage
-  const setAdminViewPersisted = (view: 'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies' | 'maintenancerequests' | 'vesselmonitoring') => {
+  const setAdminViewPersisted = (view: 'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies' | 'maintenancerequests' | 'vesselmonitoring' | 'enginecatalog') => {
     setAdminView(view);
     try {
       localStorage.setItem('adminView', view);
@@ -397,11 +398,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [resumingQueueItemId, setResumingQueueItemId] = useState<string | null>(null);
   const queueUploadAttemptedRef = useRef(false);
 
-  const [adminView, setAdminView] = useState<'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies' | 'maintenancerequests' | 'vesselmonitoring'>(() => {
+  const [adminView, setAdminView] = useState<'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies' | 'maintenancerequests' | 'vesselmonitoring' | 'enginecatalog'>(() => {
     try {
       const stored = localStorage.getItem('adminView');
-      if (stored && ['menu', 'inspection', 'yachts', 'ownertrips', 'repairs', 'ownerchat', 'messages', 'mastercalendar', 'ownerhandoff', 'users', 'appointments', 'staffappointment', 'smartdevices', 'companies', 'vesselmonitoring'].includes(stored)) {
-        return stored as 'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies' | 'maintenancerequests' | 'vesselmonitoring';
+      if (stored && ['menu', 'inspection', 'yachts', 'ownertrips', 'repairs', 'ownerchat', 'messages', 'mastercalendar', 'ownerhandoff', 'users', 'appointments', 'staffappointment', 'smartdevices', 'companies', 'vesselmonitoring', 'enginecatalog'].includes(stored)) {
+        return stored as 'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies' | 'maintenancerequests' | 'vesselmonitoring' | 'enginecatalog';
       }
       return 'menu';
     } catch {
@@ -17209,6 +17210,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               ) : adminView === 'companies' ? (
                 <AdminViewWrapper onBack={() => setAdminViewPersisted('menu')}>
                   <CompanyManagement />
+                </AdminViewWrapper>
+              ) : adminView === 'enginecatalog' ? (
+                <AdminViewWrapper onBack={() => setAdminViewPersisted('menu')} backHoverColor="hover:text-amber-500">
+                  <EngineCatalogManager />
                 </AdminViewWrapper>
               ) : adminView === 'users' ? (
                 <AdminViewWrapper onBack={() => setAdminViewPersisted('menu')} backHoverColor="hover:text-blue-500">

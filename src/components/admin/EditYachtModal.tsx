@@ -1,6 +1,7 @@
 import { X } from 'lucide-react';
 import { supabase, Yacht, UserProfile, logYachtActivity } from '../../lib/supabase';
 import PartNumberSearchInput from './PartNumberSearchInput';
+import CatalogSearchDropdown from './CatalogSearchDropdown';
 
 export interface YachtFormState {
   name: string;
@@ -20,6 +21,7 @@ export interface YachtFormState {
 
 export type EngineGenFormEntry = {
   id?: string;
+  catalog_id?: string;
   label: string;
   description: string;
   model_number: string;
@@ -117,6 +119,7 @@ export const EMPTY_SERVICE_PARTS = {
 };
 
 export const EMPTY_ENGINE_GEN_ENTRY: Omit<EngineGenFormEntry, 'id'> = {
+  catalog_id: undefined,
   label: '',
   description: '',
   model_number: '',
@@ -211,6 +214,7 @@ export default function EditYachtModal({
         const payload = {
           yacht_id: editingYacht.id,
           label: safeTrim(eng.label),
+          catalog_id: eng.catalog_id || null,
           description: safeTrim(eng.description),
           model_number: safeTrim(eng.model_number),
           serial_number: safeTrim(eng.serial_number),
@@ -283,6 +287,7 @@ export default function EditYachtModal({
         const payload = {
           yacht_id: editingYacht.id,
           label: safeTrim(gen.label),
+          catalog_id: gen.catalog_id || null,
           description: safeTrim(gen.description),
           model_number: safeTrim(gen.model_number),
           serial_number: safeTrim(gen.serial_number),
@@ -447,7 +452,15 @@ export default function EditYachtModal({
                   <button type="button" onClick={() => setEnginesForm(enginesForm.filter((_, j) => j !== i))} className="mt-5 p-2 text-red-400 hover:text-red-300 hover:bg-slate-700 rounded-lg transition-colors"><X className="w-4 h-4" /></button>
                 </div>
                 <div className="border-t border-slate-700 pt-2 space-y-2">
-                  <p className="text-xs font-semibold text-slate-400">Service Parts</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-semibold text-slate-400 flex-1">Service Parts</p>
+                    <CatalogSearchDropdown
+                      equipmentType="engine"
+                      onSelect={(cat) => { const a = [...enginesForm]; a[i] = { ...a[i], ...cat }; setEnginesForm(a); }}
+                      className="flex-1 bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500"
+                      placeholder="Pick from engine database..."
+                    />
+                  </div>
                   <div className="grid grid-cols-3 gap-1 mb-0.5">
                     <label className="text-[10px] font-medium text-slate-500 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_oil_filter} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], include_oil_filter: e.target.checked}; setEnginesForm(a); } } className="w-3 h-3" />Oil Filter P/N</label>
                     <label className="text-[10px] font-medium text-slate-500 leading-tight flex items-center gap-1"><input type="checkbox" checked={eng.include_oil_filter_alt1} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], include_oil_filter_alt1: e.target.checked}; setEnginesForm(a); } } className="w-3 h-3" />Oil Filter Alt 1</label>
@@ -559,7 +572,15 @@ export default function EditYachtModal({
                   <button type="button" onClick={() => setGeneratorsForm(generatorsForm.filter((_, j) => j !== i))} className="mt-5 p-2 text-red-400 hover:text-red-300 hover:bg-slate-700 rounded-lg transition-colors"><X className="w-4 h-4" /></button>
                 </div>
                 <div className="border-t border-slate-700 pt-2 space-y-2">
-                  <p className="text-xs font-semibold text-slate-400">Service Parts</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-semibold text-slate-400 flex-1">Service Parts</p>
+                    <CatalogSearchDropdown
+                      equipmentType="generator"
+                      onSelect={(cat) => { const a = [...generatorsForm]; a[i] = { ...a[i], ...cat }; setGeneratorsForm(a); }}
+                      className="flex-1 bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500"
+                      placeholder="Pick from generator database..."
+                    />
+                  </div>
                   <div className="grid grid-cols-3 gap-1 mb-0.5">
                     <label className="text-[10px] font-medium text-slate-500 leading-tight flex items-center gap-1"><input type="checkbox" checked={gen.include_oil_filter} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], include_oil_filter: e.target.checked}; setGeneratorsForm(a); } } className="w-3 h-3" />Oil Filter P/N</label>
                     <label className="text-[10px] font-medium text-slate-500 leading-tight flex items-center gap-1"><input type="checkbox" checked={gen.include_oil_filter_alt1} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], include_oil_filter_alt1: e.target.checked}; setGeneratorsForm(a); } } className="w-3 h-3" />Oil Filter Alt 1</label>
