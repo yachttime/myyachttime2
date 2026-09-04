@@ -106,11 +106,11 @@ export default function CatalogSearchDropdown({ equipmentType, onSelect, placeho
 
   const selectResult = (row: CatalogRow) => {
     const entry: Partial<EngineGenFormEntry> & { catalog_id: string } = {
+      ...EMPTY_SERVICE_PARTS,
       catalog_id: row.id,
       description: row.description || '',
       model_number: row.model_name,
       fuel_type: row.fuel_type || 'diesel',
-      ...EMPTY_SERVICE_PARTS,
       oil_filter_part_number: row.oil_filter_part_number || '',
       oil_filter_alt1: row.oil_filter_alt1 || '',
       oil_filter_alt2: row.oil_filter_alt2 || '',
