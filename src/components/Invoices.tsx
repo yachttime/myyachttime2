@@ -1196,8 +1196,8 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
         depositLineCount +
         (invoice.credit_card_fee && invoice.credit_card_fee > 0 ? 1 : 0) +
         (isPaid ? 2 + finalPaymentLineCount + (stripeId ? 1 : 0) + (invoice.credit_amount && invoice.credit_amount > 0 ? 1 : 0) : 0);
-      const wrapBuffer = (depositLineCount + finalPaymentLineCount) * 0.14;
-      const totalsBlockHeight = totalsLineCount * 0.2 + 0.3 + wrapBuffer + (invoice.notes ? 0.6 : 0);
+      const wrapBuffer = (depositLineCount + finalPaymentLineCount) * 0.28;
+      const totalsBlockHeight = totalsLineCount * 0.2 + 0.3 + wrapBuffer + 0.2 + (invoice.notes ? 0.6 : 0);
 
       if (yPos + totalsBlockHeight > pageHeight - bottomMargin) {
         doc.addPage();
@@ -1280,6 +1280,14 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
         yPos += ccFeeLines.length > 1 ? ccFeeLines.length * 0.14 : 0.2;
       }
 
+      const paidSectionHeight = isPaid
+        ? 0.2 + (finalPaymentLineCount * 0.28) + 0.05 + 0.2 + (stripeId ? 0.2 : 0) + 0.2 + (invoice.credit_amount && invoice.credit_amount > 0 ? 0.2 : 0)
+        : 0;
+      if (yPos + 0.2 + paidSectionHeight > pageHeight - bottomMargin) {
+        doc.addPage();
+        yPos = margin;
+      }
+
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(12);
       const computedTotal = invoice.subtotal
@@ -1330,6 +1338,10 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
           doc.text(`Stripe: ${stripeId}`, totalsX, yPos);
           doc.setTextColor(0, 0, 0);
           yPos += 0.2;
+        }
+        if (yPos + 0.4 > pageHeight - bottomMargin) {
+          doc.addPage();
+          yPos = margin;
         }
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(12);
