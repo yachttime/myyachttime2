@@ -3092,6 +3092,38 @@ export async function generateEstimatingInvoicePDF(
     yPos = (doc as any).lastAutoTable.finalY + 0.3;
   }
 
+  // --- Page-break guard: move the ENTIRE totals block to a new page if needed ---
+  const pageHeight = 11;
+  const bottomMargin = 0.75;
+  const isPaid = invoice.payment_status === 'paid' || (invoice.amount_paid !== null && Number(invoice.amount_paid) > 0);
+  const depositCount = (paymentRecords && paymentRecords.deposits.length > 0)
+    ? paymentRecords.deposits.length
+    : (invoice.deposit_applied && invoice.deposit_applied > 0 ? 1 : 0);
+  const paymentCount = (paymentRecords && paymentRecords.finalPayments.length > 0) ? paymentRecords.finalPayments.length : 0;
+  const hasStripeId = !!((invoice as any).final_payment_stripe_payment_intent_id || (invoice as any).stripe_payment_intent_id);
+  const hasCredit = !!((invoice as any).credit_amount && Number((invoice as any).credit_amount) > 0);
+
+  const fixedLines =
+    2 + // subtotal + tax
+    (invoice.discount_amount && invoice.discount_amount > 0 ? 1 : 0) +
+    (invoice.shop_supplies_amount && invoice.shop_supplies_amount > 0 ? 1 : 0) +
+    (invoice.park_fees_amount && invoice.park_fees_amount > 0 ? 1 : 0) +
+    (invoice.surcharge_amount && invoice.surcharge_amount > 0 ? 1 : 0) +
+    (invoice.credit_card_fee && invoice.credit_card_fee > 0 ? 1 : 0) +
+    1 + // Total line
+    (isPaid ? 1 + (hasStripeId ? 1 : 0) + 1 + (hasCredit ? 1 : 0) : 0); // Amount Paid + Stripe + Balance Due + Credit
+  const totalsBlockHeight =
+    (fixedLines * 0.2) +
+    (depositCount * 0.4) + // 0.2 base + 0.2 wrap buffer per deposit
+    (paymentCount * 0.4) + // 0.2 base + 0.2 wrap buffer per payment
+    0.3 + // spacing
+    (invoice.notes ? 0.8 : 0);
+
+  if (yPos + totalsBlockHeight > pageHeight - bottomMargin) {
+    doc.addPage();
+    yPos = margin;
+  }
+
   const totalsX = pageWidth - margin - 2;
   doc.setFontSize(10); doc.setFont('helvetica', 'normal');
   doc.text('Subtotal:', totalsX, yPos);
