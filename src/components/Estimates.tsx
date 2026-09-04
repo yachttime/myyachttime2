@@ -77,6 +77,29 @@ interface EstimatesProps {
   userId: string;
 }
 
+interface ServicePartEntry {
+  fieldName: string;
+  label: string;
+  primary: string | null;
+  alt1: string | null;
+  alt2: string | null;
+  isTaxable: boolean;
+}
+
+const SERVICE_PART_FIELDS: { fieldName: string; label: string }[] = [
+  { fieldName: 'oil_filter_part_number', label: 'Oil Filter' },
+  { fieldName: 'fuel_filter_part_number', label: 'Fuel Filter' },
+  { fieldName: 'impeller_part_number', label: 'Impeller' },
+  { fieldName: 'belt1_part_number', label: 'Belt 1' },
+  { fieldName: 'belt2_part_number', label: 'Belt 2' },
+  { fieldName: 'spark_plug_part_number', label: 'Spark Plugs' },
+  { fieldName: 'distributor_cap_part_number', label: 'Distributor Cap' },
+  { fieldName: 'rotor_part_number', label: 'Rotor' },
+  { fieldName: 'plug_wires_part_number', label: 'Plug Wires' },
+  { fieldName: 'oil_weight', label: 'Oil Weight' },
+  { fieldName: 'oil_quantity', label: 'Oil Quantity' },
+];
+
 export function Estimates({ userId }: EstimatesProps) {
   const { showSuccess, showError } = useNotification();
   const [estimates, setEstimates] = useState<Estimate[]>([]);
@@ -196,6 +219,12 @@ export function Estimates({ userId }: EstimatesProps) {
   const [existingRepairRequestId, setExistingRepairRequestId] = useState<string | null>(null);
   const [repairRequestDeposit, setRepairRequestDeposit] = useState<{ status: string | null; amount: number | null; paid_at: string | null; method: string | null } | null>(null);
   const [availableInspections, setAvailableInspections] = useState<any[]>([]);
+  const [vesselEngines, setVesselEngines] = useState<any[]>([]);
+  const [vesselGenerators, setVesselGenerators] = useState<any[]>([]);
+  const [showVesselPartsSummary, setShowVesselPartsSummary] = useState(false);
+  const [showServicePartsModal, setShowServicePartsModal] = useState(false);
+  const [servicePartsTarget, setServicePartsTarget] = useState<{ type: 'engine' | 'generator'; label: string; parts: ServicePartEntry[] } | null>(null);
+  const [servicePartsSelections, setServicePartsSelections] = useState<Record<string, { include: boolean; variant: string }>>({});
 
   const draftLoadedRef = React.useRef(false);
 
@@ -241,6 +270,56 @@ export function Estimates({ userId }: EstimatesProps) {
       setFormData(prev => ({ ...prev, trip_inspection_id: '' }));
     }
   }, [formData.yacht_id]);
+
+  useEffect(() => {
+    if (formData.vessel_id) {
+      Promise.all([
+        supabase
+          .from('customer_vessel_engines')
+          .select('*')
+          .eq('vessel_id', formData.vessel_id)
+          .order('sort_order', { ascending: true }),
+        supabase
+          .from('customer_vessel_generators')
+          .select('*')
+          .eq('vessel_id', formData.vessel_id)
+          .order('sort_order', { ascending: true })
+      ]).then(([enginesRes, gensRes]) => {
+        setVesselEngines(enginesRes.data || []);
+        setVesselGenerators(gensRes.data || []);
+        setShowVesselPartsSummary((enginesRes.data?.length || 0) > 0 || (gensRes.data?.length || 0) > 0);
+      });
+    } else {
+      setVesselEngines([]);
+      setVesselGenerators([]);
+      setShowVesselPartsSummary(false);
+    }
+  }, [formData.vessel_id]);
+
+  useEffect(() => {
+    if (formData.yacht_id && !formData.is_retail_customer) {
+      Promise.all([
+        supabase
+          .from('yacht_engines')
+          .select('*')
+          .eq('yacht_id', formData.yacht_id)
+          .order('sort_order', { ascending: true }),
+        supabase
+          .from('yacht_generators')
+          .select('*')
+          .eq('yacht_id', formData.yacht_id)
+          .order('sort_order', { ascending: true })
+      ]).then(([enginesRes, gensRes]) => {
+        setVesselEngines(enginesRes.data || []);
+        setVesselGenerators(gensRes.data || []);
+        setShowVesselPartsSummary((enginesRes.data?.length || 0) > 0 || (gensRes.data?.length || 0) > 0);
+      });
+    } else if (!formData.vessel_id) {
+      setVesselEngines([]);
+      setVesselGenerators([]);
+      setShowVesselPartsSummary(false);
+    }
+  }, [formData.yacht_id, formData.is_retail_customer]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -859,6 +938,146 @@ export function Estimates({ userId }: EstimatesProps) {
     setTasks(updatedTasks);
     setEditingPackageHeader(null);
     setPackageHeaderEditValue('');
+  };
+
+  const extractServiceParts = (record: any): ServicePartEntry[] => {
+    const result: ServicePartEntry[] = [];
+    for (const field of SERVICE_PART_FIELDS) {
+      const base = field.fieldName.replace('_part_number', '');
+      const primary = record[field.fieldName] || null;
+      const alt1 = record[`${base}_alt1`] || null;
+      const alt2 = record[`${base}_alt2`] || null;
+      if (primary || alt1 || alt2) {
+        result.push({
+          fieldName: field.fieldName,
+          label: field.label,
+          primary,
+          alt1,
+          alt2,
+          isTaxable: true,
+        });
+      }
+    }
+    return result;
+  };
+
+  const findMatchingInventoryPart = (partNumber: string): any | null => {
+    if (!partNumber) return null;
+    const normalized = partNumber.toLowerCase().replace(/[-\s]/g, '');
+    for (const p of parts) {
+      const partNum = p.part_number.toLowerCase().replace(/[-\s]/g, '');
+      const altNum = (p.alternative_part_numbers || '').toLowerCase().replace(/[-\s]/g, '');
+      if (partNum === normalized || altNum === normalized) return p;
+    }
+    return null;
+  };
+
+  const openServicePartsModal = (type: 'engine' | 'generator', record: any, label: string) => {
+    const extractedParts = extractServiceParts(record);
+    if (extractedParts.length === 0) {
+      showSuccess('No service parts saved for this ' + type);
+      return;
+    }
+    const initialSelections: Record<string, { include: boolean; variant: string }> = {};
+    for (const part of extractedParts) {
+      initialSelections[part.fieldName] = { include: true, variant: 'primary' };
+    }
+    setServicePartsSelections(initialSelections);
+    setServicePartsTarget({ type, label, parts: extractedParts });
+    setShowServicePartsModal(true);
+  };
+
+  const handleAddServicePartsToTask = (taskIndex: number) => {
+    if (!servicePartsTarget) return;
+    const updatedTasks = tasks.map((t, i) => i === taskIndex ? { ...t, lineItems: t.lineItems ? [...t.lineItems] : [] } : t);
+    let lineOrder = updatedTasks[taskIndex].lineItems.length;
+    const newItems: EstimateLineItem[] = [];
+
+    for (const part of servicePartsTarget.parts) {
+      const selection = servicePartsSelections[part.fieldName];
+      if (!selection || !selection.include) continue;
+      const partNumber = selection.variant === 'alt1' ? part.alt1 : selection.variant === 'alt2' ? part.alt2 : part.primary;
+      if (!partNumber) continue;
+
+      const matchedPart = findMatchingInventoryPart(partNumber);
+      const unitPrice = matchedPart ? matchedPart.unit_price : 0;
+      const isTaxable = matchedPart ? matchedPart.is_taxable : true;
+      const contextLabel = servicePartsTarget.label;
+
+      newItems.push({
+        line_type: 'part',
+        description: `${partNumber} - ${part.label} (${contextLabel})`,
+        quantity: 1,
+        unit_price: unitPrice,
+        total_price: unitPrice,
+        is_taxable: isTaxable,
+        labor_code_id: null,
+        part_id: matchedPart?.id || null,
+        line_order: lineOrder,
+        work_details: null,
+      });
+      lineOrder++;
+    }
+
+    if (newItems.length === 0) {
+      showSuccess('No parts selected to add');
+      return;
+    }
+
+    updatedTasks[taskIndex] = {
+      ...updatedTasks[taskIndex],
+      lineItems: [...updatedTasks[taskIndex].lineItems, ...newItems]
+    };
+    setTasks(updatedTasks);
+    setShowServicePartsModal(false);
+    setServicePartsTarget(null);
+    setServicePartsSelections({});
+    setExpandedTasks(new Set([...expandedTasks, taskIndex]));
+    showSuccess(`${newItems.length} service part${newItems.length !== 1 ? 's' : ''} added`);
+  };
+
+  const handleQuickFullService = (type: 'engine' | 'generator', record: any, label: string) => {
+    const extractedParts = extractServiceParts(record);
+    if (extractedParts.length === 0) {
+      showSuccess('No service parts saved for this ' + type);
+      return;
+    }
+    const newTask: EstimateTask = {
+      task_name: `${label} Service`,
+      task_overview: `Full service for ${label} (${type})`,
+      task_order: tasks.length,
+      apply_surcharge: true,
+      lineItems: []
+    };
+    let lineOrder = 0;
+    for (const part of extractedParts) {
+      const partNumber = part.primary;
+      if (!partNumber) continue;
+      const matchedPart = findMatchingInventoryPart(partNumber);
+      const unitPrice = matchedPart ? matchedPart.unit_price : 0;
+      const isTaxable = matchedPart ? matchedPart.is_taxable : true;
+      newTask.lineItems.push({
+        line_type: 'part',
+        description: `${partNumber} - ${part.label} (${label})`,
+        quantity: 1,
+        unit_price: unitPrice,
+        total_price: unitPrice,
+        is_taxable: isTaxable,
+        labor_code_id: null,
+        part_id: matchedPart?.id || null,
+        line_order: lineOrder,
+        work_details: null,
+      });
+      lineOrder++;
+    }
+    if (newTask.lineItems.length === 0) {
+      showSuccess('No service parts with part numbers found');
+      return;
+    }
+    const newTaskIndex = tasks.length;
+    setTasks([...tasks, newTask]);
+    setExpandedTasks(new Set([...expandedTasks, newTaskIndex]));
+    showSuccess(`Created "${label} Service" task with ${newTask.lineItems.length} parts`);
   };
 
   const handleLaborCodeChange = (laborCodeId: string) => {
@@ -2857,6 +3076,118 @@ export function Estimates({ userId }: EstimatesProps) {
               </div>
             )}
 
+            {showVesselPartsSummary && (vesselEngines.length > 0 || vesselGenerators.length > 0) && (
+              <div className="mt-4 border border-blue-200 rounded-lg bg-blue-50 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setShowVesselPartsSummary(!showVesselPartsSummary)}
+                  className="w-full px-4 py-3 flex items-center justify-between hover:bg-blue-100 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <ClipboardList className="w-4 h-4 text-blue-600" />
+                    <span className="text-sm font-semibold text-blue-900">
+                      Vessel Service Parts ({vesselEngines.length} engine{vesselEngines.length !== 1 ? 's' : ''}, {vesselGenerators.length} generator{vesselGenerators.length !== 1 ? 's' : ''})
+                    </span>
+                  </div>
+                  {showVesselPartsSummary ? <ChevronUp className="w-4 h-4 text-blue-600" /> : <ChevronDown className="w-4 h-4 text-blue-600" />}
+                </button>
+                {showVesselPartsSummary && (
+                  <div className="px-4 pb-4 space-y-3">
+                    {vesselEngines.map((engine, idx) => {
+                      const label = engine.label || `Engine ${idx + 1}`;
+                      const parts = extractServiceParts(engine);
+                      return (
+                        <div key={`engine-${idx}`} className="bg-white rounded-lg border border-gray-200 p-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <div>
+                              <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">{label}</span>
+                              {engine.model_number && <span className="ml-2 text-xs text-gray-500">{engine.model_number}</span>}
+                              {engine.serial_number && <span className="ml-2 text-xs text-gray-400">S/N: {engine.serial_number}</span>}
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => openServicePartsModal('engine', engine, label)}
+                                className="text-xs px-2.5 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
+                              >
+                                Add Parts to Task
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleQuickFullService('engine', engine, label)}
+                                className="text-xs px-2.5 py-1 bg-green-600 text-white rounded hover:bg-green-700 font-medium"
+                              >
+                                Quick Full Service
+                              </button>
+                            </div>
+                          </div>
+                          {parts.length > 0 ? (
+                            <div className="grid grid-cols-2 gap-1.5">
+                              {parts.map((part) => (
+                                <div key={part.fieldName} className="text-xs">
+                                  <span className="font-medium text-gray-700">{part.label}:</span>{' '}
+                                  <span className="text-gray-900">{part.primary || '-'}</span>
+                                  {part.alt1 && <span className="text-gray-500"> | Alt1: {part.alt1}</span>}
+                                  {part.alt2 && <span className="text-gray-500"> | Alt2: {part.alt2}</span>}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-gray-400">No service parts saved</p>
+                          )}
+                        </div>
+                      );
+                    })}
+                    {vesselGenerators.map((gen, idx) => {
+                      const label = gen.label || `Generator ${idx + 1}`;
+                      const parts = extractServiceParts(gen);
+                      return (
+                        <div key={`gen-${idx}`} className="bg-white rounded-lg border border-gray-200 p-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <div>
+                              <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">{label}</span>
+                              {gen.model_number && <span className="ml-2 text-xs text-gray-500">{gen.model_number}</span>}
+                              {gen.serial_number && <span className="ml-2 text-xs text-gray-400">S/N: {gen.serial_number}</span>}
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => openServicePartsModal('generator', gen, label)}
+                                className="text-xs px-2.5 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
+                              >
+                                Add Parts to Task
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleQuickFullService('generator', gen, label)}
+                                className="text-xs px-2.5 py-1 bg-green-600 text-white rounded hover:bg-green-700 font-medium"
+                              >
+                                Quick Full Service
+                              </button>
+                            </div>
+                          </div>
+                          {parts.length > 0 ? (
+                            <div className="grid grid-cols-2 gap-1.5">
+                              {parts.map((part) => (
+                                <div key={part.fieldName} className="text-xs">
+                                  <span className="font-medium text-gray-700">{part.label}:</span>{' '}
+                                  <span className="text-gray-900">{part.primary || '-'}</span>
+                                  {part.alt1 && <span className="text-gray-500"> | Alt1: {part.alt1}</span>}
+                                  {part.alt2 && <span className="text-gray-500"> | Alt2: {part.alt2}</span>}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-gray-400">No service parts saved</p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Tasks Section */}
             <div className="border-t pt-4">
               <div className="flex justify-between items-center mb-3">
@@ -4161,6 +4492,117 @@ export function Estimates({ userId }: EstimatesProps) {
                 className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Add Package
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {showServicePartsModal && servicePartsTarget && ReactDOM.createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[9999]">
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div className="flex items-center gap-2">
+                <ClipboardList className="w-6 h-6 text-blue-600" />
+                <h3 className="text-xl font-bold text-gray-900">
+                  Service Parts - {servicePartsTarget.label}
+                </h3>
+              </div>
+              <button
+                onClick={() => {
+                  setShowServicePartsModal(false);
+                  setServicePartsTarget(null);
+                  setServicePartsSelections({});
+                }}
+                className="text-gray-600 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="p-6 space-y-3">
+              <p className="text-sm text-gray-600">
+                Select which parts to add and choose which part number variant to use for each.
+              </p>
+              {servicePartsTarget.parts.map((part) => {
+                const selection = servicePartsSelections[part.fieldName] || { include: true, variant: 'primary' };
+                const variants: { value: string; label: string; number: string | null }[] = [
+                  { value: 'primary', label: 'Primary', number: part.primary },
+                  { value: 'alt1', label: 'Alt 1', number: part.alt1 },
+                  { value: 'alt2', label: 'Alt 2', number: part.alt2 },
+                ].filter(v => v.number);
+                return (
+                  <div key={part.fieldName} className="flex items-center gap-3 p-2.5 border border-gray-200 rounded-lg bg-gray-50">
+                    <label className="flex items-center gap-2 min-w-[140px]">
+                      <input
+                        type="checkbox"
+                        checked={selection.include}
+                        onChange={(e) => setServicePartsSelections(prev => ({
+                          ...prev,
+                          [part.fieldName]: { ...prev[part.fieldName], include: e.target.checked }
+                        }))}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <span className="text-sm font-medium text-gray-800">{part.label}</span>
+                    </label>
+                    <select
+                      value={selection.variant}
+                      onChange={(e) => setServicePartsSelections(prev => ({
+                        ...prev,
+                        [part.fieldName]: { ...prev[part.fieldName], variant: e.target.value }
+                      }))}
+                      disabled={!selection.include}
+                      className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded bg-white text-gray-900 disabled:bg-gray-100"
+                    >
+                      {variants.map(v => (
+                        <option key={v.value} value={v.value}>
+                          {v.number} ({v.label})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })}
+              {tasks.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Add to which task?</label>
+                  <select
+                    id="service-parts-task-select"
+                    defaultValue={tasks.length - 1}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
+                  >
+                    {tasks.map((task, idx) => (
+                      <option key={idx} value={idx}>
+                        {task.task_name} ({task.lineItems.length} items)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+            <div className="flex gap-3 p-6 border-t border-gray-200">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowServicePartsModal(false);
+                  setServicePartsTarget(null);
+                  setServicePartsSelections({});
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={tasks.length === 0}
+                onClick={() => {
+                  const selectEl = document.getElementById('service-parts-task-select') as HTMLSelectElement | null;
+                  const taskIdx = selectEl ? parseInt(selectEl.value) : 0;
+                  handleAddServicePartsToTask(taskIdx);
+                }}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {tasks.length === 0 ? 'Add a task first' : 'Add Selected Parts'}
               </button>
             </div>
           </div>
