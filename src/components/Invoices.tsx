@@ -1180,24 +1180,36 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
         invoiceFinalPayments = fpData || [];
       }
 
-      // Estimate how much vertical space the totals block needs
+      // --- Page-break guard: move the ENTIRE totals block to a new page if needed ---
+      // Rather than estimating each line precisely (which fails with wrapping text),
+      // use a generous fixed minimum. The worst-case totals block (many deposits +
+      // payments + notes + credit) is under 6 inches. If less than 6 inches remains,
+      // start fresh so the whole block stays together and nothing gets cut off.
       const pageHeight = 11;
       const bottomMargin = 0.75;
-      const depositLineCount = invoiceDeposits.length > 0 ? invoiceDeposits.length : (invoice.deposit_applied && invoice.deposit_applied > 0 ? 1 : 0);
-      const finalPaymentLineCount = invoiceFinalPayments.length > 0 ? invoiceFinalPayments.length : 0;
       const stripeId = invoice.final_payment_stripe_payment_intent_id || invoice.stripe_payment_intent_id;
       const isPaid = invoice.payment_status === 'paid' || (invoice.amount_paid !== null && invoice.amount_paid > 0);
-      const totalsLineCount =
-        3 + // subtotal + tax + total
+
+      // Count deposits and payments for a tighter (but still generous) estimate
+      const depositCount = invoiceDeposits.length > 0 ? invoiceDeposits.length : (invoice.deposit_applied && invoice.deposit_applied > 0 ? 1 : 0);
+      const paymentCount = invoiceFinalPayments.length > 0 ? invoiceFinalPayments.length : 0;
+
+      // Each line is 0.2in; wrapped deposit/payment notes can add up to 2 extra lines each (0.28in per item)
+      const fixedLines =
+        2 + // subtotal + tax
         (invoice.discount_amount && invoice.discount_amount > 0 ? 1 : 0) +
         (invoice.shop_supplies_amount && invoice.shop_supplies_amount > 0 ? 1 : 0) +
         (invoice.park_fees_amount && invoice.park_fees_amount > 0 ? 1 : 0) +
         (invoice.surcharge_amount && invoice.surcharge_amount > 0 ? 1 : 0) +
-        depositLineCount +
         (invoice.credit_card_fee && invoice.credit_card_fee > 0 ? 1 : 0) +
-        (isPaid ? 2 + finalPaymentLineCount + (stripeId ? 1 : 0) + (invoice.credit_amount && invoice.credit_amount > 0 ? 1 : 0) : 0);
-      const wrapBuffer = (depositLineCount + finalPaymentLineCount) * 0.28;
-      const totalsBlockHeight = totalsLineCount * 0.2 + 0.3 + wrapBuffer + 0.2 + (invoice.notes ? 0.6 : 0);
+        1 + // Total line
+        (isPaid ? 1 + (stripeId ? 1 : 0) + 1 + (invoice.credit_amount && invoice.credit_amount > 0 ? 1 : 0) : 0); // Amount Paid + Stripe + Balance Due + Credit
+      const totalsBlockHeight =
+        (fixedLines * 0.2) +
+        (depositCount * 0.4) + // 0.2 base + 0.2 wrap buffer per deposit
+        (paymentCount * 0.4) + // 0.2 base + 0.2 wrap buffer per payment
+        0.3 + // spacing
+        (invoice.notes ? 0.8 : 0);
 
       if (yPos + totalsBlockHeight > pageHeight - bottomMargin) {
         doc.addPage();
@@ -1280,14 +1292,6 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
         yPos += ccFeeLines.length > 1 ? ccFeeLines.length * 0.14 : 0.2;
       }
 
-      const paidSectionHeight = isPaid
-        ? 0.2 + (finalPaymentLineCount * 0.28) + 0.05 + 0.2 + (stripeId ? 0.2 : 0) + 0.2 + (invoice.credit_amount && invoice.credit_amount > 0 ? 0.2 : 0)
-        : 0;
-      if (yPos + 0.2 + paidSectionHeight > pageHeight - bottomMargin) {
-        doc.addPage();
-        yPos = margin;
-      }
-
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(12);
       const computedTotal = invoice.subtotal
@@ -1338,10 +1342,6 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
           doc.text(`Stripe: ${stripeId}`, totalsX, yPos);
           doc.setTextColor(0, 0, 0);
           yPos += 0.2;
-        }
-        if (yPos + 0.4 > pageHeight - bottomMargin) {
-          doc.addPage();
-          yPos = margin;
         }
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(12);
