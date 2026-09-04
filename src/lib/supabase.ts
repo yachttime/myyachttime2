@@ -32,8 +32,14 @@ export interface ServiceParts {
   fuel_filter_alt1?: string;
   fuel_filter_alt2?: string;
   impeller_part_number?: string;
+  impeller_alt1?: string;
+  impeller_alt2?: string;
   belt1_part_number?: string;
+  belt1_alt1?: string;
+  belt1_alt2?: string;
   belt2_part_number?: string;
+  belt2_alt1?: string;
+  belt2_alt2?: string;
   oil_weight?: string;
   oil_quantity?: string;
   spark_plug_part_number?: string;

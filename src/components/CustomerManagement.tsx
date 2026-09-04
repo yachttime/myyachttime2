@@ -41,8 +41,14 @@ interface VesselEngine {
   fuel_filter_alt1?: string;
   fuel_filter_alt2?: string;
   impeller_part_number?: string;
+  impeller_alt1?: string;
+  impeller_alt2?: string;
   belt1_part_number?: string;
+  belt1_alt1?: string;
+  belt1_alt2?: string;
   belt2_part_number?: string;
+  belt2_alt1?: string;
+  belt2_alt2?: string;
   oil_weight?: string;
   oil_quantity?: string;
   spark_plug_part_number?: string;
@@ -68,8 +74,14 @@ interface VesselGenerator {
   fuel_filter_alt1?: string;
   fuel_filter_alt2?: string;
   impeller_part_number?: string;
+  impeller_alt1?: string;
+  impeller_alt2?: string;
   belt1_part_number?: string;
+  belt1_alt1?: string;
+  belt1_alt2?: string;
   belt2_part_number?: string;
+  belt2_alt1?: string;
+  belt2_alt2?: string;
   oil_weight?: string;
   oil_quantity?: string;
   spark_plug_part_number?: string;
@@ -148,10 +160,10 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
     gate_code: '',
     notes: '',
   });
-  const [newVesselEngines, setNewVesselEngines] = useState<Array<{ label: string; model_number: string; serial_number: string; season_start_hours: string; fuel_type: string; oil_filter_part_number: string; oil_filter_alt1: string; oil_filter_alt2: string; fuel_filter_part_number: string; fuel_filter_alt1: string; fuel_filter_alt2: string; impeller_part_number: string; belt1_part_number: string; belt2_part_number: string; oil_weight: string; oil_quantity: string; spark_plug_part_number: string; distributor_cap_part_number: string; rotor_part_number: string; plug_wires_part_number: string }>>([]);
-  const [newVesselGenerators, setNewVesselGenerators] = useState<Array<{ label: string; model_number: string; serial_number: string; season_start_hours: string; fuel_type: string; oil_filter_part_number: string; oil_filter_alt1: string; oil_filter_alt2: string; fuel_filter_part_number: string; fuel_filter_alt1: string; fuel_filter_alt2: string; impeller_part_number: string; belt1_part_number: string; belt2_part_number: string; oil_weight: string; oil_quantity: string; spark_plug_part_number: string; distributor_cap_part_number: string; rotor_part_number: string; plug_wires_part_number: string }>>([]);
-  const [editVesselEngines, setEditVesselEngines] = useState<Array<{ id?: string; label: string; model_number: string; serial_number: string; season_start_hours: string; fuel_type: string; oil_filter_part_number: string; oil_filter_alt1: string; oil_filter_alt2: string; fuel_filter_part_number: string; fuel_filter_alt1: string; fuel_filter_alt2: string; impeller_part_number: string; belt1_part_number: string; belt2_part_number: string; oil_weight: string; oil_quantity: string; spark_plug_part_number: string; distributor_cap_part_number: string; rotor_part_number: string; plug_wires_part_number: string }>>([]);
-  const [editVesselGenerators, setEditVesselGenerators] = useState<Array<{ id?: string; label: string; model_number: string; serial_number: string; season_start_hours: string; fuel_type: string; oil_filter_part_number: string; oil_filter_alt1: string; oil_filter_alt2: string; fuel_filter_part_number: string; fuel_filter_alt1: string; fuel_filter_alt2: string; impeller_part_number: string; belt1_part_number: string; belt2_part_number: string; oil_weight: string; oil_quantity: string; spark_plug_part_number: string; distributor_cap_part_number: string; rotor_part_number: string; plug_wires_part_number: string }>>([]);
+  const [newVesselEngines, setNewVesselEngines] = useState<Array<{ label: string; model_number: string; serial_number: string; season_start_hours: string; fuel_type: string; oil_filter_part_number: string; oil_filter_alt1: string; oil_filter_alt2: string; fuel_filter_part_number: string; fuel_filter_alt1: string; fuel_filter_alt2: string; impeller_part_number: string; impeller_alt1: string; impeller_alt2: string; belt1_part_number: string; belt1_alt1: string; belt1_alt2: string; belt2_part_number: string; belt2_alt1: string; belt2_alt2: string; oil_weight: string; oil_quantity: string; spark_plug_part_number: string; distributor_cap_part_number: string; rotor_part_number: string; plug_wires_part_number: string }>>([]);
+  const [newVesselGenerators, setNewVesselGenerators] = useState<Array<{ label: string; model_number: string; serial_number: string; season_start_hours: string; fuel_type: string; oil_filter_part_number: string; oil_filter_alt1: string; oil_filter_alt2: string; fuel_filter_part_number: string; fuel_filter_alt1: string; fuel_filter_alt2: string; impeller_part_number: string; impeller_alt1: string; impeller_alt2: string; belt1_part_number: string; belt1_alt1: string; belt1_alt2: string; belt2_part_number: string; belt2_alt1: string; belt2_alt2: string; oil_weight: string; oil_quantity: string; spark_plug_part_number: string; distributor_cap_part_number: string; rotor_part_number: string; plug_wires_part_number: string }>>([]);
+  const [editVesselEngines, setEditVesselEngines] = useState<Array<{ id?: string; label: string; model_number: string; serial_number: string; season_start_hours: string; fuel_type: string; oil_filter_part_number: string; oil_filter_alt1: string; oil_filter_alt2: string; fuel_filter_part_number: string; fuel_filter_alt1: string; fuel_filter_alt2: string; impeller_part_number: string; impeller_alt1: string; impeller_alt2: string; belt1_part_number: string; belt1_alt1: string; belt1_alt2: string; belt2_part_number: string; belt2_alt1: string; belt2_alt2: string; oil_weight: string; oil_quantity: string; spark_plug_part_number: string; distributor_cap_part_number: string; rotor_part_number: string; plug_wires_part_number: string }>>([]);
+  const [editVesselGenerators, setEditVesselGenerators] = useState<Array<{ id?: string; label: string; model_number: string; serial_number: string; season_start_hours: string; fuel_type: string; oil_filter_part_number: string; oil_filter_alt1: string; oil_filter_alt2: string; fuel_filter_part_number: string; fuel_filter_alt1: string; fuel_filter_alt2: string; impeller_part_number: string; impeller_alt1: string; impeller_alt2: string; belt1_part_number: string; belt1_alt1: string; belt1_alt2: string; belt2_part_number: string; belt2_alt1: string; belt2_alt2: string; oil_weight: string; oil_quantity: string; spark_plug_part_number: string; distributor_cap_part_number: string; rotor_part_number: string; plug_wires_part_number: string }>>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [customerVessels, setCustomerVessels] = useState<Vessel[]>([]);
   const [customerHistory, setCustomerHistory] = useState<CustomerHistory | null>(null);
@@ -449,8 +461,14 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
             fuel_filter_alt1: e.fuel_filter_alt1.trim(),
             fuel_filter_alt2: e.fuel_filter_alt2.trim(),
             impeller_part_number: e.impeller_part_number.trim(),
+            impeller_alt1: e.impeller_alt1.trim(),
+            impeller_alt2: e.impeller_alt2.trim(),
             belt1_part_number: e.belt1_part_number.trim(),
+            belt1_alt1: e.belt1_alt1.trim(),
+            belt1_alt2: e.belt1_alt2.trim(),
             belt2_part_number: e.belt2_part_number.trim(),
+            belt2_alt1: e.belt2_alt1.trim(),
+            belt2_alt2: e.belt2_alt2.trim(),
             oil_weight: e.oil_weight.trim(),
             oil_quantity: e.oil_quantity.trim(),
             spark_plug_part_number: e.spark_plug_part_number.trim(),
@@ -478,8 +496,14 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
             fuel_filter_alt1: g.fuel_filter_alt1.trim(),
             fuel_filter_alt2: g.fuel_filter_alt2.trim(),
             impeller_part_number: g.impeller_part_number.trim(),
+            impeller_alt1: g.impeller_alt1.trim(),
+            impeller_alt2: g.impeller_alt2.trim(),
             belt1_part_number: g.belt1_part_number.trim(),
+            belt1_alt1: g.belt1_alt1.trim(),
+            belt1_alt2: g.belt1_alt2.trim(),
             belt2_part_number: g.belt2_part_number.trim(),
+            belt2_alt1: g.belt2_alt1.trim(),
+            belt2_alt2: g.belt2_alt2.trim(),
             oil_weight: g.oil_weight.trim(),
             oil_quantity: g.oil_quantity.trim(),
             spark_plug_part_number: g.spark_plug_part_number.trim(),
@@ -566,8 +590,14 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
           fuel_filter_alt1: eng.fuel_filter_alt1.trim(),
           fuel_filter_alt2: eng.fuel_filter_alt2.trim(),
           impeller_part_number: eng.impeller_part_number.trim(),
+          impeller_alt1: eng.impeller_alt1.trim(),
+          impeller_alt2: eng.impeller_alt2.trim(),
           belt1_part_number: eng.belt1_part_number.trim(),
+          belt1_alt1: eng.belt1_alt1.trim(),
+          belt1_alt2: eng.belt1_alt2.trim(),
           belt2_part_number: eng.belt2_part_number.trim(),
+          belt2_alt1: eng.belt2_alt1.trim(),
+          belt2_alt2: eng.belt2_alt2.trim(),
           oil_weight: eng.oil_weight.trim(),
           oil_quantity: eng.oil_quantity.trim(),
           spark_plug_part_number: eng.spark_plug_part_number.trim(),
@@ -606,8 +636,14 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
           fuel_filter_alt1: gen.fuel_filter_alt1.trim(),
           fuel_filter_alt2: gen.fuel_filter_alt2.trim(),
           impeller_part_number: gen.impeller_part_number.trim(),
+          impeller_alt1: gen.impeller_alt1.trim(),
+          impeller_alt2: gen.impeller_alt2.trim(),
           belt1_part_number: gen.belt1_part_number.trim(),
+          belt1_alt1: gen.belt1_alt1.trim(),
+          belt1_alt2: gen.belt1_alt2.trim(),
           belt2_part_number: gen.belt2_part_number.trim(),
+          belt2_alt1: gen.belt2_alt1.trim(),
+          belt2_alt2: gen.belt2_alt2.trim(),
           oil_weight: gen.oil_weight.trim(),
           oil_quantity: gen.oil_quantity.trim(),
           spark_plug_part_number: gen.spark_plug_part_number.trim(),
@@ -1471,7 +1507,7 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
               <div className="border-t border-gray-200 pt-4">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-sm font-semibold text-gray-700">Engines</h4>
-                  <button type="button" onClick={() => setNewVesselEngines([...newVesselEngines, { label: '', model_number: '', serial_number: '', season_start_hours: '', fuel_type: 'diesel', oil_filter_part_number: '', oil_filter_alt1: '', oil_filter_alt2: '', fuel_filter_part_number: '', fuel_filter_alt1: '', fuel_filter_alt2: '', impeller_part_number: '', belt1_part_number: '', belt2_part_number: '', oil_weight: '', oil_quantity: '', spark_plug_part_number: '', distributor_cap_part_number: '', rotor_part_number: '', plug_wires_part_number: '' }])} className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">+ Add Engine</button>
+                  <button type="button" onClick={() => setNewVesselEngines([...newVesselEngines, { label: '', model_number: '', serial_number: '', season_start_hours: '', fuel_type: 'diesel', oil_filter_part_number: '', oil_filter_alt1: '', oil_filter_alt2: '', fuel_filter_part_number: '', fuel_filter_alt1: '', fuel_filter_alt2: '', impeller_part_number: '', impeller_alt1: '', impeller_alt2: '', belt1_part_number: '', belt1_alt1: '', belt1_alt2: '', belt2_part_number: '', belt2_alt1: '', belt2_alt2: '', oil_weight: '', oil_quantity: '', spark_plug_part_number: '', distributor_cap_part_number: '', rotor_part_number: '', plug_wires_part_number: '' }])} className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">+ Add Engine</button>
                 </div>
                 {newVesselEngines.length === 0 && <p className="text-xs text-gray-400 mb-2">No engines added yet.</p>}
                 {newVesselEngines.map((eng, i) => (
@@ -1525,13 +1561,33 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
                       </div>
                       <div className="grid grid-cols-3 gap-1 mb-0.5">
                         <p className="text-[10px] font-medium text-gray-600 leading-tight">Impeller P/N</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 1 P/N</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 2 P/N</p>
+                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Impeller Alt 1</p>
+                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Impeller Alt 2</p>
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         <input type="text" value={eng.impeller_part_number} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], impeller_part_number: e.target.value }; setNewVesselEngines(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Impeller P/N" />
+                        <input type="text" value={eng.impeller_alt1} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], impeller_alt1: e.target.value }; setNewVesselEngines(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Impeller Alt 1" />
+                        <input type="text" value={eng.impeller_alt2} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], impeller_alt2: e.target.value }; setNewVesselEngines(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Impeller Alt 2" />
+                      </div>
+                      <div className="grid grid-cols-3 gap-1 mb-0.5">
+                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 1 P/N</p>
+                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 1 Alt 1</p>
+                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 1 Alt 2</p>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
                         <input type="text" value={eng.belt1_part_number} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], belt1_part_number: e.target.value }; setNewVesselEngines(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Belt 1 P/N" />
+                        <input type="text" value={eng.belt1_alt1} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], belt1_alt1: e.target.value }; setNewVesselEngines(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Belt 1 Alt 1" />
+                        <input type="text" value={eng.belt1_alt2} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], belt1_alt2: e.target.value }; setNewVesselEngines(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Belt 1 Alt 2" />
+                      </div>
+                      <div className="grid grid-cols-3 gap-1 mb-0.5">
+                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 2 P/N</p>
+                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 2 Alt 1</p>
+                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 2 Alt 2</p>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
                         <input type="text" value={eng.belt2_part_number} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], belt2_part_number: e.target.value }; setNewVesselEngines(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Belt 2 P/N" />
+                        <input type="text" value={eng.belt2_alt1} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], belt2_alt1: e.target.value }; setNewVesselEngines(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Belt 2 Alt 1" />
+                        <input type="text" value={eng.belt2_alt2} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], belt2_alt2: e.target.value }; setNewVesselEngines(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Belt 2 Alt 2" />
                       </div>
                       <div className="grid grid-cols-2 gap-1 mb-0.5">
                         <p className="text-[10px] font-medium text-gray-600 leading-tight">Oil Weight (e.g. 15W-40)</p>
@@ -1566,7 +1622,7 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
               <div className="border-t border-gray-200 pt-4">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-sm font-semibold text-gray-700">Generators</h4>
-                  <button type="button" onClick={() => setNewVesselGenerators([...newVesselGenerators, { label: '', model_number: '', serial_number: '', season_start_hours: '', fuel_type: 'diesel', oil_filter_part_number: '', oil_filter_alt1: '', oil_filter_alt2: '', fuel_filter_part_number: '', fuel_filter_alt1: '', fuel_filter_alt2: '', impeller_part_number: '', belt1_part_number: '', belt2_part_number: '', oil_weight: '', oil_quantity: '', spark_plug_part_number: '', distributor_cap_part_number: '', rotor_part_number: '', plug_wires_part_number: '' }])} className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">+ Add Generator</button>
+                  <button type="button" onClick={() => setNewVesselGenerators([...newVesselGenerators, { label: '', model_number: '', serial_number: '', season_start_hours: '', fuel_type: 'diesel', oil_filter_part_number: '', oil_filter_alt1: '', oil_filter_alt2: '', fuel_filter_part_number: '', fuel_filter_alt1: '', fuel_filter_alt2: '', impeller_part_number: '', impeller_alt1: '', impeller_alt2: '', belt1_part_number: '', belt1_alt1: '', belt1_alt2: '', belt2_part_number: '', belt2_alt1: '', belt2_alt2: '', oil_weight: '', oil_quantity: '', spark_plug_part_number: '', distributor_cap_part_number: '', rotor_part_number: '', plug_wires_part_number: '' }])} className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">+ Add Generator</button>
                 </div>
                 {newVesselGenerators.length === 0 && <p className="text-xs text-gray-400 mb-2">No generators added yet.</p>}
                 {newVesselGenerators.map((gen, i) => (
@@ -1620,13 +1676,33 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
                       </div>
                       <div className="grid grid-cols-3 gap-1 mb-0.5">
                         <p className="text-[10px] font-medium text-gray-600 leading-tight">Impeller P/N</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 1 P/N</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 2 P/N</p>
+                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Impeller Alt 1</p>
+                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Impeller Alt 2</p>
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         <input type="text" value={gen.impeller_part_number} onChange={(e) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], impeller_part_number: e.target.value }; setNewVesselGenerators(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Impeller P/N" />
+                        <input type="text" value={gen.impeller_alt1} onChange={(e) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], impeller_alt1: e.target.value }; setNewVesselGenerators(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Impeller Alt 1" />
+                        <input type="text" value={gen.impeller_alt2} onChange={(e) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], impeller_alt2: e.target.value }; setNewVesselGenerators(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Impeller Alt 2" />
+                      </div>
+                      <div className="grid grid-cols-3 gap-1 mb-0.5">
+                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 1 P/N</p>
+                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 1 Alt 1</p>
+                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 1 Alt 2</p>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
                         <input type="text" value={gen.belt1_part_number} onChange={(e) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], belt1_part_number: e.target.value }; setNewVesselGenerators(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Belt 1 P/N" />
+                        <input type="text" value={gen.belt1_alt1} onChange={(e) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], belt1_alt1: e.target.value }; setNewVesselGenerators(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Belt 1 Alt 1" />
+                        <input type="text" value={gen.belt1_alt2} onChange={(e) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], belt1_alt2: e.target.value }; setNewVesselGenerators(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Belt 1 Alt 2" />
+                      </div>
+                      <div className="grid grid-cols-3 gap-1 mb-0.5">
+                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 2 P/N</p>
+                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 2 Alt 1</p>
+                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 2 Alt 2</p>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
                         <input type="text" value={gen.belt2_part_number} onChange={(e) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], belt2_part_number: e.target.value }; setNewVesselGenerators(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Belt 2 P/N" />
+                        <input type="text" value={gen.belt2_alt1} onChange={(e) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], belt2_alt1: e.target.value }; setNewVesselGenerators(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Belt 2 Alt 1" />
+                        <input type="text" value={gen.belt2_alt2} onChange={(e) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], belt2_alt2: e.target.value }; setNewVesselGenerators(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Belt 2 Alt 2" />
                       </div>
                       <div className="grid grid-cols-2 gap-1 mb-0.5">
                         <p className="text-[10px] font-medium text-gray-600 leading-tight">Oil Weight (e.g. 15W-40)</p>
@@ -1742,7 +1818,7 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
               <div className="border-t border-gray-200 pt-4">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-sm font-semibold text-gray-700">Engines</h4>
-                  <button type="button" onClick={() => setEditVesselEngines([...editVesselEngines, { label: '', model_number: '', serial_number: '', season_start_hours: '', fuel_type: 'diesel', oil_filter_part_number: '', oil_filter_alt1: '', oil_filter_alt2: '', fuel_filter_part_number: '', fuel_filter_alt1: '', fuel_filter_alt2: '', impeller_part_number: '', belt1_part_number: '', belt2_part_number: '', oil_weight: '', oil_quantity: '', spark_plug_part_number: '', distributor_cap_part_number: '', rotor_part_number: '', plug_wires_part_number: '' }])} className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">+ Add Engine</button>
+                  <button type="button" onClick={() => setEditVesselEngines([...editVesselEngines, { label: '', model_number: '', serial_number: '', season_start_hours: '', fuel_type: 'diesel', oil_filter_part_number: '', oil_filter_alt1: '', oil_filter_alt2: '', fuel_filter_part_number: '', fuel_filter_alt1: '', fuel_filter_alt2: '', impeller_part_number: '', impeller_alt1: '', impeller_alt2: '', belt1_part_number: '', belt1_alt1: '', belt1_alt2: '', belt2_part_number: '', belt2_alt1: '', belt2_alt2: '', oil_weight: '', oil_quantity: '', spark_plug_part_number: '', distributor_cap_part_number: '', rotor_part_number: '', plug_wires_part_number: '' }])} className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">+ Add Engine</button>
                 </div>
                 {editVesselEngines.length === 0 && <p className="text-xs text-gray-400 mb-2">No engines added yet.</p>}
                 {editVesselEngines.map((eng, i) => (
@@ -1796,13 +1872,33 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
                       </div>
                       <div className="grid grid-cols-3 gap-1 mb-0.5">
                         <p className="text-[10px] font-medium text-gray-600 leading-tight">Impeller P/N</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 1 P/N</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 2 P/N</p>
+                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Impeller Alt 1</p>
+                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Impeller Alt 2</p>
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         <input type="text" value={eng.impeller_part_number} onChange={(e) => { const a = [...editVesselEngines]; a[i] = { ...a[i], impeller_part_number: e.target.value }; setEditVesselEngines(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Impeller P/N" />
+                        <input type="text" value={eng.impeller_alt1} onChange={(e) => { const a = [...editVesselEngines]; a[i] = { ...a[i], impeller_alt1: e.target.value }; setEditVesselEngines(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Impeller Alt 1" />
+                        <input type="text" value={eng.impeller_alt2} onChange={(e) => { const a = [...editVesselEngines]; a[i] = { ...a[i], impeller_alt2: e.target.value }; setEditVesselEngines(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Impeller Alt 2" />
+                      </div>
+                      <div className="grid grid-cols-3 gap-1 mb-0.5">
+                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 1 P/N</p>
+                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 1 Alt 1</p>
+                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 1 Alt 2</p>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
                         <input type="text" value={eng.belt1_part_number} onChange={(e) => { const a = [...editVesselEngines]; a[i] = { ...a[i], belt1_part_number: e.target.value }; setEditVesselEngines(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Belt 1 P/N" />
+                        <input type="text" value={eng.belt1_alt1} onChange={(e) => { const a = [...editVesselEngines]; a[i] = { ...a[i], belt1_alt1: e.target.value }; setEditVesselEngines(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Belt 1 Alt 1" />
+                        <input type="text" value={eng.belt1_alt2} onChange={(e) => { const a = [...editVesselEngines]; a[i] = { ...a[i], belt1_alt2: e.target.value }; setEditVesselEngines(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Belt 1 Alt 2" />
+                      </div>
+                      <div className="grid grid-cols-3 gap-1 mb-0.5">
+                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 2 P/N</p>
+                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 2 Alt 1</p>
+                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 2 Alt 2</p>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
                         <input type="text" value={eng.belt2_part_number} onChange={(e) => { const a = [...editVesselEngines]; a[i] = { ...a[i], belt2_part_number: e.target.value }; setEditVesselEngines(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Belt 2 P/N" />
+                        <input type="text" value={eng.belt2_alt1} onChange={(e) => { const a = [...editVesselEngines]; a[i] = { ...a[i], belt2_alt1: e.target.value }; setEditVesselEngines(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Belt 2 Alt 1" />
+                        <input type="text" value={eng.belt2_alt2} onChange={(e) => { const a = [...editVesselEngines]; a[i] = { ...a[i], belt2_alt2: e.target.value }; setEditVesselEngines(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Belt 2 Alt 2" />
                       </div>
                       <div className="grid grid-cols-2 gap-1 mb-0.5">
                         <p className="text-[10px] font-medium text-gray-600 leading-tight">Oil Weight (e.g. 15W-40)</p>
@@ -1837,7 +1933,7 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
               <div className="border-t border-gray-200 pt-4">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-sm font-semibold text-gray-700">Generators</h4>
-                  <button type="button" onClick={() => setEditVesselGenerators([...editVesselGenerators, { label: '', model_number: '', serial_number: '', season_start_hours: '', fuel_type: 'diesel', oil_filter_part_number: '', oil_filter_alt1: '', oil_filter_alt2: '', fuel_filter_part_number: '', fuel_filter_alt1: '', fuel_filter_alt2: '', impeller_part_number: '', belt1_part_number: '', belt2_part_number: '', oil_weight: '', oil_quantity: '', spark_plug_part_number: '', distributor_cap_part_number: '', rotor_part_number: '', plug_wires_part_number: '' }])} className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">+ Add Generator</button>
+                  <button type="button" onClick={() => setEditVesselGenerators([...editVesselGenerators, { label: '', model_number: '', serial_number: '', season_start_hours: '', fuel_type: 'diesel', oil_filter_part_number: '', oil_filter_alt1: '', oil_filter_alt2: '', fuel_filter_part_number: '', fuel_filter_alt1: '', fuel_filter_alt2: '', impeller_part_number: '', impeller_alt1: '', impeller_alt2: '', belt1_part_number: '', belt1_alt1: '', belt1_alt2: '', belt2_part_number: '', belt2_alt1: '', belt2_alt2: '', oil_weight: '', oil_quantity: '', spark_plug_part_number: '', distributor_cap_part_number: '', rotor_part_number: '', plug_wires_part_number: '' }])} className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">+ Add Generator</button>
                 </div>
                 {editVesselGenerators.length === 0 && <p className="text-xs text-gray-400 mb-2">No generators added yet.</p>}
                 {editVesselGenerators.map((gen, i) => (
@@ -1891,13 +1987,33 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
                       </div>
                       <div className="grid grid-cols-3 gap-1 mb-0.5">
                         <p className="text-[10px] font-medium text-gray-600 leading-tight">Impeller P/N</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 1 P/N</p>
-                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 2 P/N</p>
+                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Impeller Alt 1</p>
+                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Impeller Alt 2</p>
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         <input type="text" value={gen.impeller_part_number} onChange={(e) => { const a = [...editVesselGenerators]; a[i] = { ...a[i], impeller_part_number: e.target.value }; setEditVesselGenerators(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Impeller P/N" />
+                        <input type="text" value={gen.impeller_alt1} onChange={(e) => { const a = [...editVesselGenerators]; a[i] = { ...a[i], impeller_alt1: e.target.value }; setEditVesselGenerators(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Impeller Alt 1" />
+                        <input type="text" value={gen.impeller_alt2} onChange={(e) => { const a = [...editVesselGenerators]; a[i] = { ...a[i], impeller_alt2: e.target.value }; setEditVesselGenerators(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Impeller Alt 2" />
+                      </div>
+                      <div className="grid grid-cols-3 gap-1 mb-0.5">
+                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 1 P/N</p>
+                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 1 Alt 1</p>
+                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 1 Alt 2</p>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
                         <input type="text" value={gen.belt1_part_number} onChange={(e) => { const a = [...editVesselGenerators]; a[i] = { ...a[i], belt1_part_number: e.target.value }; setEditVesselGenerators(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Belt 1 P/N" />
+                        <input type="text" value={gen.belt1_alt1} onChange={(e) => { const a = [...editVesselGenerators]; a[i] = { ...a[i], belt1_alt1: e.target.value }; setEditVesselGenerators(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Belt 1 Alt 1" />
+                        <input type="text" value={gen.belt1_alt2} onChange={(e) => { const a = [...editVesselGenerators]; a[i] = { ...a[i], belt1_alt2: e.target.value }; setEditVesselGenerators(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Belt 1 Alt 2" />
+                      </div>
+                      <div className="grid grid-cols-3 gap-1 mb-0.5">
+                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 2 P/N</p>
+                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 2 Alt 1</p>
+                        <p className="text-[10px] font-medium text-gray-600 leading-tight">Belt 2 Alt 2</p>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
                         <input type="text" value={gen.belt2_part_number} onChange={(e) => { const a = [...editVesselGenerators]; a[i] = { ...a[i], belt2_part_number: e.target.value }; setEditVesselGenerators(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Belt 2 P/N" />
+                        <input type="text" value={gen.belt2_alt1} onChange={(e) => { const a = [...editVesselGenerators]; a[i] = { ...a[i], belt2_alt1: e.target.value }; setEditVesselGenerators(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Belt 2 Alt 1" />
+                        <input type="text" value={gen.belt2_alt2} onChange={(e) => { const a = [...editVesselGenerators]; a[i] = { ...a[i], belt2_alt2: e.target.value }; setEditVesselGenerators(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs focus:ring-2 focus:ring-blue-500" placeholder="Belt 2 Alt 2" />
                       </div>
                       <div className="grid grid-cols-2 gap-1 mb-0.5">
                         <p className="text-[10px] font-medium text-gray-600 leading-tight">Oil Weight (e.g. 15W-40)</p>
