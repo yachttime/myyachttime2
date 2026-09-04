@@ -1,5 +1,6 @@
 import { X } from 'lucide-react';
 import { supabase, Yacht, UserProfile, logYachtActivity } from '../../lib/supabase';
+import PartNumberSearchInput from './PartNumberSearchInput';
 
 export interface YachtFormState {
   name: string;
@@ -361,9 +362,9 @@ export default function EditYachtModal({
                     <p className="text-[10px] font-medium text-slate-500 leading-tight">Oil Filter Alt 2</p>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
-                    <input type="text" value={eng.oil_filter_part_number} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], oil_filter_part_number: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Oil Filter P/N" />
-                    <input type="text" value={eng.oil_filter_alt1} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], oil_filter_alt1: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Oil Filter Alt 1" />
-                    <input type="text" value={eng.oil_filter_alt2} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], oil_filter_alt2: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Oil Filter Alt 2" />
+                    <PartNumberSearchInput value={eng.oil_filter_part_number} onChange={(v) => { const a = [...enginesForm]; a[i] = {...a[i], oil_filter_part_number: v}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Oil Filter P/N" />
+                    <PartNumberSearchInput value={eng.oil_filter_alt1} onChange={(v) => { const a = [...enginesForm]; a[i] = {...a[i], oil_filter_alt1: v}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Oil Filter Alt 1" />
+                    <PartNumberSearchInput value={eng.oil_filter_alt2} onChange={(v) => { const a = [...enginesForm]; a[i] = {...a[i], oil_filter_alt2: v}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Oil Filter Alt 2" />
                   </div>
                   <div className="grid grid-cols-3 gap-1 mb-0.5">
                     <p className="text-[10px] font-medium text-slate-500 leading-tight">Fuel Filter P/N</p>
@@ -371,9 +372,9 @@ export default function EditYachtModal({
                     <p className="text-[10px] font-medium text-slate-500 leading-tight">Fuel Filter Alt 2</p>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
-                    <input type="text" value={eng.fuel_filter_part_number} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], fuel_filter_part_number: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Fuel Filter P/N" />
-                    <input type="text" value={eng.fuel_filter_alt1} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], fuel_filter_alt1: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Fuel Filter Alt 1" />
-                    <input type="text" value={eng.fuel_filter_alt2} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], fuel_filter_alt2: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Fuel Filter Alt 2" />
+                    <PartNumberSearchInput value={eng.fuel_filter_part_number} onChange={(v) => { const a = [...enginesForm]; a[i] = {...a[i], fuel_filter_part_number: v}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Fuel Filter P/N" />
+                    <PartNumberSearchInput value={eng.fuel_filter_alt1} onChange={(v) => { const a = [...enginesForm]; a[i] = {...a[i], fuel_filter_alt1: v}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Fuel Filter Alt 1" />
+                    <PartNumberSearchInput value={eng.fuel_filter_alt2} onChange={(v) => { const a = [...enginesForm]; a[i] = {...a[i], fuel_filter_alt2: v}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Fuel Filter Alt 2" />
                   </div>
                   <div className="grid grid-cols-3 gap-1 mb-0.5">
                     <p className="text-[10px] font-medium text-slate-500 leading-tight">Impeller P/N</p>
@@ -381,9 +382,9 @@ export default function EditYachtModal({
                     <p className="text-[10px] font-medium text-slate-500 leading-tight">Impeller Alt 2</p>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
-                    <input type="text" value={eng.impeller_part_number} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], impeller_part_number: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Impeller P/N" />
-                    <input type="text" value={eng.impeller_alt1} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], impeller_alt1: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Impeller Alt 1" />
-                    <input type="text" value={eng.impeller_alt2} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], impeller_alt2: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Impeller Alt 2" />
+                    <PartNumberSearchInput value={eng.impeller_part_number} onChange={(v) => { const a = [...enginesForm]; a[i] = {...a[i], impeller_part_number: v}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Impeller P/N" />
+                    <PartNumberSearchInput value={eng.impeller_alt1} onChange={(v) => { const a = [...enginesForm]; a[i] = {...a[i], impeller_alt1: v}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Impeller Alt 1" />
+                    <PartNumberSearchInput value={eng.impeller_alt2} onChange={(v) => { const a = [...enginesForm]; a[i] = {...a[i], impeller_alt2: v}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Impeller Alt 2" />
                   </div>
                   <div className="grid grid-cols-3 gap-1 mb-0.5">
                     <p className="text-[10px] font-medium text-slate-500 leading-tight">Belt 1 P/N</p>
@@ -391,9 +392,9 @@ export default function EditYachtModal({
                     <p className="text-[10px] font-medium text-slate-500 leading-tight">Belt 1 Alt 2</p>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
-                    <input type="text" value={eng.belt1_part_number} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], belt1_part_number: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Belt 1 P/N" />
-                    <input type="text" value={eng.belt1_alt1} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], belt1_alt1: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Belt 1 Alt 1" />
-                    <input type="text" value={eng.belt1_alt2} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], belt1_alt2: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Belt 1 Alt 2" />
+                    <PartNumberSearchInput value={eng.belt1_part_number} onChange={(v) => { const a = [...enginesForm]; a[i] = {...a[i], belt1_part_number: v}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Belt 1 P/N" />
+                    <PartNumberSearchInput value={eng.belt1_alt1} onChange={(v) => { const a = [...enginesForm]; a[i] = {...a[i], belt1_alt1: v}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Belt 1 Alt 1" />
+                    <PartNumberSearchInput value={eng.belt1_alt2} onChange={(v) => { const a = [...enginesForm]; a[i] = {...a[i], belt1_alt2: v}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Belt 1 Alt 2" />
                   </div>
                   <div className="grid grid-cols-3 gap-1 mb-0.5">
                     <p className="text-[10px] font-medium text-slate-500 leading-tight">Belt 2 P/N</p>
@@ -401,9 +402,9 @@ export default function EditYachtModal({
                     <p className="text-[10px] font-medium text-slate-500 leading-tight">Belt 2 Alt 2</p>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
-                    <input type="text" value={eng.belt2_part_number} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], belt2_part_number: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Belt 2 P/N" />
-                    <input type="text" value={eng.belt2_alt1} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], belt2_alt1: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Belt 2 Alt 1" />
-                    <input type="text" value={eng.belt2_alt2} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], belt2_alt2: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Belt 2 Alt 2" />
+                    <PartNumberSearchInput value={eng.belt2_part_number} onChange={(v) => { const a = [...enginesForm]; a[i] = {...a[i], belt2_part_number: v}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Belt 2 P/N" />
+                    <PartNumberSearchInput value={eng.belt2_alt1} onChange={(v) => { const a = [...enginesForm]; a[i] = {...a[i], belt2_alt1: v}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Belt 2 Alt 1" />
+                    <PartNumberSearchInput value={eng.belt2_alt2} onChange={(v) => { const a = [...enginesForm]; a[i] = {...a[i], belt2_alt2: v}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Belt 2 Alt 2" />
                   </div>
                   <div className="grid grid-cols-2 gap-1 mb-0.5">
                     <p className="text-[10px] font-medium text-slate-500 leading-tight">Oil Weight (e.g. 15W-40)</p>
@@ -420,14 +421,14 @@ export default function EditYachtModal({
                         <p className="text-[10px] font-medium text-slate-500 leading-tight">Spark Plug P/N</p>
                         <p className="text-[10px] font-medium text-slate-500 leading-tight">Distributor Cap P/N</p>
                       </div>
-                      <input type="text" value={eng.spark_plug_part_number} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], spark_plug_part_number: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Spark Plug P/N" />
-                      <input type="text" value={eng.distributor_cap_part_number} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], distributor_cap_part_number: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Distributor Cap P/N" />
+                      <PartNumberSearchInput value={eng.spark_plug_part_number} onChange={(v) => { const a = [...enginesForm]; a[i] = {...a[i], spark_plug_part_number: v}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Spark Plug P/N" />
+                      <PartNumberSearchInput value={eng.distributor_cap_part_number} onChange={(v) => { const a = [...enginesForm]; a[i] = {...a[i], distributor_cap_part_number: v}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Distributor Cap P/N" />
                       <div className="grid grid-cols-2 gap-1 mb-0.5">
                         <p className="text-[10px] font-medium text-slate-500 leading-tight">Rotor P/N</p>
                         <p className="text-[10px] font-medium text-slate-500 leading-tight">Plug Wires P/N</p>
                       </div>
-                      <input type="text" value={eng.rotor_part_number} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], rotor_part_number: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Rotor P/N" />
-                      <input type="text" value={eng.plug_wires_part_number} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], plug_wires_part_number: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Plug Wires P/N" />
+                      <PartNumberSearchInput value={eng.rotor_part_number} onChange={(v) => { const a = [...enginesForm]; a[i] = {...a[i], rotor_part_number: v}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Rotor P/N" />
+                      <PartNumberSearchInput value={eng.plug_wires_part_number} onChange={(v) => { const a = [...enginesForm]; a[i] = {...a[i], plug_wires_part_number: v}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Plug Wires P/N" />
                     </div>
                   )}
                 </div>
@@ -473,9 +474,9 @@ export default function EditYachtModal({
                     <p className="text-[10px] font-medium text-slate-500 leading-tight">Oil Filter Alt 2</p>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
-                    <input type="text" value={gen.oil_filter_part_number} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], oil_filter_part_number: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Oil Filter P/N" />
-                    <input type="text" value={gen.oil_filter_alt1} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], oil_filter_alt1: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Oil Filter Alt 1" />
-                    <input type="text" value={gen.oil_filter_alt2} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], oil_filter_alt2: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Oil Filter Alt 2" />
+                    <PartNumberSearchInput value={gen.oil_filter_part_number} onChange={(v) => { const a = [...generatorsForm]; a[i] = {...a[i], oil_filter_part_number: v}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Oil Filter P/N" />
+                    <PartNumberSearchInput value={gen.oil_filter_alt1} onChange={(v) => { const a = [...generatorsForm]; a[i] = {...a[i], oil_filter_alt1: v}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Oil Filter Alt 1" />
+                    <PartNumberSearchInput value={gen.oil_filter_alt2} onChange={(v) => { const a = [...generatorsForm]; a[i] = {...a[i], oil_filter_alt2: v}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Oil Filter Alt 2" />
                   </div>
                   <div className="grid grid-cols-3 gap-1 mb-0.5">
                     <p className="text-[10px] font-medium text-slate-500 leading-tight">Fuel Filter P/N</p>
@@ -483,9 +484,9 @@ export default function EditYachtModal({
                     <p className="text-[10px] font-medium text-slate-500 leading-tight">Fuel Filter Alt 2</p>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
-                    <input type="text" value={gen.fuel_filter_part_number} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], fuel_filter_part_number: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Fuel Filter P/N" />
-                    <input type="text" value={gen.fuel_filter_alt1} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], fuel_filter_alt1: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Fuel Filter Alt 1" />
-                    <input type="text" value={gen.fuel_filter_alt2} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], fuel_filter_alt2: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Fuel Filter Alt 2" />
+                    <PartNumberSearchInput value={gen.fuel_filter_part_number} onChange={(v) => { const a = [...generatorsForm]; a[i] = {...a[i], fuel_filter_part_number: v}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Fuel Filter P/N" />
+                    <PartNumberSearchInput value={gen.fuel_filter_alt1} onChange={(v) => { const a = [...generatorsForm]; a[i] = {...a[i], fuel_filter_alt1: v}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Fuel Filter Alt 1" />
+                    <PartNumberSearchInput value={gen.fuel_filter_alt2} onChange={(v) => { const a = [...generatorsForm]; a[i] = {...a[i], fuel_filter_alt2: v}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Fuel Filter Alt 2" />
                   </div>
                   <div className="grid grid-cols-3 gap-1 mb-0.5">
                     <p className="text-[10px] font-medium text-slate-500 leading-tight">Impeller P/N</p>
@@ -493,9 +494,9 @@ export default function EditYachtModal({
                     <p className="text-[10px] font-medium text-slate-500 leading-tight">Impeller Alt 2</p>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
-                    <input type="text" value={gen.impeller_part_number} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], impeller_part_number: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Impeller P/N" />
-                    <input type="text" value={gen.impeller_alt1} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], impeller_alt1: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Impeller Alt 1" />
-                    <input type="text" value={gen.impeller_alt2} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], impeller_alt2: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Impeller Alt 2" />
+                    <PartNumberSearchInput value={gen.impeller_part_number} onChange={(v) => { const a = [...generatorsForm]; a[i] = {...a[i], impeller_part_number: v}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Impeller P/N" />
+                    <PartNumberSearchInput value={gen.impeller_alt1} onChange={(v) => { const a = [...generatorsForm]; a[i] = {...a[i], impeller_alt1: v}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Impeller Alt 1" />
+                    <PartNumberSearchInput value={gen.impeller_alt2} onChange={(v) => { const a = [...generatorsForm]; a[i] = {...a[i], impeller_alt2: v}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Impeller Alt 2" />
                   </div>
                   <div className="grid grid-cols-3 gap-1 mb-0.5">
                     <p className="text-[10px] font-medium text-slate-500 leading-tight">Belt 1 P/N</p>
@@ -503,9 +504,9 @@ export default function EditYachtModal({
                     <p className="text-[10px] font-medium text-slate-500 leading-tight">Belt 1 Alt 2</p>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
-                    <input type="text" value={gen.belt1_part_number} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], belt1_part_number: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Belt 1 P/N" />
-                    <input type="text" value={gen.belt1_alt1} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], belt1_alt1: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Belt 1 Alt 1" />
-                    <input type="text" value={gen.belt1_alt2} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], belt1_alt2: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Belt 1 Alt 2" />
+                    <PartNumberSearchInput value={gen.belt1_part_number} onChange={(v) => { const a = [...generatorsForm]; a[i] = {...a[i], belt1_part_number: v}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Belt 1 P/N" />
+                    <PartNumberSearchInput value={gen.belt1_alt1} onChange={(v) => { const a = [...generatorsForm]; a[i] = {...a[i], belt1_alt1: v}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Belt 1 Alt 1" />
+                    <PartNumberSearchInput value={gen.belt1_alt2} onChange={(v) => { const a = [...generatorsForm]; a[i] = {...a[i], belt1_alt2: v}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Belt 1 Alt 2" />
                   </div>
                   <div className="grid grid-cols-3 gap-1 mb-0.5">
                     <p className="text-[10px] font-medium text-slate-500 leading-tight">Belt 2 P/N</p>
@@ -513,9 +514,9 @@ export default function EditYachtModal({
                     <p className="text-[10px] font-medium text-slate-500 leading-tight">Belt 2 Alt 2</p>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
-                    <input type="text" value={gen.belt2_part_number} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], belt2_part_number: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Belt 2 P/N" />
-                    <input type="text" value={gen.belt2_alt1} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], belt2_alt1: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Belt 2 Alt 1" />
-                    <input type="text" value={gen.belt2_alt2} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], belt2_alt2: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Belt 2 Alt 2" />
+                    <PartNumberSearchInput value={gen.belt2_part_number} onChange={(v) => { const a = [...generatorsForm]; a[i] = {...a[i], belt2_part_number: v}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Belt 2 P/N" />
+                    <PartNumberSearchInput value={gen.belt2_alt1} onChange={(v) => { const a = [...generatorsForm]; a[i] = {...a[i], belt2_alt1: v}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Belt 2 Alt 1" />
+                    <PartNumberSearchInput value={gen.belt2_alt2} onChange={(v) => { const a = [...generatorsForm]; a[i] = {...a[i], belt2_alt2: v}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Belt 2 Alt 2" />
                   </div>
                   <div className="grid grid-cols-2 gap-1 mb-0.5">
                     <p className="text-[10px] font-medium text-slate-500 leading-tight">Oil Weight (e.g. 15W-40)</p>
@@ -532,14 +533,14 @@ export default function EditYachtModal({
                         <p className="text-[10px] font-medium text-slate-500 leading-tight">Spark Plug P/N</p>
                         <p className="text-[10px] font-medium text-slate-500 leading-tight">Distributor Cap P/N</p>
                       </div>
-                      <input type="text" value={gen.spark_plug_part_number} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], spark_plug_part_number: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Spark Plug P/N" />
-                      <input type="text" value={gen.distributor_cap_part_number} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], distributor_cap_part_number: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Distributor Cap P/N" />
+                      <PartNumberSearchInput value={gen.spark_plug_part_number} onChange={(v) => { const a = [...generatorsForm]; a[i] = {...a[i], spark_plug_part_number: v}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Spark Plug P/N" />
+                      <PartNumberSearchInput value={gen.distributor_cap_part_number} onChange={(v) => { const a = [...generatorsForm]; a[i] = {...a[i], distributor_cap_part_number: v}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Distributor Cap P/N" />
                       <div className="grid grid-cols-2 gap-1 mb-0.5">
                         <p className="text-[10px] font-medium text-slate-500 leading-tight">Rotor P/N</p>
                         <p className="text-[10px] font-medium text-slate-500 leading-tight">Plug Wires P/N</p>
                       </div>
-                      <input type="text" value={gen.rotor_part_number} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], rotor_part_number: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Rotor P/N" />
-                      <input type="text" value={gen.plug_wires_part_number} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], plug_wires_part_number: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Plug Wires P/N" />
+                      <PartNumberSearchInput value={gen.rotor_part_number} onChange={(v) => { const a = [...generatorsForm]; a[i] = {...a[i], rotor_part_number: v}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Rotor P/N" />
+                      <PartNumberSearchInput value={gen.plug_wires_part_number} onChange={(v) => { const a = [...generatorsForm]; a[i] = {...a[i], plug_wires_part_number: v}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Plug Wires P/N" />
                     </div>
                   )}
                 </div>
