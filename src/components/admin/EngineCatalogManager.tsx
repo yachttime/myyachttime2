@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Plus, Pencil, Trash2, Copy, X, Search } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import PartNumberSearchInput from './PartNumberSearchInput';
+import MercuryPartsLink from './MercuryPartsLink';
 
 export interface EngineCatalogEntry {
   id?: string;
@@ -247,6 +248,7 @@ export default function EngineCatalogManager() {
                   <h3 className="text-lg font-bold text-white truncate">{entry.model_name}</h3>
                   {entry.manufacturer && <p className="text-xs text-slate-400">{entry.manufacturer}</p>}
                   {entry.description && <p className="text-xs text-slate-500 mt-1">{entry.description}</p>}
+                  <MercuryPartsLink manufacturer={entry.manufacturer} />
                 </div>
               </div>
               <div className="space-y-1 mb-3">

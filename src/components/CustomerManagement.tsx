@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useRoleImpersonation } from '../contexts/RoleImpersonationContext';
 import { Users, Plus, X, Ship, FileText, Wrench, DollarSign, Search, CreditCard as Edit2, Trash2, Calendar, Pencil } from 'lucide-react';
 import PartNumberSearchInput from './admin/PartNumberSearchInput';
+import MercuryPartsLink from './admin/MercuryPartsLink';
 
 interface Customer {
   id: string;
@@ -1662,6 +1663,7 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
                       <div>
                         <label className="block text-xs text-gray-500 mb-1">Model Number</label>
                         <input type="text" value={eng.model_number} onChange={(e) => { const a = [...newVesselEngines]; a[i] = { ...a[i], model_number: e.target.value }; setNewVesselEngines(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="e.g. F300XCA" />
+                        <MercuryPartsLink modelNumber={eng.model_number} />
                       </div>
                       <div>
                         <label className="block text-xs text-gray-500 mb-1">Serial Number</label>
@@ -1777,6 +1779,7 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
                       <div>
                         <label className="block text-xs text-gray-500 mb-1">Model Number</label>
                         <input type="text" value={gen.model_number} onChange={(e) => { const a = [...newVesselGenerators]; a[i] = { ...a[i], model_number: e.target.value }; setNewVesselGenerators(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="e.g. MDKAL" />
+                        <MercuryPartsLink modelNumber={gen.model_number} />
                       </div>
                       <div>
                         <label className="block text-xs text-gray-500 mb-1">Serial Number</label>
@@ -1973,6 +1976,7 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
                       <div>
                         <label className="block text-xs text-gray-500 mb-1">Model Number</label>
                         <input type="text" value={eng.model_number} onChange={(e) => { const a = [...editVesselEngines]; a[i] = { ...a[i], model_number: e.target.value }; setEditVesselEngines(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="e.g. F300XCA" />
+                        <MercuryPartsLink modelNumber={eng.model_number} />
                       </div>
                       <div>
                         <label className="block text-xs text-gray-500 mb-1">Serial Number</label>
@@ -2088,6 +2092,7 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
                       <div>
                         <label className="block text-xs text-gray-500 mb-1">Model Number</label>
                         <input type="text" value={gen.model_number} onChange={(e) => { const a = [...editVesselGenerators]; a[i] = { ...a[i], model_number: e.target.value }; setEditVesselGenerators(a); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500" placeholder="e.g. MDKAL" />
+                        <MercuryPartsLink modelNumber={gen.model_number} />
                       </div>
                       <div>
                         <label className="block text-xs text-gray-500 mb-1">Serial Number</label>
