@@ -17265,7 +17265,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     onEmailGroup={(yachtName, users) => { const recipients: Array<{ email: string; name: string }> = []; const ccEmails: string[] = []; users.forEach((user: any) => { const primaryEmail = user.notification_email || user.email; const userName = user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : user.email; if (primaryEmail) recipients.push({ email: primaryEmail, name: userName }); if (user.secondary_email && user.secondary_email !== primaryEmail) ccEmails.push(user.secondary_email); }); if (recipients.length === 0) { alert('No email addresses found for yacht members'); return; } setBulkEmailRecipients(recipients); setBulkEmailCcRecipients(ccEmails); setBulkEmailYachtName(yachtName); setShowBulkEmailModal(true); }}
                     onEmailManagementTeam={fetchManagementTeamForEmail}
                     onSendIntroVideo={sendIntroVideoToOwners}
-                    onSendToCustomerDB={(ownerUser) => {
+                    onSendToCustomerDB={(ownerUser, yachtName) => {
                       setCustomerPrefill({
                         first_name: ownerUser.first_name || '',
                         last_name: ownerUser.last_name || '',
@@ -17278,6 +17278,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                         zip_code: ownerUser.zip_code || '',
                         source_user_id: ownerUser.user_id,
                         source_user_name: `${ownerUser.first_name} ${ownerUser.last_name}`.trim(),
+                        yacht_name: yachtName || '',
                       });
                       setAdminViewPersisted('menu');
                       setActiveTabPersisted('customers');

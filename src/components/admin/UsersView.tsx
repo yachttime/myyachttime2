@@ -84,7 +84,7 @@ interface UsersViewProps {
   onEmailGroup: (yachtName: string, users: UserProfile[]) => void;
   onEmailManagementTeam: (yachtName: string, users: UserProfile[]) => void;
   onSendIntroVideo: (yachtName: string, users: UserProfile[]) => void;
-  onSendToCustomerDB: (user: UserProfile) => void;
+  onSendToCustomerDB: (user: UserProfile, yachtName: string) => void;
 }
 
 const inputCls = "w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder:text-slate-400";
@@ -387,7 +387,7 @@ export default function UsersView(props: UsersViewProps) {
         <div className="flex flex-wrap gap-2 ml-4 justify-end">
           {p.effectiveRole === 'master' && user.role === 'owner' && user.yacht_id && <button onClick={() => p.onTransferClick(user, p.selectedUserGroup || '')} className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-lg transition-colors flex items-center gap-2"><ArrowLeftRight className="w-4 h-4" />Transfer</button>}
           {(p.isStaffRole(p.effectiveRole) || p.isMasterRole(p.effectiveRole) || p.effectiveRole === 'manager') && (user.role === 'owner' || user.role === 'manager') && (
-            <button onClick={() => p.onSendToCustomerDB(user)} className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-medium rounded-lg transition-colors flex items-center gap-2"><UserPlus className="w-4 h-4" />Send to Customer DB</button>
+            <button onClick={() => p.onSendToCustomerDB(user, p.selectedUserGroup || '')} className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-medium rounded-lg transition-colors flex items-center gap-2"><UserPlus className="w-4 h-4" />Send to Customer DB</button>
           )}
           <button onClick={() => p.onUserEdit(user)} className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition-colors flex items-center gap-2"><Edit2 className="w-4 h-4" />Edit</button>
           {p.selectedUserGroup === 'Deactivated' ? <button onClick={() => p.onUserReactivate(user)} className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white font-medium rounded-lg transition-colors flex items-center gap-2"><UserCheck className="w-4 h-4" />Reactivate</button> : <button onClick={() => p.onUserDelete(user)} className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg transition-colors flex items-center gap-2"><UserX className="w-4 h-4" />Deactivate</button>}

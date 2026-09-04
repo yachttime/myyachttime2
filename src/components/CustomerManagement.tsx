@@ -133,6 +133,7 @@ export interface CustomerPrefill {
   zip_code: string;
   source_user_id: string;
   source_user_name: string;
+  yacht_name: string;
 }
 
 export default function CustomerManagement({ prefillCustomer, onPrefillConsumed }: { prefillCustomer?: CustomerPrefill | null; onPrefillConsumed?: () => void; }) {
@@ -238,7 +239,9 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
         city: prefillCustomer.city || '',
         state: prefillCustomer.state || '',
         zip_code: prefillCustomer.zip_code || '',
-        notes: `Imported from yacht owner: ${prefillCustomer.source_user_name}`,
+        notes: prefillCustomer.yacht_name
+          ? `Imported from yacht owner: ${prefillCustomer.source_user_name} (Yacht: ${prefillCustomer.yacht_name})`
+          : `Imported from yacht owner: ${prefillCustomer.source_user_name}`,
       });
       setSourceUserId(prefillCustomer.source_user_id || null);
       setSourceUserName(prefillCustomer.source_user_name || '');
