@@ -3097,7 +3097,7 @@ export function Estimates({ userId }: EstimatesProps) {
               </div>
             )}
 
-            {showVesselPartsSummary && (vesselEngines.length > 0 || vesselGenerators.length > 0) && (
+            {(vesselEngines.length > 0 || vesselGenerators.length > 0) && (
               <div className="mt-4 border border-blue-200 rounded-lg bg-blue-50 overflow-hidden">
                 <button
                   type="button"
