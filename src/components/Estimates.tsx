@@ -968,6 +968,22 @@ export function Estimates({ userId }: EstimatesProps) {
     return result;
   };
 
+  const extractServicePartsGrouped = (record: any): { fieldName: string; label: string; primary: string; alt1: string; alt2: string }[] => {
+    const result: { fieldName: string; label: string; primary: string; alt1: string; alt2: string }[] = [];
+    for (const field of SERVICE_PART_FIELDS) {
+      const isIncluded = record[field.includeField] !== false;
+      const primary = isIncluded && record[field.fieldName] ? record[field.fieldName] : '';
+      const alt1Included = field.altIncludeFields[0] ? record[field.altIncludeFields[0]] !== false : true;
+      const alt2Included = field.altIncludeFields[1] ? record[field.altIncludeFields[1]] !== false : true;
+      const alt1 = alt1Included && record[field.altFields[0]] ? record[field.altFields[0]] : '';
+      const alt2 = alt2Included && record[field.altFields[1]] ? record[field.altFields[1]] : '';
+      if (primary || alt1 || alt2) {
+        result.push({ fieldName: field.fieldName, label: field.label, primary, alt1, alt2 });
+      }
+    }
+    return result;
+  };
+
   const findMatchingInventoryPart = (partNumber: string): any | null => {
     if (!partNumber) return null;
     const normalized = partNumber.toLowerCase().replace(/[-\s]/g, '');
@@ -3119,7 +3135,7 @@ export function Estimates({ userId }: EstimatesProps) {
                   <div className="px-4 pb-4 space-y-3">
                     {vesselEngines.map((engine, idx) => {
                       const label = engine.label || `Engine ${idx + 1}`;
-                      const parts = extractServiceParts(engine);
+                      const parts = extractServicePartsGrouped(engine);
                       return (
                         <div key={`engine-${idx}`} className="bg-white rounded-lg border border-gray-200 p-3">
                           <div className="flex items-center justify-between mb-2">
@@ -3164,7 +3180,7 @@ export function Estimates({ userId }: EstimatesProps) {
                     })}
                     {vesselGenerators.map((gen, idx) => {
                       const label = gen.label || `Generator ${idx + 1}`;
-                      const parts = extractServiceParts(gen);
+                      const parts = extractServicePartsGrouped(gen);
                       return (
                         <div key={`gen-${idx}`} className="bg-white rounded-lg border border-gray-200 p-3">
                           <div className="flex items-center justify-between mb-2">
