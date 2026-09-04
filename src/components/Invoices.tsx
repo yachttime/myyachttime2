@@ -1185,16 +1185,19 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       const bottomMargin = 0.75;
       const depositLineCount = invoiceDeposits.length > 0 ? invoiceDeposits.length : (invoice.deposit_applied && invoice.deposit_applied > 0 ? 1 : 0);
       const finalPaymentLineCount = invoiceFinalPayments.length > 0 ? invoiceFinalPayments.length : 0;
+      const stripeId = invoice.final_payment_stripe_payment_intent_id || invoice.stripe_payment_intent_id;
+      const isPaid = invoice.payment_status === 'paid' || (invoice.amount_paid !== null && invoice.amount_paid > 0);
       const totalsLineCount =
-        2 + // subtotal + tax
+        3 + // subtotal + tax + total
         (invoice.discount_amount && invoice.discount_amount > 0 ? 1 : 0) +
         (invoice.shop_supplies_amount && invoice.shop_supplies_amount > 0 ? 1 : 0) +
         (invoice.park_fees_amount && invoice.park_fees_amount > 0 ? 1 : 0) +
         (invoice.surcharge_amount && invoice.surcharge_amount > 0 ? 1 : 0) +
         depositLineCount +
         (invoice.credit_card_fee && invoice.credit_card_fee > 0 ? 1 : 0) +
-        (invoice.payment_status === 'paid' || (invoice.amount_paid !== null && invoice.amount_paid > 0) ? 2 + finalPaymentLineCount + (invoice.credit_amount && invoice.credit_amount > 0 ? 1 : 0) : 0);
-      const totalsBlockHeight = totalsLineCount * 0.2 + 0.2 + (invoice.notes ? 0.6 : 0);
+        (isPaid ? 2 + finalPaymentLineCount + (stripeId ? 1 : 0) + (invoice.credit_amount && invoice.credit_amount > 0 ? 1 : 0) : 0);
+      const wrapBuffer = (depositLineCount + finalPaymentLineCount) * 0.14;
+      const totalsBlockHeight = totalsLineCount * 0.2 + 0.3 + wrapBuffer + (invoice.notes ? 0.6 : 0);
 
       if (yPos + totalsBlockHeight > pageHeight - bottomMargin) {
         doc.addPage();
@@ -1320,7 +1323,6 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
         doc.text('Amount Paid:', totalsX, yPos);
         doc.text(`-${amountPaid.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
         yPos += 0.2;
-        const stripeId = invoice.final_payment_stripe_payment_intent_id || invoice.stripe_payment_intent_id;
         if (stripeId) {
           doc.setFont('helvetica', 'normal');
           doc.setFontSize(8);
