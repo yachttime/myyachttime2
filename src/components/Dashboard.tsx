@@ -50,7 +50,7 @@ import InspectionView from './admin/InspectionView';
 import MasterCalendarView from './admin/MasterCalendarView';
 import UsersView from './admin/UsersView';
 import RetailRepairsArchive from './admin/RetailRepairsArchive';
-import EditYachtModal, { EMPTY_YACHT_FORM } from './admin/EditYachtModal';
+import EditYachtModal, { EMPTY_YACHT_FORM, EMPTY_ENGINE_GEN_ENTRY, EngineGenFormEntry } from './admin/EditYachtModal';
 
 interface DashboardProps {
   onNavigate: (page: 'maintenance' | 'education' | 'staffCalendar') => void;
@@ -458,8 +458,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     wifi_name: '',
     wifi_password: ''
   });
-  const [enginesForm, setEnginesForm] = useState<Array<{ id?: string; label: string; description: string; season_start_hours: string }>>([]);
-  const [generatorsForm, setGeneratorsForm] = useState<Array<{ id?: string; label: string; description: string; season_start_hours: string }>>([]);
+  const [enginesForm, setEnginesForm] = useState<EngineGenFormEntry[]>([]);
+  const [generatorsForm, setGeneratorsForm] = useState<EngineGenFormEntry[]>([]);
   const [yachtLoading, setYachtLoading] = useState(false);
   const [yachtSuccess, setYachtSuccess] = useState(false);
   const [yachtError, setYachtError] = useState('');
