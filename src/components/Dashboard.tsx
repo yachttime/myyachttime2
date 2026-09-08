@@ -911,7 +911,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     loadYachtPartners();
     checkSmartDevices();
     loadPendingInspectionCount();
-  }, [user, yacht, effectiveRole, effectiveYacht, impersonatedYacht, selectedCompany, isLoadingCompanies]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, userProfile?.role, yacht?.id, effectiveRole, effectiveYacht?.id, impersonatedYacht?.id, selectedCompany?.id, isLoadingCompanies]);
 
   useEffect(() => {
     if (activeTab === 'admin' && adminView === 'repairs') {
@@ -1178,27 +1179,32 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       if (error) throw error;
 
-      // Fetch user profiles separately for each request
-      const requestsWithUsers = await Promise.all(
-        (data || []).map(async (request: any) => {
-          const { data: userProfileData } = await supabase
-            .from('user_profiles')
-            .select('first_name, last_name, role')
-            .eq('user_id', request.submitted_by)
-            .maybeSingle();
+      const uniqueSubmitterIds = [...new Set((data || []).map((r: any) => r.submitted_by).filter(Boolean))];
 
-          return {
-            ...request,
-            subject: request.title,
-            user_id: request.submitted_by,
-            first_name: userProfileData?.first_name,
-            last_name: userProfileData?.last_name,
-            submitter_role: userProfileData?.role,
-            yacht_name: request.yachts?.name,
-            yachts: undefined
-          };
-        })
-      );
+      let submitterMap: Record<string, { first_name?: string; last_name?: string; role?: string }> = {};
+      if (uniqueSubmitterIds.length > 0) {
+        const { data: submitterProfiles } = await supabase
+          .from('user_profiles')
+          .select('user_id, first_name, last_name, role')
+          .in('user_id', uniqueSubmitterIds);
+        for (const p of submitterProfiles || []) {
+          submitterMap[p.user_id] = { first_name: p.first_name, last_name: p.last_name, role: p.role };
+        }
+      }
+
+      const requestsWithUsers = (data || []).map((request: any) => {
+        const profile = submitterMap[request.submitted_by] || {};
+        return {
+          ...request,
+          subject: request.title,
+          user_id: request.submitted_by,
+          first_name: profile.first_name,
+          last_name: profile.last_name,
+          submitter_role: profile.role,
+          yacht_name: request.yachts?.name,
+          yachts: undefined
+        };
+      });
 
       setMaintenanceRequests(requestsWithUsers || []);
     } catch (error) {
@@ -6731,7 +6737,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       // Filter by yacht_id for managers and owners (but not master role)
       if ((effectiveRole === 'manager' || effectiveRole === 'owner') && effectiveYacht) {
-        console.log('Master Calendar: Filtering for yacht:', effectiveYacht.id);
+  
         bookingsQuery = bookingsQuery.eq('yacht_id', effectiveYacht.id);
       }
 
@@ -6743,7 +6749,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         throw bookingsError;
       }
 
-      console.log('Master Calendar: Fetched', bookingsData?.length || 0, 'bookings from database');
+
 
       let appointmentsQuery = supabase
         .from('appointments')
@@ -6761,7 +6767,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         console.error('Appointments Error:', appointmentsError);
       }
 
-      console.log('Master Calendar: Fetched', appointmentsData?.length || 0, 'appointments from database');
+
 
       const formattedAppointments = (appointmentsData || []).map(apt => ({
         ...apt,
@@ -6779,8 +6785,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       const combinedData = [...(bookingsData || []), ...formattedAppointments];
 
-      console.log('Master Calendar: Total combined data:', combinedData.length, 'bookings/appointments');
-      console.log('Master Calendar: Sample data:', combinedData.slice(0, 3));
+
       setMasterCalendarBookings(combinedData);
     } catch (error) {
       console.error('Error loading master calendar:', error);
