@@ -187,22 +187,22 @@ export default function EditYachtModal({
 
     try {
       const { error } = await supabase.from('yachts').update({
-        name: yachtForm.name,
-        hull_number: yachtForm.hull_number,
-        manufacturer: yachtForm.manufacturer,
-        year: yachtForm.year ? parseInt(yachtForm.year) : null,
-        size: yachtForm.size,
-        port_engine: yachtForm.port_engine,
-        starboard_engine: yachtForm.starboard_engine,
-        port_generator: yachtForm.port_generator,
-        starboard_generator: yachtForm.starboard_generator,
-        marina_name: yachtForm.marina_name,
-        slip_location: yachtForm.slip_location,
-        wifi_name: yachtForm.wifi_name,
-        wifi_password: yachtForm.wifi_password,
+        name: safeTrim(yachtForm.name),
+        hull_number: safeTrim(yachtForm.hull_number),
+        manufacturer: safeTrim(yachtForm.manufacturer),
+        year: safeTrim(yachtForm.year) ? parseInt(safeTrim(yachtForm.year), 10) : null,
+        size: safeTrim(yachtForm.size),
+        port_engine: safeTrim(yachtForm.port_engine),
+        starboard_engine: safeTrim(yachtForm.starboard_engine),
+        port_generator: safeTrim(yachtForm.port_generator),
+        starboard_generator: safeTrim(yachtForm.starboard_generator),
+        marina_name: safeTrim(yachtForm.marina_name),
+        slip_location: safeTrim(yachtForm.slip_location),
+        wifi_name: safeTrim(yachtForm.wifi_name),
+        wifi_password: safeTrim(yachtForm.wifi_password),
       }).eq('id', editingYacht.id);
 
-      if (error) throw error;
+      if (error) throw new Error(`Yacht details: ${error.message}`);
 
       const existingEngineIds = (editingYacht.yacht_engines || []).map(e => e.id);
       const keepEngineIds = enginesForm.filter(e => e.id).map(e => e.id!);
@@ -221,7 +221,7 @@ export default function EditYachtModal({
           description: safeTrim(eng.description),
           model_number: safeTrim(eng.model_number),
           serial_number: safeTrim(eng.serial_number),
-          season_start_hours: eng.season_start_hours ? parseFloat(eng.season_start_hours) : null,
+          season_start_hours: safeTrim(eng.season_start_hours) ? parseFloat(safeTrim(eng.season_start_hours)) : null,
           sort_order: i,
           company_id: userProfile?.company_id,
           fuel_type: eng.fuel_type || 'diesel',
@@ -294,7 +294,7 @@ export default function EditYachtModal({
           description: safeTrim(gen.description),
           model_number: safeTrim(gen.model_number),
           serial_number: safeTrim(gen.serial_number),
-          season_start_hours: gen.season_start_hours ? parseFloat(gen.season_start_hours) : null,
+          season_start_hours: safeTrim(gen.season_start_hours) ? parseFloat(safeTrim(gen.season_start_hours)) : null,
           sort_order: i,
           company_id: userProfile?.company_id,
           fuel_type: gen.fuel_type || 'diesel',

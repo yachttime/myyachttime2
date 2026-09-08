@@ -16,7 +16,8 @@ interface PartSearchResult {
   price: string;
 }
 
-export default function PartNumberSearchInput({ value = '', onChange, placeholder, className }: PartNumberSearchInputProps) {
+export default function PartNumberSearchInput({ value, onChange, placeholder, className }: PartNumberSearchInputProps) {
+  const inputValue = value ?? '';
   const [showDropdown, setShowDropdown] = useState(false);
   const [results, setResults] = useState<PartSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -121,9 +122,9 @@ export default function PartNumberSearchInput({ value = '', onChange, placeholde
         <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-500 pointer-events-none" />
         <input
           type="text"
-          value={value}
+          value={inputValue}
           onChange={(e) => handleChange(e.target.value)}
-          onFocus={() => { if (value.trim().length >= 2) searchParts(value); }}
+          onFocus={() => { if (inputValue.trim().length >= 2) searchParts(inputValue); }}
           className={`${className || ''} pl-7 pr-2`}
           placeholder={placeholder}
         />
