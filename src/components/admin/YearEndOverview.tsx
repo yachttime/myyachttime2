@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { BarChart3, Ship, ClipboardCheck, Wrench, DollarSign, TrendingUp, Archive, CheckCircle } from 'lucide-react';
+import { BarChart3, Ship, ClipboardCheck, Wrench, DollarSign } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 interface YachtRow {
@@ -8,9 +8,7 @@ interface YachtRow {
   is_active: boolean;
   invoiceGross: number;
   inspectionCount: number;
-  repairActive: number;
-  repairPaid: number;
-  repairArchived: number;
+  repairRequests: number;
 }
 
 interface Props {
@@ -23,7 +21,7 @@ export default function YearEndOverview({ companyId }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<YachtRow[]>([]);
-  const [sortKey, setSortKey] = useState<'name' | 'invoiceGross' | 'inspectionCount' | 'repairActive' | 'repairPaid' | 'repairArchived'>('name');
+  const [sortKey, setSortKey] = useState<'name' | 'invoiceGross' | 'inspectionCount' | 'repairRequests'>('name');
   const [sortAsc, setSortAsc] = useState(true);
 
   const yearStart = `${selectedYear}-01-01`;
@@ -66,7 +64,7 @@ export default function YearEndOverview({ companyId }: Props) {
         map.set(y.id, {
           id: y.id, name: y.name, is_active: y.is_active,
           invoiceGross: 0, inspectionCount: 0,
-          repairActive: 0, repairPaid: 0, repairArchived: 0,
+          repairRequests: 0,
         });
       }
 
@@ -97,21 +95,11 @@ export default function YearEndOverview({ companyId }: Props) {
         if (row) row.inspectionCount += 1;
       }
 
-      // Repair request classification
+      // Repair request counts
       for (const rr of (rrRes.data || []) as any[]) {
         const row = map.get(rr.yacht_id);
         if (!row) continue;
-        if (rr.archived) {
-          row.repairArchived += 1;
-        } else {
-          const yiStatus = rr.yacht_invoices?.[0]?.payment_status;
-          const eiPaid = rr.estimating_invoice_id ? true : false; // estimating invoice linked = will check below
-          if (yiStatus === 'paid' || eiPaid) {
-            row.repairPaid += 1;
-          } else {
-            row.repairActive += 1;
-          }
-        }
+        row.repairRequests += 1;
       }
 
       setRows(Array.from(map.values()));
@@ -131,11 +119,9 @@ export default function YearEndOverview({ companyId }: Props) {
     (acc, r) => ({
       invoiceGross: acc.invoiceGross + r.invoiceGross,
       inspectionCount: acc.inspectionCount + r.inspectionCount,
-      repairActive: acc.repairActive + r.repairActive,
-      repairPaid: acc.repairPaid + r.repairPaid,
-      repairArchived: acc.repairArchived + r.repairArchived,
+      repairRequests: acc.repairRequests + r.repairRequests,
     }),
-    { invoiceGross: 0, inspectionCount: 0, repairActive: 0, repairPaid: 0, repairArchived: 0 }
+    { invoiceGross: 0, inspectionCount: 0, repairRequests: 0 }
   );
 
   const sortedRows = [...rows].sort((a, b) => {
@@ -191,7 +177,7 @@ export default function YearEndOverview({ companyId }: Props) {
       )}
 
       {/* Summary cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         <div className="bg-slate-800/60 backdrop-blur-sm rounded-2xl p-5 border border-slate-700">
           <div className="flex items-center gap-3 mb-2">
             <div className="bg-emerald-500/20 p-2.5 rounded-lg">
@@ -213,29 +199,11 @@ export default function YearEndOverview({ companyId }: Props) {
         <div className="bg-slate-800/60 backdrop-blur-sm rounded-2xl p-5 border border-slate-700">
           <div className="flex items-center gap-3 mb-2">
             <div className="bg-blue-500/20 p-2.5 rounded-lg">
-              <TrendingUp className="w-6 h-6 text-blue-500" />
+              <Wrench className="w-6 h-6 text-blue-500" />
             </div>
-            <span className="text-slate-400 text-sm">Repairs Active</span>
+            <span className="text-slate-400 text-sm">Repair Requests</span>
           </div>
-          <p className="text-2xl font-bold text-blue-400">{totals.repairActive}</p>
-        </div>
-        <div className="bg-slate-800/60 backdrop-blur-sm rounded-2xl p-5 border border-slate-700">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="bg-teal-500/20 p-2.5 rounded-lg">
-              <CheckCircle className="w-6 h-6 text-teal-500" />
-            </div>
-            <span className="text-slate-400 text-sm">Repairs Paid</span>
-          </div>
-          <p className="text-2xl font-bold text-teal-400">{totals.repairPaid}</p>
-        </div>
-        <div className="bg-slate-800/60 backdrop-blur-sm rounded-2xl p-5 border border-slate-700">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="bg-slate-500/20 p-2.5 rounded-lg">
-              <Archive className="w-6 h-6 text-slate-400" />
-            </div>
-            <span className="text-slate-400 text-sm">Repairs Archived</span>
-          </div>
-          <p className="text-2xl font-bold text-slate-300">{totals.repairArchived}</p>
+          <p className="text-2xl font-bold text-blue-400">{totals.repairRequests}</p>
         </div>
       </div>
 
@@ -254,21 +222,15 @@ export default function YearEndOverview({ companyId }: Props) {
                 <th className="text-center px-4 py-3 cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('inspectionCount')}>
                   Inspections {sortKey === 'inspectionCount' ? (sortAsc ? '↑' : '↓') : ''}
                 </th>
-                <th className="text-center px-4 py-3 cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('repairActive')}>
-                  Active {sortKey === 'repairActive' ? (sortAsc ? '↑' : '↓') : ''}
-                </th>
-                <th className="text-center px-4 py-3 cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('repairPaid')}>
-                  Paid {sortKey === 'repairPaid' ? (sortAsc ? '↑' : '↓') : ''}
-                </th>
-                <th className="text-center px-4 py-3 cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('repairArchived')}>
-                  Archived {sortKey === 'repairArchived' ? (sortAsc ? '↑' : '↓') : ''}
+                <th className="text-center px-4 py-3 cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('repairRequests')}>
+                  Repair Requests {sortKey === 'repairRequests' ? (sortAsc ? '↑' : '↓') : ''}
                 </th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-12 text-slate-400">
+                  <td colSpan={4} className="text-center py-12 text-slate-400">
                     <div className="inline-flex items-center gap-3">
                       <div className="w-5 h-5 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
                       Loading fleet data...
@@ -277,7 +239,7 @@ export default function YearEndOverview({ companyId }: Props) {
                 </tr>
               ) : sortedRows.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-12 text-slate-400">
+                  <td colSpan={4} className="text-center py-12 text-slate-400">
                     No yachts found for this company.
                   </td>
                 </tr>
@@ -295,9 +257,7 @@ export default function YearEndOverview({ companyId }: Props) {
                     </td>
                     <td className="px-4 py-3 text-right font-mono text-emerald-400">{fmtMoney(r.invoiceGross)}</td>
                     <td className="px-4 py-3 text-center text-amber-400">{r.inspectionCount}</td>
-                    <td className="px-4 py-3 text-center text-blue-400">{r.repairActive}</td>
-                    <td className="px-4 py-3 text-center text-teal-400">{r.repairPaid}</td>
-                    <td className="px-4 py-3 text-center text-slate-400">{r.repairArchived}</td>
+                    <td className="px-4 py-3 text-center text-blue-400">{r.repairRequests}</td>
                   </tr>
                 ))
               )}
@@ -308,9 +268,7 @@ export default function YearEndOverview({ companyId }: Props) {
                   <td className="px-4 py-3">Total ({rows.length} yachts)</td>
                   <td className="px-4 py-3 text-right font-mono text-emerald-400">{fmtMoney(totals.invoiceGross)}</td>
                   <td className="px-4 py-3 text-center text-amber-400">{totals.inspectionCount}</td>
-                  <td className="px-4 py-3 text-center text-blue-400">{totals.repairActive}</td>
-                  <td className="px-4 py-3 text-center text-teal-400">{totals.repairPaid}</td>
-                  <td className="px-4 py-3 text-center text-slate-300">{totals.repairArchived}</td>
+                  <td className="px-4 py-3 text-center text-blue-400">{totals.repairRequests}</td>
                 </tr>
               </tfoot>
             )}
