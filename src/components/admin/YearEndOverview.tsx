@@ -167,8 +167,14 @@ export default function YearEndOverview({ companyId }: Props) {
 
   const fmtMoney = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const yachtCount = rows.length;
+  const fleetAvg = yachtCount > 0 ? totals.invoiceGross / yachtCount : 0;
   const avgMoney = (total: number) => yachtCount > 0 ? fmtMoney(total / yachtCount) : '—';
   const avgNum = (total: number) => yachtCount > 0 ? (total / yachtCount).toFixed(1) : '—';
+
+  const pctVsAvg = (gross: number) => {
+    if (fleetAvg === 0) return null;
+    return ((gross - fleetAvg) / fleetAvg) * 100;
+  };
 
   const availableYears: number[] = [];
   for (let y = currentYear; y >= currentYear - 5; y--) availableYears.push(y);
@@ -332,7 +338,21 @@ export default function YearEndOverview({ companyId }: Props) {
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-right font-mono text-emerald-400">{fmtMoney(r.invoiceGross)}</td>
+                    <td className="px-4 py-3 text-right font-mono text-emerald-400">
+                      {fmtMoney(r.invoiceGross)}
+                      {(() => {
+                        const pct = pctVsAvg(r.invoiceGross);
+                        if (pct === null || pct === 0) return null;
+                        const above = pct > 0;
+                        return (
+                          <div className="text-xs mt-0.5">
+                            <span className={above ? 'text-green-400' : 'text-red-400'}>
+                              {above ? '+' : ''}{pct.toFixed(0)}% {above ? 'above' : 'below'} avg
+                            </span>
+                          </div>
+                        );
+                      })()}
+                    </td>
                     <td className="px-4 py-3 text-center text-amber-400">{r.inspectionCount}</td>
                     <td className="px-4 py-3 text-center text-blue-400">{r.repairRequests}</td>
                     <td className="px-4 py-3 text-center">
