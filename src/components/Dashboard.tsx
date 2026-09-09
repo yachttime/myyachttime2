@@ -52,6 +52,7 @@ import UsersView from './admin/UsersView';
 import RetailRepairsArchive from './admin/RetailRepairsArchive';
 import EditYachtModal, { EMPTY_YACHT_FORM, EMPTY_ENGINE_GEN_ENTRY, EngineGenFormEntry } from './admin/EditYachtModal';
 import EngineCatalogManager from './admin/EngineCatalogManager';
+import YearEndOverview from './admin/YearEndOverview';
 
 interface DashboardProps {
   onNavigate: (page: 'maintenance' | 'education' | 'staffCalendar') => void;
@@ -79,7 +80,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   };
 
   // Helper function to set admin view and persist to localStorage
-  const setAdminViewPersisted = (view: 'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies' | 'maintenancerequests' | 'vesselmonitoring' | 'enginecatalog') => {
+  const setAdminViewPersisted = (view: 'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies' | 'maintenancerequests' | 'vesselmonitoring' | 'enginecatalog' | 'yearendoverview') => {
     setAdminView(view);
     try {
       localStorage.setItem('adminView', view);
@@ -398,11 +399,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [resumingQueueItemId, setResumingQueueItemId] = useState<string | null>(null);
   const queueUploadAttemptedRef = useRef(false);
 
-  const [adminView, setAdminView] = useState<'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies' | 'maintenancerequests' | 'vesselmonitoring' | 'enginecatalog'>(() => {
+  const [adminView, setAdminView] = useState<'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies' | 'maintenancerequests' | 'vesselmonitoring' | 'enginecatalog' | 'yearendoverview'>(() => {
     try {
       const stored = localStorage.getItem('adminView');
-      if (stored && ['menu', 'inspection', 'yachts', 'ownertrips', 'repairs', 'ownerchat', 'messages', 'mastercalendar', 'ownerhandoff', 'users', 'appointments', 'staffappointment', 'smartdevices', 'companies', 'vesselmonitoring', 'enginecatalog'].includes(stored)) {
-        return stored as 'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies' | 'maintenancerequests' | 'vesselmonitoring' | 'enginecatalog';
+      if (stored && ['menu', 'inspection', 'yachts', 'ownertrips', 'repairs', 'ownerchat', 'messages', 'mastercalendar', 'ownerhandoff', 'users', 'appointments', 'staffappointment', 'smartdevices', 'companies', 'maintenancerequests', 'vesselmonitoring', 'enginecatalog', 'yearendoverview'].includes(stored)) {
+        return stored as 'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies' | 'maintenancerequests' | 'vesselmonitoring' | 'enginecatalog' | 'yearendoverview';
       }
       return 'menu';
     } catch {
@@ -17295,6 +17296,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       setActiveTabPersisted('customers');
                     }}
                   />
+                </AdminViewWrapper>
+              ) : adminView === 'yearendoverview' ? (
+                <AdminViewWrapper onBack={() => setAdminViewPersisted('menu')} backHoverColor="hover:text-amber-500">
+                  <YearEndOverview companyId={selectedCompany?.id || userProfile?.company_id} />
                 </AdminViewWrapper>
               ) : null}
             </div>
