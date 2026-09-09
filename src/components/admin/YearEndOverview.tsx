@@ -164,6 +164,9 @@ export default function YearEndOverview({ companyId }: Props) {
   };
 
   const fmtMoney = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const yachtCount = rows.length;
+  const avgMoney = (total: number) => yachtCount > 0 ? fmtMoney(total / yachtCount) : '—';
+  const avgNum = (total: number) => yachtCount > 0 ? (total / yachtCount).toFixed(1) : '—';
 
   const availableYears: number[] = [];
   for (let y = currentYear; y >= currentYear - 5; y--) availableYears.push(y);
@@ -206,6 +209,7 @@ export default function YearEndOverview({ companyId }: Props) {
             <span className="text-slate-400 text-sm">Invoice Gross</span>
           </div>
           <p className="text-2xl font-bold text-emerald-400">{fmtMoney(totals.invoiceGross)}</p>
+          <p className="text-xs text-emerald-500/50 mt-1">{avgMoney(totals.invoiceGross)} avg / yacht</p>
         </div>
         <div className="bg-slate-800/60 backdrop-blur-sm rounded-2xl p-5 border border-slate-700">
           <div className="flex items-center gap-3 mb-2">
@@ -215,6 +219,7 @@ export default function YearEndOverview({ companyId }: Props) {
             <span className="text-slate-400 text-sm">Trip Inspections</span>
           </div>
           <p className="text-2xl font-bold text-amber-400">{totals.inspectionCount}</p>
+          <p className="text-xs text-amber-500/50 mt-1">{avgNum(totals.inspectionCount)} avg / yacht</p>
         </div>
         <div className="bg-slate-800/60 backdrop-blur-sm rounded-2xl p-5 border border-slate-700">
           <div className="flex items-center gap-3 mb-2">
@@ -224,6 +229,7 @@ export default function YearEndOverview({ companyId }: Props) {
             <span className="text-slate-400 text-sm">Repair Requests</span>
           </div>
           <p className="text-2xl font-bold text-blue-400">{totals.repairRequests}</p>
+          <p className="text-xs text-blue-500/50 mt-1">{avgNum(totals.repairRequests)} avg / yacht</p>
         </div>
         <div className="bg-slate-800/60 backdrop-blur-sm rounded-2xl p-5 border border-slate-700">
           <div className="flex items-center gap-3 mb-2">
@@ -233,6 +239,7 @@ export default function YearEndOverview({ companyId }: Props) {
             <span className="text-slate-400 text-sm">Total Users</span>
           </div>
           <p className="text-2xl font-bold text-violet-400">{totals.userCount}</p>
+          <p className="text-xs text-violet-500/50 mt-1">{avgNum(totals.userCount)} avg / yacht</p>
         </div>
         <div className="bg-slate-800/60 backdrop-blur-sm rounded-2xl p-5 border border-slate-700">
           <div className="flex items-center gap-3 mb-2">
@@ -242,6 +249,7 @@ export default function YearEndOverview({ companyId }: Props) {
             <span className="text-slate-400 text-sm">Users Logged In</span>
           </div>
           <p className="text-2xl font-bold text-green-400">{totals.usersLoggedIn}</p>
+          <p className="text-xs text-green-500/50 mt-1">{avgNum(totals.usersLoggedIn)} avg / yacht</p>
         </div>
         <div className="bg-slate-800/60 backdrop-blur-sm rounded-2xl p-5 border border-slate-700">
           <div className="flex items-center gap-3 mb-2">
@@ -251,6 +259,7 @@ export default function YearEndOverview({ companyId }: Props) {
             <span className="text-slate-400 text-sm">Never Logged In</span>
           </div>
           <p className="text-2xl font-bold text-red-400">{totals.usersNeverLoggedIn}</p>
+          <p className="text-xs text-red-500/50 mt-1">{avgNum(totals.usersNeverLoggedIn)} avg / yacht</p>
         </div>
       </div>
 
