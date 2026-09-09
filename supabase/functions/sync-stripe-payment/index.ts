@@ -126,15 +126,6 @@ Deno.serve(async (req: Request) => {
           created_at: new Date().toISOString(),
         });
 
-        if (repairRequest.yacht_id) {
-          await supabase.from('owner_chat_messages').insert({
-            yacht_id: repairRequest.yacht_id,
-            sender_role: 'staff',
-            message: `Deposit payment confirmed for ${repairRequest.title} - $${parseFloat(repairRequest.deposit_amount).toFixed(2)}. Work will begin shortly!`,
-            created_at: new Date().toISOString(),
-          });
-        }
-
         return new Response(
           JSON.stringify({
             success: true,
@@ -174,15 +165,6 @@ Deno.serve(async (req: Request) => {
           reference_id: invoice_id,
           created_at: new Date().toISOString(),
         });
-
-        if (invoice.yacht_id) {
-          await supabase.from('owner_chat_messages').insert({
-            yacht_id: invoice.yacht_id,
-            sender_role: 'staff',
-            message: `Payment confirmed for ${invoice.repair_title || 'invoice'} - ${invoice.invoice_amount || '$0.00'}. Thank you!`,
-            created_at: new Date().toISOString(),
-          });
-        }
 
         return new Response(
           JSON.stringify({
@@ -448,15 +430,6 @@ Deno.serve(async (req: Request) => {
               created_at: new Date().toISOString(),
             });
 
-            if (repairRequest.yacht_id) {
-              await supabase.from('owner_chat_messages').insert({
-                yacht_id: repairRequest.yacht_id,
-                sender_role: 'staff',
-                message: `Deposit payment confirmed for ${repairRequest.title} - $${parseFloat(repairRequest.deposit_amount).toFixed(2)}. Work will begin shortly!`,
-                created_at: new Date().toISOString(),
-              });
-            }
-
             return new Response(
               JSON.stringify({ success: true, message: 'Deposit synced and marked as paid', payment_intent_id: paymentIntentId }),
               { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -543,15 +516,6 @@ Deno.serve(async (req: Request) => {
                 reference_id: repair_request_id,
                 created_at: new Date().toISOString(),
               });
-
-              if (repairRequest.yacht_id) {
-                await supabase.from('owner_chat_messages').insert({
-                  yacht_id: repairRequest.yacht_id,
-                  sender_role: 'staff',
-                  message: `Deposit payment confirmed for ${repairRequest.title} - $${parseFloat(repairRequest.deposit_amount).toFixed(2)}. Work will begin shortly!`,
-                  created_at: new Date().toISOString(),
-                });
-              }
 
               return new Response(
                 JSON.stringify({ success: true, message: 'Deposit synced and marked as paid (matched by amount)', payment_intent_id: matchingPI.id }),
@@ -691,15 +655,6 @@ Deno.serve(async (req: Request) => {
         reference_id: estimating_invoice_id,
         created_at: new Date().toISOString(),
       });
-
-      if (estInvoice.yacht_id) {
-        await supabase.from('owner_chat_messages').insert({
-          yacht_id: estInvoice.yacht_id,
-          sender_role: 'staff',
-          message: `Payment confirmed for Invoice ${estInvoice.invoice_number} - $${totalPaid.toFixed(2)}. Thank you!`,
-          created_at: new Date().toISOString(),
-        });
-      }
 
       // Send payment confirmation email if we have a recipient
       const recipientEmail = estInvoice.final_payment_email_recipient || estInvoice.customer_email;
@@ -856,16 +811,6 @@ Deno.serve(async (req: Request) => {
           reference_id: invoice_id,
           created_at: new Date().toISOString(),
         });
-
-        // Add message to owner chat if yacht-related
-        if (invoice.yacht_id) {
-          await supabase.from('owner_chat_messages').insert({
-            yacht_id: invoice.yacht_id,
-            sender_role: 'staff',
-            message: `Payment confirmed for ${invoice.repair_title || 'invoice'} - ${invoice.invoice_amount || '$0.00'}. Thank you!`,
-            created_at: new Date().toISOString(),
-          });
-        }
 
         // Send payment confirmation email
         const repairRequest = invoice.repair_requests;

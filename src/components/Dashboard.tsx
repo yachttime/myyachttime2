@@ -4109,24 +4109,6 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           ? `${userProfile.first_name} ${userProfile.last_name}`
           : userProfile?.email || user.email || 'Staff';
 
-        if (!request.is_retail_customer && request.yacht_id) {
-          const ownerMessage = `Repair Request ${statusText === 'approved' ? 'Approved' : 'Denied'}: ${request.title}\n\n${statusEmoji} This repair request has been ${statusText} by ${userName}.${notes ? `\n\nNotes: ${notes}` : ''}`;
-
-          try {
-            const { error: chatError } = await supabase.from('owner_chat_messages').insert({
-              yacht_id: request.yacht_id,
-              user_id: user.id,
-              message: ownerMessage,
-              company_id: userProfile?.company_id
-            });
-
-            if (chatError) {
-              console.error('Error creating owner chat message:', chatError);
-            }
-          } catch (chatError) {
-            console.error('Error creating owner chat message:', chatError);
-          }
-        }
       }
 
       await loadRepairRequests();
@@ -4193,15 +4175,6 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         reference_id: selectedRepairForInvoice.id,
         company_id: userProfile?.company_id
       });
-
-      if (!selectedRepairForInvoice.is_retail_customer && selectedRepairForInvoice.yacht_id) {
-        await supabase.from('owner_chat_messages').insert({
-          yacht_id: selectedRepairForInvoice.yacht_id,
-          user_id: user.id,
-          message: `Repair Completed: ${selectedRepairForInvoice.title}\n\n✓ This repair has been completed by ${userName}. No invoice was generated.`,
-          company_id: userProfile?.company_id
-        });
-      }
 
       setShowInvoiceModal(false);
       setSelectedRepairForInvoice(null);
@@ -4500,17 +4473,6 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         ? `${userProfile.first_name} ${userProfile.last_name}`
         : userProfile?.email || user.email || 'Staff';
 
-      if (!selectedRepairForInvoice.is_retail_customer && selectedRepairForInvoice.yacht_id) {
-        const ownerMessage = `Invoice Added to Repair: ${selectedRepairForInvoice.title}\n\n✓ An invoice has been added to this completed repair by ${userName}.\n\nFinal Invoice Amount: ${invoiceForm.final_invoice_amount}${invoiceFileName ? `\nInvoice File: ${invoiceFileName}` : ''}`;
-
-        await supabase.from('owner_chat_messages').insert({
-          yacht_id: selectedRepairForInvoice.yacht_id,
-          user_id: user.id,
-          message: ownerMessage,
-          company_id: userProfile?.company_id
-        });
-      }
-
       const recipientEmail = selectedRepairForInvoice.customer_id && selectedRepairForInvoice.customers
         ? selectedRepairForInvoice.customers.email
         : selectedRepairForInvoice.is_retail_customer
@@ -4685,16 +4647,6 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         : userProfile?.email || user.email || 'Staff';
 
       if (!selectedRepairForInvoice.is_retail_customer && selectedRepairForInvoice.yacht_id) {
-        const ownerMessage = `Repair Request Completed & Invoice Sent: ${selectedRepairForInvoice.title}\n\n✓ This repair has been completed by ${userName}.\n\nFinal Invoice Amount: ${invoiceForm.final_invoice_amount}${invoiceFileName ? `\nInvoice File: ${invoiceFileName}` : ''}`;
-
-        const { error: chatError } = await supabase.from('owner_chat_messages').insert({
-          yacht_id: selectedRepairForInvoice.yacht_id,
-          user_id: user.id,
-          message: ownerMessage,
-          company_id: userProfile?.company_id
-        });
-        if (chatError) { console.error('RLS ERROR - owner_chat_messages INSERT:', chatError); throw chatError; }
-
         const { data: managers } = await supabase
           .from('user_profiles')
           .select('user_id, first_name, last_name, email_address')

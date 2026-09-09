@@ -725,13 +725,6 @@ Deno.serve(async (req: Request) => {
         .eq('id', invoiceId);
 
       if (invoice.yacht_id) {
-        await supabase.from('owner_chat_messages').insert({
-          yacht_id: invoice.yacht_id,
-          sender_role: 'staff',
-          message: `Payment link email sent to ${recipientEmail} for invoice: ${invoice.repair_title}`,
-          created_at: new Date().toISOString(),
-        });
-
         const yachtHistoryName = invoice.yachts?.name || 'Unknown Yacht';
         await supabase.from('yacht_history_logs').insert({
           yacht_id: invoice.yacht_id,

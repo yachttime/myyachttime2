@@ -378,15 +378,6 @@ Deno.serve(async (req: Request) => {
           created_at: new Date().toISOString(),
         });
 
-        if (yachtId) {
-          await supabase.from('owner_chat_messages').insert({
-            yacht_id: yachtId,
-            sender_role: 'staff',
-            message: `Deposit payment confirmed for ${repairRequest?.title || 'repair'} - $${parseFloat(repairRequest?.deposit_amount || 0).toFixed(2)}. Work will begin shortly!`,
-            created_at: new Date().toISOString(),
-          });
-        }
-
         const customerEmail = repairRequest?.customer_email || repairRequest?.deposit_email_recipient;
         const customerName = repairRequest?.customer_name || 'Valued Customer';
         const yachtName = repairRequest?.yachts?.name || '';
@@ -499,15 +490,6 @@ Deno.serve(async (req: Request) => {
           reference_id: workOrderId,
           created_at: new Date().toISOString(),
         });
-
-        if (yachtId) {
-          await supabase.from('owner_chat_messages').insert({
-            yacht_id: yachtId,
-            sender_role: 'staff',
-            message: `Deposit payment confirmed for Work Order ${workOrder?.work_order_number} - $${parseFloat(workOrder?.deposit_amount || 0).toFixed(2)}. Work will begin shortly!`,
-            created_at: new Date().toISOString(),
-          });
-        }
 
         const customerEmail = workOrder?.customer_email;
         const customerName = workOrder?.customer_name || 'Valued Customer';
@@ -657,15 +639,6 @@ Deno.serve(async (req: Request) => {
           reference_id: invoiceId,
           created_at: new Date().toISOString(),
         });
-
-        if (yachtId) {
-          await supabase.from('owner_chat_messages').insert({
-            yacht_id: yachtId,
-            sender_role: 'staff',
-            message: `Payment confirmed for Invoice ${invoice?.invoice_number} - $${amountPaid.toFixed(2)}. ${newPaymentStatus === 'paid' ? 'Paid in full. Thank you!' : `Balance remaining: $${newBalanceDue.toFixed(2)}`}`,
-            created_at: new Date().toISOString(),
-          });
-        }
 
         const customerEmail = invoice?.customer_email;
         const customerName = invoice?.customer_name || 'Valued Customer';
@@ -856,15 +829,6 @@ Deno.serve(async (req: Request) => {
         reference_id: invoiceId,
         created_at: new Date().toISOString(),
       });
-
-      if (yachtId) {
-        await supabase.from('owner_chat_messages').insert({
-          yacht_id: yachtId,
-          sender_role: 'staff',
-          message: `Payment confirmed for ${legacyInvoice?.repair_title || 'invoice'} - ${legacyInvoice?.invoice_amount || '$0.00'}. Thank you!`,
-          created_at: new Date().toISOString(),
-        });
-      }
 
       const legacyRepairRequest = legacyInvoice?.repair_requests;
       const legacyCustomerEmail = legacyRepairRequest?.customer_email || legacyInvoice?.payment_email_recipient;
