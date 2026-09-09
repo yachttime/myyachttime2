@@ -312,11 +312,11 @@ export default function YearEndOverview({ companyId }: Props) {
                           )}
                         </div>
                         {r.userCount > 0 && (
-                          <div className="text-xs text-slate-500 mt-1 ml-6">
-                            {r.userCount} {r.userCount === 1 ? 'user' : 'users'}
-                            <span className="text-green-500/70 ml-1">({r.usersLoggedIn} logged in</span>
-                            <span className="text-slate-500 mx-1">·</span>
-                            <span className="text-red-400">{r.usersNeverLoggedIn} never)</span>
+                          <div className="text-xs mt-1 ml-6 flex items-center gap-1.5 flex-wrap">
+                            <span className="bg-violet-500/20 text-violet-300 font-semibold px-2 py-0.5 rounded-md">{r.userCount} {r.userCount === 1 ? 'user' : 'users'}</span>
+                            <span className="text-green-400/80">{r.usersLoggedIn} logged in</span>
+                            <span className="text-slate-600">·</span>
+                            <span className="text-red-400/80">{r.usersNeverLoggedIn} never</span>
                           </div>
                         )}
                       </div>
@@ -324,7 +324,9 @@ export default function YearEndOverview({ companyId }: Props) {
                     <td className="px-4 py-3 text-right font-mono text-emerald-400">{fmtMoney(r.invoiceGross)}</td>
                     <td className="px-4 py-3 text-center text-amber-400">{r.inspectionCount}</td>
                     <td className="px-4 py-3 text-center text-blue-400">{r.repairRequests}</td>
-                    <td className="px-4 py-3 text-center text-violet-400">{r.userCount}</td>
+                    <td className="px-4 py-3 text-center">
+                      <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-violet-500/20 text-violet-300 font-bold text-base">{r.userCount}</span>
+                    </td>
                     <td className="px-4 py-3 text-center text-green-400">{r.usersLoggedIn}</td>
                     <td className="px-4 py-3 text-center text-red-400">{r.usersNeverLoggedIn}</td>
                   </tr>
@@ -338,7 +340,9 @@ export default function YearEndOverview({ companyId }: Props) {
                   <td className="px-4 py-3 text-right font-mono text-emerald-400">{fmtMoney(totals.invoiceGross)}</td>
                   <td className="px-4 py-3 text-center text-amber-400">{totals.inspectionCount}</td>
                   <td className="px-4 py-3 text-center text-blue-400">{totals.repairRequests}</td>
-                  <td className="px-4 py-3 text-center text-violet-400">{totals.userCount}</td>
+                  <td className="px-4 py-3 text-center">
+                    <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-lg bg-violet-500/20 text-violet-300 font-bold text-lg">{totals.userCount}</span>
+                  </td>
                   <td className="px-4 py-3 text-center text-green-400">{totals.usersLoggedIn}</td>
                   <td className="px-4 py-3 text-center text-red-400">{totals.usersNeverLoggedIn}</td>
                 </tr>
