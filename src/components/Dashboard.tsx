@@ -2415,6 +2415,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         .from('user_profiles')
         .select('id, user_id, first_name, last_name, email, role, company_id')
         .eq('company_id', selectedCompany.id)
+        .eq('is_active', true)
         .in('role', ['mechanic', 'staff', 'master'])
         .order('first_name', { ascending: true});
 
