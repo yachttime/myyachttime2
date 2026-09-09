@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { BarChart3, Ship, ClipboardCheck, Wrench, DollarSign } from 'lucide-react';
+import { BarChart3, Ship, ClipboardCheck, Wrench, DollarSign, Users, UserCheck, UserX } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 interface YachtRow {
@@ -9,6 +9,9 @@ interface YachtRow {
   invoiceGross: number;
   inspectionCount: number;
   repairRequests: number;
+  userCount: number;
+  usersLoggedIn: number;
+  usersNeverLoggedIn: number;
 }
 
 interface Props {
@@ -21,7 +24,7 @@ export default function YearEndOverview({ companyId }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<YachtRow[]>([]);
-  const [sortKey, setSortKey] = useState<'name' | 'invoiceGross' | 'inspectionCount' | 'repairRequests'>('name');
+  const [sortKey, setSortKey] = useState<'name' | 'invoiceGross' | 'inspectionCount' | 'repairRequests' | 'userCount' | 'usersLoggedIn' | 'usersNeverLoggedIn'>('name');
   const [sortAsc, setSortAsc] = useState(true);
 
   const yearStart = `${selectedYear}-01-01`;
@@ -36,7 +39,7 @@ export default function YearEndOverview({ companyId }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const [yachtsRes, yiRes, eiRes, tiRes, rrRes] = await Promise.all([
+      const [yachtsRes, yiRes, eiRes, tiRes, rrRes, usersRes] = await Promise.all([
         supabase.from('yachts').select('id, name, is_active').eq('company_id', companyId),
         supabase.from('yacht_invoices')
           .select('id, yacht_id, invoice_amount_numeric, repair_request_id, repair_requests!repair_request_id(estimating_invoice_id), stripe_payment_intent_id, repair_title')
@@ -50,6 +53,7 @@ export default function YearEndOverview({ companyId }: Props) {
         supabase.from('repair_requests')
           .select('id, yacht_id, archived, created_at, estimating_invoice_id, yacht_invoices!repair_request_id(payment_status)')
           .gte('created_at', yearStart).lte('created_at', yearEnd),
+        supabase.from('user_profiles').select('id, yacht_id, last_sign_in_at').eq('company_id', companyId),
       ]);
 
       if (yachtsRes.error) throw yachtsRes.error;
@@ -57,6 +61,7 @@ export default function YearEndOverview({ companyId }: Props) {
       if (eiRes.error) throw eiRes.error;
       if (tiRes.error) throw tiRes.error;
       if (rrRes.error) throw rrRes.error;
+      if (usersRes.error) throw usersRes.error;
 
       const yachts = (yachtsRes.data || []) as { id: string; name: string; is_active: boolean }[];
       const map = new Map<string, YachtRow>();
@@ -64,7 +69,7 @@ export default function YearEndOverview({ companyId }: Props) {
         map.set(y.id, {
           id: y.id, name: y.name, is_active: y.is_active,
           invoiceGross: 0, inspectionCount: 0,
-          repairRequests: 0,
+          repairRequests: 0, userCount: 0, usersLoggedIn: 0, usersNeverLoggedIn: 0,
         });
       }
 
@@ -102,6 +107,18 @@ export default function YearEndOverview({ companyId }: Props) {
         row.repairRequests += 1;
       }
 
+      // User login stats per yacht
+      for (const u of (usersRes.data || []) as any[]) {
+        const row = map.get(u.yacht_id);
+        if (!row) continue;
+        row.userCount += 1;
+        if (u.last_sign_in_at) {
+          row.usersLoggedIn += 1;
+        } else {
+          row.usersNeverLoggedIn += 1;
+        }
+      }
+
       setRows(Array.from(map.values()));
     } catch (err: any) {
       console.error('Error loading year-end overview:', err);
@@ -120,8 +137,11 @@ export default function YearEndOverview({ companyId }: Props) {
       invoiceGross: acc.invoiceGross + r.invoiceGross,
       inspectionCount: acc.inspectionCount + r.inspectionCount,
       repairRequests: acc.repairRequests + r.repairRequests,
+      userCount: acc.userCount + r.userCount,
+      usersLoggedIn: acc.usersLoggedIn + r.usersLoggedIn,
+      usersNeverLoggedIn: acc.usersNeverLoggedIn + r.usersNeverLoggedIn,
     }),
-    { invoiceGross: 0, inspectionCount: 0, repairRequests: 0 }
+    { invoiceGross: 0, inspectionCount: 0, repairRequests: 0, userCount: 0, usersLoggedIn: 0, usersNeverLoggedIn: 0 }
   );
 
   const sortedRows = [...rows].sort((a, b) => {
@@ -177,7 +197,7 @@ export default function YearEndOverview({ companyId }: Props) {
       )}
 
       {/* Summary cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
         <div className="bg-slate-800/60 backdrop-blur-sm rounded-2xl p-5 border border-slate-700">
           <div className="flex items-center gap-3 mb-2">
             <div className="bg-emerald-500/20 p-2.5 rounded-lg">
@@ -205,6 +225,33 @@ export default function YearEndOverview({ companyId }: Props) {
           </div>
           <p className="text-2xl font-bold text-blue-400">{totals.repairRequests}</p>
         </div>
+        <div className="bg-slate-800/60 backdrop-blur-sm rounded-2xl p-5 border border-slate-700">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="bg-violet-500/20 p-2.5 rounded-lg">
+              <Users className="w-6 h-6 text-violet-400" />
+            </div>
+            <span className="text-slate-400 text-sm">Total Users</span>
+          </div>
+          <p className="text-2xl font-bold text-violet-400">{totals.userCount}</p>
+        </div>
+        <div className="bg-slate-800/60 backdrop-blur-sm rounded-2xl p-5 border border-slate-700">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="bg-green-500/20 p-2.5 rounded-lg">
+              <UserCheck className="w-6 h-6 text-green-400" />
+            </div>
+            <span className="text-slate-400 text-sm">Users Logged In</span>
+          </div>
+          <p className="text-2xl font-bold text-green-400">{totals.usersLoggedIn}</p>
+        </div>
+        <div className="bg-slate-800/60 backdrop-blur-sm rounded-2xl p-5 border border-slate-700">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="bg-red-500/20 p-2.5 rounded-lg">
+              <UserX className="w-6 h-6 text-red-400" />
+            </div>
+            <span className="text-slate-400 text-sm">Never Logged In</span>
+          </div>
+          <p className="text-2xl font-bold text-red-400">{totals.usersNeverLoggedIn}</p>
+        </div>
       </div>
 
       {/* Per-yacht table */}
@@ -225,12 +272,21 @@ export default function YearEndOverview({ companyId }: Props) {
                 <th className="text-center px-4 py-3 cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('repairRequests')}>
                   Repair Requests {sortKey === 'repairRequests' ? (sortAsc ? '↑' : '↓') : ''}
                 </th>
+                <th className="text-center px-4 py-3 cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('userCount')}>
+                  Users {sortKey === 'userCount' ? (sortAsc ? '↑' : '↓') : ''}
+                </th>
+                <th className="text-center px-4 py-3 cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('usersLoggedIn')}>
+                  Logged In {sortKey === 'usersLoggedIn' ? (sortAsc ? '↑' : '↓') : ''}
+                </th>
+                <th className="text-center px-4 py-3 cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('usersNeverLoggedIn')}>
+                  Never Logged In {sortKey === 'usersNeverLoggedIn' ? (sortAsc ? '↑' : '↓') : ''}
+                </th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={4} className="text-center py-12 text-slate-400">
+                  <td colSpan={7} className="text-center py-12 text-slate-400">
                     <div className="inline-flex items-center gap-3">
                       <div className="w-5 h-5 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
                       Loading fleet data...
@@ -239,7 +295,7 @@ export default function YearEndOverview({ companyId }: Props) {
                 </tr>
               ) : sortedRows.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="text-center py-12 text-slate-400">
+                  <td colSpan={7} className="text-center py-12 text-slate-400">
                     No yachts found for this company.
                   </td>
                 </tr>
@@ -247,17 +303,30 @@ export default function YearEndOverview({ companyId }: Props) {
                 sortedRows.map(r => (
                   <tr key={r.id} className="border-b border-slate-700/50 hover:bg-slate-700/20 transition-colors">
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <Ship className="w-4 h-4 text-slate-500 flex-shrink-0" />
-                        <span className="font-medium">{r.name}</span>
-                        {!r.is_active && (
-                          <span className="text-xs bg-slate-700 text-slate-400 px-2 py-0.5 rounded-full">Inactive</span>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <Ship className="w-4 h-4 text-slate-500 flex-shrink-0" />
+                          <span className="font-medium">{r.name}</span>
+                          {!r.is_active && (
+                            <span className="text-xs bg-slate-700 text-slate-400 px-2 py-0.5 rounded-full">Inactive</span>
+                          )}
+                        </div>
+                        {r.userCount > 0 && (
+                          <div className="text-xs text-slate-500 mt-1 ml-6">
+                            {r.userCount} {r.userCount === 1 ? 'user' : 'users'}
+                            <span className="text-green-500/70 ml-1">({r.usersLoggedIn} logged in</span>
+                            <span className="text-slate-500 mx-1">·</span>
+                            <span className="text-red-400">{r.usersNeverLoggedIn} never)</span>
+                          </div>
                         )}
                       </div>
                     </td>
                     <td className="px-4 py-3 text-right font-mono text-emerald-400">{fmtMoney(r.invoiceGross)}</td>
                     <td className="px-4 py-3 text-center text-amber-400">{r.inspectionCount}</td>
                     <td className="px-4 py-3 text-center text-blue-400">{r.repairRequests}</td>
+                    <td className="px-4 py-3 text-center text-violet-400">{r.userCount}</td>
+                    <td className="px-4 py-3 text-center text-green-400">{r.usersLoggedIn}</td>
+                    <td className="px-4 py-3 text-center text-red-400">{r.usersNeverLoggedIn}</td>
                   </tr>
                 ))
               )}
@@ -269,6 +338,9 @@ export default function YearEndOverview({ companyId }: Props) {
                   <td className="px-4 py-3 text-right font-mono text-emerald-400">{fmtMoney(totals.invoiceGross)}</td>
                   <td className="px-4 py-3 text-center text-amber-400">{totals.inspectionCount}</td>
                   <td className="px-4 py-3 text-center text-blue-400">{totals.repairRequests}</td>
+                  <td className="px-4 py-3 text-center text-violet-400">{totals.userCount}</td>
+                  <td className="px-4 py-3 text-center text-green-400">{totals.usersLoggedIn}</td>
+                  <td className="px-4 py-3 text-center text-red-400">{totals.usersNeverLoggedIn}</td>
                 </tr>
               </tfoot>
             )}
