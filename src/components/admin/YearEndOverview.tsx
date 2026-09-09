@@ -63,7 +63,9 @@ export default function YearEndOverview({ companyId }: Props) {
       if (rrRes.error) throw rrRes.error;
       if (usersRes.error) throw usersRes.error;
 
-      const yachts = (yachtsRes.data || []) as { id: string; name: string; is_active: boolean }[];
+      const TEST_YACHT_NAMES = ['adonia', 'oceanus'];
+      const yachts = ((yachtsRes.data || []) as { id: string; name: string; is_active: boolean }[])
+        .filter(y => !TEST_YACHT_NAMES.includes(y.name.toLowerCase()));
       const map = new Map<string, YachtRow>();
       for (const y of yachts) {
         map.set(y.id, {
