@@ -17,6 +17,7 @@ import { supabase } from '../lib/supabase';
 interface EstimatingDashboardProps {
   userId: string;
   initialInvoiceId?: string;
+  onCreateSalvageReport?: (estimateId: string) => void;
 }
 
 type TabType = 'dashboard' | 'estimates' | 'workorders' | 'invoices' | 'purchaseorders' | 'parts' | 'settings';
@@ -39,7 +40,7 @@ interface DashboardStats {
   ytdTotalSalesCount: number;
 }
 
-export function EstimatingDashboard({ userId, initialInvoiceId }: EstimatingDashboardProps) {
+export function EstimatingDashboard({ userId, initialInvoiceId, onCreateSalvageReport }: EstimatingDashboardProps) {
   const [activeTab, setActiveTab] = useState<TabType>(initialInvoiceId ? 'invoices' : 'dashboard');
   const [stats, setStats] = useState<DashboardStats>({
     totalEstimates: 0,
@@ -470,7 +471,7 @@ export function EstimatingDashboard({ userId, initialInvoiceId }: EstimatingDash
         )}
 
         {activeTab === 'estimates' && (
-          <Estimates userId={userId} />
+          <Estimates userId={userId} onCreateSalvageReport={onCreateSalvageReport} />
         )}
 
         {activeTab === 'workorders' && (

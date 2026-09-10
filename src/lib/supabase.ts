@@ -352,6 +352,52 @@ export interface TripInspection {
   updated_at: string;
 }
 
+export interface SalvageReport {
+  id: string;
+  report_number: string;
+  estimate_id: string | null;
+  company_id: string | null;
+  yacht_id: string | null;
+  vessel_name: string | null;
+  owner_name: string | null;
+  owner_phone: string | null;
+  owner_email: string | null;
+  owner_address: string | null;
+  insurance_company: string | null;
+  policy_number: string | null;
+  claim_number: string | null;
+  adjuster_name: string | null;
+  adjuster_phone: string | null;
+  adjuster_email: string | null;
+  date_of_loss: string | null;
+  date_of_service: string | null;
+  gps_latitude: string | null;
+  gps_longitude: string | null;
+  vessel_depth: string | null;
+  underwater_condition: string | null;
+  vessel_description_prior: string | null;
+  diesel_gallons: string | null;
+  gas_gallons: string | null;
+  findings: string | null;
+  status: 'draft' | 'complete';
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  salvage_report_media?: SalvageReportMedia[];
+  estimates?: { estimate_number: string; customer_name: string | null; customer_email: string | null; customer_phone: string | null; yachts?: { name: string } };
+  yachts?: { name: string };
+}
+
+export interface SalvageReportMedia {
+  id: string;
+  salvage_report_id: string;
+  media_type: 'photo_prior' | 'photo_loss' | 'video_loss';
+  file_url: string;
+  file_name: string;
+  caption: string | null;
+  created_at: string;
+}
+
 export interface YachtHistoryLog {
   id: string;
   yacht_id: string;

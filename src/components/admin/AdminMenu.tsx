@@ -1,11 +1,11 @@
-import { Calendar, Mail, CalendarPlus, Users, ClipboardCheck, UserCheck, FileUp, Wrench, MessageCircle, Ship, Lock, Building2, Activity, Wrench as EngineIcon, BarChart3 } from 'lucide-react';
+import { Calendar, Mail, CalendarPlus, Users, ClipboardCheck, UserCheck, FileUp, Wrench, MessageCircle, Ship, Lock, Building2, Activity, Wrench as EngineIcon, BarChart3, LifeBuoy } from 'lucide-react';
 import { isStaffRole, isMasterRole, isStaffOrManager, isOwnerRole, canManageYacht, canAccessAllYachts, UserRole } from '../../lib/supabase';
 
 export type AdminViewType =
   | 'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs'
   | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff'
   | 'users' | 'appointments' | 'staffappointment' | 'smartdevices'
-  | 'companies' | 'maintenancerequests' | 'vesselmonitoring' | 'enginecatalog' | 'yearendoverview';
+  | 'companies' | 'maintenancerequests' | 'vesselmonitoring' | 'enginecatalog' | 'yearendoverview' | 'salvagereports';
 
 interface AdminMenuProps {
   effectiveRole: UserRole;
@@ -273,6 +273,21 @@ export default function AdminMenu({ effectiveRole, pendingInspectionCount, onNav
           </div>
           <h3 className="text-xl font-bold mb-2">User Management</h3>
           <p className="text-slate-400 text-sm">View and edit user profiles and assignments</p>
+        </button>
+      )}
+
+      {isStaffOrManager(effectiveRole) && (
+        <button
+          onClick={() => onNavigate('salvagereports')}
+          className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group"
+        >
+          <div className="flex items-center gap-4 mb-4">
+            <div className="bg-red-500/20 p-4 rounded-xl group-hover:bg-red-500/30 transition-colors">
+              <LifeBuoy className="w-8 h-8 text-red-500" />
+            </div>
+          </div>
+          <h3 className="text-xl font-bold mb-2">Salvage Reports</h3>
+          <p className="text-slate-400 text-sm">Create and manage salvage service reports</p>
         </button>
       )}
     </div>

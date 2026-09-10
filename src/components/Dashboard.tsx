@@ -53,6 +53,7 @@ import RetailRepairsArchive from './admin/RetailRepairsArchive';
 import EditYachtModal, { EMPTY_YACHT_FORM, EMPTY_ENGINE_GEN_ENTRY, EngineGenFormEntry } from './admin/EditYachtModal';
 import EngineCatalogManager from './admin/EngineCatalogManager';
 import YearEndOverview from './admin/YearEndOverview';
+import { SalvageReports } from './SalvageReports';
 
 interface DashboardProps {
   onNavigate: (page: 'maintenance' | 'education' | 'staffCalendar') => void;
@@ -80,7 +81,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   };
 
   // Helper function to set admin view and persist to localStorage
-  const setAdminViewPersisted = (view: 'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies' | 'maintenancerequests' | 'vesselmonitoring' | 'enginecatalog' | 'yearendoverview') => {
+  const setAdminViewPersisted = (view: 'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies' | 'maintenancerequests' | 'vesselmonitoring' | 'enginecatalog' | 'yearendoverview' | 'salvagereports') => {
     setAdminView(view);
     try {
       localStorage.setItem('adminView', view);
@@ -399,17 +400,18 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [resumingQueueItemId, setResumingQueueItemId] = useState<string | null>(null);
   const queueUploadAttemptedRef = useRef(false);
 
-  const [adminView, setAdminView] = useState<'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies' | 'maintenancerequests' | 'vesselmonitoring' | 'enginecatalog' | 'yearendoverview'>(() => {
+  const [adminView, setAdminView] = useState<'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies' | 'maintenancerequests' | 'vesselmonitoring' | 'enginecatalog' | 'yearendoverview' | 'salvagereports'>(() => {
     try {
       const stored = localStorage.getItem('adminView');
-      if (stored && ['menu', 'inspection', 'yachts', 'ownertrips', 'repairs', 'ownerchat', 'messages', 'mastercalendar', 'ownerhandoff', 'users', 'appointments', 'staffappointment', 'smartdevices', 'companies', 'maintenancerequests', 'vesselmonitoring', 'enginecatalog', 'yearendoverview'].includes(stored)) {
-        return stored as 'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies' | 'maintenancerequests' | 'vesselmonitoring' | 'enginecatalog' | 'yearendoverview';
+      if (stored && ['menu', 'inspection', 'yachts', 'ownertrips', 'repairs', 'ownerchat', 'messages', 'mastercalendar', 'ownerhandoff', 'users', 'appointments', 'staffappointment', 'smartdevices', 'companies', 'maintenancerequests', 'vesselmonitoring', 'enginecatalog', 'yearendoverview', 'salvagereports'].includes(stored)) {
+        return stored as 'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies' | 'maintenancerequests' | 'vesselmonitoring' | 'enginecatalog' | 'yearendoverview' | 'salvagereports';
       }
       return 'menu';
     } catch {
       return 'menu';
     }
   });
+  const [salvagePrefillEstimateId, setSalvagePrefillEstimateId] = useState<string | undefined>(undefined);
   const [allYachts, setAllYachts] = useState<Yacht[]>([]);
   const [allCustomers, setAllCustomers] = useState<Array<{
     id: string;
@@ -10965,6 +10967,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               <EstimatingDashboard
                 userId={user?.id || ''}
                 initialInvoiceId={pendingEstimatingInvoiceId}
+                onCreateSalvageReport={(estimateId) => {
+                  setSalvagePrefillEstimateId(estimateId);
+                  setAdminViewPersisted('salvagereports');
+                }}
                 key={pendingEstimatingInvoiceId || 'estimating'}
               />
             </div>
@@ -17253,6 +17259,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                 <AdminViewWrapper onBack={() => setAdminViewPersisted('menu')} backHoverColor="hover:text-amber-500">
                   <YearEndOverview companyId={selectedCompany?.id || userProfile?.company_id} />
                 </AdminViewWrapper>
+              ) : adminView === 'salvagereports' ? (
+                <SalvageReports
+                  userId={userProfile?.user_id || ''}
+                  companyId={selectedCompany?.id || userProfile?.company_id || ''}
+                  userRole={effectiveRole}
+                  prefillEstimateId={salvagePrefillEstimateId}
+                />
               ) : null}
             </div>
           )}

@@ -75,6 +75,7 @@ interface EstimateLineItem {
 
 interface EstimatesProps {
   userId: string;
+  onCreateSalvageReport?: (estimateId: string) => void;
 }
 
 interface ServicePartEntry {
@@ -98,7 +99,7 @@ const SERVICE_PART_FIELDS: { fieldName: string; altFields: string[]; label: stri
   { fieldName: 'oil_quantity', altFields: [], label: 'Oil Quantity', includeField: 'include_oil_quantity', altIncludeFields: [] },
 ];
 
-export function Estimates({ userId }: EstimatesProps) {
+export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
   const { showSuccess, showError } = useNotification();
   const [estimates, setEstimates] = useState<Estimate[]>([]);
   const [yachts, setYachts] = useState<any[]>([]);
@@ -4263,12 +4264,23 @@ export function Estimates({ userId }: EstimatesProps) {
                 </td>
                 <td className="px-6 py-4 text-center">
                   {activeTab === 'active' ? (
-                    <button
-                      onClick={() => handleEditEstimate(estimate.id)}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
-                    >
-                      Open
-                    </button>
+                    <div className="flex items-center justify-center gap-2">
+                      <button
+                        onClick={() => handleEditEstimate(estimate.id)}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+                      >
+                        Open
+                      </button>
+                      {onCreateSalvageReport && (
+                        <button
+                          onClick={() => onCreateSalvageReport(estimate.id)}
+                          className="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-xs font-medium"
+                          title="Create Salvage Report"
+                        >
+                          Salvage
+                        </button>
+                      )}
+                    </div>
                   ) : (
                     <button
                       onClick={() => handleRestoreEstimate(estimate.id)}
