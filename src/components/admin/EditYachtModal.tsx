@@ -1,5 +1,6 @@
 import { X } from 'lucide-react';
 import { supabase, Yacht, UserProfile, logYachtActivity } from '../../lib/supabase';
+import { useCompany } from '../../contexts/CompanyContext';
 import PartNumberSearchInput from './PartNumberSearchInput';
 import CatalogSearchDropdown from './CatalogSearchDropdown';
 import MercuryPartsLink from './MercuryPartsLink';
@@ -172,6 +173,7 @@ export default function EditYachtModal({
   setYachtLoading, setYachtSuccess, onClose, userProfile, currentUserId, onSaved
 }: EditYachtModalProps) {
   const safeTrim = (v: unknown): string => (typeof v === 'string' ? v : '').trim();
+  const { selectedCompany } = useCompany();
 
   const handleClose = () => {
     setEnginesForm([]);
@@ -223,7 +225,7 @@ export default function EditYachtModal({
           serial_number: safeTrim(eng.serial_number),
           season_start_hours: safeTrim(eng.season_start_hours) ? parseFloat(safeTrim(eng.season_start_hours)) : null,
           sort_order: i,
-          company_id: userProfile?.company_id,
+          company_id: selectedCompany?.id || userProfile?.company_id,
           fuel_type: eng.fuel_type || 'diesel',
           oil_filter_part_number: safeTrim(eng.oil_filter_part_number),
           oil_filter_alt1: safeTrim(eng.oil_filter_alt1),
@@ -296,7 +298,7 @@ export default function EditYachtModal({
           serial_number: safeTrim(gen.serial_number),
           season_start_hours: safeTrim(gen.season_start_hours) ? parseFloat(safeTrim(gen.season_start_hours)) : null,
           sort_order: i,
-          company_id: userProfile?.company_id,
+          company_id: selectedCompany?.id || userProfile?.company_id,
           fuel_type: gen.fuel_type || 'diesel',
           oil_filter_part_number: safeTrim(gen.oil_filter_part_number),
           oil_filter_alt1: safeTrim(gen.oil_filter_alt1),

@@ -11214,7 +11214,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             wifi_name: yachtForm.wifi_name,
                             wifi_password: yachtForm.wifi_password,
                             owner_id: user?.id,
-                            company_id: userProfile?.company_id
+                            company_id: selectedCompany?.id || userProfile?.company_id
                           }).select().single();
 
                           if (error) throw error;
@@ -11232,7 +11232,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   serial_number: e.serial_number?.trim() || '',
                                   season_start_hours: e.season_start_hours ? parseFloat(e.season_start_hours) : null,
                                   sort_order: i,
-                                  company_id: userProfile?.company_id,
+                                  company_id: selectedCompany?.id || userProfile?.company_id,
                                   fuel_type: e.fuel_type || 'diesel',
                                   oil_filter_part_number: e.oil_filter_part_number?.trim() || '',
                                   oil_filter_alt1: e.oil_filter_alt1?.trim() || '',
@@ -11268,7 +11268,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   serial_number: g.serial_number?.trim() || '',
                                   season_start_hours: g.season_start_hours ? parseFloat(g.season_start_hours) : null,
                                   sort_order: i,
-                                  company_id: userProfile?.company_id,
+                                  company_id: selectedCompany?.id || userProfile?.company_id,
                                   fuel_type: g.fuel_type || 'diesel',
                                   oil_filter_part_number: g.oil_filter_part_number?.trim() || '',
                                   oil_filter_alt1: g.oil_filter_alt1?.trim() || '',
