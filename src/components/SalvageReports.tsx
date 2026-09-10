@@ -48,6 +48,7 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [uploadingType, setUploadingType] = useState<string | null>(null);
+  const [uploadPending, setUploadPending] = useState(0);
   const [printReport, setPrintReport] = useState<SalvageReport | null>(null);
   const [companyInfo, setCompanyInfo] = useState<{ name: string; logo_url?: string; tagline?: string; phone?: string; email?: string; address?: string } | null>(null);
   const [yachts, setYachts] = useState<{ id: string; name: string; manufacturer?: string | null; size?: string | null; hull_number?: string | null }[]>([]);
@@ -290,37 +291,46 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
     }
   }
 
-  async function handleUpload(file: File, mediaType: 'photo_prior' | 'photo_loss' | 'video_loss') {
+  async function handleUpload(files: File[], mediaType: 'photo_prior' | 'photo_loss' | 'video_loss') {
     if (!editingReport) return;
     setUploadingType(mediaType);
-    try {
-      const ext = file.name.split('.').pop() || 'bin';
-      const fileName = `${editingReport.id}/${mediaType}/${Date.now()}.${ext}`;
-      const { error: uploadErr } = await supabase.storage
-        .from('salvage-media')
-        .upload(fileName, file, { upsert: false });
-      if (uploadErr) throw uploadErr;
+    setUploadPending(files.length);
+    let successCount = 0;
+    let failCount = 0;
+    await Promise.allSettled(files.map(async (file) => {
+      try {
+        const ext = file.name.split('.').pop() || 'bin';
+        const fileName = `${editingReport.id}/${mediaType}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const { error: uploadErr } = await supabase.storage
+          .from('salvage-media')
+          .upload(fileName, file, { upsert: false });
+        if (uploadErr) throw uploadErr;
 
-      const { data: urlData } = supabase.storage.from('salvage-media').getPublicUrl(fileName);
+        const { data: urlData } = supabase.storage.from('salvage-media').getPublicUrl(fileName);
 
-      const { data: newMedia, error: mediaErr } = await supabase
-        .from('salvage_report_media')
-        .insert({
-          salvage_report_id: editingReport.id,
-          media_type: mediaType,
-          file_url: urlData.publicUrl,
-          file_name: file.name,
-        })
-        .select()
-        .single();
+        const { data: newMedia, error: mediaErr } = await supabase
+          .from('salvage_report_media')
+          .insert({
+            salvage_report_id: editingReport.id,
+            media_type: mediaType,
+            file_url: urlData.publicUrl,
+            file_name: file.name,
+          })
+          .select()
+          .single();
 
-      if (mediaErr) throw mediaErr;
-      setMedia(prev => [...prev, newMedia as SalvageReportMedia]);
-    } catch (err) {
-      console.error('Error uploading media:', err);
-      setError('Failed to upload file');
-    } finally {
-      setUploadingType(null);
+        if (mediaErr) throw mediaErr;
+        setMedia(prev => [...prev, newMedia as SalvageReportMedia]);
+        successCount++;
+      } catch (err) {
+        console.error('Error uploading media:', err);
+        failCount++;
+      }
+    }));
+    setUploadPending(0);
+    setUploadingType(null);
+    if (failCount > 0) {
+      setError(`Failed to upload ${failCount} of ${files.length} file${files.length > 1 ? 's' : ''}`);
     }
   }
 
@@ -564,28 +574,31 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
                   label="Photos of Boat Prior to Loss"
                   accept="image/*"
                   items={photoPrior}
-                  onUpload={file => handleUpload(file, 'photo_prior')}
+                  onUpload={files => handleUpload(files, 'photo_prior')}
                   onDelete={id => handleDeleteMedia(id, photoPrior.find(m => m.id === id)?.file_url || '')}
                   uploading={uploadingType === 'photo_prior'}
                   isVideo={false}
+                  pendingCount={uploadingType === 'photo_prior' ? uploadPending : 0}
                 />
                 <MediaUploadSection
                   label="Photos of the Loss"
                   accept="image/*"
                   items={photoLoss}
-                  onUpload={file => handleUpload(file, 'photo_loss')}
+                  onUpload={files => handleUpload(files, 'photo_loss')}
                   onDelete={id => handleDeleteMedia(id, photoLoss.find(m => m.id === id)?.file_url || '')}
                   uploading={uploadingType === 'photo_loss'}
                   isVideo={false}
+                  pendingCount={uploadingType === 'photo_loss' ? uploadPending : 0}
                 />
                 <MediaUploadSection
                   label="Videos of the Loss"
                   accept="video/*"
                   items={videoLoss}
-                  onUpload={file => handleUpload(file, 'video_loss')}
+                  onUpload={files => handleUpload(files, 'video_loss')}
                   onDelete={id => handleDeleteMedia(id, videoLoss.find(m => m.id === id)?.file_url || '')}
                   uploading={uploadingType === 'video_loss'}
                   isVideo={true}
+                  pendingCount={uploadingType === 'video_loss' ? uploadPending : 0}
                 />
               </FormSection>
             )}
@@ -768,8 +781,8 @@ function MediaUploadSection({
   label, accept, items, onUpload, onDelete, uploading, isVideo,
 }: {
   label: string; accept: string; items: SalvageReportMedia[];
-  onUpload: (file: File) => void; onDelete: (id: string) => void;
-  uploading: boolean; isVideo: boolean;
+  onUpload: (files: File[]) => void; onDelete: (id: string) => void;
+  uploading: boolean; isVideo: boolean; pendingCount?: number;
 }) {
   return (
     <div className="md:col-span-2 mb-4 last:mb-0">
@@ -795,13 +808,14 @@ function MediaUploadSection({
         ))}
       </div>
       <label className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 cursor-pointer text-sm font-medium">
-        {uploading ? 'Uploading...' : (<> <Upload className="w-4 h-4" /> Upload {isVideo ? 'Video' : 'Photo'}</>)}
+        {uploading ? (pendingCount && pendingCount > 1 ? `Uploading ${pendingCount} files...` : 'Uploading...') : (<> <Upload className="w-4 h-4" /> Upload {isVideo ? 'Videos' : 'Photos'}</>)}
         <input
           type="file"
           accept={accept}
+          multiple
           className="hidden"
           disabled={uploading}
-          onChange={e => { const f = e.target.files?.[0]; if (f) onUpload(f); e.target.value = ''; }}
+          onChange={e => { const fs = Array.from(e.target.files || []); if (fs.length) onUpload(fs); e.target.value = ''; }}
         />
       </label>
     </div>
