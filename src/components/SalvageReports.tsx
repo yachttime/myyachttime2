@@ -239,6 +239,7 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
     try {
       const payload = {
         ...form,
+        estimate_id: form.estimate_id || null,
         yacht_id: form.yacht_id || null,
         status: markComplete ? 'complete' : form.status,
         company_id: companyId,
