@@ -125,6 +125,10 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
       setSelectedCompany(company);
       localStorage.setItem('selectedCompanyId', companyId);
 
+      // Clear stale drafts from the previous company so they don't trigger
+      // failed lookups (and white-screen delays) in the new company's context
+      localStorage.removeItem('estimate_draft');
+
       // Update the master's selected_company_id in user_profiles so that
       // get_user_company_id() returns the selected company for RLS filtering
       try {

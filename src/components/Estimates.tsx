@@ -1693,9 +1693,13 @@ export function Estimates({ userId }: EstimatesProps) {
         .from('estimates')
         .select('*')
         .eq('id', estimateId)
-        .single();
+        .maybeSingle();
 
       if (estimateError) throw estimateError;
+      if (!estimate) {
+        setLoading(false);
+        return;
+      }
 
       // If estimate has yacht_id but no marina/manager info, fetch them from yacht and manager
       let marinaName = estimate.marina_name || '';
