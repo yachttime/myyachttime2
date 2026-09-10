@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Search, Plus, Eye, Printer, Trash2, ArrowLeft, Upload, X, FileText, Save, CheckCircle, Video } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Search, Plus, Eye, Printer, Trash2, ArrowLeft, Upload, X, FileText, Save, CheckCircle, Video, ChevronDown, Ship, User } from 'lucide-react';
 import { supabase, SalvageReport, SalvageReportMedia } from '../lib/supabase';
 
 interface SalvageReportsProps {
@@ -11,6 +11,7 @@ interface SalvageReportsProps {
 
 const EMPTY_FORM = {
   estimate_id: '' as string,
+  yacht_id: '' as string,
   vessel_name: '',
   owner_name: '',
   owner_phone: '',
@@ -49,6 +50,8 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
   const [uploadingType, setUploadingType] = useState<string | null>(null);
   const [printReport, setPrintReport] = useState<SalvageReport | null>(null);
   const [companyInfo, setCompanyInfo] = useState<{ name: string; logo_url?: string; tagline?: string; phone?: string; email?: string; address?: string } | null>(null);
+  const [yachts, setYachts] = useState<{ id: string; name: string; manufacturer?: string | null; size?: string | null; hull_number?: string | null }[]>([]);
+  const [customers, setCustomers] = useState<{ id: string; first_name: string | null; last_name: string | null; business_name: string | null; email: string | null; phone: string | null; address_line1: string | null; city: string | null; state: string | null; zip_code: string | null }[]>([]);
 
   const isMaster = userRole === 'master';
 
@@ -92,7 +95,21 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
   useEffect(() => {
     loadReports();
     loadCompanyInfo();
+    loadYachtsAndCustomers();
   }, [loadReports, loadCompanyInfo]);
+
+  const loadYachtsAndCustomers = useCallback(async () => {
+    try {
+      const [yachtRes, customerRes] = await Promise.all([
+        supabase.from('yachts').select('id, name, manufacturer, size, hull_number').eq('is_active', true).order('name'),
+        supabase.from('customers').select('id, first_name, last_name, business_name, email, phone, address_line1, city, state, zip_code').eq('is_active', true).order('first_name'),
+      ]);
+      if (yachtRes.data) setYachts(yachtRes.data as typeof yachts);
+      if (customerRes.data) setCustomers(customerRes.data as typeof customers);
+    } catch (err) {
+      console.error('Error loading yachts/customers:', err);
+    }
+  }, []);
 
   useEffect(() => {
     if (prefillEstimateId && view === 'list') {
@@ -151,17 +168,42 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
 
   function handleCreateNew() {
     setEditingReport(null);
-    setForm(EMPTY_FORM);
+    setForm({ ...EMPTY_FORM });
     setMedia([]);
     setError('');
     setSuccess(false);
     setView('form');
   }
 
+  function handleSelectYacht(yachtId: string) {
+    const yacht = yachts.find(y => y.id === yachtId);
+    if (yacht) {
+      setForm(prev => ({ ...prev, yacht_id: yacht.id, vessel_name: yacht.name }));
+    } else {
+      setForm(prev => ({ ...prev, yacht_id: '' }));
+    }
+  }
+
+  function handleSelectCustomer(customerId: string) {
+    const c = customers.find(c => c.id === customerId);
+    if (c) {
+      const name = c.business_name || [c.first_name, c.last_name].filter(Boolean).join(' ');
+      const addr = [c.address_line1, c.city, c.state, c.zip_code].filter(Boolean).join(', ');
+      setForm(prev => ({
+        ...prev,
+        owner_name: name,
+        owner_phone: c.phone || prev.owner_phone,
+        owner_email: c.email || prev.owner_email,
+        owner_address: addr || prev.owner_address,
+      }));
+    }
+  }
+
   function handleEdit(report: SalvageReport) {
     setEditingReport(report);
     setForm({
       estimate_id: report.estimate_id || '',
+      yacht_id: report.yacht_id || '',
       vessel_name: report.vessel_name || '',
       owner_name: report.owner_name || '',
       owner_phone: report.owner_phone || '',
@@ -197,6 +239,7 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
     try {
       const payload = {
         ...form,
+        yacht_id: form.yacht_id || null,
         status: markComplete ? 'complete' : form.status,
         company_id: companyId,
       };
@@ -448,9 +491,22 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
           {success && <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-6 flex items-center gap-2"><CheckCircle className="w-5 h-5" /> Report saved successfully.</div>}
 
           <div className="space-y-6">
+            {/* Quick-fill from existing data */}
+            <FormSection title="Quick Fill from Existing Data">
+              <VesselPickerDropdown
+                yachts={yachts}
+                selectedId={form.yacht_id}
+                onSelect={handleSelectYacht}
+              />
+              <CustomerPickerDropdown
+                customers={customers}
+                onSelect={handleSelectCustomer}
+              />
+            </FormSection>
+
             {/* Section: Owner & Insurance */}
             <FormSection title="Owner & Insurance Information">
-              <FormField label="Vessel Name" value={form.vessel_name} onChange={v => setForm({ ...form, vessel_name: v })} />
+              <FormField label="Vessel Name" value={form.vessel_name} onChange={v => setForm({ ...form, vessel_name: v, yacht_id: '' })} />
               <FormField label="Owner Name" value={form.owner_name} onChange={v => setForm({ ...form, owner_name: v })} />
               <FormField label="Owner Phone" value={form.owner_phone} onChange={v => setForm({ ...form, owner_phone: v })} />
               <FormField label="Owner Email" value={form.owner_email} onChange={v => setForm({ ...form, owner_email: v })} />
@@ -747,6 +803,166 @@ function PrintField({ label, value, fullWidth = false }: { label: string; value:
     <div className={fullWidth ? 'col-span-2' : ''}>
       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{label}</p>
       <p className="text-sm text-gray-900 mt-0.5 whitespace-pre-wrap">{value || '—'}</p>
+    </div>
+  );
+}
+
+function VesselPickerDropdown({
+  yachts, selectedId, onSelect,
+}: {
+  yachts: { id: string; name: string; manufacturer?: string | null; size?: string | null; hull_number?: string | null }[];
+  selectedId: string;
+  onSelect: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const filtered = yachts.filter(y =>
+    y.name.toLowerCase().includes(query.toLowerCase()) ||
+    (y.manufacturer || '').toLowerCase().includes(query.toLowerCase()) ||
+    (y.hull_number || '').toLowerCase().includes(query.toLowerCase())
+  );
+
+  const selected = yachts.find(y => y.id === selectedId);
+
+  return (
+    <div ref={ref}>
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        <Ship className="w-4 h-4 inline mr-1 text-gray-400" />
+        Select Vessel from Fleet
+      </label>
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-left flex items-center justify-between hover:border-blue-400 transition-colors"
+        >
+          <span className={selected ? 'text-gray-900' : 'text-gray-400'}>
+            {selected ? selected.name : 'Search fleet vessels...'}
+          </span>
+          <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+        </button>
+        {open && (
+          <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto">
+            <input
+              autoFocus
+              type="text"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Type to search..."
+              className="w-full px-3 py-2 border-b border-gray-200 text-sm focus:outline-none"
+            />
+            {filtered.length === 0 ? (
+              <p className="px-3 py-3 text-sm text-gray-400">No vessels found</p>
+            ) : (
+              filtered.map(y => (
+                <button
+                  key={y.id}
+                  type="button"
+                  onClick={() => { onSelect(y.id); setOpen(false); setQuery(''); }}
+                  className="w-full px-3 py-2 text-left hover:bg-blue-50 transition-colors border-b border-gray-50 last:border-0"
+                >
+                  <p className="text-sm font-medium text-gray-900">{y.name}</p>
+                  <p className="text-xs text-gray-500">
+                    {[y.manufacturer, y.size, y.hull_number && `Hull: ${y.hull_number}`].filter(Boolean).join(' • ')}
+                  </p>
+                </button>
+              ))
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CustomerPickerDropdown({
+  customers, onSelect,
+}: {
+  customers: { id: string; first_name: string | null; last_name: string | null; business_name: string | null; email: string | null; phone: string | null; address_line1: string | null; city: string | null; state: string | null; zip_code: string | null }[];
+  onSelect: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  function custName(c: typeof customers[0]) {
+    return c.business_name || [c.first_name, c.last_name].filter(Boolean).join(' ');
+  }
+
+  const filtered = customers.filter(c =>
+    custName(c).toLowerCase().includes(query.toLowerCase()) ||
+    (c.email || '').toLowerCase().includes(query.toLowerCase()) ||
+    (c.phone || '').includes(query)
+  );
+
+  return (
+    <div ref={ref}>
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        <User className="w-4 h-4 inline mr-1 text-gray-400" />
+        Select Owner from Customer Database
+      </label>
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-left flex items-center justify-between hover:border-blue-400 transition-colors"
+        >
+          <span className="text-gray-400">Search customers...</span>
+          <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+        </button>
+        {open && (
+          <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto">
+            <input
+              autoFocus
+              type="text"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Type to search by name, email, or phone..."
+              className="w-full px-3 py-2 border-b border-gray-200 text-sm focus:outline-none"
+            />
+            {filtered.length === 0 ? (
+              <p className="px-3 py-3 text-sm text-gray-400">No customers found</p>
+            ) : (
+              filtered.map(c => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => { onSelect(c.id); setOpen(false); setQuery(''); }}
+                  className="w-full px-3 py-2 text-left hover:bg-blue-50 transition-colors border-b border-gray-50 last:border-0"
+                >
+                  <p className="text-sm font-medium text-gray-900">{custName(c)}</p>
+                  <p className="text-xs text-gray-500">
+                    {[c.phone, c.email].filter(Boolean).join(' • ')}
+                  </p>
+                </button>
+              ))
+            )}
+          </div>
+        )}
+      </div>
+      <p className="text-xs text-gray-400 mt-1">Selecting a customer auto-fills owner name, phone, email, and address.</p>
     </div>
   );
 }
