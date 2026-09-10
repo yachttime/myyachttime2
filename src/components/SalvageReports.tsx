@@ -93,12 +93,6 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
     }
   }, [companyId]);
 
-  useEffect(() => {
-    loadReports();
-    loadCompanyInfo();
-    loadYachtsAndCustomers();
-  }, [loadReports, loadCompanyInfo, loadYachtsAndCustomers]);
-
   const loadYachtsAndCustomers = useCallback(async () => {
     try {
       const [yachtRes, customerRes] = await Promise.all([
@@ -111,6 +105,12 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
       console.error('Error loading yachts/customers:', err);
     }
   }, [companyId]);
+
+  useEffect(() => {
+    loadReports();
+    loadCompanyInfo();
+    loadYachtsAndCustomers();
+  }, [loadReports, loadCompanyInfo, loadYachtsAndCustomers]);
 
   useEffect(() => {
     if (prefillEstimateId && view === 'list') {
