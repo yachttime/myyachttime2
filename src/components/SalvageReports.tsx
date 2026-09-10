@@ -297,6 +297,9 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
     setUploadPending(files.length);
     let successCount = 0;
     let failCount = 0;
+    const existingGroup = media.filter(m => m.media_type === mediaType);
+    const maxSort = existingGroup.reduce((max, m) => Math.max(max, m.sort_order), -1);
+    let sortOffset = 0;
     await Promise.allSettled(files.map(async (file) => {
       try {
         const ext = file.name.split('.').pop() || 'bin';
@@ -308,6 +311,9 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
 
         const { data: urlData } = supabase.storage.from('salvage-media').getPublicUrl(fileName);
 
+        const sortOrder = maxSort + 1 + sortOffset;
+        sortOffset++;
+
         const { data: newMedia, error: mediaErr } = await supabase
           .from('salvage_report_media')
           .insert({
@@ -315,6 +321,7 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
             media_type: mediaType,
             file_url: urlData.publicUrl,
             file_name: file.name,
+            sort_order: sortOrder,
           })
           .select()
           .single();
@@ -343,7 +350,9 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
     if (direction === 'right' && idx >= group.length - 1) return;
     const swapIdx = direction === 'left' ? idx - 1 : idx + 1;
     const swapItem = group[swapIdx];
+    if (!swapItem) return;
 
+    const prevMedia = media;
     setMedia(prev => prev.map(m => {
       if (m.id === mediaId) return { ...m, sort_order: swapItem.sort_order };
       if (m.id === swapItem.id) return { ...m, sort_order: item.sort_order };
@@ -351,12 +360,18 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
     }));
 
     try {
-      await Promise.all([
+      const [r1, r2] = await Promise.all([
         supabase.from('salvage_report_media').update({ sort_order: swapItem.sort_order }).eq('id', mediaId),
         supabase.from('salvage_report_media').update({ sort_order: item.sort_order }).eq('id', swapItem.id),
       ]);
+      if (r1.error || r2.error) {
+        setMedia(prevMedia);
+        setError('Failed to reorder photos. Please try again.');
+      }
     } catch (err) {
       console.error('Error reordering media:', err);
+      setMedia(prevMedia);
+      setError('Failed to reorder photos. Please try again.');
     }
   }
 
