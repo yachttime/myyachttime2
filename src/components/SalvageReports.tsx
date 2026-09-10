@@ -241,6 +241,8 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
         ...form,
         estimate_id: form.estimate_id || null,
         yacht_id: form.yacht_id || null,
+        date_of_loss: form.date_of_loss || null,
+        date_of_service: form.date_of_service || null,
         status: markComplete ? 'complete' : form.status,
         company_id: companyId,
       };
