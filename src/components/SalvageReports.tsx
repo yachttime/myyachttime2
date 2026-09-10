@@ -276,7 +276,9 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
   }
 
   async function handleDelete(reportId: string) {
-    if (!confirm('Delete this salvage report? This cannot be undone.')) return;
+    const report = reports.find(r => r.id === reportId);
+    const label = report ? `${report.report_number} (${report.vessel_name || 'no vessel'})` : 'this report';
+    if (!confirm(`Delete salvage report ${label}? This cannot be undone.`)) return;
     try {
       const { error } = await supabase.from('salvage_reports').delete().eq('id', reportId);
       if (error) throw error;
@@ -700,9 +702,12 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
                           <Printer className="w-4 h-4" />
                         </button>
                         {isMaster && (
-                          <button onClick={() => handleDelete(r.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded" title="Delete">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          <>
+                            <div className="w-px h-5 bg-gray-300 mx-1" />
+                            <button onClick={() => handleDelete(r.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded" title="Delete">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </>
                         )}
                       </div>
                     </td>
