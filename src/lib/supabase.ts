@@ -395,6 +395,7 @@ export interface SalvageReportMedia {
   file_url: string;
   file_name: string;
   caption: string | null;
+  sort_order: number;
   created_at: string;
 }
 

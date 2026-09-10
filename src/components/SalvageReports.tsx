@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Search, Plus, Eye, Printer, Trash2, ArrowLeft, Upload, X, FileText, Save, CheckCircle, Video, ChevronDown, Ship, User } from 'lucide-react';
+import { Search, Plus, Eye, Printer, Trash2, ArrowLeft, Upload, X, FileText, Save, CheckCircle, Video, ChevronDown, ChevronLeft, ChevronRight, Ship, User } from 'lucide-react';
 import { supabase, SalvageReport, SalvageReportMedia } from '../lib/supabase';
 
 interface SalvageReportsProps {
@@ -334,6 +334,32 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
     }
   }
 
+  async function handleMoveMedia(mediaId: string, direction: 'left' | 'right') {
+    const item = media.find(m => m.id === mediaId);
+    if (!item) return;
+    const group = media.filter(m => m.media_type === item.media_type).sort((a, b) => a.sort_order - b.sort_order);
+    const idx = group.findIndex(m => m.id === mediaId);
+    if (direction === 'left' && idx <= 0) return;
+    if (direction === 'right' && idx >= group.length - 1) return;
+    const swapIdx = direction === 'left' ? idx - 1 : idx + 1;
+    const swapItem = group[swapIdx];
+
+    setMedia(prev => prev.map(m => {
+      if (m.id === mediaId) return { ...m, sort_order: swapItem.sort_order };
+      if (m.id === swapItem.id) return { ...m, sort_order: item.sort_order };
+      return m;
+    }));
+
+    try {
+      await Promise.all([
+        supabase.from('salvage_report_media').update({ sort_order: swapItem.sort_order }).eq('id', mediaId),
+        supabase.from('salvage_report_media').update({ sort_order: item.sort_order }).eq('id', swapItem.id),
+      ]);
+    } catch (err) {
+      console.error('Error reordering media:', err);
+    }
+  }
+
   async function handleDeleteMedia(mediaId: string, fileUrl: string) {
     try {
       const filePath = fileUrl.split('/salvage-media/')[1];
@@ -353,9 +379,9 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
     setView('print');
   }
 
-  const photoPrior = media.filter(m => m.media_type === 'photo_prior');
-  const photoLoss = media.filter(m => m.media_type === 'photo_loss');
-  const videoLoss = media.filter(m => m.media_type === 'video_loss');
+  const photoPrior = media.filter(m => m.media_type === 'photo_prior').sort((a, b) => a.sort_order - b.sort_order);
+  const photoLoss = media.filter(m => m.media_type === 'photo_loss').sort((a, b) => a.sort_order - b.sort_order);
+  const videoLoss = media.filter(m => m.media_type === 'video_loss').sort((a, b) => a.sort_order - b.sort_order);
 
   // ── PRINT VIEW ──
   if (view === 'print' && printReport) {
@@ -576,6 +602,7 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
                   items={photoPrior}
                   onUpload={files => handleUpload(files, 'photo_prior')}
                   onDelete={id => handleDeleteMedia(id, photoPrior.find(m => m.id === id)?.file_url || '')}
+                  onMove={(id, dir) => handleMoveMedia(id, dir)}
                   uploading={uploadingType === 'photo_prior'}
                   isVideo={false}
                   pendingCount={uploadingType === 'photo_prior' ? uploadPending : 0}
@@ -586,6 +613,7 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
                   items={photoLoss}
                   onUpload={files => handleUpload(files, 'photo_loss')}
                   onDelete={id => handleDeleteMedia(id, photoLoss.find(m => m.id === id)?.file_url || '')}
+                  onMove={(id, dir) => handleMoveMedia(id, dir)}
                   uploading={uploadingType === 'photo_loss'}
                   isVideo={false}
                   pendingCount={uploadingType === 'photo_loss' ? uploadPending : 0}
@@ -596,6 +624,7 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
                   items={videoLoss}
                   onUpload={files => handleUpload(files, 'video_loss')}
                   onDelete={id => handleDeleteMedia(id, videoLoss.find(m => m.id === id)?.file_url || '')}
+                  onMove={(id, dir) => handleMoveMedia(id, dir)}
                   uploading={uploadingType === 'video_loss'}
                   isVideo={true}
                   pendingCount={uploadingType === 'video_loss' ? uploadPending : 0}
@@ -778,17 +807,18 @@ function FormField({
 }
 
 function MediaUploadSection({
-  label, accept, items, onUpload, onDelete, uploading, isVideo, pendingCount,
+  label, accept, items, onUpload, onDelete, onMove, uploading, isVideo, pendingCount,
 }: {
   label: string; accept: string; items: SalvageReportMedia[];
   onUpload: (files: File[]) => void; onDelete: (id: string) => void;
+  onMove: (id: string, direction: 'left' | 'right') => void;
   uploading: boolean; isVideo: boolean; pendingCount?: number;
 }) {
   return (
     <div className="md:col-span-2 mb-4 last:mb-0">
       <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
       <div className="flex flex-wrap gap-3 mb-3">
-        {items.map(m => (
+        {items.map((m, idx) => (
           <div key={m.id} className="relative group">
             {isVideo ? (
               <div className="w-32 h-24 bg-gray-100 rounded-lg border border-gray-300 flex items-center justify-center">
@@ -803,6 +833,24 @@ function MediaUploadSection({
             >
               <X className="w-3 h-3" />
             </button>
+            {items.length > 1 && (
+              <div className="absolute -top-2 -left-2 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                  onClick={() => onMove(m.id, 'left')}
+                  disabled={idx === 0}
+                  className="bg-white text-gray-700 rounded-full p-1 shadow-sm border border-gray-300 disabled:opacity-30 hover:bg-gray-100"
+                >
+                  <ChevronLeft className="w-3 h-3" />
+                </button>
+                <button
+                  onClick={() => onMove(m.id, 'right')}
+                  disabled={idx === items.length - 1}
+                  className="bg-white text-gray-700 rounded-full p-1 shadow-sm border border-gray-300 disabled:opacity-30 hover:bg-gray-100"
+                >
+                  <ChevronRight className="w-3 h-3" />
+                </button>
+              </div>
+            )}
             <p className="text-xs text-gray-500 mt-1 w-32 truncate">{m.file_name}</p>
           </div>
         ))}
