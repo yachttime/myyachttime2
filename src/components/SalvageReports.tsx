@@ -409,7 +409,6 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
               <PrintField label="GPS Latitude" value={r.gps_latitude} />
               <PrintField label="GPS Longitude" value={r.gps_longitude} />
               <PrintField label="Vessel Depth" value={r.vessel_depth} />
-              <PrintField label="Underwater Condition" value={r.underwater_condition} />
             </PrintSection>
 
             {/* Vessel Condition & Fuel */}
@@ -420,9 +419,20 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
             </PrintSection>
 
             {/* Findings */}
-            {r.findings && (
-              <PrintSection title="Findings">
-                <div className="col-span-2 text-sm text-gray-800 whitespace-pre-wrap">{r.findings}</div>
+            {(r.findings || r.underwater_condition) && (
+              <PrintSection title="Findings from Estimate">
+                {r.underwater_condition && (
+                  <div className="col-span-2 mb-4">
+                    <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Underwater Condition</p>
+                    <p className="text-sm text-gray-800 whitespace-pre-wrap">{r.underwater_condition}</p>
+                  </div>
+                )}
+                {r.findings && (
+                  <div className="col-span-2">
+                    <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Findings & Notes</p>
+                    <p className="text-sm text-gray-800 whitespace-pre-wrap">{r.findings}</p>
+                  </div>
+                )}
               </PrintSection>
             )}
 
@@ -529,7 +539,6 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
               <FormField label="GPS Latitude" value={form.gps_latitude} onChange={v => setForm({ ...form, gps_latitude: v })} placeholder="e.g., 36.9147" />
               <FormField label="GPS Longitude" value={form.gps_longitude} onChange={v => setForm({ ...form, gps_longitude: v })} placeholder="e.g., -111.4558" />
               <FormField label="Vessel Depth" value={form.vessel_depth} onChange={v => setForm({ ...form, vessel_depth: v })} placeholder="e.g., 45 feet" />
-              <FormField label="Underwater Condition" value={form.underwater_condition} onChange={v => setForm({ ...form, underwater_condition: v })} fullWidth textarea placeholder="Describe the condition of the vessel underwater..." />
             </FormSection>
 
             {/* Section: Vessel Condition & Fuel */}
@@ -541,6 +550,7 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
 
             {/* Section: Findings */}
             <FormSection title="Findings from Estimate">
+              <FormField label="Underwater Condition" value={form.underwater_condition} onChange={v => setForm({ ...form, underwater_condition: v })} fullWidth textarea placeholder="Describe the condition of the vessel underwater..." />
               <FormField label="Findings & Notes" value={form.findings} onChange={v => setForm({ ...form, findings: v })} fullWidth textarea placeholder="Findings and notes drawn from the estimate..." />
             </FormSection>
 
