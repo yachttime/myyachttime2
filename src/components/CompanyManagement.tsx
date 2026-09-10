@@ -474,9 +474,18 @@ export function CompanyManagement() {
     <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Company Settings</h1>
-          <p className="text-slate-400">Manage your company information and settings</p>
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Company Settings</h1>
+            <p className="text-slate-400">Manage your company information and settings</p>
+          </div>
+          <button
+            onClick={handleAddNew}
+            className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 px-5 py-3 rounded-lg font-semibold transition-colors"
+          >
+            <Plus className="h-5 w-5" />
+            Add New Company
+          </button>
         </div>
 
         {/* Filters */}
