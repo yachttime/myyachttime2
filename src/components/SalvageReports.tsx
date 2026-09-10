@@ -778,7 +778,7 @@ function FormField({
 }
 
 function MediaUploadSection({
-  label, accept, items, onUpload, onDelete, uploading, isVideo,
+  label, accept, items, onUpload, onDelete, uploading, isVideo, pendingCount,
 }: {
   label: string; accept: string; items: SalvageReportMedia[];
   onUpload: (files: File[]) => void; onDelete: (id: string) => void;
