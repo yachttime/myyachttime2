@@ -65,6 +65,7 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
           salvage_report_media(*),
           estimates(estimate_number, customer_name, customer_email, customer_phone, yachts(name))
         `)
+        .eq('company_id', companyId)
         .order('created_at', { ascending: false });
       if (error) throw error;
       setReports((data as SalvageReport[]) || []);
@@ -74,7 +75,7 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [companyId]);
 
   const loadCompanyInfo = useCallback(async () => {
     try {
@@ -96,20 +97,20 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
     loadReports();
     loadCompanyInfo();
     loadYachtsAndCustomers();
-  }, [loadReports, loadCompanyInfo]);
+  }, [loadReports, loadCompanyInfo, loadYachtsAndCustomers]);
 
   const loadYachtsAndCustomers = useCallback(async () => {
     try {
       const [yachtRes, customerRes] = await Promise.all([
-        supabase.from('yachts').select('id, name, manufacturer, size, hull_number').eq('is_active', true).order('name'),
-        supabase.from('customers').select('id, first_name, last_name, business_name, email, phone, address_line1, city, state, zip_code').eq('is_active', true).order('first_name'),
+        supabase.from('yachts').select('id, name, manufacturer, size, hull_number').eq('is_active', true).eq('company_id', companyId).order('name'),
+        supabase.from('customers').select('id, first_name, last_name, business_name, email, phone, address_line1, city, state, zip_code').eq('is_active', true).eq('company_id', companyId).order('first_name'),
       ]);
       if (yachtRes.data) setYachts(yachtRes.data as typeof yachts);
       if (customerRes.data) setCustomers(customerRes.data as typeof customers);
     } catch (err) {
       console.error('Error loading yachts/customers:', err);
     }
-  }, []);
+  }, [companyId]);
 
   useEffect(() => {
     if (prefillEstimateId && view === 'list') {

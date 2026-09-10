@@ -17260,12 +17260,14 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                   <YearEndOverview companyId={selectedCompany?.id || userProfile?.company_id} />
                 </AdminViewWrapper>
               ) : adminView === 'salvagereports' ? (
+                <AdminViewWrapper onBack={() => setAdminViewPersisted('menu')} backHoverColor="hover:text-amber-500">
                 <SalvageReports
                   userId={userProfile?.user_id || ''}
                   companyId={selectedCompany?.id || userProfile?.company_id || ''}
                   userRole={effectiveRole}
                   prefillEstimateId={salvagePrefillEstimateId}
                 />
+                </AdminViewWrapper>
               ) : null}
             </div>
           )}
