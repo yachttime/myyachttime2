@@ -80,10 +80,12 @@ export interface Yacht {
   id: string;
   name: string;
   model?: string;
+  manufacturer?: string;
   year?: number;
   description?: string;
   image_url?: string;
   owner_id?: string;
+  company_id?: string;
   hull_number?: string;
   size?: string;
   port_engine?: string;

@@ -11325,8 +11325,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           setEnginesForm([]);
                           setGeneratorsForm([]);
                           setShowYachtForm(false);
-                          await loadAllYachts();
                           await refreshProfile();
+                          await loadAllYachts();
 
                           setTimeout(() => setYachtSuccess(false), 3000);
                         } catch (err: any) {
@@ -14123,8 +14123,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       userProfile={userProfile}
                       currentUserId={user?.id}
                       onSaved={async () => {
-                        await loadAllYachts();
                         await refreshProfile();
+                        await loadAllYachts();
                       }}
                     />
                   )}

@@ -368,6 +368,7 @@ export default function EditYachtModal({
       setGeneratorsForm([]);
       setYachtForm(EMPTY_YACHT_FORM);
       await onSaved();
+      handleClose();
 
       setTimeout(() => setYachtSuccess(false), 3000);
     } catch (err: any) {
