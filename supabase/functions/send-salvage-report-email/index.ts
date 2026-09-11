@@ -136,7 +136,18 @@ Deno.serve(async (req: Request) => {
       const latSpan = 0.0351;
       const lngSpan = 0.0527;
       const bbox = [lngNum - lngSpan, latNum - latSpan, lngNum + lngSpan, latNum + latSpan].join(",");
-      const mapParams = new URLSearchParams({ bbox, bboxSR: "4326", imageSR: "4326", size: "900,520", format: "png32", f: "image" });
+      // ArcGIS marker parameter: lng,lat,xoffset,yoffset,iconType,color,size,outlineColor,outlineSize
+      // This bakes the red pin directly into the exported map image so it renders in email clients
+      // (email clients strip CSS position:absolute, so CSS overlays don't work)
+      const markerDef = [
+        `${lngNum},${latNum}`,
+        "0,0",           // no offset
+        "esriSMS",       // simple marker symbol
+        "25,255,0,0",    // red (RGB 255,0,0), size 25
+        "255,255,255",   // white outline
+        "3",             // outline width
+      ].join(",");
+      const mapParams = new URLSearchParams({ bbox, bboxSR: "4326", imageSR: "4326", size: "900,520", format: "png32", marker: markerDef, f: "image" });
       const mapUrl = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?${mapParams.toString()}`;
       const gmapsUrl = `https://www.google.com/maps/search/?api=1&query=${latNum},${lngNum}`;
       mapHtml = `
@@ -144,11 +155,8 @@ Deno.serve(async (req: Request) => {
           <td style="padding:0 0 20px 0;">
             <h3 style="margin:0 0 8px 0;font-size:14px;font-weight:600;color:#374151;border-bottom:1px solid #e5e7eb;padding-bottom:6px;">Approximate Location of Loss</h3>
             <p style="font-size:12px;color:#6b7280;margin:0 0 8px 0;">GPS: ${latNum.toFixed(4)}, ${lngNum.toFixed(4)} — <a href="${gmapsUrl}" style="color:#2563eb;">Open in Google Maps</a></p>
-            <a href="${gmapsUrl}" target="_blank" style="display:block;text-decoration:none;position:relative;">
+            <a href="${gmapsUrl}" target="_blank" style="display:block;text-decoration:none;">
               <img src="${mapUrl}" alt="Satellite imagery showing approximate salvage location at ${latNum}, ${lngNum}" style="width:100%;max-width:576px;height:auto;border-radius:6px;border:1px solid #e5e7eb;display:block;" />
-              <span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-100%);width:28px;height:28px;display:block;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="#ef4444" stroke="#ffffff" stroke-width="2" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5));"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 0 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
-              </span>
             </a>
             <p style="font-size:9px;color:#9ca3af;margin:4px 0 0 0;">Esri, Maxar, Earthstar Geographics</p>
           </td>
