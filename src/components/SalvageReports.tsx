@@ -1117,30 +1117,8 @@ function LossLocationMap({ lat, lng, forPrint = false }: { lat: string | number;
   const lngNum = typeof lng === 'number' ? lng : parseFloat(lng);
   if (isNaN(latNum) || isNaN(lngNum)) return null;
 
-  const zoom = 14;
-  const safeLat = Math.max(-85.0511, Math.min(85.0511, latNum));
-  const scale = 2 ** zoom;
-  const centerX = ((lngNum + 180) / 360) * scale;
-  const centerY = (1 - Math.asinh(Math.tan((safeLat * Math.PI) / 180)) / Math.PI) / 2 * scale;
-  const tileX = Math.floor(centerX);
-  const tileY = Math.floor(centerY);
-  const tileSize = 256;
-  const mapHeight = forPrint ? 300 : 250;
+  const mapUrl = `https://www.google.com/maps?q=${latNum},${lngNum}&z=14&t=k&output=embed`;
   const gmapsUrl = `https://www.google.com/maps/search/?api=1&query=${latNum},${lngNum}`;
-  const tiles: { x: number; y: number; left: number; top: number; key: string }[] = [];
-
-  for (let x = tileX - 1; x <= tileX + 1; x += 1) {
-    for (let y = tileY - 1; y <= tileY + 1; y += 1) {
-      const wrappedX = ((x % scale) + scale) % scale;
-      tiles.push({
-        x: wrappedX,
-        y,
-        left: (x - centerX) * tileSize,
-        top: (y - centerY) * tileSize,
-        key: `${wrappedX}-${y}`,
-      });
-    }
-  }
 
   return (
     <div className={forPrint ? '' : 'rounded-lg border border-gray-200 overflow-hidden bg-gray-50'}>
@@ -1148,35 +1126,25 @@ function LossLocationMap({ lat, lng, forPrint = false }: { lat: string | number;
         <MapPin className="w-4 h-4 text-red-500" />
         <span className="text-sm font-medium text-gray-700">Approximate Location of Loss</span>
         <span className="text-xs text-gray-500 ml-1">({latNum.toFixed(4)}, {lngNum.toFixed(4)})</span>
-        {!forPrint && (
-          <a
-            href={gmapsUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="ml-auto inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium"
-          >
-            View larger map <ExternalLink className="w-3 h-3" />
-          </a>
-        )}
+        <a
+          href={gmapsUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="ml-auto inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium"
+        >
+          Open in Google Maps <ExternalLink className="w-3 h-3" />
+        </a>
       </div>
-      <div
-        className={`relative overflow-hidden ${forPrint ? 'border border-gray-300 rounded' : ''}`}
-        style={{ height: `${mapHeight}px`, background: '#e5e7eb' }}
-      >
-        {tiles.map(tile => (
-          <img
-            key={tile.key}
-            src={`https://tile.openstreetmap.org/${zoom}/${tile.x}/${tile.y}.png`}
-            alt=""
-            aria-hidden="true"
-            className="absolute max-w-none"
-            style={{ width: `${tileSize}px`, height: `${tileSize}px`, left: `calc(50% + ${tile.left}px)`, top: `calc(50% + ${tile.top}px)` }}
-          />
-        ))}
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full text-red-600 drop-shadow-md">
-          <MapPin className="w-9 h-9 fill-red-500" strokeWidth={1.5} />
-        </div>
-        <div className="absolute bottom-1 left-1 rounded bg-white/85 px-1 text-[9px] text-gray-600">© OpenStreetMap contributors</div>
+      <div className={forPrint ? 'border border-gray-300 rounded overflow-hidden' : 'overflow-hidden'}>
+        <iframe
+          src={mapUrl}
+          title={`Google satellite map showing loss location at ${latNum}, ${lngNum}`}
+          className="w-full"
+          style={{ height: forPrint ? '300px' : '250px', border: 0 }}
+          loading="lazy"
+          allowFullScreen
+          referrerPolicy="no-referrer-when-downgrade"
+        />
       </div>
     </div>
   );
