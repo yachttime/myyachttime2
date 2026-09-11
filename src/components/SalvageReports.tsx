@@ -379,7 +379,10 @@ export function SalvageReports({ userId, companyId, prefillEstimateId }: Salvage
   }
 
   function handlePrint(report: SalvageReport) {
-    setPrintReport({ ...report, salvage_report_media: media });
+    const reportMedia = (report.salvage_report_media && report.salvage_report_media.length > 0)
+      ? report.salvage_report_media
+      : media;
+    setPrintReport({ ...report, salvage_report_media: reportMedia });
     setView('print');
   }
 
