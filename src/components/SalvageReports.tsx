@@ -81,12 +81,12 @@ export function SalvageReports({ userId, companyId, prefillEstimateId }: Salvage
     try {
       const { data } = await supabase
         .from('companies')
-        .select('name, logo_url, tagline, phone, email, address_line1, city, state, zip_code')
+        .select('company_name, logo_url, phone, email, address, city, state, zip_code, website')
         .eq('id', companyId)
         .maybeSingle();
       if (data) {
-        const addr = [data.address_line1, data.city, data.state, data.zip_code].filter(Boolean).join(', ');
-        setCompanyInfo({ name: data.name, logo_url: data.logo_url, tagline: data.tagline, phone: data.phone, email: data.email, address: addr });
+        const addr = [data.address, data.city, data.state, data.zip_code].filter(Boolean).join(', ');
+        setCompanyInfo({ name: data.company_name, logo_url: data.logo_url, tagline: data.website, phone: data.phone, email: data.email, address: addr });
       }
     } catch (err) {
       console.error('Error loading company info:', err);
@@ -512,21 +512,23 @@ export function SalvageReports({ userId, companyId, prefillEstimateId }: Salvage
               </PrintSection>
             )}
 
-            {/* Videos - Loss (thumbnail only in print) */}
+            {/* Videos - Loss (hidden from print, no point printing video file names) */}
             {rVideoLoss.length > 0 && (
-              <PrintSection title="Videos of the Loss">
-                {rVideoLoss.map(m => (
-                  <div key={m.id} className="col-span-2 mb-4">
-                    <div className="flex items-center gap-3 border border-gray-300 rounded-lg p-4">
-                      <Video className="w-8 h-8 text-gray-400" />
-                      <div>
-                        <p className="text-sm font-medium text-gray-800">{m.file_name}</p>
-                        {m.caption && <p className="text-xs text-gray-600">{m.caption}</p>}
+              <div className="no-print">
+                <PrintSection title="Videos of the Loss">
+                  {rVideoLoss.map(m => (
+                    <div key={m.id} className="col-span-2 mb-4">
+                      <div className="flex items-center gap-3 border border-gray-300 rounded-lg p-4">
+                        <Video className="w-8 h-8 text-gray-400" />
+                        <div>
+                          <p className="text-sm font-medium text-gray-800">{m.file_name}</p>
+                          {m.caption && <p className="text-xs text-gray-600">{m.caption}</p>}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </PrintSection>
+                  ))}
+                </PrintSection>
+              </div>
             )}
 
             <div className="mt-12 pt-6 border-t border-gray-300 text-xs text-gray-500 text-center">
