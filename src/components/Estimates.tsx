@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { supabase } from '../lib/supabase';
 import { Plus, FileText, AlertCircle, CreditCard as Edit2, Trash2, Check, X, ChevronDown, ChevronUp, Printer, CheckCircle, XCircle, Package, Archive, RotateCcw, Search, User, ClipboardList } from 'lucide-react';
-import { generateEstimatePDF, generateTripInspectionPDF } from '../utils/pdfGenerator';
+import { generateEstimatePDF, generateTripInspectionPDF, generateWorkOrderPDF } from '../utils/pdfGenerator';
+import { attachPdfToEstimateSalvageReport, attachPdfToWorkOrderSalvageReport } from '../utils/salvagePdfAttach';
 import { useNotification } from '../contexts/NotificationContext';
 
 const DEFAULT_CUSTOMER_NOTES = `I hereby authorize the above repair work to be done along with necessary materials. It is distinctly understood that all labor and materials so used shall be charged to this job at current billing rates. You and your employees may operate above equipment for purpose of testing, inspecting or delivering at my risk. An express mechanic's lien is acknowledged to secure the amount of repairs thereto. It is understood that this company assumes no responsibility for loss or damage by fire or theft or weather hazards incidental to equipment or materials placed with them for sale, repair or testing. If legal action is necessary to enforce this contract I will pay all reasonable attorney's fees and other costs incurred. All payments are C.O.D. unless prior arrangements are made. If equipment is not removed within 10 days after completion of service, storage charges will accrue at $15 per day.
@@ -1749,6 +1750,45 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
 
       showSuccess(currentEditingId ? 'Estimate updated successfully!' : 'Estimate created successfully! Use the Approve button to convert it to a work order and adjust inventory.');
 
+      // If this estimate is linked to a salvage report, generate and attach the PDF
+      try {
+        const estimateIdForPdf = currentEditingId || estimate.id;
+        const { data: estData } = await supabase
+          .from('estimates')
+          .select('*, yachts(name, manufacturer, model)')
+          .eq('id', estimateIdForPdf)
+          .maybeSingle();
+        const { data: companyInfo } = await supabase
+          .from('company_info')
+          .select('*')
+          .limit(1)
+          .maybeSingle();
+        if (estData) {
+          const { data: tasksData } = await supabase
+            .from('estimate_tasks')
+            .select('*')
+            .eq('estimate_id', estimateIdForPdf)
+            .order('task_order');
+          const tasksWithItems = await Promise.all(
+            (tasksData || []).map(async (task) => {
+              const { data: items } = await supabase
+                .from('estimate_line_items')
+                .select('*')
+                .eq('task_id', task.id)
+                .order('line_order');
+              return { ...task, lineItems: items || [] };
+            })
+          );
+          const yachtName = estData.yachts?.name || null;
+          const yachtMake = estData.yachts?.manufacturer || null;
+          const yachtModel = estData.yachts?.model || null;
+          const pdf = await generateEstimatePDF(estData, tasksWithItems, yachtName, companyInfo, yachtMake, yachtModel);
+          await attachPdfToEstimateSalvageReport(estimateIdForPdf, pdf, `${estData.estimate_number} - Estimate.pdf`);
+        }
+      } catch (salvageErr) {
+        console.warn('Failed to attach estimate PDF to salvage report:', salvageErr);
+      }
+
       localStorage.removeItem('estimate_draft');
       await resetForm();
       await loadData();
@@ -2161,6 +2201,42 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
       if (error) throw error;
 
       await loadData();
+
+      // If this estimate is linked to a salvage report, generate and attach the work order PDF
+      try {
+        const { data: woData } = await supabase
+          .from('work_orders')
+          .select('*, yachts(name, manufacturer, model), estimates(subtotal, discount_percentage, discount_amount, sales_tax_rate, sales_tax_amount, shop_supplies_rate, shop_supplies_amount, park_fees_rate, park_fees_amount, surcharge_rate, surcharge_amount, total_amount, notes, customer_notes)')
+          .eq('estimate_id', estimateToApprove)
+          .maybeSingle();
+        if (woData) {
+          const { data: companyInfo } = await supabase
+            .from('company_info')
+            .select('*')
+            .limit(1)
+            .maybeSingle();
+          const { data: woTasks } = await supabase
+            .from('work_order_tasks')
+            .select('*')
+            .eq('work_order_id', woData.id)
+            .order('task_order');
+          const tasksWithItems = await Promise.all(
+            (woTasks || []).map(async (task) => {
+              const { data: items } = await supabase
+                .from('work_order_line_items')
+                .select('*')
+                .eq('task_id', task.id)
+                .order('line_order');
+              return { ...task, lineItems: items || [] };
+            })
+          );
+          const yachtName = woData.yachts?.name || null;
+          const woPdf = await generateWorkOrderPDF(woData, tasksWithItems, yachtName, companyInfo);
+          await attachPdfToWorkOrderSalvageReport(woData.id, woPdf, `${woData.work_order_number} - Work Order.pdf`);
+        }
+      } catch (salvageErr) {
+        console.warn('Failed to attach work order PDF to salvage report:', salvageErr);
+      }
 
       if (data?.low_stock_alerts && data.low_stock_alerts.length > 0) {
         const alerts = data.low_stock_alerts;

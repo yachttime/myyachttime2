@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { supabase } from '../lib/supabase';
 import { Plus, Wrench, AlertCircle, CreditCard as Edit2, Trash2, Check, X, ChevronDown, ChevronUp, Printer, CheckCircle, Clock, FileText, DollarSign, Mail, ExternalLink, RefreshCw, Eye, MousePointer, Download, Archive, RotateCcw, Package, ClipboardList } from 'lucide-react';
-import { generateWorkOrderPDF, generateTripInspectionPDF } from '../utils/pdfGenerator';
+import { generateWorkOrderPDF, generateTripInspectionPDF, generateEstimatingInvoicePDF } from '../utils/pdfGenerator';
+import { attachPdfToWorkOrderSalvageReport } from '../utils/salvagePdfAttach';
 import { useNotification } from '../contexts/NotificationContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useConfirm } from '../hooks/useConfirm';
@@ -1500,6 +1501,69 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
         });
 
       if (convertError) throw convertError;
+
+      // If this work order's estimate is linked to a salvage report, generate and attach the invoice PDF
+      try {
+        if (data?.invoice_id) {
+          const { data: invData } = await supabase
+            .from('estimating_invoices')
+            .select('*')
+            .eq('id', data.invoice_id)
+            .maybeSingle();
+          if (invData) {
+            const { data: companyInfo } = await supabase
+              .from('company_info')
+              .select('*')
+              .limit(1)
+              .maybeSingle();
+            const { data: invLineItems } = await supabase
+              .from('estimating_invoice_line_items')
+              .select('*, estimating_invoice_tasks(task_name, task_overview)')
+              .eq('invoice_id', data.invoice_id)
+              .order('line_order');
+            const formattedItems = (invLineItems || []).map((item: any) => ({
+              line_type: item.line_type,
+              description: item.description,
+              work_details: item.work_details,
+              quantity: item.quantity,
+              unit_price: item.unit_price,
+              total_price: item.total_price,
+              task_name: item.estimating_invoice_tasks?.task_name,
+              task_overview: item.estimating_invoice_tasks?.task_overview,
+            }));
+            const invPdf = await generateEstimatingInvoicePDF(
+              {
+                invoice_number: invData.invoice_number,
+                invoice_date: invData.invoice_date,
+                due_date: invData.due_date,
+                payment_status: invData.payment_status,
+                customer_name: invData.customer_name || 'N/A',
+                customer_email: invData.customer_email,
+                customer_phone: invData.customer_phone,
+                work_order_number: invData.work_order_number,
+                subtotal: invData.subtotal,
+                tax_rate: invData.tax_rate,
+                tax_amount: invData.tax_amount,
+                discount_amount: invData.discount_amount,
+                discount_percentage: invData.discount_percentage,
+                shop_supplies_amount: invData.shop_supplies_amount,
+                park_fees_amount: invData.park_fees_amount,
+                surcharge_amount: invData.surcharge_amount,
+                credit_card_fee: invData.credit_card_fee,
+                deposit_applied: invData.deposit_applied,
+                amount_paid: invData.amount_paid,
+                total_amount: invData.total_amount,
+                notes: invData.notes,
+              } as any,
+              formattedItems,
+              companyInfo
+            );
+            await attachPdfToWorkOrderSalvageReport(workOrderId, invPdf, `${invData.invoice_number} - Invoice.pdf`);
+          }
+        }
+      } catch (salvageErr) {
+        console.warn('Failed to attach invoice PDF to salvage report:', salvageErr);
+      }
 
       showSuccess('Work order converted to invoice successfully!');
       await loadData();

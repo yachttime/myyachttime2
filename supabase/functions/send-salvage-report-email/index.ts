@@ -312,6 +312,27 @@ Deno.serve(async (req: Request) => {
 
     const totalPhotoCount = photoMedia.length;
 
+    // Fetch the latest document PDF (auto-generated from estimate/work order/invoice pipeline)
+    const documentMedia = sortedMedia.filter((m: any) => m.media_type === "document");
+    let documentAttachment: { filename: string; content: string } | null = null;
+    if (documentMedia.length > 0) {
+      const latestDoc = documentMedia[documentMedia.length - 1];
+      try {
+        const pdfResp = await fetch(latestDoc.file_url);
+        if (pdfResp.ok) {
+          const pdfBuffer = await pdfResp.arrayBuffer();
+          const pdfBase64 = btoa(String.fromCharCode(...new Uint8Array(pdfBuffer)));
+          documentAttachment = { filename: latestDoc.file_name, content: pdfBase64 };
+        }
+      } catch (docErr) {
+        console.log("Failed to fetch document PDF for attachment:", docErr);
+      }
+    }
+
+    const documentHtml = documentAttachment
+      ? `<tr><td style="padding:0 0 20px 0;"><p style="font-size:13px;color:#374153;margin:0;"><strong>Attached Document:</strong> ${documentAttachment.filename} (attached to this email)</p></td></tr>`
+      : "";
+
     const mediaSummary = `
       <tr>
         <td style="padding:0 0 20px 0;">
@@ -355,6 +376,7 @@ Deno.serve(async (req: Request) => {
                       ${section("Report Findings", findingsRows)}
                       ${photoPriorHtml}
                       ${photoLossHtml}
+                      ${documentHtml}
                       ${mediaSummary}
                       ${videoLinksHtml}
                     </table>
@@ -395,6 +417,10 @@ Deno.serve(async (req: Request) => {
 
     if (ccEmails && ccEmails.length > 0) {
       emailPayload.cc = ccEmails;
+    }
+
+    if (documentAttachment) {
+      emailPayload.attachments = [documentAttachment];
     }
 
     console.log(`Sending salvage report email for ${report.report_number}: ${recipientEmails.length} recipients, ${totalPhotoCount} photos inline, ${videoLinks.length} video links, map: ${mapHtml ? "yes" : "no"}`);

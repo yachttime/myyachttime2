@@ -502,6 +502,7 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
   const photoPrior = media.filter(m => m.media_type === 'photo_prior').sort((a, b) => a.sort_order - b.sort_order);
   const photoLoss = media.filter(m => m.media_type === 'photo_loss').sort((a, b) => a.sort_order - b.sort_order);
   const videoLoss = media.filter(m => m.media_type === 'video_loss').sort((a, b) => a.sort_order - b.sort_order);
+  const documentMedia = media.filter(m => m.media_type === 'document').sort((a, b) => a.sort_order - b.sort_order);
 
   // ── PRINT VIEW ──
   if (view === 'print' && printReport) {
@@ -510,6 +511,7 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
     const rPhotoPrior = rMedia.filter(m => m.media_type === 'photo_prior').sort((a, b) => a.sort_order - b.sort_order);
     const rPhotoLoss = rMedia.filter(m => m.media_type === 'photo_loss').sort((a, b) => a.sort_order - b.sort_order);
     const rVideoLoss = rMedia.filter(m => m.media_type === 'video_loss').sort((a, b) => a.sort_order - b.sort_order);
+    const rDocumentMedia = rMedia.filter(m => m.media_type === 'document').sort((a, b) => a.sort_order - b.sort_order);
 
     return (
       <div className="min-h-screen bg-gray-100 p-6 salvage-print-view">
@@ -664,6 +666,23 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
               </div>
             )}
 
+            {/* Documents (auto-generated PDFs) */}
+            {rDocumentMedia.length > 0 && (
+              <PrintSection title="Attached Documents">
+                <div className="col-span-2 space-y-2">
+                  {rDocumentMedia.map(m => (
+                    <div key={m.id} className="flex items-center gap-3 border border-gray-200 rounded-lg p-3">
+                      <FileText className="w-6 h-6 text-blue-600 flex-shrink-0" />
+                      <span className="text-sm text-gray-800 flex-1">{m.file_name}</span>
+                      <a href={m.file_url} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:text-blue-800 font-medium no-print">
+                        View PDF
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              </PrintSection>
+            )}
+
             <div className="mt-12 pt-6 border-t border-gray-300 text-xs text-gray-500 text-center">
               Report #{r.report_number} | Generated {new Date().toLocaleDateString()} | {companyInfo?.name || ''}
             </div>
@@ -799,6 +818,31 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
                   pendingCount={uploadingType === 'video_loss' ? uploadPending : 0}
                   completedCount={uploadingType === 'video_loss' ? uploadCompleted : 0}
                 />
+              </FormSection>
+            )}
+
+            {/* Document Attachments (auto-generated from estimate/work order/invoice) */}
+            {editingReport && documentMedia.length > 0 && (
+              <FormSection title="Attached Documents">
+                <div className="md:col-span-2 space-y-3">
+                  {documentMedia.map(m => (
+                    <div key={m.id} className="flex items-center gap-3 border border-gray-200 rounded-lg p-4 bg-gray-50">
+                      <FileText className="w-8 h-8 text-blue-600 flex-shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-gray-800">{m.file_name}</p>
+                        <p className="text-xs text-gray-500">Auto-attached from estimating pipeline</p>
+                      </div>
+                      <a
+                        href={m.file_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 font-medium flex-shrink-0"
+                      >
+                        <ExternalLink className="w-4 h-4" /> View
+                      </a>
+                    </div>
+                  ))}
+                </div>
               </FormSection>
             )}
 
