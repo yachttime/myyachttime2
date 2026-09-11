@@ -121,67 +121,35 @@ Deno.serve(async (req: Request) => {
       .filter((m: any) => m.media_type === "video_loss")
       .map((m: any) => ({ name: m.file_name, url: m.file_url }));
 
-    // All photos are shown as inline images in the email body via their public URLs,
-    // so every photo is visible regardless of count or size.
-    // A subset is also attached as downloadable files for convenience.
+    // All photos are shown as inline images in the email body via their public URLs.
+    // No photo file attachments are included — photos are viewed inline only.
     const photoMedia = sortedMedia.filter((m: any) => m.media_type === "photo_prior" || m.media_type === "photo_loss");
     const photoPrior = sortedMedia.filter((m: any) => m.media_type === "photo_prior");
     const photoLoss = sortedMedia.filter((m: any) => m.media_type === "photo_loss");
     const videoLoss = sortedMedia.filter((m: any) => m.media_type === "video_loss");
 
-    const attachments: Array<{ filename: string; content: string }> = [];
-    const MAX_PHOTO_SIZE = 5 * 1024 * 1024; // 5MB per photo attachment
-    const MAX_TOTAL_ATTACHMENTS = 10 * 1024 * 1024; // 10MB total for downloadable attachments
-    let totalAttachmentSize = 0;
-
-    for (const media of photoMedia) {
-      try {
-        let filePath = media.file_url;
-        if (filePath.includes("/salvage-media/")) {
-          filePath = filePath.split("/salvage-media/")[1];
-        } else if (filePath.includes("/object/public/salvage-media/")) {
-          filePath = filePath.split("/object/public/salvage-media/")[1];
-        }
-
-        const { data: fileData, error: fileError } = await adminSupabase.storage
-          .from("salvage-media")
-          .download(filePath);
-
-        if (fileError || !fileData) {
-          console.error(`Error downloading photo ${media.file_name}:`, fileError);
-          continue;
-        }
-
-        const arrayBuffer = await fileData.arrayBuffer();
-        const fileSize = arrayBuffer.byteLength;
-
-        if (fileSize > MAX_PHOTO_SIZE) {
-          console.log(`Photo ${media.file_name} is ${fileSize} bytes, exceeds ${MAX_PHOTO_SIZE} attachment limit, not attaching`);
-          continue;
-        }
-
-        if (totalAttachmentSize + fileSize > MAX_TOTAL_ATTACHMENTS) {
-          console.log(`Total attachment size limit reached, not attaching ${media.file_name}`);
-          continue;
-        }
-
-        const bytes = new Uint8Array(arrayBuffer);
-        let binary = "";
-        const chunkSize = 8192;
-        for (let i = 0; i < bytes.length; i += chunkSize) {
-          const chunk = bytes.subarray(i, i + chunkSize);
-          binary += String.fromCharCode(...chunk);
-        }
-        const base64Content = btoa(binary);
-
-        attachments.push({
-          filename: media.file_name,
-          content: base64Content,
-        });
-        totalAttachmentSize += fileSize;
-      } catch (err) {
-        console.error(`Error processing photo ${media.file_name}:`, err);
-      }
+    // Build satellite map image URL if GPS coordinates are valid
+    const latNum = parseFloat(report.gps_latitude);
+    const lngNum = parseFloat(report.gps_longitude);
+    let mapHtml = "";
+    if (!isNaN(latNum) && !isNaN(lngNum)) {
+      const latSpan = 0.0351;
+      const lngSpan = 0.0527;
+      const bbox = [lngNum - lngSpan, latNum - latSpan, lngNum + lngSpan, latNum + latSpan].join(",");
+      const mapParams = new URLSearchParams({ bbox, bboxSR: "4326", imageSR: "4326", size: "900,520", format: "png32", f: "image" });
+      const mapUrl = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?${mapParams.toString()}`;
+      const gmapsUrl = `https://www.google.com/maps/search/?api=1&query=${latNum},${lngNum}`;
+      mapHtml = `
+        <tr>
+          <td style="padding:0 0 20px 0;">
+            <h3 style="margin:0 0 8px 0;font-size:14px;font-weight:600;color:#374151;border-bottom:1px solid #e5e7eb;padding-bottom:6px;">Approximate Location of Loss</h3>
+            <p style="font-size:12px;color:#6b7280;margin:0 0 8px 0;">GPS: ${latNum.toFixed(4)}, ${lngNum.toFixed(4)} — <a href="${gmapsUrl}" style="color:#2563eb;">Open in Google Maps</a></p>
+            <a href="${gmapsUrl}" target="_blank" style="display:block;text-decoration:none;">
+              <img src="${mapUrl}" alt="Satellite imagery showing approximate salvage location at ${latNum}, ${lngNum}" style="width:100%;max-width:576px;height:auto;border-radius:6px;border:1px solid #e5e7eb;display:block;" />
+            </a>
+            <p style="font-size:9px;color:#9ca3af;margin:4px 0 0 0;">Esri, Maxar, Earthstar Geographics</p>
+          </td>
+        </tr>`;
     }
 
     const emailSubject = subject || `Salvage Service Report ${report.report_number}`;
@@ -277,15 +245,13 @@ Deno.serve(async (req: Request) => {
         </tr>`
       : "";
 
-    const attachedPhotoCount = attachments.length;
     const totalPhotoCount = photoMedia.length;
-    const notAttachedCount = totalPhotoCount - attachedPhotoCount;
 
-    const attachmentSummary = `
+    const mediaSummary = `
       <tr>
         <td style="padding:0 0 20px 0;">
           <p style="font-size:13px;color:#374153;margin:0;">
-            <strong>Photos:</strong> ${totalPhotoCount} photo${totalPhotoCount !== 1 ? "s" : ""} shown above${attachedPhotoCount > 0 ? `, ${attachedPhotoCount} also attached as downloadable file${attachedPhotoCount !== 1 ? "s" : ""}` : ""}${notAttachedCount > 0 && attachedPhotoCount > 0 ? ` (${notAttachedCount} viewable inline only due to size)` : ""}.
+            <strong>Photos:</strong> ${totalPhotoCount} photo${totalPhotoCount !== 1 ? "s" : ""} shown above.
             ${videoLinks.length > 0 ? `${videoLinks.length} video${videoLinks.length !== 1 ? "s" : ""} included as links.` : ""}
           </p>
         </td>
@@ -319,11 +285,12 @@ Deno.serve(async (req: Request) => {
                       ${personalMessage}
                       ${section("Owner & Insurance Information", ownerRows + insuranceRows)}
                       ${section("Loss & Service Details", lossRows)}
+                      ${mapHtml}
                       ${section("Vessel Condition & Fuel", conditionRows)}
                       ${section("Report Findings", findingsRows)}
                       ${photoPriorHtml}
                       ${photoLossHtml}
-                      ${attachmentSummary}
+                      ${mediaSummary}
                       ${videoLinksHtml}
                     </table>
                   </td>
@@ -365,11 +332,7 @@ Deno.serve(async (req: Request) => {
       emailPayload.cc = ccEmails;
     }
 
-    if (attachments.length > 0) {
-      emailPayload.attachments = attachments;
-    }
-
-    console.log(`Sending salvage report email for ${report.report_number}: ${recipientEmails.length} recipients, ${totalPhotoCount} photos shown inline, ${attachments.length} photo attachments, ${videoLinks.length} video links`);
+    console.log(`Sending salvage report email for ${report.report_number}: ${recipientEmails.length} recipients, ${totalPhotoCount} photos inline, ${videoLinks.length} video links, map: ${mapHtml ? "yes" : "no"}`);
 
     const emailResponse = await fetch("https://api.resend.com/emails", {
       method: "POST",

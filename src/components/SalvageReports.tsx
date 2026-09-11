@@ -1516,7 +1516,7 @@ function SalvageEmailModal({
                 {videoCount > 0 ? `, ${videoCount} video${videoCount !== 1 ? 's' : ''} (as clickable links)` : ''}
               </p>
               <p className="text-xs text-gray-400 mt-1">
-                All photos are displayed directly in the email. Clicking any photo opens it at full size.
+                All photos are displayed directly in the email — no file attachments. A satellite map is included when GPS coordinates are provided. Clicking any photo opens it at full size.
               </p>
             </div>
 
