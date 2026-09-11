@@ -121,17 +121,21 @@ Deno.serve(async (req: Request) => {
       .filter((m: any) => m.media_type === "video_loss")
       .map((m: any) => ({ name: m.file_name, url: m.file_url }));
 
-    // Only download and attach PHOTOS (not videos)
-    const attachments: Array<{ filename: string; content: string }> = [];
-    const MAX_PHOTO_SIZE = 5 * 1024 * 1024; // 5MB per photo
-    const MAX_TOTAL_PHOTOS = 10 * 1024 * 1024; // 10MB total for all photos
-    let totalPhotoSize = 0;
-
+    // All photos are shown as inline images in the email body via their public URLs,
+    // so every photo is visible regardless of count or size.
+    // A subset is also attached as downloadable files for convenience.
     const photoMedia = sortedMedia.filter((m: any) => m.media_type === "photo_prior" || m.media_type === "photo_loss");
+    const photoPrior = sortedMedia.filter((m: any) => m.media_type === "photo_prior");
+    const photoLoss = sortedMedia.filter((m: any) => m.media_type === "photo_loss");
+    const videoLoss = sortedMedia.filter((m: any) => m.media_type === "video_loss");
+
+    const attachments: Array<{ filename: string; content: string }> = [];
+    const MAX_PHOTO_SIZE = 5 * 1024 * 1024; // 5MB per photo attachment
+    const MAX_TOTAL_ATTACHMENTS = 10 * 1024 * 1024; // 10MB total for downloadable attachments
+    let totalAttachmentSize = 0;
 
     for (const media of photoMedia) {
       try {
-        // Extract file path from the public URL
         let filePath = media.file_url;
         if (filePath.includes("/salvage-media/")) {
           filePath = filePath.split("/salvage-media/")[1];
@@ -152,12 +156,12 @@ Deno.serve(async (req: Request) => {
         const fileSize = arrayBuffer.byteLength;
 
         if (fileSize > MAX_PHOTO_SIZE) {
-          console.log(`Photo ${media.file_name} is ${fileSize} bytes, exceeds ${MAX_PHOTO_SIZE} limit, skipping`);
+          console.log(`Photo ${media.file_name} is ${fileSize} bytes, exceeds ${MAX_PHOTO_SIZE} attachment limit, not attaching`);
           continue;
         }
 
-        if (totalPhotoSize + fileSize > MAX_TOTAL_PHOTOS) {
-          console.log(`Total photo size limit reached, skipping ${media.file_name}`);
+        if (totalAttachmentSize + fileSize > MAX_TOTAL_ATTACHMENTS) {
+          console.log(`Total attachment size limit reached, not attaching ${media.file_name}`);
           continue;
         }
 
@@ -174,16 +178,11 @@ Deno.serve(async (req: Request) => {
           filename: media.file_name,
           content: base64Content,
         });
-        totalPhotoSize += fileSize;
+        totalAttachmentSize += fileSize;
       } catch (err) {
         console.error(`Error processing photo ${media.file_name}:`, err);
       }
     }
-
-    // Build email HTML
-    const photoPrior = sortedMedia.filter((m: any) => m.media_type === "photo_prior");
-    const photoLoss = sortedMedia.filter((m: any) => m.media_type === "photo_loss");
-    const videoLoss = sortedMedia.filter((m: any) => m.media_type === "video_loss");
 
     const emailSubject = subject || `Salvage Service Report ${report.report_number}`;
 
@@ -246,6 +245,27 @@ Deno.serve(async (req: Request) => {
         : "",
     ].join("");
 
+    function photoGallery(photos: any[], sectionTitle: string): string {
+      if (photos.length === 0) return "";
+      const thumbs = photos.map((p: any, i: number) =>
+        `<a href="${p.file_url}" target="_blank" style="display:inline-block;margin:4px 4px 8px 0;text-decoration:none;">`
+        + `<img src="${p.file_url}" alt="${p.file_name}" style="width:180px;height:135px;object-fit:cover;border-radius:6px;border:1px solid #e5e7eb;" />`
+        + `<span style="display:block;font-size:11px;color:#6b7280;margin-top:2px;text-align:center;">${i + 1}. ${p.file_name}</span>`
+        + `</a>`
+      ).join("");
+      return `
+        <tr>
+          <td style="padding:0 0 20px 0;">
+            <h3 style="margin:0 0 8px 0;font-size:14px;font-weight:600;color:#374151;border-bottom:1px solid #e5e7eb;padding-bottom:6px;">${sectionTitle} (${photos.length})</h3>
+            <p style="font-size:12px;color:#6b7280;margin:0 0 10px 0;">Click any photo to view it at full size.</p>
+            ${thumbs}
+          </td>
+        </tr>`;
+    }
+
+    const photoPriorHtml = photoGallery(photoPrior, "Photos Prior to Loss");
+    const photoLossHtml = photoGallery(photoLoss, "Photos of Loss");
+
     const videoLinksHtml = videoLinks.length > 0
       ? `
         <tr>
@@ -258,13 +278,14 @@ Deno.serve(async (req: Request) => {
       : "";
 
     const attachedPhotoCount = attachments.length;
-    const skippedPhotos = photoMedia.length - attachedPhotoCount;
+    const totalPhotoCount = photoMedia.length;
+    const notAttachedCount = totalPhotoCount - attachedPhotoCount;
 
     const attachmentSummary = `
       <tr>
         <td style="padding:0 0 20px 0;">
           <p style="font-size:13px;color:#374153;margin:0;">
-            <strong>Attached:</strong> ${attachedPhotoCount} photo${attachedPhotoCount !== 1 ? "s" : ""}${skippedPhotos > 0 ? ` (${skippedPhotos} skipped due to size)` : ""}.
+            <strong>Photos:</strong> ${totalPhotoCount} photo${totalPhotoCount !== 1 ? "s" : ""} shown above${attachedPhotoCount > 0 ? `, ${attachedPhotoCount} also attached as downloadable file${attachedPhotoCount !== 1 ? "s" : ""}` : ""}${notAttachedCount > 0 && attachedPhotoCount > 0 ? ` (${notAttachedCount} viewable inline only due to size)` : ""}.
             ${videoLinks.length > 0 ? `${videoLinks.length} video${videoLinks.length !== 1 ? "s" : ""} included as links.` : ""}
           </p>
         </td>
@@ -300,6 +321,8 @@ Deno.serve(async (req: Request) => {
                       ${section("Loss & Service Details", lossRows)}
                       ${section("Vessel Condition & Fuel", conditionRows)}
                       ${section("Report Findings", findingsRows)}
+                      ${photoPriorHtml}
+                      ${photoLossHtml}
                       ${attachmentSummary}
                       ${videoLinksHtml}
                     </table>
@@ -346,7 +369,7 @@ Deno.serve(async (req: Request) => {
       emailPayload.attachments = attachments;
     }
 
-    console.log(`Sending salvage report email for ${report.report_number}: ${recipientEmails.length} recipients, ${attachments.length} photo attachments, ${videoLinks.length} video links`);
+    console.log(`Sending salvage report email for ${report.report_number}: ${recipientEmails.length} recipients, ${totalPhotoCount} photos shown inline, ${attachments.length} photo attachments, ${videoLinks.length} video links`);
 
     const emailResponse = await fetch("https://api.resend.com/emails", {
       method: "POST",
