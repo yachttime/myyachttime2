@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Search, Plus, Eye, Printer, ArrowLeft, Upload, X, FileText, Save, CheckCircle, Video, Play, ChevronDown, ChevronLeft, ChevronRight, Ship, User, Loader2, MapPin, ExternalLink, Mail, Send, MailOpen, MousePointerClick, AlertCircle } from 'lucide-react';
-import { supabase, SalvageReport, SalvageReportMedia } from '../lib/supabase';
+import { supabase, SalvageReport, SalvageReportMedia, SalvageReportEmailLog } from '../lib/supabase';
 
 interface SalvageReportsProps {
   userId: string;
@@ -69,6 +69,7 @@ export function SalvageReports({ userId, companyId, prefillEstimateId }: Salvage
         .select(`
           *,
           salvage_report_media(*),
+          salvage_report_email_logs(*),
           estimates(estimate_number, customer_name, customer_email, customer_phone, yachts(name))
         `)
         .eq('company_id', companyId)
@@ -864,6 +865,61 @@ export function SalvageReports({ userId, companyId, prefillEstimateId }: Salvage
                     </>
                   )}
                 </div>
+                {/* Full Email Send History */}
+                {editingReport.salvage_report_email_logs && editingReport.salvage_report_email_logs.length > 0 && (
+                  <div className="mt-6 border-t border-gray-200 pt-4">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Email History ({editingReport.salvage_report_email_logs.length} {editingReport.salvage_report_email_logs.length === 1 ? 'send' : 'sends'})</p>
+                    <div className="space-y-3">
+                      {[...editingReport.salvage_report_email_logs]
+                        .sort((a, b) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime())
+                        .map(log => (
+                          <div key={log.id} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                            <div className="flex items-start justify-between gap-2 flex-wrap">
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium text-gray-900">
+                                  {new Date(log.sent_at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}
+                                </p>
+                                <p className="text-xs text-gray-500 mt-0.5">
+                                  To: {log.recipient_emails}{log.cc_emails ? ` | CC: ${log.cc_emails}` : ''}
+                                </p>
+                                {log.sent_by_name && <p className="text-xs text-gray-400 mt-0.5">Sent by: {log.sent_by_name}</p>}
+                                {log.subject && <p className="text-xs text-gray-400 mt-0.5 truncate">Subject: {log.subject}</p>}
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                              {log.bounced_at ? (
+                                <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-red-100 text-red-700">
+                                  <AlertCircle className="w-3 h-3" /> Bounced
+                                </span>
+                              ) : (
+                                <>
+                                  {log.delivered_at ? (
+                                    <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-700">
+                                      <CheckCircle className="w-3 h-3" /> Delivered
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
+                                      <CheckCircle className="w-3 h-3" /> Pending
+                                    </span>
+                                  )}
+                                  {log.opened_at && (
+                                    <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                                      <MailOpen className="w-3 h-3" /> Viewed{log.open_count > 1 ? ` (${log.open_count}x)` : ''}
+                                    </span>
+                                  )}
+                                  {log.clicked_at && (
+                                    <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
+                                      <MousePointerClick className="w-3 h-3" /> Clicked{log.click_count > 1 ? ` (${log.click_count}x)` : ''}
+                                    </span>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

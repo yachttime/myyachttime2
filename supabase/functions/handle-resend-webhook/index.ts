@@ -238,7 +238,16 @@ Deno.serve(async (req: Request) => {
       .maybeSingle();
     if (salvageReportData) salvageReport = salvageReportData;
 
-    if (!invoice && !repairRequest && !repairNotification && !depositRequest && !estimatingInvoice && !surchargeInvoice && !staffMessage && !vesselAgreement && !salvageReport) {
+    // Try to find the email in salvage_report_email_logs (per-send log)
+    let salvageEmailLog = null;
+    const { data: salvageLogData } = await supabase
+      .from('salvage_report_email_logs')
+      .select('id, resend_email_id, delivered_at, opened_at, clicked_at, bounced_at, open_count, click_count')
+      .eq('resend_email_id', event.data.email_id)
+      .maybeSingle();
+    if (salvageLogData) salvageEmailLog = salvageLogData;
+
+    if (!invoice && !repairRequest && !repairNotification && !depositRequest && !estimatingInvoice && !surchargeInvoice && !staffMessage && !vesselAgreement && !salvageReport && !salvageEmailLog) {
       console.log('No record found for email_id:', event.data.email_id);
       return new Response(
         JSON.stringify({ received: true, message: 'No record found for this email' }),
@@ -902,6 +911,49 @@ Deno.serve(async (req: Request) => {
           console.error('Error updating salvage report email tracking:', salvageUpdateError);
         } else {
           console.log('Updated salvage report email tracking:', salvageReport.id, salvageUpdateData);
+        }
+      }
+    }
+
+    // Handle salvage_report_email_logs per-send tracking
+    if (salvageEmailLog) {
+      const logUpdateData: Record<string, any> = {};
+
+      switch (event.type) {
+        case 'email.delivered':
+          if (!salvageEmailLog.delivered_at) {
+            logUpdateData.delivered_at = eventTimestamp;
+          }
+          break;
+        case 'email.opened':
+          if (!salvageEmailLog.opened_at) {
+            logUpdateData.opened_at = eventTimestamp;
+          }
+          logUpdateData.open_count = (salvageEmailLog.open_count || 0) + 1;
+          break;
+        case 'email.clicked':
+          if (!salvageEmailLog.clicked_at) {
+            logUpdateData.clicked_at = eventTimestamp;
+          }
+          logUpdateData.click_count = (salvageEmailLog.click_count || 0) + 1;
+          break;
+        case 'email.bounced':
+          if (!salvageEmailLog.bounced_at) {
+            logUpdateData.bounced_at = eventTimestamp;
+          }
+          break;
+      }
+
+      if (Object.keys(logUpdateData).length > 0) {
+        const { error: logUpdateError } = await supabase
+          .from('salvage_report_email_logs')
+          .update(logUpdateData)
+          .eq('id', salvageEmailLog.id);
+
+        if (logUpdateError) {
+          console.error('Error updating salvage email log tracking:', logUpdateError);
+        } else {
+          console.log('Updated salvage email log tracking:', salvageEmailLog.id, logUpdateData);
         }
       }
     }

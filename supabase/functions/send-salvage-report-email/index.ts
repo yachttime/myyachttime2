@@ -375,7 +375,7 @@ Deno.serve(async (req: Request) => {
     const emailData = await emailResponse.json();
     console.log("Salvage report email sent successfully:", emailData);
 
-    // Update report with email tracking
+    // Update report with email tracking (summary of most recent send)
     await adminSupabase
       .from("salvage_reports")
       .update({
@@ -385,6 +385,23 @@ Deno.serve(async (req: Request) => {
         email_resend_id: emailData.id,
       })
       .eq("id", reportId);
+
+    // Insert a log row so every send is tracked individually
+    const senderName = [profile?.first_name, profile?.last_name].filter(Boolean).join(" ") || null;
+    await adminSupabase
+      .from("salvage_report_email_logs")
+      .insert({
+        salvage_report_id: reportId,
+        company_id: report.company_id || null,
+        sent_by: user.id,
+        sent_by_name: senderName,
+        recipient_emails: recipientEmails.join(", "),
+        cc_emails: (ccEmails || []).join(", ") || null,
+        subject: emailSubject,
+        message: message || null,
+        resend_email_id: emailData.id,
+        sent_at: new Date().toISOString(),
+      });
 
     return new Response(
       JSON.stringify({ success: true, message: "Salvage report email sent successfully", emailId: emailData.id }),

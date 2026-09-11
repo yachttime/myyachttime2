@@ -395,6 +395,7 @@ export interface SalvageReport {
   email_open_count?: number;
   email_click_count?: number;
   salvage_report_media?: SalvageReportMedia[];
+  salvage_report_email_logs?: SalvageReportEmailLog[];
   estimates?: { estimate_number: string; customer_name: string | null; customer_email: string | null; customer_phone: string | null; yachts?: { name: string } };
   yachts?: { name: string };
 }
@@ -408,6 +409,26 @@ export interface SalvageReportMedia {
   caption: string | null;
   sort_order: number;
   created_at: string;
+}
+
+export interface SalvageReportEmailLog {
+  id: string;
+  salvage_report_id: string;
+  company_id: string | null;
+  sent_by: string | null;
+  sent_by_name: string | null;
+  recipient_emails: string;
+  cc_emails: string | null;
+  subject: string | null;
+  message: string | null;
+  resend_email_id: string | null;
+  sent_at: string;
+  delivered_at: string | null;
+  opened_at: string | null;
+  clicked_at: string | null;
+  bounced_at: string | null;
+  open_count: number;
+  click_count: number;
 }
 
 export interface YachtHistoryLog {
