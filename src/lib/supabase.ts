@@ -388,6 +388,12 @@ export interface SalvageReport {
   email_recipients?: string | null;
   email_cc_recipients?: string | null;
   email_resend_id?: string | null;
+  email_delivered_at?: string | null;
+  email_opened_at?: string | null;
+  email_clicked_at?: string | null;
+  email_bounced_at?: string | null;
+  email_open_count?: number;
+  email_click_count?: number;
   salvage_report_media?: SalvageReportMedia[];
   estimates?: { estimate_number: string; customer_name: string | null; customer_email: string | null; customer_phone: string | null; yachts?: { name: string } };
   yachts?: { name: string };

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Search, Plus, Eye, Printer, ArrowLeft, Upload, X, FileText, Save, CheckCircle, Video, Play, ChevronDown, ChevronLeft, ChevronRight, Ship, User, Loader2, MapPin, ExternalLink, Mail, Send } from 'lucide-react';
+import { Search, Plus, Eye, Printer, ArrowLeft, Upload, X, FileText, Save, CheckCircle, Video, Play, ChevronDown, ChevronLeft, ChevronRight, Ship, User, Loader2, MapPin, ExternalLink, Mail, Send, MailOpen, MousePointerClick, AlertCircle } from 'lucide-react';
 import { supabase, SalvageReport, SalvageReportMedia } from '../lib/supabase';
 
 interface SalvageReportsProps {
@@ -834,6 +834,36 @@ export function SalvageReports({ userId, companyId, prefillEstimateId }: Salvage
                     </div>
                   )}
                 </div>
+                {/* Engagement Status Badges */}
+                <div className="flex flex-wrap items-center gap-2 mt-4">
+                  {editingReport.email_bounced_at ? (
+                    <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-red-100 text-red-700">
+                      <AlertCircle className="w-3.5 h-3.5" /> Bounced {new Date(editingReport.email_bounced_at).toLocaleDateString()}
+                    </span>
+                  ) : (
+                    <>
+                      {editingReport.email_delivered_at ? (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-green-100 text-green-700">
+                          <CheckCircle className="w-3.5 h-3.5" /> Delivered {new Date(editingReport.email_delivered_at).toLocaleDateString()}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-gray-100 text-gray-500">
+                          <CheckCircle className="w-3.5 h-3.5" /> Pending delivery
+                        </span>
+                      )}
+                      {editingReport.email_opened_at && (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-blue-100 text-blue-700">
+                          <MailOpen className="w-3.5 h-3.5" /> Viewed {editingReport.email_open_count > 1 ? `(${editingReport.email_open_count}x)` : ''}
+                        </span>
+                      )}
+                      {editingReport.email_clicked_at && (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700">
+                          <MousePointerClick className="w-3.5 h-3.5" /> Clicked {editingReport.email_click_count > 1 ? `(${editingReport.email_click_count}x)` : ''}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
             )}
 
@@ -957,6 +987,31 @@ export function SalvageReports({ userId, companyId, prefillEstimateId }: Salvage
                               {r.email_recipients.split(',').length} recipient{r.email_recipients.split(',').length !== 1 ? 's' : ''}
                             </span>
                           )}
+                          <div className="flex flex-wrap items-center gap-1 mt-1">
+                            {r.email_bounced_at ? (
+                              <span className="inline-flex items-center gap-1 text-xs font-medium text-red-600" title={`Bounced ${new Date(r.email_bounced_at).toLocaleDateString()}`}>
+                                <AlertCircle className="w-3 h-3" /> Bounced
+                              </span>
+                            ) : (
+                              <>
+                                {r.email_delivered_at && (
+                                  <span className="inline-flex items-center gap-1 text-xs font-medium text-green-600" title={`Delivered ${new Date(r.email_delivered_at).toLocaleDateString()}`}>
+                                    <CheckCircle className="w-3 h-3" /> Delivered
+                                  </span>
+                                )}
+                                {r.email_opened_at && (
+                                  <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-600" title={`Viewed ${r.email_open_count || 1}x`}>
+                                    <MailOpen className="w-3 h-3" /> Viewed
+                                  </span>
+                                )}
+                                {r.email_clicked_at && (
+                                  <span className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600" title={`Clicked ${r.email_click_count || 1}x`}>
+                                    <MousePointerClick className="w-3 h-3" /> Clicked
+                                  </span>
+                                )}
+                              </>
+                            )}
+                          </div>
                         </div>
                       ) : (
                         <span className="text-xs text-gray-400">Not sent</span>
