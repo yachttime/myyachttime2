@@ -54,7 +54,6 @@ import EditYachtModal, { EMPTY_YACHT_FORM, EMPTY_ENGINE_GEN_ENTRY, EngineGenForm
 import EngineCatalogManager from './admin/EngineCatalogManager';
 import YearEndOverview from './admin/YearEndOverview';
 import { SalvageReports } from './SalvageReports';
-import { SalvageAssetManager } from './admin/SalvageAssetManager';
 
 interface DashboardProps {
   onNavigate: (page: 'maintenance' | 'education' | 'staffCalendar') => void;
@@ -82,7 +81,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   };
 
   // Helper function to set admin view and persist to localStorage
-  const setAdminViewPersisted = (view: 'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies' | 'maintenancerequests' | 'vesselmonitoring' | 'enginecatalog' | 'yearendoverview' | 'salvagereports' | 'salvageassets') => {
+  const setAdminViewPersisted = (view: 'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies' | 'maintenancerequests' | 'vesselmonitoring' | 'enginecatalog' | 'yearendoverview' | 'salvagereports') => {
     setAdminView(view);
     try {
       localStorage.setItem('adminView', view);
@@ -401,11 +400,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [resumingQueueItemId, setResumingQueueItemId] = useState<string | null>(null);
   const queueUploadAttemptedRef = useRef(false);
 
-  const [adminView, setAdminView] = useState<'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies' | 'maintenancerequests' | 'vesselmonitoring' | 'enginecatalog' | 'yearendoverview' | 'salvagereports' | 'salvageassets'>(() => {
+  const [adminView, setAdminView] = useState<'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies' | 'maintenancerequests' | 'vesselmonitoring' | 'enginecatalog' | 'yearendoverview' | 'salvagereports'>(() => {
     try {
       const stored = localStorage.getItem('adminView');
-      if (stored && ['menu', 'inspection', 'yachts', 'ownertrips', 'repairs', 'ownerchat', 'messages', 'mastercalendar', 'ownerhandoff', 'users', 'appointments', 'staffappointment', 'smartdevices', 'companies', 'maintenancerequests', 'vesselmonitoring', 'enginecatalog', 'yearendoverview', 'salvagereports', 'salvageassets'].includes(stored)) {
-        return stored as 'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies' | 'maintenancerequests' | 'vesselmonitoring' | 'enginecatalog' | 'yearendoverview' | 'salvagereports' | 'salvageassets';
+      if (stored && ['menu', 'inspection', 'yachts', 'ownertrips', 'repairs', 'ownerchat', 'messages', 'mastercalendar', 'ownerhandoff', 'users', 'appointments', 'staffappointment', 'smartdevices', 'companies', 'maintenancerequests', 'vesselmonitoring', 'enginecatalog', 'yearendoverview', 'salvagereports'].includes(stored)) {
+        return stored as 'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies' | 'maintenancerequests' | 'vesselmonitoring' | 'enginecatalog' | 'yearendoverview' | 'salvagereports';
       }
       return 'menu';
     } catch {
@@ -17272,14 +17271,6 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                   userRole={effectiveRole}
                   prefillEstimateId={salvagePrefillEstimateId}
                 />
-                </AdminViewWrapper>
-              ) : adminView === 'salvageassets' ? (
-                <AdminViewWrapper onBack={() => setAdminViewPersisted('menu')} backHoverColor="hover:text-red-500">
-                  <SalvageAssetManager
-                    userId={userProfile?.user_id || ''}
-                    companyId={selectedCompany?.id || userProfile?.company_id || ''}
-                    userRole={effectiveRole}
-                  />
                 </AdminViewWrapper>
               ) : null}
             </div>

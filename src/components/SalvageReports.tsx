@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Search, Plus, Eye, Printer, ArrowLeft, Upload, X, FileText, Save, CheckCircle, Video, Play, ChevronDown, ChevronLeft, ChevronRight, Ship, User, Loader2, MapPin, ExternalLink, Mail, Send, MailOpen, MousePointerClick, AlertCircle } from 'lucide-react';
+import { Search, Plus, Eye, Printer, ArrowLeft, Upload, X, FileText, Save, CheckCircle, Video, Play, ChevronDown, ChevronLeft, ChevronRight, Ship, User, Loader2, MapPin, ExternalLink, Mail, Send, MailOpen, MousePointerClick, AlertCircle, Box } from 'lucide-react';
 import { supabase, SalvageReport, SalvageReportMedia, SalvageReportEmailLog } from '../lib/supabase';
+import { SalvageAssetManager } from './admin/SalvageAssetManager';
 
 interface SalvageReportsProps {
   userId: string;
@@ -41,7 +42,7 @@ export function SalvageReports({ userId, companyId, prefillEstimateId }: Salvage
   const [reports, setReports] = useState<SalvageReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [view, setView] = useState<'list' | 'form' | 'print'>('list');
+  const [view, setView] = useState<'list' | 'form' | 'print' | 'assets'>('list');
   const [editingReport, setEditingReport] = useState<SalvageReport | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [media, setMedia] = useState<SalvageReportMedia[]>([]);
@@ -968,6 +969,26 @@ export function SalvageReports({ userId, companyId, prefillEstimateId }: Salvage
     );
   }
 
+  // ── ASSETS VIEW ──
+  if (view === 'assets') {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-7xl mx-auto p-6">
+          <div className="flex items-center gap-4 mb-6">
+            <button onClick={() => setView('list')} className="flex items-center gap-2 text-gray-600 hover:text-gray-900 font-medium">
+              <ArrowLeft className="w-5 h-5" /> Back to Reports
+            </button>
+          </div>
+          <SalvageAssetManager
+            userId={userId}
+            companyId={companyId}
+            userRole={userRole}
+          />
+        </div>
+      </div>
+    );
+  }
+
   // ── LIST VIEW ──
   return (
     <div className="min-h-screen bg-gray-50">
@@ -977,12 +998,20 @@ export function SalvageReports({ userId, companyId, prefillEstimateId }: Salvage
             <h1 className="text-2xl font-bold text-gray-900">Salvage Service Reports</h1>
             <p className="text-gray-600 text-sm mt-1">Manage salvage and recovery service reports</p>
           </div>
-          <button
-            onClick={handleCreateNew}
-            className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
-          >
-            <Plus className="w-5 h-5" /> New Report
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setView('assets')}
+              className="flex items-center gap-2 px-5 py-2.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium"
+            >
+              <Box className="w-5 h-5" /> Asset Database
+            </button>
+            <button
+              onClick={handleCreateNew}
+              className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+            >
+              <Plus className="w-5 h-5" /> New Report
+            </button>
+          </div>
         </div>
 
         {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">{error}</div>}
