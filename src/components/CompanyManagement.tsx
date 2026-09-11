@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Building2, Plus, CreditCard as Edit2, Eye, Users, DollarSign, Search, CheckCircle, XCircle, Upload, MapPin, User, Activity } from 'lucide-react';
+import { Building2, Plus, CreditCard as Edit2, Eye, Users, DollarSign, Search, CheckCircle, XCircle, Upload, MapPin, User, Activity, ToggleLeft, ToggleRight } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useCompany } from '../contexts/CompanyContext';
 import { useNotification } from '../contexts/NotificationContext';
+import { ALL_FEATURES } from '../utils/featureFlags';
 
 interface Company {
   id: string;
@@ -32,6 +33,7 @@ interface Company {
   default_tax_rate: number;
   is_active: boolean;
   offers_monitoring: boolean;
+  feature_flags?: Record<string, boolean> | null;
   created_at: string;
 }
 
@@ -176,6 +178,28 @@ export function CompanyManagement() {
     } catch (error) {
       console.error('Error updating company status:', error);
       showError('Failed to update company status');
+    }
+  };
+
+  // Toggle a feature flag on a company
+  const toggleFeatureFlag = async (company: Company, featureKey: string) => {
+    const currentFlags = company.feature_flags || {};
+    const newValue = currentFlags[featureKey] !== false ? false : true;
+    const updatedFlags = { ...currentFlags, [featureKey]: newValue };
+
+    try {
+      const { error } = await supabase
+        .from('companies')
+        .update({ feature_flags: updatedFlags })
+        .eq('id', company.id);
+
+      if (error) throw error;
+
+      showSuccess(`${featureKey.replace(/_/g, ' ')} ${newValue ? 'enabled' : 'disabled'} for ${company.company_name}`);
+      await fetchCompanies();
+    } catch (error) {
+      console.error('Error updating feature flag:', error);
+      showError('Failed to update feature flag');
     }
   };
 
@@ -626,6 +650,33 @@ export function CompanyManagement() {
                     <p className="text-sm font-semibold">
                       {new Date(company.created_at).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}
                     </p>
+                  </div>
+                </div>
+
+                {/* Feature Toggles */}
+                <div className="mb-4 border-t border-slate-700 pt-4">
+                  <p className="text-xs font-semibold text-amber-500 uppercase mb-2">Feature Access</p>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {ALL_FEATURES.map((feature) => {
+                      const enabled = company.feature_flags ? company.feature_flags[feature.key] !== false : true;
+                      return (
+                        <button
+                          key={feature.key}
+                          onClick={() => toggleFeatureFlag(company, feature.key)}
+                          className="flex items-center gap-1.5 text-xs px-2 py-1.5 rounded transition-colors hover:bg-slate-700/50"
+                          title={enabled ? `Click to disable ${feature.label}` : `Click to enable ${feature.label}`}
+                        >
+                          {enabled ? (
+                            <ToggleRight className="w-4 h-4 text-green-500 flex-shrink-0" />
+                          ) : (
+                            <ToggleLeft className="w-4 h-4 text-slate-500 flex-shrink-0" />
+                          )}
+                          <span className={enabled ? 'text-slate-200' : 'text-slate-500 line-through'}>
+                            {feature.label}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 

@@ -61,7 +61,7 @@ interface DashboardProps {
 
 export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const { user, userProfile, yacht, signOut, refreshProfile } = useAuth();
-  const { companies, selectedCompany, isMaster, selectCompany, isLoadingCompanies } = useCompany();
+  const { companies, selectedCompany, isMaster, selectCompany, isLoadingCompanies, isFeatureEnabled } = useCompany();
   const { impersonatedRole, setImpersonatedRole, getEffectiveRole, isImpersonating } = useRoleImpersonation();
   const { impersonatedYacht, setImpersonatedYacht, getEffectiveYacht, isImpersonatingYacht } = useYachtImpersonation();
   const { showSuccess, showError } = useNotification();
@@ -9239,6 +9239,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
         {/* Navigation */}
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto overflow-x-hidden" style={{ WebkitOverflowScrolling: 'touch' }}>
+          {isFeatureEnabled('owner_trips') && (
           <button
             onClick={() => {
               setActiveTabPersisted('calendar');
@@ -9253,6 +9254,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             <Calendar className="w-5 h-5" />
             <span className="font-medium">Owners Trip</span>
           </button>
+          )}
+          {isFeatureEnabled('maintenance') && (
           <button
             onClick={() => {
               setActiveTabPersisted('maintenance');
@@ -9267,7 +9270,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             <Wrench className="w-5 h-5" />
             <span className="font-medium">Maintenance</span>
           </button>
-          {yacht?.name !== 'LOVIN LIFE' && (
+          )}
+          {isFeatureEnabled('education') && yacht?.name !== 'LOVIN LIFE' && (
             <button
               onClick={() => {
                 setActiveTabPersisted('education');
@@ -9284,7 +9288,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             </button>
           )}
 
-          {isStaffRole(effectiveRole) && (
+          {isStaffRole(effectiveRole) && isFeatureEnabled('staff_schedule') && (
             <button
               onClick={() => {
                 setActiveTabPersisted('staffCalendar');
@@ -9300,7 +9304,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               <span className="font-medium">Staff Schedule</span>
             </button>
           )}
-          {isStaffRole(effectiveRole) && (
+          {isStaffRole(effectiveRole) && isFeatureEnabled('time_clock') && (
             <button
               onClick={() => {
                 setActiveTabPersisted('timeClock');
@@ -9316,7 +9320,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               <span className="font-medium">Time Clock</span>
             </button>
           )}
-          {isStaffRole(effectiveRole) && (
+          {isStaffRole(effectiveRole) && isFeatureEnabled('estimating') && (
             <button
               onClick={() => {
                 setActiveTabPersisted('estimating');
@@ -9333,7 +9337,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             </button>
           )}
 
-          {isStaffRole(effectiveRole) && (
+          {isStaffRole(effectiveRole) && isFeatureEnabled('customers') && (
             <button
               onClick={() => {
                 setActiveTabPersisted('customers');

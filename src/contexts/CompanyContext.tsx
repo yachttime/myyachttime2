@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
+import { isFeatureEnabled as checkFeature } from '../utils/featureFlags';
 
 interface Company {
   id: string;
@@ -12,6 +13,7 @@ interface Company {
   timezone: string;
   default_tax_rate: number;
   is_active: boolean;
+  feature_flags?: Record<string, boolean> | null;
 }
 
 interface CompanyContextType {
@@ -20,6 +22,8 @@ interface CompanyContextType {
   userCompany: Company | null;
   isLoadingCompanies: boolean;
   isMaster: boolean;
+  featureFlags: Record<string, boolean> | null;
+  isFeatureEnabled: (key: string) => boolean;
   selectCompany: (companyId: string) => void;
   refreshCompanies: () => Promise<void>;
 }
@@ -153,6 +157,8 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
     userCompany,
     isLoadingCompanies,
     isMaster,
+    featureFlags: selectedCompany?.feature_flags ?? null,
+    isFeatureEnabled: (key: string) => checkFeature(selectedCompany?.feature_flags, key),
     selectCompany,
     refreshCompanies,
   }), [companies, selectedCompany, userCompany, isLoadingCompanies, isMaster, selectCompany, refreshCompanies]);
