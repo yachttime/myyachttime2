@@ -706,6 +706,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [pendingInspectionCount, setPendingInspectionCount] = useState(0);
   const [pendingInspectionsByYacht, setPendingInspectionsByYacht] = useState<Record<string, number>>({});
   const [inspectionCountByYacht, setInspectionCountByYacht] = useState<Record<string, number>>({});
+  const [pendingReviewInspections, setPendingReviewInspections] = useState<any[]>([]);
+  const [loadingPendingReviews, setLoadingPendingReviews] = useState(false);
   const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
   const [yachtHistoryLogs, setYachtHistoryLogs] = useState<Record<string, YachtHistoryLog[]>>({});
   const [expandedYachtId, setExpandedYachtId] = useState<string | null>(null);
@@ -8405,8 +8407,43 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         if (row.yacht_id) totalCounts[row.yacht_id] = (totalCounts[row.yacht_id] || 0) + 1;
       }
       setInspectionCountByYacht(totalCounts);
+      loadPendingReviewInspections(companyId);
     } catch {
       // silently ignore
+    }
+  };
+
+  const loadPendingReviewInspections = async (companyId: string) => {
+    setLoadingPendingReviews(true);
+    try {
+      const { data, error } = await supabase
+        .from('trip_inspections')
+        .select('id, yacht_id, inspection_type, created_at, inspector_id, owner_name, yachts(name)')
+        .eq('review_status', 'pending_review')
+        .eq('company_id', companyId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      const inspections = data || [];
+      const inspectorIds = [...new Set(inspections.map((i: any) => i.inspector_id).filter(Boolean))];
+      let inspectorNameMap: Record<string, string> = {};
+      if (inspectorIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('user_profiles')
+          .select('user_id, first_name, last_name')
+          .in('user_id', inspectorIds);
+        (profiles || []).forEach((p: any) => {
+          inspectorNameMap[p.user_id] = `${p.first_name || ''} ${p.last_name || ''}`.trim();
+        });
+      }
+      setPendingReviewInspections(inspections.map((i: any) => ({
+        ...i,
+        yacht_name: i.yachts?.name || 'Unknown',
+        inspector_name: inspectorNameMap[i.inspector_id] || '',
+      })));
+    } catch {
+      setPendingReviewInspections([]);
+    } finally {
+      setLoadingPendingReviews(false);
     }
   };
 
@@ -11200,6 +11237,89 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       </button>
                     </div>
                   </div>
+
+                  {(isStaffRole(effectiveRole) || isMasterRole(effectiveRole)) && pendingInspectionCount > 0 && (
+                    <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-5 mb-6">
+                      <div className="flex items-center gap-2 mb-3">
+                        <ClipboardCheck className="w-5 h-5 text-amber-400" />
+                        <h3 className="text-lg font-semibold text-amber-400">
+                          {pendingInspectionCount} Inspection{pendingInspectionCount > 1 ? 's' : ''} Pending Review
+                        </h3>
+                      </div>
+                      {loadingPendingReviews ? (
+                        <div className="text-slate-400 text-sm py-2">Loading pending reviews...</div>
+                      ) : (
+                        <div className="space-y-2">
+                          {pendingReviewInspections.map((inspection) => (
+                            <div key={inspection.id} className="flex items-center justify-between bg-slate-900/50 rounded-lg px-4 py-2.5">
+                              <div className="flex items-center gap-3 flex-1 min-w-0">
+                                <span className="text-amber-400 font-semibold text-sm flex-shrink-0">{inspection.yacht_name}</span>
+                                <span className="text-slate-300 text-sm">
+                                  {new Date(inspection.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                </span>
+                                {inspection.owner_name && (
+                                  <span className="text-slate-400 text-sm">· {inspection.owner_name}</span>
+                                )}
+                                {inspection.inspector_name && (
+                                  <span className="text-slate-500 text-sm">• {inspection.inspector_name}</span>
+                                )}
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 font-semibold text-xs flex-shrink-0">
+                                  <Clock className="w-2.5 h-2.5" />
+                                  Pending
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1 ml-2 flex-shrink-0">
+                                <button
+                                  onClick={() => openInspectionReview(inspection.id)}
+                                  disabled={loadingReviewId === inspection.id}
+                                  className="px-3 py-1.5 rounded transition-colors text-sm whitespace-nowrap flex items-center gap-1 bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 disabled:opacity-50"
+                                >
+                                  {loadingReviewId === inspection.id ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" />Loading...</> : <><ClipboardCheck className="w-3.5 h-3.5" />Review</>}
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    if (loadingPdfId) return;
+                                    try {
+                                      setLoadingPdfId(inspection.id);
+                                      const { data: inspectionData, error: inspectionError } = await supabase
+                                        .from('trip_inspections')
+                                        .select('*, yachts(name)')
+                                        .eq('id', inspection.id)
+                                        .maybeSingle();
+                                      if (inspectionError) throw inspectionError;
+                                      if (!inspectionData) { alert('Inspection not found'); return; }
+                                      if (inspectionData.inspector_id) {
+                                        const { data: inspectorData } = await supabase
+                                          .from('user_profiles')
+                                          .select('first_name, last_name')
+                                          .eq('user_id', inspectionData.inspector_id)
+                                          .maybeSingle();
+                                        if (inspectorData) inspectionData.user_profiles = inspectorData;
+                                      }
+                                      setSelectedInspectionForPDF(inspectionData as any);
+                                    } catch (err) {
+                                      console.error('Error:', err);
+                                      alert('Failed to load inspection report');
+                                    } finally {
+                                      setLoadingPdfId(null);
+                                    }
+                                  }}
+                                  disabled={loadingPdfId === inspection.id}
+                                  className={`px-3 py-1.5 rounded transition-colors text-sm whitespace-nowrap flex items-center gap-1 ${
+                                    loadingPdfId === inspection.id
+                                      ? 'bg-cyan-500/10 text-cyan-500/50 cursor-not-allowed'
+                                      : 'bg-cyan-500/20 text-cyan-500 hover:bg-cyan-500/30'
+                                  }`}
+                                >
+                                  {loadingPdfId === inspection.id ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" />Loading...</> : 'View PDF'}
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {showYachtForm && (
                     <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 mb-6">
