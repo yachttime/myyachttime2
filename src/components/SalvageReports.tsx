@@ -1117,7 +1117,13 @@ function LossLocationMap({ lat, lng, forPrint = false }: { lat: string | number;
   const lngNum = typeof lng === 'number' ? lng : parseFloat(lng);
   if (isNaN(latNum) || isNaN(lngNum)) return null;
 
+  const latSpan = 0.012;
+  const lngSpan = 0.018;
+  const bbox = [lngNum - lngSpan, latNum - latSpan, lngNum + lngSpan, latNum + latSpan].join(',');
+  const mapParams = new URLSearchParams({ bbox, bboxSR: '4326', imageSR: '4326', size: '900,520', format: 'png32', f: 'image' });
+  const mapUrl = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?${mapParams.toString()}`;
   const gmapsUrl = `https://www.google.com/maps/search/?api=1&query=${latNum},${lngNum}`;
+  const mapHeight = forPrint ? '300px' : '250px';
 
   return (
     <div className={forPrint ? '' : 'rounded-lg border border-gray-200 overflow-hidden bg-gray-50'}>
@@ -1125,21 +1131,29 @@ function LossLocationMap({ lat, lng, forPrint = false }: { lat: string | number;
         <MapPin className="w-4 h-4 text-red-500" />
         <span className="text-sm font-medium text-gray-700">Approximate Location of Loss</span>
         <span className="text-xs text-gray-500 ml-1">({latNum.toFixed(4)}, {lngNum.toFixed(4)})</span>
+        <a
+          href={gmapsUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="ml-auto inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium"
+        >
+          Open in Google Maps <ExternalLink className="w-3 h-3" />
+        </a>
       </div>
-      <a
-        href={gmapsUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={`flex flex-col items-center justify-center gap-3 bg-slate-100 hover:bg-blue-50 transition-colors ${forPrint ? 'border border-gray-300 rounded' : ''}`}
-        style={{ height: forPrint ? '180px' : '250px' }}
-        aria-label={`Open Google Maps satellite view at ${latNum}, ${lngNum}`}
-      >
-        <MapPin className="w-12 h-12 text-red-500 fill-red-100" strokeWidth={1.5} />
-        <span className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm">
-          Open satellite view in Google Maps <ExternalLink className="w-4 h-4" />
-        </span>
-        <span className="text-xs text-gray-600">{latNum.toFixed(4)}, {lngNum.toFixed(4)}</span>
-      </a>
+      <div className={`relative ${forPrint ? 'border border-gray-300 rounded overflow-hidden' : 'overflow-hidden'}`}>
+        <img
+          src={mapUrl}
+          alt={`Satellite imagery showing approximate salvage location at ${latNum}, ${lngNum}`}
+          className="w-full"
+          style={{ height: mapHeight, objectFit: 'cover' }}
+        />
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full text-red-600 drop-shadow-lg pointer-events-none">
+          <MapPin className="w-8 h-8 fill-red-500" strokeWidth={1.5} />
+        </div>
+        <div className="absolute bottom-1 left-1 rounded bg-white/85 px-1 text-[9px] text-gray-600 pointer-events-none">
+          Esri, Maxar, Earthstar Geographics
+        </div>
+      </div>
     </div>
   );
 }
