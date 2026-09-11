@@ -795,6 +795,37 @@ export function SalvageReports({ userId, companyId, prefillEstimateId }: Salvage
               </div>
             )}
 
+            {/* Email Tracking */}
+            {editingReport && editingReport.email_sent_at && (
+              <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <h2 className="text-lg font-bold text-gray-900 mb-4">Email Tracking</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Last Emailed</p>
+                    <p className="text-sm text-gray-900 mt-0.5">
+                      {new Date(editingReport.email_sent_at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Recipients</p>
+                    <p className="text-sm text-gray-900 mt-0.5">{editingReport.email_recipients || '—'}</p>
+                  </div>
+                  {editingReport.email_cc_recipients && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">CC Recipients</p>
+                      <p className="text-sm text-gray-900 mt-0.5">{editingReport.email_cc_recipients}</p>
+                    </div>
+                  )}
+                  {editingReport.email_resend_id && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Email ID</p>
+                      <p className="text-sm text-gray-500 mt-0.5 font-mono">{editingReport.email_resend_id}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Action Buttons */}
             <div className="flex items-center gap-3 pt-4">
               <button
@@ -908,9 +939,16 @@ export function SalvageReports({ userId, companyId, prefillEstimateId }: Salvage
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">
                       {r.email_sent_at ? (
-                        <span className="text-xs text-green-600 font-medium">{new Date(r.email_sent_at).toLocaleDateString()}</span>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-xs text-green-600 font-medium">{new Date(r.email_sent_at).toLocaleDateString()}</span>
+                          {r.email_recipients && (
+                            <span className="text-xs text-gray-400" title={r.email_recipients}>
+                              {r.email_recipients.split(',').length} recipient{r.email_recipients.split(',').length !== 1 ? 's' : ''}
+                            </span>
+                          )}
+                        </div>
                       ) : (
-                        <span className="text-xs text-gray-400">—</span>
+                        <span className="text-xs text-gray-400">Not sent</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -1474,13 +1512,12 @@ function SalvageEmailModal({
 
             <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
               <p className="text-sm text-gray-600">
-                <strong>Attachments:</strong> {photoCount} photo{photoCount !== 1 ? 's' : ''} (attached), {videoCount} video{videoCount !== 1 ? 's' : ''} (as links)
+                <strong>Photos:</strong> {photoCount} photo{photoCount !== 1 ? 's' : ''} (shown inline in the email body)
+                {videoCount > 0 ? `, ${videoCount} video${videoCount !== 1 ? 's' : ''} (as clickable links)` : ''}
               </p>
-              {videoCount > 0 && (
-                <p className="text-xs text-gray-400 mt-1">
-                  Videos are included as clickable links in the email body. Photos are attached directly.
-                </p>
-              )}
+              <p className="text-xs text-gray-400 mt-1">
+                All photos are displayed directly in the email. Clicking any photo opens it at full size.
+              </p>
             </div>
 
             <div className="flex items-center justify-end gap-3 pt-2">
