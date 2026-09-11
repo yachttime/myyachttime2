@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Search, Plus, Eye, Printer, Trash2, ArrowLeft, Upload, X, FileText, Save, CheckCircle, Video, ChevronDown, ChevronLeft, ChevronRight, Ship, User } from 'lucide-react';
+import { Search, Plus, Eye, Printer, Trash2, ArrowLeft, Upload, X, FileText, Save, CheckCircle, Video, ChevronDown, ChevronLeft, ChevronRight, Ship, User, Loader2 } from 'lucide-react';
 import { supabase, SalvageReport, SalvageReportMedia } from '../lib/supabase';
 
 interface SalvageReportsProps {
@@ -49,6 +49,7 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
   const [success, setSuccess] = useState(false);
   const [uploadingType, setUploadingType] = useState<string | null>(null);
   const [uploadPending, setUploadPending] = useState(0);
+  const [uploadCompleted, setUploadCompleted] = useState(0);
   const [printReport, setPrintReport] = useState<SalvageReport | null>(null);
   const [companyInfo, setCompanyInfo] = useState<{ name: string; logo_url?: string; tagline?: string; phone?: string; email?: string; address?: string } | null>(null);
   const [yachts, setYachts] = useState<{ id: string; name: string; manufacturer?: string | null; size?: string | null; hull_number?: string | null }[]>([]);
@@ -295,6 +296,7 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
     if (!editingReport) return;
     setUploadingType(mediaType);
     setUploadPending(files.length);
+    setUploadCompleted(0);
     let successCount = 0;
     let failCount = 0;
     const existingGroup = media.filter(m => m.media_type === mediaType);
@@ -332,9 +334,12 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
       } catch (err) {
         console.error('Error uploading media:', err);
         failCount++;
+      } finally {
+        setUploadCompleted(prev => prev + 1);
       }
     }));
     setUploadPending(0);
+    setUploadCompleted(0);
     setUploadingType(null);
     if (failCount > 0) {
       setError(`Failed to upload ${failCount} of ${files.length} file${files.length > 1 ? 's' : ''}`);
@@ -621,6 +626,7 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
                   uploading={uploadingType === 'photo_prior'}
                   isVideo={false}
                   pendingCount={uploadingType === 'photo_prior' ? uploadPending : 0}
+                  completedCount={uploadingType === 'photo_prior' ? uploadCompleted : 0}
                 />
                 <MediaUploadSection
                   label="Photos of the Loss"
@@ -632,6 +638,7 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
                   uploading={uploadingType === 'photo_loss'}
                   isVideo={false}
                   pendingCount={uploadingType === 'photo_loss' ? uploadPending : 0}
+                  completedCount={uploadingType === 'photo_loss' ? uploadCompleted : 0}
                 />
                 <MediaUploadSection
                   label="Videos of the Loss"
@@ -643,6 +650,7 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
                   uploading={uploadingType === 'video_loss'}
                   isVideo={true}
                   pendingCount={uploadingType === 'video_loss' ? uploadPending : 0}
+                  completedCount={uploadingType === 'video_loss' ? uploadCompleted : 0}
                 />
               </FormSection>
             )}
@@ -822,13 +830,16 @@ function FormField({
 }
 
 function MediaUploadSection({
-  label, accept, items, onUpload, onDelete, onMove, uploading, isVideo, pendingCount,
+  label, accept, items, onUpload, onDelete, onMove, uploading, isVideo, pendingCount, completedCount,
 }: {
   label: string; accept: string; items: SalvageReportMedia[];
   onUpload: (files: File[]) => void; onDelete: (id: string) => void;
   onMove: (id: string, direction: 'left' | 'right') => void;
-  uploading: boolean; isVideo: boolean; pendingCount?: number;
+  uploading: boolean; isVideo: boolean; pendingCount?: number; completedCount?: number;
 }) {
+  const pct = uploading && pendingCount && pendingCount > 0
+    ? Math.round(((completedCount || 0) / pendingCount) * 100)
+    : 0;
   return (
     <div className="md:col-span-2 mb-4 last:mb-0">
       <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
@@ -870,8 +881,15 @@ function MediaUploadSection({
           </div>
         ))}
       </div>
-      <label className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 cursor-pointer text-sm font-medium">
-        {uploading ? (pendingCount && pendingCount > 1 ? `Uploading ${pendingCount} files...` : 'Uploading...') : (<> <Upload className="w-4 h-4" /> Upload {isVideo ? 'Videos' : 'Photos'}</>)}
+      <label className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg cursor-pointer text-sm font-medium transition-colors ${uploading ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+        {uploading ? (
+          <>
+            <Loader2 className="w-4 h-4 animate-spin" />
+            {pendingCount && pendingCount > 1
+              ? `Uploading ${completedCount || 0}/${pendingCount} files...`
+              : 'Uploading...'}
+          </>
+        ) : (<> <Upload className="w-4 h-4" /> Upload {isVideo ? 'Videos' : 'Photos'}</>)}
         <input
           type="file"
           accept={accept}
@@ -881,6 +899,17 @@ function MediaUploadSection({
           onChange={e => { const fs = Array.from(e.target.files || []); if (fs.length) onUpload(fs); e.target.value = ''; }}
         />
       </label>
+      {uploading && pendingCount && pendingCount > 0 && (
+        <div className="mt-2 w-64">
+          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-blue-500 rounded-full transition-all duration-300 ease-out"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+          <p className="text-xs text-gray-500 mt-1">{pct}% complete</p>
+        </div>
+      )}
     </div>
   );
 }
