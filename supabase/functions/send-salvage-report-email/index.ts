@@ -1,4 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
+import { Buffer } from "node:buffer";
+import { PNG } from "npm:pngjs@7.0.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -128,36 +130,87 @@ Deno.serve(async (req: Request) => {
     const photoLoss = sortedMedia.filter((m: any) => m.media_type === "photo_loss");
     const videoLoss = sortedMedia.filter((m: any) => m.media_type === "video_loss");
 
-    // Build satellite map image URL if GPS coordinates are valid
+    // Build satellite map image with a red location marker baked into the pixels.
+    // The ArcGIS World_Imagery cached tile service ignores the "marker" URL parameter,
+    // so we fetch the raw satellite image, composite a red circle marker directly into
+    // the PNG pixel data using pngjs, upload the result to Supabase Storage, and use
+    // that public URL in the email. This guarantees the marker appears in all email
+    // clients since it's part of the image itself (no CSS overlays that get stripped).
     const latNum = parseFloat(report.gps_latitude);
     const lngNum = parseFloat(report.gps_longitude);
     let mapHtml = "";
     if (!isNaN(latNum) && !isNaN(lngNum)) {
       const latSpan = 0.0351;
       const lngSpan = 0.0527;
-      const bbox = [lngNum - lngSpan, latNum - latSpan, lngNum + lngSpan, latNum + latSpan].join(",");
-      // ArcGIS marker parameter: lng,lat,xoffset,yoffset,iconType,color,size,outlineColor,outlineSize
-      // This bakes the red pin directly into the exported map image so it renders in email clients
-      // (email clients strip CSS position:absolute, so CSS overlays don't work)
-      const markerDef = [
-        `${lngNum},${latNum}`,
-        "0,0",           // no offset
-        "esriSMSCircle", // simple circular marker symbol
-        "255,0,0",        // red (RGB 255,0,0)
-        "25",             // marker size
-        "255,255,255",    // white outline
-        "3",              // outline width
-      ].join(",");
-      const mapParams = new URLSearchParams({ bbox, bboxSR: "4326", imageSR: "4326", size: "900,520", format: "png32", marker: markerDef, f: "image" });
-      const mapUrl = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?${mapParams.toString()}`;
+      const bbox = [lngNum - lngSpan, latNum - latSpan, lngNum + lngSpan, latNum + lngSpan].join(",");
+      const mapParams = new URLSearchParams({ bbox, bboxSR: "4326", imageSR: "4326", size: "900,520", format: "png32", f: "image" });
+      const baseUrl = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?${mapParams.toString()}`;
       const gmapsUrl = `https://www.google.com/maps/search/?api=1&query=${latNum},${lngNum}`;
+
+      let mapImgUrl = baseUrl;
+      try {
+        const mapResp = await fetch(baseUrl);
+        if (mapResp.ok) {
+          const imgArrayBuffer = await mapResp.arrayBuffer();
+          const png = PNG.sync.read(Buffer.from(imgArrayBuffer));
+
+          // The GPS coordinate is at the center of the bbox, which maps to the center of the image
+          const cx = Math.round(png.width / 2);
+          const cy = Math.round(png.height / 2);
+          const outerRadius = 18;
+          const innerRadius = 14;
+
+          // Draw a red circle with a white outline at the GPS location
+          for (let y = cy - outerRadius - 1; y <= cy + outerRadius + 1; y++) {
+            for (let x = cx - outerRadius - 1; x <= cx + outerRadius + 1; x++) {
+              if (x < 0 || x >= png.width || y < 0 || y >= png.height) continue;
+              const dx = x - cx;
+              const dy = y - cy;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              const idx = (png.width * y + x) << 2;
+              if (dist <= outerRadius && dist > innerRadius) {
+                png.data[idx] = 255;
+                png.data[idx + 1] = 255;
+                png.data[idx + 2] = 255;
+                png.data[idx + 3] = 255;
+              } else if (dist <= innerRadius) {
+                png.data[idx] = 255;
+                png.data[idx + 1] = 0;
+                png.data[idx + 2] = 0;
+                png.data[idx + 3] = 255;
+              }
+            }
+          }
+
+          // Encode the composited PNG and upload to the salvage-media storage bucket
+          const compositedPng = PNG.sync.write(png);
+          const mapFileName = `salvage-maps/${reportId}-${Date.now()}.png`;
+          const { data: uploadData, error: uploadError } = await adminSupabase.storage
+            .from("salvage-media")
+            .upload(mapFileName, new Uint8Array(compositedPng), { contentType: "image/png", upsert: false });
+
+          if (!uploadError && uploadData) {
+            const { data: publicUrlData } = adminSupabase.storage
+              .from("salvage-media")
+              .getPublicUrl(mapFileName);
+            if (publicUrlData?.publicUrl) {
+              mapImgUrl = publicUrlData.publicUrl;
+            }
+          } else {
+            console.log("Map upload failed, falling back to bare satellite image:", uploadError?.message);
+          }
+        }
+      } catch (mapError) {
+        console.log("Map compositing failed, falling back to bare satellite image:", mapError);
+      }
+
       mapHtml = `
         <tr>
           <td style="padding:0 0 20px 0;">
             <h3 style="margin:0 0 8px 0;font-size:14px;font-weight:600;color:#374151;border-bottom:1px solid #e5e7eb;padding-bottom:6px;">Approximate Location of Loss</h3>
             <p style="font-size:12px;color:#6b7280;margin:0 0 8px 0;">GPS: ${latNum.toFixed(4)}, ${lngNum.toFixed(4)} — <a href="${gmapsUrl}" style="color:#2563eb;">Open in Google Maps</a></p>
             <a href="${gmapsUrl}" target="_blank" style="display:block;text-decoration:none;">
-              <img src="${mapUrl}" alt="Satellite imagery showing approximate salvage location at ${latNum}, ${lngNum}" style="width:100%;max-width:576px;height:auto;border-radius:6px;border:1px solid #e5e7eb;display:block;" />
+              <img src="${mapImgUrl}" alt="Satellite imagery showing approximate salvage location at ${latNum}, ${lngNum}" style="width:100%;max-width:576px;height:auto;border-radius:6px;border:1px solid #e5e7eb;display:block;" />
             </a>
             <p style="font-size:9px;color:#9ca3af;margin:4px 0 0 0;">Esri, Maxar, Earthstar Geographics</p>
           </td>
