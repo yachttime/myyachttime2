@@ -409,7 +409,7 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
     }
   }
 
-  async function handleRegeneratePdf(fileName: string) {
+  async function handleRegeneratePdf(_fileName: string) {
     if (!editingReport?.estimate_id) {
       setError('No linked estimate found to regenerate PDF from.');
       return;
@@ -419,59 +419,77 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
     try {
       const estimateId = editingReport.estimate_id;
 
-      const { data: estData } = await supabase
-        .from('estimates')
-        .select('*, yachts(name, manufacturer, model)')
-        .eq('id', estimateId)
+      // Check pipeline state: invoice > work order > estimate
+      const { data: wo } = await supabase
+        .from('work_orders')
+        .select('id, work_order_number, company_id')
+        .eq('estimate_id', estimateId)
         .maybeSingle();
 
-      if (!estData) throw new Error('Could not load estimate data.');
-
-      const companyInfoPdf = await getCompanyInfoForPdf(estData.company_id);
-
-      const isInvoice = fileName.includes('Invoice');
-      const isWorkOrder = fileName.includes('Work Order') || fileName.includes('WO');
-
-      if (isInvoice) {
-        const { data: wo } = await supabase
-          .from('work_orders')
-          .select('id')
-          .eq('estimate_id', estimateId)
+      let invData: any = null;
+      if (wo) {
+        const { data: inv } = await supabase
+          .from('estimating_invoices')
+          .select('*')
+          .eq('work_order_id', wo.id)
           .maybeSingle();
-        if (wo) {
-          const { data: invData } = await supabase
-            .from('estimating_invoices')
-            .select('*')
-            .eq('work_order_id', wo.id)
-            .maybeSingle();
-          if (invData) {
-            const { data: invTasks } = await supabase
-              .from('estimating_invoice_tasks')
-              .select('*')
-              .eq('invoice_id', invData.id)
-              .order('task_order');
-            const tasksWithItems = await Promise.all(
-              (invTasks || []).map(async (task: any) => {
-                const { data: items } = await supabase
-                  .from('estimating_invoice_line_items')
-                  .select('*')
-                  .eq('task_id', task.id)
-                  .order('line_order');
-                return { ...task, lineItems: items || [] };
-              })
-            );
-            const pdf = await generateEstimatingInvoicePDF(invData, tasksWithItems, companyInfoPdf);
-            await attachPdfToWorkOrderSalvageReport(wo.id, pdf, fileName);
-          }
-        }
-      } else if (isWorkOrder) {
+        invData = inv;
+      }
+
+      if (invData) {
+        const companyInfoPdf = await getCompanyInfoForPdf(invData.company_id);
+        const { data: invLineItems } = await supabase
+          .from('estimating_invoice_line_items')
+          .select('*, estimating_invoice_tasks(task_name, task_overview)')
+          .eq('invoice_id', invData.id)
+          .order('line_order');
+        const formattedItems = (invLineItems || []).map((item: any) => ({
+          line_type: item.line_type,
+          description: item.description,
+          work_details: item.work_details,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          total_price: item.total_price,
+          task_name: item.estimating_invoice_tasks?.task_name,
+          task_overview: item.estimating_invoice_tasks?.task_overview,
+        }));
+        const pdf = await generateEstimatingInvoicePDF(
+          {
+            invoice_number: invData.invoice_number,
+            invoice_date: invData.invoice_date,
+            due_date: invData.due_date,
+            payment_status: invData.payment_status,
+            customer_name: invData.customer_name || 'N/A',
+            customer_email: invData.customer_email,
+            customer_phone: invData.customer_phone,
+            work_order_number: invData.work_order_number,
+            subtotal: invData.subtotal,
+            tax_rate: invData.tax_rate,
+            tax_amount: invData.tax_amount,
+            discount_amount: invData.discount_amount,
+            discount_percentage: invData.discount_percentage,
+            shop_supplies_amount: invData.shop_supplies_amount,
+            park_fees_amount: invData.park_fees_amount,
+            surcharge_amount: invData.surcharge_amount,
+            credit_card_fee: invData.credit_card_fee,
+            deposit_applied: invData.deposit_applied,
+            amount_paid: invData.amount_paid,
+            total_amount: invData.total_amount,
+            notes: invData.notes,
+          } as any,
+          formattedItems,
+          companyInfoPdf
+        );
+        const newFileName = `${invData.invoice_number} - Invoice.pdf`;
+        await attachPdfToWorkOrderSalvageReport(wo.id, pdf, newFileName);
+      } else if (wo) {
         const { data: woData } = await supabase
           .from('work_orders')
           .select('*, yachts(name, manufacturer, model)')
-          .eq('estimate_id', estimateId)
+          .eq('id', wo.id)
           .maybeSingle();
         if (woData) {
-          const companyInfoPdf2 = await getCompanyInfoForPdf(woData.company_id);
+          const companyInfoPdf = await getCompanyInfoForPdf(woData.company_id);
           const { data: woTasks } = await supabase
             .from('work_order_tasks')
             .select('*')
@@ -490,10 +508,18 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
           const yachtName = woData.yachts?.name || null;
           const yachtMake = woData.yachts?.manufacturer || null;
           const yachtModel = woData.yachts?.model || null;
-          const pdf = await generateWorkOrderPDF(woData, tasksWithItems, yachtName, companyInfoPdf2, yachtMake, yachtModel);
-          await attachPdfToWorkOrderSalvageReport(woData.id, pdf, fileName);
+          const pdf = await generateWorkOrderPDF(woData, tasksWithItems, yachtName, companyInfoPdf, yachtMake, yachtModel);
+          const newFileName = `${woData.work_order_number} - Work Order.pdf`;
+          await attachPdfToWorkOrderSalvageReport(woData.id, pdf, newFileName);
         }
       } else {
+        const { data: estData } = await supabase
+          .from('estimates')
+          .select('*, yachts(name, manufacturer, model)')
+          .eq('id', estimateId)
+          .maybeSingle();
+        if (!estData) throw new Error('Could not load estimate data.');
+        const companyInfoPdf = await getCompanyInfoForPdf(estData.company_id);
         const { data: tasksData } = await supabase
           .from('estimate_tasks')
           .select('*')
@@ -513,7 +539,8 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
         const yachtMake = estData.yachts?.manufacturer || null;
         const yachtModel = estData.yachts?.model || null;
         const pdf = await generateEstimatePDF(estData, tasksWithItems, yachtName, companyInfoPdf, yachtMake, yachtModel);
-        await attachPdfToEstimateSalvageReport(estimateId, pdf, fileName);
+        const newFileName = `${estData.estimate_number} - Estimate.pdf`;
+        await attachPdfToEstimateSalvageReport(estimateId, pdf, newFileName);
       }
 
       setPdfCacheBust(Date.now());
