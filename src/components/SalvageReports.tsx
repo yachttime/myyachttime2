@@ -1117,7 +1117,7 @@ function LossLocationMap({ lat, lng, forPrint = false }: { lat: string | number;
   const lngNum = typeof lng === 'number' ? lng : parseFloat(lng);
   if (isNaN(latNum) || isNaN(lngNum)) return null;
 
-  const mapUrl = `https://www.google.com/maps?q=${latNum},${lngNum}&z=14&t=k&output=embed`;
+  const mapUrl = `https://maps.google.com/maps?ll=${latNum},${lngNum}&q=${latNum},${lngNum}&t=k&z=14&output=embed`;
   const gmapsUrl = `https://www.google.com/maps/search/?api=1&query=${latNum},${lngNum}`;
 
   return (
