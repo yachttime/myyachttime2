@@ -363,6 +363,7 @@ export interface SalvageReport {
   owner_phone: string | null;
   owner_email: string | null;
   owner_address: string | null;
+  owner_mailing_address: string | null;
   insurance_company: string | null;
   policy_number: string | null;
   claim_number: string | null;

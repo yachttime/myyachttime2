@@ -17,6 +17,7 @@ const EMPTY_FORM = {
   owner_phone: '',
   owner_email: '',
   owner_address: '',
+  owner_mailing_address: '',
   insurance_company: '',
   policy_number: '',
   claim_number: '',
@@ -197,6 +198,7 @@ export function SalvageReports({ userId, companyId, prefillEstimateId }: Salvage
         owner_phone: c.phone || prev.owner_phone,
         owner_email: c.email || prev.owner_email,
         owner_address: addr || prev.owner_address,
+        owner_mailing_address: addr || prev.owner_mailing_address,
       }));
     }
   }
@@ -211,6 +213,7 @@ export function SalvageReports({ userId, companyId, prefillEstimateId }: Salvage
       owner_phone: report.owner_phone || '',
       owner_email: report.owner_email || '',
       owner_address: report.owner_address || '',
+      owner_mailing_address: report.owner_mailing_address || '',
       insurance_company: report.insurance_company || '',
       policy_number: report.policy_number || '',
       claim_number: report.claim_number || '',
@@ -440,7 +443,8 @@ export function SalvageReports({ userId, companyId, prefillEstimateId }: Salvage
               <PrintField label="Owner Name" value={r.owner_name} />
               <PrintField label="Owner Phone" value={r.owner_phone} />
               <PrintField label="Owner Email" value={r.owner_email} />
-              <PrintField label="Owner Address" value={r.owner_address} />
+              <PrintField label="Owner Physical Address" value={r.owner_address} />
+              <PrintField label="Owner Mailing Address" value={r.owner_mailing_address} />
               <PrintField label="Insurance Company" value={r.insurance_company} />
               <PrintField label="Policy Number" value={r.policy_number} />
               <PrintField label="Claim Number" value={r.claim_number} />
@@ -470,13 +474,13 @@ export function SalvageReports({ userId, companyId, prefillEstimateId }: Salvage
             {/* Vessel Condition & Fuel */}
             <PrintSection title="Vessel Condition & Fuel">
               <PrintField label="Description Prior to Loss" value={r.vessel_description_prior} fullWidth />
-              <PrintField label="Diesel Fuel (gallons)" value={r.diesel_gallons} />
-              <PrintField label="Gasoline (gallons)" value={r.gas_gallons} />
+              <PrintField label="Diesel Fuel (gallons at the time of loss)" value={r.diesel_gallons} />
+              <PrintField label="Gasoline (gallons at the time of loss)" value={r.gas_gallons} />
             </PrintSection>
 
             {/* Findings */}
             {(r.findings || r.underwater_condition) && (
-              <PrintSection title="Findings from Estimate">
+              <PrintSection title="Report Findings">
                 {r.underwater_condition && (
                   <div className="col-span-2 mb-4">
                     <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Underwater Condition</p>
@@ -587,7 +591,8 @@ export function SalvageReports({ userId, companyId, prefillEstimateId }: Salvage
               <FormField label="Owner Name" value={form.owner_name} onChange={v => setForm({ ...form, owner_name: v })} />
               <FormField label="Owner Phone" value={form.owner_phone} onChange={v => setForm({ ...form, owner_phone: v })} />
               <FormField label="Owner Email" value={form.owner_email} onChange={v => setForm({ ...form, owner_email: v })} />
-              <FormField label="Owner Address" value={form.owner_address} onChange={v => setForm({ ...form, owner_address: v })} fullWidth />
+              <FormField label="Owner Physical Address" value={form.owner_address} onChange={v => setForm({ ...form, owner_address: v })} fullWidth />
+              <FormField label="Owner Mailing Address" value={form.owner_mailing_address} onChange={v => setForm({ ...form, owner_mailing_address: v })} fullWidth />
               <FormField label="Insurance Company" value={form.insurance_company} onChange={v => setForm({ ...form, insurance_company: v })} />
               <FormField label="Policy Number" value={form.policy_number} onChange={v => setForm({ ...form, policy_number: v })} />
               <FormField label="Claim Number" value={form.claim_number} onChange={v => setForm({ ...form, claim_number: v })} />
@@ -613,12 +618,12 @@ export function SalvageReports({ userId, companyId, prefillEstimateId }: Salvage
             {/* Section: Vessel Condition & Fuel */}
             <FormSection title="Vessel Condition & Fuel">
               <FormField label="Description of Boat Prior to Loss" value={form.vessel_description_prior} onChange={v => setForm({ ...form, vessel_description_prior: v })} fullWidth textarea placeholder="Overall description of the boat's condition prior to the loss..." />
-              <FormField label="Diesel Fuel (gallons)" value={form.diesel_gallons} onChange={v => setForm({ ...form, diesel_gallons: v })} />
-              <FormField label="Gasoline (gallons)" value={form.gas_gallons} onChange={v => setForm({ ...form, gas_gallons: v })} />
+              <FormField label="Diesel Fuel (gallons at the time of loss)" value={form.diesel_gallons} onChange={v => setForm({ ...form, diesel_gallons: v })} />
+              <FormField label="Gasoline (gallons at the time of loss)" value={form.gas_gallons} onChange={v => setForm({ ...form, gas_gallons: v })} />
             </FormSection>
 
             {/* Section: Findings */}
-            <FormSection title="Findings from Estimate">
+            <FormSection title="Report Findings">
               <FormField label="Underwater Condition" value={form.underwater_condition} onChange={v => setForm({ ...form, underwater_condition: v })} fullWidth textarea placeholder="Describe the condition of the vessel underwater..." />
               <FormField label="Findings & Notes" value={form.findings} onChange={v => setForm({ ...form, findings: v })} fullWidth textarea placeholder="Findings and notes drawn from the estimate..." />
             </FormSection>
