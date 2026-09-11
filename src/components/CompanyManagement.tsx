@@ -87,6 +87,17 @@ export function CompanyManagement() {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [showFeatureModal, setShowFeatureModal] = useState(false);
+  const [featureModalCompany, setFeatureModalCompany] = useState<Company | null>(null);
+
+  const handleFeatureAccess = (company: Company) => {
+    setFeatureModalCompany(company);
+    setShowFeatureModal(true);
+  };
+
+  const getEnabledFeatureCount = (company: Company) => {
+    return ALL_FEATURES.filter(f => company.feature_flags ? company.feature_flags[f.key] !== false : true).length;
+  };
 
   // Helper function to update form data and mark as unsaved
   const updateFormData = (updates: Partial<typeof formData>) => {
@@ -196,6 +207,10 @@ export function CompanyManagement() {
       if (error) throw error;
 
       showSuccess(`${featureKey.replace(/_/g, ' ')} ${newValue ? 'enabled' : 'disabled'} for ${company.company_name}`);
+      const updatedCompany = { ...company, feature_flags: updatedFlags };
+      if (featureModalCompany && featureModalCompany.id === company.id) {
+        setFeatureModalCompany(updatedCompany);
+      }
       await fetchCompanies();
     } catch (error) {
       console.error('Error updating feature flag:', error);
@@ -653,52 +668,45 @@ export function CompanyManagement() {
                   </div>
                 </div>
 
-                {/* Feature Toggles */}
+                {/* Feature Access Summary */}
                 <div className="mb-4 border-t border-slate-700 pt-4">
-                  <p className="text-xs font-semibold text-amber-500 uppercase mb-2">Feature Access</p>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {ALL_FEATURES.map((feature) => {
-                      const enabled = company.feature_flags ? company.feature_flags[feature.key] !== false : true;
-                      return (
-                        <button
-                          key={feature.key}
-                          onClick={() => toggleFeatureFlag(company, feature.key)}
-                          className="flex items-center gap-1.5 text-xs px-2 py-1.5 rounded transition-colors hover:bg-slate-700/50"
-                          title={enabled ? `Click to disable ${feature.label}` : `Click to enable ${feature.label}`}
-                        >
-                          {enabled ? (
-                            <ToggleRight className="w-4 h-4 text-green-500 flex-shrink-0" />
-                          ) : (
-                            <ToggleLeft className="w-4 h-4 text-slate-500 flex-shrink-0" />
-                          )}
-                          <span className={enabled ? 'text-slate-200' : 'text-slate-500 line-through'}>
-                            {feature.label}
-                          </span>
-                        </button>
-                      );
-                    })}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <ToggleRight className="w-4 h-4 text-amber-500" />
+                      <span className="text-xs font-semibold text-amber-500 uppercase">Feature Access</span>
+                    </div>
+                    <span className="text-xs text-slate-400">
+                      {getEnabledFeatureCount(company)} of {ALL_FEATURES.length} enabled
+                    </span>
                   </div>
                 </div>
 
                 {/* Actions */}
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
+                  <button
+                    onClick={() => handleFeatureAccess(company)}
+                    className="flex-1 flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 px-3 py-2 rounded-lg transition-colors text-sm"
+                  >
+                    <ToggleRight className="h-4 w-4" />
+                    Feature Access
+                  </button>
                   <button
                     onClick={() => handleView(company)}
-                    className="flex-1 flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg transition-colors"
+                    className="flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 px-3 py-2 rounded-lg transition-colors text-sm"
                   >
                     <Eye className="h-4 w-4" />
                     View
                   </button>
                   <button
                     onClick={() => handleEdit(company)}
-                    className="flex-1 flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg transition-colors"
+                    className="flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 px-3 py-2 rounded-lg transition-colors text-sm"
                   >
                     <Edit2 className="h-4 w-4" />
                     Edit
                   </button>
                   <button
                     onClick={() => toggleCompanyStatus(company)}
-                    className={`px-4 py-2 rounded-lg transition-colors ${
+                    className={`px-3 py-2 rounded-lg transition-colors text-sm ${
                       company.is_active
                         ? 'bg-red-600 hover:bg-red-700'
                         : 'bg-green-600 hover:bg-green-700'
@@ -1093,6 +1101,60 @@ export function CompanyManagement() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* Feature Access Modal */}
+        {showFeatureModal && featureModalCompany && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <div className="bg-slate-800 rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold">Feature Access</h2>
+                  <p className="text-sm text-slate-400 mt-1">{featureModalCompany.company_name}</p>
+                </div>
+                <span className="text-sm text-slate-400">
+                  {getEnabledFeatureCount(featureModalCompany)} of {ALL_FEATURES.length} enabled
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 mb-6">
+                {ALL_FEATURES.map((feature) => {
+                  const enabled = featureModalCompany.feature_flags ? featureModalCompany.feature_flags[feature.key] !== false : true;
+                  return (
+                    <button
+                      key={feature.key}
+                      onClick={() => {
+                        toggleFeatureFlag(featureModalCompany, feature.key);
+                      }}
+                      className="flex items-center gap-2 text-sm px-3 py-2.5 rounded-lg transition-colors hover:bg-slate-700/50 bg-slate-700/30"
+                      title={enabled ? `Click to disable ${feature.label}` : `Click to enable ${feature.label}`}
+                    >
+                      {enabled ? (
+                        <ToggleRight className="w-5 h-5 text-green-500 flex-shrink-0" />
+                      ) : (
+                        <ToggleLeft className="w-5 h-5 text-slate-500 flex-shrink-0" />
+                      )}
+                      <span className={enabled ? 'text-slate-200' : 'text-slate-500 line-through'}>
+                        {feature.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t border-slate-700">
+                <button
+                  onClick={() => {
+                    setShowFeatureModal(false);
+                    setFeatureModalCompany(null);
+                  }}
+                  className="flex-1 bg-slate-700 hover:bg-slate-600 px-6 py-3 rounded-lg font-semibold transition-colors"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         )}
