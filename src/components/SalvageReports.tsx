@@ -668,6 +668,17 @@ export function SalvageReports({ userId, companyId, prefillEstimateId }: Salvage
           </div>
         </div>
         {playingVideo && <VideoPlayerModal media={playingVideo} onClose={() => setPlayingVideo(null)} />}
+        {emailModalReport && (
+          <SalvageEmailModal
+            report={emailModalReport}
+            companyInfo={companyInfo}
+            onClose={() => { setEmailModalReport(null); setEmailError(''); setEmailSuccess(false); }}
+            sending={sendingEmail}
+            error={emailError}
+            success={emailSuccess}
+            onSend={handleSendEmail}
+          />
+        )}
       </div>
     );
   }
