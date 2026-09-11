@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useConfirm } from '../../hooks/useConfirm';
-import { Plus, Edit2, Trash2, X, Package, Search, Box, LifeBuoy, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, Package, Search, Box, LifeBuoy, ChevronDown, ChevronRight, Wrench } from 'lucide-react';
 
 interface SalvageAsset {
   id: string;
@@ -30,6 +30,27 @@ interface SalvageAssetPackageItem {
   quantity: number;
   unit_price: number | null;
   asset?: SalvageAsset;
+}
+
+interface PackageLabor {
+  id: string;
+  package_id: string;
+  labor_code_id: string;
+  hours: number;
+  rate: number;
+  description: string | null;
+  labor_code?: {
+    code: string;
+    name: string;
+    hourly_rate: number;
+  };
+}
+
+interface LaborCode {
+  id: string;
+  code: string;
+  name: string;
+  hourly_rate: number;
 }
 
 interface SalvageAssetManagerProps {
@@ -61,6 +82,11 @@ export function SalvageAssetManager({ userId, companyId, userRole }: SalvageAsse
   const [showAddItemModal, setShowAddItemModal] = useState(false);
   const [itemForm, setItemForm] = useState({ asset_id: '', quantity: '1', unit_price: '' });
 
+  const [laborCodes, setLaborCodes] = useState<LaborCode[]>([]);
+  const [packageLabor, setPackageLabor] = useState<PackageLabor[]>([]);
+  const [showAddLaborModal, setShowAddLaborModal] = useState(false);
+  const [laborForm, setLaborForm] = useState({ labor_code_id: '', hours: '1', rate: '0' });
+
   const isMaster = userRole === 'master';
 
   const showSuccessMsg = (msg: string) => {
@@ -91,7 +117,12 @@ export function SalvageAssetManager({ userId, companyId, userRole }: SalvageAsse
   useEffect(() => {
     (async () => {
       setLoading(true);
-      await Promise.all([loadAssets(), loadPackages()]);
+      const [assetsResult, packagesResult, laborCodesResult] = await Promise.all([
+        loadAssets(),
+        loadPackages(),
+        supabase.from('labor_codes').select('id, code, name, hourly_rate').eq('is_active', true).order('code'),
+      ]);
+      if (laborCodesResult.data) setLaborCodes(laborCodesResult.data as LaborCode[]);
       setLoading(false);
     })();
   }, [loadAssets, loadPackages]);
@@ -99,13 +130,22 @@ export function SalvageAssetManager({ userId, companyId, userRole }: SalvageAsse
   const loadPackageItems = async (pkgId: string) => {
     setPackageItemsLoading(true);
     try {
-      const { data, error: err } = await supabase
-        .from('salvage_asset_package_items')
-        .select(`*, asset:salvage_assets(*)`)
-        .eq('package_id', pkgId)
-        .order('created_at');
-      if (err) throw err;
-      setPackageItems(data as SalvageAssetPackageItem[] || []);
+      const [itemsRes, laborRes] = await Promise.all([
+        supabase
+          .from('salvage_asset_package_items')
+          .select(`*, asset:salvage_assets(*)`)
+          .eq('package_id', pkgId)
+          .order('created_at'),
+        supabase
+          .from('salvage_asset_package_labor')
+          .select(`*, labor_code:labor_codes(code, name, hourly_rate)`)
+          .eq('package_id', pkgId)
+          .order('created_at'),
+      ]);
+      if (itemsRes.error) throw itemsRes.error;
+      if (laborRes.error) throw laborRes.error;
+      setPackageItems(itemsRes.data as SalvageAssetPackageItem[] || []);
+      setPackageLabor(laborRes.data as PackageLabor[] || []);
     } catch {
       setError('Failed to load package items');
     } finally {
@@ -256,6 +296,44 @@ export function SalvageAssetManager({ userId, companyId, userRole }: SalvageAsse
     showSuccessMsg('Item removed');
   }
 
+  function openAddLaborModal() {
+    setLaborForm({ labor_code_id: '', hours: '1', rate: '0' });
+    setShowAddLaborModal(true);
+  }
+
+  function handleLaborCodeChange(laborCodeId: string) {
+    const selected = laborCodes.find(lc => lc.id === laborCodeId);
+    setLaborForm(f => ({ ...f, labor_code_id: laborCodeId, rate: String(selected?.hourly_rate || 0) }));
+  }
+
+  async function handleAddLabor(e: React.FormEvent) {
+    e.preventDefault();
+    if (!laborForm.labor_code_id || !expandedPackage) return;
+    setError('');
+    try {
+      const { error: err } = await supabase.from('salvage_asset_package_labor').insert({
+        package_id: expandedPackage,
+        labor_code_id: laborForm.labor_code_id,
+        hours: parseFloat(laborForm.hours) || 0,
+        rate: parseFloat(laborForm.rate) || 0,
+      });
+      if (err) throw err;
+      setShowAddLaborModal(false);
+      await loadPackageItems(expandedPackage);
+      showSuccessMsg('Labor added to package');
+    } catch {
+      setError('Failed to add labor');
+    }
+  }
+
+  async function handleDeleteLabor(laborId: string) {
+    if (!expandedPackage) return;
+    const { error: err } = await supabase.from('salvage_asset_package_labor').delete().eq('id', laborId);
+    if (err) { setError('Failed to remove labor'); return; }
+    await loadPackageItems(expandedPackage);
+    showSuccessMsg('Labor removed');
+  }
+
   if (loading) {
     return <div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500" /></div>;
   }
@@ -365,10 +443,12 @@ export function SalvageAssetManager({ userId, companyId, userRole }: SalvageAsse
             <div className="space-y-3">
               {packages.map(pkg => {
                 const isExpanded = expandedPackage === pkg.id;
-                const totalCost = packageItems.reduce((sum, item) => {
+                const assetsTotal = packageItems.reduce((sum, item) => {
                   const price = item.unit_price ?? item.asset?.unit_cost ?? 0;
                   return sum + (price * (item.quantity || 0));
                 }, 0);
+                const laborTotal = packageLabor.reduce((sum, labor) => sum + (labor.hours * labor.rate), 0);
+                const totalCost = assetsTotal + laborTotal;
                 return (
                   <div key={pkg.id} className="bg-slate-800/50 rounded-xl border border-slate-700 overflow-hidden">
                     <div className="flex items-center gap-3 p-4">
@@ -407,30 +487,63 @@ export function SalvageAssetManager({ userId, companyId, userRole }: SalvageAsse
                             </button>
                           </div>
                         ) : (
-                          <div className="space-y-2">
-                            {packageItems.map(item => {
-                              const price = item.unit_price ?? item.asset?.unit_cost ?? 0;
-                              const lineTotal = price * (item.quantity || 0);
-                              return (
-                                <div key={item.id} className="flex items-center justify-between bg-slate-800/60 rounded-lg p-3">
+                          <div className="space-y-4">
+                            {/* Assets section */}
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2 text-slate-300 text-sm font-medium">
+                                <Box className="w-4 h-4" /> Assets
+                              </div>
+                              {packageItems.map(item => {
+                                const price = item.unit_price ?? item.asset?.unit_cost ?? 0;
+                                const lineTotal = price * (item.quantity || 0);
+                                return (
+                                  <div key={item.id} className="flex items-center justify-between bg-slate-800/60 rounded-lg p-3">
+                                    <div className="flex-1">
+                                      <span className="font-medium text-white text-sm">{item.asset?.name || 'Unknown asset'}</span>
+                                      {item.asset?.category && <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-slate-700 text-slate-300">{item.asset.category}</span>}
+                                    </div>
+                                    <div className="flex items-center gap-4 text-sm">
+                                      <span className="text-slate-400">Qty: {item.quantity}</span>
+                                      <span className="text-slate-400">${price.toFixed(2)} each</span>
+                                      <span className="font-semibold text-amber-400">${lineTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                      <button onClick={() => handleDeleteItem(item.id)} className="p-1 text-slate-400 hover:text-red-400 transition-colors">
+                                        <Trash2 className="w-4 h-4" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                              <button onClick={openAddItemModal} className="flex items-center gap-1 text-amber-400 hover:text-amber-300 text-sm font-medium">
+                                <Plus className="w-4 h-4" />Add asset
+                              </button>
+                            </div>
+
+                            {/* Labor section */}
+                            <div className="space-y-2 pt-2 border-t border-slate-700">
+                              <div className="flex items-center gap-2 text-slate-300 text-sm font-medium">
+                                <Wrench className="w-4 h-4" /> Labor
+                              </div>
+                              {packageLabor.length === 0 ? (
+                                <p className="text-slate-500 text-sm py-1">No labor added to this package.</p>
+                              ) : packageLabor.map(labor => (
+                                <div key={labor.id} className="flex items-center justify-between bg-slate-800/60 rounded-lg p-3">
                                   <div className="flex-1">
-                                    <span className="font-medium text-white text-sm">{item.asset?.name || 'Unknown asset'}</span>
-                                    {item.asset?.category && <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-slate-700 text-slate-300">{item.asset.category}</span>}
+                                    <span className="font-medium text-white text-sm">{labor.labor_code?.code} - {labor.labor_code?.name || 'Unknown'}</span>
                                   </div>
                                   <div className="flex items-center gap-4 text-sm">
-                                    <span className="text-slate-400">Qty: {item.quantity}</span>
-                                    <span className="text-slate-400">${price.toFixed(2)} each</span>
-                                    <span className="font-semibold text-amber-400">${lineTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                                    <button onClick={() => handleDeleteItem(item.id)} className="p-1 text-slate-400 hover:text-red-400 transition-colors">
+                                    <span className="text-slate-400">{labor.hours} hrs</span>
+                                    <span className="text-slate-400">${labor.rate.toFixed(2)}/hr</span>
+                                    <span className="font-semibold text-amber-400">${(labor.hours * labor.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                    <button onClick={() => handleDeleteLabor(labor.id)} className="p-1 text-slate-400 hover:text-red-400 transition-colors">
                                       <Trash2 className="w-4 h-4" />
                                     </button>
                                   </div>
                                 </div>
-                              );
-                            })}
-                            <button onClick={openAddItemModal} className="flex items-center gap-1 text-amber-400 hover:text-amber-300 text-sm font-medium pt-2">
-                              <Plus className="w-4 h-4" />Add another asset
-                            </button>
+                              ))}
+                              <button onClick={openAddLaborModal} className="flex items-center gap-1 text-amber-400 hover:text-amber-300 text-sm font-medium">
+                                <Plus className="w-4 h-4" />Add labor
+                              </button>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -571,6 +684,50 @@ export function SalvageAssetManager({ userId, companyId, userRole }: SalvageAsse
                   Add to Package
                 </button>
                 <button type="button" onClick={() => setShowAddItemModal(false)} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add labor to package modal */}
+      {showAddLaborModal && expandedPackage && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 rounded-2xl border border-slate-700 max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b border-slate-700">
+              <h2 className="text-xl font-bold">Add Labor to Package</h2>
+              <button onClick={() => setShowAddLaborModal(false)} className="text-slate-400 hover:text-white transition-colors">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <form onSubmit={handleAddLabor} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Labor Code *</label>
+                <select required value={laborForm.labor_code_id} onChange={e => handleLaborCodeChange(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500">
+                  <option value="">Select a labor code...</option>
+                  {laborCodes.map(lc => (
+                    <option key={lc.id} value={lc.id}>{lc.code} - {lc.name} (${lc.hourly_rate.toFixed(2)}/hr)</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Hours *</label>
+                <input type="number" step="0.25" min="0" required value={laborForm.hours} onChange={e => setLaborForm(f => ({ ...f, hours: e.target.value }))}
+                  className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Rate ($/hr)</label>
+                <input type="number" step="0.01" min="0" value={laborForm.rate} onChange={e => setLaborForm(f => ({ ...f, rate: e.target.value }))}
+                  className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500" />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="submit" className="flex-1 bg-amber-600 hover:bg-amber-700 text-white font-medium py-2 rounded-lg transition-colors">
+                  Add Labor
+                </button>
+                <button type="button" onClick={() => setShowAddLaborModal(false)} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors">
                   Cancel
                 </button>
               </div>
