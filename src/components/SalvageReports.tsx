@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Search, Plus, Eye, Printer, ArrowLeft, Upload, X, FileText, Save, CheckCircle, Video, Play, ChevronDown, ChevronLeft, ChevronRight, Ship, User, Loader2, MapPin, ExternalLink, Mail, Send, MailOpen, MousePointerClick, AlertCircle, Box } from 'lucide-react';
+import { Search, Plus, Eye, Printer, ArrowLeft, Upload, X, FileText, Save, CheckCircle, Video, Play, ChevronDown, ChevronLeft, ChevronRight, Ship, User, Loader2, MapPin, ExternalLink, Mail, Send, MailOpen, MousePointerClick, AlertCircle, Box, RefreshCw } from 'lucide-react';
 import { supabase, SalvageReport, SalvageReportMedia, SalvageReportEmailLog } from '../lib/supabase';
 import { SalvageAssetManager } from './admin/SalvageAssetManager';
+import { getCompanyInfoForPdf } from '../utils/companyInfo';
+import { generateEstimatePDF, generateWorkOrderPDF, generateEstimatingInvoicePDF } from '../utils/pdfGenerator';
+import { attachPdfToEstimateSalvageReport, attachPdfToWorkOrderSalvageReport } from '../utils/salvagePdfAttach';
 
 interface SalvageReportsProps {
   userId: string;
@@ -61,6 +64,8 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
   const [sendingEmail, setSendingEmail] = useState(false);
   const [emailError, setEmailError] = useState('');
   const [emailSuccess, setEmailSuccess] = useState(false);
+  const [regeneratingPdf, setRegeneratingPdf] = useState(false);
+  const [pdfCacheBust, setPdfCacheBust] = useState(Date.now());
 
   const loadReports = useCallback(async () => {
     setLoading(true);
@@ -404,6 +409,131 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
     }
   }
 
+  async function handleRegeneratePdf(fileName: string) {
+    if (!editingReport?.estimate_id) {
+      setError('No linked estimate found to regenerate PDF from.');
+      return;
+    }
+    setRegeneratingPdf(true);
+    setError('');
+    try {
+      const estimateId = editingReport.estimate_id;
+
+      const { data: estData } = await supabase
+        .from('estimates')
+        .select('*, yachts(name, manufacturer, model)')
+        .eq('id', estimateId)
+        .maybeSingle();
+
+      if (!estData) throw new Error('Could not load estimate data.');
+
+      const companyInfoPdf = await getCompanyInfoForPdf(estData.company_id);
+
+      const isInvoice = fileName.includes('Invoice');
+      const isWorkOrder = fileName.includes('Work Order') || fileName.includes('WO');
+
+      if (isInvoice) {
+        const { data: wo } = await supabase
+          .from('work_orders')
+          .select('id')
+          .eq('estimate_id', estimateId)
+          .maybeSingle();
+        if (wo) {
+          const { data: invData } = await supabase
+            .from('estimating_invoices')
+            .select('*')
+            .eq('work_order_id', wo.id)
+            .maybeSingle();
+          if (invData) {
+            const { data: invTasks } = await supabase
+              .from('estimating_invoice_tasks')
+              .select('*')
+              .eq('invoice_id', invData.id)
+              .order('task_order');
+            const tasksWithItems = await Promise.all(
+              (invTasks || []).map(async (task: any) => {
+                const { data: items } = await supabase
+                  .from('estimating_invoice_line_items')
+                  .select('*')
+                  .eq('task_id', task.id)
+                  .order('line_order');
+                return { ...task, lineItems: items || [] };
+              })
+            );
+            const pdf = await generateEstimatingInvoicePDF(invData, tasksWithItems, companyInfoPdf);
+            await attachPdfToWorkOrderSalvageReport(wo.id, pdf, fileName);
+          }
+        }
+      } else if (isWorkOrder) {
+        const { data: woData } = await supabase
+          .from('work_orders')
+          .select('*, yachts(name, manufacturer, model)')
+          .eq('estimate_id', estimateId)
+          .maybeSingle();
+        if (woData) {
+          const companyInfoPdf2 = await getCompanyInfoForPdf(woData.company_id);
+          const { data: woTasks } = await supabase
+            .from('work_order_tasks')
+            .select('*')
+            .eq('work_order_id', woData.id)
+            .order('task_order');
+          const tasksWithItems = await Promise.all(
+            (woTasks || []).map(async (task: any) => {
+              const { data: items } = await supabase
+                .from('work_order_line_items')
+                .select('*')
+                .eq('task_id', task.id)
+                .order('line_order');
+              return { ...task, lineItems: items || [] };
+            })
+          );
+          const yachtName = woData.yachts?.name || null;
+          const yachtMake = woData.yachts?.manufacturer || null;
+          const yachtModel = woData.yachts?.model || null;
+          const pdf = await generateWorkOrderPDF(woData, tasksWithItems, yachtName, companyInfoPdf2, yachtMake, yachtModel);
+          await attachPdfToWorkOrderSalvageReport(woData.id, pdf, fileName);
+        }
+      } else {
+        const { data: tasksData } = await supabase
+          .from('estimate_tasks')
+          .select('*')
+          .eq('estimate_id', estimateId)
+          .order('task_order');
+        const tasksWithItems = await Promise.all(
+          (tasksData || []).map(async (task: any) => {
+            const { data: items } = await supabase
+              .from('estimate_line_items')
+              .select('*')
+              .eq('task_id', task.id)
+              .order('line_order');
+            return { ...task, lineItems: items || [] };
+          })
+        );
+        const yachtName = estData.yachts?.name || null;
+        const yachtMake = estData.yachts?.manufacturer || null;
+        const yachtModel = estData.yachts?.model || null;
+        const pdf = await generateEstimatePDF(estData, tasksWithItems, yachtName, companyInfoPdf, yachtMake, yachtModel);
+        await attachPdfToEstimateSalvageReport(estimateId, pdf, fileName);
+      }
+
+      setPdfCacheBust(Date.now());
+      await loadReports();
+      const { data: refreshedMedia } = await supabase
+        .from('salvage_report_media')
+        .select('*')
+        .eq('salvage_report_id', editingReport.id)
+        .order('sort_order');
+      if (refreshedMedia) setMedia(refreshedMedia as SalvageReportMedia[]);
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
+    } catch (err) {
+      console.error('Error regenerating PDF:', err);
+      setError(err instanceof Error ? err.message : 'Failed to regenerate PDF');
+    } finally {
+      setRegeneratingPdf(false);
+    }
+  }
+
   function handleEmailReport(report: SalvageReport) {
     setEmailModalReport(report);
     setEmailError('');
@@ -674,7 +804,7 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
                     <div key={m.id} className="flex items-center gap-3 border border-gray-200 rounded-lg p-3">
                       <FileText className="w-6 h-6 text-blue-600 flex-shrink-0" />
                       <span className="text-sm text-gray-800 flex-1">{m.file_name}</span>
-                      <a href={m.file_url} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:text-blue-800 font-medium no-print">
+                      <a href={`${m.file_url}${m.file_url.includes('?') ? '&' : '?'}t=${pdfCacheBust}`} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:text-blue-800 font-medium no-print">
                         View PDF
                       </a>
                     </div>
@@ -832,14 +962,24 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
                         <p className="text-sm font-medium text-gray-800">{m.file_name}</p>
                         <p className="text-xs text-gray-500">Auto-attached from estimating pipeline</p>
                       </div>
-                      <a
-                        href={m.file_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 font-medium flex-shrink-0"
-                      >
-                        <ExternalLink className="w-4 h-4" /> View
-                      </a>
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        <button
+                          onClick={() => handleRegeneratePdf(m.file_name)}
+                          disabled={regeneratingPdf}
+                          className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 font-medium disabled:opacity-50"
+                          title="Regenerate this PDF with the correct company info"
+                        >
+                          <RefreshCw className={`w-4 h-4 ${regeneratingPdf ? 'animate-spin' : ''}`} /> Regenerate
+                        </button>
+                        <a
+                          href={`${m.file_url}${m.file_url.includes('?') ? '&' : '?'}t=${pdfCacheBust}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 font-medium"
+                        >
+                          <ExternalLink className="w-4 h-4" /> View
+                        </a>
+                      </div>
                     </div>
                   ))}
                 </div>
