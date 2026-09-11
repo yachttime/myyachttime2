@@ -202,6 +202,10 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
   const [salvagePackages, setSalvagePackages] = useState<any[]>([]);
   const [showSalvagePackageModal, setShowSalvagePackageModal] = useState(false);
   const [selectedSalvagePackageId, setSelectedSalvagePackageId] = useState<string>('');
+  const [salvageAssets, setSalvageAssets] = useState<any[]>([]);
+  const [showSalvageAssetModal, setShowSalvageAssetModal] = useState(false);
+  const [selectedSalvageAssetId, setSelectedSalvageAssetId] = useState<string>('');
+  const [salvageAssetQty, setSalvageAssetQty] = useState<string>('1');
   const [customers, setCustomers] = useState<any[]>([]);
   const [customerSearch, setCustomerSearch] = useState('');
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
@@ -347,7 +351,7 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
       setLoading(true);
       setError(null);
 
-      const [estimatesResult, yachtsResult, managersResult, laborResult, partsResult, mercuryCountResult, settingsResult, packagesResult, customersResult, marineWholesaleResult, salvagePackagesResult] = await Promise.all([
+      const [estimatesResult, yachtsResult, managersResult, laborResult, partsResult, mercuryCountResult, settingsResult, packagesResult, customersResult, marineWholesaleResult, salvagePackagesResult, salvageAssetsResult] = await Promise.all([
         supabase
           .from('estimates')
           .select('*, yachts(name, manufacturer, model, year), customer_vessels(vessel_name, manufacturer, model, year), repair_requests(id, status, deposit_payment_status, deposit_amount, deposit_paid_at, deposit_payment_method_type)')
@@ -398,8 +402,15 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
           .from('salvage_asset_packages')
           .select('id, name, description')
           .eq('is_active', true)
+          .order('name'),
+        supabase
+          .from('salvage_assets')
+          .select('id, name, category, unit_cost')
+          .eq('is_active', true)
           .order('name')
       ]);
+
+      if (salvageAssetsResult?.error) throw salvageAssetsResult.error;
 
       if (estimatesResult.error) throw estimatesResult.error;
       if (yachtsResult.error) throw yachtsResult.error;
@@ -419,6 +430,7 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
       setCustomers(customersResult.data || []);
       setMarineWholesaleParts(marineWholesaleResult.data || []);
       setSalvagePackages(salvagePackagesResult?.data || []);
+      setSalvageAssets(salvageAssetsResult?.data || []);
 
       if (settingsResult.data) {
         setFormData(prev => ({
@@ -1021,6 +1033,44 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
       console.error('Error adding salvage package:', error);
       showError('Failed to add salvage package');
     }
+  };
+
+  const handleAddSalvageAsset = () => {
+    if (activeTaskIndex === null || !selectedSalvageAssetId) return;
+
+    const asset = salvageAssets.find(a => a.id === selectedSalvageAssetId);
+    if (!asset) return;
+
+    const qty = parseFloat(salvageAssetQty) || 1;
+    const unitPrice = parseFloat(asset.unit_cost) || 0;
+    const existingItems = tasks[activeTaskIndex].lineItems || [];
+    const currentLineOrder = existingItems.length;
+
+    const newItem: EstimateLineItem = {
+      line_type: 'part',
+      description: asset.name,
+      quantity: qty,
+      unit_price: unitPrice,
+      total_price: qty * unitPrice,
+      is_taxable: false,
+      labor_code_id: null,
+      part_id: null,
+      line_order: currentLineOrder,
+      work_details: asset.category || null
+    };
+
+    const updatedTasks = tasks.map((t, i) =>
+      i === activeTaskIndex
+        ? { ...t, lineItems: [...(t.lineItems || []), newItem] }
+        : t
+    );
+
+    setTasks(updatedTasks);
+    setShowSalvageAssetModal(false);
+    setSelectedSalvageAssetId('');
+    setSalvageAssetQty('1');
+    setActiveTaskIndex(null);
+    showSuccess('Salvage asset added successfully');
   };
 
   const handleSavePackageHeaderEdit = () => {
@@ -3487,6 +3537,17 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
                                 <Package className="w-4 h-4" />
                                 Add Salvage Package
                               </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveTaskIndex(taskIndex);
+                                  setShowSalvageAssetModal(true);
+                                }}
+                                className="text-sm text-teal-600 hover:text-teal-700 flex items-center gap-1"
+                              >
+                                <Package className="w-4 h-4" />
+                                Add Salvage Asset
+                              </button>
                             </div>
                           </div>
 
@@ -4737,6 +4798,88 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
                 className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Add Salvage Package
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {showSalvageAssetModal && ReactDOM.createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[9999]">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div className="flex items-center gap-2">
+                <Package className="w-6 h-6 text-teal-600" />
+                <h3 className="text-xl font-bold text-gray-900">Add Salvage Asset</h3>
+              </div>
+              <button
+                onClick={() => {
+                  setShowSalvageAssetModal(false);
+                  setSelectedSalvageAssetId('');
+                  setSalvageAssetQty('1');
+                  setActiveTaskIndex(null);
+                }}
+                className="text-gray-600 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Select Salvage Asset
+                </label>
+                <select
+                  value={selectedSalvageAssetId}
+                  onChange={(e) => setSelectedSalvageAssetId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 text-gray-900 bg-white"
+                  required
+                >
+                  <option value="">Choose a salvage asset...</option>
+                  {salvageAssets.map((asset) => (
+                    <option key={asset.id} value={asset.id}>
+                      {asset.name} ({asset.category || 'Uncategorized'}) - ${parseFloat(asset.unit_cost).toFixed(2)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {selectedSalvageAssetId && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Quantity
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={salvageAssetQty}
+                    onChange={(e) => setSalvageAssetQty(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 text-gray-900 bg-white"
+                  />
+                </div>
+              )}
+            </div>
+            <div className="flex gap-3 p-6 border-t border-gray-200">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSalvageAssetModal(false);
+                  setSelectedSalvageAssetId('');
+                  setSalvageAssetQty('1');
+                  setActiveTaskIndex(null);
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleAddSalvageAsset}
+                disabled={!selectedSalvageAssetId}
+                className="flex-1 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Add Salvage Asset
               </button>
             </div>
           </div>
