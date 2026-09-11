@@ -199,6 +199,9 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
   const [packages, setPackages] = useState<any[]>([]);
   const [showPackageModal, setShowPackageModal] = useState(false);
   const [selectedPackageId, setSelectedPackageId] = useState<string>('');
+  const [salvagePackages, setSalvagePackages] = useState<any[]>([]);
+  const [showSalvagePackageModal, setShowSalvagePackageModal] = useState(false);
+  const [selectedSalvagePackageId, setSelectedSalvagePackageId] = useState<string>('');
   const [customers, setCustomers] = useState<any[]>([]);
   const [customerSearch, setCustomerSearch] = useState('');
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
@@ -344,7 +347,7 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
       setLoading(true);
       setError(null);
 
-      const [estimatesResult, yachtsResult, managersResult, laborResult, partsResult, mercuryCountResult, settingsResult, packagesResult, customersResult, marineWholesaleResult] = await Promise.all([
+      const [estimatesResult, yachtsResult, managersResult, laborResult, partsResult, mercuryCountResult, settingsResult, packagesResult, customersResult, marineWholesaleResult, salvagePackagesResult] = await Promise.all([
         supabase
           .from('estimates')
           .select('*, yachts(name, manufacturer, model, year), customer_vessels(vessel_name, manufacturer, model, year), repair_requests(id, status, deposit_payment_status, deposit_amount, deposit_paid_at, deposit_payment_method_type)')
@@ -390,7 +393,12 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
           .select('id, customer_type, first_name, last_name, business_name, email, phone')
           .eq('is_active', true)
           .order('last_name'),
-        Promise.resolve({ data: [], error: null })
+        Promise.resolve({ data: [], error: null }),
+        supabase
+          .from('salvage_asset_packages')
+          .select('id, name, description')
+          .eq('is_active', true)
+          .order('name')
       ]);
 
       if (estimatesResult.error) throw estimatesResult.error;
@@ -410,6 +418,7 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
       setPackages(packagesResult.data || []);
       setCustomers(customersResult.data || []);
       setMarineWholesaleParts(marineWholesaleResult.data || []);
+      setSalvagePackages(salvagePackagesResult?.data || []);
 
       if (settingsResult.data) {
         setFormData(prev => ({
@@ -917,6 +926,100 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
     } catch (error) {
       console.error('Error adding package:', error);
       showError('Failed to add package');
+    }
+  };
+
+  const handleAddSalvagePackage = async () => {
+    if (activeTaskIndex === null || !selectedSalvagePackageId) return;
+
+    try {
+      const [itemsRes, laborRes] = await Promise.all([
+        supabase
+          .from('salvage_asset_package_items')
+          .select(`
+            *,
+            asset:salvage_assets(id, name, unit_cost, category)
+          `)
+          .eq('package_id', selectedSalvagePackageId),
+        supabase
+          .from('salvage_asset_package_labor')
+          .select(`
+            *,
+            labor_code:labor_codes(id, code, name, hourly_rate, is_taxable)
+          `)
+          .eq('package_id', selectedSalvagePackageId)
+      ]);
+
+      if (itemsRes.error) throw itemsRes.error;
+      if (laborRes.error) throw laborRes.error;
+
+      const existingItems = tasks[activeTaskIndex].lineItems || [];
+      const currentLineOrder = existingItems.length;
+      const selectedPkg = salvagePackages.find(p => p.id === selectedSalvagePackageId);
+      const packageName = selectedPkg?.name || 'Salvage Package';
+      const packageDescription = selectedPkg?.description || null;
+
+      const newItems: EstimateLineItem[] = [{
+        line_type: 'labor',
+        description: '',
+        quantity: 0,
+        unit_price: 0,
+        total_price: 0,
+        is_taxable: false,
+        labor_code_id: null,
+        part_id: null,
+        line_order: currentLineOrder,
+        work_details: packageDescription,
+        package_header: packageName
+      }];
+
+      laborRes.data?.forEach((labor: any, index: number) => {
+        newItems.push({
+          line_type: 'labor',
+          description: labor.description || labor.labor_code?.name || '',
+          quantity: labor.hours,
+          unit_price: labor.rate,
+          total_price: labor.hours * labor.rate,
+          is_taxable: labor.labor_code?.is_taxable || false,
+          labor_code_id: labor.labor_code_id,
+          part_id: null,
+          line_order: currentLineOrder + 1 + index,
+          work_details: null
+        });
+      });
+
+      const laborItemCount = laborRes.data?.length || 0;
+      itemsRes.data?.forEach((item: any, index: number) => {
+        const unitPrice = item.unit_price != null ? item.unit_price : (item.asset?.unit_cost || 0);
+        const description = item.asset?.name || 'Salvage Asset';
+        newItems.push({
+          line_type: 'part',
+          description,
+          quantity: item.quantity,
+          unit_price: unitPrice,
+          total_price: item.quantity * unitPrice,
+          is_taxable: false,
+          labor_code_id: null,
+          part_id: null,
+          line_order: currentLineOrder + 1 + laborItemCount + index,
+          work_details: item.asset?.category || null
+        });
+      });
+
+      const updatedTasks = tasks.map((t, i) =>
+        i === activeTaskIndex
+          ? { ...t, lineItems: [...(t.lineItems || []), ...newItems] }
+          : t
+      );
+
+      setTasks(updatedTasks);
+      setShowSalvagePackageModal(false);
+      setSelectedSalvagePackageId('');
+      setActiveTaskIndex(null);
+      showSuccess('Salvage package added successfully');
+    } catch (error) {
+      console.error('Error adding salvage package:', error);
+      showError('Failed to add salvage package');
     }
   };
 
@@ -3373,6 +3476,19 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
                                   Add Package
                                 </button>
                               )}
+                              {salvagePackages.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveTaskIndex(taskIndex);
+                                    setShowSalvagePackageModal(true);
+                                  }}
+                                  className="text-sm text-orange-600 hover:text-orange-700 flex items-center gap-1"
+                                >
+                                  <Package className="w-4 h-4" />
+                                  Add Salvage Package
+                                </button>
+                              )}
                             </div>
                           </div>
 
@@ -4548,6 +4664,76 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
                 className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Add Package
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {showSalvagePackageModal && ReactDOM.createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[9999]">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div className="flex items-center gap-2">
+                <Package className="w-6 h-6 text-orange-600" />
+                <h3 className="text-xl font-bold text-gray-900">Add Salvage Package</h3>
+              </div>
+              <button
+                onClick={() => {
+                  setShowSalvagePackageModal(false);
+                  setSelectedSalvagePackageId('');
+                  setActiveTaskIndex(null);
+                }}
+                className="text-gray-600 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Select Salvage Package
+                </label>
+                <select
+                  value={selectedSalvagePackageId}
+                  onChange={(e) => setSelectedSalvagePackageId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 text-gray-900 bg-white"
+                  required
+                >
+                  <option value="">Choose a salvage package...</option>
+                  {salvagePackages.map((pkg) => (
+                    <option key={pkg.id} value={pkg.id}>
+                      {pkg.name}
+                    </option>
+                  ))}
+                </select>
+                {selectedSalvagePackageId && salvagePackages.find(p => p.id === selectedSalvagePackageId)?.description && (
+                  <p className="mt-2 text-sm text-gray-600">
+                    {salvagePackages.find(p => p.id === selectedSalvagePackageId)?.description}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="flex gap-3 p-6 border-t border-gray-200">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSalvagePackageModal(false);
+                  setSelectedSalvagePackageId('');
+                  setActiveTaskIndex(null);
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleAddSalvagePackage}
+                disabled={!selectedSalvagePackageId}
+                className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Add Salvage Package
               </button>
             </div>
           </div>
