@@ -142,10 +142,11 @@ Deno.serve(async (req: Request) => {
       const markerDef = [
         `${lngNum},${latNum}`,
         "0,0",           // no offset
-        "esriSMS",       // simple marker symbol
-        "25,255,0,0",    // red (RGB 255,0,0), size 25
-        "255,255,255",   // white outline
-        "3",             // outline width
+        "esriSMSCircle", // simple circular marker symbol
+        "255,0,0",        // red (RGB 255,0,0)
+        "25",             // marker size
+        "255,255,255",    // white outline
+        "3",              // outline width
       ].join(",");
       const mapParams = new URLSearchParams({ bbox, bboxSR: "4326", imageSR: "4326", size: "900,520", format: "png32", marker: markerDef, f: "image" });
       const mapUrl = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?${mapParams.toString()}`;
