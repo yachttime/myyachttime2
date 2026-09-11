@@ -3476,19 +3476,17 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
                                   Add Package
                                 </button>
                               )}
-                              {salvagePackages.length > 0 && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setActiveTaskIndex(taskIndex);
-                                    setShowSalvagePackageModal(true);
-                                  }}
-                                  className="text-sm text-orange-600 hover:text-orange-700 flex items-center gap-1"
-                                >
-                                  <Package className="w-4 h-4" />
-                                  Add Salvage Package
-                                </button>
-                              )}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveTaskIndex(taskIndex);
+                                  setShowSalvagePackageModal(true);
+                                }}
+                                className="text-sm text-orange-600 hover:text-orange-700 flex items-center gap-1"
+                              >
+                                <Package className="w-4 h-4" />
+                                Add Salvage Package
+                              </button>
                             </div>
                           </div>
 
@@ -4708,6 +4706,11 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
                     </option>
                   ))}
                 </select>
+                {salvagePackages.length === 0 && (
+                  <p className="mt-2 text-sm text-orange-600">
+                    No salvage packages have been created yet. Create one from the Salvage Asset Manager first, then it will appear here.
+                  </p>
+                )}
                 {selectedSalvagePackageId && salvagePackages.find(p => p.id === selectedSalvagePackageId)?.description && (
                   <p className="mt-2 text-sm text-gray-600">
                     {salvagePackages.find(p => p.id === selectedSalvagePackageId)?.description}
