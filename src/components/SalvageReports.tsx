@@ -1118,41 +1118,53 @@ function LossLocationMap({ lat, lng, forPrint = false }: { lat: string | number;
   if (isNaN(latNum) || isNaN(lngNum)) return null;
 
   const delta = 0.01;
-  const bbox = `${lngNum - delta},${latNum - delta},${lngNum + delta},${latNum + delta}`;
-  const markerLat = latNum + delta * 0.15;
-  const mapUrl = `https://staticmap.openstreetmap.de/staticmap.php?center=${latNum},${lngNum}&zoom=14&size=${forPrint ? '600x300' : '500x250'}&maptype=mapnik&markers=${markerLat},${lngNum},red-pushpin`;
+  const bbox = `${lngNum - delta}%2C${latNum - delta}%2C${lngNum + delta}%2C${latNum + delta}`;
+  const embedUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${latNum}%2C${lngNum}`;
   const gmapsUrl = `https://www.google.com/maps/search/?api=1&query=${latNum},${lngNum}`;
+  const imgUrl = `https://staticmap.openstreetmap.de/staticmap.php?center=${latNum},${lngNum}&zoom=14&size=${forPrint ? '600x300' : '500x250'}&maptype=mapnik&markers=${latNum},${lngNum},red-pushpin`;
+
+  if (forPrint) {
+    return (
+      <div>
+        <div className="flex items-center gap-2 mb-2">
+          <MapPin className="w-4 h-4 text-red-500" />
+          <span className="text-sm font-medium text-gray-700">Approximate Location of Loss</span>
+          <span className="text-xs text-gray-500 ml-1">({latNum.toFixed(4)}, {lngNum.toFixed(4)})</span>
+        </div>
+        <div className="border border-gray-300 rounded overflow-hidden">
+          <img
+            src={imgUrl}
+            alt={`Map showing loss location at ${latNum}, ${lngNum}`}
+            className="w-full h-auto"
+            style={{ maxHeight: '300px', objectFit: 'cover' }}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className={forPrint ? '' : 'rounded-lg border border-gray-200 overflow-hidden bg-gray-50'}>
-      <div className={`flex items-center gap-2 ${forPrint ? 'mb-2' : 'px-3 py-2 bg-gray-100 border-b border-gray-200'}`}>
+    <div className="rounded-lg border border-gray-200 overflow-hidden bg-gray-50">
+      <div className="flex items-center gap-2 px-3 py-2 bg-gray-100 border-b border-gray-200">
         <MapPin className="w-4 h-4 text-red-500" />
         <span className="text-sm font-medium text-gray-700">Approximate Location of Loss</span>
         <span className="text-xs text-gray-500 ml-1">({latNum.toFixed(4)}, {lngNum.toFixed(4)})</span>
-        {!forPrint && (
-          <a
-            href={gmapsUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="ml-auto inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium"
-          >
-            View larger map <ExternalLink className="w-3 h-3" />
-          </a>
-        )}
+        <a
+          href={gmapsUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="ml-auto inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium"
+        >
+          View larger map <ExternalLink className="w-3 h-3" />
+        </a>
       </div>
-      <div className={forPrint ? 'border border-gray-300 rounded overflow-hidden' : ''}>
-        <img
-          src={mapUrl}
-          alt={`Map showing loss location at ${latNum}, ${lngNum}`}
-          className="w-full h-auto"
-          style={{ maxHeight: forPrint ? '300px' : '250px', objectFit: 'cover' }}
-          onError={(e) => {
-            const target = e.currentTarget;
-            target.onerror = null;
-            target.src = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${latNum},${lngNum}`;
-          }}
-        />
-      </div>
+      <iframe
+        src={embedUrl}
+        title="Loss location map"
+        className="w-full"
+        style={{ height: '250px', border: 0 }}
+        loading="lazy"
+      />
     </div>
   );
 }
