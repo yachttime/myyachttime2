@@ -1117,7 +1117,6 @@ function LossLocationMap({ lat, lng, forPrint = false }: { lat: string | number;
   const lngNum = typeof lng === 'number' ? lng : parseFloat(lng);
   if (isNaN(latNum) || isNaN(lngNum)) return null;
 
-  const mapUrl = `https://maps.google.com/maps?ll=${latNum},${lngNum}&q=${latNum},${lngNum}&t=k&z=14&output=embed`;
   const gmapsUrl = `https://www.google.com/maps/search/?api=1&query=${latNum},${lngNum}`;
 
   return (
@@ -1126,26 +1125,21 @@ function LossLocationMap({ lat, lng, forPrint = false }: { lat: string | number;
         <MapPin className="w-4 h-4 text-red-500" />
         <span className="text-sm font-medium text-gray-700">Approximate Location of Loss</span>
         <span className="text-xs text-gray-500 ml-1">({latNum.toFixed(4)}, {lngNum.toFixed(4)})</span>
-        <a
-          href={gmapsUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="ml-auto inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium"
-        >
-          Open in Google Maps <ExternalLink className="w-3 h-3" />
-        </a>
       </div>
-      <div className={forPrint ? 'border border-gray-300 rounded overflow-hidden' : 'overflow-hidden'}>
-        <iframe
-          src={mapUrl}
-          title={`Google satellite map showing loss location at ${latNum}, ${lngNum}`}
-          className="w-full"
-          style={{ height: forPrint ? '300px' : '250px', border: 0 }}
-          loading="lazy"
-          allowFullScreen
-          referrerPolicy="no-referrer-when-downgrade"
-        />
-      </div>
+      <a
+        href={gmapsUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`flex flex-col items-center justify-center gap-3 bg-slate-100 hover:bg-blue-50 transition-colors ${forPrint ? 'border border-gray-300 rounded' : ''}`}
+        style={{ height: forPrint ? '180px' : '250px' }}
+        aria-label={`Open Google Maps satellite view at ${latNum}, ${lngNum}`}
+      >
+        <MapPin className="w-12 h-12 text-red-500 fill-red-100" strokeWidth={1.5} />
+        <span className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm">
+          Open satellite view in Google Maps <ExternalLink className="w-4 h-4" />
+        </span>
+        <span className="text-xs text-gray-600">{latNum.toFixed(4)}, {lngNum.toFixed(4)}</span>
+      </a>
     </div>
   );
 }
