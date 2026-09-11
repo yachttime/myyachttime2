@@ -52,7 +52,7 @@ export function SalvageReports({ userId, companyId, prefillEstimateId }: Salvage
   const [uploadPending, setUploadPending] = useState(0);
   const [uploadCompleted, setUploadCompleted] = useState(0);
   const [printReport, setPrintReport] = useState<SalvageReport | null>(null);
-  const [companyInfo, setCompanyInfo] = useState<{ name: string; logo_url?: string; tagline?: string; phone?: string; email?: string; address?: string } | null>(null);
+  const [companyInfo, setCompanyInfo] = useState<{ name: string; logo_url?: string; tagline?: string; phone?: string; email?: string; address?: string; mailing_address?: string } | null>(null);
   const [yachts, setYachts] = useState<{ id: string; name: string; manufacturer?: string | null; size?: string | null; hull_number?: string | null }[]>([]);
   const [customers, setCustomers] = useState<{ id: string; first_name: string | null; last_name: string | null; business_name: string | null; email: string | null; phone: string | null; address_line1: string | null; city: string | null; state: string | null; zip_code: string | null }[]>([]);
   const [playingVideo, setPlayingVideo] = useState<SalvageReportMedia | null>(null);
@@ -83,12 +83,13 @@ export function SalvageReports({ userId, companyId, prefillEstimateId }: Salvage
     try {
       const { data } = await supabase
         .from('companies')
-        .select('company_name, logo_url, phone, email, address, city, state, zip_code, website')
+        .select('company_name, logo_url, phone, email, address, city, state, zip_code, website, mailing_address, mailing_city, mailing_state, mailing_zip_code')
         .eq('id', companyId)
         .maybeSingle();
       if (data) {
         const addr = [data.address, data.city, data.state, data.zip_code].filter(Boolean).join(', ');
-        setCompanyInfo({ name: data.company_name, logo_url: data.logo_url, tagline: data.website, phone: data.phone, email: data.email, address: addr });
+        const mAddr = [data.mailing_address, data.mailing_city, data.mailing_state, data.mailing_zip_code].filter(Boolean).join(', ');
+        setCompanyInfo({ name: data.company_name, logo_url: data.logo_url, tagline: data.website, phone: data.phone, email: data.email, address: addr, mailing_address: mAddr || undefined });
       }
     } catch (err) {
       console.error('Error loading company info:', err);
@@ -442,7 +443,8 @@ export function SalvageReports({ userId, companyId, prefillEstimateId }: Salvage
                   <p className="text-xs text-gray-500 mt-1">
                     {[companyInfo?.phone, companyInfo?.email].filter(Boolean).join(' | ')}
                   </p>
-                  {companyInfo?.address && <p className="text-xs text-gray-500">{companyInfo.address}</p>}
+                  {companyInfo?.address && <p className="text-xs text-gray-500">Physical: {companyInfo.address}</p>}
+                  {companyInfo?.mailing_address && <p className="text-xs text-gray-500">Mailing: {companyInfo.mailing_address}</p>}
                 </div>
               </div>
               <div className="text-right">
