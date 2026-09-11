@@ -1117,8 +1117,8 @@ function LossLocationMap({ lat, lng, forPrint = false }: { lat: string | number;
   const lngNum = typeof lng === 'number' ? lng : parseFloat(lng);
   if (isNaN(latNum) || isNaN(lngNum)) return null;
 
-  const latSpan = 0.012;
-  const lngSpan = 0.018;
+  const latSpan = 0.0156;
+  const lngSpan = 0.0234;
   const bbox = [lngNum - lngSpan, latNum - latSpan, lngNum + lngSpan, latNum + latSpan].join(',');
   const mapParams = new URLSearchParams({ bbox, bboxSR: '4326', imageSR: '4326', size: '900,520', format: 'png32', f: 'image' });
   const mapUrl = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?${mapParams.toString()}`;
