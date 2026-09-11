@@ -28,12 +28,17 @@ export async function attachPdfToSalvageReport(
 
   const publicUrl = urlData.publicUrl;
 
-  // Remove any existing document media so only the latest is kept
-  await supabase
+  // Remove any existing document media so only the latest is kept.
+  // Non-blocking: a failure here shouldn't prevent the new row from being inserted.
+  const { error: deleteError } = await supabase
     .from('salvage_report_media')
     .delete()
     .eq('salvage_report_id', salvageReportId)
     .eq('media_type', 'document');
+
+  if (deleteError) {
+    console.error('[salvagePdfAttach] Failed to delete old document media:', deleteError.message);
+  }
 
   const { error: mediaError } = await supabase
     .from('salvage_report_media')
@@ -45,7 +50,10 @@ export async function attachPdfToSalvageReport(
       sort_order: 0,
     });
 
-  if (mediaError) throw mediaError;
+  if (mediaError) {
+    console.error('[salvagePdfAttach] Failed to insert document media row:', mediaError.message);
+    throw mediaError;
+  }
 }
 
 /**
