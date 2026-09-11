@@ -38,7 +38,7 @@ const EMPTY_FORM = {
   status: 'draft' as 'draft' | 'complete',
 };
 
-export function SalvageReports({ userId, companyId, prefillEstimateId }: SalvageReportsProps) {
+export function SalvageReports({ userId, companyId, userRole, prefillEstimateId }: SalvageReportsProps) {
   const [reports, setReports] = useState<SalvageReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
