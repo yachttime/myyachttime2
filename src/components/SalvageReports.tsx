@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Search, Plus, Eye, Printer, ArrowLeft, Upload, X, FileText, Save, CheckCircle, Video, Play, ChevronDown, ChevronLeft, ChevronRight, Ship, User, Loader2, MapPin, ExternalLink } from 'lucide-react';
+import { Search, Plus, Eye, Printer, ArrowLeft, Upload, X, FileText, Save, CheckCircle, Video, Play, ChevronDown, ChevronLeft, ChevronRight, Ship, User, Loader2, MapPin, ExternalLink, Mail, Send } from 'lucide-react';
 import { supabase, SalvageReport, SalvageReportMedia } from '../lib/supabase';
 
 interface SalvageReportsProps {
@@ -56,6 +56,10 @@ export function SalvageReports({ userId, companyId, prefillEstimateId }: Salvage
   const [yachts, setYachts] = useState<{ id: string; name: string; manufacturer?: string | null; size?: string | null; hull_number?: string | null }[]>([]);
   const [customers, setCustomers] = useState<{ id: string; first_name: string | null; last_name: string | null; business_name: string | null; email: string | null; phone: string | null; address_line1: string | null; city: string | null; state: string | null; zip_code: string | null }[]>([]);
   const [playingVideo, setPlayingVideo] = useState<SalvageReportMedia | null>(null);
+  const [emailModalReport, setEmailModalReport] = useState<SalvageReport | null>(null);
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [emailError, setEmailError] = useState('');
+  const [emailSuccess, setEmailSuccess] = useState(false);
 
   const loadReports = useCallback(async () => {
     setLoading(true);
@@ -398,6 +402,93 @@ export function SalvageReports({ userId, companyId, prefillEstimateId }: Salvage
     }
   }
 
+  function handleEmailReport(report: SalvageReport) {
+    setEmailModalReport(report);
+    setEmailError('');
+    setEmailSuccess(false);
+  }
+
+  async function handleSendEmail(recipientEmails: string[], ccEmails: string[], subject: string, message: string) {
+    if (!emailModalReport) return;
+    setEmailError('');
+    setSendingEmail(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('Your session has expired. Please sign in again.');
+      }
+
+      let response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-salvage-report-email`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            reportId: emailModalReport.id,
+            recipientEmails,
+            ccEmails: ccEmails.length > 0 ? ccEmails : undefined,
+            subject,
+            message: message || undefined,
+          }),
+        }
+      );
+
+      if (response.status === 401) {
+        const { data: refreshedSession } = await supabase.auth.refreshSession();
+        if (refreshedSession?.access_token) {
+          response = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-salvage-report-email`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${refreshedSession.access_token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                reportId: emailModalReport.id,
+                recipientEmails,
+                ccEmails: ccEmails.length > 0 ? ccEmails : undefined,
+                subject,
+                message: message || undefined,
+              }),
+            }
+          );
+        }
+      }
+
+      if (!response.ok) {
+        let errorMessage = 'Failed to send email';
+        try {
+          const errorBody = await response.json();
+          if (errorBody && typeof errorBody.error === 'string') {
+            errorMessage = errorBody.error;
+          }
+        } catch { /* keep default */ }
+        throw new Error(errorMessage);
+      }
+
+      setEmailSuccess(true);
+      await loadReports();
+      setTimeout(() => {
+        setEmailModalReport(null);
+        setEmailSuccess(false);
+      }, 2000);
+    } catch (err) {
+      console.error('Error sending salvage report email:', err);
+      const msg = err instanceof Error ? err.message : 'Failed to send email';
+      if (msg.toLowerCase().includes('session')) {
+        setEmailError(`${msg} Click OK, then sign in again and try sending the email again.`);
+      } else {
+        setEmailError(msg);
+      }
+    } finally {
+      setSendingEmail(false);
+    }
+  }
+
   function handlePrint(report: SalvageReport) {
     const reportMedia = (report.salvage_report_media && report.salvage_report_media.length > 0)
       ? report.salvage_report_media
@@ -425,9 +516,19 @@ export function SalvageReports({ userId, companyId, prefillEstimateId }: Salvage
             <button onClick={() => { setView('list'); setPrintReport(null); }} className="flex items-center gap-2 text-gray-600 hover:text-gray-900 font-medium">
               <ArrowLeft className="w-5 h-5" /> Back to Reports
             </button>
-            <button onClick={() => window.print()} className="ml-auto flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
-              <Printer className="w-5 h-5" /> Print
-            </button>
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                onClick={() => handleEmailReport(r)}
+                disabled={sendingEmail}
+                className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50"
+              >
+                {sendingEmail ? <Loader2 className="w-5 h-5 animate-spin" /> : <Mail className="w-5 h-5" />}
+                Email Report
+              </button>
+              <button onClick={() => window.print()} className="flex items-center gap-2 px-5 py-2.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium">
+                <Printer className="w-5 h-5" /> Print
+              </button>
+            </div>
           </div>
 
           <div className="bg-white rounded-lg shadow-sm p-12 print:p-0 print:shadow-none">
@@ -724,6 +825,17 @@ export function SalvageReports({ userId, companyId, prefillEstimateId }: Salvage
           </div>
         </div>
         {playingVideo && <VideoPlayerModal media={playingVideo} onClose={() => setPlayingVideo(null)} />}
+        {emailModalReport && (
+          <SalvageEmailModal
+            report={emailModalReport}
+            companyInfo={companyInfo}
+            onClose={() => { setEmailModalReport(null); setEmailError(''); setEmailSuccess(false); }}
+            sending={sendingEmail}
+            error={emailError}
+            success={emailSuccess}
+            onSend={handleSendEmail}
+          />
+        )}
       </div>
     );
   }
@@ -777,6 +889,7 @@ export function SalvageReports({ userId, companyId, prefillEstimateId }: Salvage
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase">Estimate</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase">Date of Loss</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase">Status</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase">Emailed</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-600 uppercase">Actions</th>
                 </tr>
               </thead>
@@ -793,6 +906,13 @@ export function SalvageReports({ userId, companyId, prefillEstimateId }: Salvage
                         {r.status === 'complete' ? 'Complete' : 'Draft'}
                       </span>
                     </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      {r.email_sent_at ? (
+                        <span className="text-xs text-green-600 font-medium">{new Date(r.email_sent_at).toLocaleDateString()}</span>
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button onClick={() => handleEdit(r)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded" title="Edit">
@@ -800,6 +920,9 @@ export function SalvageReports({ userId, companyId, prefillEstimateId }: Salvage
                         </button>
                         <button onClick={() => handlePrint(r)} className="p-1.5 text-gray-600 hover:bg-gray-100 rounded" title="Print">
                           <Printer className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => handleEmailReport(r)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded" title="Email Report">
+                          <Mail className="w-4 h-4" />
                         </button>
                       </div>
                     </td>
@@ -810,6 +933,17 @@ export function SalvageReports({ userId, companyId, prefillEstimateId }: Salvage
           </div>
         )}
       </div>
+      {emailModalReport && (
+        <SalvageEmailModal
+          report={emailModalReport}
+          companyInfo={companyInfo}
+          onClose={() => { setEmailModalReport(null); setEmailError(''); setEmailSuccess(false); }}
+          sending={sendingEmail}
+          error={emailError}
+          success={emailSuccess}
+          onSend={handleSendEmail}
+        />
+      )}
     </div>
   );
 }
@@ -1205,6 +1339,169 @@ function VideoPlayerModal({ media, onClose }: { media: SalvageReportMedia; onClo
           className="w-full rounded-lg bg-black"
         />
         <p className="text-white text-sm mt-3 text-center">{media.file_name}</p>
+      </div>
+    </div>
+  );
+}
+
+function SalvageEmailModal({
+  report, companyInfo, onClose, sending, error, success, onSend,
+}: {
+  report: SalvageReport;
+  companyInfo: { name: string; logo_url?: string; phone?: string; email?: string; address?: string; mailing_address?: string } | null;
+  onClose: () => void;
+  sending: boolean;
+  error: string;
+  success: boolean;
+  onSend: (recipients: string[], cc: string[], subject: string, message: string) => void;
+}) {
+  const media = report.salvage_report_media || [];
+  const photoCount = media.filter(m => m.media_type === 'photo_prior' || m.media_type === 'photo_loss').length;
+  const videoCount = media.filter(m => m.media_type === 'video_loss').length;
+
+  const defaultRecipients = [report.owner_email, report.adjuster_email].filter(Boolean).join(', ');
+  const [recipients, setRecipients] = useState(defaultRecipients);
+  const [cc, setCc] = useState(companyInfo?.email || '');
+  const [subject, setSubject] = useState(`Salvage Service Report ${report.report_number}`);
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    if (defaultRecipients) setRecipients(defaultRecipients);
+    if (companyInfo?.email) setCc(companyInfo.email);
+    setSubject(`Salvage Service Report ${report.report_number}`);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  function handleSend() {
+    const recipientList = recipients.split(',').map(e => e.trim()).filter(Boolean);
+    const ccList = cc.split(',').map(e => e.trim()).filter(Boolean);
+
+    if (recipientList.length === 0) {
+      alert('Please enter at least one recipient email address');
+      return;
+    }
+    for (const e of recipientList) {
+      if (!emailRegex.test(e)) {
+        alert(`Invalid email address: ${e}`);
+        return;
+      }
+    }
+    for (const e of ccList) {
+      if (!emailRegex.test(e)) {
+        alert(`Invalid CC email address: ${e}`);
+        return;
+      }
+    }
+
+    onSend(recipientList, ccList, subject, message);
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Mail className="w-6 h-6 text-blue-600" />
+            <h2 className="text-xl font-bold text-gray-900">Email Salvage Report</h2>
+          </div>
+          <button onClick={onClose} disabled={sending} className="text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50">
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        {success ? (
+          <div className="p-8 text-center">
+            <CheckCircle className="w-14 h-14 mx-auto text-green-500 mb-3" />
+            <p className="text-lg font-semibold text-gray-900">Email Sent Successfully!</p>
+            <p className="text-sm text-gray-500 mt-1">The salvage report has been emailed to your recipients.</p>
+          </div>
+        ) : (
+          <div className="p-6 space-y-4">
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                {error}
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">To</label>
+              <input
+                type="text"
+                value={recipients}
+                onChange={e => setRecipients(e.target.value)}
+                placeholder="recipient@example.com, another@example.com"
+                disabled={sending}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
+              />
+              <p className="text-xs text-gray-400 mt-1">Separate multiple emails with commas</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">CC</label>
+              <input
+                type="text"
+                value={cc}
+                onChange={e => setCc(e.target.value)}
+                placeholder="cc@example.com"
+                disabled={sending}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
+              <input
+                type="text"
+                value={subject}
+                onChange={e => setSubject(e.target.value)}
+                disabled={sending}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Message (optional)</label>
+              <textarea
+                value={message}
+                onChange={e => setMessage(e.target.value)}
+                placeholder="Add a personal note to accompany the report..."
+                rows={3}
+                disabled={sending}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
+              />
+            </div>
+
+            <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+              <p className="text-sm text-gray-600">
+                <strong>Attachments:</strong> {photoCount} photo{photoCount !== 1 ? 's' : ''}, {videoCount} video{videoCount !== 1 ? 's' : ''}
+              </p>
+              {videoCount > 0 && (
+                <p className="text-xs text-gray-400 mt-1">
+                  Videos larger than 24MB will be included as viewable links instead of attachments.
+                </p>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                onClick={onClose}
+                disabled={sending}
+                className="px-5 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg font-medium disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSend}
+                disabled={sending}
+                className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50"
+              >
+                {sending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                {sending ? 'Sending...' : 'Send Report'}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

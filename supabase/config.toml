@@ -12,3 +12,6 @@ verify_jwt = true
 
 [functions.send-payment-link-email]
 verify_jwt = true
+
+[functions.send-salvage-report-email]
+verify_jwt = true

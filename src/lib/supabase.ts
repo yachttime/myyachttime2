@@ -384,6 +384,10 @@ export interface SalvageReport {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  email_sent_at?: string | null;
+  email_recipients?: string | null;
+  email_cc_recipients?: string | null;
+  email_resend_id?: string | null;
   salvage_report_media?: SalvageReportMedia[];
   estimates?: { estimate_number: string; customer_name: string | null; customer_email: string | null; customer_phone: string | null; yachts?: { name: string } };
   yachts?: { name: string };
