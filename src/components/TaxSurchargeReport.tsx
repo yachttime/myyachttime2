@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
+import { getCompanyInfoForPdf } from '../utils/companyInfo';
 import { X, Printer, AlertCircle, Calendar, ChevronDown, BookOpen, CheckCircle, Lock, RefreshCw } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -93,11 +94,8 @@ export function TaxSurchargeReport({ onClose }: Props) {
   }, [dateFrom, dateTo, reportType]);
 
   async function loadCompanyName() {
-    const { data } = await supabase
-      .from('company_info')
-      .select('company_name')
-      .maybeSingle();
-    if (data?.company_name) setCompanyName(data.company_name);
+    const info = await getCompanyInfoForPdf();
+    if (info?.company_name) setCompanyName(info.company_name);
   }
 
   // Derive the month key from the dateFrom (YYYY-MM)
@@ -516,10 +514,7 @@ export function TaxSurchargeReport({ onClose }: Props) {
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = 40;
 
-    let { data: companyData } = await supabase
-      .from('company_info')
-      .select('company_name, address, city, state, zip, phone, email')
-      .maybeSingle();
+    const companyData = await getCompanyInfoForPdf();
 
     let y = 40;
 
@@ -532,8 +527,8 @@ export function TaxSurchargeReport({ onClose }: Props) {
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(80, 80, 80);
-    if (companyData?.address) {
-      doc.text(`${companyData.address}, ${companyData.city || ''}, ${companyData.state || ''} ${companyData.zip || ''}`, margin, y);
+    if (companyData?.address_line1) {
+      doc.text(`${companyData.address_line1}, ${companyData.city || ''}, ${companyData.state || ''} ${companyData.zip_code || ''}`, margin, y);
       y += 14;
     }
     if (companyData?.phone) { doc.text(companyData.phone, margin, y); y += 14; }

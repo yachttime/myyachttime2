@@ -9,6 +9,7 @@ import { useConfirm } from '../hooks/useConfirm';
 import { TaxSurchargeReport } from './TaxSurchargeReport';
 import { SalesBreakdownReport } from './SalesBreakdownReport';
 import { generateTripInspectionPDF } from '../utils/pdfGenerator';
+import { getCompanyInfoForPdf } from '../utils/companyInfo';
 
 interface InvoicesProps {
   userId: string;
@@ -886,11 +887,8 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
       const margin = 0.75;
       let yPos = margin;
 
-      // Fetch company info
-      const { data: companyInfo } = await supabase
-        .from('company_info')
-        .select('*')
-        .maybeSingle();
+      // Fetch company info from the companies table for this invoice's company
+      const companyInfo = await getCompanyInfoForPdf(invoice.company_id);
 
       // Add logo if available
       let logoAdded = false;

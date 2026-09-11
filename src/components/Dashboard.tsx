@@ -32,6 +32,7 @@ import { CompanyManagement } from './CompanyManagement';
 import SupportTickets from './SupportTickets';
 import { uploadFileToStorage, deleteFileFromStorage, isStorageUrl, UploadProgress, isTokenExpiredError } from '../utils/fileUpload';
 import { generateAllYachtTripsPDF, generateEstimatingInvoicePDF, generateTripInspectionPDF, generateEngineHoursReportPDF, generateOffSeasonEstimatesPDF, InvoicePaymentRecord } from '../utils/pdfGenerator';
+import { getCompanyInfoForPdf } from '../utils/companyInfo';
 import {
   getQueue, addItem, updateItem, removeItem, getReadyItems,
   OfflineInspectionItem, OfflinePhoto,
@@ -2667,10 +2668,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         showError(`No off-season estimates found for ${yachtName}`);
         return;
       }
-      const { data: companyInfo } = await supabase
-        .from('company_info')
-        .select('*')
-        .maybeSingle();
+      const companyInfo = await getCompanyInfoForPdf();
       const pdf = await generateOffSeasonEstimatesPDF(estimates, yachtName, companyInfo);
       const pdfUrl = URL.createObjectURL(pdf.output('blob'));
       window.open(pdfUrl, '_blank');
@@ -2714,10 +2712,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         return;
       }
 
-      const { data: companyInfo } = await supabase
-        .from('company_info')
-        .select('*')
-        .maybeSingle();
+      const companyInfo = await getCompanyInfoForPdf();
 
       const pdf = await generateOffSeasonEstimatesPDF(estimates, yachtName, companyInfo);
       const pdfBlob = pdf.output('blob');
@@ -3017,7 +3012,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           .select('*')
           .eq('invoice_id', invoiceId)
           .order('line_order', { ascending: true }),
-        supabase.from('company_info').select('*').maybeSingle(),
+        getCompanyInfoForPdf(),
       ]);
 
       if (!invResult.data) { showError('Invoice not found'); return; }
@@ -3103,7 +3098,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         }
       }
 
-      const pdf = await generateEstimatingInvoicePDF(invoiceForPDF, lineItems, companyResult.data, undefined, paymentRecords);
+      const pdf = await generateEstimatingInvoicePDF(invoiceForPDF, lineItems, companyResult, undefined, paymentRecords);
       const pdfUrl = URL.createObjectURL(pdf.output('blob'));
       window.open(pdfUrl, '_blank');
     } catch (error) {
@@ -3122,7 +3117,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           .select('*, work_orders!estimating_invoices_work_order_id_fkey(work_order_number), yachts!estimating_invoices_yacht_id_fkey(name)')
           .eq('yacht_id', yachtId)
           .order('invoice_date', { ascending: true }),
-        supabase.from('company_info').select('*').maybeSingle(),
+        getCompanyInfoForPdf(),
       ]);
 
       if (invResult.error) throw invResult.error;
@@ -3225,7 +3220,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           }
         }
 
-        combinedDoc = await generateEstimatingInvoicePDF(invoiceForPDF, lineItems, companyResult.data, combinedDoc || undefined, paymentRecords);
+        combinedDoc = await generateEstimatingInvoicePDF(invoiceForPDF, lineItems, companyResult, combinedDoc || undefined, paymentRecords);
       }
 
       if (combinedDoc) {

@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { Plus, Wrench, AlertCircle, CreditCard as Edit2, Trash2, Check, X, ChevronDown, ChevronUp, Printer, CheckCircle, Clock, FileText, DollarSign, Mail, ExternalLink, RefreshCw, Eye, MousePointer, Download, Archive, RotateCcw, Package, ClipboardList } from 'lucide-react';
 import { generateWorkOrderPDF, generateTripInspectionPDF, generateEstimatingInvoicePDF } from '../utils/pdfGenerator';
 import { attachPdfToWorkOrderSalvageReport } from '../utils/salvagePdfAttach';
+import { getCompanyInfoForPdf } from '../utils/companyInfo';
 import { useNotification } from '../contexts/NotificationContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useConfirm } from '../hooks/useConfirm';
@@ -1511,11 +1512,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
             .eq('id', data.invoice_id)
             .maybeSingle();
           if (invData) {
-            const { data: companyInfo } = await supabase
-              .from('company_info')
-              .select('*')
-              .limit(1)
-              .maybeSingle();
+            const companyInfo = await getCompanyInfoForPdf(invData.company_id);
             const { data: invLineItems } = await supabase
               .from('estimating_invoice_line_items')
               .select('*, estimating_invoice_tasks(task_name, task_overview)')
@@ -1870,13 +1867,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
 
       if (workOrderError) throw workOrderError;
 
-      const { data: companyInfo, error: companyError } = await supabase
-        .from('company_info')
-        .select('*')
-        .limit(1)
-        .maybeSingle();
-
-      if (companyError) console.warn('Could not load company info:', companyError);
+      const companyInfo = await getCompanyInfoForPdf(workOrderData.company_id);
 
       const { data: tasksData, error: tasksError } = await supabase
         .from('work_order_tasks')
@@ -2237,11 +2228,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
 
       if (workOrderError) throw workOrderError;
 
-      const { data: companyInfo } = await supabase
-        .from('company_info')
-        .select('*')
-        .limit(1)
-        .maybeSingle();
+      const companyInfo = await getCompanyInfoForPdf(workOrderData.company_id);
 
       const { data: tasksData, error: tasksError } = await supabase
         .from('work_order_tasks')

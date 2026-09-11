@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { Plus, FileText, AlertCircle, CreditCard as Edit2, Trash2, Check, X, ChevronDown, ChevronUp, Printer, CheckCircle, XCircle, Package, Archive, RotateCcw, Search, User, ClipboardList } from 'lucide-react';
 import { generateEstimatePDF, generateTripInspectionPDF, generateWorkOrderPDF } from '../utils/pdfGenerator';
 import { attachPdfToEstimateSalvageReport, attachPdfToWorkOrderSalvageReport } from '../utils/salvagePdfAttach';
+import { getCompanyInfoForPdf } from '../utils/companyInfo';
 import { useNotification } from '../contexts/NotificationContext';
 
 const DEFAULT_CUSTOMER_NOTES = `I hereby authorize the above repair work to be done along with necessary materials. It is distinctly understood that all labor and materials so used shall be charged to this job at current billing rates. You and your employees may operate above equipment for purpose of testing, inspecting or delivering at my risk. An express mechanic's lien is acknowledged to secure the amount of repairs thereto. It is understood that this company assumes no responsibility for loss or damage by fire or theft or weather hazards incidental to equipment or materials placed with them for sale, repair or testing. If legal action is necessary to enforce this contract I will pay all reasonable attorney's fees and other costs incurred. All payments are C.O.D. unless prior arrangements are made. If equipment is not removed within 10 days after completion of service, storage charges will accrue at $15 per day.
@@ -1758,11 +1759,7 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
           .select('*, yachts(name, manufacturer, model)')
           .eq('id', estimateIdForPdf)
           .maybeSingle();
-        const { data: companyInfo } = await supabase
-          .from('company_info')
-          .select('*')
-          .limit(1)
-          .maybeSingle();
+        const companyInfo = await getCompanyInfoForPdf(estData?.company_id);
         if (estData) {
           const { data: tasksData } = await supabase
             .from('estimate_tasks')
@@ -2210,11 +2207,7 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
           .eq('estimate_id', estimateToApprove)
           .maybeSingle();
         if (woData) {
-          const { data: companyInfo } = await supabase
-            .from('company_info')
-            .select('*')
-            .limit(1)
-            .maybeSingle();
+          const companyInfo = await getCompanyInfoForPdf(woData.company_id);
           const { data: woTasks } = await supabase
             .from('work_order_tasks')
             .select('*')
@@ -2319,13 +2312,7 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
 
       if (estimateError) throw estimateError;
 
-      const { data: companyInfo, error: companyError } = await supabase
-        .from('company_info')
-        .select('*')
-        .limit(1)
-        .maybeSingle();
-
-      if (companyError) console.warn('Could not load company info:', companyError);
+      const companyInfo = await getCompanyInfoForPdf(estimateData.company_id);
 
       const { data: tasksData, error: tasksError } = await supabase
         .from('estimate_tasks')
@@ -2463,11 +2450,7 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
 
       if (estimateError) throw estimateError;
 
-      const { data: companyInfo } = await supabase
-        .from('company_info')
-        .select('*')
-        .limit(1)
-        .maybeSingle();
+      const companyInfo = await getCompanyInfoForPdf(estimateData.company_id);
 
       const { data: tasksData, error: tasksError } = await supabase
         .from('estimate_tasks')
