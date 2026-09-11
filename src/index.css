@@ -284,9 +284,20 @@ select {
     height: auto !important;
     page-break-inside: avoid;
     break-inside: avoid;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    opacity: 1 !important;
   }
 
   .salvage-print-view .no-print {
     display: none !important;
+  }
+
+  .salvage-print-view .print\:p-0 {
+    padding: 0 !important;
+  }
+
+  .salvage-print-view .print\:shadow-none {
+    box-shadow: none !important;
   }
 }
