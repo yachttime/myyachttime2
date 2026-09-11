@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Search, Plus, Eye, Printer, ArrowLeft, Upload, X, FileText, Save, CheckCircle, Video, ChevronDown, ChevronLeft, ChevronRight, Ship, User, Loader2, MapPin, ExternalLink } from 'lucide-react';
+import { Search, Plus, Eye, Printer, ArrowLeft, Upload, X, FileText, Save, CheckCircle, Video, Play, ChevronDown, ChevronLeft, ChevronRight, Ship, User, Loader2, MapPin, ExternalLink } from 'lucide-react';
 import { supabase, SalvageReport, SalvageReportMedia } from '../lib/supabase';
 
 interface SalvageReportsProps {
@@ -54,6 +54,7 @@ export function SalvageReports({ userId, companyId, prefillEstimateId }: Salvage
   const [companyInfo, setCompanyInfo] = useState<{ name: string; logo_url?: string; tagline?: string; phone?: string; email?: string; address?: string } | null>(null);
   const [yachts, setYachts] = useState<{ id: string; name: string; manufacturer?: string | null; size?: string | null; hull_number?: string | null }[]>([]);
   const [customers, setCustomers] = useState<{ id: string; first_name: string | null; last_name: string | null; business_name: string | null; email: string | null; phone: string | null; address_line1: string | null; city: string | null; state: string | null; zip_code: string | null }[]>([]);
+  const [playingVideo, setPlayingVideo] = useState<SalvageReportMedia | null>(null);
 
   const loadReports = useCallback(async () => {
     setLoading(true);
@@ -515,19 +516,24 @@ export function SalvageReports({ userId, companyId, prefillEstimateId }: Salvage
               </PrintSection>
             )}
 
-            {/* Videos - Loss (hidden from print, no point printing video file names) */}
+            {/* Videos - Loss (hidden from print, but viewable on screen) */}
             {rVideoLoss.length > 0 && (
               <div className="no-print">
                 <PrintSection title="Videos of the Loss">
                   {rVideoLoss.map(m => (
                     <div key={m.id} className="col-span-2 mb-4">
-                      <div className="flex items-center gap-3 border border-gray-300 rounded-lg p-4">
-                        <Video className="w-8 h-8 text-gray-400" />
-                        <div>
+                      <button
+                        onClick={() => setPlayingVideo(m)}
+                        className="flex items-center gap-3 border border-gray-300 rounded-lg p-4 w-full text-left hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="relative w-16 h-12 bg-gray-900 rounded flex items-center justify-center flex-shrink-0">
+                          <Play className="w-6 h-6 text-white fill-white" />
+                        </div>
+                        <div className="min-w-0">
                           <p className="text-sm font-medium text-gray-800">{m.file_name}</p>
                           {m.caption && <p className="text-xs text-gray-600">{m.caption}</p>}
                         </div>
-                      </div>
+                      </button>
                     </div>
                   ))}
                 </PrintSection>
@@ -539,6 +545,7 @@ export function SalvageReports({ userId, companyId, prefillEstimateId }: Salvage
             </div>
           </div>
         </div>
+        {playingVideo && <VideoPlayerModal media={playingVideo} onClose={() => setPlayingVideo(null)} />}
       </div>
     );
   }
@@ -650,6 +657,7 @@ export function SalvageReports({ userId, companyId, prefillEstimateId }: Salvage
                   onUpload={files => handleUpload(files, 'video_loss')}
                   onDelete={id => handleDeleteMedia(id, videoLoss.find(m => m.id === id)?.file_url || '')}
                   onMove={(id, dir) => handleMoveMedia(id, dir)}
+                  onPlay={m => setPlayingVideo(m)}
                   uploading={uploadingType === 'video_loss'}
                   isVideo={true}
                   pendingCount={uploadingType === 'video_loss' ? uploadPending : 0}
@@ -693,6 +701,7 @@ export function SalvageReports({ userId, companyId, prefillEstimateId }: Salvage
             </div>
           </div>
         </div>
+        {playingVideo && <VideoPlayerModal media={playingVideo} onClose={() => setPlayingVideo(null)} />}
       </div>
     );
   }
@@ -825,11 +834,12 @@ function FormField({
 }
 
 function MediaUploadSection({
-  label, accept, items, onUpload, onDelete, onMove, uploading, isVideo, pendingCount, completedCount,
+  label, accept, items, onUpload, onDelete, onMove, onPlay, uploading, isVideo, pendingCount, completedCount,
 }: {
   label: string; accept: string; items: SalvageReportMedia[];
   onUpload: (files: File[]) => void; onDelete: (id: string) => void;
   onMove: (id: string, direction: 'left' | 'right') => void;
+  onPlay?: (media: SalvageReportMedia) => void;
   uploading: boolean; isVideo: boolean; pendingCount?: number; completedCount?: number;
 }) {
   const pct = uploading && pendingCount && pendingCount > 0
@@ -842,9 +852,12 @@ function MediaUploadSection({
         {items.map((m, idx) => (
           <div key={m.id} className="relative group">
             {isVideo ? (
-              <div className="w-32 h-24 bg-gray-100 rounded-lg border border-gray-300 flex items-center justify-center">
-                <Video className="w-8 h-8 text-gray-400" />
-              </div>
+              <button
+                onClick={() => onPlay?.(m)}
+                className="w-32 h-24 bg-gray-900 rounded-lg border border-gray-300 flex items-center justify-center hover:bg-gray-800 transition-colors"
+              >
+                <Play className="w-8 h-8 text-white fill-white" />
+              </button>
             ) : (
               <img src={m.file_url} alt={m.caption || m.file_name} className="w-32 h-24 object-cover rounded-lg border border-gray-300" />
             )}
@@ -1134,6 +1147,42 @@ function LossLocationMap({ lat, lng, forPrint = false }: { lat: string | number;
         <div className="absolute bottom-1 left-1 rounded bg-white/85 px-1 text-[9px] text-gray-600 pointer-events-none">
           Esri, Maxar, Earthstar Geographics
         </div>
+      </div>
+    </div>
+  );
+}
+
+function VideoPlayerModal({ media, onClose }: { media: SalvageReportMedia; onClose: () => void }) {
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+    }
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="relative max-w-3xl w-full"
+        onClick={e => e.stopPropagation()}
+      >
+        <button
+          onClick={onClose}
+          className="absolute -top-10 right-0 text-white hover:text-gray-300 flex items-center gap-1 text-sm font-medium"
+        >
+          <X className="w-5 h-5" /> Close
+        </button>
+        <video
+          src={media.file_url}
+          controls
+          autoPlay
+          className="w-full rounded-lg bg-black"
+        />
+        <p className="text-white text-sm mt-3 text-center">{media.file_name}</p>
       </div>
     </div>
   );
