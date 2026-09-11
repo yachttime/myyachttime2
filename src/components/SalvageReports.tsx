@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Search, Plus, Eye, Printer, Trash2, ArrowLeft, Upload, X, FileText, Save, CheckCircle, Video, ChevronDown, ChevronLeft, ChevronRight, Ship, User, Loader2 } from 'lucide-react';
+import { Search, Plus, Eye, Printer, Trash2, ArrowLeft, Upload, X, FileText, Save, CheckCircle, Video, ChevronDown, ChevronLeft, ChevronRight, Ship, User, Loader2, MapPin, ExternalLink } from 'lucide-react';
 import { supabase, SalvageReport, SalvageReportMedia } from '../lib/supabase';
 
 interface SalvageReportsProps {
@@ -470,6 +470,15 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
               <PrintField label="Vessel Depth" value={r.vessel_depth} />
             </PrintSection>
 
+            {/* Map of Loss Location */}
+            {isValidCoord(r.gps_latitude) && isValidCoord(r.gps_longitude) && (
+              <PrintSection title="Approximate Location of Loss">
+                <div className="col-span-2">
+                  <LossLocationMap lat={r.gps_latitude!} lng={r.gps_longitude!} forPrint />
+                </div>
+              </PrintSection>
+            )}
+
             {/* Vessel Condition & Fuel */}
             <PrintSection title="Vessel Condition & Fuel">
               <PrintField label="Description Prior to Loss" value={r.vessel_description_prior} fullWidth />
@@ -598,6 +607,11 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
               <FormField label="GPS Latitude" value={form.gps_latitude} onChange={v => setForm({ ...form, gps_latitude: v })} placeholder="e.g., 36.9147" />
               <FormField label="GPS Longitude" value={form.gps_longitude} onChange={v => setForm({ ...form, gps_longitude: v })} placeholder="e.g., -111.4558" />
               <FormField label="Vessel Depth" value={form.vessel_depth} onChange={v => setForm({ ...form, vessel_depth: v })} placeholder="e.g., 45 feet" />
+              {isValidCoord(form.gps_latitude) && isValidCoord(form.gps_longitude) && (
+                <div className="md:col-span-2">
+                  <LossLocationMap lat={form.gps_latitude} lng={form.gps_longitude} />
+                </div>
+              )}
             </FormSection>
 
             {/* Section: Vessel Condition & Fuel */}
@@ -1088,6 +1102,57 @@ function CustomerPickerDropdown({
         )}
       </div>
       <p className="text-xs text-gray-400 mt-1">Selecting a customer auto-fills owner name, phone, email, and address.</p>
+    </div>
+  );
+}
+
+function isValidCoord(v: string | null | undefined): boolean {
+  if (!v) return false;
+  const n = parseFloat(v);
+  return !isNaN(n) && isFinite(n);
+}
+
+function LossLocationMap({ lat, lng, forPrint = false }: { lat: string | number; lng: string | number; forPrint?: boolean }) {
+  const latNum = typeof lat === 'number' ? lat : parseFloat(lat);
+  const lngNum = typeof lng === 'number' ? lng : parseFloat(lng);
+  if (isNaN(latNum) || isNaN(lngNum)) return null;
+
+  const delta = 0.01;
+  const bbox = `${lngNum - delta},${latNum - delta},${lngNum + delta},${latNum + delta}`;
+  const markerLat = latNum + delta * 0.15;
+  const mapUrl = `https://staticmap.openstreetmap.de/staticmap.php?center=${latNum},${lngNum}&zoom=14&size=${forPrint ? '600x300' : '500x250'}&maptype=mapnik&markers=${markerLat},${lngNum},red-pushpin`;
+  const gmapsUrl = `https://www.google.com/maps/search/?api=1&query=${latNum},${lngNum}`;
+
+  return (
+    <div className={forPrint ? '' : 'rounded-lg border border-gray-200 overflow-hidden bg-gray-50'}>
+      <div className={`flex items-center gap-2 ${forPrint ? 'mb-2' : 'px-3 py-2 bg-gray-100 border-b border-gray-200'}`}>
+        <MapPin className="w-4 h-4 text-red-500" />
+        <span className="text-sm font-medium text-gray-700">Approximate Location of Loss</span>
+        <span className="text-xs text-gray-500 ml-1">({latNum.toFixed(4)}, {lngNum.toFixed(4)})</span>
+        {!forPrint && (
+          <a
+            href={gmapsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ml-auto inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium"
+          >
+            View larger map <ExternalLink className="w-3 h-3" />
+          </a>
+        )}
+      </div>
+      <div className={forPrint ? 'border border-gray-300 rounded overflow-hidden' : ''}>
+        <img
+          src={mapUrl}
+          alt={`Map showing loss location at ${latNum}, ${lngNum}`}
+          className="w-full h-auto"
+          style={{ maxHeight: forPrint ? '300px' : '250px', objectFit: 'cover' }}
+          onError={(e) => {
+            const target = e.currentTarget;
+            target.onerror = null;
+            target.src = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${latNum},${lngNum}`;
+          }}
+        />
+      </div>
     </div>
   );
 }
