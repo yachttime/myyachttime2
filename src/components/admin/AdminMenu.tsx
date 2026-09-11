@@ -1,7 +1,6 @@
-import { Calendar, Mail, CalendarPlus, Users, ClipboardCheck, UserCheck, FileUp, Wrench, MessageCircle, Ship, Lock, Building2, Activity, Wrench as EngineIcon, BarChart3, LifeBuoy, ToggleRight, ToggleLeft } from 'lucide-react';
+import { Calendar, Mail, CalendarPlus, Users, ClipboardCheck, UserCheck, FileUp, Wrench, MessageCircle, Ship, Lock, Building2, Activity, Wrench as EngineIcon, BarChart3, LifeBuoy } from 'lucide-react';
 import { isStaffRole, isMasterRole, isStaffOrManager, isOwnerRole, canManageYacht, canAccessAllYachts, UserRole } from '../../lib/supabase';
 import { useCompany } from '../../contexts/CompanyContext';
-import { supabase } from '../../lib/supabase';
 
 export type AdminViewType =
   | 'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs'
@@ -17,43 +16,9 @@ interface AdminMenuProps {
 }
 
 export default function AdminMenu({ effectiveRole, pendingInspectionCount, onNavigate, onLoadMaintenanceRequests }: AdminMenuProps) {
-  const { isMaster, selectedCompany, refreshCompanies } = useCompany();
+  const { selectedCompany } = useCompany();
   const flags = selectedCompany?.feature_flags ?? null;
   const isEnabled = (key: string) => !flags || flags[key] !== false;
-
-  async function toggleFeature(featureKey: string) {
-    if (!isMaster || !selectedCompany) return;
-    const currentFlags = selectedCompany.feature_flags || {};
-    const newValue = currentFlags[featureKey] !== false ? false : true;
-    const updatedFlags = { ...currentFlags, [featureKey]: newValue };
-    try {
-      await supabase
-        .from('companies')
-        .update({ feature_flags: updatedFlags })
-        .eq('id', selectedCompany.id);
-      await refreshCompanies();
-    } catch (error) {
-      console.error('Error updating feature flag:', error);
-    }
-  }
-
-  function FeatureToggle({ featureKey }: { featureKey: string }) {
-    if (!isMaster) return null;
-    const enabled = isEnabled(featureKey);
-    return (
-      <button
-        onClick={(e) => { e.stopPropagation(); toggleFeature(featureKey); }}
-        className="absolute top-4 right-4 z-10"
-        title={enabled ? `Click to disable this feature for ${selectedCompany?.company_name}` : `Click to enable this feature`}
-      >
-        {enabled ? (
-          <ToggleRight className="w-7 h-7 text-green-500" />
-        ) : (
-          <ToggleLeft className="w-7 h-7 text-slate-500" />
-        )}
-      </button>
-    );
-  }
 
   const cardClass = "relative bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 hover:border-amber-500 transition-all duration-300 hover:scale-105 text-left group";
 
@@ -61,7 +26,6 @@ export default function AdminMenu({ effectiveRole, pendingInspectionCount, onNav
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {isEnabled('master_calendar') && (
         <button onClick={() => onNavigate('mastercalendar')} className={cardClass}>
-          <FeatureToggle featureKey="master_calendar" />
           <div className="flex items-center gap-4 mb-4">
             <div className="bg-teal-500/20 p-4 rounded-xl group-hover:bg-teal-500/30 transition-colors">
               <Calendar className="w-8 h-8 text-teal-500" />
@@ -74,7 +38,6 @@ export default function AdminMenu({ effectiveRole, pendingInspectionCount, onNav
 
       {!isOwnerRole(effectiveRole) && isEnabled('messages') && (
         <button onClick={() => onNavigate('messages')} className={cardClass}>
-          <FeatureToggle featureKey="messages" />
           <div className="flex items-center gap-4 mb-4">
             <div className="bg-cyan-500/20 p-4 rounded-xl group-hover:bg-cyan-500/30 transition-colors">
               <Mail className="w-8 h-8 text-cyan-500" />
@@ -87,7 +50,6 @@ export default function AdminMenu({ effectiveRole, pendingInspectionCount, onNav
 
       {canAccessAllYachts(effectiveRole) && isEnabled('appointments') && (
         <button onClick={() => onNavigate('appointments')} className={cardClass}>
-          <FeatureToggle featureKey="appointments" />
           <div className="flex items-center gap-4 mb-4">
             <div className="bg-orange-500/20 p-4 rounded-xl group-hover:bg-orange-500/30 transition-colors">
               <CalendarPlus className="w-8 h-8 text-orange-500" />
@@ -100,7 +62,6 @@ export default function AdminMenu({ effectiveRole, pendingInspectionCount, onNav
 
       {canAccessAllYachts(effectiveRole) && isEnabled('staff_appointment') && (
         <button onClick={() => onNavigate('staffappointment')} className={cardClass}>
-          <FeatureToggle featureKey="staff_appointment" />
           <div className="flex items-center gap-4 mb-4">
             <div className="bg-blue-500/20 p-4 rounded-xl group-hover:bg-blue-500/30 transition-colors">
               <Users className="w-8 h-8 text-blue-500" />
@@ -113,7 +74,6 @@ export default function AdminMenu({ effectiveRole, pendingInspectionCount, onNav
 
       {canManageYacht(effectiveRole) && isEnabled('inspection') && (
         <button onClick={() => onNavigate('inspection')} className={cardClass}>
-          <FeatureToggle featureKey="inspection" />
           <div className="flex items-center justify-between gap-4 mb-4">
             <div className="bg-amber-500/20 p-4 rounded-xl group-hover:bg-amber-500/30 transition-colors">
               <ClipboardCheck className="w-8 h-8 text-amber-500" />
@@ -129,7 +89,6 @@ export default function AdminMenu({ effectiveRole, pendingInspectionCount, onNav
 
       {canManageYacht(effectiveRole) && isEnabled('owner_handoff') && (
         <button onClick={() => onNavigate('ownerhandoff')} className={cardClass}>
-          <FeatureToggle featureKey="owner_handoff" />
           <div className="flex items-center gap-4 mb-4">
             <div className="bg-emerald-500/20 p-4 rounded-xl group-hover:bg-emerald-500/30 transition-colors">
               <UserCheck className="w-8 h-8 text-emerald-500" />
@@ -142,7 +101,6 @@ export default function AdminMenu({ effectiveRole, pendingInspectionCount, onNav
 
       {isStaffOrManager(effectiveRole) && isEnabled('repair_requests') && (
         <button onClick={() => onNavigate('repairs')} className={cardClass}>
-          <FeatureToggle featureKey="repair_requests" />
           <div className="flex items-center gap-4 mb-4">
             <div className="bg-orange-500/20 p-4 rounded-xl group-hover:bg-orange-500/30 transition-colors">
               <FileUp className="w-8 h-8 text-orange-500" />
@@ -155,7 +113,6 @@ export default function AdminMenu({ effectiveRole, pendingInspectionCount, onNav
 
       {isStaffOrManager(effectiveRole) && isEnabled('maintenance_requests') && (
         <button onClick={() => { onLoadMaintenanceRequests(); onNavigate('maintenancerequests'); }} className={cardClass}>
-          <FeatureToggle featureKey="maintenance_requests" />
           <div className="flex items-center gap-4 mb-4">
             <div className="bg-amber-500/20 p-4 rounded-xl group-hover:bg-amber-500/30 transition-colors">
               <Wrench className="w-8 h-8 text-amber-500" />
@@ -168,7 +125,6 @@ export default function AdminMenu({ effectiveRole, pendingInspectionCount, onNav
 
       {canManageYacht(effectiveRole) && isEnabled('owner_trips') && (
         <button onClick={() => onNavigate('ownertrips')} className={cardClass}>
-          <FeatureToggle featureKey="owner_trips" />
           <div className="flex items-center gap-4 mb-4">
             <div className="bg-green-500/20 p-4 rounded-xl group-hover:bg-green-500/30 transition-colors">
               <CalendarPlus className="w-8 h-8 text-green-500" />
@@ -181,7 +137,6 @@ export default function AdminMenu({ effectiveRole, pendingInspectionCount, onNav
 
       {(isOwnerRole(effectiveRole) || canManageYacht(effectiveRole)) && isEnabled('owner_chat') && (
         <button onClick={() => onNavigate('ownerchat')} className={cardClass}>
-          <FeatureToggle featureKey="owner_chat" />
           <div className="flex items-center gap-4 mb-4">
             <div className="bg-purple-500/20 p-4 rounded-xl group-hover:bg-purple-500/30 transition-colors">
               <MessageCircle className="w-8 h-8 text-purple-500" />
@@ -194,7 +149,6 @@ export default function AdminMenu({ effectiveRole, pendingInspectionCount, onNav
 
       {isStaffOrManager(effectiveRole) && isEnabled('yachts') && (
         <button onClick={() => onNavigate('yachts')} className={cardClass}>
-          <FeatureToggle featureKey="yachts" />
           <div className="flex items-center justify-between gap-4 mb-4">
             <div className="bg-blue-500/20 p-4 rounded-xl group-hover:bg-blue-500/30 transition-colors">
               <Ship className="w-8 h-8 text-blue-500" />
@@ -210,7 +164,6 @@ export default function AdminMenu({ effectiveRole, pendingInspectionCount, onNav
 
       {isStaffOrManager(effectiveRole) && isEnabled('engine_catalog') && (
         <button onClick={() => onNavigate('enginecatalog')} className={cardClass}>
-          <FeatureToggle featureKey="engine_catalog" />
           <div className="flex items-center gap-4 mb-4">
             <div className="bg-amber-500/20 p-4 rounded-xl group-hover:bg-amber-500/30 transition-colors">
               <EngineIcon className="w-8 h-8 text-amber-500" />
@@ -223,7 +176,6 @@ export default function AdminMenu({ effectiveRole, pendingInspectionCount, onNav
 
       {canManageYacht(effectiveRole) && isEnabled('vessel_monitoring') && (
         <button onClick={() => onNavigate('vesselmonitoring')} className={cardClass}>
-          <FeatureToggle featureKey="vessel_monitoring" />
           <div className="flex items-center gap-4 mb-4">
             <div className="bg-cyan-500/20 p-4 rounded-xl group-hover:bg-cyan-500/30 transition-colors">
               <Activity className="w-8 h-8 text-cyan-500" />
@@ -236,7 +188,6 @@ export default function AdminMenu({ effectiveRole, pendingInspectionCount, onNav
 
       {isMasterRole(effectiveRole) && isEnabled('smart_devices') && (
         <button onClick={() => onNavigate('smartdevices')} className={cardClass}>
-          <FeatureToggle featureKey="smart_devices" />
           <div className="flex items-center gap-4 mb-4">
             <div className="bg-green-500/20 p-4 rounded-xl group-hover:bg-green-500/30 transition-colors">
               <Lock className="w-8 h-8 text-green-500" />
@@ -261,7 +212,6 @@ export default function AdminMenu({ effectiveRole, pendingInspectionCount, onNav
 
       {(isStaffRole(effectiveRole) || isMasterRole(effectiveRole)) && isEnabled('year_end_overview') && (
         <button onClick={() => onNavigate('yearendoverview')} className={cardClass}>
-          <FeatureToggle featureKey="year_end_overview" />
           <div className="flex items-center gap-4 mb-4">
             <div className="bg-amber-500/20 p-4 rounded-xl group-hover:bg-amber-500/30 transition-colors">
               <BarChart3 className="w-8 h-8 text-amber-500" />
@@ -274,7 +224,6 @@ export default function AdminMenu({ effectiveRole, pendingInspectionCount, onNav
 
       {canManageYacht(effectiveRole) && isEnabled('user_management') && (
         <button onClick={() => onNavigate('users')} className={cardClass}>
-          <FeatureToggle featureKey="user_management" />
           <div className="flex items-center gap-4 mb-4">
             <div className="bg-blue-500/20 p-4 rounded-xl group-hover:bg-blue-500/30 transition-colors">
               <Users className="w-8 h-8 text-blue-500" />
@@ -287,7 +236,6 @@ export default function AdminMenu({ effectiveRole, pendingInspectionCount, onNav
 
       {isStaffOrManager(effectiveRole) && isEnabled('salvage_reports') && (
         <button onClick={() => onNavigate('salvagereports')} className={cardClass}>
-          <FeatureToggle featureKey="salvage_reports" />
           <div className="flex items-center gap-4 mb-4">
             <div className="bg-red-500/20 p-4 rounded-xl group-hover:bg-red-500/30 transition-colors">
               <LifeBuoy className="w-8 h-8 text-red-500" />
