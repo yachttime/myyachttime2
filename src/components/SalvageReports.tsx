@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Search, Plus, Eye, Printer, Trash2, ArrowLeft, Upload, X, FileText, Save, CheckCircle, Video, ChevronDown, ChevronLeft, ChevronRight, Ship, User, Loader2, MapPin, ExternalLink } from 'lucide-react';
+import { Search, Plus, Eye, Printer, ArrowLeft, Upload, X, FileText, Save, CheckCircle, Video, ChevronDown, ChevronLeft, ChevronRight, Ship, User, Loader2, MapPin, ExternalLink } from 'lucide-react';
 import { supabase, SalvageReport, SalvageReportMedia } from '../lib/supabase';
 
 interface SalvageReportsProps {
@@ -36,7 +36,7 @@ const EMPTY_FORM = {
   status: 'draft' as 'draft' | 'complete',
 };
 
-export function SalvageReports({ userId, companyId, userRole, prefillEstimateId }: SalvageReportsProps) {
+export function SalvageReports({ userId, companyId, prefillEstimateId }: SalvageReportsProps) {
   const [reports, setReports] = useState<SalvageReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -54,8 +54,6 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
   const [companyInfo, setCompanyInfo] = useState<{ name: string; logo_url?: string; tagline?: string; phone?: string; email?: string; address?: string } | null>(null);
   const [yachts, setYachts] = useState<{ id: string; name: string; manufacturer?: string | null; size?: string | null; hull_number?: string | null }[]>([]);
   const [customers, setCustomers] = useState<{ id: string; first_name: string | null; last_name: string | null; business_name: string | null; email: string | null; phone: string | null; address_line1: string | null; city: string | null; state: string | null; zip_code: string | null }[]>([]);
-
-  const isMaster = userRole === 'master';
 
   const loadReports = useCallback(async () => {
     setLoading(true);
@@ -278,20 +276,6 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
     }
   }
 
-  async function handleDelete(reportId: string) {
-    const report = reports.find(r => r.id === reportId);
-    const label = report ? `${report.report_number} (${report.vessel_name || 'no vessel'})` : 'this report';
-    if (!confirm(`Delete salvage report ${label}? This cannot be undone.`)) return;
-    try {
-      const { error } = await supabase.from('salvage_reports').delete().eq('id', reportId);
-      if (error) throw error;
-      await loadReports();
-    } catch (err) {
-      console.error('Error deleting report:', err);
-      setError('Failed to delete report');
-    }
-  }
-
   async function handleUpload(files: File[], mediaType: 'photo_prior' | 'photo_loss' | 'video_loss') {
     if (!editingReport) return;
     setUploadingType(mediaType);
@@ -412,7 +396,7 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
     const rVideoLoss = rMedia.filter(m => m.media_type === 'video_loss').sort((a, b) => a.sort_order - b.sort_order);
 
     return (
-      <div className="min-h-screen bg-gray-100 p-6">
+      <div className="min-h-screen bg-gray-100 p-6 salvage-print-view">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center gap-4 mb-6 no-print">
             <button onClick={() => { setView('list'); setPrintReport(null); }} className="flex items-center gap-2 text-gray-600 hover:text-gray-900 font-medium">
@@ -781,14 +765,6 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
                         <button onClick={() => handlePrint(r)} className="p-1.5 text-gray-600 hover:bg-gray-100 rounded" title="Print">
                           <Printer className="w-4 h-4" />
                         </button>
-                        {isMaster && (
-                          <>
-                            <div className="w-px h-5 bg-gray-300 mx-1" />
-                            <button onClick={() => handleDelete(r.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded" title="Delete">
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </>
-                        )}
                       </div>
                     </td>
                   </tr>
