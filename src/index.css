@@ -268,8 +268,25 @@ select {
     backdrop-filter: none !important;
   }
 
+  .no-print {
+    display: none !important;
+  }
+
   .pdf-header button,
   #printable-agreement button {
+    display: none !important;
+  }
+
+  .salvage-print-view img {
+    visibility: visible !important;
+    display: block !important;
+    max-width: 100% !important;
+    height: auto !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .salvage-print-view .no-print {
     display: none !important;
   }
 }
