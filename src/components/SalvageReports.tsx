@@ -1474,11 +1474,11 @@ function SalvageEmailModal({
 
             <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
               <p className="text-sm text-gray-600">
-                <strong>Attachments:</strong> {photoCount} photo{photoCount !== 1 ? 's' : ''}, {videoCount} video{videoCount !== 1 ? 's' : ''}
+                <strong>Attachments:</strong> {photoCount} photo{photoCount !== 1 ? 's' : ''} (attached), {videoCount} video{videoCount !== 1 ? 's' : ''} (as links)
               </p>
               {videoCount > 0 && (
                 <p className="text-xs text-gray-400 mt-1">
-                  Videos larger than 24MB will be included as viewable links instead of attachments.
+                  Videos are included as clickable links in the email body. Photos are attached directly.
                 </p>
               )}
             </div>

@@ -24,6 +24,14 @@ Deno.serve(async (req: Request) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
 
+    // Check API key BEFORE doing any work
+    if (!resendApiKey) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Email service not configured. Please add RESEND_API_KEY to enable email sending." }),
+        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const authHeader = req.headers.get("Authorization")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey, {
       global: { headers: { Authorization: authHeader } },
@@ -106,16 +114,22 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Download all media files as attachments
-    const attachments: Array<{ filename: string; content: string }> = [];
-    const videoLinks: Array<{ name: string; url: string }> = [];
-    const MAX_ATTACHMENT_SIZE = 24 * 1024 * 1024; // 24MB per file - Resend total limit is ~40MB
-    const MAX_TOTAL_SIZE = 30 * 1024 * 1024; // 30MB total safety margin
-    let totalAttachmentSize = 0;
-
     const sortedMedia = (report.salvage_report_media || []).sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0));
 
-    for (const media of sortedMedia) {
+    // Videos are ALWAYS links (too large for email attachments)
+    const videoLinks: Array<{ name: string; url: string }> = sortedMedia
+      .filter((m: any) => m.media_type === "video_loss")
+      .map((m: any) => ({ name: m.file_name, url: m.file_url }));
+
+    // Only download and attach PHOTOS (not videos)
+    const attachments: Array<{ filename: string; content: string }> = [];
+    const MAX_PHOTO_SIZE = 5 * 1024 * 1024; // 5MB per photo
+    const MAX_TOTAL_PHOTOS = 10 * 1024 * 1024; // 10MB total for all photos
+    let totalPhotoSize = 0;
+
+    const photoMedia = sortedMedia.filter((m: any) => m.media_type === "photo_prior" || m.media_type === "photo_loss");
+
+    for (const media of photoMedia) {
       try {
         // Extract file path from the public URL
         let filePath = media.file_url;
@@ -130,29 +144,20 @@ Deno.serve(async (req: Request) => {
           .download(filePath);
 
         if (fileError || !fileData) {
-          console.error(`Error downloading media ${media.file_name}:`, fileError);
-          if (media.media_type === "video_loss") {
-            videoLinks.push({ name: media.file_name, url: media.file_url });
-          }
+          console.error(`Error downloading photo ${media.file_name}:`, fileError);
           continue;
         }
 
         const arrayBuffer = await fileData.arrayBuffer();
         const fileSize = arrayBuffer.byteLength;
 
-        if (fileSize > MAX_ATTACHMENT_SIZE) {
-          // Too large for email attachment — include as link instead
-          if (media.media_type === "video_loss") {
-            videoLinks.push({ name: media.file_name, url: media.file_url });
-          } else {
-            videoLinks.push({ name: media.file_name, url: media.file_url });
-          }
+        if (fileSize > MAX_PHOTO_SIZE) {
+          console.log(`Photo ${media.file_name} is ${fileSize} bytes, exceeds ${MAX_PHOTO_SIZE} limit, skipping`);
           continue;
         }
 
-        if (totalAttachmentSize + fileSize > MAX_TOTAL_SIZE) {
-          // Exceeded total size limit — add as link
-          videoLinks.push({ name: media.file_name, url: media.file_url });
+        if (totalPhotoSize + fileSize > MAX_TOTAL_PHOTOS) {
+          console.log(`Total photo size limit reached, skipping ${media.file_name}`);
           continue;
         }
 
@@ -169,10 +174,9 @@ Deno.serve(async (req: Request) => {
           filename: media.file_name,
           content: base64Content,
         });
-        totalAttachmentSize += fileSize;
+        totalPhotoSize += fileSize;
       } catch (err) {
-        console.error(`Error processing media ${media.file_name}:`, err);
-        videoLinks.push({ name: media.file_name, url: media.file_url });
+        console.error(`Error processing photo ${media.file_name}:`, err);
       }
     }
 
@@ -246,18 +250,22 @@ Deno.serve(async (req: Request) => {
       ? `
         <tr>
           <td style="padding:0 0 20px 0;">
-            <h3 style="margin:0 0 8px 0;font-size:14px;font-weight:600;color:#374151;border-bottom:1px solid #e5e7eb;padding-bottom:6px;">Video Files (Links)</h3>
-            <p style="font-size:12px;color:#6b7280;margin:0 0 8px 0;">The following videos were too large to attach and can be viewed online:</p>
+            <h3 style="margin:0 0 8px 0;font-size:14px;font-weight:600;color:#374151;border-bottom:1px solid #e5e7eb;padding-bottom:6px;">Videos</h3>
+            <p style="font-size:12px;color:#6b7280;margin:0 0 8px 0;">Click the links below to view the videos online:</p>
             ${videoLinks.map(v => `<p style="margin:4px 0;font-size:13px;"><a href="${v.url}" style="color:#2563eb;">${v.name}</a></p>`).join("")}
           </td>
         </tr>`
       : "";
 
+    const attachedPhotoCount = attachments.length;
+    const skippedPhotos = photoMedia.length - attachedPhotoCount;
+
     const attachmentSummary = `
       <tr>
         <td style="padding:0 0 20px 0;">
           <p style="font-size:13px;color:#374153;margin:0;">
-            <strong>Attached:</strong> ${photoPrior.length} prior-to-loss photo${photoPrior.length !== 1 ? "s" : ""}, ${photoLoss.length} loss photo${photoLoss.length !== 1 ? "s" : ""}, ${videoLoss.length} video${videoLoss.length !== 1 ? "s" : ""}${videoLinks.length > 0 ? ` (${videoLinks.length} linked online)` : ""}.
+            <strong>Attached:</strong> ${attachedPhotoCount} photo${attachedPhotoCount !== 1 ? "s" : ""}${skippedPhotos > 0 ? ` (${skippedPhotos} skipped due to size)` : ""}.
+            ${videoLinks.length > 0 ? `${videoLinks.length} video${videoLinks.length !== 1 ? "s" : ""} included as links.` : ""}
           </p>
         </td>
       </tr>`;
@@ -315,13 +323,6 @@ Deno.serve(async (req: Request) => {
       </body>
       </html>`;
 
-    if (!resendApiKey) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Email service not configured. Please add RESEND_API_KEY to enable email sending." }),
-        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     let fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "notifications@myyachttime.com";
     fromEmail = fromEmail.trim();
 
@@ -344,6 +345,8 @@ Deno.serve(async (req: Request) => {
     if (attachments.length > 0) {
       emailPayload.attachments = attachments;
     }
+
+    console.log(`Sending salvage report email for ${report.report_number}: ${recipientEmails.length} recipients, ${attachments.length} photo attachments, ${videoLinks.length} video links`);
 
     const emailResponse = await fetch("https://api.resend.com/emails", {
       method: "POST",
