@@ -144,8 +144,11 @@ Deno.serve(async (req: Request) => {
           <td style="padding:0 0 20px 0;">
             <h3 style="margin:0 0 8px 0;font-size:14px;font-weight:600;color:#374151;border-bottom:1px solid #e5e7eb;padding-bottom:6px;">Approximate Location of Loss</h3>
             <p style="font-size:12px;color:#6b7280;margin:0 0 8px 0;">GPS: ${latNum.toFixed(4)}, ${lngNum.toFixed(4)} — <a href="${gmapsUrl}" style="color:#2563eb;">Open in Google Maps</a></p>
-            <a href="${gmapsUrl}" target="_blank" style="display:block;text-decoration:none;">
+            <a href="${gmapsUrl}" target="_blank" style="display:block;text-decoration:none;position:relative;">
               <img src="${mapUrl}" alt="Satellite imagery showing approximate salvage location at ${latNum}, ${lngNum}" style="width:100%;max-width:576px;height:auto;border-radius:6px;border:1px solid #e5e7eb;display:block;" />
+              <span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-100%);width:28px;height:28px;display:block;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="#ef4444" stroke="#ffffff" stroke-width="2" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5));"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 0 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
+              </span>
             </a>
             <p style="font-size:9px;color:#9ca3af;margin:4px 0 0 0;">Esri, Maxar, Earthstar Geographics</p>
           </td>
@@ -200,8 +203,8 @@ Deno.serve(async (req: Request) => {
       report.vessel_description_prior
         ? `<tr><td style="padding:4px 12px 4px 0;color:#6b7280;font-size:13px;vertical-align:top;">Description Prior to Loss</td><td style="padding:4px 0;font-size:13px;color:#111827;">${report.vessel_description_prior.replace(/\n/g, "<br>")}</td></tr>`
         : "",
-      fieldRow("Diesel Fuel (gal)", report.diesel_gallons),
-      fieldRow("Gasoline (gal)", report.gas_gallons),
+      fieldRow("Diesel Fuel (gallons at the time of loss)", report.diesel_gallons),
+      fieldRow("Gasoline (gallons at the time of loss)", report.gas_gallons),
     ].join("");
 
     const findingsRows = [
