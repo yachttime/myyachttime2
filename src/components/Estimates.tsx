@@ -1533,10 +1533,10 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
 
       const { data: userProfile } = await supabase
         .from('user_profiles')
-        .select('company_id')
+        .select('company_id, selected_company_id')
         .eq('user_id', userId)
         .maybeSingle();
-      const userCompanyId = userProfile?.company_id || null;
+      const userCompanyId = userProfile?.selected_company_id || userProfile?.company_id || null;
 
       const subtotal = calculateSubtotal();
       const discountPercentage = formData.discount_percentage !== '' ? parseFloat(formData.discount_percentage) : null;
