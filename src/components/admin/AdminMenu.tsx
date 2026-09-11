@@ -1,4 +1,4 @@
-import { Calendar, Mail, CalendarPlus, Users, ClipboardCheck, UserCheck, FileUp, Wrench, MessageCircle, Ship, Lock, Building2, Activity, Wrench as EngineIcon, BarChart3, LifeBuoy } from 'lucide-react';
+import { Calendar, Mail, CalendarPlus, Users, ClipboardCheck, UserCheck, FileUp, Wrench, MessageCircle, Ship, Lock, Building2, Activity, Wrench as EngineIcon, BarChart3, LifeBuoy, Box } from 'lucide-react';
 import { isStaffRole, isMasterRole, isStaffOrManager, isOwnerRole, canManageYacht, canAccessAllYachts, UserRole } from '../../lib/supabase';
 import { useCompany } from '../../contexts/CompanyContext';
 
@@ -6,7 +6,7 @@ export type AdminViewType =
   | 'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs'
   | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff'
   | 'users' | 'appointments' | 'staffappointment' | 'smartdevices'
-  | 'companies' | 'maintenancerequests' | 'vesselmonitoring' | 'enginecatalog' | 'yearendoverview' | 'salvagereports';
+  | 'companies' | 'maintenancerequests' | 'vesselmonitoring' | 'enginecatalog' | 'yearendoverview' | 'salvagereports' | 'salvageassets';
 
 interface AdminMenuProps {
   effectiveRole: UserRole;
@@ -243,6 +243,18 @@ export default function AdminMenu({ effectiveRole, pendingInspectionCount, onNav
           </div>
           <h3 className="text-xl font-bold mb-2">Salvage Division</h3>
           <p className="text-slate-400 text-sm">Create and manage salvage service reports</p>
+        </button>
+      )}
+
+      {isStaffOrManager(effectiveRole) && isEnabled('salvage_reports') && (
+        <button onClick={() => onNavigate('salvageassets')} className={cardClass}>
+          <div className="flex items-center gap-4 mb-4">
+            <div className="bg-red-500/20 p-4 rounded-xl group-hover:bg-red-500/30 transition-colors">
+              <Box className="w-8 h-8 text-red-500" />
+            </div>
+          </div>
+          <h3 className="text-xl font-bold mb-2">Salvage Asset Database</h3>
+          <p className="text-slate-400 text-sm">Manage reusable salvage assets and pre-set packages with costs</p>
         </button>
       )}
     </div>
