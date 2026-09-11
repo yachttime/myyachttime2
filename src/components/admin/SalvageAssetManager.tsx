@@ -479,13 +479,6 @@ export function SalvageAssetManager({ userId, companyId, userRole }: SalvageAsse
                       <div className="border-t border-slate-700 p-4 bg-slate-900/30">
                         {packageItemsLoading ? (
                           <div className="text-center py-4 text-slate-400 text-sm">Loading items...</div>
-                        ) : packageItems.length === 0 ? (
-                          <div className="text-center py-4 text-slate-400 text-sm">
-                            <p>No items in this package yet.</p>
-                            <button onClick={openAddItemModal} className="mt-2 inline-flex items-center gap-1 text-amber-400 hover:text-amber-300 text-sm font-medium">
-                              <Plus className="w-4 h-4" />Add asset to package
-                            </button>
-                          </div>
                         ) : (
                           <div className="space-y-4">
                             {/* Assets section */}
@@ -493,7 +486,9 @@ export function SalvageAssetManager({ userId, companyId, userRole }: SalvageAsse
                               <div className="flex items-center gap-2 text-slate-300 text-sm font-medium">
                                 <Box className="w-4 h-4" /> Assets
                               </div>
-                              {packageItems.map(item => {
+                              {packageItems.length === 0 ? (
+                                <p className="text-slate-500 text-sm py-1">No assets added to this package.</p>
+                              ) : packageItems.map(item => {
                                 const price = item.unit_price ?? item.asset?.unit_cost ?? 0;
                                 const lineTotal = price * (item.quantity || 0);
                                 return (
