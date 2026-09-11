@@ -440,7 +440,7 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
         const companyInfoPdf = await getCompanyInfoForPdf(invData.company_id);
         const { data: invLineItems } = await supabase
           .from('estimating_invoice_line_items')
-          .select('*, estimating_invoice_tasks(task_name, task_overview)')
+          .select('*')
           .eq('invoice_id', invData.id)
           .order('line_order');
         const formattedItems = (invLineItems || []).map((item: any) => ({
@@ -450,8 +450,8 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
           quantity: item.quantity,
           unit_price: item.unit_price,
           total_price: item.total_price,
-          task_name: item.estimating_invoice_tasks?.task_name,
-          task_overview: item.estimating_invoice_tasks?.task_overview,
+          task_name: item.task_name,
+          task_overview: null,
         }));
         const pdf = await generateEstimatingInvoicePDF(
           {
