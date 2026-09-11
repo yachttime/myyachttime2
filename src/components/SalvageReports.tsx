@@ -972,10 +972,10 @@ export function SalvageReports({ userId, companyId, prefillEstimateId }: Salvage
   // ── ASSETS VIEW ──
   if (view === 'assets') {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-slate-900">
         <div className="max-w-7xl mx-auto p-6">
           <div className="flex items-center gap-4 mb-6">
-            <button onClick={() => setView('list')} className="flex items-center gap-2 text-gray-600 hover:text-gray-900 font-medium">
+            <button onClick={() => setView('list')} className="flex items-center gap-2 text-slate-400 hover:text-white font-medium transition-colors">
               <ArrowLeft className="w-5 h-5" /> Back to Reports
             </button>
           </div>
