@@ -395,7 +395,7 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
   }
 
   function handlePrint(report: SalvageReport) {
-    setPrintReport(report);
+    setPrintReport({ ...report, salvage_report_media: media });
     setView('print');
   }
 
@@ -407,9 +407,9 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
   if (view === 'print' && printReport) {
     const r = printReport;
     const rMedia = r.salvage_report_media || [];
-    const rPhotoPrior = rMedia.filter(m => m.media_type === 'photo_prior');
-    const rPhotoLoss = rMedia.filter(m => m.media_type === 'photo_loss');
-    const rVideoLoss = rMedia.filter(m => m.media_type === 'video_loss');
+    const rPhotoPrior = rMedia.filter(m => m.media_type === 'photo_prior').sort((a, b) => a.sort_order - b.sort_order);
+    const rPhotoLoss = rMedia.filter(m => m.media_type === 'photo_loss').sort((a, b) => a.sort_order - b.sort_order);
+    const rVideoLoss = rMedia.filter(m => m.media_type === 'video_loss').sort((a, b) => a.sort_order - b.sort_order);
 
     return (
       <div className="min-h-screen bg-gray-100 p-6">
