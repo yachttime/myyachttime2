@@ -135,10 +135,22 @@ export function SalvageReports({ userId, companyId, prefillEstimateId }: Salvage
     try {
       const { data: est, error: estErr } = await supabase
         .from('estimates')
-        .select('id, estimate_number, customer_name, customer_email, customer_phone, yacht_id, yachts(name)')
+        .select('id, estimate_number, customer_name, customer_email, customer_phone, yacht_id, customer_id, yachts(name)')
         .eq('id', estimateId)
         .maybeSingle();
       if (estErr) throw estErr;
+
+      let ownerAddress = '';
+      if (est?.customer_id) {
+        const { data: cust } = await supabase
+          .from('customers')
+          .select('address_line1, address_line2, city, state, zip_code')
+          .eq('id', est.customer_id)
+          .maybeSingle();
+        if (cust) {
+          ownerAddress = [cust.address_line1, cust.address_line2, cust.city, cust.state, cust.zip_code].filter(Boolean).join(', ');
+        }
+      }
 
       const { data: reportNum } = await supabase.rpc('generate_salvage_report_number');
 
@@ -153,6 +165,8 @@ export function SalvageReports({ userId, companyId, prefillEstimateId }: Salvage
           owner_name: est?.customer_name || '',
           owner_email: est?.customer_email || '',
           owner_phone: est?.customer_phone || '',
+          owner_address: ownerAddress || null,
+          owner_mailing_address: ownerAddress || null,
           created_by: userId,
           status: 'draft',
         })
@@ -258,6 +272,7 @@ export function SalvageReports({ userId, companyId, prefillEstimateId }: Salvage
           .update(payload)
           .eq('id', editingReport.id);
         if (updateErr) throw updateErr;
+        setEditingReport(prev => prev ? { ...prev, ...payload } as SalvageReport : prev);
       } else {
         const { data: reportNum } = await supabase.rpc('generate_salvage_report_number');
         const { data: newReport, error: createErr } = await supabase
