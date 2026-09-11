@@ -62,6 +62,30 @@ Deno.serve(async (req: Request) => {
       throw new Error('Unauthorized to send off-season estimate emails');
     }
 
+    // Fetch company info for dynamic branding
+    const adminSupabase = createClient(supabaseUrl, supabaseServiceKey);
+    let companyName = 'AZ Marine';
+    let companyEmail = 'sales@azmarine.net';
+    let companyPhone = '928-637-6500';
+    const { data: userProfile } = await adminSupabase
+      .from('user_profiles')
+      .select('company_id, selected_company_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    const effectiveCompanyId = userProfile?.selected_company_id || userProfile?.company_id;
+    if (effectiveCompanyId) {
+      const { data: companyData } = await adminSupabase
+        .from('companies')
+        .select('company_name, email, phone')
+        .eq('id', effectiveCompanyId)
+        .maybeSingle();
+      if (companyData) {
+        companyName = companyData.company_name || companyName;
+        companyEmail = companyData.email || companyEmail;
+        companyPhone = companyData.phone || companyPhone;
+      }
+    }
+
     const subject = `Off-Season Repair Summary: ${yachtName}`;
     const htmlContent = `
       <!DOCTYPE html>
@@ -97,13 +121,13 @@ Deno.serve(async (req: Request) => {
 
             <p>The full details of each estimate, including tasks, line items, and totals, are in the attached PDF. Please review and contact us with any questions or approvals.</p>
 
-            <p>If you have questions, please contact us at sales@azmarine.net or 928-637-6500.</p>
+            <p>If you have questions, please contact us at ${companyEmail} or ${companyPhone}.</p>
 
             <p>Best regards,<br>
-            AZ Marine Service Team</p>
+            ${companyName} Team</p>
           </div>
           <div class="footer">
-            <p>&copy; ${new Date().getFullYear()} AZ Marine</p>
+            <p>&copy; ${new Date().getFullYear()} ${companyName}</p>
           </div>
         </div>
       </body>

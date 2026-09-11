@@ -18,3 +18,12 @@ verify_jwt = true
 
 [functions.handle-resend-webhook]
 verify_jwt = false
+
+[functions.send-repair-estimate-email]
+verify_jwt = true
+
+[functions.send-offseason-estimates-email]
+verify_jwt = true
+
+[functions.send-agreement-notification]
+verify_jwt = true

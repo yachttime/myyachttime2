@@ -1343,7 +1343,7 @@ export async function generateEstimatePDF(
 
     doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
-    doc.text(companyInfo?.company_name || 'AZ MARINE SERVICES', companyInfoX, yPos);
+    doc.text(companyInfo?.company_name || '', companyInfoX, yPos);
     yPos += 0.13;
 
     doc.setFontSize(8);
@@ -1389,8 +1389,6 @@ export async function generateEstimatePDF(
   } else {
     if (companyInfo?.company_name) {
       addText(companyInfo.company_name, 11, 'bold', 'center');
-    } else {
-      addText('AZ MARINE SERVICES', 11, 'bold', 'center');
     }
 
     if (companyInfo?.address_line1) {
@@ -1924,7 +1922,7 @@ export async function generateWorkOrderPDF(
 
     doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
-    doc.text(companyInfo?.company_name || 'AZ MARINE SERVICES', companyInfoX, yPos);
+    doc.text(companyInfo?.company_name || '', companyInfoX, yPos);
     yPos += 0.13;
 
     doc.setFontSize(8);
@@ -1970,8 +1968,6 @@ export async function generateWorkOrderPDF(
   } else {
     if (companyInfo?.company_name) {
       addText(companyInfo.company_name, 11, 'bold', 'center');
-    } else {
-      addText('AZ MARINE SERVICES', 11, 'bold', 'center');
     }
 
     if (companyInfo?.address_line1) {
@@ -3000,7 +2996,7 @@ export async function generateEstimatingInvoicePDF(
     const cx = margin + logoWidth + 0.15;
     const origY = yPos;
     doc.setFontSize(11); doc.setFont('helvetica', 'bold');
-    doc.text(companyInfo?.company_name || 'AZ Marine', cx, yPos); yPos += 0.13;
+    doc.text(companyInfo?.company_name || '', cx, yPos); yPos += 0.13;
     doc.setFontSize(8); doc.setFont('helvetica', 'normal');
     if (companyInfo?.address_line1) { doc.text(companyInfo.address_line1, cx, yPos); yPos += 0.11; }
     if (companyInfo?.address_line2) { doc.text(companyInfo.address_line2, cx, yPos); yPos += 0.11; }
@@ -3012,7 +3008,7 @@ export async function generateEstimatingInvoicePDF(
     yPos = Math.max(yPos, origY + logoHeight) + 0.15;
   } else {
     doc.setFontSize(11); doc.setFont('helvetica', 'bold');
-    doc.text(companyInfo?.company_name || 'AZ Marine', pageWidth / 2, yPos, { align: 'center' }); yPos += 0.15;
+    doc.text(companyInfo?.company_name || '', pageWidth / 2, yPos, { align: 'center' }); yPos += 0.15;
     doc.setFontSize(8); doc.setFont('helvetica', 'normal');
     if (companyInfo?.address_line1) { doc.text(companyInfo.address_line1, pageWidth / 2, yPos, { align: 'center' }); yPos += 0.12; }
     const csz = [companyInfo?.city, companyInfo?.state, companyInfo?.zip_code].filter(Boolean).join(', ');

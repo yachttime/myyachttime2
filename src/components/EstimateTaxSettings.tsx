@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Percent, AlertCircle, Check, Save, Building2, Upload, X } from 'lucide-react';
 import { uploadFile, deleteFile } from '../utils/fileUpload';
+import { useCompany } from '../contexts/CompanyContext';
 
 interface TaxSettings {
   id: string;
@@ -33,6 +34,7 @@ interface EstimateTaxSettingsProps {
 }
 
 export function EstimateTaxSettings({ userId }: EstimateTaxSettingsProps) {
+  const { selectedCompany } = useCompany();
   const [activeTab, setActiveTab] = useState<TabType>('taxes');
   const [settings, setSettings] = useState<TaxSettings | null>(null);
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
@@ -72,9 +74,14 @@ export function EstimateTaxSettings({ userId }: EstimateTaxSettingsProps) {
       setLoading(true);
       setError(null);
 
+      const companyId = selectedCompany?.id;
+      const companyQuery = companyId
+        ? supabase.from('companies').select('*').eq('id', companyId).maybeSingle()
+        : supabase.from('company_info').select('*').maybeSingle();
+
       const [taxSettingsResult, companyInfoResult] = await Promise.all([
         supabase.from('estimate_settings').select('*').maybeSingle(),
-        supabase.from('company_info').select('*').maybeSingle()
+        companyQuery
       ]);
 
       if (taxSettingsResult.error) throw taxSettingsResult.error;
@@ -92,18 +99,19 @@ export function EstimateTaxSettings({ userId }: EstimateTaxSettingsProps) {
       }
 
       if (companyInfoResult.data) {
-        setCompanyInfo(companyInfoResult.data);
+        const c = companyInfoResult.data;
+        setCompanyInfo(c);
         setCompanyFormData({
-          company_name: companyInfoResult.data.company_name || '',
-          address_line1: companyInfoResult.data.address_line1 || '',
-          address_line2: companyInfoResult.data.address_line2 || '',
-          city: companyInfoResult.data.city || '',
-          state: companyInfoResult.data.state || '',
-          zip_code: companyInfoResult.data.zip_code || '',
-          phone: companyInfoResult.data.phone || '',
-          email: companyInfoResult.data.email || '',
-          website: companyInfoResult.data.website || '',
-          logo_url: companyInfoResult.data.logo_url || ''
+          company_name: c.company_name || '',
+          address_line1: c.address || c.address_line1 || '',
+          address_line2: c.address_line2 || '',
+          city: c.city || '',
+          state: c.state || '',
+          zip_code: c.zip_code || '',
+          phone: c.phone || '',
+          email: c.email || '',
+          website: c.website || '',
+          logo_url: c.logo_url || ''
         });
       }
     } catch (err: any) {
@@ -167,10 +175,26 @@ export function EstimateTaxSettings({ userId }: EstimateTaxSettingsProps) {
       setError(null);
       setSuccess(false);
 
+      const companyId = selectedCompany?.id || companyInfo?.id;
+      const tableName = selectedCompany?.id ? 'companies' : 'company_info';
+      const updatePayload = selectedCompany?.id
+        ? {
+            company_name: companyFormData.company_name,
+            address: companyFormData.address_line1,
+            city: companyFormData.city,
+            state: companyFormData.state,
+            zip_code: companyFormData.zip_code,
+            phone: companyFormData.phone,
+            email: companyFormData.email,
+            website: companyFormData.website,
+            logo_url: companyFormData.logo_url
+          }
+        : companyFormData;
+
       const { error: updateError } = await supabase
-        .from('company_info')
-        .update(companyFormData)
-        .eq('id', companyInfo?.id);
+        .from(tableName)
+        .update(updatePayload)
+        .eq('id', companyId);
 
       if (updateError) throw updateError;
 
@@ -242,10 +266,12 @@ export function EstimateTaxSettings({ userId }: EstimateTaxSettingsProps) {
       setCompanyFormData({ ...companyFormData, logo_url: url });
 
       console.log('Updating database with logo URL...');
+      const companyId = selectedCompany?.id || companyInfo?.id;
+      const tableName = selectedCompany?.id ? 'companies' : 'company_info';
       const { error: updateError } = await supabase
-        .from('company_info')
+        .from(tableName)
         .update({ logo_url: url })
-        .eq('id', companyInfo?.id);
+        .eq('id', companyId);
 
       if (updateError) throw updateError;
 
@@ -275,10 +301,12 @@ export function EstimateTaxSettings({ userId }: EstimateTaxSettingsProps) {
 
       setCompanyFormData({ ...companyFormData, logo_url: '' });
 
+      const companyId = selectedCompany?.id || companyInfo?.id;
+      const tableName = selectedCompany?.id ? 'companies' : 'company_info';
       const { error: updateError } = await supabase
-        .from('company_info')
+        .from(tableName)
         .update({ logo_url: '' })
-        .eq('id', companyInfo?.id);
+        .eq('id', companyId);
 
       if (updateError) throw updateError;
 

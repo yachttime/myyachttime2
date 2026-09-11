@@ -15,7 +15,8 @@ function buildApprovalEmailHtml(
   annualFee: number,
   grandTotal: number,
   staffSignatureName: string,
-  approvedAt: string
+  approvedAt: string,
+  companyName: string = 'AZ Marine'
 ): string {
   const formatDate = (d: string) => {
     if (!d) return '';
@@ -38,7 +39,7 @@ function buildApprovalEmailHtml(
           <!-- Header -->
           <tr>
             <td style="background:linear-gradient(135deg,#0e4b6e 0%,#0891b2 100%);border-radius:12px 12px 0 0;padding:32px 40px;text-align:center;">
-              <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;letter-spacing:-0.5px;">AZ Marine</h1>
+              <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;letter-spacing:-0.5px;">${companyName}</h1>
               <p style="margin:8px 0 0;color:#bae6fd;font-size:14px;">Vessel Management Agreement — Fully Executed</p>
             </td>
           </tr>
@@ -60,7 +61,7 @@ function buildApprovalEmailHtml(
 
               <p style="margin:0 0 24px;color:#cbd5e1;font-size:16px;line-height:1.6;">Hello ${ownerName},</p>
               <p style="margin:0 0 24px;color:#cbd5e1;font-size:15px;line-height:1.6;">
-                Great news! Your <strong style="color:#ffffff;">Vessel Management Agreement</strong> for <strong style="color:#38bdf8;">${vesselName}</strong> has been signed and approved by AZ Marine. Both parties have now executed this agreement.
+                Great news! Your <strong style="color:#ffffff;">Vessel Management Agreement</strong> for <strong style="color:#38bdf8;">${vesselName}</strong> has been signed and approved by ${companyName}. Both parties have now executed this agreement.
               </p>
 
               <!-- Agreement Details Box -->
@@ -98,7 +99,7 @@ function buildApprovalEmailHtml(
                         <td style="padding:6px 0;color:#34d399;font-size:13px;font-weight:600;text-align:right;">${ownerName} &#10003;</td>
                       </tr>
                       <tr>
-                        <td style="padding:6px 0;color:#94a3b8;font-size:13px;">AZ Marine</td>
+                        <td style="padding:6px 0;color:#94a3b8;font-size:13px;">${companyName}</td>
                         <td style="padding:6px 0;color:#34d399;font-size:13px;font-weight:600;text-align:right;">${staffSignatureName} &#10003;</td>
                       </tr>
                     </table>
@@ -107,7 +108,7 @@ function buildApprovalEmailHtml(
               </table>
 
               <p style="margin:0 0 24px;color:#cbd5e1;font-size:14px;line-height:1.6;">
-                Please keep this email for your records. If you have any questions about your agreement or the upcoming season, don&apos;t hesitate to reach out to the AZ Marine team.
+                Please keep this email for your records. If you have any questions about your agreement or the upcoming season, don&apos;t hesitate to reach out to the ${companyName} team.
               </p>
               <p style="margin:0;color:#64748b;font-size:13px;line-height:1.6;">We look forward to a great season with you!</p>
             </td>
@@ -116,7 +117,7 @@ function buildApprovalEmailHtml(
           <!-- Footer -->
           <tr>
             <td style="background-color:#0f172a;border-radius:0 0 12px 12px;padding:24px 40px;text-align:center;border-top:1px solid #1e293b;">
-              <p style="margin:0 0 8px;color:#475569;font-size:12px;">AZ Marine Services</p>
+              <p style="margin:0 0 8px;color:#475569;font-size:12px;">${companyName}</p>
               <p style="margin:0;color:#475569;font-size:11px;">
                 You received this email because your vessel management agreement was approved.
               </p>
@@ -201,6 +202,19 @@ Deno.serve(async (req: Request) => {
     const grandTotal = Number(agreement.grand_total) || annualFee;
     const approvedAt = agreement.staff_signature_date || new Date().toISOString();
 
+    // Fetch company info for dynamic branding
+    let companyName = 'AZ Marine';
+    if (agreement.company_id) {
+      const { data: companyData } = await serviceSupabase
+        .from('companies')
+        .select('company_name')
+        .eq('id', agreement.company_id)
+        .maybeSingle();
+      if (companyData?.company_name) {
+        companyName = companyData.company_name;
+      }
+    }
+
     const htmlContent = buildApprovalEmailHtml(
       recipientName,
       agreement.vessel_name || 'Your Vessel',
@@ -209,8 +223,9 @@ Deno.serve(async (req: Request) => {
       agreement.end_date || '',
       annualFee,
       grandTotal,
-      agreement.staff_signature_name || 'AZ Marine',
-      approvedAt
+      agreement.staff_signature_name || companyName,
+      approvedAt,
+      companyName
     );
 
     const resendResponse = await fetch('https://api.resend.com/emails', {

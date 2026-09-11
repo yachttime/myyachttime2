@@ -198,9 +198,26 @@ Deno.serve(async (req: Request) => {
     const approveUrl = `${functionUrl}?token=${approveToken}`;
     const denyUrl = `${functionUrl}?token=${denyToken}`;
 
+    // Fetch company info for dynamic branding
+    let companyName = 'AZ Marine';
+    let companyEmail = 'sales@azmarine.net';
+    let companyPhone = '928-637-6500';
+    if (repairRequest.company_id) {
+      const { data: companyData } = await adminSupabase
+        .from('companies')
+        .select('company_name, email, phone')
+        .eq('id', repairRequest.company_id)
+        .maybeSingle();
+      if (companyData) {
+        companyName = companyData.company_name || companyName;
+        companyEmail = companyData.email || companyEmail;
+        companyPhone = companyData.phone || companyPhone;
+      }
+    }
+
     // Build email HTML content
     const estimateAmount = repairRequest.estimated_repair_cost
-      ? `$${parseFloat(repairRequest.estimated_repair_cost).toFixed(2)}`
+      ? `${parseFloat(repairRequest.estimated_repair_cost).toFixed(2)}`
       : 'TBD';
 
     const subject = `Repair Estimate: ${repairRequest.title}`;
@@ -230,7 +247,7 @@ Deno.serve(async (req: Request) => {
         <div class="container">
           <div class="header">
             <h1 style="margin: 0;">Repair Estimate</h1>
-            <p style="margin: 10px 0 0 0;">AZ Marine Services</p>
+            <p style="margin: 10px 0 0 0;">${companyName}</p>
           </div>
           <div class="content">
             <p>Hello${recipientName ? ` ${recipientName}` : ''},</p>
@@ -253,7 +270,7 @@ Deno.serve(async (req: Request) => {
                 <a href="${denyUrl}" target="_blank" rel="noopener noreferrer" class="button deny-button">✗ Deny Estimate</a>
               </div>
               <p style="font-size: 14px; color: #666; margin-top: 15px;">Once you approve, we will schedule your repair and keep you updated throughout the process.</p>
-              <p style="font-size: 14px; color: #666;">If you have questions before deciding, please contact us at sales@azmarine.net or 928-637-6500.</p>
+              <p style="font-size: 14px; color: #666;">If you have questions before deciding, please contact us at ${companyEmail} or ${companyPhone}.</p>
             </div>
 
             ${attachmentData ? '<p><strong>Attached:</strong> Additional documentation or photos related to your repair request.</p>' : ''}
@@ -261,18 +278,18 @@ Deno.serve(async (req: Request) => {
             <div class="contact-info">
               <h4 style="margin-top: 0; color: #f97316;">Questions?</h4>
               <p>If you have any questions about this estimate or would like to discuss the repair in more detail, please don't hesitate to reach out.</p>
-              <p style="margin: 5px 0;"><strong>Email:</strong> sales@azmarine.net</p>
-              <p style="margin: 5px 0;"><strong>Phone:</strong> 928-637-6500</p>
+              <p style="margin: 5px 0;"><strong>Email:</strong> ${companyEmail}</p>
+              <p style="margin: 5px 0;"><strong>Phone:</strong> ${companyPhone}</p>
             </div>
 
             <p>We appreciate your business and look forward to serving you.</p>
 
             <p>Best regards,<br>
-            AZ Marine Service Team</p>
+            ${companyName} Team</p>
           </div>
           <div class="footer">
             <p>This estimate is valid for 30 days from the date above.</p>
-            <p>&copy; ${new Date().getFullYear()} AZ Marine</p>
+            <p>&copy; ${new Date().getFullYear()} ${companyName}</p>
           </div>
         </div>
       </body>
