@@ -241,7 +241,7 @@ export default function AdminMenu({ effectiveRole, pendingInspectionCount, onNav
               <LifeBuoy className="w-8 h-8 text-red-500" />
             </div>
           </div>
-          <h3 className="text-xl font-bold mb-2">Salvage Reports</h3>
+          <h3 className="text-xl font-bold mb-2">Salvage Division</h3>
           <p className="text-slate-400 text-sm">Create and manage salvage service reports</p>
         </button>
       )}

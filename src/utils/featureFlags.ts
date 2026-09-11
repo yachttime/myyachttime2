@@ -58,7 +58,7 @@ export const ADMIN_FEATURES: FeatureDef[] = [
   { key: 'smart_devices', label: 'Smart Devices' },
   { key: 'year_end_overview', label: 'Year-End Overview' },
   { key: 'user_management', label: 'User Management' },
-  { key: 'salvage_reports', label: 'Salvage Reports' },
+  { key: 'salvage_reports', label: 'Salvage Division' },
 ];
 
 export const ALL_FEATURES: FeatureDef[] = [...SIDEBAR_FEATURES, ...ADMIN_FEATURES.filter(
