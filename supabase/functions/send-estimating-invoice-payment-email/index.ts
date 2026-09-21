@@ -16,15 +16,9 @@ interface EmailRequest {
   surchargeCcNote?: string;
 }
 
-interface WorkOrderTask {
+interface InvoiceLineItem {
   id: string;
-  task_name: string;
-  task_order: number;
-}
-
-interface WorkOrderLineItem {
-  id: string;
-  task_id: string;
+  task_name: string | null;
   line_type: string;
   description: string;
   quantity: number;
@@ -34,7 +28,7 @@ interface WorkOrderLineItem {
   line_order: number;
 }
 
-async function buildInvoicePDF(invoice: any, tasks: WorkOrderTask[], lineItems: WorkOrderLineItem[], companyInfo: any): Promise<Uint8Array> {
+async function buildInvoicePDF(invoice: any, lineItems: InvoiceLineItem[], companyInfo: any): Promise<Uint8Array> {
   return new Promise((resolve, reject) => {
     const chunks: Uint8Array[] = [];
     const doc = new PDFDocument({ margin: 54, size: 'LETTER' });
@@ -128,52 +122,53 @@ async function buildInvoicePDF(invoice: any, tasks: WorkOrderTask[], lineItems: 
     let rowY = tableTopY + 18;
     let rowIndex = 0;
 
-    const sortedTasks = [...tasks].sort((a, b) => a.task_order - b.task_order);
+    // Group line items by task_name, preserving line_order within each group
+    const sortedItems = [...lineItems].sort((a, b) => a.line_order - b.line_order);
+    let lastTaskName = '';
 
-    for (const task of sortedTasks) {
-      const taskItems = lineItems
-        .filter(li => li.task_id === task.id)
-        .sort((a, b) => a.line_order - b.line_order);
-
-      if (taskItems.length === 0) continue;
-
-      // Task header row
-      const taskHeaderHeight = 16;
-      doc.rect(margin, rowY, contentWidth, taskHeaderHeight).fill('#f3f4f6');
-      doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#111827')
-        .text(task.task_name, colX.type + 4, rowY + 4, { width: contentWidth - 8 });
-      rowY += taskHeaderHeight;
-
-      for (const item of taskItems) {
-        const descText = item.description + (item.work_details ? `\n${item.work_details}` : '');
-        const descHeight = doc.heightOfString(descText, { width: colWidths.desc, fontSize: 8 });
-        const rowHeight = Math.max(descHeight + 10, 18);
-
-        if (rowY + rowHeight > doc.page.height - 80) {
+    for (const item of sortedItems) {
+      const taskName = item.task_name || '';
+      if (taskName && taskName !== lastTaskName) {
+        const taskHeaderHeight = 16;
+        if (rowY + taskHeaderHeight > doc.page.height - 80) {
           doc.addPage();
           rowY = margin;
         }
-
-        if (rowIndex % 2 === 0) {
-          doc.rect(margin, rowY, contentWidth, rowHeight).fill('#fafafa');
-        }
-
-        doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#374151')
-          .text(item.line_type.toUpperCase(), colX.type + 4, rowY + 5, { width: colWidths.type });
-
-        doc.font('Helvetica').fontSize(8).fillColor('#374151')
-          .text(descText, colX.desc, rowY + 5, { width: colWidths.desc });
-
-        doc.text(item.quantity.toString(), colX.qty, rowY + 5, { width: colWidths.qty, align: 'center' });
-        doc.text(`$${Number(item.unit_price).toFixed(2)}`, colX.unit, rowY + 5, { width: colWidths.unit, align: 'right' });
-        doc.text(`$${Number(item.total_price).toFixed(2)}`, colX.total, rowY + 5, { width: colWidths.total, align: 'right' });
-
-        rowY += rowHeight;
-        rowIndex++;
+        doc.rect(margin, rowY, contentWidth, taskHeaderHeight).fill('#f3f4f6');
+        doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#111827')
+          .text(taskName, colX.type + 4, rowY + 4, { width: contentWidth - 8 });
+        rowY += taskHeaderHeight;
+        lastTaskName = taskName;
       }
+
+      const descText = item.description + (item.work_details ? `\n${item.work_details}` : '');
+      const descHeight = doc.heightOfString(descText, { width: colWidths.desc, fontSize: 8 });
+      const rowHeight = Math.max(descHeight + 10, 18);
+
+      if (rowY + rowHeight > doc.page.height - 80) {
+        doc.addPage();
+        rowY = margin;
+      }
+
+      if (rowIndex % 2 === 0) {
+        doc.rect(margin, rowY, contentWidth, rowHeight).fill('#fafafa');
+      }
+
+      doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#374151')
+        .text(item.line_type.toUpperCase(), colX.type + 4, rowY + 5, { width: colWidths.type });
+
+      doc.font('Helvetica').fontSize(8).fillColor('#374151')
+        .text(descText, colX.desc, rowY + 5, { width: colWidths.desc });
+
+      doc.text(item.quantity.toString(), colX.qty, rowY + 5, { width: colWidths.qty, align: 'center' });
+      doc.text(`${Number(item.unit_price).toFixed(2)}`, colX.unit, rowY + 5, { width: colWidths.unit, align: 'right' });
+      doc.text(`${Number(item.total_price).toFixed(2)}`, colX.total, rowY + 5, { width: colWidths.total, align: 'right' });
+
+      rowY += rowHeight;
+      rowIndex++;
     }
 
-    if (tasks.length === 0 || lineItems.length === 0) {
+    if (lineItems.length === 0) {
       doc.rect(margin, rowY, contentWidth, 24).fill('#fafafa');
       doc.font('Helvetica').fontSize(9).fillColor('#6b7280')
         .text('No line items', margin + 4, rowY + 8, { width: contentWidth });
@@ -337,29 +332,19 @@ Deno.serve(async (req: Request) => {
     const workOrderNumber = invoice.work_orders?.work_order_number;
     const workOrderId = invoice.work_orders?.id || invoice.work_order_id;
 
-    // Fetch line items for PDF
-    let tasks: WorkOrderTask[] = [];
-    let lineItems: WorkOrderLineItem[] = [];
+    // Fetch line items from the invoice's own snapshot (not the work order)
+    // so the PDF always matches what's shown on screen
+    let lineItems: InvoiceLineItem[] = [];
 
-    if (workOrderId) {
-      const [tasksRes, lineItemsRes] = await Promise.all([
-        supabase
-          .from('work_order_tasks')
-          .select('id, task_name, task_order')
-          .eq('work_order_id', workOrderId)
-          .order('task_order'),
-        supabase
-          .from('work_order_line_items')
-          .select('id, task_id, line_type, description, quantity, unit_price, total_price, work_details, line_order')
-          .eq('work_order_id', workOrderId)
-          .order('line_order'),
-      ]);
-      tasks = tasksRes.data || [];
-      lineItems = lineItemsRes.data || [];
-    }
+    const { data: invoiceLineItems } = await supabase
+      .from('estimating_invoice_line_items')
+      .select('id, task_name, line_type, description, quantity, unit_price, total_price, work_details, line_order')
+      .eq('invoice_id', invoice.id)
+      .order('line_order');
+    lineItems = (invoiceLineItems || []) as InvoiceLineItem[];
 
     // Build PDF
-    const pdfBytes = await buildInvoicePDF(invoice, tasks, lineItems, mergedCompany);
+    const pdfBytes = await buildInvoicePDF(invoice, lineItems, mergedCompany);
     let binary = '';
     const chunkSize = 8192;
     for (let i = 0; i < pdfBytes.length; i += chunkSize) {

@@ -27,3 +27,9 @@ verify_jwt = true
 
 [functions.send-agreement-notification]
 verify_jwt = true
+
+[functions.send-estimating-invoice-payment-email]
+verify_jwt = true
+
+[functions.send-paid-invoice-email]
+verify_jwt = true
