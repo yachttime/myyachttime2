@@ -190,23 +190,9 @@ Deno.serve(async (req: Request) => {
 
       console.log('Using from email:', fromEmail);
 
-      // Fetch secondary email for CC if yacht is assigned
+      // CC billing managers with billing approval permission
       let ccEmails: string[] = [];
       if (repairRequest.yacht_id) {
-        const { data: ownerProfiles } = await supabase
-          .from('user_profiles')
-          .select('secondary_email')
-          .eq('yacht_id', repairRequest.yacht_id)
-          .eq('role', 'owner')
-          .not('secondary_email', 'is', null);
-
-        if (ownerProfiles && ownerProfiles.length > 0) {
-          ccEmails = ownerProfiles
-            .map(p => p.secondary_email)
-            .filter((email): email is string => !!email && email !== recipientEmail);
-        }
-
-        // Also CC billing manager secondary emails
         const { data: billingMgrs } = await supabase
           .from('user_profiles')
           .select('secondary_email')

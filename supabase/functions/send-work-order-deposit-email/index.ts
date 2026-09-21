@@ -115,18 +115,6 @@ Deno.serve(async (req: Request) => {
     let ccEmails: string[] = [];
     if (workOrder.yacht_id) {
       const adminSupabase = createClient(supabaseUrl, supabaseServiceKey);
-      const { data: ownerProfiles } = await adminSupabase
-        .from('user_profiles')
-        .select('secondary_email')
-        .eq('yacht_id', workOrder.yacht_id)
-        .eq('role', 'owner')
-        .not('secondary_email', 'is', null);
-      if (ownerProfiles) {
-        for (const p of ownerProfiles) {
-          const cc = (p.secondary_email ?? '').trim();
-          if (cc && cc !== recipientEmail && !ccEmails.includes(cc)) ccEmails.push(cc);
-        }
-      }
       const { data: billingMgrs } = await adminSupabase
         .from('user_profiles')
         .select('secondary_email')

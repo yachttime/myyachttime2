@@ -33,3 +33,12 @@ verify_jwt = true
 
 [functions.send-paid-invoice-email]
 verify_jwt = true
+
+[functions.send-deposit-request-email]
+verify_jwt = true
+
+[functions.send-work-order-deposit-email]
+verify_jwt = true
+
+[functions.resend-payment-confirmation]
+verify_jwt = true

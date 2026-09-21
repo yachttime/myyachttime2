@@ -194,18 +194,6 @@ Deno.serve(async (req: Request) => {
     async function getBillingCcEmails(yachtId: string | null, excludeEmail: string): Promise<string[]> {
       if (!yachtId) return [];
       const ccEmails: string[] = [];
-      const { data: ownerProfiles } = await supabase
-        .from('user_profiles')
-        .select('secondary_email')
-        .eq('yacht_id', yachtId)
-        .eq('role', 'owner')
-        .not('secondary_email', 'is', null);
-      if (ownerProfiles) {
-        for (const p of ownerProfiles) {
-          const cc = (p.secondary_email ?? '').trim();
-          if (cc && cc !== excludeEmail && !ccEmails.includes(cc)) ccEmails.push(cc);
-        }
-      }
       const { data: billingMgrs } = await supabase
         .from('user_profiles')
         .select('secondary_email')
