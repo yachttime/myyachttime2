@@ -119,6 +119,14 @@ const PORT_LABELS: Record<string, { name: string; type: string }> = {
   D: { name: 'Anemometer / Wind', type: 'gpio' },
 };
 
+const ONLINE_STALE_MS = 15 * 60 * 1000;
+
+function isDeviceEffectivelyOnline(device: MonitorDevice): boolean {
+  if (!device.is_online) return false;
+  if (!device.last_check_in) return false;
+  return Date.now() - new Date(device.last_check_in).getTime() < ONLINE_STALE_MS;
+}
+
 const DEFAULT_SENSORS: Record<string, { sensor_type: string; sensor_name: string; unit_of_measure: string }[]> = {
   A: [
     { sensor_type: 'bilge_pump', sensor_name: 'Port Engine Room Bilge Pump', unit_of_measure: 'on/off' },
@@ -365,8 +373,8 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
 
   const enrolledYachtIds = new Set(enrollments.map(e => e.yacht_id));
   const fleetYachts = yachts.filter(y => enrolledYachtIds.has(y.id));
-  const onlineCount = devices.filter(d => d.is_online).length;
-  const offlineCount = devices.filter(d => !d.is_online).length;
+  const onlineCount = devices.filter(isDeviceEffectivelyOnline).length;
+  const offlineCount = devices.filter(d => !isDeviceEffectivelyOnline(d)).length;
   const activeAlertCount = alerts.length;
   const criticalAlertCount = alerts.filter(a => a.severity === 'critical').length;
 
@@ -466,7 +474,7 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
               const yachtDevices = devices.filter(d => d.yacht_id === yacht.id);
               const yachtAlerts = alerts.filter(a => a.yacht_id === yacht.id);
               const enrollment = enrollments.find(e => e.yacht_id === yacht.id);
-              const isOnline = yachtDevices.some(d => d.is_online);
+              const isOnline = yachtDevices.some(isDeviceEffectivelyOnline);
               const criticalAlerts = yachtAlerts.filter(a => a.severity === 'critical');
               return (
                 <button
@@ -657,8 +665,8 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
               <div key={device.id} className="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className={`p-3 rounded-xl ${device.is_online ? 'bg-green-500/20' : 'bg-slate-500/20'}`}>
-                      <Radio className={`w-6 h-6 ${device.is_online ? 'text-green-400' : 'text-slate-400'}`} />
+                    <div className={`p-3 rounded-xl ${isDeviceEffectivelyOnline(device) ? 'bg-green-500/20' : 'bg-slate-500/20'}`}>
+                      <Radio className={`w-6 h-6 ${isDeviceEffectivelyOnline(device) ? 'text-green-400' : 'text-slate-400'}`} />
                     </div>
                     <div>
                       <p className="font-bold">{device.device_name}</p>
@@ -666,8 +674,8 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${device.is_online ? 'text-green-400 bg-green-500/10 border-green-500/30' : 'text-slate-400 bg-slate-500/10 border-slate-500/30'}`}>
-                      {device.is_online ? 'Online' : 'Offline'}
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${isDeviceEffectivelyOnline(device) ? 'text-green-400 bg-green-500/10 border-green-500/30' : 'text-slate-400 bg-slate-500/10 border-slate-500/30'}`}>
+                      {isDeviceEffectivelyOnline(device) ? 'Online' : 'Offline'}
                     </span>
                     {device.last_check_in && (
                       <p className="text-xs text-slate-400 mt-1 flex items-center gap-1 justify-end">
