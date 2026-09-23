@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { CalendarPlus, RefreshCw } from 'lucide-react';
 import { Yacht } from '../../lib/supabase';
 
@@ -34,7 +35,7 @@ interface AppointmentsViewProps {
   onCancel: () => void;
 }
 
-export default function AppointmentsView({
+function AppointmentsView({
   form, onFormChange, onSubmit, loading, success, error, allCustomers, allYachts, onCancel,
 }: AppointmentsViewProps) {
   return (
@@ -250,3 +251,5 @@ export default function AppointmentsView({
     </div>
   );
 }
+
+export default memo(AppointmentsView);

@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Users, RefreshCw, CalendarPlus } from 'lucide-react';
 
 export interface StaffAppointmentForm {
@@ -19,7 +20,7 @@ interface StaffAppointmentViewProps {
   onCancel: () => void;
 }
 
-export default function StaffAppointmentView({ form, onFormChange, onSubmit, loading, success, error, onCancel }: StaffAppointmentViewProps) {
+function StaffAppointmentView({ form, onFormChange, onSubmit, loading, success, error, onCancel }: StaffAppointmentViewProps) {
   return (
     <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 p-6">
       <div className="flex items-center gap-3 mb-6">
@@ -154,3 +155,5 @@ export default function StaffAppointmentView({ form, onFormChange, onSubmit, loa
     </div>
   );
 }
+
+export default memo(StaffAppointmentView);

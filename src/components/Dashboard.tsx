@@ -7695,6 +7695,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     setQueueUploading(false);
   }, [uploadQueueItem]);
 
+  const handleCancelAppointment = useCallback(() => setAdminViewPersisted('menu'), []);
+
   const handleAppointmentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
@@ -17260,7 +17262,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     error={appointmentError}
                     allCustomers={allCustomers}
                     allYachts={allYachts}
-                    onCancel={() => setAdminViewPersisted('menu')}
+                    onCancel={handleCancelAppointment}
                   />
                 </AdminViewWrapper>
               ) : adminView === 'staffappointment' ? (
@@ -17272,7 +17274,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     loading={staffAppointmentLoading}
                     success={staffAppointmentSuccess}
                     error={staffAppointmentError}
-                    onCancel={() => setAdminViewPersisted('menu')}
+                    onCancel={handleCancelAppointment}
                   />
                 </AdminViewWrapper>
               ) : adminView === 'smartdevices' ? (
