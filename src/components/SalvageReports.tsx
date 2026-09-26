@@ -1679,7 +1679,7 @@ function dmsToDecimal(input: string): string {
     return (negative ? -decimal : decimal).toString();
   }
   const min = parseFloat(parts[1]) || 0;
-  const sec = parseFloat(parts.slice(2).join('.')) || 0;
+  const sec = parseFloat(`0.${parts.slice(2).join('')}`) || 0;
   const decimal = deg + min / 60 + sec / 3600;
   return (negative ? -decimal : decimal).toString();
 }
@@ -1694,7 +1694,7 @@ function decimalToDms(decimal: string | number | null | undefined): string {
   const minFloat = (abs - deg) * 60;
   const min = Math.floor(minFloat);
   const sec = (minFloat - min) * 60;
-  const secStr = sec.toFixed(1).replace(/\.0$/, '');
+  const secStr = sec.toFixed(3).replace(/0+$/, '').replace(/\.$/, '');
   const sign = negative ? '-' : '';
   return `${sign}${deg}.${min}.${secStr}`;
 }
