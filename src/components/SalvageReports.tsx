@@ -912,8 +912,8 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
             <FormSection title="Loss & Service Details">
               <FormField label="Date of Loss" type="date" value={form.date_of_loss} onChange={v => setForm({ ...form, date_of_loss: v })} />
               <FormField label="Date of Service" type="date" value={form.date_of_service} onChange={v => setForm({ ...form, date_of_service: v })} />
-              <CoordInput label="GPS Latitude (deg.min.sec)" value={form.gps_latitude} onChange={v => setForm({ ...form, gps_latitude: v })} placeholder="e.g., 36.58.12.5" />
-              <CoordInput label="GPS Longitude (deg.min.sec)" value={form.gps_longitude} onChange={v => setForm({ ...form, gps_longitude: v })} placeholder="e.g., -111.30.30.0" />
+              <CoordInput label="GPS Latitude" value={form.gps_latitude} onChange={v => setForm({ ...form, gps_latitude: v })} placeholder="e.g., 36.96.883" />
+              <CoordInput label="GPS Longitude" value={form.gps_longitude} onChange={v => setForm({ ...form, gps_longitude: v })} placeholder="e.g., -111.39.136" />
               <FormField label="Vessel Depth" value={form.vessel_depth} onChange={v => setForm({ ...form, vessel_depth: v })} placeholder="e.g., 45 feet" />
               {isValidCoord(form.gps_latitude) && isValidCoord(form.gps_longitude) && (
                 <div className="md:col-span-2">
@@ -1656,47 +1656,25 @@ function CustomerPickerDropdown({
   );
 }
 
-function isValidCoord(v: string | null | undefined): boolean {
-  if (!v) return false;
-  const n = parseFloat(v);
-  return !isNaN(n) && isFinite(n);
-}
-
-function dmsToDecimal(input: string): string {
-  if (!input) return '';
-  const trimmed = input.trim();
-  const negative = trimmed.startsWith('-');
-  const clean = negative ? trimmed.slice(1) : trimmed;
+function gpsToDecimal(input: string | number | null | undefined): number {
+  if (input === null || input === undefined || input === '') return NaN;
+  const text = String(input).trim();
+  const negative = text.startsWith('-');
+  const clean = text.replace(/^[+-]/, '');
   const parts = clean.split('.');
-  if (parts.length === 1) {
-    const val = parseFloat(trimmed);
-    return isNaN(val) ? '' : val.toString();
-  }
-  const deg = parseFloat(parts[0]) || 0;
-  if (parts.length === 2) {
-    const min = parseFloat(parts[1]) || 0;
-    const decimal = deg + min / 60;
-    return (negative ? -decimal : decimal).toString();
-  }
-  const min = parseFloat(parts[1]) || 0;
-  const sec = parseFloat(`0.${parts.slice(2).join('')}`) || 0;
-  const decimal = deg + min / 60 + sec / 3600;
-  return (negative ? -decimal : decimal).toString();
+  const degrees = parseFloat(parts[0]);
+  if (isNaN(degrees)) return NaN;
+  const decimalPart = parts.slice(1).join('');
+  const decimal = decimalPart ? parseFloat(`0.${decimalPart}`) : 0;
+  return negative ? -(degrees + decimal) : degrees + decimal;
 }
 
-function decimalToDms(decimal: string | number | null | undefined): string {
-  if (!decimal) return '';
-  const num = typeof decimal === 'number' ? decimal : parseFloat(decimal);
-  if (isNaN(num)) return '';
-  const negative = num < 0;
-  const abs = Math.abs(num);
-  const deg = Math.floor(abs);
-  const minFloat = (abs - deg) * 60;
-  const min = Math.floor(minFloat);
-  const sec = (minFloat - min) * 60;
-  const secStr = sec.toFixed(3).replace(/0+$/, '').replace(/\.$/, '');
-  const sign = negative ? '-' : '';
-  return `${sign}${deg}.${min}.${secStr}`;
+function isValidCoord(v: string | null | undefined): boolean {
+  return isFinite(gpsToDecimal(v));
+}
+
+function decimalToDms(value: string | number | null | undefined): string {
+  return value === null || value === undefined ? '' : String(value);
 }
 
 function CoordInput({ label, value, onChange, placeholder }: {
@@ -1716,7 +1694,7 @@ function CoordInput({ label, value, onChange, placeholder }: {
     const cleaned = input.replace(/[^\d.\-]/g, '');
     isUserEdit.current = true;
     setDisplayValue(cleaned);
-    onChange(dmsToDecimal(cleaned));
+    onChange(cleaned);
   }
 
   return (
@@ -1734,8 +1712,8 @@ function CoordInput({ label, value, onChange, placeholder }: {
 }
 
 function LossLocationMap({ lat, lng, forPrint = false }: { lat: string | number; lng: string | number; forPrint?: boolean }) {
-  const latNum = typeof lat === 'number' ? lat : parseFloat(lat);
-  const lngNum = typeof lng === 'number' ? lng : parseFloat(lng);
+  const latNum = gpsToDecimal(lat);
+  const lngNum = gpsToDecimal(lng);
   if (isNaN(latNum) || isNaN(lngNum)) return null;
 
   const latSpan = 0.0351;
