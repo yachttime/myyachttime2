@@ -649,10 +649,14 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
   }
 
   function handlePrint(report: SalvageReport) {
-    const reportMedia = (report.salvage_report_media && report.salvage_report_media.length > 0)
-      ? report.salvage_report_media
-      : media;
-    setPrintReport({ ...report, salvage_report_media: reportMedia });
+    const savedReport = reports.find(item => item.id === report.id) || report;
+    const reportMedia = savedReport.salvage_report_media?.length
+      ? savedReport.salvage_report_media
+      : media.filter(item => item.salvage_report_id === savedReport.id);
+    const currentReport = editingReport?.id === savedReport.id
+      ? { ...savedReport, ...form }
+      : savedReport;
+    setPrintReport({ ...currentReport, salvage_report_media: reportMedia });
     setView('print');
   }
 
