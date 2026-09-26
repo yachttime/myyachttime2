@@ -1763,6 +1763,7 @@ function LossLocationMap({ lat, lng, forPrint = false }: { lat: string | number;
       </div>
       <div className={`relative ${forPrint ? 'border border-gray-300 rounded overflow-hidden' : 'overflow-hidden'}`}>
         <img
+          key={mapUrl}
           src={mapUrl}
           alt={`Satellite imagery showing approximate salvage location at ${latNum}, ${lngNum}`}
           className="w-full"
