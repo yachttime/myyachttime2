@@ -912,8 +912,8 @@ export function SalvageReports({ userId, companyId, userRole, prefillEstimateId 
             <FormSection title="Loss & Service Details">
               <FormField label="Date of Loss" type="date" value={form.date_of_loss} onChange={v => setForm({ ...form, date_of_loss: v })} />
               <FormField label="Date of Service" type="date" value={form.date_of_service} onChange={v => setForm({ ...form, date_of_service: v })} />
-              <FormField label="GPS Latitude" value={form.gps_latitude} onChange={v => setForm({ ...form, gps_latitude: v })} placeholder="e.g., 36.9147" />
-              <FormField label="GPS Longitude" value={form.gps_longitude} onChange={v => setForm({ ...form, gps_longitude: v })} placeholder="e.g., -111.4558" />
+              <CoordInput label="GPS Latitude (deg.min.sec)" value={form.gps_latitude} onChange={v => setForm({ ...form, gps_latitude: v })} placeholder="e.g., 36.58.12.5" />
+              <CoordInput label="GPS Longitude (deg.min.sec)" value={form.gps_longitude} onChange={v => setForm({ ...form, gps_longitude: v })} placeholder="e.g., -111.30.30.0" />
               <FormField label="Vessel Depth" value={form.vessel_depth} onChange={v => setForm({ ...form, vessel_depth: v })} placeholder="e.g., 45 feet" />
               {isValidCoord(form.gps_latitude) && isValidCoord(form.gps_longitude) && (
                 <div className="md:col-span-2">
@@ -1660,6 +1660,77 @@ function isValidCoord(v: string | null | undefined): boolean {
   if (!v) return false;
   const n = parseFloat(v);
   return !isNaN(n) && isFinite(n);
+}
+
+function dmsToDecimal(input: string): string {
+  if (!input) return '';
+  const trimmed = input.trim();
+  const negative = trimmed.startsWith('-');
+  const clean = negative ? trimmed.slice(1) : trimmed;
+  const parts = clean.split('.');
+  if (parts.length === 1) {
+    const val = parseFloat(trimmed);
+    return isNaN(val) ? '' : val.toString();
+  }
+  const deg = parseFloat(parts[0]) || 0;
+  if (parts.length === 2) {
+    const min = parseFloat(parts[1]) || 0;
+    const decimal = deg + min / 60;
+    return (negative ? -decimal : decimal).toString();
+  }
+  const min = parseFloat(parts[1]) || 0;
+  const sec = parseFloat(parts.slice(2).join('.')) || 0;
+  const decimal = deg + min / 60 + sec / 3600;
+  return (negative ? -decimal : decimal).toString();
+}
+
+function decimalToDms(decimal: string | number | null | undefined): string {
+  if (!decimal) return '';
+  const num = typeof decimal === 'number' ? decimal : parseFloat(decimal);
+  if (isNaN(num)) return '';
+  const negative = num < 0;
+  const abs = Math.abs(num);
+  const deg = Math.floor(abs);
+  const minFloat = (abs - deg) * 60;
+  const min = Math.floor(minFloat);
+  const sec = (minFloat - min) * 60;
+  const secStr = sec.toFixed(1).replace(/\.0$/, '');
+  const sign = negative ? '-' : '';
+  return `${sign}${deg}.${min}.${secStr}`;
+}
+
+function CoordInput({ label, value, onChange, placeholder }: {
+  label: string; value: string; onChange: (v: string) => void; placeholder?: string;
+}) {
+  const [displayValue, setDisplayValue] = useState('');
+  const isUserEdit = useRef(false);
+
+  useEffect(() => {
+    if (!isUserEdit.current) {
+      setDisplayValue(decimalToDms(value));
+    }
+    isUserEdit.current = false;
+  }, [value]);
+
+  function handleChange(input: string) {
+    const cleaned = input.replace(/[^\d.\-]/g, '');
+    isUserEdit.current = true;
+    setDisplayValue(cleaned);
+    onChange(dmsToDecimal(cleaned));
+  }
+
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+      <input
+        type="text"
+        value={displayValue}
+        onChange={e => handleChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
+      />
+    </div>
+  );
 }
 
 function LossLocationMap({ lat, lng, forPrint = false }: { lat: string | number; lng: string | number; forPrint?: boolean }) {
