@@ -45,3 +45,6 @@ verify_jwt = true
 
 [functions.vessel-monitor-telemetry]
 verify_jwt = false
+
+[functions.device-config]
+verify_jwt = false

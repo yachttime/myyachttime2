@@ -293,8 +293,7 @@ void setup() {
                    String(DEVICE_API_KEY).length() > 0 &&
                    String(DEVICE_SERIAL).length() > 0 &&
                    String(DEVICE_API_KEY) != "YOUR_WEATHER_STATION_DEVICE_KEY" &&
-                   String(DEVICE_SERIAL) != "YOUR_WEATHER_STATION_DEVICE_SERIAL" &&
-                   String(DEVICE_SERIAL) != "WX-ORION-PENDING";
+                   String(DEVICE_SERIAL) != "YOUR_WEATHER_STATION_DEVICE_SERIAL";
 
   Wire.begin();
   scanI2C();
@@ -302,7 +301,12 @@ void setup() {
 
   WiFi.persistent(false);
   WiFi.mode(WIFI_STA);
+  WiFi.setSleep(false);
   setupWiFi();
+  if (credentialsSet && WiFi.status() == WL_CONNECTED) {
+    fetchConfig();
+    lastConfigFetch = millis();
+  }
   setupSensors();
 
   if (!credentialsSet) {
