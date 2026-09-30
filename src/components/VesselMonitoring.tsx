@@ -123,9 +123,9 @@ const SEVERITY_COLORS: Record<string, string> = {
 };
 
 const PORT_LABELS: Record<string, { name: string; type: string }> = {
-  A: { name: 'Pumps', type: 'digital' },
-  B: { name: 'Batteries & Engine', type: 'analog' },
-  C: { name: 'GPS', type: 'rs485' },
+  A: { name: 'Pumps & Bilge', type: 'digital' },
+  B: { name: 'Alternators & ENV III', type: 'i2c' },
+  C: { name: 'Available / Future', type: 'free' },
 };
 
 const ONLINE_STALE_MS = 15 * 60 * 1000;
@@ -148,20 +148,15 @@ const DEFAULT_SENSORS: Record<string, { sensor_type: string; sensor_name: string
     { sensor_type: 'water_pump', sensor_name: 'Fresh Water Pump', unit_of_measure: 'on/off' },
   ],
   B: [
-    { sensor_type: 'battery_bank', sensor_name: 'Port Engine Battery', unit_of_measure: 'V' },
-    { sensor_type: 'battery_bank', sensor_name: 'Starboard Engine Battery', unit_of_measure: 'V' },
-    { sensor_type: 'battery_bank', sensor_name: 'Port Generator Battery', unit_of_measure: 'V' },
-    { sensor_type: 'battery_bank', sensor_name: 'Starboard Generator Battery', unit_of_measure: 'V' },
-    { sensor_type: 'battery_bank', sensor_name: 'Inverter Batteries', unit_of_measure: 'V' },
-    { sensor_type: 'battery_bank', sensor_name: '12V System Battery', unit_of_measure: 'V' },
     { sensor_type: 'engine_alternator', sensor_name: 'Port Engine Alternator', unit_of_measure: 'V' },
     { sensor_type: 'engine_alternator', sensor_name: 'Starboard Engine Alternator', unit_of_measure: 'V' },
     { sensor_type: 'engine_alternator', sensor_name: 'Port Generator Alternator', unit_of_measure: 'V' },
     { sensor_type: 'engine_alternator', sensor_name: 'Starboard Generator Alternator', unit_of_measure: 'V' },
+    { sensor_type: 'environment', sensor_name: 'Temperature', unit_of_measure: 'F' },
+    { sensor_type: 'environment', sensor_name: 'Humidity', unit_of_measure: '%' },
+    { sensor_type: 'environment', sensor_name: 'Barometric Pressure', unit_of_measure: 'hPa' },
   ],
-  C: [
-    { sensor_type: 'gps', sensor_name: 'GPS Location', unit_of_measure: 'coords' },
-  ],
+  C: [],
 };
 
 const WEATHER_STATION_SENSORS = [
@@ -619,8 +614,7 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
   yachtSensors.forEach(s => {
     const port = Object.entries(PORT_LABELS).find(([_, info]) => {
       if (info.name === 'Pumps' && ['bilge_pump', 'water_pump', 'ac_pump'].includes(s.sensor_type)) return true;
-      if (info.name === 'Batteries & Engine' && ['battery_bank', 'engine_alternator', 'environment'].includes(s.sensor_type)) return true;
-      if (info.name === 'GPS' && s.sensor_type === 'gps') return true;
+      if (info.name === 'Alternators & ENV III' && ['engine_alternator', 'environment'].includes(s.sensor_type)) return true;
       return false;
     });
     if (port) sensorsByPort[port[0]].push(s);
