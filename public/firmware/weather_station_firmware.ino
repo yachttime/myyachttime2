@@ -1,53 +1,16 @@
 /*
-  Weather Station — SparkFun MicroMod Weather Carrier Board
-  ============================================================
-  This runs on the carrier board's OWN onboard ESP32 (MicroMod processor),
-  independent from the main ORION Tough. It reads:
-    - Wind speed & direction, rainfall (via the RJ11 Weather Meter Kit,
-      using SparkFun's official Weather Meter Kit library)
-    - Temperature/humidity/pressure (onboard BME280)
-    - Lightning strikes (onboard AS3935)
-  ...and pushes readings to the same Supabase telemetry endpoint ORION
-  uses, over its own WiFi connection.
+  Weather Station — SparkFun MicroMod Weather Carrier Board (MicroMod ESP32)
+  Runs on the carrier's own MicroMod ESP32, independent from ORION.
 
-  Pin assignments confirmed via SparkFun's official hookup guide for this
-  board — do not change unless you've verified otherwise:
-    WSPEED = D0, WDIR = A1, RAIN = D1
-
-  IMPORTANT: this device needs its OWN device serial and API key from your
-  bolt.new/Supabase device registry — using ORION's device key here would
-  make every reading look like it came from the Tough instead. Register
-  this as a second device first, then fill in its real credentials below.
-
-  REMOTE WIFI CONFIG (added): fetches its real WiFi credentials from
-  Supabase instead of only using a hardcoded bootstrap list, so a change
-  made in Bolt takes effect without re-flashing this board. Since this
-  board has no SD wiring built yet, credentials are cached in the ESP32's
-  built-in flash storage (Preferences/NVS) instead — same idea as the
-  Tough's SD-based caching, just using storage that needs no extra
-  hardware. How it works:
-    1. On boot, try credentials cached in flash from a previous successful
-       check-in, if present.
-    2. If that fails or nothing is cached yet, fall back to the hardcoded
-       knownNetworks[] bootstrap list below.
-    3. Once connected, every telemetry POST's response is checked for
-       optional "wifi_ssid"/"wifi_password" fields; if present and new,
-       they're cached to flash and used on the next reconnect/boot.
-  ASSUMPTION, NEEDS BACKEND CONFIRMATION: same as the Tough's firmware —
-  this expects the Supabase edge function's response to optionally include
-  those two fields. If the backend doesn't return them yet, that's a small
-  addition needed on the Supabase side.
-
-  Requires (all via Library Manager):
+  Required libraries:
+    ArduinoJson
     SparkFun Weather Meter Kit Arduino Library
     SparkFun BME280
     SparkFun AS3935 Lightning Detector Arduino Library
-    ArduinoJson
-    WiFi, WiFiClientSecure, HTTPClient, Preferences (standard, included
-    with ESP32 core)
 */
 
 #include <Wire.h>
+#include <SPI.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
@@ -57,132 +20,223 @@
 #include <SparkFunBME280.h>
 #include <SparkFun_AS3935.h>
 
-// ---------------- WiFi ----------------
-// Hardcoded BOOTSTRAP network only — the "break glass" fallback used when
-// no cached credentials exist yet or the cached ones fail. Once this
-// board successfully checks in with Supabase, its real credentials get
-// cached to flash and used from then on.
+#ifndef D0
+  #define D0 14
+#endif
+#ifndef D1
+  #define D1 27
+#endif
+#ifndef A1
+  #define A1 35
+#endif
+
 struct WifiCredential {
   const char* ssid;
   const char* password;
 };
+
 WifiCredential knownNetworks[] = {
-  {"AZMarine", "9286376500"},
-  // Add bench-test networks here as needed, e.g.:
-  // {"YourNetwork", "YourPassword"},
+  {"AZ Marine", "9286376500"},
+  {"kbracing", "Sapper12!@"},
 };
 const int NUM_KNOWN_NETWORKS = sizeof(knownNetworks) / sizeof(knownNetworks[0]);
 
-Preferences wifiPrefs;
-String cachedSsid = "";
-String cachedPassword = "";
+const char* TELEMETRY_URL = "https://eqiecntollhgfxmmbize.supabase.co/functions/v1/vessel-monitor-telemetry";
+const char* DEVICE_API_KEY = "600c5e77-7f6b-4a82-a182-274c4659faa8";
+const char* DEVICE_SERIAL = "WX-ORION-PENDING";
+const char* CONFIG_URL = "https://eqiecntollhgfxmmbize.supabase.co/functions/v1/device-config";
 
-bool loadCachedWifiConfig() {
-  wifiPrefs.begin("wifi-cfg", true);  // read-only
-  cachedSsid = wifiPrefs.getString("ssid", "");
-  cachedPassword = wifiPrefs.getString("password", "");
-  wifiPrefs.end();
-  if (cachedSsid.length() == 0) return false;
-  Serial.println("Loaded cached WiFi config for network: " + cachedSsid);
-  return true;
+Preferences prefs;
+String yachtSsid;
+String yachtPass;
+String prevSsid;
+String prevPass;
+bool meterStarted = false;
+bool bmeOK = false;
+bool lightningOK = false;
+bool credentialsSet = false;
+
+const byte WSPEED = D0;
+const byte RAIN = D1;
+const byte WDIR = A1;
+SFEWeatherMeterKit myWeatherMeter(WDIR, WSPEED, RAIN);
+
+BME280 myBME280;
+SparkFun_AS3935 myLightning;
+
+#ifndef G1
+  #define G1 5
+#endif
+#ifndef G3
+  #define G3 2
+#endif
+
+const int LIGHTNING_CS_PIN = G1;
+const int LIGHTNING_INT_PIN = G3;
+
+unsigned long lastReadingPush = 0;
+unsigned long lastReconnectAttempt = 0;
+unsigned long lastConfigFetch = 0;
+const unsigned long READING_INTERVAL_MS = 15000;
+const unsigned long RECONNECT_INTERVAL_MS = 30000;
+const unsigned long CONFIG_REFRESH_INTERVAL_MS = 600000;
+
+volatile bool lightningInterrupt = false;
+
+void IRAM_ATTR onLightningIRQ() {
+  lightningInterrupt = true;
 }
 
-void saveCachedWifiConfig(const String& ssid, const String& password) {
-  wifiPrefs.begin("wifi-cfg", false);  // read-write
-  wifiPrefs.putString("ssid", ssid);
-  wifiPrefs.putString("password", password);
-  wifiPrefs.end();
-  cachedSsid = ssid;
-  cachedPassword = password;
-  Serial.println("Cached new WiFi credentials for network: " + ssid);
-}
-
-void checkForWifiConfigUpdate(const String& responseBody) {
-  if (responseBody.length() == 0) return;
-
-  JsonDocument doc;
-  DeserializationError err = deserializeJson(doc, responseBody);
-  if (err) return;
-
-  if (!doc["wifi_ssid"].is<const char*>()) return;
-
-  String newSsid = doc["wifi_ssid"].as<String>();
-  String newPassword = doc["wifi_password"].is<const char*>() ? doc["wifi_password"].as<String>() : "";
-
-  if (newSsid.length() > 0 && (newSsid != cachedSsid || newPassword != cachedPassword)) {
-    Serial.println("Received updated WiFi config from Supabase.");
-    saveCachedWifiConfig(newSsid, newPassword);
+void scanI2C() {
+  Serial.print("I2C scan:");
+  int found = 0;
+  for (byte addr = 1; addr < 127; addr++) {
+    Wire.beginTransmission(addr);
+    if (Wire.endTransmission() == 0) {
+      Serial.printf(" 0x%02X", addr);
+      found++;
+    }
   }
+  if (found == 0) {
+    Serial.print(" nothing found (check board selection / SDA-SCL pins / power)");
+  }
+  Serial.print("\r\n");
 }
 
-bool tryConnect(const char* ssid, const char* password, unsigned long timeoutMs) {
-  Serial.printf("Trying network: %s", ssid);
-  WiFi.begin(ssid, password);
+void scanNetworks() {
+  int count = WiFi.scanNetworks();
+  Serial.printf("WiFi scan: %d networks\r\n", count);
+  for (int i = 0; i < count; i++) {
+    Serial.printf("  %-24s  %d dBm  ch %d\r\n", WiFi.SSID(i).c_str(), WiFi.RSSI(i), WiFi.channel(i));
+  }
+  WiFi.scanDelete();
+}
+
+bool tryNetwork(const char* ssid, const char* pass, const char* label) {
+  if (ssid == nullptr || ssid[0] == '\0') return false;
+
+  WiFi.disconnect();
+  delay(100);
+  Serial.printf("Trying %s network: %s", label, ssid);
+  WiFi.begin(ssid, pass);
+
   unsigned long start = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - start < timeoutMs) {
+  while (WiFi.status() != WL_CONNECTED && millis() - start < 15000) {
     delay(500);
     Serial.print(".");
   }
+
   if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("\nWiFi connected: " + WiFi.localIP().toString() + " (network: " + ssid + ")");
+    Serial.printf("\r\nWiFi connected to %s: %s\r\n", ssid, WiFi.localIP().toString().c_str());
     return true;
   }
-  Serial.println(" failed.");
-  WiFi.disconnect(true);
-  delay(200);
+
+  Serial.printf(" failed (status %d)\r\n", WiFi.status());
   return false;
 }
 
-void setupWiFi() {
-  WiFi.mode(WIFI_STA);
-  WiFi.disconnect(true);
-  delay(100);
+void loadSavedWifi() {
+  prefs.begin("wifi", true);
+  yachtSsid = prefs.getString("ssid", "");
+  yachtPass = prefs.getString("pass", "");
+  prevSsid = prefs.getString("prev_ssid", "");
+  prevPass = prefs.getString("prev_pass", "");
+  prefs.end();
 
-  if (loadCachedWifiConfig()) {
-    if (tryConnect(cachedSsid.c_str(), cachedPassword.c_str(), 8000)) return;
-    Serial.println("Cached network failed — falling back to bootstrap list.");
+  if (yachtSsid.length()) {
+    Serial.printf("Saved yacht WiFi: %s\r\n", yachtSsid.c_str());
+  } else {
+    Serial.print("No yacht WiFi saved yet — will get it from Supabase\r\n");
   }
-
-  for (int i = 0; i < NUM_KNOWN_NETWORKS; i++) {
-    if (tryConnect(knownNetworks[i].ssid, knownNetworks[i].password, 8000)) return;
-  }
-
-  Serial.println("Could not connect to any known network — will retry in loop()");
 }
 
-// ---------------- Telemetry endpoint ----------------
-// TODO: this weather station needs its OWN device serial + API key,
-// separate from ORION's. Register it in your device system and fill
-// these in before relying on this in the field.
-const char* TELEMETRY_URL  = "https://eqiecntollhgfxmmbize.supabase.co/functions/v1/vessel-monitor-telemetry";
-const char* DEVICE_API_KEY = "YOUR_WEATHER_STATION_DEVICE_KEY";
-const char* DEVICE_SERIAL  = "YOUR_WEATHER_STATION_DEVICE_SERIAL";
+bool setupWiFi() {
+  if (tryNetwork(yachtSsid.c_str(), yachtPass.c_str(), "yacht")) return true;
+  if (prevSsid != yachtSsid && tryNetwork(prevSsid.c_str(), prevPass.c_str(), "previous yacht")) return true;
 
-// ---------------- Weather Meter Kit (wind + rain) ----------------
-const byte WSPEED = 0;   // D0
-const byte RAIN   = 1;   // D1
-const byte WDIR   = A1;  // A1
-SFEWeatherMeterKit myWeatherMeter(WDIR, WSPEED, RAIN);
+  for (int i = 0; i < NUM_KNOWN_NETWORKS; i++) {
+    if (tryNetwork(knownNetworks[i].ssid, knownNetworks[i].password, "fallback")) return true;
+  }
 
-// ---------------- Onboard sensors ----------------
-BME280 myBME280;
-SparkFun_AS3935 myLightning;
-#define LIGHTNING_INT_PIN 2  // confirm against board schematic if lightning IRQ doesn't fire
+  Serial.print("No network available — will retry in 30 s\r\n");
+  return false;
+}
 
-// ---------------- Supabase push ----------------
-bool sendToSupabase(const String& jsonPayload) {
-  if (WiFi.status() != WL_CONNECTED) return false;
+void saveWifi(const String& ssid, const String& pass) {
+  if (meterStarted) {
+    detachInterrupt(digitalPinToInterrupt(WSPEED));
+    detachInterrupt(digitalPinToInterrupt(RAIN));
+  }
+  if (lightningOK) {
+    detachInterrupt(digitalPinToInterrupt(LIGHTNING_INT_PIN));
+  }
+
+  prefs.begin("wifi", false);
+  prefs.putString("prev_ssid", yachtSsid);
+  prefs.putString("prev_pass", yachtPass);
+  prefs.putString("ssid", ssid);
+  prefs.putString("pass", pass);
+  prefs.end();
+
+  if (meterStarted) myWeatherMeter.begin();
+  if (lightningOK) {
+    attachInterrupt(digitalPinToInterrupt(LIGHTNING_INT_PIN), onLightningIRQ, RISING);
+  }
+
+  prevSsid = yachtSsid;
+  prevPass = yachtPass;
+  yachtSsid = ssid;
+  yachtPass = pass;
+  Serial.printf("Yacht WiFi updated from Supabase: %s\r\n", ssid.c_str());
+}
+
+void applyWifiFromJson(JsonDocument& doc) {
+  String ssid = doc["wifi_ssid"] | "";
+  String pass = doc["wifi_password"] | "";
+  if (ssid.length() == 0) return;
+
+  if (ssid != yachtSsid || pass != yachtPass) {
+    saveWifi(ssid, pass);
+  }
+}
+
+void fetchConfig() {
+  if (!credentialsSet || WiFi.status() != WL_CONNECTED) return;
 
   WiFiClientSecure client;
-  // NOTE: this board's SparkFun ESP32 core version doesn't expose
-  // setInsecure() the way the Tough's core does. Omitting it: most
-  // WiFiClientSecure implementations don't enforce certificate validation
-  // unless you explicitly call setCACert() with a certificate — so this
-  // should still connect, just without the explicit "skip validation"
-  // call. If this fails to connect at all, that's the first thing to
-  // revisit (may need setCACert(NULL) or a core update instead).
+  client.setInsecure();
   client.setTimeout(10000);
+  HTTPClient http;
+  http.setTimeout(10000);
+  if (!http.begin(client, CONFIG_URL)) return;
 
+  http.addHeader("Content-Type", "application/json");
+  http.addHeader("X-Device-Key", DEVICE_API_KEY);
+  int code = http.POST(String("{\"device_serial\":\"") + DEVICE_SERIAL + "\"}");
+  Serial.printf("Config -> HTTP %d\r\n", code);
+
+  if (code != 200) {
+    http.end();
+    return;
+  }
+
+  DynamicJsonDocument doc(1024);
+  DeserializationError error = deserializeJson(doc, http.getString());
+  http.end();
+  if (error) {
+    Serial.printf("Config JSON error: %s\r\n", error.c_str());
+    return;
+  }
+
+  applyWifiFromJson(doc);
+}
+
+bool sendToSupabase(const String& jsonPayload) {
+  if (!credentialsSet || WiFi.status() != WL_CONNECTED) return false;
+
+  WiFiClientSecure client;
+  client.setInsecure();
+  client.setTimeout(10000);
   HTTPClient http;
   http.setTimeout(10000);
   if (!http.begin(client, TELEMETRY_URL)) return false;
@@ -193,90 +247,108 @@ bool sendToSupabase(const String& jsonPayload) {
                 "\",\"data\":" + jsonPayload + "}";
 
   int httpCode = http.POST(body);
-  Serial.printf("POST -> HTTP %d\n", httpCode);
+  Serial.printf("POST -> HTTP %d\r\n", httpCode);
   if (httpCode > 0) {
-    String responseBody = http.getString();
-    checkForWifiConfigUpdate(responseBody);
+    String response = http.getString();
+    if (httpCode == 401) Serial.printf("  server says: %s\r\n", response.c_str());
+    if (httpCode == 200 && response.indexOf("wifi_ssid") >= 0) {
+      DynamicJsonDocument doc(1024);
+      if (!deserializeJson(doc, response)) applyWifiFromJson(doc);
+    }
   }
   http.end();
-  return (httpCode >= 200 && httpCode < 300);
+  return httpCode >= 200 && httpCode < 300;
 }
 
 void pushReading(const char* sensorName, const String& valueJson) {
   String payload = String("{\"sensor_name\":\"") + sensorName +
-                    "\",\"value\":" + valueJson + "}";
+                   "\",\"value\":" + valueJson + "}";
   sendToSupabase(payload);
 }
 
-// ---------------- Lightning interrupt ----------------
-volatile bool lightningInterrupt = false;
-void IRAM_ATTR onLightningIRQ() {
-  lightningInterrupt = true;
-}
+void setupSensors() {
+  meterStarted = myWeatherMeter.begin();
+  if (!meterStarted) Serial.print("Weather meter did not start\r\n");
 
-unsigned long lastReadingPush = 0;
-const unsigned long READING_INTERVAL_MS = 15000;
+  bmeOK = myBME280.beginI2C();
+  if (!bmeOK) Serial.print("BME280 not detected\r\n");
 
-void setup() {
-  Serial.begin(115200);
-  delay(500);
-  Wire.begin();  // onboard sensors are on the board's own I2C bus
-
-  setupWiFi();
-
-  myWeatherMeter.begin();
-
-  if (myBME280.beginI2C() == false) {
-    Serial.println("BME280 not detected — check onboard sensor.");
-  }
-
-  if (myLightning.begin() == false) {
-    // NOTE: this carrier board wires the AS3935 lightning sensor over I2C,
-    // not SPI (unlike some other AS3935 breakout boards). If lightning
-    // detection doesn't initialize, check whether this specific board
-    // revision needs a different I2C address or pin.
-    Serial.println("AS3935 (lightning) not detected — check onboard sensor.");
+  pinMode(LIGHTNING_CS_PIN, OUTPUT);
+  digitalWrite(LIGHTNING_CS_PIN, HIGH);
+  lightningOK = myLightning.begin();
+  if (!lightningOK) {
+    Serial.print("AS3935 lightning sensor not detected\r\n");
   } else {
     pinMode(LIGHTNING_INT_PIN, INPUT);
     attachInterrupt(digitalPinToInterrupt(LIGHTNING_INT_PIN), onLightningIRQ, RISING);
   }
+}
 
-  Serial.println("Weather station online.");
+void setup() {
+  Serial.begin(115200);
+  delay(500);
+  Serial.print("\r\nWeather Station booting\r\n");
+
+  credentialsSet = DEVICE_API_KEY != nullptr && DEVICE_SERIAL != nullptr &&
+                   String(DEVICE_API_KEY).length() > 0 &&
+                   String(DEVICE_SERIAL).length() > 0 &&
+                   String(DEVICE_API_KEY) != "YOUR_WEATHER_STATION_DEVICE_KEY" &&
+                   String(DEVICE_SERIAL) != "YOUR_WEATHER_STATION_DEVICE_SERIAL" &&
+                   String(DEVICE_SERIAL) != "WX-ORION-PENDING";
+
+  Wire.begin();
+  scanI2C();
+  loadSavedWifi();
+
+  WiFi.persistent(false);
+  WiFi.mode(WIFI_STA);
+  setupWiFi();
+  setupSensors();
+
+  if (!credentialsSet) {
+    Serial.print("Telemetry disabled until a real weather-station device serial is configured\r\n");
+  }
+  Serial.print("Weather station online\r\n");
 }
 
 void loop() {
-  if (WiFi.status() != WL_CONNECTED) {
+  unsigned long now = millis();
+
+  if (WiFi.status() != WL_CONNECTED && now - lastReconnectAttempt >= RECONNECT_INTERVAL_MS) {
+    lastReconnectAttempt = now;
     setupWiFi();
+  }
+
+  if (credentialsSet && WiFi.status() == WL_CONNECTED && now - lastConfigFetch >= CONFIG_REFRESH_INTERVAL_MS) {
+    lastConfigFetch = now;
+    fetchConfig();
   }
 
   if (lightningInterrupt) {
     lightningInterrupt = false;
-    int distance = myLightning.distanceToStorm();
-    String payload = String("{\"distance_km\":") + distance + "}";
-    pushReading("Lightning Strike", payload);
-    Serial.printf("Lightning detected — distance: %d km\n", distance);
+    if (lightningOK) {
+      int distance = myLightning.distanceToStorm();
+      pushReading("Lightning Strike", String("{\"distance_km\":") + distance + "}");
+      Serial.printf("Lightning detected — distance: %d km\r\n", distance);
+    }
   }
 
-  if (millis() - lastReadingPush > READING_INTERVAL_MS) {
-    lastReadingPush = millis();
+  if (now - lastReadingPush >= READING_INTERVAL_MS) {
+    lastReadingPush = now;
 
-    float windSpeedMph = myWeatherMeter.getWindSpeed();
-    float windDirDeg = myWeatherMeter.getWindDirection();
-    float rainMm = myWeatherMeter.getTotalRainfall();
+    if (meterStarted) {
+      pushReading("Wind Speed", String("{\"mph\":") + myWeatherMeter.getWindSpeed() + "}");
+      pushReading("Wind Direction", String("{\"deg\":") + myWeatherMeter.getWindDirection() + "}");
+      pushReading("Rainfall", String("{\"mm\":") + myWeatherMeter.getTotalRainfall() + "}");
+    }
 
-    pushReading("Wind Speed", String("{\"mph\":") + windSpeedMph + "}");
-    pushReading("Wind Direction", String("{\"deg\":") + windDirDeg + "}");
-    pushReading("Rainfall", String("{\"mm\":") + rainMm + "}");
+    if (bmeOK) {
+      pushReading("Atmospheric", String("{\"temp_f\":") + myBME280.readTempF() +
+                  ",\"humidity_pct\":" + myBME280.readFloatHumidity() +
+                  ",\"pressure_pa\":" + myBME280.readFloatPressure() + "}");
+    }
 
-    float tempF = myBME280.readTempF();
-    float humidity = myBME280.readFloatHumidity();
-    float pressure = myBME280.readFloatPressure();
-    pushReading("Atmospheric", String("{\"temp_f\":") + tempF +
-                ",\"humidity_pct\":" + humidity +
-                ",\"pressure_pa\":" + pressure + "}");
-
-    Serial.printf("Wind: %.1f mph @ %.0f deg | Rain: %.1f mm | Temp: %.1f F | Humidity: %.1f%%\n",
-                  windSpeedMph, windDirDeg, rainMm, tempF, humidity);
+    Serial.print("Weather reading cycle complete\r\n");
   }
 
   delay(50);

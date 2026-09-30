@@ -1,7 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { copyFileSync, readdirSync, statSync, mkdirSync } from 'fs';
-import { join } from 'path';
+import { cpSync } from 'fs';
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -10,25 +9,11 @@ export default defineConfig({
     {
       name: 'copy-public',
       closeBundle() {
-        const publicDir = 'public';
-        const outDir = 'dist';
-        try {
-          const files = readdirSync(publicDir);
-          files.forEach(file => {
-            if (file === 'image copy.png') return;
-            try {
-              const srcPath = join(publicDir, file);
-              const destPath = join(outDir, file);
-              if (statSync(srcPath).isFile()) {
-                copyFileSync(srcPath, destPath);
-              }
-            } catch (e) {
-              console.warn(`Could not copy ${file}:`, e);
-            }
-          });
-        } catch (e) {
-          console.warn('Could not copy public files:', e);
-        }
+        cpSync('public', 'dist', {
+          recursive: true,
+          force: true,
+          filter: source => !source.endsWith('image copy.png'),
+        });
       }
     }
   ],
