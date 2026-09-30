@@ -126,7 +126,6 @@ const PORT_LABELS: Record<string, { name: string; type: string }> = {
   A: { name: 'Pumps', type: 'digital' },
   B: { name: 'Batteries & Engine', type: 'analog' },
   C: { name: 'GPS', type: 'rs485' },
-  D: { name: 'Anemometer / Wind', type: 'gpio' },
 };
 
 const ONLINE_STALE_MS = 15 * 60 * 1000;
@@ -159,13 +158,9 @@ const DEFAULT_SENSORS: Record<string, { sensor_type: string; sensor_name: string
     { sensor_type: 'engine_alternator', sensor_name: 'Starboard Engine Alternator', unit_of_measure: 'V' },
     { sensor_type: 'engine_alternator', sensor_name: 'Port Generator Alternator', unit_of_measure: 'V' },
     { sensor_type: 'engine_alternator', sensor_name: 'Starboard Generator Alternator', unit_of_measure: 'V' },
-    { sensor_type: 'wind_vane', sensor_name: 'Wind Vane Direction', unit_of_measure: 'degrees' },
   ],
   C: [
     { sensor_type: 'gps', sensor_name: 'GPS Location', unit_of_measure: 'coords' },
-  ],
-  D: [
-    { sensor_type: 'anemometer', sensor_name: 'Wind Speed', unit_of_measure: 'mph' },
   ],
 };
 
@@ -624,9 +619,8 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
   yachtSensors.forEach(s => {
     const port = Object.entries(PORT_LABELS).find(([_, info]) => {
       if (info.name === 'Pumps' && ['bilge_pump', 'water_pump', 'ac_pump'].includes(s.sensor_type)) return true;
-      if (info.name === 'Batteries & Engine' && ['battery_bank', 'engine_alternator', 'wind_vane', 'environment'].includes(s.sensor_type)) return true;
+      if (info.name === 'Batteries & Engine' && ['battery_bank', 'engine_alternator', 'environment'].includes(s.sensor_type)) return true;
       if (info.name === 'GPS' && s.sensor_type === 'gps') return true;
-      if (info.name === 'Anemometer / Wind' && s.sensor_type === 'anemometer') return true;
       return false;
     });
     if (port) sensorsByPort[port[0]].push(s);

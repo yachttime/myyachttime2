@@ -5,7 +5,7 @@
     1. Bilge & pump status (PC817 -> EXT.IO2 -> PORT.A)
     2. Battery bank voltage/current (superseded — see note below)
     3. Alternator voltage + wind vane (Voltmeter Units -> PaHub -> PORT.A)
-    4. GPS location (PORT.C, UART) + anemometer wind speed (RS485 pin, GPIO)
+    4. GPS location (PORT.C, UART)
     5. SD card buffering for connectivity gaps (applies to all of the above)
 
   CORRECTED ARCHITECTURE (superseding an earlier, wrong assumption):
@@ -42,7 +42,6 @@
     - PaHub channel assignments for additional Voltmeter Units as they're
       wired in (Module 3 origin)
     - GPS RX/TX pin assignment and baud rate (Module 4 origin)
-    - Anemometer pulse edge direction (Module 4 origin)
     - VOLTMETER_SCALE_FACTOR calibrated as 41.8 from one test point
       (12.46V actual vs 0.298V raw) — worth re-checking at a second
       voltage to confirm this holds linearly
@@ -530,8 +529,9 @@ void handleBatteryBanks() {
 }
 
 // ============================================================
-// MODULE 3: Alternators & wind vane — shares PORT.A's I2C bus (Wire) via
+// MODULE 3: Alternators — shares PORT.A's I2C bus (Wire) via
 // PaHub, connected through a Y-splitter alongside the EXT.IO2
+// Wind vane removed — now handled by the dedicated weather station.
 // ============================================================
 #define ADS1115_I2C_ADDR     0x49
 #define ADS1115_REG_CONVERT  0x00
@@ -555,9 +555,9 @@ VoltagePoint points[5] = {
   {"Starboard Engine Alternator",  false, 6, 1},
   {"Port Generator Alternator",    true,  1, 0},
   {"Starboard Generator Alternator", true, 1, 1},
-  {"Wind Vane Direction",          true,  2, 0},
 };
 // NOTE: hubChannel values are placeholders — cross-check against actual wiring.
+// Wind Vane Direction removed — now handled by the dedicated weather station.
 
 // Same auto-prototype workaround as routeToBank() above.
 bool routeToPoint(const VoltagePoint& pt);
@@ -595,17 +595,6 @@ bool readADS1115(uint8_t adsChannel, float& volts) {
   return true;
 }
 
-const char* windVaneVoltageToDirection(float volts) {
-  if (volts < 0.5) return "N (uncalibrated)";
-  if (volts < 1.0) return "NE (uncalibrated)";
-  if (volts < 1.5) return "E (uncalibrated)";
-  if (volts < 2.0) return "SE (uncalibrated)";
-  if (volts < 2.5) return "S (uncalibrated)";
-  if (volts < 3.0) return "SW (uncalibrated)";
-  if (volts < 3.5) return "W (uncalibrated)";
-  return "NW (uncalibrated)";
-}
-
 unsigned long lastVoltageCheck = 0;
 const unsigned long VOLTAGE_CHECK_INTERVAL_MS = 15000;
 int voltageIndex = 0;
@@ -616,25 +605,17 @@ void handleVoltagePoints() {
   } else {
     float rawVolts;
     if (readADS1115(points[voltageIndex].adsChannel, rawVolts)) {
-      bool isDirection = (voltageIndex == 4);
-      String payload;
-      if (isDirection) {
-        payload = String("{\"sensor_name\":\"") + points[voltageIndex].name +
-                  "\",\"value\":{\"direction\":\"" + windVaneVoltageToDirection(rawVolts) +
-                  "\",\"raw_volts\":" + String(rawVolts, 3) + "}}";
-      } else {
-        float scaled = rawVolts * VOLTMETER_SCALE_FACTOR;
-        payload = String("{\"sensor_name\":\"") + points[voltageIndex].name +
-                  "\",\"value\":{\"voltage\":" + String(scaled, 2) + "}}";
-      }
+      float scaled = rawVolts * VOLTMETER_SCALE_FACTOR;
+      String payload = String("{\"sensor_name\":\"") + points[voltageIndex].name +
+                "\",\"value\":{\"voltage\":" + String(scaled, 2) + "}}";
       bufferOrSend(SENSOR_READINGS_EP, payload);
     }
   }
-  voltageIndex = (voltageIndex + 1) % 5;
+  voltageIndex = (voltageIndex + 1) % 4;
 }
 
 // ============================================================
-// MODULE 4: GPS (PORT.C, UART) + Anemometer (RS485 pin, GPIO)
+// MODULE 4: GPS (PORT.C, UART)
 // ============================================================
 #define GPS_RX_PIN 14
 #define GPS_TX_PIN 13
@@ -646,16 +627,6 @@ HardwareSerial gpsSerial(2);
 TinyGPSPlus gps;
 unsigned long lastGpsPush = 0;
 const unsigned long GPS_PUSH_INTERVAL_MS = 30000;
-
-#define ANEMOMETER_PIN 27
-volatile unsigned long pulseCount = 0;
-unsigned long lastWindCalc = 0;
-const unsigned long WIND_CALC_INTERVAL_MS = 5000;
-const float MPH_PER_PULSE_PER_SEC = 1.492f;  // SparkFun published spec
-
-void IRAM_ATTR onAnemometerPulse() {
-  pulseCount++;
-}
 
 void handleGPS() {
   while (gpsSerial.available() > 0) {
@@ -672,23 +643,6 @@ void handleGPS() {
     } else {
       Serial.println("No valid GPS fix yet");
     }
-  }
-}
-
-void handleWindSpeed() {
-  if (millis() - lastWindCalc > WIND_CALC_INTERVAL_MS) {
-    noInterrupts();
-    unsigned long count = pulseCount;
-    pulseCount = 0;
-    interrupts();
-
-    float pulsesPerSecond = count / (WIND_CALC_INTERVAL_MS / 1000.0f);
-    float windMph = pulsesPerSecond * MPH_PER_PULSE_PER_SEC;
-
-    String payload = String("{\"sensor_name\":\"Wind Speed\",\"value\":{\"mph\":") +
-                      String(windMph, 1) + "}}";
-    bufferOrSend(SENSOR_READINGS_EP, payload);
-    lastWindCalc = millis();
   }
 }
 
@@ -722,14 +676,11 @@ void setup() {
 
   gpsSerial.begin(GPS_BAUD, SERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN);
 
-  pinMode(ANEMOMETER_PIN, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(ANEMOMETER_PIN), onAnemometerPulse, FALLING);
-
   setupWiFi();
   setupEXTIO2();
   setupINA226();
 
-  Serial.println("Combined firmware online: bilge/pump, battery, alternators/wind vane, GPS, wind speed.");
+  Serial.println("Combined firmware online: bilge/pump, battery, alternators, GPS. Wind sensors handled by weather station.");
 }
 
 void loop() {
@@ -751,14 +702,13 @@ void loop() {
     lastBatteryCheck = millis();
   }
 
-  // Alternators/wind vane: one point per interval, cycling through all 5
+  // Alternators: one point per interval, cycling through all 4
   if (millis() - lastVoltageCheck > VOLTAGE_CHECK_INTERVAL_MS) {
     handleVoltagePoints();
     lastVoltageCheck = millis();
   }
 
   handleGPS();
-  handleWindSpeed();
 
   if (millis() - lastFlush > FLUSH_INTERVAL_MS) {
     flushBuffer();
