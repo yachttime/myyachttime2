@@ -6,6 +6,7 @@ import {
   Activity, AlertTriangle, Battery, Gauge, Navigation, Wind,
   Droplets, Zap, Thermometer, Lock, Shield, ChevronRight,
   Plus, Wifi, WifiOff, CheckCircle, XCircle, Clock, Radio,
+  Key, Download, MapPin, CloudRain, CloudLightning, RefreshCw, Copy,
 } from 'lucide-react';
 
 interface MonitorDevice {
@@ -14,10 +15,17 @@ interface MonitorDevice {
   company_id: string;
   device_serial: string;
   device_name: string;
+  device_type: 'orion_tough' | 'weather_station';
   firmware_version: string | null;
+  api_key: string;
   is_online: boolean;
   last_check_in: string | null;
   installation_date: string;
+  gps_lat: number | null;
+  gps_lng: number | null;
+  gps_updated_at: string | null;
+  wifi_synced_at: string | null;
+  key_replaced_at: string | null;
   metadata: any;
 }
 
@@ -84,6 +92,8 @@ interface YachtInfo {
   id: string;
   name: string;
   company_id: string;
+  wifi_name: string | null;
+  wifi_password: string | null;
 }
 
 const SENSOR_ICONS: Record<string, any> = {
@@ -120,6 +130,8 @@ const PORT_LABELS: Record<string, { name: string; type: string }> = {
 };
 
 const ONLINE_STALE_MS = 15 * 60 * 1000;
+const GPS_LIVE_MS = 15 * 60 * 1000;
+const TELEMETRY_URL = 'https://eqiecntollhgfxmmbize.supabase.co/functions/v1/vessel-monitor-telemetry';
 
 function isDeviceEffectivelyOnline(device: MonitorDevice): boolean {
   if (!device.is_online) return false;
@@ -129,8 +141,7 @@ function isDeviceEffectivelyOnline(device: MonitorDevice): boolean {
 
 const DEFAULT_SENSORS: Record<string, { sensor_type: string; sensor_name: string; unit_of_measure: string }[]> = {
   A: [
-    { sensor_type: 'bilge_pump', sensor_name: 'Port Engine Room Bilge Pump', unit_of_measure: 'on/off' },
-    { sensor_type: 'bilge_pump', sensor_name: 'Starboard Engine Room Bilge Pump', unit_of_measure: 'on/off' },
+    { sensor_type: 'bilge_pump', sensor_name: 'Engine Room Starboard Bilge Pump', unit_of_measure: 'on/off' },
     { sensor_type: 'bilge_pump', sensor_name: 'Aft Bilge Pump', unit_of_measure: 'on/off' },
     { sensor_type: 'bilge_pump', sensor_name: 'Midship Bilge Pump', unit_of_measure: 'on/off' },
     { sensor_type: 'bilge_pump', sensor_name: 'High Water Alarm', unit_of_measure: 'on/off' },
@@ -142,7 +153,7 @@ const DEFAULT_SENSORS: Record<string, { sensor_type: string; sensor_name: string
     { sensor_type: 'battery_bank', sensor_name: 'Starboard Engine Battery', unit_of_measure: 'V' },
     { sensor_type: 'battery_bank', sensor_name: 'Port Generator Battery', unit_of_measure: 'V' },
     { sensor_type: 'battery_bank', sensor_name: 'Starboard Generator Battery', unit_of_measure: 'V' },
-    { sensor_type: 'battery_bank', sensor_name: 'Inverter Battery Bank', unit_of_measure: 'V' },
+    { sensor_type: 'battery_bank', sensor_name: 'Inverter Batteries', unit_of_measure: 'V' },
     { sensor_type: 'battery_bank', sensor_name: '12V System Battery', unit_of_measure: 'V' },
     { sensor_type: 'engine_alternator', sensor_name: 'Port Engine Alternator', unit_of_measure: 'V' },
     { sensor_type: 'engine_alternator', sensor_name: 'Starboard Engine Alternator', unit_of_measure: 'V' },
@@ -151,11 +162,29 @@ const DEFAULT_SENSORS: Record<string, { sensor_type: string; sensor_name: string
     { sensor_type: 'wind_vane', sensor_name: 'Wind Vane Direction', unit_of_measure: 'degrees' },
   ],
   C: [
-    { sensor_type: 'gps', sensor_name: 'GPS Location', unit_of_measure: 'mph' },
+    { sensor_type: 'gps', sensor_name: 'GPS Location', unit_of_measure: 'coords' },
   ],
   D: [
     { sensor_type: 'anemometer', sensor_name: 'Wind Speed', unit_of_measure: 'mph' },
   ],
+};
+
+const WEATHER_STATION_SENSORS = [
+  { sensor_type: 'anemometer', sensor_name: 'Wind Speed', unit_of_measure: 'mph' },
+  { sensor_type: 'wind_vane', sensor_name: 'Wind Direction', unit_of_measure: 'degrees' },
+  { sensor_type: 'environment', sensor_name: 'Rainfall', unit_of_measure: 'mm' },
+  { sensor_type: 'environment', sensor_name: 'Atmospheric', unit_of_measure: 'F' },
+  { sensor_type: 'environment', sensor_name: 'Lightning Strike', unit_of_measure: 'km' },
+];
+
+const DEVICE_TYPE_LABELS: Record<string, string> = {
+  orion_tough: 'ORION Tough',
+  weather_station: 'Weather Station',
+};
+
+const DEVICE_TYPE_ICONS: Record<string, any> = {
+  orion_tough: Radio,
+  weather_station: CloudRain,
 };
 
 export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole }) {
@@ -179,9 +208,14 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
     yacht_id: '',
     device_serial: '',
     device_name: 'M5 Tough',
+    device_type: 'orion_tough' as 'orion_tough' | 'weather_station',
     firmware_version: '',
   });
   const [submitLoading, setSubmitLoading] = useState(false);
+  const [showKeyModal, setShowKeyModal] = useState(false);
+  const [keyModalData, setKeyModalData] = useState<{ deviceName: string; apiKey: string; deviceSerial: string; isNew: boolean } | null>(null);
+  const [showReplaceKeyConfirm, setShowReplaceKeyConfirm] = useState<string | null>(null);
+  const [firmwareLoading, setFirmwareLoading] = useState<string | null>(null);
 
   const loadEnrollments = useCallback(async () => {
     let query = supabase
@@ -236,7 +270,7 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
   }, []);
 
   const loadYachts = useCallback(async () => {
-    let query = supabase.from('yachts').select('id, name, company_id').order('name');
+    let query = supabase.from('yachts').select('id, name, company_id, wifi_name, wifi_password').order('name');
     if (!isMaster && selectedCompany?.id) {
       query = query.eq('company_id', selectedCompany.id);
     }
@@ -267,7 +301,6 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
     }
   }, [selectedYachtId, loadDevices, loadSensors, loadAlerts, loadSmartDevices]);
 
-  // Realtime subscriptions
   useEffect(() => {
     const deviceChannel = supabase.channel('monitor_devices_rt')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'vessel_monitor_devices' }, () => loadDevices())
@@ -280,6 +313,77 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
       .subscribe();
     return () => { deviceChannel.unsubscribe(); sensorChannel.unsubscribe(); alertChannel.unsubscribe(); };
   }, [loadDevices, loadSensors, loadAlerts]);
+
+  // ---- Auto-provision two devices when enrolling a yacht ----
+  const provisionDevice = async (
+    yachtId: string,
+    companyId: string,
+    deviceType: 'orion_tough' | 'weather_station',
+    yacht: YachtInfo
+  ): Promise<{ id: string; api_key: string; device_serial: string } | null> => {
+    const apiKey = crypto.randomUUID();
+    const deviceName = deviceType === 'orion_tough' ? 'ORION Tough' : 'Weather Station';
+    const placeholderSerial = deviceType === 'orion_tough'
+      ? `TOUGH-${yacht.name.toUpperCase().replace(/\s+/g, '')}-PENDING`
+      : `WX-${yacht.name.toUpperCase().replace(/\s+/g, '')}-PENDING`;
+
+    const { data: newDevice, error: err } = await supabase.from('vessel_monitor_devices').insert({
+      yacht_id: yachtId,
+      company_id: companyId,
+      device_serial: placeholderSerial,
+      device_name: deviceName,
+      device_type: deviceType,
+      firmware_version: null,
+      api_key: apiKey,
+      is_online: false,
+      installation_date: new Date().toISOString(),
+    }).select().single();
+
+    if (err || !newDevice) {
+      setError(err?.message || 'Failed to create device');
+      return null;
+    }
+
+    // Create default ports and sensors for Tough; sensors only for weather station
+    if (deviceType === 'orion_tough') {
+      for (const [label, info] of Object.entries(PORT_LABELS)) {
+        const { data: port } = await supabase.from('vessel_monitor_ports').insert({
+          device_id: newDevice.id,
+          port_label: label,
+          port_name: info.name,
+          port_type: info.type,
+        }).select().single();
+
+        for (const def of DEFAULT_SENSORS[label] || []) {
+          await supabase.from('vessel_monitor_sensors').insert({
+            device_id: newDevice.id,
+            port_id: port?.id || null,
+            yacht_id: yachtId,
+            company_id: companyId,
+            sensor_type: def.sensor_type,
+            sensor_name: def.sensor_name,
+            unit_of_measure: def.unit_of_measure,
+            status: 'offline',
+          });
+        }
+      }
+    } else {
+      for (const def of WEATHER_STATION_SENSORS) {
+        await supabase.from('vessel_monitor_sensors').insert({
+          device_id: newDevice.id,
+          port_id: null,
+          yacht_id: yachtId,
+          company_id: companyId,
+          sensor_type: def.sensor_type,
+          sensor_name: def.sensor_name,
+          unit_of_measure: def.unit_of_measure,
+          status: 'offline',
+        });
+      }
+    }
+
+    return { id: newDevice.id, api_key: apiKey, device_serial: placeholderSerial };
+  };
 
   const handleEnroll = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -296,10 +400,27 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
       start_date: new Date().toISOString().split('T')[0],
     });
     if (err) { setError(err.message); setSubmitLoading(false); return; }
+
+    // Auto-provision both devices
+    const toughResult = await provisionDevice(enrollForm.yacht_id, yacht.company_id, 'orion_tough', yacht);
+    const weatherResult = await provisionDevice(enrollForm.yacht_id, yacht.company_id, 'weather_station', yacht);
+
     setShowEnrollModal(false);
     setEnrollForm({ yacht_id: '', provider_company_id: '', plan_tier: 'standard' });
     setSubmitLoading(false);
     loadEnrollments();
+    loadDevices();
+
+    // Show the keys once after creation
+    if (toughResult && weatherResult) {
+      setKeyModalData({
+        deviceName: 'Both Devices Created',
+        apiKey: `Tough: ${toughResult.api_key}\nWeather: ${weatherResult.api_key}`,
+        deviceSerial: `Tough: ${toughResult.device_serial}\nWeather: ${weatherResult.device_serial}`,
+        isNew: true,
+      });
+      setShowKeyModal(true);
+    }
   };
 
   const handleSaveDevice = async (e: React.FormEvent) => {
@@ -314,7 +435,8 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
       yacht_id: deviceForm.yacht_id,
       company_id: yacht.company_id,
       device_serial: deviceForm.device_serial,
-      device_name: deviceForm.device_name || 'M5 Tough',
+      device_name: deviceForm.device_name || (deviceForm.device_type === 'orion_tough' ? 'ORION Tough' : 'Weather Station'),
+      device_type: deviceForm.device_type,
       firmware_version: deviceForm.firmware_version || null,
       api_key: apiKey,
       is_online: false,
@@ -328,19 +450,41 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
     } else {
       const { error: err, data: newDevice } = await supabase.from('vessel_monitor_devices').insert(payload).select().single();
       if (err) { setError(err.message); setSubmitLoading(false); return; }
-      // Create default ports and sensors
-      for (const [label, info] of Object.entries(PORT_LABELS)) {
-        const { data: port } = await supabase.from('vessel_monitor_ports').insert({
-          device_id: newDevice.id,
-          port_label: label,
-          port_name: info.name,
-          port_type: info.type,
-        }).select().single();
 
-        for (const def of DEFAULT_SENSORS[label] || []) {
+      // Create default sensors
+      const sensorDefs = deviceForm.device_type === 'orion_tough'
+        ? Object.entries(PORT_LABELS).flatMap(([label, info]) =>
+            (DEFAULT_SENSORS[label] || []).map(def => ({ ...def, port_label: label, port_type: info.type, port_name: info.name }))
+          )
+        : WEATHER_STATION_SENSORS.map(s => ({ ...s, port_label: null }));
+
+      if (deviceForm.device_type === 'orion_tough') {
+        for (const [label, info] of Object.entries(PORT_LABELS)) {
+          const { data: port } = await supabase.from('vessel_monitor_ports').insert({
+            device_id: newDevice.id,
+            port_label: label,
+            port_name: info.name,
+            port_type: info.type,
+          }).select().single();
+
+          for (const def of DEFAULT_SENSORS[label] || []) {
+            await supabase.from('vessel_monitor_sensors').insert({
+              device_id: newDevice.id,
+              port_id: port?.id || null,
+              yacht_id: deviceForm.yacht_id,
+              company_id: yacht.company_id,
+              sensor_type: def.sensor_type,
+              sensor_name: def.sensor_name,
+              unit_of_measure: def.unit_of_measure,
+              status: 'offline',
+            });
+          }
+        }
+      } else {
+        for (const def of WEATHER_STATION_SENSORS) {
           await supabase.from('vessel_monitor_sensors').insert({
             device_id: newDevice.id,
-            port_id: port?.id || null,
+            port_id: null,
             yacht_id: deviceForm.yacht_id,
             company_id: yacht.company_id,
             sensor_type: def.sensor_type,
@@ -350,10 +494,18 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
           });
         }
       }
+
+      setKeyModalData({
+        deviceName: deviceForm.device_name,
+        apiKey,
+        deviceSerial: deviceForm.device_serial,
+        isNew: true,
+      });
+      setShowKeyModal(true);
     }
     setShowDeviceModal(false);
     setEditingDevice(null);
-    setDeviceForm({ yacht_id: '', device_serial: '', device_name: 'M5 Tough', firmware_version: '' });
+    setDeviceForm({ yacht_id: '', device_serial: '', device_name: 'M5 Tough', device_type: 'orion_tough', firmware_version: '' });
     setSubmitLoading(false);
     loadDevices();
   };
@@ -371,6 +523,95 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
     loadCompanies();
   };
 
+  // ---- Replace Key ----
+  const handleReplaceKey = async (deviceId: string) => {
+    const newKey = crypto.randomUUID();
+    const { error: err } = await supabase.from('vessel_monitor_devices')
+      .update({ api_key: newKey, key_replaced_at: new Date().toISOString() })
+      .eq('id', deviceId);
+    if (err) { setError(err.message); setShowReplaceKeyConfirm(null); return; }
+
+    const device = devices.find(d => d.id === deviceId);
+    if (device) {
+      setKeyModalData({
+        deviceName: device.device_name,
+        apiKey: newKey,
+        deviceSerial: device.device_serial,
+        isNew: false,
+      });
+      setShowKeyModal(true);
+    }
+    setShowReplaceKeyConfirm(null);
+    loadDevices();
+  };
+
+  // ---- Firmware download ----
+  const handleDownloadFirmware = async (device: MonitorDevice) => {
+    setFirmwareLoading(device.id);
+    try {
+      const yacht = yachts.find(y => y.id === device.yacht_id);
+      const wifiName = yacht?.wifi_name || 'AZMarine';
+      const wifiPassword = yacht?.wifi_password || '9286376500';
+
+      let firmwareContent = '';
+      let filename = '';
+
+      if (device.device_type === 'orion_tough') {
+        const response = await fetch('/firmware/ORION_tough_firmware_combined.ino');
+        firmwareContent = await response.text();
+        filename = `ORION_tough_${device.device_serial}.ino`;
+
+        // Replace the device key, serial, and bootstrap WiFi
+        firmwareContent = firmwareContent.replace(
+          /const char\* DEVICE_API_KEY  = "[^"]*";/,
+          `const char* DEVICE_API_KEY  = "${device.api_key}";`
+        );
+        firmwareContent = firmwareContent.replace(
+          /const char\* DEVICE_SERIAL   = "[^"]*";/,
+          `const char* DEVICE_SERIAL   = "${device.device_serial}";`
+        );
+        firmwareContent = firmwareContent.replace(
+          /\{"AZMarine", "9286376500"\}/,
+          `{"${wifiName}", "${wifiPassword}"}`
+        );
+      } else {
+        const response = await fetch('/firmware/weather_station_firmware.ino');
+        firmwareContent = await response.text();
+        filename = `weather_station_${device.device_serial}.ino`;
+
+        firmwareContent = firmwareContent.replace(
+          /const char\* DEVICE_API_KEY = "YOUR_WEATHER_STATION_DEVICE_KEY";/,
+          `const char* DEVICE_API_KEY = "${device.api_key}";`
+        );
+        firmwareContent = firmwareContent.replace(
+          /const char\* DEVICE_SERIAL  = "YOUR_WEATHER_STATION_DEVICE_SERIAL";/,
+          `const char* DEVICE_SERIAL  = "${device.device_serial}";`
+        );
+        firmwareContent = firmwareContent.replace(
+          /\{"AZMarine", "9286376500"\}/,
+          `{"${wifiName}", "${wifiPassword}"}`
+        );
+      }
+
+      const blob = new Blob([firmwareContent], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError('Failed to generate firmware: ' + (e as Error).message);
+    }
+    setFirmwareLoading(null);
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+  };
+
   const enrolledYachtIds = new Set(enrollments.map(e => e.yacht_id));
   const fleetYachts = yachts.filter(y => enrolledYachtIds.has(y.id));
   const onlineCount = devices.filter(isDeviceEffectivelyOnline).length;
@@ -378,7 +619,6 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
   const activeAlertCount = alerts.length;
   const criticalAlertCount = alerts.filter(a => a.severity === 'critical').length;
 
-  // Group sensors by port label
   const sensorsByPort: Record<string, MonitorSensor[]> = { A: [], B: [], C: [], D: [] };
   const yachtSensors = sensors.filter(s => s.yacht_id === selectedYachtId);
   yachtSensors.forEach(s => {
@@ -395,11 +635,59 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
   const selectedYacht = yachts.find(y => y.id === selectedYachtId);
   const selectedYachtEnrollment = enrollments.find(e => e.yacht_id === selectedYachtId);
   const selectedYachtDevices = devices.filter(d => d.yacht_id === selectedYachtId);
+  const toughDevice = selectedYachtDevices.find(d => d.device_type === 'orion_tough');
+  const weatherDevice = selectedYachtDevices.find(d => d.device_type === 'weather_station');
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-cyan-500"></div>
+      </div>
+    );
+  }
+
+  // ===== KEY MODAL =====
+  if (showKeyModal && keyModalData) {
+    return (
+      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="bg-slate-900 rounded-2xl border border-slate-700 max-w-lg w-full p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-bold flex items-center gap-2">
+              <Key className="w-5 h-5 text-amber-400" />
+              {keyModalData.isNew ? 'Device Keys Created' : 'New API Key Generated'}
+            </h3>
+            <button onClick={() => { setShowKeyModal(false); setKeyModalData(null); }} className="text-slate-400 hover:text-white">
+              <XCircle className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded-lg px-4 py-3 mb-4 text-sm">
+            Copy these credentials now. For security, the API key will not be shown again after closing this window.
+            {keyModalData.isNew ? ' You can replace it later if needed.' : ' The old key has been deactivated immediately.'}
+          </div>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm text-slate-400 mb-1">Device Serial</label>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-sm text-slate-300 break-all">{keyModalData.deviceSerial}</code>
+                <button onClick={() => copyToClipboard(keyModalData.deviceSerial)} className="p-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white transition-colors">
+                  <Copy className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm text-slate-400 mb-1">API Key</label>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-sm text-slate-300 break-all">{keyModalData.apiKey}</code>
+                <button onClick={() => copyToClipboard(keyModalData.apiKey)} className="p-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white transition-colors">
+                  <Copy className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+          <button onClick={() => { setShowKeyModal(false); setKeyModalData(null); }} className="w-full mt-4 py-2.5 bg-cyan-600 hover:bg-cyan-700 text-white font-medium rounded-lg transition-colors">
+            I've Copied the Credentials
+          </button>
+        </div>
       </div>
     );
   }
@@ -431,7 +719,6 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
 
         {error && <div className="bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg px-4 py-3 mb-4 text-sm">{error}</div>}
 
-        {/* Summary Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
             <div className="flex items-center gap-3">
@@ -461,12 +748,11 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
           </div>
         </div>
 
-        {/* Fleet Grid */}
         {fleetYachts.length === 0 ? (
           <div className="text-center py-16 bg-slate-800/30 rounded-xl border border-slate-700">
             <Activity className="w-12 h-12 text-slate-600 mx-auto mb-3" />
             <p className="text-slate-400 mb-1">No yachts are enrolled in monitoring yet</p>
-            {isMaster && <p className="text-slate-500 text-sm">Click "Enroll Yacht" to get started</p>}
+            {isMaster && <p className="text-slate-500 text-sm">Click "Enroll Yacht" to get started — both devices are created automatically</p>}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -476,6 +762,8 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
               const enrollment = enrollments.find(e => e.yacht_id === yacht.id);
               const isOnline = yachtDevices.some(isDeviceEffectivelyOnline);
               const criticalAlerts = yachtAlerts.filter(a => a.severity === 'critical');
+              const tough = yachtDevices.find(d => d.device_type === 'orion_tough');
+              const hasGps = tough?.gps_lat != null && tough?.gps_lng != null;
               return (
                 <button
                   key={yacht.id}
@@ -505,6 +793,11 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
                         <Activity className="w-3.5 h-3.5" /> {yachtDevices.length} device{yachtDevices.length > 1 ? 's' : ''}
                       </span>
                     )}
+                    {hasGps && (
+                      <span className="text-xs text-cyan-400 flex items-center gap-1">
+                        <MapPin className="w-3.5 h-3.5" /> GPS
+                      </span>
+                    )}
                     {yachtAlerts.length > 0 && (
                       <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${criticalAlerts.length > 0 ? 'text-red-400 bg-red-500/10 border-red-500/30' : 'text-amber-400 bg-amber-500/10 border-amber-500/30'}`}>
                         {yachtAlerts.length} alert{yachtAlerts.length > 1 ? 's' : ''}
@@ -517,7 +810,6 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
           </div>
         )}
 
-        {/* Recent Alerts Feed */}
         {alerts.length > 0 && (
           <div className="mt-8">
             <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
@@ -551,7 +843,6 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
           </div>
         )}
 
-        {/* Company Monitoring Toggles (master only) */}
         {isMaster && companies.length > 0 && (
           <div className="mt-8">
             <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
@@ -577,7 +868,6 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
           </div>
         )}
 
-        {/* Enroll Modal */}
         {showEnrollModal && (
           <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-slate-900 rounded-2xl border border-slate-700 max-w-md w-full p-6">
@@ -588,6 +878,9 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
                 </button>
               </div>
               {error && <div className="bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg px-3 py-2 mb-3 text-sm">{error}</div>}
+              <div className="bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 rounded-lg px-3 py-2 mb-3 text-sm">
+                Enrolling creates both an ORION Tough and a Weather Station device automatically, each with its own unique key.
+              </div>
               <form onSubmit={handleEnroll} className="space-y-4">
                 <div>
                   <label className="block text-sm text-slate-400 mb-1">Yacht *</label>
@@ -612,7 +905,7 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
                   </select>
                 </div>
                 <button type="submit" disabled={submitLoading} className="w-full py-2.5 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white font-medium rounded-lg transition-colors">
-                  {submitLoading ? 'Enrolling...' : 'Enroll Yacht'}
+                  {submitLoading ? 'Enrolling & Creating Devices...' : 'Enroll Yacht'}
                 </button>
               </form>
             </div>
@@ -644,7 +937,7 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
           </div>
           {(isMaster || isStaffRole(effectiveRole)) && (
             <button
-              onClick={() => { setShowDeviceModal(true); setEditingDevice(null); setDeviceForm({ yacht_id: selectedYachtId, device_serial: '', device_name: 'M5 Tough', firmware_version: '' }); }}
+              onClick={() => { setShowDeviceModal(true); setEditingDevice(null); setDeviceForm({ yacht_id: selectedYachtId, device_serial: '', device_name: 'M5 Tough', device_type: 'orion_tough', firmware_version: '' }); }}
               className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white font-medium rounded-lg transition-colors"
             >
               <Plus className="w-4 h-4" />
@@ -653,45 +946,170 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
           )}
         </div>
 
-        {/* Device Status */}
-        {selectedYachtDevices.length === 0 ? (
-          <div className="text-center py-12 bg-slate-800/30 rounded-xl border border-slate-700 mb-6">
-            <Radio className="w-10 h-10 text-slate-600 mx-auto mb-2" />
-            <p className="text-slate-400">No M5 Tough devices registered for this yacht</p>
-          </div>
-        ) : (
-          <div className="space-y-4 mb-6">
-            {selectedYachtDevices.map(device => (
-              <div key={device.id} className="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-3 rounded-xl ${isDeviceEffectivelyOnline(device) ? 'bg-green-500/20' : 'bg-slate-500/20'}`}>
-                      <Radio className={`w-6 h-6 ${isDeviceEffectivelyOnline(device) ? 'text-green-400' : 'text-slate-400'}`} />
-                    </div>
-                    <div>
-                      <p className="font-bold">{device.device_name}</p>
-                      <p className="text-xs text-slate-400">Serial: {device.device_serial}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${isDeviceEffectivelyOnline(device) ? 'text-green-400 bg-green-500/10 border-green-500/30' : 'text-slate-400 bg-slate-500/10 border-slate-500/30'}`}>
-                      {isDeviceEffectivelyOnline(device) ? 'Online' : 'Offline'}
-                    </span>
-                    {device.last_check_in && (
-                      <p className="text-xs text-slate-400 mt-1 flex items-center gap-1 justify-end">
-                        <Clock className="w-3 h-3" />
-                        {new Date(device.last_check_in).toLocaleString()}
-                      </p>
-                    )}
-                  </div>
+        {/* GPS Live Location Panel */}
+        {toughDevice && toughDevice.gps_lat != null && toughDevice.gps_lng != null && (
+          <div className="bg-slate-800/50 rounded-xl p-5 border border-slate-700 mb-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-xl bg-cyan-500/20">
+                  <MapPin className="w-6 h-6 text-cyan-400" />
+                </div>
+                <div>
+                  <p className="font-bold">Live GPS Location</p>
+                  <p className="text-sm text-slate-400 font-mono">
+                    {toughDevice.gps_lat.toFixed(6)}, {toughDevice.gps_lng.toFixed(6)}
+                  </p>
+                  {toughDevice.gps_updated_at && (
+                    <p className="text-xs mt-1 flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      <span className={Date.now() - new Date(toughDevice.gps_updated_at).getTime() < GPS_LIVE_MS ? 'text-green-400' : 'text-slate-500'}>
+                        {Date.now() - new Date(toughDevice.gps_updated_at).getTime() < GPS_LIVE_MS ? 'Live' : 'Stale'} - {new Date(toughDevice.gps_updated_at).toLocaleString()}
+                      </span>
+                    </p>
+                  )}
                 </div>
               </div>
-            ))}
+              <a
+                href={`https://www.google.com/maps?q=${toughDevice.gps_lat},${toughDevice.gps_lng}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white font-medium rounded-lg transition-colors"
+              >
+                <MapPin className="w-4 h-4" />
+                Open in Google Maps
+              </a>
+            </div>
           </div>
         )}
 
-        {/* Sensor Ports — always show all 4 port categories when a device exists */}
-        {selectedYachtDevices.length > 0 && (
+        {/* Device Status Cards */}
+        {selectedYachtDevices.length === 0 ? (
+          <div className="text-center py-12 bg-slate-800/30 rounded-xl border border-slate-700 mb-6">
+            <Radio className="w-10 h-10 text-slate-600 mx-auto mb-2" />
+            <p className="text-slate-400">No devices registered for this yacht</p>
+          </div>
+        ) : (
+          <div className="space-y-4 mb-6">
+            {selectedYachtDevices.map(device => {
+              const DevIcon = DEVICE_TYPE_ICONS[device.device_type] || Radio;
+              const online = isDeviceEffectivelyOnline(device);
+              return (
+                <div key={device.id} className="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
+                  <div className="flex items-center justify-between flex-wrap gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-3 rounded-xl ${online ? 'bg-green-500/20' : 'bg-slate-500/20'}`}>
+                        <DevIcon className={`w-6 h-6 ${online ? 'text-green-400' : 'text-slate-400'}`} />
+                      </div>
+                      <div>
+                        <p className="font-bold">{device.device_name}</p>
+                        <p className="text-xs text-slate-400">
+                          {DEVICE_TYPE_LABELS[device.device_type] || device.device_type} - Serial: {device.device_serial}
+                        </p>
+                        {device.firmware_version && (
+                          <p className="text-xs text-slate-500">Firmware: {device.firmware_version}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${online ? 'text-green-400 bg-green-500/10 border-green-500/30' : 'text-slate-400 bg-slate-500/10 border-slate-500/30'}`}>
+                        {online ? 'Online' : 'Offline'}
+                      </span>
+                      {device.last_check_in && (
+                        <span className="text-xs text-slate-400 flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {new Date(device.last_check_in).toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {(isMaster || isStaffRole(effectiveRole)) && (
+                    <div className="flex items-center gap-2 mt-3 flex-wrap">
+                      <button
+                        onClick={() => handleDownloadFirmware(device)}
+                        disabled={firmwareLoading === device.id}
+                        className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white rounded-lg transition-colors"
+                      >
+                        {firmwareLoading === device.id ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                        Download Firmware
+                      </button>
+                      <button
+                        onClick={() => setShowReplaceKeyConfirm(device.id)}
+                        className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-amber-600/80 hover:bg-amber-600 text-white rounded-lg transition-colors"
+                      >
+                        <Key className="w-3.5 h-3.5" />
+                        Replace Key
+                      </button>
+                    </div>
+                  )}
+                  {showReplaceKeyConfirm === device.id && (
+                    <div className="mt-3 bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 flex items-center justify-between">
+                      <p className="text-sm text-amber-400">Replace the API key? The old key stops working immediately. You'll need to re-flash the device with the new firmware.</p>
+                      <div className="flex items-center gap-2 ml-3">
+                        <button onClick={() => handleReplaceKey(device.id)} className="text-xs px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg">Yes, Replace</button>
+                        <button onClick={() => setShowReplaceKeyConfirm(null)} className="text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg">Cancel</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Weather Station Sensors (show separately from port-based Tough sensors) */}
+        {weatherDevice && (
+          <div className="bg-slate-800/30 rounded-xl border border-slate-700 overflow-hidden mb-6">
+            <div className="bg-slate-800/80 px-4 py-3 border-b border-slate-700">
+              <h3 className="font-bold flex items-center gap-2">
+                <CloudRain className="w-5 h-5 text-cyan-400" />
+                Weather Station Sensors
+              </h3>
+            </div>
+            <div className="divide-y divide-slate-700">
+              {sensors.filter(s => s.device_id === weatherDevice.id).length === 0 ? (
+                <div className="flex items-center justify-between px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg text-slate-400 bg-slate-500/10 border border-slate-500/30">
+                      <WifiOff className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm text-slate-400">No sensors reporting</p>
+                      <p className="text-xs text-slate-500">Waiting for weather station telemetry</p>
+                    </div>
+                  </div>
+                  <span className="text-xs px-2 py-0.5 rounded-full border text-slate-400 bg-slate-500/10 border-slate-500/30 capitalize">Offline</span>
+                </div>
+              ) : (
+                sensors.filter(s => s.device_id === weatherDevice.id).map(sensor => {
+                  const Icon = SENSOR_ICONS[sensor.sensor_type] || Gauge;
+                  return (
+                    <div key={sensor.id} className="flex items-center justify-between px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-lg ${STATUS_COLORS[sensor.status]}`}>
+                          <Icon className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm">{sensor.sensor_name}</p>
+                          <p className="text-xs text-slate-400 capitalize">{sensor.sensor_type.replace(/_/g, ' ')}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-mono font-bold">{sensor.current_value || '--'}{sensor.unit_of_measure ? ` ${sensor.unit_of_measure}` : ''}</p>
+                        <span className={`text-xs px-2 py-0.5 rounded-full border ${STATUS_COLORS[sensor.status]} capitalize`}>{sensor.status}</span>
+                        {sensor.last_reading_at && (
+                          <p className="text-xs text-slate-500 mt-0.5">{new Date(sensor.last_reading_at).toLocaleTimeString()}</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Tough Sensor Ports */}
+        {toughDevice && (
           <div className="space-y-6 mb-6">
             {Object.entries(PORT_LABELS).map(([portLabel, portInfo]) => {
               const portSensors = sensorsByPort[portLabel];
@@ -824,7 +1242,7 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
           <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-slate-900 rounded-2xl border border-slate-700 max-w-md w-full p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold">{editingDevice ? 'Edit Device' : 'Register M5 Tough Device'}</h3>
+                <h3 className="text-xl font-bold">{editingDevice ? 'Edit Device' : 'Register Device'}</h3>
                 <button onClick={() => setShowDeviceModal(false)} className="text-slate-400 hover:text-white">
                   <XCircle className="w-5 h-5" />
                 </button>
@@ -839,14 +1257,23 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
                   </select>
                 </div>
                 {!editingDevice && (
-                  <div>
-                    <label className="block text-sm text-slate-400 mb-1">Device Serial Number *</label>
-                    <input required value={deviceForm.device_serial} onChange={e => setDeviceForm(f => ({ ...f, device_serial: e.target.value }))} placeholder="e.g. M5T-00123" className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-cyan-500" />
-                  </div>
+                  <>
+                    <div>
+                      <label className="block text-sm text-slate-400 mb-1">Device Type *</label>
+                      <select required value={deviceForm.device_type} onChange={e => setDeviceForm(f => ({ ...f, device_type: e.target.value as any, device_name: e.target.value === 'orion_tough' ? 'ORION Tough' : 'Weather Station' }))} className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-cyan-500">
+                        <option value="orion_tough">ORION Tough</option>
+                        <option value="weather_station">Weather Station</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm text-slate-400 mb-1">Device Serial Number *</label>
+                      <input required value={deviceForm.device_serial} onChange={e => setDeviceForm(f => ({ ...f, device_serial: e.target.value }))} placeholder="e.g. k034326040100309" className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-cyan-500" />
+                    </div>
+                  </>
                 )}
                 <div>
                   <label className="block text-sm text-slate-400 mb-1">Device Name</label>
-                  <input value={deviceForm.device_name} onChange={e => setDeviceForm(f => ({ ...f, device_name: e.target.value }))} placeholder="M5 Tough" className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-cyan-500" />
+                  <input value={deviceForm.device_name} onChange={e => setDeviceForm(f => ({ ...f, device_name: e.target.value }))} placeholder="ORION Tough" className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-cyan-500" />
                 </div>
                 <div>
                   <label className="block text-sm text-slate-400 mb-1">Firmware Version</label>
