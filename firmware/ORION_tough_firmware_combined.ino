@@ -46,7 +46,7 @@
   new credentials are cached to SD for next boot.
 
   Requires: M5Unified, WiFi, HTTPClient, Wire, SPI, SD, TinyGPSPlus,
-  M5Unit-EXTIO2 (install from GitHub), ArduinoJson.
+  PubSubClient, ArduinoJson, M5Unit-EXTIO2 (install from GitHub).
   ENV III uses the M5Stack M5Unit-ENVIII library (SHT40 + QMP6988).
 */
 
@@ -59,6 +59,7 @@
 #include <SD.h>
 #include <TinyGPSPlus.h>
 #include <ArduinoJson.h>
+#include <PubSubClient.h>
 #include "M5Unit-ENVIII.hpp"
 
 // ============================================================
@@ -340,6 +341,8 @@ void setupEXTIO2() {
 
 unsigned long lastBilgeCheck = 0;
 const unsigned long BILGE_CHECK_INTERVAL_MS = 1000;
+unsigned long lastWifiReconnectAttempt = 0;
+const unsigned long WIFI_RECONNECT_INTERVAL_MS = 30000;
 
 void handleBilgePump() {
   if (!extioReady) return;
@@ -356,7 +359,134 @@ void handleBilgePump() {
 }
 
 // ============================================================
-// MODULE 2: Alternators — 3× Voltmeter Unit (ADS1115) via PaHub Ch1-3
+// MODULE 2: Battery banks — Victron Cerbo GX MQTT
+// ------------------------------------------------------------
+// The Tough connects to the Cerbo's local MQTT broker over the boat LAN.
+// Voltage and current are paired per SmartShunt before entering the same
+// telemetry and SD buffering pipeline as every other reading.
+// ============================================================
+const char* CERBO_MQTT_HOST = "192.168.1.100";
+const int CERBO_MQTT_PORT = 1883;
+const char* CERBO_PORTAL_ID = "YOUR_VRM_PORTAL_ID";
+
+struct CerboBattery {
+  const char* name;
+  int instance;
+};
+
+CerboBattery cerboBanks[6] = {
+  {"Port Engine Battery", 0},
+  {"Starboard Engine Battery", 1},
+  {"Port Generator Battery", 2},
+  {"Starboard Generator Battery", 3},
+  {"Inverter Batteries", 4},
+  {"12V System Battery", 5},
+};
+
+WiFiClient cerboWifiClient;
+PubSubClient cerboMqttClient(cerboWifiClient);
+
+float cerboVoltage[6] = {0, 0, 0, 0, 0, 0};
+float cerboCurrent[6] = {0, 0, 0, 0, 0, 0};
+bool cerboHasVoltage[6] = {false, false, false, false, false, false};
+bool cerboHasCurrent[6] = {false, false, false, false, false, false};
+
+bool cerboConfigurationReady() {
+  return strlen(CERBO_MQTT_HOST) > 0 &&
+         strcmp(CERBO_MQTT_HOST, "192.168.1.100") != 0 &&
+         strlen(CERBO_PORTAL_ID) > 0 &&
+         strcmp(CERBO_PORTAL_ID, "YOUR_VRM_PORTAL_ID") != 0;
+}
+
+void cerboMqttCallback(char* topic, byte* payload, unsigned int length) {
+  String topicString = String(topic);
+  String payloadString;
+  payloadString.reserve(length + 1);
+  for (unsigned int i = 0; i < length; i++) payloadString += (char)payload[i];
+
+  JsonDocument document;
+  if (deserializeJson(document, payloadString)) return;
+  JsonVariant valueNode = document["value"];
+  if (valueNode.isNull()) return;
+  float value = valueNode.as<float>();
+
+  for (int i = 0; i < 6; i++) {
+    String prefix = String("N/") + CERBO_PORTAL_ID + "/battery/" + cerboBanks[i].instance + "/Dc/0/";
+    if (topicString == prefix + "Voltage") {
+      cerboVoltage[i] = value;
+      cerboHasVoltage[i] = true;
+    } else if (topicString == prefix + "Current") {
+      cerboCurrent[i] = value;
+      cerboHasCurrent[i] = true;
+    }
+  }
+
+  for (int i = 0; i < 6; i++) {
+    if (!cerboHasVoltage[i] || !cerboHasCurrent[i]) continue;
+
+    String reading = String("{\"sensor_name\":\"") + cerboBanks[i].name +
+                     "\",\"value\":{\"voltage\":" + String(cerboVoltage[i], 2) +
+                     ",\"current\":" + String(cerboCurrent[i], 2) + "}}";
+    bufferOrSend(SENSOR_READINGS_EP, reading);
+    cerboHasVoltage[i] = false;
+    cerboHasCurrent[i] = false;
+  }
+}
+
+void setupCerboMQTT() {
+  if (!cerboConfigurationReady()) {
+    Serial.println("Cerbo MQTT disabled until host and VRM Portal ID are configured.");
+    return;
+  }
+
+  cerboMqttClient.setServer(CERBO_MQTT_HOST, CERBO_MQTT_PORT);
+  cerboMqttClient.setCallback(cerboMqttCallback);
+  cerboMqttClient.setKeepAlive(30);
+  cerboMqttClient.setBufferSize(512);
+}
+
+unsigned long lastCerboKeepalive = 0;
+const unsigned long CERBO_KEEPALIVE_INTERVAL_MS = 60000;
+
+void connectCerboMQTT() {
+  if (!cerboConfigurationReady() || WiFi.status() != WL_CONNECTED || cerboMqttClient.connected()) return;
+
+  Serial.print("Connecting to Cerbo GX MQTT broker...");
+  String clientId = String("ORION-Tough-") + String((uint32_t)ESP.getEfuseMac(), HEX);
+  if (!cerboMqttClient.connect(clientId.c_str())) {
+    Serial.printf(" failed, rc=%d\n", cerboMqttClient.state());
+    return;
+  }
+
+  Serial.println(" connected.");
+  for (int i = 0; i < 6; i++) {
+    String prefix = String("N/") + CERBO_PORTAL_ID + "/battery/" + cerboBanks[i].instance + "/Dc/0/";
+    cerboMqttClient.subscribe((prefix + "Voltage").c_str());
+    cerboMqttClient.subscribe((prefix + "Current").c_str());
+  }
+
+  String keepaliveTopic = String("R/") + CERBO_PORTAL_ID + "/system/0/Serial";
+  cerboMqttClient.publish(keepaliveTopic.c_str(), "");
+  lastCerboKeepalive = millis();
+}
+
+void handleCerboMQTT() {
+  if (!cerboConfigurationReady()) return;
+  if (!cerboMqttClient.connected()) {
+    connectCerboMQTT();
+    return;
+  }
+
+  cerboMqttClient.loop();
+  if (millis() - lastCerboKeepalive >= CERBO_KEEPALIVE_INTERVAL_MS) {
+    String keepaliveTopic = String("R/") + CERBO_PORTAL_ID + "/system/0/Serial";
+    cerboMqttClient.publish(keepaliveTopic.c_str(), "");
+    lastCerboKeepalive = millis();
+  }
+}
+
+// ============================================================
+// MODULE 3: Alternators — 3× Voltmeter Unit (ADS1115) via PaHub Ch1-3
 // All 4 alternators read from ADS1115 channels across 3 Voltmeter Units.
 // PaHub Ch1 = Voltmeter Unit 1 (Port Engine alt A0, Stbd Engine alt A1)
 // PaHub Ch2 = Voltmeter Unit 2 (Port Gen alt A0, Stbd Gen alt A1)
@@ -536,18 +666,22 @@ void setup() {
 
   setupWiFi();
   setupEXTIO2();
+  setupCerboMQTT();
   setupENVIII();
 
-  Serial.println("ORION Tough online: bilge/pump, alternators, ENV III, GPS. "
-                 "Batteries via Victron, wind/rain via weather station.");
+  Serial.println("ORION Tough online: bilge/pump, Cerbo battery MQTT, alternators, ENV III, GPS. "
+                 "Wind/rain via weather station.");
 }
 
 void loop() {
   M5.update();
 
-  if (WiFi.status() != WL_CONNECTED) {
+  if (WiFi.status() != WL_CONNECTED && millis() - lastWifiReconnectAttempt >= WIFI_RECONNECT_INTERVAL_MS) {
+    lastWifiReconnectAttempt = millis();
     setupWiFi();
   }
+
+  handleCerboMQTT();
 
   if (millis() - lastBilgeCheck > BILGE_CHECK_INTERVAL_MS) {
     handleBilgePump();
