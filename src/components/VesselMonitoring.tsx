@@ -753,7 +753,7 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
             {isMaster && <p className="text-slate-500 text-sm">Click "Enroll Yacht" to get started — both devices are created automatically</p>}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {fleetYachts.map(yacht => {
               const yachtDevices = devices.filter(d => d.yacht_id === yacht.id);
               const yachtAlerts = alerts.filter(a => a.yacht_id === yacht.id);
@@ -836,9 +836,9 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
                                 const status = sensor?.status || 'offline';
                                 const statusColor = STATUS_COLORS[status];
                                 return (
-                                  <div key={channel} className="flex items-center justify-between gap-2 rounded-lg bg-slate-800/70 px-2.5 py-1.5">
-                                    <span className="text-[11px] font-mono text-slate-400 shrink-0">{channel}</span>
-                                    <span className="text-xs text-slate-200 truncate">{label}</span>
+                                  <div key={channel} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2 rounded-lg bg-slate-800/70 px-2.5 py-1.5">
+                                    <span className="text-[11px] font-mono text-slate-400 whitespace-nowrap">{channel}</span>
+                                    <span className="text-xs text-slate-200 whitespace-normal break-words">{label}</span>
                                     {sensorName && (
                                       <span className={`text-[10px] px-1.5 py-0.5 rounded border capitalize shrink-0 ${statusColor}`}>
                                         {sensor ? status : 'not configured'}
@@ -1176,7 +1176,7 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
         {/* Tough Sensor Ports */}
         {toughDevice && (
           <div className="space-y-6 mb-6">
-            {Object.entries(PORT_LABELS).map(([portLabel, portInfo]) => {
+            {Object.entries(PORT_LABELS).filter(([portLabel]) => portLabel !== 'A').map(([portLabel, portInfo]) => {
               const portSensors = sensorsByPort[portLabel];
               return (
                 <div key={portLabel} className="bg-slate-800/30 rounded-xl border border-slate-700 overflow-hidden">
