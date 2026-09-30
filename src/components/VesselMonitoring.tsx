@@ -148,6 +148,15 @@ function isDeviceEffectivelyOnline(device: MonitorDevice): boolean {
   return Date.now() - new Date(device.last_check_in).getTime() < ONLINE_STALE_MS;
 }
 
+const BATTERY_BANK_SENSORS = [
+  { sensor_type: 'battery_bank', sensor_name: 'Port Engine Battery', unit_of_measure: 'V/A' },
+  { sensor_type: 'battery_bank', sensor_name: 'Starboard Engine Battery', unit_of_measure: 'V/A' },
+  { sensor_type: 'battery_bank', sensor_name: 'Port Generator Battery', unit_of_measure: 'V/A' },
+  { sensor_type: 'battery_bank', sensor_name: 'Starboard Generator Battery', unit_of_measure: 'V/A' },
+  { sensor_type: 'battery_bank', sensor_name: 'Inverter Batteries', unit_of_measure: 'V/A' },
+  { sensor_type: 'battery_bank', sensor_name: '12V System Battery', unit_of_measure: 'V/A' },
+];
+
 const DEFAULT_SENSORS: Record<string, { sensor_type: string; sensor_name: string; unit_of_measure: string }[]> = {
   A: [
     { sensor_type: 'bilge_pump', sensor_name: 'Engine Room Starboard Bilge Pump', unit_of_measure: 'on/off' },
@@ -367,8 +376,9 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
           });
         }
       }
-    } else {
-      for (const def of WEATHER_STATION_SENSORS) {
+
+      // Battery bank sensors (Cerbo GX via MQTT — not tied to a physical port)
+      for (const def of BATTERY_BANK_SENSORS) {
         await supabase.from('vessel_monitor_sensors').insert({
           device_id: newDevice.id,
           port_id: null,
@@ -380,7 +390,20 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
           status: 'offline',
         });
       }
-    }
+    } else {
+        for (const def of WEATHER_STATION_SENSORS) {
+          await supabase.from('vessel_monitor_sensors').insert({
+            device_id: newDevice.id,
+            port_id: null,
+            yacht_id: yachtId,
+            company_id: companyId,
+            sensor_type: def.sensor_type,
+            sensor_name: def.sensor_name,
+            unit_of_measure: def.unit_of_measure,
+            status: 'offline',
+          });
+        }
+      }
 
     return { id: newDevice.id, api_key: apiKey, device_serial: placeholderSerial };
   };
@@ -479,6 +502,20 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
               status: 'offline',
             });
           }
+        }
+
+        // Battery bank sensors (Cerbo GX via MQTT)
+        for (const def of BATTERY_BANK_SENSORS) {
+          await supabase.from('vessel_monitor_sensors').insert({
+            device_id: newDevice.id,
+            port_id: null,
+            yacht_id: deviceForm.yacht_id,
+            company_id: yacht.company_id,
+            sensor_type: def.sensor_type,
+            sensor_name: def.sensor_name,
+            unit_of_measure: def.unit_of_measure,
+            status: 'offline',
+          });
         }
       } else {
         for (const def of WEATHER_STATION_SENSORS) {
@@ -622,6 +659,7 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
   const sensorsByPort: Record<string, MonitorSensor[]> = { A: [], B: [], C: [], D: [] };
   const yachtSensors = sensors.filter(s => s.yacht_id === selectedYachtId);
   yachtSensors.forEach(s => {
+    if (s.sensor_type === 'battery_bank') return; // battery banks shown in their own section
     const port = Object.entries(PORT_LABELS).find(([_, info]) => {
       if (info.name === 'Pumps' && ['bilge_pump', 'water_pump', 'ac_pump'].includes(s.sensor_type)) return true;
       if (info.name === 'Alternators & ENV III' && ['engine_alternator', 'environment'].includes(s.sensor_type)) return true;
@@ -805,6 +843,7 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
                   {(() => {
                     const yachtSensorsList = sensors.filter(s => s.yacht_id === yacht.id);
                     const categories: { label: string; icon: any; types: string[] }[] = [
+                      { label: 'Batteries', icon: Battery, types: ['battery_bank'] },
                       { label: 'Alternators', icon: Zap, types: ['engine_alternator'] },
                       { label: 'Environment', icon: Thermometer, types: ['environment'] },
                       { label: 'Weather', icon: Wind, types: ['anemometer', 'wind_vane'] },
@@ -1116,6 +1155,58 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
             </div>
           </div>
         )}
+
+        {/* Cerbo GX Battery Banks */}
+        {toughDevice && (() => {
+          const batterySensors = yachtSensors.filter(s => s.sensor_type === 'battery_bank');
+          if (batterySensors.length === 0) return null;
+          const reportingCount = batterySensors.filter(s => s.status !== 'offline').length;
+          return (
+            <div className="bg-slate-800/30 rounded-xl border border-slate-700 overflow-hidden mb-6">
+              <div className="bg-slate-800/80 px-4 py-3 border-b border-slate-700">
+                <h3 className="font-bold flex items-center gap-2">
+                  <Battery className="w-5 h-5 text-amber-400" />
+                  Battery Banks
+                  <span className="text-xs font-normal text-slate-400 ml-2">
+                    via Cerbo GX MQTT{reportingCount > 0 ? ` — ${reportingCount}/${batterySensors.length} reporting` : ''}
+                  </span>
+                </h3>
+              </div>
+              <div className="divide-y divide-slate-700">
+                {batterySensors.map(sensor => {
+                  const Icon = SENSOR_ICONS[sensor.sensor_type] || Battery;
+                  const isOffline = sensor.status === 'offline';
+                  return (
+                    <div key={sensor.id} className="flex items-center justify-between px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-lg ${STATUS_COLORS[sensor.status]}`}>
+                          <Icon className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm">{sensor.sensor_name}</p>
+                          <p className="text-xs text-slate-400 capitalize">{sensor.sensor_type.replace(/_/g, ' ')}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        {isOffline ? (
+                          <span className="text-xs px-2 py-0.5 rounded-full border text-slate-400 bg-slate-500/10 border-slate-500/30 capitalize">Offline</span>
+                        ) : (
+                          <>
+                            <p className="font-mono font-bold text-sm">{sensor.current_value || '--'}{sensor.unit_of_measure ? ` ${sensor.unit_of_measure}` : ''}</p>
+                            <span className={`text-xs px-2 py-0.5 rounded-full border ${STATUS_COLORS[sensor.status]} capitalize`}>{sensor.status}</span>
+                            {sensor.last_reading_at && (
+                              <p className="text-xs text-slate-500 mt-0.5">{new Date(sensor.last_reading_at).toLocaleTimeString()}</p>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Weather Station Sensors (show separately from port-based Tough sensors) */}
         {weatherDevice && (

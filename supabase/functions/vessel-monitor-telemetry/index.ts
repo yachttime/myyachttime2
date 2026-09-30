@@ -204,6 +204,12 @@ Deno.serve(async (req: Request) => {
           valueStr = d.active ? "active" : "inactive";
           unit = "on/off";
           if (sensorName.includes("Alarm") && d.active) status = "critical";
+        } else if (d.voltage !== undefined && d.current !== undefined) {
+          valueStr = `${d.voltage}V / ${d.current}A`;
+          numericVal = d.voltage;
+          unit = "V/A";
+          if (d.voltage < 11.5) status = "critical";
+          else if (d.voltage < 12.2) status = "warning";
         } else if (d.voltage !== undefined) {
           valueStr = String(d.voltage);
           numericVal = d.voltage;
