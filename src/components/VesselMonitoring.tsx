@@ -813,44 +813,9 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
                       .map(c => ({ ...c, count: yachtSensorsList.filter(s => c.types.includes(s.sensor_type) && s.status !== 'offline').length, total: yachtSensorsList.filter(s => c.types.includes(s.sensor_type)).length }))
                       .filter(c => c.total > 0);
                     const hasGpsSensor = yachtSensorsList.some(s => s.sensor_type === 'gps');
-                    const portASensors = PORT_A_CHANNELS.map(channel => ({
-                      ...channel,
-                      sensor: channel.sensorName
-                        ? yachtSensorsList.find(sensor => sensor.sensor_name.startsWith(channel.sensorName))
-                        : undefined,
-                    }));
                     if (activeCats.length === 0 && !hasGps && !hasGpsSensor && !tough) return null;
                     return (
-                      <div className="space-y-3">
-                        {tough && (
-                          <div className="rounded-xl border border-cyan-500/20 bg-slate-900/40 p-3">
-                            <div className="flex items-center gap-2 mb-2">
-                              <Droplets className="w-3.5 h-3.5 text-cyan-400" />
-                              <div>
-                                <p className="text-xs font-semibold text-cyan-300">Port A — the I2C bus (EXT.IO2 + PaHub via Y-splitter)</p>
-                                <p className="text-[10px] text-slate-500 mt-0.5">EXT.IO2 side — bilge/pump channels (PC817 → EXT.IO2)</p>
-                              </div>
-                            </div>
-                            <div className="grid grid-cols-1 gap-1.5">
-                              {portASensors.map(({ channel, label, sensorName, sensor }) => {
-                                const status = sensor?.status || 'offline';
-                                const statusColor = STATUS_COLORS[status];
-                                return (
-                                  <div key={channel} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2 rounded-lg bg-slate-800/70 px-2.5 py-1.5">
-                                    <span className="text-[11px] font-mono text-slate-400 whitespace-nowrap">{channel}</span>
-                                    <span className="text-xs text-slate-200 whitespace-normal break-words">{label}</span>
-                                    {sensorName && (
-                                      <span className={`text-[10px] px-1.5 py-0.5 rounded border capitalize shrink-0 ${statusColor}`}>
-                                        {sensor ? status : 'not configured'}
-                                      </span>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-                        <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex items-center gap-2 flex-wrap">
                         {activeCats.map(c => {
                           const Icon = c.icon;
                           return (
@@ -865,7 +830,6 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
                             <Navigation className="w-3 h-3" /> GPS Active
                           </span>
                         )}
-                        </div>
                       </div>
                     );
                   })()}
@@ -1118,6 +1082,38 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* Port A Sensors */}
+        {toughDevice && (
+          <div className="bg-slate-800/30 rounded-xl border border-slate-700 overflow-hidden mb-6">
+            <div className="bg-slate-800/80 px-4 py-3 border-b border-slate-700">
+              <h3 className="font-bold flex items-center gap-2">
+                <Droplets className="w-5 h-5 text-cyan-400" />
+                Port A — Pumps &amp; Bilge
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">EXT.IO2 side — bilge and pump channels</p>
+            </div>
+            <div className="divide-y divide-slate-700">
+              {PORT_A_CHANNELS.map(({ channel, label, sensorName }) => {
+                const sensor = sensorName
+                  ? yachtSensors.find(candidate => candidate.sensor_name.startsWith(sensorName))
+                  : undefined;
+                const status = sensor?.status || 'offline';
+                return (
+                  <div key={channel} className="flex items-center justify-between gap-4 px-4 py-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="text-xs font-mono text-slate-400 whitespace-nowrap">{channel}</span>
+                      <span className="font-medium text-sm break-words">{label}</span>
+                    </div>
+                    <span className={`text-xs px-2 py-0.5 rounded-full border capitalize whitespace-nowrap ${STATUS_COLORS[status]}`}>
+                      {sensor ? status : 'not configured'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 
