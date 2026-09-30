@@ -1169,66 +1169,6 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
           </div>
         )}
 
-        {/* Tough Sensor Ports */}
-        {toughDevice && (
-          <div className="space-y-6 mb-6">
-            {(['B', 'C'] as const).map(portLabel => {
-              const portInfo = PORT_LABELS[portLabel];
-              const portSensors = sensorsByPort[portLabel];
-              return (
-                <div key={portLabel} className="bg-slate-800/30 rounded-xl border border-slate-700 overflow-hidden">
-                  <div className="bg-slate-800/80 px-4 py-3 border-b border-slate-700">
-                    <h3 className="font-bold flex items-center gap-2">
-                      <span className="bg-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded text-sm font-mono">Port {portLabel}</span>
-                      {portInfo.name}
-                    </h3>
-                  </div>
-                  <div className="divide-y divide-slate-700">
-                    {portSensors.length === 0 ? (
-                      <div className="flex items-center justify-between px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-lg text-slate-400 bg-slate-500/10 border border-slate-500/30">
-                            <WifiOff className="w-5 h-5" />
-                          </div>
-                          <div>
-                            <p className="font-medium text-sm text-slate-400">No sensors reporting</p>
-                            <p className="text-xs text-slate-500">Waiting for device telemetry</p>
-                          </div>
-                        </div>
-                        <span className="text-xs px-2 py-0.5 rounded-full border text-slate-400 bg-slate-500/10 border-slate-500/30 capitalize">Offline</span>
-                      </div>
-                    ) : (
-                      portSensors.map(sensor => {
-                        const Icon = SENSOR_ICONS[sensor.sensor_type] || Gauge;
-                        return (
-                          <div key={sensor.id} className="flex items-center justify-between px-4 py-3">
-                            <div className="flex items-center gap-3">
-                              <div className={`p-2 rounded-lg ${STATUS_COLORS[sensor.status]}`}>
-                                <Icon className="w-5 h-5" />
-                              </div>
-                              <div>
-                                <p className="font-medium text-sm">{sensor.sensor_name}</p>
-                                <p className="text-xs text-slate-400 capitalize">{sensor.sensor_type.replace(/_/g, ' ')}</p>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <p className="font-mono font-bold">{sensor.current_value || '--'}{sensor.unit_of_measure ? ` ${sensor.unit_of_measure}` : ''}</p>
-                              <span className={`text-xs px-2 py-0.5 rounded-full border ${STATUS_COLORS[sensor.status]} capitalize`}>{sensor.status}</span>
-                              {sensor.last_reading_at && (
-                                <p className="text-xs text-slate-500 mt-0.5">{new Date(sensor.last_reading_at).toLocaleTimeString()}</p>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
         {/* Smart Locks Section */}
         {smartDevices.length > 0 && (
           <div className="bg-slate-800/30 rounded-xl border border-slate-700 overflow-hidden mb-6">
