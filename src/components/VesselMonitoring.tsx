@@ -772,7 +772,7 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
                     </div>
                     <ChevronRight className="w-5 h-5 text-slate-600 group-hover:text-cyan-400 transition-colors" />
                   </div>
-                  <div className="flex items-center gap-3 flex-wrap">
+                  <div className="flex items-center gap-3 flex-wrap mb-3">
                     <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${isOnline ? 'text-green-400 bg-green-500/10 border-green-500/30' : 'text-slate-400 bg-slate-500/10 border-slate-500/30'}`}>
                       {isOnline ? 'Online' : 'Offline'}
                     </span>
@@ -792,6 +792,38 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
                       </span>
                     )}
                   </div>
+                  {(() => {
+                    const yachtSensorsList = sensors.filter(s => s.yacht_id === yacht.id);
+                    const categories: { label: string; icon: any; types: string[] }[] = [
+                      { label: 'Bilge & Pumps', icon: Droplets, types: ['bilge_pump', 'water_pump', 'ac_pump'] },
+                      { label: 'Alternators', icon: Zap, types: ['engine_alternator'] },
+                      { label: 'Environment', icon: Thermometer, types: ['environment'] },
+                      { label: 'Weather', icon: Wind, types: ['anemometer', 'wind_vane'] },
+                    ];
+                    const activeCats = categories
+                      .map(c => ({ ...c, count: yachtSensorsList.filter(s => c.types.includes(s.sensor_type) && s.status !== 'offline').length, total: yachtSensorsList.filter(s => c.types.includes(s.sensor_type)).length }))
+                      .filter(c => c.total > 0);
+                    const hasGpsSensor = yachtSensorsList.some(s => s.sensor_type === 'gps');
+                    if (activeCats.length === 0 && !hasGps && !hasGpsSensor) return null;
+                    return (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {activeCats.map(c => {
+                          const Icon = c.icon;
+                          return (
+                            <span key={c.label} className={`text-xs px-2 py-1 rounded-lg border flex items-center gap-1.5 ${c.count > 0 ? 'text-green-400 bg-green-500/10 border-green-500/20' : 'text-slate-500 bg-slate-500/5 border-slate-600/40'}`}>
+                              <Icon className="w-3 h-3" />
+                              {c.label} {c.count}/{c.total}
+                            </span>
+                          );
+                        })}
+                        {hasGps && (
+                          <span className="text-xs px-2 py-1 rounded-lg border flex items-center gap-1.5 text-cyan-400 bg-cyan-500/10 border-cyan-500/20">
+                            <Navigation className="w-3 h-3" /> GPS Active
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </button>
               );
             })}
