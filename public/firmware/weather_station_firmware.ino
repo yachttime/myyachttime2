@@ -64,13 +64,6 @@ SFEWeatherMeterKit myWeatherMeter(WDIR, WSPEED, RAIN);
 BME280 myBME280;
 SparkFun_AS3935 myLightning;
 
-#ifndef G1
-  #define G1 5
-#endif
-#ifndef G3
-  #define G3 2
-#endif
-
 const int LIGHTNING_CS_PIN = G1;
 const int LIGHTNING_INT_PIN = G3;
 
@@ -115,23 +108,28 @@ void scanNetworks() {
 bool tryNetwork(const char* ssid, const char* pass, const char* label) {
   if (ssid == nullptr || ssid[0] == '\0') return false;
 
-  WiFi.disconnect();
-  delay(100);
+  WiFi.mode(WIFI_STA);
+  WiFi.setSleep(false);
+  WiFi.disconnect(false, false);
+  delay(250);
   Serial.printf("Trying %s network: %s", label, ssid);
   WiFi.begin(ssid, pass);
 
-  unsigned long start = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - start < 15000) {
+  const unsigned long start = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - start < 20000) {
     delay(500);
     Serial.print(".");
   }
 
-  if (WiFi.status() == WL_CONNECTED) {
+  const wl_status_t status = WiFi.status();
+  if (status == WL_CONNECTED) {
     Serial.printf("\r\nWiFi connected to %s: %s\r\n", ssid, WiFi.localIP().toString().c_str());
     return true;
   }
 
-  Serial.printf(" failed (status %d)\r\n", WiFi.status());
+  Serial.printf(" failed (status %d)\r\n", status);
+  WiFi.disconnect(false, false);
+  delay(250);
   return false;
 }
 
@@ -271,14 +269,17 @@ void setupSensors() {
   if (!meterStarted) Serial.print("Weather meter did not start\r\n");
 
   bmeOK = myBME280.beginI2C();
-  if (!bmeOK) Serial.print("BME280 not detected\r\n");
+  Serial.print(bmeOK ? "BME280 OK\r\n" : "BME280 not detected\r\n");
 
+  SPI.begin();
   pinMode(LIGHTNING_CS_PIN, OUTPUT);
   digitalWrite(LIGHTNING_CS_PIN, HIGH);
-  lightningOK = myLightning.begin();
+  lightningOK = myLightning.beginSPI(LIGHTNING_CS_PIN, 2000000);
   if (!lightningOK) {
     Serial.print("AS3935 lightning sensor not detected\r\n");
   } else {
+    Serial.print("AS3935 OK (SPI)\r\n");
+    myLightning.setIndoorOutdoor(OUTDOOR);
     pinMode(LIGHTNING_INT_PIN, INPUT);
     attachInterrupt(digitalPinToInterrupt(LIGHTNING_INT_PIN), onLightningIRQ, RISING);
   }
@@ -302,6 +303,9 @@ void setup() {
   WiFi.persistent(false);
   WiFi.mode(WIFI_STA);
   WiFi.setSleep(false);
+  WiFi.setAutoReconnect(true);
+  delay(200);
+  scanNetworks();
   setupWiFi();
   if (credentialsSet && WiFi.status() == WL_CONNECTED) {
     fetchConfig();
@@ -330,7 +334,7 @@ void loop() {
 
   if (lightningInterrupt) {
     lightningInterrupt = false;
-    if (lightningOK) {
+    if (lightningOK && myLightning.readInterruptReg() == LIGHTNING) {
       int distance = myLightning.distanceToStorm();
       pushReading("Lightning Strike", String("{\"distance_km\":") + distance + "}");
       Serial.printf("Lightning detected — distance: %d km\r\n", distance);
