@@ -128,6 +128,16 @@ const PORT_LABELS: Record<string, { name: string; type: string }> = {
   C: { name: 'Available / Future', type: 'free' },
 };
 
+const PORT_A_CHANNELS = [
+  { channel: 'Ch1 (IO0)', label: 'Engine Room Starboard Bilge Pump', sensorName: 'Engine Room Starboard Bilge Pump' },
+  { channel: 'Ch2 (IO1)', label: 'Aft Bilge Pump', sensorName: 'Aft Bilge Pump' },
+  { channel: 'Ch3 (IO2)', label: 'Midship Bilge Pump', sensorName: 'Midship Bilge Pump' },
+  { channel: 'Ch4 (IO3)', label: 'High Water Alarm', sensorName: 'High Water Alarm' },
+  { channel: 'Ch5 (IO4)', label: 'A/C Water Pump (CU 301 relay)', sensorName: 'A/C Water Pump' },
+  { channel: 'Ch6 (IO5)', label: 'Fresh Water Pump (CU 301 relay)', sensorName: 'Fresh Water Pump' },
+  { channel: 'Ch7-8', label: 'Free', sensorName: null },
+] as const;
+
 const ONLINE_STALE_MS = 15 * 60 * 1000;
 const GPS_LIVE_MS = 15 * 60 * 1000;
 const TELEMETRY_URL = 'https://eqiecntollhgfxmmbize.supabase.co/functions/v1/vessel-monitor-telemetry';
@@ -795,7 +805,6 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
                   {(() => {
                     const yachtSensorsList = sensors.filter(s => s.yacht_id === yacht.id);
                     const categories: { label: string; icon: any; types: string[] }[] = [
-                      { label: 'Bilge & Pumps', icon: Droplets, types: ['bilge_pump', 'water_pump', 'ac_pump'] },
                       { label: 'Alternators', icon: Zap, types: ['engine_alternator'] },
                       { label: 'Environment', icon: Thermometer, types: ['environment'] },
                       { label: 'Weather', icon: Wind, types: ['anemometer', 'wind_vane'] },
@@ -804,9 +813,44 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
                       .map(c => ({ ...c, count: yachtSensorsList.filter(s => c.types.includes(s.sensor_type) && s.status !== 'offline').length, total: yachtSensorsList.filter(s => c.types.includes(s.sensor_type)).length }))
                       .filter(c => c.total > 0);
                     const hasGpsSensor = yachtSensorsList.some(s => s.sensor_type === 'gps');
-                    if (activeCats.length === 0 && !hasGps && !hasGpsSensor) return null;
+                    const portASensors = PORT_A_CHANNELS.map(channel => ({
+                      ...channel,
+                      sensor: channel.sensorName
+                        ? yachtSensorsList.find(sensor => sensor.sensor_name.startsWith(channel.sensorName))
+                        : undefined,
+                    }));
+                    if (activeCats.length === 0 && !hasGps && !hasGpsSensor && !tough) return null;
                     return (
-                      <div className="flex items-center gap-2 flex-wrap">
+                      <div className="space-y-3">
+                        {tough && (
+                          <div className="rounded-xl border border-cyan-500/20 bg-slate-900/40 p-3">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Droplets className="w-3.5 h-3.5 text-cyan-400" />
+                              <div>
+                                <p className="text-xs font-semibold text-cyan-300">Port A — the I2C bus (EXT.IO2 + PaHub via Y-splitter)</p>
+                                <p className="text-[10px] text-slate-500 mt-0.5">EXT.IO2 side — bilge/pump channels (PC817 → EXT.IO2)</p>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-1 gap-1.5">
+                              {portASensors.map(({ channel, label, sensorName, sensor }) => {
+                                const status = sensor?.status || 'offline';
+                                const statusColor = STATUS_COLORS[status];
+                                return (
+                                  <div key={channel} className="flex items-center justify-between gap-2 rounded-lg bg-slate-800/70 px-2.5 py-1.5">
+                                    <span className="text-[11px] font-mono text-slate-400 shrink-0">{channel}</span>
+                                    <span className="text-xs text-slate-200 truncate">{label}</span>
+                                    {sensorName && (
+                                      <span className={`text-[10px] px-1.5 py-0.5 rounded border capitalize shrink-0 ${statusColor}`}>
+                                        {sensor ? status : 'not configured'}
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2 flex-wrap">
                         {activeCats.map(c => {
                           const Icon = c.icon;
                           return (
@@ -821,6 +865,7 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
                             <Navigation className="w-3 h-3" /> GPS Active
                           </span>
                         )}
+                        </div>
                       </div>
                     );
                   })()}
