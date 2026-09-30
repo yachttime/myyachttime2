@@ -1176,7 +1176,8 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
         {/* Tough Sensor Ports */}
         {toughDevice && (
           <div className="space-y-6 mb-6">
-            {Object.entries(PORT_LABELS).filter(([portLabel]) => portLabel !== 'A').map(([portLabel, portInfo]) => {
+            {(['B', 'C'] as const).map(portLabel => {
+              const portInfo = PORT_LABELS[portLabel];
               const portSensors = sensorsByPort[portLabel];
               return (
                 <div key={portLabel} className="bg-slate-800/30 rounded-xl border border-slate-700 overflow-hidden">
