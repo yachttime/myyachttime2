@@ -195,6 +195,9 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
   const safetyNetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reListenRef = useRef<(() => void) | null>(null);
   const sendWithTextRef = useRef<((text: string) => Promise<void>) | null>(null);
+  const intentionalStopRef = useRef(true);
+  const unintendedAbortCountRef = useRef(0);
+  const restartDelayRef = useRef(300);
 
   const speechSupported = typeof window !== 'undefined' && (
     !!(window as any).SpeechRecognition || !!(window as any).webkitSpeechRecognition
@@ -208,14 +211,26 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
+  const cleanupRecognizer = useCallback((reason: string) => {
+    const old = recognitionRef.current;
+    if (old) {
+      console.trace('[HandsFree] abort/stop called from: ' + reason);
+      old.onresult = null;
+      old.onerror = null;
+      old.onend = null;
+      intentionalStopRef.current = true;
+      try { old.abort(); } catch { /* noop */ }
+      recognitionRef.current = null;
+    }
+  }, []);
+
   // Stop audio when component unmounts
   useEffect(() => {
     return () => {
+      intentionalStopRef.current = true;
+      cleanupRecognizer('unmount');
       stopSharedAudio();
       stopBrowserSpeech();
-      if (recognitionRef.current) {
-        try { recognitionRef.current.abort(); } catch { /* noop */ }
-      }
       if (silenceTimerRef.current) {
         clearTimeout(silenceTimerRef.current);
       }
@@ -223,7 +238,7 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
         clearTimeout(safetyNetTimerRef.current);
       }
     };
-  }, []);
+  }, [cleanupRecognizer]);
 
   const toggleVoice = () => {
     const next = !voiceOn;
@@ -246,6 +261,8 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
   // ---- Speaking ----
   const speakReply = useCallback(async (text: string, hasActions: boolean) => {
     if (!voiceOnRef.current) return;
+    intentionalStopRef.current = true;
+    cleanupRecognizer('speakReply — stop mic before speaking');
     stopSharedAudio();
     stopBrowserSpeech();
 
@@ -342,16 +359,26 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
 
   // ---- Listening ----
   const stopListening = useCallback(() => {
+    intentionalStopRef.current = true;
     if (recognitionRef.current) {
+      console.trace('[HandsFree] abort/stop called from: stopListening');
+      recognitionRef.current.onresult = null;
+      recognitionRef.current.onerror = null;
+      recognitionRef.current.onend = null;
       try { recognitionRef.current.stop(); } catch { /* noop */ }
+      recognitionRef.current = null;
     }
     setIsListening(false);
+    isListeningRef.current = false;
   }, []);
 
   const stopHandsFree = useCallback((reason?: string) => {
     console.log('[HandsFree] pause —', reason || 'manual stop');
+    intentionalStopRef.current = true;
     setHandsFreeMode(false);
     handsFreeRef.current = false;
+    unintendedAbortCountRef.current = 0;
+    restartDelayRef.current = 300;
     if (silenceTimerRef.current) {
       clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = null;
@@ -365,6 +392,8 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
 
   const startListening = useCallback(() => {
     if (!speechSupported) return;
+    intentionalStopRef.current = true;
+    cleanupRecognizer('startListening — replace old recognizer');
     stopSharedAudio();
     stopBrowserSpeech();
     setIsSpeaking(false);
@@ -448,10 +477,7 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
       return;
     }
 
-    if (recognitionRef.current) {
-      try { recognitionRef.current.abort(); } catch { /* noop */ }
-      recognitionRef.current = null;
-    }
+    cleanupRecognizer('startHandsFreeListening — replace old recognizer');
 
     stopSharedAudio();
     stopBrowserSpeech();
@@ -495,17 +521,29 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
 
     recognition.onerror = (e: any) => {
       setIsListening(false);
-      console.log('[HandsFree] recognizer error:', e?.error);
+      isListeningRef.current = false;
+      console.log('[HandsFree] recognizer error:', e?.error, 'intentionalStop:', intentionalStopRef.current);
       if (e?.error === 'not-allowed' || e?.error === 'service-not-allowed') {
         setError('Microphone blocked — allow mic access for this site in your browser settings.');
         stopHandsFree('mic blocked');
-      } else if (e?.error && e.error !== 'aborted' && e.error !== 'no-speech') {
+      } else if (e?.error === 'aborted') {
+        if (!intentionalStopRef.current) {
+          unintendedAbortCountRef.current += 1;
+          console.log('[HandsFree] unintended abort count:', unintendedAbortCountRef.current);
+          if (unintendedAbortCountRef.current >= 3) {
+            stopHandsFree('3 unintended aborts — mic unavailable');
+            setError('Microphone unavailable — tap headphones to retry.');
+            return;
+          }
+        }
+      } else if (e?.error && e.error !== 'no-speech') {
         console.error('Speech recognition error:', e?.error);
       }
     };
 
     recognition.onend = () => {
       setIsListening(false);
+      isListeningRef.current = false;
       if (silenceTimerRef.current) {
         clearTimeout(silenceTimerRef.current);
         silenceTimerRef.current = null;
@@ -526,17 +564,30 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
           }
         }, 100);
       } else {
-        console.log('[HandsFree] nothing heard, restarting listener');
+        if (intentionalStopRef.current) {
+          console.log('[HandsFree] nothing heard, but stop was intentional — not restarting');
+          return;
+        }
+        const delay = restartDelayRef.current;
+        console.log('[HandsFree] nothing heard, restarting listener in', delay, 'ms');
+        unintendedAbortCountRef.current += 1;
+        if (unintendedAbortCountRef.current >= 3) {
+          stopHandsFree('3 unintended aborts — mic unavailable');
+          setError('Microphone unavailable — tap headphones to retry.');
+          return;
+        }
+        restartDelayRef.current = Math.min(restartDelayRef.current * 2, 4000);
         if (handsFreeRef.current && !isSpeakingRef.current && !loadingRef.current) {
           setTimeout(() => {
-            if (handsFreeRef.current && reListenRef.current) {
+            if (handsFreeRef.current && !intentionalStopRef.current && reListenRef.current) {
               reListenRef.current();
             }
-          }, 200);
+          }, delay);
         }
       }
     };
 
+    intentionalStopRef.current = false;
     recognitionRef.current = recognition;
     setInput('');
     setError('');
@@ -555,7 +606,7 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
       }, 500);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [speechSupported, stopHandsFree]);
+  }, [speechSupported, stopHandsFree, cleanupRecognizer]);
 
   reListenRef.current = startHandsFreeListening;
 
@@ -585,6 +636,9 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
       setIsSpeaking(false);
       setHandsFreeMode(true);
       handsFreeRef.current = true;
+      intentionalStopRef.current = false;
+      unintendedAbortCountRef.current = 0;
+      restartDelayRef.current = 300;
       console.log('[HandsFree] mode activated');
       speakReply("I'm listening.", false);
     }
@@ -664,6 +718,7 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
   };
 
   const handleNewChat = () => {
+    intentionalStopRef.current = true;
     stopSharedAudio();
     stopBrowserSpeech();
     setIsSpeaking(false);
