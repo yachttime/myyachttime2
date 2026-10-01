@@ -5,13 +5,32 @@ export interface BobVideoAction {
   video_url: string;
 }
 
+export interface BobFormField {
+  name: string;
+  label: string;
+  type: 'buttons' | 'number' | 'text' | 'textarea' | 'checkbox' | 'select';
+  section: string;
+  options?: string[];
+  notes_field?: string;
+  value: string;
+}
+
+export interface BobActiveForm {
+  key: string;
+  label: string;
+  fields: BobFormField[];
+}
+
 export interface BobAppAction {
-  type: 'open_video' | 'open_page' | 'open_form';
+  type: 'open_video' | 'open_page' | 'open_form' | 'set_form_fields';
   key?: string;
   video_url?: string;
   title?: string;
   record_id?: string;
   prefill?: Record<string, string>;
+  values?: Record<string, string>;
+  next_field?: string;
+  done?: boolean;
 }
 
 interface BobContextValue {
@@ -38,6 +57,20 @@ interface BobContextValue {
   // Hands-free pause for video
   handsFreePaused: boolean;
   setHandsFreePaused: (paused: boolean) => void;
+
+  // Active form registration
+  activeForm: BobActiveForm | null;
+  registerForm: (form: BobActiveForm | null) => void;
+
+  // Form field updates from Bob
+  formFieldUpdate: { values: Record<string, string>; nextField?: string; done?: boolean; timestamp: number } | null;
+  setFormFields: (values: Record<string, string>, nextField?: string, done?: boolean) => void;
+  clearFormUpdate: () => void;
+
+  // Trigger guided fill
+  guidedFillTrigger: { key: string; timestamp: number } | null;
+  triggerGuidedFill: (key: string) => void;
+  clearGuidedFillTrigger: () => void;
 }
 
 const BobContext = createContext<BobContextValue | null>(null);
@@ -54,6 +87,9 @@ export function BobProvider({ children }: { children: ReactNode }) {
   const [panelOpen, setPanelOpen] = useState(false);
   const [handsFreePaused, setHandsFreePaused] = useState(false);
   const [prefillData, setPrefillData] = useState<Record<string, string> | null>(null);
+  const [activeForm, setActiveForm] = useState<BobActiveForm | null>(null);
+  const [formFieldUpdate, setFormFieldUpdate] = useState<{ values: Record<string, string>; nextField?: string; done?: boolean; timestamp: number } | null>(null);
+  const [guidedFillTrigger, setGuidedFillTrigger] = useState<{ key: string; timestamp: number } | null>(null);
 
   const navigateFnRef = useCallback((fn: (route: string, prefill?: Record<string, string>) => void) => {
     (window as any).__bobNavigateFn = fn;
@@ -81,6 +117,15 @@ export function BobProvider({ children }: { children: ReactNode }) {
   const openPanel = useCallback(() => setPanelOpen(true), []);
   const closePanel = useCallback(() => setPanelOpen(false), []);
   const clearPrefill = useCallback(() => setPrefillData(null), []);
+  const registerForm = useCallback((form: BobActiveForm | null) => setActiveForm(form), []);
+  const setFormFields = useCallback((values: Record<string, string>, nextField?: string, done?: boolean) => {
+    setFormFieldUpdate({ values, nextField, done, timestamp: Date.now() });
+  }, []);
+  const clearFormUpdate = useCallback(() => setFormFieldUpdate(null), []);
+  const triggerGuidedFill = useCallback((key: string) => {
+    setGuidedFillTrigger({ key, timestamp: Date.now() });
+  }, []);
+  const clearGuidedFillTrigger = useCallback(() => setGuidedFillTrigger(null), []);
 
   return (
     <BobContext.Provider value={{
@@ -98,6 +143,14 @@ export function BobProvider({ children }: { children: ReactNode }) {
       closePanel,
       handsFreePaused,
       setHandsFreePaused,
+      activeForm,
+      registerForm,
+      formFieldUpdate,
+      setFormFields,
+      clearFormUpdate,
+      guidedFillTrigger,
+      triggerGuidedFill,
+      clearGuidedFillTrigger,
     }}>
       {children}
     </BobContext.Provider>

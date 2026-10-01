@@ -662,6 +662,7 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
         conversationHistory: newMessages.slice(-11, -1).map(m => ({ role: m.role, content: m.content })),
         availableScreens: BOB_SCREENS.map(({ key, label, kind, description, fields }) => ({ key, label, kind, description, fields })),
         currentScreen: bob.currentRoute,
+        activeForm: bob.activeForm,
       });
 
       const hasActions = (data.proposedActions?.length ?? 0) > 0;
@@ -760,6 +761,17 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
         }
         console.log('[HandsFree] open_form:', route, 'prefill:', action.prefill);
         bob.navigate(route, action.prefill);
+        if (action.key === 'inspection') {
+          setTimeout(() => bob.triggerGuidedFill('trip-inspection'), 1500);
+        }
+      }
+      return;
+    }
+
+    if (action.type === 'set_form_fields') {
+      console.log('[HandsFree] set_form_fields:', action.values, 'next:', action.next_field, 'done:', action.done);
+      if (action.values) {
+        bob.setFormFields(action.values, action.next_field, action.done);
       }
       return;
     }
@@ -797,6 +809,23 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
     loadTasks();
     loadKnowledge();
   }, [loadPendingActions, loadTasks, loadKnowledge]);
+
+  // Handle guided fill trigger — auto-send a message to start the walk-through
+  useEffect(() => {
+    if (!bob.guidedFillTrigger) return;
+    if (bob.guidedFillTrigger.key === 'trip-inspection') {
+      console.log('[GuidedFill] trip-inspection triggered, starting hands-free');
+      if (!handsFreeRef.current) {
+        toggleHandsFree();
+      }
+      setTimeout(() => {
+        if (sendWithTextRef.current) {
+          sendWithTextRef.current('Help me fill out this trip inspection from the top.');
+        }
+      }, 800);
+    }
+    bob.clearGuidedFillTrigger();
+  }, [bob.guidedFillTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleApprove = async (actionId: string) => {
     setActionLoading(prev => ({ ...prev, [actionId]: true }));
