@@ -301,3 +301,25 @@ select {
     box-shadow: none !important;
   }
 }
+
+/* Jarvis markdown rendering — dark-theme styled tables and code */
+.jarvis-markdown p { margin: 0.5em 0; line-height: 1.5; }
+.jarvis-markdown p:first-child { margin-top: 0; }
+.jarvis-markdown p:last-child { margin-bottom: 0; }
+.jarvis-markdown ul, .jarvis-markdown ol { margin: 0.5em 0; padding-left: 1.25em; }
+.jarvis-markdown li { margin: 0.2em 0; }
+.jarvis-markdown h1, .jarvis-markdown h2, .jarvis-markdown h3, .jarvis-markdown h4 { font-weight: 600; margin: 0.6em 0 0.3em; }
+.jarvis-markdown h1 { font-size: 1.1em; }
+.jarvis-markdown h2 { font-size: 1.05em; }
+.jarvis-markdown h3 { font-size: 1em; }
+.jarvis-markdown h4 { font-size: 0.95em; }
+.jarvis-markdown a { color: #fbbf24; text-decoration: underline; }
+.jarvis-markdown code { background: rgba(0,0,0,0.3); border-radius: 4px; padding: 0.1em 0.3em; font-size: 0.85em; }
+.jarvis-markdown pre { background: rgba(0,0,0,0.3); border-radius: 8px; padding: 0.6em; overflow-x: auto; margin: 0.5em 0; }
+.jarvis-markdown pre code { background: none; padding: 0; }
+.jarvis-markdown blockquote { border-left: 3px solid #475569; padding-left: 0.75em; color: #94a3b8; margin: 0.5em 0; }
+.jarvis-markdown table { border-collapse: collapse; width: 100%; margin: 0.5em 0; font-size: 0.85em; }
+.jarvis-markdown th { border: 1px solid #475569; padding: 0.4em 0.6em; text-align: left; background: rgba(0,0,0,0.25); font-weight: 600; color: #e2e8f0; }
+.jarvis-markdown td { border: 1px solid #475569; padding: 0.35em 0.6em; color: #cbd5e1; }
+.jarvis-markdown tr:nth-child(even) td { background: rgba(0,0,0,0.15); }
+.jarvis-markdown hr { border: none; border-top: 1px solid #475569; margin: 0.75em 0; }
