@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Bot, Send, Check, X, Clock, ListTodo, BookOpen, Loader2, AlertCircle } from 'lucide-react';
+import { Bot, Send, Check, X, Clock, ListTodo, BookOpen, Loader2, AlertCircle, Volume2, VolumeX, Mic, Square, Play } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { supabase } from '../../lib/supabase';
@@ -48,6 +48,28 @@ interface KnowledgeEntry {
 
 type Tab = 'chat' | 'pending' | 'tasks' | 'knowledge';
 
+// ---- Speech Recognition types (not in standard TS lib) ----
+interface SpeechRecognitionResultLike {
+  0: { transcript: string };
+  isFinal: boolean;
+}
+interface SpeechRecognitionEventLike {
+  resultIndex: number;
+  results: { length: number; [i: number]: SpeechRecognitionResultLike };
+}
+interface SpeechRecognitionLike {
+  lang: string;
+  interimResults: boolean;
+  continuous: boolean;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+  onresult: ((e: SpeechRecognitionEventLike) => void) | null;
+  onerror: ((e: any) => void) | null;
+  onend: (() => void) | null;
+}
+type SpeechRecognitionCtor = new () => SpeechRecognitionLike;
+
 async function callJarvis(supabaseUrl: string, payload: Record<string, any>): Promise<any> {
   const session = await supabase.auth.getSession();
   const token = session.data.session?.access_token;
@@ -90,6 +112,40 @@ async function callApprove(supabaseUrl: string, actionId: string, decision: 'app
   return data;
 }
 
+// ---- Voice helpers (module-scoped single audio player) ----
+
+let sharedAudio: HTMLAudioElement | null = null;
+let sharedAudioUrl: string | null = null;
+
+function stopSharedAudio() {
+  if (sharedAudio) {
+    sharedAudio.pause();
+    sharedAudio.src = '';
+    if (sharedAudioUrl) {
+      URL.revokeObjectURL(sharedAudioUrl);
+      sharedAudioUrl = null;
+    }
+    sharedAudio = null;
+  }
+}
+
+function stopBrowserSpeech() {
+  if (typeof window !== 'undefined' && window.speechSynthesis) {
+    window.speechSynthesis.cancel();
+  }
+}
+
+let audioUnlocked = false;
+function unlockAudio() {
+  if (audioUnlocked) return;
+  try {
+    const a = new Audio();
+    a.src = 'data:audio/mp3;base64,/+NIxJgAAAEWACQQANIAAAAAEluZF//w==';
+    a.volume = 0;
+    a.play().then(() => { audioUnlocked = true; }).catch(() => {});
+  } catch { /* noop */ }
+}
+
 export default function JarvisChat({ userId, supabaseUrl }: JarvisChatProps) {
   const [activeTab, setActiveTab] = useState<Tab>('chat');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -102,6 +158,25 @@ export default function JarvisChat({ userId, supabaseUrl }: JarvisChatProps) {
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Voice state
+  const [voiceOn, setVoiceOn] = useState(() => {
+    try { return localStorage.getItem('jarvis-voice') !== 'off'; } catch { return true; }
+  });
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [voiceLoading, setVoiceLoading] = useState(false);
+
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const finalTranscriptRef = useRef('');
+  const voiceOnRef = useRef(voiceOn);
+  voiceOnRef.current = voiceOn;
+  const isListeningRef = useRef(false);
+  isListeningRef.current = isListening;
+
+  const speechSupported = typeof window !== 'undefined' && (
+    !!(window as any).SpeechRecognition || !!(window as any).webkitSpeechRecognition
+  );
+
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
@@ -109,6 +184,231 @@ export default function JarvisChat({ userId, supabaseUrl }: JarvisChatProps) {
   useEffect(() => {
     scrollToBottom();
   }, [messages, scrollToBottom]);
+
+  // Stop audio when component unmounts
+  useEffect(() => {
+    return () => {
+      stopSharedAudio();
+      stopBrowserSpeech();
+      if (recognitionRef.current) {
+        try { recognitionRef.current.abort(); } catch { /* noop */ }
+      }
+    };
+  }, []);
+
+  const toggleVoice = () => {
+    const next = !voiceOn;
+    setVoiceOn(next);
+    try { localStorage.setItem('jarvis-voice', next ? 'on' : 'off'); } catch { /* noop */ }
+    if (!next) {
+      stopSharedAudio();
+      stopBrowserSpeech();
+      setIsSpeaking(false);
+    }
+  };
+
+  const stopAllAudio = () => {
+    stopSharedAudio();
+    stopBrowserSpeech();
+    setIsSpeaking(false);
+  };
+
+  // ---- Speaking ----
+  const speakReply = useCallback(async (text: string, hasActions: boolean) => {
+    if (!voiceOnRef.current) return;
+    stopSharedAudio();
+    stopBrowserSpeech();
+
+    let spokenText = text;
+    if (hasActions) {
+      spokenText += ' I need your approval on screen before I make that change.';
+    }
+
+    setVoiceLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('jarvis-voice', {
+        body: { text: spokenText },
+      });
+      if (error) throw error;
+      if (!(data instanceof Blob)) throw new Error('Unexpected response type from jarvis-voice');
+
+      const url = URL.createObjectURL(data);
+      sharedAudioUrl = url;
+      const audio = new Audio(url);
+      sharedAudio = audio;
+      setIsSpeaking(true);
+      audio.onended = () => {
+        URL.revokeObjectURL(url);
+        sharedAudioUrl = null;
+        sharedAudio = null;
+        setIsSpeaking(false);
+      };
+      audio.onerror = () => {
+        URL.revokeObjectURL(url);
+        sharedAudioUrl = null;
+        sharedAudio = null;
+        setIsSpeaking(false);
+        console.error('Audio playback error, falling back to browser TTS');
+        browserFallbackSpeak(spokenText);
+      };
+      await audio.play();
+    } catch (err: any) {
+      console.error('jarvis-voice error:', err);
+      browserFallbackSpeak(spokenText);
+    } finally {
+      setVoiceLoading(false);
+    }
+  }, []);
+
+  const browserFallbackSpeak = (text: string) => {
+    if (!('speechSynthesis' in window)) return;
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.rate = 1.05;
+    utter.onend = () => setIsSpeaking(false);
+    utter.onerror = () => setIsSpeaking(false);
+    setIsSpeaking(true);
+    window.speechSynthesis.speak(utter);
+  };
+
+  const replayMessage = (content: string, hasActions: boolean) => {
+    stopSharedAudio();
+    stopBrowserSpeech();
+    speakReply(content, hasActions);
+  };
+
+  // ---- Listening ----
+  const stopListening = useCallback(() => {
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch { /* noop */ }
+    }
+    setIsListening(false);
+  }, []);
+
+  const startListening = useCallback(() => {
+    if (!speechSupported) return;
+    stopSharedAudio();
+    stopBrowserSpeech();
+    setIsSpeaking(false);
+    unlockAudio();
+
+    const Ctor = ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) as SpeechRecognitionCtor;
+    const recognition = new Ctor();
+    recognition.lang = 'en-US';
+    recognition.interimResults = true;
+    recognition.continuous = false;
+
+    finalTranscriptRef.current = '';
+
+    recognition.onresult = (e: SpeechRecognitionEventLike) => {
+      let interim = '';
+      let final = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const result = e.results[i];
+        if (result.isFinal) final += result[0].transcript;
+        else interim += result[0].transcript;
+      }
+      if (final) finalTranscriptRef.current += final;
+      const combined = (finalTranscriptRef.current + interim).trim();
+      setInput(combined);
+    };
+
+    recognition.onerror = (e: any) => {
+      setIsListening(false);
+      if (e?.error === 'not-allowed' || e?.error === 'service-not-allowed') {
+        setError('Microphone blocked — allow mic access for this site in your browser settings.');
+      } else if (e?.error && e.error !== 'aborted' && e.error !== 'no-speech') {
+        console.error('Speech recognition error:', e?.error);
+      }
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+      const finalText = finalTranscriptRef.current.trim();
+      if (finalText) {
+        setInput(finalText);
+        // Auto-send after a brief delay to let the UI update
+        setTimeout(() => {
+          if (finalText && !loading) {
+            sendWithText(finalText);
+          }
+        }, 100);
+      }
+    };
+
+    recognitionRef.current = recognition;
+    setInput('');
+    setError('');
+    setIsListening(true);
+    try {
+      recognition.start();
+    } catch {
+      setIsListening(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [speechSupported]);
+
+  const toggleListening = () => {
+    if (isListeningRef.current) {
+      stopListening();
+    } else {
+      startListening();
+    }
+  };
+
+  // ---- Sending ----
+  const sendWithText = useCallback(async (text: string) => {
+    const userMsg = text.trim();
+    if (!userMsg || loading) return;
+    unlockAudio();
+    setInput('');
+    setError('');
+    setLoading(true);
+
+    const newMessages = [...messages, { role: 'user' as const, content: userMsg }];
+    setMessages(newMessages);
+
+    try {
+      const data = await callJarvis(supabaseUrl, {
+        message: userMsg,
+        conversationHistory: newMessages.slice(-11, -1).map(m => ({ role: m.role, content: m.content })),
+      });
+
+      const hasActions = (data.proposedActions?.length ?? 0) > 0;
+      const assistantMsg: ChatMessage = {
+        role: 'assistant',
+        content: data.reply,
+        proposedActions: data.proposedActions || [],
+        tasks: data.tasks || [],
+      };
+      setMessages([...newMessages, assistantMsg]);
+
+      if (hasActions) loadPendingActions();
+      if (data.tasks?.length > 0) loadTasks();
+
+      speakReply(data.reply, hasActions);
+    } catch (err: any) {
+      setError(err.message || 'Network error');
+    } finally {
+      setLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, loading, supabaseUrl, speakReply]);
+
+  const handleSend = () => {
+    const text = input.trim();
+    if (!text || loading) return;
+    sendWithText(text);
+  };
+
+  const handleNewChat = () => {
+    stopSharedAudio();
+    stopBrowserSpeech();
+    setIsSpeaking(false);
+    stopListening();
+    setMessages([]);
+    setInput('');
+    setError('');
+  };
 
   const loadPendingActions = useCallback(async () => {
     try {
@@ -142,39 +442,6 @@ export default function JarvisChat({ userId, supabaseUrl }: JarvisChatProps) {
     loadTasks();
     loadKnowledge();
   }, [loadPendingActions, loadTasks, loadKnowledge]);
-
-  const handleSend = async () => {
-    if (!input.trim() || loading) return;
-    const userMsg = input.trim();
-    setInput('');
-    setError('');
-    setLoading(true);
-
-    const newMessages = [...messages, { role: 'user' as const, content: userMsg }];
-    setMessages(newMessages);
-
-    try {
-      const data = await callJarvis(supabaseUrl, {
-        message: userMsg,
-        conversationHistory: newMessages.slice(-11, -1).map(m => ({ role: m.role, content: m.content })),
-      });
-
-      const assistantMsg: ChatMessage = {
-        role: 'assistant',
-        content: data.reply,
-        proposedActions: data.proposedActions || [],
-        tasks: data.tasks || [],
-      };
-      setMessages([...newMessages, assistantMsg]);
-
-      if (data.proposedActions?.length > 0) loadPendingActions();
-      if (data.tasks?.length > 0) loadTasks();
-    } catch (err: any) {
-      setError(err.message || 'Network error');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleApprove = async (actionId: string) => {
     setActionLoading(prev => ({ ...prev, [actionId]: true }));
@@ -241,6 +508,8 @@ export default function JarvisChat({ userId, supabaseUrl }: JarvisChatProps) {
 
   const pendingBadge = pendingActions.length > 0 ? pendingActions.length : null;
 
+  const subtitle = isListening ? 'Listening…' : isSpeaking ? 'Speaking…' : voiceLoading ? 'Generating voice…' : 'Ask about your fleet, repairs, bookings, and operations';
+
   const tabButton = (tab: Tab, label: string, icon: React.ReactNode, badge?: number | null) => (
     <button
       onClick={() => setActiveTab(tab)}
@@ -260,9 +529,32 @@ export default function JarvisChat({ userId, supabaseUrl }: JarvisChatProps) {
         <div className="bg-amber-500/20 p-3 rounded-xl">
           <Bot className="w-8 h-8 text-amber-500" />
         </div>
-        <div>
-          <h2 className="text-2xl font-bold text-white">Jarvis AI Assistant</h2>
-          <p className="text-slate-400 text-sm">Ask about your fleet, repairs, bookings, and operations</p>
+        <div className="flex-1">
+          <div className="flex items-center gap-3">
+            <h2 className="text-2xl font-bold text-white">Jarvis AI Assistant</h2>
+            <button
+              onClick={toggleVoice}
+              title={voiceOn ? 'Voice on — click to mute' : 'Voice off — click to enable'}
+              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
+            >
+              {isSpeaking ? (
+                <Square className="w-4 h-4 text-red-400" />
+              ) : voiceOn ? (
+                <Volume2 className="w-4 h-4 text-amber-400" />
+              ) : (
+                <VolumeX className="w-4 h-4 text-slate-500" />
+              )}
+            </button>
+            {messages.length > 0 && activeTab === 'chat' && (
+              <button
+                onClick={handleNewChat}
+                className="text-xs text-slate-400 hover:text-white px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors"
+              >
+                New chat
+              </button>
+            )}
+          </div>
+          <p className="text-slate-400 text-sm">{subtitle}</p>
         </div>
       </div>
 
@@ -291,14 +583,28 @@ export default function JarvisChat({ userId, supabaseUrl }: JarvisChatProps) {
                 <Bot className="w-12 h-12 mx-auto mb-4 text-slate-600" />
                 <p className="text-sm">Ask Jarvis anything about your fleet, repairs, bookings, or operations.</p>
                 <p className="text-xs text-slate-600 mt-2">Try: "What repairs are pending?" or "Which yachts have upcoming trips?"</p>
+                {speechSupported && voiceOn && (
+                  <p className="text-xs text-amber-500/60 mt-2">Tap the microphone to speak, or type your question.</p>
+                )}
               </div>
             )}
             {messages.map((msg, idx) => (
               <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[80%] rounded-2xl p-3 ${msg.role === 'user' ? 'bg-amber-500 text-slate-900' : 'bg-slate-700 text-slate-100'}`}>
                   {msg.role === 'assistant' ? (
-                    <div className="jarvis-markdown text-sm">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                    <div className="flex items-start gap-2">
+                      {voiceOn && (
+                        <button
+                          onClick={() => replayMessage(msg.content, (msg.proposedActions?.length ?? 0) > 0)}
+                          title="Replay"
+                          className="flex-shrink-0 mt-0.5 text-slate-400 hover:text-amber-400 transition-colors"
+                        >
+                          <Play className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      <div className="jarvis-markdown text-sm flex-1">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                      </div>
                     </div>
                   ) : (
                     <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
@@ -360,13 +666,26 @@ export default function JarvisChat({ userId, supabaseUrl }: JarvisChatProps) {
             )}
             <div ref={messagesEndRef} />
           </div>
-          <div className="border-t border-slate-700 p-3 flex gap-2">
+          <div className="border-t border-slate-700 p-3 flex gap-2 items-center">
+            {speechSupported && (
+              <button
+                onClick={toggleListening}
+                title={isListening ? 'Stop listening' : 'Start speaking'}
+                className={`flex-shrink-0 p-2.5 rounded-xl transition-all ${
+                  isListening
+                    ? 'bg-red-600 text-white animate-pulse'
+                    : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'
+                }`}
+              >
+                <Mic className="w-4 h-4" />
+              </button>
+            )}
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-              placeholder="Ask Jarvis..."
+              placeholder={isListening ? 'Listening…' : 'Ask Jarvis...'}
               disabled={loading}
               className="flex-1 px-4 py-2 bg-slate-900 border border-slate-600 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 disabled:opacity-50"
             />
