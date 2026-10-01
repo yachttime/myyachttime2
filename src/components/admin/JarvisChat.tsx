@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Bot, Send, Check, X, Clock, ListTodo, BookOpen, Loader2, AlertCircle, Volume2, VolumeX, Mic, Square, Play } from 'lucide-react';
+import { Bot, Send, Check, X, Clock, ListTodo, BookOpen, Loader2, AlertCircle, Volume2, VolumeX, Mic, Square, Play, Headphones } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { supabase } from '../../lib/supabase';
@@ -69,6 +69,12 @@ interface SpeechRecognitionLike {
   onend: (() => void) | null;
 }
 type SpeechRecognitionCtor = new () => SpeechRecognitionLike;
+
+const STOP_PHRASES = ['stop', "that's all", 'goodbye', 'never mind', 'thanks bob'];
+function isStopPhrase(text: string): boolean {
+  const lower = text.toLowerCase().trim();
+  return STOP_PHRASES.some(p => lower.includes(p));
+}
 
 async function callJarvis(supabaseUrl: string, payload: Record<string, any>): Promise<any> {
   const session = await supabase.auth.getSession();
@@ -165,6 +171,7 @@ export default function JarvisChat({ userId, supabaseUrl }: JarvisChatProps) {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [voiceLoading, setVoiceLoading] = useState(false);
+  const [handsFreeMode, setHandsFreeMode] = useState(false);
 
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const finalTranscriptRef = useRef('');
@@ -172,6 +179,13 @@ export default function JarvisChat({ userId, supabaseUrl }: JarvisChatProps) {
   voiceOnRef.current = voiceOn;
   const isListeningRef = useRef(false);
   isListeningRef.current = isListening;
+  const isSpeakingRef = useRef(false);
+  isSpeakingRef.current = isSpeaking;
+  const handsFreeRef = useRef(false);
+  handsFreeRef.current = handsFreeMode;
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reListenRef = useRef<(() => void) | null>(null);
+  const sendWithTextRef = useRef<((text: string) => Promise<void>) | null>(null);
 
   const speechSupported = typeof window !== 'undefined' && (
     !!(window as any).SpeechRecognition || !!(window as any).webkitSpeechRecognition
@@ -192,6 +206,9 @@ export default function JarvisChat({ userId, supabaseUrl }: JarvisChatProps) {
       stopBrowserSpeech();
       if (recognitionRef.current) {
         try { recognitionRef.current.abort(); } catch { /* noop */ }
+      }
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
       }
     };
   }, []);
@@ -242,6 +259,9 @@ export default function JarvisChat({ userId, supabaseUrl }: JarvisChatProps) {
         sharedAudioUrl = null;
         sharedAudio = null;
         setIsSpeaking(false);
+        if (handsFreeRef.current && reListenRef.current) {
+          reListenRef.current();
+        }
       };
       audio.onerror = () => {
         URL.revokeObjectURL(url);
@@ -264,7 +284,12 @@ export default function JarvisChat({ userId, supabaseUrl }: JarvisChatProps) {
     if (!('speechSynthesis' in window)) return;
     const utter = new SpeechSynthesisUtterance(text);
     utter.rate = 1.05;
-    utter.onend = () => setIsSpeaking(false);
+    utter.onend = () => {
+      setIsSpeaking(false);
+      if (handsFreeRef.current && reListenRef.current) {
+        reListenRef.current();
+      }
+    };
     utter.onerror = () => setIsSpeaking(false);
     setIsSpeaking(true);
     window.speechSynthesis.speak(utter);
@@ -283,6 +308,16 @@ export default function JarvisChat({ userId, supabaseUrl }: JarvisChatProps) {
     }
     setIsListening(false);
   }, []);
+
+  const stopHandsFree = useCallback(() => {
+    setHandsFreeMode(false);
+    handsFreeRef.current = false;
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+    stopListening();
+  }, [stopListening]);
 
   const startListening = useCallback(() => {
     if (!speechSupported) return;
@@ -347,11 +382,123 @@ export default function JarvisChat({ userId, supabaseUrl }: JarvisChatProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [speechSupported]);
 
+  const startHandsFreeListening = useCallback(() => {
+    if (!speechSupported) return;
+    if (isSpeakingRef.current) return;
+
+    stopSharedAudio();
+    stopBrowserSpeech();
+    unlockAudio();
+
+    const Ctor = ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) as SpeechRecognitionCtor;
+    const recognition = new Ctor();
+    recognition.lang = 'en-US';
+    recognition.interimResults = true;
+    recognition.continuous = false;
+
+    finalTranscriptRef.current = '';
+
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+    }
+    silenceTimerRef.current = setTimeout(() => {
+      stopHandsFree();
+    }, 30000);
+
+    recognition.onresult = (e: SpeechRecognitionEventLike) => {
+      let interim = '';
+      let final = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const result = e.results[i];
+        if (result.isFinal) final += result[0].transcript;
+        else interim += result[0].transcript;
+      }
+      if (final) {
+        finalTranscriptRef.current += final;
+        if (silenceTimerRef.current) {
+          clearTimeout(silenceTimerRef.current);
+          silenceTimerRef.current = null;
+        }
+      }
+      const combined = (finalTranscriptRef.current + interim).trim();
+      setInput(combined);
+    };
+
+    recognition.onerror = (e: any) => {
+      setIsListening(false);
+      if (e?.error === 'not-allowed' || e?.error === 'service-not-allowed') {
+        setError('Microphone blocked — allow mic access for this site in your browser settings.');
+        stopHandsFree();
+      } else if (e?.error && e.error !== 'aborted' && e.error !== 'no-speech') {
+        console.error('Speech recognition error:', e?.error);
+      }
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
+      const finalText = finalTranscriptRef.current.trim();
+      if (finalText) {
+        if (isStopPhrase(finalText)) {
+          stopHandsFree();
+          setInput('');
+          return;
+        }
+        setInput(finalText);
+        setTimeout(() => {
+          if (finalText && sendWithTextRef.current) {
+            sendWithTextRef.current(finalText);
+          }
+        }, 100);
+      } else {
+        stopHandsFree();
+      }
+    };
+
+    recognitionRef.current = recognition;
+    setInput('');
+    setError('');
+    setIsListening(true);
+    try {
+      recognition.start();
+    } catch {
+      setIsListening(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [speechSupported, stopHandsFree]);
+
+  reListenRef.current = startHandsFreeListening;
+
   const toggleListening = () => {
+    if (handsFreeRef.current) {
+      stopHandsFree();
+      return;
+    }
     if (isListeningRef.current) {
       stopListening();
     } else {
       startListening();
+    }
+  };
+
+  const toggleHandsFree = () => {
+    if (handsFreeRef.current) {
+      stopHandsFree();
+    } else {
+      if (!voiceOnRef.current) {
+        setVoiceOn(true);
+        voiceOnRef.current = true;
+        try { localStorage.setItem('jarvis-voice', 'on'); } catch { /* noop */ }
+      }
+      stopSharedAudio();
+      stopBrowserSpeech();
+      setIsSpeaking(false);
+      setHandsFreeMode(true);
+      handsFreeRef.current = true;
+      speakReply("I'm listening.", false);
     }
   };
 
@@ -394,6 +541,8 @@ export default function JarvisChat({ userId, supabaseUrl }: JarvisChatProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, loading, supabaseUrl, speakReply]);
 
+  sendWithTextRef.current = sendWithText;
+
   const handleSend = () => {
     const text = input.trim();
     if (!text || loading) return;
@@ -405,6 +554,7 @@ export default function JarvisChat({ userId, supabaseUrl }: JarvisChatProps) {
     stopBrowserSpeech();
     setIsSpeaking(false);
     stopListening();
+    stopHandsFree();
     setMessages([]);
     setInput('');
     setError('');
@@ -508,7 +658,9 @@ export default function JarvisChat({ userId, supabaseUrl }: JarvisChatProps) {
 
   const pendingBadge = pendingActions.length > 0 ? pendingActions.length : null;
 
-  const subtitle = isListening ? 'Listening…' : isSpeaking ? 'Speaking…' : voiceLoading ? 'Generating voice…' : 'Ask about your fleet, repairs, bookings, and operations';
+  const subtitle = handsFreeMode
+    ? isListening ? 'Hands-free listening…' : isSpeaking ? 'Bob is speaking…' : voiceLoading ? 'Generating voice…' : 'Hands-free conversation — tap headphones to stop'
+    : isListening ? 'Listening…' : isSpeaking ? 'Speaking…' : voiceLoading ? 'Generating voice…' : 'Ask about your fleet, repairs, bookings, and operations';
 
   const tabButton = (tab: Tab, label: string, icon: React.ReactNode, badge?: number | null) => (
     <button
@@ -590,7 +742,7 @@ export default function JarvisChat({ userId, supabaseUrl }: JarvisChatProps) {
                 <p className="text-sm">Ask Bob anything about your fleet, repairs, bookings, or operations.</p>
                 <p className="text-xs text-slate-600 mt-2">Try: "What repairs are pending?" or "Which yachts have upcoming trips?"</p>
                 {speechSupported && voiceOn && (
-                  <p className="text-xs text-amber-500/60 mt-2">Tap the microphone to speak, or type your question.</p>
+                  <p className="text-xs text-amber-500/60 mt-2">Tap the microphone to speak, the headphones for a hands-free conversation, or type your question.</p>
                 )}
               </div>
             )}
@@ -684,6 +836,19 @@ export default function JarvisChat({ userId, supabaseUrl }: JarvisChatProps) {
                 }`}
               >
                 <Mic className="w-4 h-4" />
+              </button>
+            )}
+            {speechSupported && (
+              <button
+                onClick={toggleHandsFree}
+                title={handsFreeMode ? 'Stop hands-free conversation' : 'Start hands-free conversation'}
+                className={`flex-shrink-0 p-2.5 rounded-xl transition-all ${
+                  handsFreeMode
+                    ? `bg-amber-500 text-slate-900${isListening ? ' animate-pulse' : ''}`
+                    : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'
+                }`}
+              >
+                <Headphones className="w-4 h-4" />
               </button>
             )}
             <input
