@@ -55,6 +55,7 @@ import EditYachtModal, { EMPTY_YACHT_FORM, EMPTY_ENGINE_GEN_ENTRY, EngineGenForm
 import EngineCatalogManager from './admin/EngineCatalogManager';
 import YearEndOverview from './admin/YearEndOverview';
 import { SalvageReports } from './SalvageReports';
+import JarvisChat from './admin/JarvisChat';
 
 interface DashboardProps {
   onNavigate: (page: 'maintenance' | 'education' | 'staffCalendar') => void;
@@ -82,7 +83,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   };
 
   // Helper function to set admin view and persist to localStorage
-  const setAdminViewPersisted = (view: 'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies' | 'maintenancerequests' | 'vesselmonitoring' | 'enginecatalog' | 'yearendoverview' | 'salvagereports') => {
+  const setAdminViewPersisted = (view: 'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies' | 'maintenancerequests' | 'vesselmonitoring' | 'enginecatalog' | 'yearendoverview' | 'salvagereports' | 'jarvis') => {
     setAdminView(view);
     try {
       localStorage.setItem('adminView', view);
@@ -401,11 +402,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [resumingQueueItemId, setResumingQueueItemId] = useState<string | null>(null);
   const queueUploadAttemptedRef = useRef(false);
 
-  const [adminView, setAdminView] = useState<'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies' | 'maintenancerequests' | 'vesselmonitoring' | 'enginecatalog' | 'yearendoverview' | 'salvagereports'>(() => {
+  const [adminView, setAdminView] = useState<'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies' | 'maintenancerequests' | 'vesselmonitoring' | 'enginecatalog' | 'yearendoverview' | 'salvagereports' | 'jarvis'>(() => {
     try {
       const stored = localStorage.getItem('adminView');
-      if (stored && ['menu', 'inspection', 'yachts', 'ownertrips', 'repairs', 'ownerchat', 'messages', 'mastercalendar', 'ownerhandoff', 'users', 'appointments', 'staffappointment', 'smartdevices', 'companies', 'maintenancerequests', 'vesselmonitoring', 'enginecatalog', 'yearendoverview', 'salvagereports'].includes(stored)) {
-        return stored as 'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies' | 'maintenancerequests' | 'vesselmonitoring' | 'enginecatalog' | 'yearendoverview' | 'salvagereports';
+      if (stored && ['menu', 'inspection', 'yachts', 'ownertrips', 'repairs', 'ownerchat', 'messages', 'mastercalendar', 'ownerhandoff', 'users', 'appointments', 'staffappointment', 'smartdevices', 'companies', 'maintenancerequests', 'vesselmonitoring', 'enginecatalog', 'yearendoverview', 'salvagereports', 'jarvis'].includes(stored)) {
+        return stored as 'menu' | 'inspection' | 'yachts' | 'ownertrips' | 'repairs' | 'ownerchat' | 'messages' | 'mastercalendar' | 'ownerhandoff' | 'users' | 'appointments' | 'staffappointment' | 'smartdevices' | 'companies' | 'maintenancerequests' | 'vesselmonitoring' | 'enginecatalog' | 'yearendoverview' | 'salvagereports' | 'jarvis';
       }
       return 'menu';
     } catch {
@@ -17388,6 +17389,14 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                   userRole={effectiveRole}
                   prefillEstimateId={salvagePrefillEstimateId}
                 />
+                </AdminViewWrapper>
+              ) : adminView === 'jarvis' ? (
+                <AdminViewWrapper onBack={() => setAdminViewPersisted('menu')} backHoverColor="hover:text-amber-500">
+                  <JarvisChat
+                    userId={userProfile?.user_id || ''}
+                    supabaseUrl={import.meta.env.VITE_SUPABASE_URL}
+                    supabaseAnonKey={import.meta.env.VITE_SUPABASE_ANON_KEY}
+                  />
                 </AdminViewWrapper>
               ) : null}
             </div>

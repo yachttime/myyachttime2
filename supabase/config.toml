@@ -48,3 +48,9 @@ verify_jwt = false
 
 [functions.device-config]
 verify_jwt = false
+
+[functions.jarvis-chat]
+verify_jwt = true
+
+[functions.jarvis-approve]
+verify_jwt = true

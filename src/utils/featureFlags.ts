@@ -22,6 +22,7 @@ export const FEATURE_KEYS = {
   YEAR_END_OVERVIEW: 'year_end_overview',
   USER_MANAGEMENT: 'user_management',
   SALVAGE_REPORTS: 'salvage_reports',
+  JARVIS: 'jarvis',
 } as const;
 
 export type FeatureKey = typeof FEATURE_KEYS[keyof typeof FEATURE_KEYS];
@@ -59,6 +60,7 @@ export const ADMIN_FEATURES: FeatureDef[] = [
   { key: 'year_end_overview', label: 'Year-End Overview' },
   { key: 'user_management', label: 'User Management' },
   { key: 'salvage_reports', label: 'Salvage Division' },
+  { key: 'jarvis', label: 'Jarvis AI Assistant' },
 ];
 
 export const ALL_FEATURES: FeatureDef[] = [...SIDEBAR_FEATURES, ...ADMIN_FEATURES.filter(
