@@ -1,4 +1,4 @@
-import { Calendar, Mail, CalendarPlus, Users, ClipboardCheck, UserCheck, FileUp, Wrench, MessageCircle, Ship, Lock, Building2, Activity, Wrench as EngineIcon, BarChart3, LifeBuoy, Bot } from 'lucide-react';
+import { Calendar, Mail, CalendarPlus, Users, ClipboardCheck, UserCheck, FileUp, Wrench, MessageCircle, Ship, Lock, Building2, Activity, Wrench as EngineIcon, BarChart3, LifeBuoy } from 'lucide-react';
 import { isStaffRole, isMasterRole, isStaffOrManager, isOwnerRole, canManageYacht, canAccessAllYachts, UserRole } from '../../lib/supabase';
 import { useCompany } from '../../contexts/CompanyContext';
 
@@ -249,9 +249,11 @@ export default function AdminMenu({ effectiveRole, pendingInspectionCount, onNav
       {isMasterRole(effectiveRole) && isEnabled('jarvis') && (
         <button onClick={() => onNavigate('jarvis')} className={cardClass}>
           <div className="flex items-center gap-4 mb-4">
-            <div className="bg-amber-500/20 p-4 rounded-xl group-hover:bg-amber-500/30 transition-colors">
-              <Bot className="w-8 h-8 text-amber-500" />
-            </div>
+            <img
+              src="/images/Bob_As_Jarvis_Tech_Background copy.png"
+              alt="Bob"
+              className="w-12 h-12 rounded-full object-cover object-[center_28%] border-2 border-amber-500/60"
+            />
           </div>
           <h3 className="text-xl font-bold mb-2">Bob AI Assistant</h3>
           <p className="text-slate-400 text-sm">AI-powered assistant for fleet, repairs, and operations</p>

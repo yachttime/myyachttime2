@@ -526,9 +526,11 @@ export default function JarvisChat({ userId, supabaseUrl }: JarvisChatProps) {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-4">
-        <div className="bg-amber-500/20 p-3 rounded-xl">
-          <Bot className="w-8 h-8 text-amber-500" />
-        </div>
+        <img
+          src="/images/Bob_As_Jarvis_Tech_Background copy.png"
+          alt="Bob"
+          className="w-12 h-12 rounded-full object-cover object-center border-2 border-amber-500/60"
+        />
         <div className="flex-1">
           <div className="flex items-center gap-3">
             <h2 className="text-2xl font-bold text-white">Bob AI Assistant</h2>
@@ -559,7 +561,7 @@ export default function JarvisChat({ userId, supabaseUrl }: JarvisChatProps) {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {tabButton('chat', 'Chat', <Bot className="w-4 h-4" />)}
+        {tabButton('chat', 'Chat', <img src="/images/Bob_As_Jarvis_Tech_Background copy.png" alt="" className="w-4 h-4 rounded-full object-cover object-center" />)}
         {tabButton('pending', 'Pending Actions', <Clock className="w-4 h-4" />, pendingBadge)}
         {tabButton('tasks', 'Tasks', <ListTodo className="w-4 h-4" />)}
         {tabButton('knowledge', 'Knowledge Base', <BookOpen className="w-4 h-4" />)}
@@ -580,7 +582,11 @@ export default function JarvisChat({ userId, supabaseUrl }: JarvisChatProps) {
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {messages.length === 0 && (
               <div className="text-center text-slate-500 py-12">
-                <Bot className="w-12 h-12 mx-auto mb-4 text-slate-600" />
+                <img
+                  src="/images/Bob_As_Jarvis_Tech_Background copy.png"
+                  alt="Bob"
+                  className="w-16 h-16 mx-auto mb-4 rounded-full object-cover object-center border-2 border-slate-600"
+                />
                 <p className="text-sm">Ask Bob anything about your fleet, repairs, bookings, or operations.</p>
                 <p className="text-xs text-slate-600 mt-2">Try: "What repairs are pending?" or "Which yachts have upcoming trips?"</p>
                 {speechSupported && voiceOn && (
