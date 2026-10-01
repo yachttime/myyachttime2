@@ -93,11 +93,18 @@ Deno.serve(async (req: Request) => {
     let reply = '';
 
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
+      const callClaude = (model: string) => fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'x-api-key': anthropicApiKey, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: MODEL, max_tokens: 2048, system, tools: TOOLS, messages }),
+        body: JSON.stringify({ model, max_tokens: 8000, system, tools: TOOLS, messages }),
       });
+      let res = await callClaude(activeModel ?? MODEL);
+      if (res.status === 404) {
+        // Configured model isn't available on this account: pick the newest available Sonnet (or newest model).
+        activeModel = await pickModel(anthropicApiKey);
+        console.log('Jarvis switched model to', activeModel);
+        res = await callClaude(activeModel);
+      }
       if (!res.ok) {
         const errText = await res.text();
         console.error('Anthropic API error:', res.status, errText);
@@ -106,7 +113,10 @@ Deno.serve(async (req: Request) => {
       const data = await res.json();
       messages.push({ role: 'assistant', content: data.content });
       const text = data.content.filter((b: any) => b.type === 'text').map((b: any) => b.text).join('\n').trim();
-      if (data.stop_reason !== 'tool_use') { reply = text; break; }
+      if (data.stop_reason !== 'tool_use') {
+        reply = data.stop_reason === 'max_tokens' ? text + '\n\n(Answer cut off — ask me to continue or narrow the question.)' : text;
+        break;
+      }
 
       const results: any[] = [];
       for (const block of data.content.filter((b: any) => b.type === 'tool_use')) {
@@ -133,6 +143,22 @@ Deno.serve(async (req: Request) => {
     return jsonResp({ error: error.message || 'Internal server error' }, 500);
   }
 });
+
+// ---------------------------------------------------------------------
+// Model selection fallback
+// ---------------------------------------------------------------------
+let activeModel: string | null = null;
+
+async function pickModel(apiKey: string): Promise<string> {
+  const res = await fetch('https://api.anthropic.com/v1/models?limit=100', {
+    headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+  });
+  if (!res.ok) throw new Error(`Could not list Claude models (${res.status}).`);
+  const ids: string[] = ((await res.json()).data ?? []).map((m: any) => m.id); // newest first
+  const pick = ids.find((id) => id.includes('sonnet')) ?? ids[0];
+  if (!pick) throw new Error('No Claude models available on this API key.');
+  return pick;
+}
 
 // ---------------------------------------------------------------------
 // Context: schema Jarvis can read + allow-list + knowledge (cached 5 min)
