@@ -3,11 +3,14 @@ import { Bot, Send, Check, X, Clock, ListTodo, BookOpen, Loader2, AlertCircle, V
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { supabase } from '../../lib/supabase';
+import { BOB_SCREENS, BOB_SCREEN_MAP, BobAppAction } from '../../lib/bobScreens';
+import { useBob } from '../../contexts/BobContext';
 
 interface JarvisChatProps {
   userId: string;
   supabaseUrl: string;
   supabaseAnonKey: string;
+  inPanel?: boolean;
 }
 
 interface ChatMessage {
@@ -152,7 +155,10 @@ function unlockAudio() {
   } catch { /* noop */ }
 }
 
-export default function JarvisChat({ userId, supabaseUrl }: JarvisChatProps) {
+export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatProps) {
+  const bob = useBob();
+  const handsFreePausedRef = useRef(false);
+  handsFreePausedRef.current = bob.handsFreePaused;
   const [activeTab, setActiveTab] = useState<Tab>('chat');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -437,6 +443,10 @@ export default function JarvisChat({ userId, supabaseUrl }: JarvisChatProps) {
       console.log('[HandsFree] loading/busy, skip restart');
       return;
     }
+    if (handsFreePausedRef.current) {
+      console.log('[HandsFree] paused for video, skip restart');
+      return;
+    }
 
     if (recognitionRef.current) {
       try { recognitionRef.current.abort(); } catch { /* noop */ }
@@ -596,6 +606,8 @@ export default function JarvisChat({ userId, supabaseUrl }: JarvisChatProps) {
       const data = await callJarvis(supabaseUrl, {
         message: userMsg,
         conversationHistory: newMessages.slice(-11, -1).map(m => ({ role: m.role, content: m.content })),
+        availableScreens: BOB_SCREENS.map(({ key, label, kind, description, fields }) => ({ key, label, kind, description, fields })),
+        currentScreen: bob.currentRoute,
       });
 
       const hasActions = (data.proposedActions?.length ?? 0) > 0;
@@ -614,6 +626,14 @@ export default function JarvisChat({ userId, supabaseUrl }: JarvisChatProps) {
 
       if (hasActions && handsFreeRef.current) {
         stopHandsFree('pending action created');
+      }
+
+      const appActions: BobAppAction[] = data.appActions || [];
+      if (appActions.length > 0) {
+        console.log('[HandsFree] appActions received:', appActions.length);
+        for (const action of appActions) {
+          handleAppAction(action);
+        }
       }
 
       speakReply(data.reply, hasActions);
@@ -652,6 +672,42 @@ export default function JarvisChat({ userId, supabaseUrl }: JarvisChatProps) {
     setMessages([]);
     setInput('');
     setError('');
+  };
+
+  const handleAppAction = (action: BobAppAction) => {
+    if (action.type === 'open_video') {
+      if (action.video_url && action.title) {
+        console.log('[HandsFree] open_video:', action.title);
+        bob.openVideo({ title: action.title, video_url: action.video_url });
+      }
+      return;
+    }
+
+    if (action.type === 'open_page') {
+      const screen = action.key ? BOB_SCREEN_MAP[action.key] : null;
+      if (screen) {
+        let route = screen.route;
+        if (action.record_id && route.includes(':id')) {
+          route = route.replace(':id', action.record_id);
+        }
+        console.log('[HandsFree] open_page:', route);
+        bob.navigate(route);
+      }
+      return;
+    }
+
+    if (action.type === 'open_form') {
+      const screen = action.key ? BOB_SCREEN_MAP[action.key] : null;
+      if (screen) {
+        let route = screen.route;
+        if (action.record_id && route.includes(':id')) {
+          route = route.replace(':id', action.record_id);
+        }
+        console.log('[HandsFree] open_form:', route, 'prefill:', action.prefill);
+        bob.navigate(route, action.prefill);
+      }
+      return;
+    }
   };
 
   const loadPendingActions = useCallback(async () => {

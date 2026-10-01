@@ -4,6 +4,9 @@ import { CompanyProvider } from './contexts/CompanyContext';
 import { RoleImpersonationProvider } from './contexts/RoleImpersonationContext';
 import { YachtImpersonationProvider } from './contexts/YachtImpersonationContext';
 import { NotificationProvider } from './contexts/NotificationContext';
+import { BobProvider } from './contexts/BobContext';
+import { BobFloatingButton } from './components/admin/BobFloatingButton';
+import { BobVideoModal } from './components/admin/BobVideoModal';
 import { Welcome } from './components/Welcome';
 import { SignIn } from './components/SignIn';
 import { Dashboard } from './components/Dashboard';
@@ -195,7 +198,11 @@ function App() {
         <NotificationProvider>
           <RoleImpersonationProvider>
             <YachtImpersonationProvider>
-              <AppContent />
+              <BobProvider>
+                <AppContent />
+                <BobFloatingButton />
+                <BobVideoModal />
+              </BobProvider>
             </YachtImpersonationProvider>
           </RoleImpersonationProvider>
         </NotificationProvider>

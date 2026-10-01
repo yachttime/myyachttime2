@@ -6,6 +6,7 @@ import { useCompany } from '../contexts/CompanyContext';
 import { useRoleImpersonation } from '../contexts/RoleImpersonationContext';
 import { useYachtImpersonation } from '../contexts/YachtImpersonationContext';
 import { useNotification } from '../contexts/NotificationContext';
+import { useBob } from '../contexts/BobContext';
 import { useConfirm } from '../hooks/useConfirm';
 import { supabase, YachtBooking, MaintenanceRequest, EducationVideo, TripInspection, ConditionRating, InspectionType, RepairRequest, RepairRequestNote, OwnerChatMessage, YachtHistoryLog, OwnerHandoffInspection, YachtDocument, YachtInvoice, YachtBudget, AdminNotification, StaffMessage, Appointment, Yacht, UserProfile, VesselManagementAgreement, logYachtActivity, isStaffRole, isManagerRole, isStaffOrManager, isMasterRole, isOwnerRole, canManageUsers, canManageYacht, canAccessAllYachts } from '../lib/supabase';
 import { InspectionPDFView } from './InspectionPDFView';
@@ -68,6 +69,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const { impersonatedYacht, setImpersonatedYacht, getEffectiveYacht, isImpersonatingYacht } = useYachtImpersonation();
   const { showSuccess, showError } = useNotification();
   const { confirm, ConfirmDialog } = useConfirm();
+  const bob = useBob();
 
   const effectiveRole = getEffectiveRole(userProfile?.role);
   const effectiveYacht = getEffectiveYacht(yacht, userProfile?.role);
@@ -91,6 +93,59 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       console.error('Error saving admin view to localStorage:', error);
     }
   };
+
+  // Register Bob navigation handler — maps BOB_SCREENS routes to Dashboard tabs/views
+  useEffect(() => {
+    bob.registerNavigate((route: string, prefill?: Record<string, string>) => {
+      // Main tabs
+      if (route === '/calendar') { setActiveTabPersisted('calendar'); return; }
+      if (route === '/maintenance') { setActiveTabPersisted('maintenance'); return; }
+      if (route === '/education') { setActiveTabPersisted('education'); return; }
+      if (route === '/staff-calendar') { setActiveTabPersisted('staffCalendar'); return; }
+      if (route === '/time-clock') { setActiveTabPersisted('timeClock'); return; }
+      if (route === '/customers') { setActiveTabPersisted('customers'); return; }
+      if (route === '/support') { setActiveTabPersisted('support'); return; }
+      if (route === '/admin') { setActiveTabPersisted('admin'); setAdminViewPersisted('menu'); return; }
+
+      // Estimating sub-tabs
+      if (route.startsWith('/estimating/')) {
+        setActiveTabPersisted('estimating');
+        return;
+      }
+
+      // Admin views
+      if (route.startsWith('/admin/')) {
+        setActiveTabPersisted('admin');
+        const viewMap: Record<string, string> = {
+          'master-calendar': 'mastercalendar',
+          'messages': 'messages',
+          'appointments': 'appointments',
+          'staff-appointment': 'staffappointment',
+          'inspection': 'inspection',
+          'owner-handoff': 'ownerhandoff',
+          'repair-requests': 'repairs',
+          'maintenance-requests': 'maintenancerequests',
+          'owner-trips': 'ownertrips',
+          'owner-chat': 'ownerchat',
+          'yachts': 'yachts',
+          'engine-catalog': 'enginecatalog',
+          'vessel-monitoring': 'vesselmonitoring',
+          'smart-devices': 'smartdevices',
+          'companies': 'companies',
+          'year-end-overview': 'yearendoverview',
+          'users': 'users',
+          'salvage-reports': 'salvagereports',
+          'jarvis': 'jarvis',
+        };
+        const subRoute = route.replace('/admin/', '').split('/')[0];
+        const view = viewMap[subRoute];
+        if (view) {
+          setAdminViewPersisted(view as any);
+        }
+        return;
+      }
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [bookings, setBookings] = useState<YachtBooking[]>([]);
   const [showChangePassword, setShowChangePassword] = useState(false);
@@ -414,6 +469,66 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     }
   });
   const [salvagePrefillEstimateId, setSalvagePrefillEstimateId] = useState<string | undefined>(undefined);
+
+  // Update Bob's current route when tab/view changes
+  useEffect(() => {
+    let route = '/';
+    if (activeTab === 'calendar') route = '/calendar';
+    else if (activeTab === 'maintenance') route = '/maintenance';
+    else if (activeTab === 'education') route = '/education';
+    else if (activeTab === 'staffCalendar') route = '/staff-calendar';
+    else if (activeTab === 'timeClock') route = '/time-clock';
+    else if (activeTab === 'customers') route = '/customers';
+    else if (activeTab === 'support') route = '/support';
+    else if (activeTab === 'estimating') route = '/estimating/dashboard';
+    else if (activeTab === 'admin') route = '/admin/' + (adminView === 'menu' ? '' : adminView);
+    bob.setCurrentRoute(route);
+  }, [activeTab, adminView]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Apply Bob prefill data when navigating to a form
+  useEffect(() => {
+    if (!bob.prefillData) return;
+    const pf = bob.prefillData;
+
+    // Repair request form
+    if (activeTab === 'admin' && adminView === 'repairs') {
+      if (pf.title || pf.description || pf.yacht_id) {
+        setRepairForm(f => ({
+          ...f,
+          title: pf.title || f.title,
+          description: pf.description || f.description,
+          yacht_id: pf.yacht_id || f.yacht_id,
+        }));
+        setShowRepairForm(true);
+        setBobPrefillBanner(true);
+      }
+    }
+
+    // Maintenance form
+    if (activeTab === 'maintenance') {
+      if (pf.subject) setMaintenanceSubject(pf.subject);
+      if (pf.description) setMaintenanceDescription(pf.description);
+      if (pf.location) setMaintenanceLocation(pf.location);
+      if (pf.contact_name) setMaintenanceContactName(pf.contact_name);
+      if (pf.contact_phone) setMaintenanceContactPhone(pf.contact_phone);
+    }
+
+    // Appointment form
+    if (activeTab === 'admin' && adminView === 'appointments') {
+      if (pf.owner_name || pf.problem_description || pf.appointment_date) {
+        setAppointmentForm(f => ({
+          ...f,
+          name: pf.owner_name || f.name,
+          problem_description: pf.problem_description || f.problem_description,
+          date: pf.appointment_date || f.date,
+          departure_time: pf.departure_time || f.departure_time,
+        }));
+      }
+    }
+
+    bob.clearPrefill();
+  }, [bob.prefillData, activeTab, adminView]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const [allYachts, setAllYachts] = useState<Yacht[]>([]);
   const [allCustomers, setAllCustomers] = useState<Array<{
     id: string;
@@ -488,6 +603,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [ownerCountsByYacht, setOwnerCountsByYacht] = useState<Record<string, number>>({});
   const [showRepairForm, setShowRepairForm] = useState(false);
+  const [bobPrefillBanner, setBobPrefillBanner] = useState(false);
   const [customerType, setCustomerType] = useState<'yacht' | 'customer'>('yacht');
   const [customers, setCustomers] = useState<any[]>([]);
   const [customerVessels, setCustomerVessels] = useState<any[]>([]);
@@ -14313,6 +14429,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                   {showRepairForm && (
                     <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 mb-6">
                       <h3 className="text-xl font-semibold mb-4">Submit Repair Request</h3>
+                      {bobPrefillBanner && (
+                        <div className="bg-amber-500/10 border border-amber-500/40 text-amber-400 px-4 py-3 rounded-lg text-sm mb-4 flex items-center justify-between">
+                          <span>Bob filled in some fields — please review before saving.</span>
+                          <button onClick={() => setBobPrefillBanner(false)} className="text-amber-400 hover:text-amber-300 ml-2">&times;</button>
+                        </div>
+                      )}
                       {repairError && (
                         <div className="bg-red-500/10 border border-red-500 text-red-500 px-4 py-3 rounded-lg text-sm mb-4">
                           {repairError}
