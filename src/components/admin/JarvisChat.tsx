@@ -531,7 +531,7 @@ export default function JarvisChat({ userId, supabaseUrl }: JarvisChatProps) {
         </div>
         <div className="flex-1">
           <div className="flex items-center gap-3">
-            <h2 className="text-2xl font-bold text-white">Jarvis AI Assistant</h2>
+            <h2 className="text-2xl font-bold text-white">Bob AI Assistant</h2>
             <button
               onClick={toggleVoice}
               title={voiceOn ? 'Voice on — click to mute' : 'Voice off — click to enable'}
@@ -581,7 +581,7 @@ export default function JarvisChat({ userId, supabaseUrl }: JarvisChatProps) {
             {messages.length === 0 && (
               <div className="text-center text-slate-500 py-12">
                 <Bot className="w-12 h-12 mx-auto mb-4 text-slate-600" />
-                <p className="text-sm">Ask Jarvis anything about your fleet, repairs, bookings, or operations.</p>
+                <p className="text-sm">Ask Bob anything about your fleet, repairs, bookings, or operations.</p>
                 <p className="text-xs text-slate-600 mt-2">Try: "What repairs are pending?" or "Which yachts have upcoming trips?"</p>
                 {speechSupported && voiceOn && (
                   <p className="text-xs text-amber-500/60 mt-2">Tap the microphone to speak, or type your question.</p>
@@ -660,7 +660,7 @@ export default function JarvisChat({ userId, supabaseUrl }: JarvisChatProps) {
               <div className="flex justify-start">
                 <div className="bg-slate-700 rounded-2xl p-3 flex items-center gap-2">
                   <Loader2 className="w-4 h-4 animate-spin text-amber-500" />
-                  <span className="text-sm text-slate-400">Jarvis is thinking...</span>
+                  <span className="text-sm text-slate-400">Bob is thinking...</span>
                 </div>
               </div>
             )}
@@ -685,7 +685,7 @@ export default function JarvisChat({ userId, supabaseUrl }: JarvisChatProps) {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-              placeholder={isListening ? 'Listening…' : 'Ask Jarvis...'}
+              placeholder={isListening ? 'Listening…' : 'Ask Bob...'}
               disabled={loading}
               className="flex-1 px-4 py-2 bg-slate-900 border border-slate-600 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 disabled:opacity-50"
             />
@@ -700,7 +700,7 @@ export default function JarvisChat({ userId, supabaseUrl }: JarvisChatProps) {
       {activeTab === 'pending' && (
         <div className="bg-slate-800/50 rounded-2xl border border-slate-700 p-4">
           {pendingActions.length === 0 ? (
-            <p className="text-center text-slate-500 py-8">No pending actions. Jarvis will propose changes here for your approval.</p>
+            <p className="text-center text-slate-500 py-8">No pending actions. Bob will propose changes here for your approval.</p>
           ) : (
             <div className="space-y-3">
               {pendingActions.map(pa => (
@@ -732,7 +732,7 @@ export default function JarvisChat({ userId, supabaseUrl }: JarvisChatProps) {
       {activeTab === 'tasks' && (
         <div className="bg-slate-800/50 rounded-2xl border border-slate-700 p-4">
           {tasks.length === 0 ? (
-            <p className="text-center text-slate-500 py-8">No tasks yet. Jarvis can create tasks during conversations.</p>
+            <p className="text-center text-slate-500 py-8">No tasks yet. Bob can create tasks during conversations.</p>
           ) : (
             <div className="space-y-2">
               {tasks.map(task => (
@@ -810,7 +810,7 @@ function KnowledgeManager({ knowledge, onLoad, onDelete, onToggle, supabaseUrl }
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <p className="text-sm text-slate-400">Manage what Jarvis knows about your business</p>
+        <p className="text-sm text-slate-400">Manage what Bob knows about your business</p>
         <button onClick={() => { setEditing(null); setForm({ category: 'general', title: '', content: '' }); setShowForm(true); }} className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-900 text-sm font-medium rounded-lg transition-colors">
           + Add Entry
         </button>
@@ -845,7 +845,7 @@ function KnowledgeManager({ knowledge, onLoad, onDelete, onToggle, supabaseUrl }
 
       <div className="space-y-2">
         {knowledge.length === 0 ? (
-          <p className="text-center text-slate-500 py-8">No knowledge entries yet. Add one to teach Jarvis about your business.</p>
+          <p className="text-center text-slate-500 py-8">No knowledge entries yet. Add one to teach Bob about your business.</p>
         ) : (
           knowledge.map(entry => (
             <div key={entry.id} className={`bg-slate-800/50 border rounded-xl p-3 ${entry.active ? 'border-slate-700' : 'border-slate-800 opacity-60'}`}>

@@ -253,7 +253,7 @@ export default function AdminMenu({ effectiveRole, pendingInspectionCount, onNav
               <Bot className="w-8 h-8 text-amber-500" />
             </div>
           </div>
-          <h3 className="text-xl font-bold mb-2">Jarvis AI Assistant</h3>
+          <h3 className="text-xl font-bold mb-2">Bob AI Assistant</h3>
           <p className="text-slate-400 text-sm">AI-powered assistant for fleet, repairs, and operations</p>
         </button>
       )}
