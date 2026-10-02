@@ -4,6 +4,7 @@ import { Yacht } from '../../lib/supabase';
 import type { OfflineInspectionItem } from '../../utils/offlineInspectionQueue';
 import PendingQueuePanel from './PendingQueuePanel';
 import { useBob, BobFormField } from '../../contexts/BobContext';
+import { BobAvatar } from './BobAvatar';
 
 type ConditionRating = 'ok' | 'needs service' | 'excellent' | 'poor';
 
@@ -411,11 +412,7 @@ export default function InspectionView({
           title="Fill with Bob — voice-guided walk-through"
           className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-900 font-medium rounded-lg transition-colors"
         >
-          <img
-            src="/images/Bob_As_Jarvis_Tech_Background copy.png"
-            alt=""
-            className="w-5 h-5 rounded-full object-cover object-center"
-          />
+          <BobAvatar size={20} state={bob.avatarState} borderClass="border border-amber-500/40" />
           <Headphones className="w-4 h-4" />
           Fill with Bob
         </button>

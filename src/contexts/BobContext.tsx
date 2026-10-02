@@ -33,6 +33,8 @@ export interface BobAppAction {
   done?: boolean;
 }
 
+export type BobAvatarState = 'idle' | 'talking' | 'thinking';
+
 interface BobContextValue {
   // Navigation — Dashboard registers its handler via registerNavigate
   currentRoute: string;
@@ -71,9 +73,16 @@ interface BobContextValue {
   guidedFillTrigger: { key: string; timestamp: number } | null;
   triggerGuidedFill: (key: string) => void;
   clearGuidedFillTrigger: () => void;
+
+  // Avatar state
+  avatarState: BobAvatarState;
+  setAvatarState: (state: BobAvatarState) => void;
 }
 
 const BobContext = createContext<BobContextValue | null>(null);
+
+// Re-export for convenience
+export type { BobAvatarState };
 
 export function useBob() {
   const ctx = useContext(BobContext);
@@ -90,6 +99,7 @@ export function BobProvider({ children }: { children: ReactNode }) {
   const [activeForm, setActiveForm] = useState<BobActiveForm | null>(null);
   const [formFieldUpdate, setFormFieldUpdate] = useState<{ values: Record<string, string>; nextField?: string; done?: boolean; timestamp: number } | null>(null);
   const [guidedFillTrigger, setGuidedFillTrigger] = useState<{ key: string; timestamp: number } | null>(null);
+  const [avatarState, setAvatarState] = useState<BobAvatarState>('idle');
 
   const navigateFnRef = useCallback((fn: (route: string, prefill?: Record<string, string>) => void) => {
     (window as any).__bobNavigateFn = fn;
@@ -126,6 +136,7 @@ export function BobProvider({ children }: { children: ReactNode }) {
     setGuidedFillTrigger({ key, timestamp: Date.now() });
   }, []);
   const clearGuidedFillTrigger = useCallback(() => setGuidedFillTrigger(null), []);
+  const setAvatarStateCb = useCallback((s: BobAvatarState) => setAvatarState(s), []);
 
   return (
     <BobContext.Provider value={{
@@ -151,6 +162,8 @@ export function BobProvider({ children }: { children: ReactNode }) {
       guidedFillTrigger,
       triggerGuidedFill,
       clearGuidedFillTrigger,
+      avatarState,
+      setAvatarState: setAvatarStateCb,
     }}>
       {children}
     </BobContext.Provider>

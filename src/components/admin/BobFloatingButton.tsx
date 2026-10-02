@@ -4,10 +4,11 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useBob } from '../../contexts/BobContext';
 import { isMasterRole } from '../../lib/supabase';
 import JarvisChat from './JarvisChat';
+import { BobAvatar } from './BobAvatar';
 
 export function BobFloatingButton() {
   const { userProfile } = useAuth();
-  const { panelOpen, openPanel, closePanel } = useBob();
+  const { panelOpen, openPanel, closePanel, avatarState } = useBob();
 
   if (!userProfile || !isMasterRole(userProfile.role)) return null;
 
@@ -19,11 +20,7 @@ export function BobFloatingButton() {
           title="Ask Bob"
           className="fixed bottom-6 right-6 z-[150] w-14 h-14 rounded-full bg-amber-500 hover:bg-amber-400 shadow-lg shadow-amber-500/30 flex items-center justify-center transition-all hover:scale-110 group"
         >
-          <img
-            src="/images/Bob_As_Jarvis_Tech_Background copy.png"
-            alt="Bob"
-            className="w-12 h-12 rounded-full object-cover object-center border-2 border-amber-500/60"
-          />
+          <BobAvatar size={48} state={avatarState} borderClass="border-2 border-amber-500" />
           <span className="absolute -top-1 -right-1 bg-amber-500 text-white text-xs font-bold px-2 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
             Ask Bob
           </span>
@@ -36,11 +33,7 @@ export function BobFloatingButton() {
           <div className="relative w-full max-w-lg bg-slate-900 border-l border-slate-700 h-full flex flex-col shadow-2xl">
             <div className="flex items-center justify-between p-4 border-b border-slate-700">
               <div className="flex items-center gap-3">
-                <img
-                  src="/images/Bob_As_Jarvis_Tech_Background copy.png"
-                  alt="Bob"
-                  className="w-10 h-10 rounded-full object-cover object-center border-2 border-amber-500/60"
-                />
+                <BobAvatar size={40} state={avatarState} />
                 <div>
                   <h2 className="text-lg font-bold text-white">Bob AI Assistant</h2>
                   <p className="text-xs text-slate-400">Tap outside to close</p>

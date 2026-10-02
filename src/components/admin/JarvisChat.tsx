@@ -5,6 +5,7 @@ import remarkGfm from 'remark-gfm';
 import { supabase } from '../../lib/supabase';
 import { BOB_SCREENS, BOB_SCREEN_MAP, BobAppAction } from '../../lib/bobScreens';
 import { useBob } from '../../contexts/BobContext';
+import { BobAvatar } from './BobAvatar';
 
 interface JarvisChatProps {
   userId: string;
@@ -289,6 +290,7 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
       }
       setIsSpeaking(true);
       isSpeakingRef.current = true;
+      bob.setAvatarState('talking');
       console.log('[HandsFree] audio started');
       audio.onended = () => {
         URL.revokeObjectURL(url);
@@ -296,6 +298,7 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
         sharedAudio = null;
         setIsSpeaking(false);
         isSpeakingRef.current = false;
+        bob.setAvatarState('idle');
         console.log('[HandsFree] audio ended');
         if (handsFreeRef.current && reListenRef.current) {
           setTimeout(() => {
@@ -312,6 +315,7 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
         sharedAudio = null;
         setIsSpeaking(false);
         isSpeakingRef.current = false;
+        bob.setAvatarState('idle');
         console.error('[HandsFree] audio playback error, falling back to browser TTS');
         browserFallbackSpeak(spokenText);
       };
@@ -331,6 +335,7 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
     utter.onend = () => {
       setIsSpeaking(false);
       isSpeakingRef.current = false;
+      bob.setAvatarState('idle');
       console.log('[HandsFree] browser voice ended');
       if (handsFreeRef.current && reListenRef.current) {
         setTimeout(() => {
@@ -344,10 +349,12 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
     utter.onerror = () => {
       setIsSpeaking(false);
       isSpeakingRef.current = false;
+      bob.setAvatarState('idle');
       console.error('[HandsFree] browser voice error');
     };
     setIsSpeaking(true);
     isSpeakingRef.current = true;
+    bob.setAvatarState('talking');
     window.speechSynthesis.speak(utter);
   };
 
@@ -652,6 +659,7 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
     setInput('');
     setError('');
     setLoading(true);
+    bob.setAvatarState('thinking');
 
     const newMessages = [...messages, { role: 'user' as const, content: userMsg }];
     setMessages(newMessages);
@@ -692,6 +700,7 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
       }
 
       speakReply(data.reply, hasActions);
+      bob.setAvatarState('idle');
 
       if (handsFreeRef.current && !hasActions) {
         if (safetyNetTimerRef.current) clearTimeout(safetyNetTimerRef.current);
@@ -704,6 +713,7 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
       }
     } catch (err: any) {
       setError(err.message || 'Network error');
+      bob.setAvatarState('idle');
     } finally {
       setLoading(false);
     }
@@ -892,6 +902,8 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
 
   const pendingBadge = pendingActions.length > 0 ? pendingActions.length : null;
 
+  const avatarState = bob.avatarState;
+
   const subtitle = handsFreeMode
     ? isListening ? 'Hands-free listening…' : isSpeaking ? 'Bob is speaking…' : voiceLoading ? 'Generating voice…' : 'Hands-free conversation — tap headphones to stop'
     : isListening ? 'Listening…' : isSpeaking ? 'Speaking…' : voiceLoading ? 'Generating voice…' : 'Ask about your fleet, repairs, bookings, and operations';
@@ -912,11 +924,7 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-4">
-        <img
-          src="/images/Bob_As_Jarvis_Tech_Background copy.png"
-          alt="Bob"
-          className="w-12 h-12 rounded-full object-cover object-center border-2 border-amber-500/60"
-        />
+        <BobAvatar size={72} state={avatarState} />
         <div className="flex-1">
           <div className="flex items-center gap-3">
             <h2 className="text-2xl font-bold text-white">Bob AI Assistant</h2>
@@ -947,7 +955,7 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {tabButton('chat', 'Chat', <img src="/images/Bob_As_Jarvis_Tech_Background copy.png" alt="" className="w-4 h-4 rounded-full object-cover object-center" />)}
+        {tabButton('chat', 'Chat', <BobAvatar size={16} state={avatarState} borderClass="border border-amber-500/40" />)}
         {tabButton('pending', 'Pending Actions', <Clock className="w-4 h-4" />, pendingBadge)}
         {tabButton('tasks', 'Tasks', <ListTodo className="w-4 h-4" />)}
         {tabButton('knowledge', 'Knowledge Base', <BookOpen className="w-4 h-4" />)}
@@ -968,11 +976,7 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {messages.length === 0 && (
               <div className="text-center text-slate-500 py-12">
-                <img
-                  src="/images/Bob_As_Jarvis_Tech_Background copy.png"
-                  alt="Bob"
-                  className="w-16 h-16 mx-auto mb-4 rounded-full object-cover object-center border-2 border-slate-600"
-                />
+                <BobAvatar size={160} state={avatarState} className="mx-auto mb-4" />
                 <p className="text-sm">Ask Bob anything about your fleet, repairs, bookings, or operations.</p>
                 <p className="text-xs text-slate-600 mt-2">Try: "What repairs are pending?" or "Which yachts have upcoming trips?"</p>
                 {speechSupported && voiceOn && (
