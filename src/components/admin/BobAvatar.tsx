@@ -80,7 +80,7 @@ export function BobAvatar({ size, state = 'idle', className = '', borderClass = 
             style={{
               objectFit: 'cover',
               objectPosition: 'center 20%',
-              transform: 'scale(1.6)',
+              transform: 'scale(1.25)',
               opacity: showTalking ? 0 : 1,
             }}
             onError={() => setFailed(true)}
@@ -98,7 +98,7 @@ export function BobAvatar({ size, state = 'idle', className = '', borderClass = 
             style={{
               objectFit: 'cover',
               objectPosition: 'center 20%',
-              transform: 'scale(1.6)',
+              transform: 'scale(1.25)',
               opacity: showTalking ? 1 : 0,
             }}
             onError={() => setFailed(true)}
