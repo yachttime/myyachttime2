@@ -3,7 +3,8 @@ import { Bot, Send, Check, X, Clock, ListTodo, BookOpen, Loader2, AlertCircle, V
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { supabase } from '../../lib/supabase';
-import { BOB_SCREENS, BOB_SCREEN_MAP, BobAppAction } from '../../lib/bobScreens';
+import { BOB_SCREENS, BOB_SCREEN_MAP } from '../../lib/bobScreens';
+import type { BobAppAction } from '../../contexts/BobContext';
 import { useBob } from '../../contexts/BobContext';
 import { BobAvatar } from './BobAvatar';
 
@@ -185,6 +186,7 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
   const [isListening, setIsListening] = useState(false);
   const [voiceLoading, setVoiceLoading] = useState(false);
   const [handsFreeMode, setHandsFreeMode] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
 
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const finalTranscriptRef = useRef('');
@@ -208,10 +210,16 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
   const startWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const listeningWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const listeningSessionRef = useRef(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
+  const recordingWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const speechSupported = typeof window !== 'undefined' && (
     !!(window as any).SpeechRecognition || !!(window as any).webkitSpeechRecognition
   );
+  const mediaInputSupported = typeof window !== 'undefined' && !!navigator.mediaDevices && typeof MediaRecorder !== 'undefined';
+  const voiceInputSupported = speechSupported || mediaInputSupported;
   const iosDevice = isIOSDevice();
 
   const scrollToBottom = useCallback(() => {
@@ -403,8 +411,75 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
   };
 
   // ---- Listening ----
+  const stopRecording = useCallback(() => {
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== 'inactive') recorder.stop();
+  }, []);
+
+  const startRecording = useCallback(async () => {
+    if (!mediaInputSupported || isRecording) return;
+    stopSharedAudio();
+    stopBrowserSpeech();
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      mediaStreamRef.current = stream;
+      mediaRecorderRef.current = recorder;
+      recordedChunksRef.current = [];
+      recorder.ondataavailable = (event: BlobEvent) => {
+        if (event.data.size > 0) recordedChunksRef.current.push(event.data);
+      };
+      recorder.onstop = async () => {
+        if (recordingWatchdogRef.current) clearTimeout(recordingWatchdogRef.current);
+        recordingWatchdogRef.current = null;
+        stream.getTracks().forEach(track => track.stop());
+        mediaStreamRef.current = null;
+        mediaRecorderRef.current = null;
+        setIsRecording(false);
+        setIsListening(false);
+        isListeningRef.current = false;
+        bob.setAvatarPaused(false);
+        const audio = new Blob(recordedChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
+        if (!audio.size) return;
+        setVoiceLoading(true);
+        try {
+          const form = new FormData();
+          form.append('audio', audio, 'bob-question.webm');
+          const { data, error } = await supabase.functions.invoke('jarvis-transcribe', { body: form });
+          if (error) throw error;
+          const text = typeof data?.text === 'string' ? data.text.trim() : '';
+          if (!text) throw new Error('I did not hear a question. Please try again.');
+          setInput(text);
+          sendWithTextRef.current?.(text);
+        } catch (error: any) {
+          setError(error?.message || 'Voice transcription failed. Please try again.');
+        } finally {
+          setVoiceLoading(false);
+        }
+      };
+      recorder.start();
+      setIsRecording(true);
+      setIsListening(true);
+      isListeningRef.current = true;
+      bob.setAvatarPaused(true);
+      recordingWatchdogRef.current = setTimeout(() => stopRecording(), 15000);
+      setError('');
+    } catch (error: any) {
+      setIsRecording(false);
+      setIsListening(false);
+      isListeningRef.current = false;
+      bob.setAvatarPaused(false);
+      setError('Microphone unavailable — check Settings › General › Keyboard › Enable Dictation');
+      console.error('[Voice] microphone permission failed:', error);
+    }
+  }, [bob, isRecording, mediaInputSupported, stopRecording]);
+
   const stopListening = useCallback(() => {
     intentionalStopRef.current = true;
+    if (mediaRecorderRef.current) {
+      stopRecording();
+      return;
+    }
     const active = recognitionRef.current;
     clearRecognitionWatchdogs();
     if (active) {
@@ -419,7 +494,7 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
     setIsListening(false);
     isListeningRef.current = false;
     bob.setAvatarPaused(false);
-  }, [bob, clearRecognitionWatchdogs]);
+  }, [bob, clearRecognitionWatchdogs, stopRecording]);
 
   const stopHandsFree = useCallback((reason?: string) => {
     console.log('[HandsFree] pause —', reason || 'manual stop');
@@ -699,8 +774,10 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
     }
     if (isListeningRef.current) {
       stopListening();
-    } else {
+    } else if (speechSupported) {
       startListening();
+    } else {
+      startRecording();
     }
   };
 
@@ -713,7 +790,8 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
     if (iosDevice) {
       stopSharedAudio();
       stopBrowserSpeech();
-      startListening();
+      if (speechSupported) startListening();
+      else startRecording();
       setHandsFreeMode(true);
       handsFreeRef.current = true;
       intentionalStopRef.current = false;
@@ -744,7 +822,8 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
 
   const handleIosTalk = () => {
     if (!iosDevice || !handsFreeRef.current || isListeningRef.current || loadingRef.current || isSpeakingRef.current) return;
-    startListening();
+    if (speechSupported) startListening();
+    else startRecording();
   };
 
   // ---- Sending ----
@@ -1168,7 +1247,7 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
             </button>
           )}
           <div className="border-t border-slate-700 p-3 flex gap-2 items-center">
-            {speechSupported && (
+            {voiceInputSupported && (
               <button
                 onClick={toggleListening}
                 title={isListening ? 'Stop listening' : 'Start speaking'}
@@ -1181,7 +1260,7 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
                 <Mic className="w-4 h-4" />
               </button>
             )}
-            {speechSupported && (
+            {voiceInputSupported && (
               <button
                 onClick={toggleHandsFree}
                 title={handsFreeMode ? 'Stop hands-free conversation' : 'Start hands-free conversation'}

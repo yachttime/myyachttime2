@@ -54,3 +54,6 @@ verify_jwt = true
 
 [functions.jarvis-approve]
 verify_jwt = true
+
+[functions.jarvis-transcribe]
+verify_jwt = true
