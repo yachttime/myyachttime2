@@ -77,6 +77,8 @@ interface BobContextValue {
   // Avatar state
   avatarState: BobAvatarState;
   setAvatarState: (state: BobAvatarState) => void;
+  avatarPaused: boolean;
+  setAvatarPaused: (paused: boolean) => void;
 }
 
 const BobContext = createContext<BobContextValue | null>(null);
@@ -100,6 +102,7 @@ export function BobProvider({ children }: { children: ReactNode }) {
   const [formFieldUpdate, setFormFieldUpdate] = useState<{ values: Record<string, string>; nextField?: string; done?: boolean; timestamp: number } | null>(null);
   const [guidedFillTrigger, setGuidedFillTrigger] = useState<{ key: string; timestamp: number } | null>(null);
   const [avatarState, setAvatarState] = useState<BobAvatarState>('idle');
+  const [avatarPaused, setAvatarPaused] = useState(false);
 
   const navigateFnRef = useCallback((fn: (route: string, prefill?: Record<string, string>) => void) => {
     (window as any).__bobNavigateFn = fn;
@@ -137,6 +140,7 @@ export function BobProvider({ children }: { children: ReactNode }) {
   }, []);
   const clearGuidedFillTrigger = useCallback(() => setGuidedFillTrigger(null), []);
   const setAvatarStateCb = useCallback((s: BobAvatarState) => setAvatarState(s), []);
+  const setAvatarPausedCb = useCallback((paused: boolean) => setAvatarPaused(paused), []);
 
   return (
     <BobContext.Provider value={{
@@ -164,6 +168,8 @@ export function BobProvider({ children }: { children: ReactNode }) {
       clearGuidedFillTrigger,
       avatarState,
       setAvatarState: setAvatarStateCb,
+      avatarPaused,
+      setAvatarPaused: setAvatarPausedCb,
     }}>
       {children}
     </BobContext.Provider>

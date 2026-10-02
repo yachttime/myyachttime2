@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState } from 'react';
+import { useBob } from '../../contexts/BobContext';
 
 export type BobAvatarState = 'idle' | 'talking' | 'thinking';
 
@@ -14,6 +15,7 @@ interface BobAvatarProps {
 }
 
 export function BobAvatar({ size, state = 'idle', className = '', borderClass = 'border-2 border-amber-500/60' }: BobAvatarProps) {
+  const { avatarPaused } = useBob();
   const idleRef = useRef<HTMLVideoElement>(null);
   const talkingRef = useRef<HTMLVideoElement>(null);
   const [failed, setFailed] = useState(false);
@@ -30,25 +32,25 @@ export function BobAvatar({ size, state = 'idle', className = '', borderClass = 
 
   // Control playback based on visibility
   useEffect(() => {
-    if (hidden) {
+    if (hidden || avatarPaused) {
       idleRef.current?.pause();
       talkingRef.current?.pause();
     } else {
       idleRef.current?.play().catch(() => {});
       talkingRef.current?.play().catch(() => {});
     }
-  }, [hidden]);
+  }, [hidden, avatarPaused]);
 
   // When switching to talking, restart talking video from random point 0-6s
   useEffect(() => {
-    if (state === 'talking' && talkingRef.current && !hidden) {
+    if (state === 'talking' && talkingRef.current && !hidden && !avatarPaused) {
       const v = talkingRef.current;
       try {
         v.currentTime = Math.random() * 6;
         v.play().catch(() => {});
       } catch { /* noop */ }
     }
-  }, [state, hidden]);
+  }, [state, hidden, avatarPaused]);
 
   const showTalking = state === 'talking' && !failed;
   const showThinking = state === 'thinking';
