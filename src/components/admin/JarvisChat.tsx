@@ -124,43 +124,23 @@ async function callApprove(supabaseUrl: string, actionId: string, decision: 'app
   return data;
 }
 
-// ---- Voice helpers (module-scoped single audio player) ----
-
-let sharedAudio: HTMLAudioElement | null = null;
-let sharedAudioUrl: string | null = null;
-
-function stopSharedAudio() {
-  if (sharedAudio) {
-    sharedAudio.pause();
-    sharedAudio.src = '';
-    if (sharedAudioUrl) {
-      URL.revokeObjectURL(sharedAudioUrl);
-      sharedAudioUrl = null;
-    }
-    sharedAudio = null;
-  }
-}
-
-function stopBrowserSpeech() {
-  if (typeof window !== 'undefined' && window.speechSynthesis) {
-    window.speechSynthesis.cancel();
-  }
-}
-
-let audioUnlocked = false;
 function isIOSDevice(): boolean {
   if (typeof navigator === 'undefined') return false;
   return /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 }
 
-function unlockAudio() {
-  if (audioUnlocked) return;
-  try {
-    const a = new Audio();
-    a.src = 'data:audio/mp3;base64,/+NIxJgAAAEWACQQANIAAAAAEluZF//w==';
-    a.volume = 0;
-    a.play().then(() => { audioUnlocked = true; }).catch(() => {});
-  } catch { /* noop */ }
+const SILENCE_MP3 = 'data:audio/mp3;base64,/+NIxJgAAAEWACQQANIAAAAAEluZF//w==';
+
+function pickRecordingMime(): { mime: string; ext: string } {
+  const candidates = [
+    { mime: 'audio/webm;codecs=opus', ext: 'webm' },
+    { mime: 'audio/webm', ext: 'webm' },
+    { mime: 'audio/mp4', ext: 'm4a' },
+  ];
+  for (const c of candidates) {
+    if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(c.mime)) return c;
+  }
+  return { mime: '', ext: 'webm' };
 }
 
 export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatProps) {
@@ -187,6 +167,12 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
   const [voiceLoading, setVoiceLoading] = useState(false);
   const [handsFreeMode, setHandsFreeMode] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [needTapToHear, setNeedTapToHear] = useState(false);
+
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioUrlRef = useRef<string | null>(null);
+  const audioUnlockedRef = useRef(false);
 
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const finalTranscriptRef = useRef('');
@@ -221,6 +207,23 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
   const mediaInputSupported = typeof window !== 'undefined' && !!navigator.mediaDevices && typeof MediaRecorder !== 'undefined';
   const voiceInputSupported = speechSupported || mediaInputSupported;
   const iosDevice = isIOSDevice();
+  const useRecording = iosDevice || !speechSupported;
+
+  useEffect(() => {
+    if (typeof Audio === 'undefined') return;
+    const audio = new Audio();
+    audio.preload = 'auto';
+    audioRef.current = audio;
+    return () => {
+      audio.pause();
+      audio.src = '';
+      if (audioUrlRef.current) {
+        URL.revokeObjectURL(audioUrlRef.current);
+        audioUrlRef.current = null;
+      }
+      audioRef.current = null;
+    };
+  }, []);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -276,16 +279,34 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
     return () => {
       intentionalStopRef.current = true;
       cleanupRecognizer('unmount');
-      stopSharedAudio();
-      stopBrowserSpeech();
-      if (silenceTimerRef.current) {
-        clearTimeout(silenceTimerRef.current);
-      }
-      if (safetyNetTimerRef.current) {
-        clearTimeout(safetyNetTimerRef.current);
-      }
+      const audio = audioRef.current;
+      if (audio) { audio.pause(); audio.src = ''; }
+      if (audioUrlRef.current) { URL.revokeObjectURL(audioUrlRef.current); audioUrlRef.current = null; }
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      if (safetyNetTimerRef.current) clearTimeout(safetyNetTimerRef.current);
     };
   }, [cleanupRecognizer]);
+
+  const unlockAudio = useCallback(() => {
+    if (audioUnlockedRef.current) return;
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.src = SILENCE_MP3;
+    audio.volume = 0;
+    audio.play().then(() => { audioUnlockedRef.current = true; audio.volume = 1; }).catch(() => {});
+  }, []);
+
+  const stopSharedAudio = useCallback(() => {
+    const audio = audioRef.current;
+    if (audio) {
+      audio.pause();
+      audio.src = '';
+    }
+    if (audioUrlRef.current) {
+      URL.revokeObjectURL(audioUrlRef.current);
+      audioUrlRef.current = null;
+    }
+  }, []);
 
   const toggleVoice = () => {
     const next = !voiceOn;
@@ -293,25 +314,26 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
     try { localStorage.setItem('jarvis-voice', next ? 'on' : 'off'); } catch { /* noop */ }
     if (!next) {
       stopSharedAudio();
-      stopBrowserSpeech();
       setIsSpeaking(false);
+      isSpeakingRef.current = false;
     }
   };
 
   const stopAllAudio = () => {
     stopSharedAudio();
-    stopBrowserSpeech();
     setIsSpeaking(false);
     isSpeakingRef.current = false;
   };
 
-  // ---- Speaking ----
+  // ---- Speaking (ElevenLabs only) ----
   const speakReply = useCallback(async (text: string, hasActions: boolean) => {
     if (!voiceOnRef.current) return;
     intentionalStopRef.current = true;
     cleanupRecognizer('speakReply — stop mic before speaking');
     stopSharedAudio();
-    stopBrowserSpeech();
+
+    const audio = audioRef.current;
+    if (!audio) return;
 
     let spokenText = text;
     if (hasActions) {
@@ -327,29 +349,22 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
       if (!(data instanceof Blob)) throw new Error('Unexpected response type from jarvis-voice');
 
       const url = URL.createObjectURL(data);
-      sharedAudioUrl = url;
-      const audio = new Audio(url);
-      sharedAudio = audio;
+      audioUrlRef.current = url;
+      audio.src = url;
+      audio.volume = 1;
       if (safetyNetTimerRef.current) {
         clearTimeout(safetyNetTimerRef.current);
         safetyNetTimerRef.current = null;
       }
-      setIsSpeaking(true);
-      isSpeakingRef.current = true;
-      bob.setAvatarState('talking');
-      console.log('[HandsFree] audio started');
       audio.onended = () => {
         URL.revokeObjectURL(url);
-        sharedAudioUrl = null;
-        sharedAudio = null;
+        audioUrlRef.current = null;
         setIsSpeaking(false);
         isSpeakingRef.current = false;
         bob.setAvatarState('idle');
-        console.log('[HandsFree] audio ended');
         if (!iosDevice && handsFreeRef.current && reListenRef.current) {
           setTimeout(() => {
             if (handsFreeRef.current && !isSpeakingRef.current && !loadingRef.current && reListenRef.current) {
-              console.log('[HandsFree] restart after audio ended (400ms)');
               reListenRef.current();
             }
           }, 400);
@@ -357,56 +372,32 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
       };
       audio.onerror = () => {
         URL.revokeObjectURL(url);
-        sharedAudioUrl = null;
-        sharedAudio = null;
+        audioUrlRef.current = null;
         setIsSpeaking(false);
         isSpeakingRef.current = false;
         bob.setAvatarState('idle');
-        console.error('[HandsFree] audio playback error, falling back to browser TTS');
-        browserFallbackSpeak(spokenText);
       };
-      await audio.play();
+      setIsSpeaking(true);
+      isSpeakingRef.current = true;
+      bob.setAvatarState('talking');
+      await audio.play().catch(() => {
+        setNeedTapToHear(true);
+        setIsSpeaking(false);
+        isSpeakingRef.current = false;
+        bob.setAvatarState('idle');
+      });
     } catch (err: any) {
       console.error('jarvis-voice error:', err);
-      browserFallbackSpeak(spokenText);
+      setIsSpeaking(false);
+      isSpeakingRef.current = false;
+      bob.setAvatarState('idle');
     } finally {
       setVoiceLoading(false);
     }
-  }, []);
-
-  const browserFallbackSpeak = (text: string) => {
-    if (!('speechSynthesis' in window)) return;
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.rate = 1.05;
-    utter.onend = () => {
-      setIsSpeaking(false);
-      isSpeakingRef.current = false;
-      bob.setAvatarState('idle');
-      console.log('[HandsFree] browser voice ended');
-      if (!iosDevice && handsFreeRef.current && reListenRef.current) {
-        setTimeout(() => {
-          if (handsFreeRef.current && !isSpeakingRef.current && !loadingRef.current && reListenRef.current) {
-            console.log('[HandsFree] restart after browser voice ended (400ms)');
-            reListenRef.current();
-          }
-        }, 400);
-      }
-    };
-    utter.onerror = () => {
-      setIsSpeaking(false);
-      isSpeakingRef.current = false;
-      bob.setAvatarState('idle');
-      console.error('[HandsFree] browser voice error');
-    };
-    setIsSpeaking(true);
-    isSpeakingRef.current = true;
-    bob.setAvatarState('talking');
-    window.speechSynthesis.speak(utter);
-  };
+  }, [cleanupRecognizer, stopSharedAudio, bob, iosDevice]);
 
   const replayMessage = (content: string, hasActions: boolean) => {
     stopSharedAudio();
-    stopBrowserSpeech();
     speakReply(content, hasActions);
   };
 
@@ -418,11 +409,12 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
 
   const startRecording = useCallback(async () => {
     if (!mediaInputSupported || isRecording) return;
-    stopSharedAudio();
-    stopBrowserSpeech();
+    const audio = audioRef.current;
+    if (audio) { audio.pause(); audio.currentTime = 0; }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
+      const { mime, ext } = pickRecordingMime();
+      const recorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
       mediaStreamRef.current = stream;
       mediaRecorderRef.current = recorder;
       recordedChunksRef.current = [];
@@ -439,22 +431,22 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
         setIsListening(false);
         isListeningRef.current = false;
         bob.setAvatarPaused(false);
-        const audio = new Blob(recordedChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
-        if (!audio.size) return;
-        setVoiceLoading(true);
+        const audioBlob = new Blob(recordedChunksRef.current, { type: recorder.mimeType || mime || 'audio/webm' });
+        if (!audioBlob.size) return;
+        setIsTranscribing(true);
         try {
           const form = new FormData();
-          form.append('audio', audio, 'bob-question.webm');
+          form.append('audio', audioBlob, `bob-question.${ext}`);
           const { data, error } = await supabase.functions.invoke('jarvis-transcribe', { body: form });
           if (error) throw error;
           const text = typeof data?.text === 'string' ? data.text.trim() : '';
           if (!text) throw new Error('I did not hear a question. Please try again.');
           setInput(text);
           sendWithTextRef.current?.(text);
-        } catch (error: any) {
-          setError(error?.message || 'Voice transcription failed. Please try again.');
+        } catch (err: any) {
+          setError(err?.message || 'Voice transcription failed. Please try again.');
         } finally {
-          setVoiceLoading(false);
+          setIsTranscribing(false);
         }
       };
       recorder.start();
@@ -462,14 +454,15 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
       setIsListening(true);
       isListeningRef.current = true;
       bob.setAvatarPaused(true);
-      recordingWatchdogRef.current = setTimeout(() => stopRecording(), 15000);
+      recordingWatchdogRef.current = setTimeout(() => stopRecording(), 30000);
       setError('');
     } catch (error: any) {
       setIsRecording(false);
       setIsListening(false);
       isListeningRef.current = false;
       bob.setAvatarPaused(false);
-      setError('Microphone unavailable — check Settings › General › Keyboard › Enable Dictation');
+      const msg = error?.name === 'NotAllowedError' ? 'Microphone permission denied.' : 'Microphone unavailable.';
+      setError(msg);
       console.error('[Voice] microphone permission failed:', error);
     }
   }, [bob, isRecording, mediaInputSupported, stopRecording]);
@@ -524,12 +517,11 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
       recognitionRef.current = null;
     }
     stopSharedAudio();
-    stopBrowserSpeech();
 
     const Ctor = ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) as SpeechRecognitionCtor;
     const recognition = new Ctor();
     recognition.lang = 'en-US';
-    recognition.interimResults = !iosDevice;
+    recognition.interimResults = true;
     recognition.continuous = false;
     finalTranscriptRef.current = '';
     const session = ++listeningSessionRef.current;
@@ -622,7 +614,6 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
     cleanupRecognizer('startHandsFreeListening — replace old recognizer');
 
     stopSharedAudio();
-    stopBrowserSpeech();
     unlockAudio();
 
     const Ctor = ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) as SpeechRecognitionCtor;
@@ -774,7 +765,17 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
     }
     if (isListeningRef.current) {
       stopListening();
-    } else if (speechSupported) {
+      return;
+    }
+    if (isSpeakingRef.current) {
+      const audio = audioRef.current;
+      if (audio) { audio.pause(); audio.currentTime = 0; }
+      stopSharedAudio();
+      setIsSpeaking(false);
+      isSpeakingRef.current = false;
+      bob.setAvatarState('idle');
+    }
+    if (speechSupported && !useRecording) {
       startListening();
     } else {
       startRecording();
@@ -789,7 +790,7 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
 
     if (iosDevice) {
       stopSharedAudio();
-      stopBrowserSpeech();
+      unlockAudio();
       if (speechSupported) startListening();
       else startRecording();
       setHandsFreeMode(true);
@@ -809,7 +810,6 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
       try { localStorage.setItem('jarvis-voice', 'on'); } catch { /* noop */ }
     }
     stopSharedAudio();
-    stopBrowserSpeech();
     setIsSpeaking(false);
     setHandsFreeMode(true);
     handsFreeRef.current = true;
@@ -821,16 +821,39 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
   };
 
   const handleIosTalk = () => {
-    if (!iosDevice || !handsFreeRef.current || isListeningRef.current || loadingRef.current || isSpeakingRef.current) return;
+    if (!iosDevice || !handsFreeRef.current || isListeningRef.current || loadingRef.current) return;
+    if (isSpeakingRef.current) {
+      const audio = audioRef.current;
+      if (audio) { audio.pause(); audio.currentTime = 0; }
+      stopSharedAudio();
+      setIsSpeaking(false);
+      isSpeakingRef.current = false;
+      bob.setAvatarState('idle');
+    }
     if (speechSupported) startListening();
     else startRecording();
+  };
+
+  const handleTapToHear = () => {
+    setNeedTapToHear(false);
+    const audio = audioRef.current;
+    if (!audio || !audioUrlRef.current) return;
+    audioUnlockedRef.current = true;
+    setIsSpeaking(true);
+    isSpeakingRef.current = true;
+    bob.setAvatarState('talking');
+    audio.play().catch(() => {
+      setIsSpeaking(false);
+      isSpeakingRef.current = false;
+      bob.setAvatarState('idle');
+    });
   };
 
   // ---- Sending ----
   const sendWithText = useCallback(async (text: string) => {
     const userMsg = text.trim();
     if (!userMsg || loading) return;
-    unlockAudio();
+    if (!audioUnlockedRef.current) unlockAudio();
     setInput('');
     setError('');
     setLoading(true);
@@ -906,7 +929,6 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
   const handleNewChat = () => {
     intentionalStopRef.current = true;
     stopSharedAudio();
-    stopBrowserSpeech();
     setIsSpeaking(false);
     stopListening();
     stopHandsFree();
@@ -1080,8 +1102,8 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
   const avatarState = bob.avatarState;
 
   const subtitle = handsFreeMode
-    ? isListening ? 'Hands-free listening…' : isSpeaking ? 'Bob is speaking…' : voiceLoading ? 'Generating voice…' : 'Hands-free conversation — tap headphones to stop'
-    : isListening ? 'Listening…' : isSpeaking ? 'Speaking…' : voiceLoading ? 'Generating voice…' : 'Ask about your fleet, repairs, bookings, and operations';
+    ? isTranscribing ? 'Transcribing…' : isListening ? 'Hands-free listening…' : isSpeaking ? 'Bob is speaking…' : voiceLoading ? 'Generating voice…' : 'Hands-free conversation — tap headphones to stop'
+    : isTranscribing ? 'Transcribing…' : isListening ? 'Listening…' : isSpeaking ? 'Speaking…' : voiceLoading ? 'Generating voice…' : 'Ask about your fleet, repairs, bookings, and operations';
 
   const tabButton = (tab: Tab, label: string, icon: React.ReactNode, badge?: number | null) => (
     <button
@@ -1154,7 +1176,7 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
                 <BobAvatar size={160} state={avatarState} className="mx-auto mb-4" />
                 <p className="text-sm">Ask Bob anything about your fleet, repairs, bookings, or operations.</p>
                 <p className="text-xs text-slate-600 mt-2">Try: "What repairs are pending?" or "Which yachts have upcoming trips?"</p>
-                {speechSupported && voiceOn && (
+                {voiceInputSupported && voiceOn && (
                   <p className="text-xs text-amber-500/60 mt-2">Tap the microphone to speak, the headphones for a hands-free conversation, or type your question.</p>
                 )}
               </div>
@@ -1237,6 +1259,15 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
             )}
             <div ref={messagesEndRef} />
           </div>
+          {needTapToHear && (
+            <button
+              type="button"
+              onClick={handleTapToHear}
+              className="mx-3 mb-3 w-[calc(100%-1.5rem)] rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold py-3 text-sm transition-colors"
+            >
+              Tap to hear Bob
+            </button>
+          )}
           {iosDevice && handsFreeMode && !isListening && !loading && !isSpeaking && (
             <button
               type="button"
@@ -1278,7 +1309,7 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-              placeholder={isListening ? 'Listening…' : 'Ask Bob...'}
+              placeholder={isTranscribing ? 'Transcribing…' : isListening ? 'Listening…' : 'Ask Bob...'}
               disabled={loading}
               className="flex-1 px-4 py-2 bg-slate-900 border border-slate-600 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 disabled:opacity-50"
             />
