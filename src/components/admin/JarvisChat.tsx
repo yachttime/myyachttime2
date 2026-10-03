@@ -292,10 +292,16 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
     const a = audioRef.current;
     if (!a || audioUnlockedRef.current) return;
     audioUnlockedRef.current = true;
+    const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (!isIOS) return;
     if (pendingUrlRef.current || !a.paused) return;
     a.muted = true;
     a.src = SILENCE_MP3;
-    a.play().catch(() => {}).finally(() => { a.pause(); a.muted = false; });
+    a.play()
+      .then(() => { if (a.src.startsWith('data:')) a.pause(); })
+      .catch(() => {})
+      .finally(() => { if (a.src.startsWith('data:')) a.muted = false; });
   }, []);
 
   const stopSharedAudio = useCallback(() => {
