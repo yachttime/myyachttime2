@@ -279,11 +279,14 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
     bob.setAvatarPaused(false);
   }, [bob, clearRecognitionWatchdogs]);
 
-  // Stop audio when component unmounts
+  const cleanupRecognizerRef = useRef(cleanupRecognizer);
+  cleanupRecognizerRef.current = cleanupRecognizer;
+
+  // Stop audio when component unmounts — empty deps so it only runs on real unmount
   useEffect(() => {
     return () => {
       intentionalStopRef.current = true;
-      cleanupRecognizer('unmount');
+      cleanupRecognizerRef.current('unmount');
       const audio = audioRef.current;
       if (audio) { audio.pause(); audio.src = ''; }
       currentPlayerRef.current?.pause();
@@ -292,7 +295,8 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
       if (safetyNetTimerRef.current) clearTimeout(safetyNetTimerRef.current);
     };
-  }, [cleanupRecognizer]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const unlockAudio = useCallback(() => {
     const a = audioRef.current;
