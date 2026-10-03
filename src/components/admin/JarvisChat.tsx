@@ -289,23 +289,20 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
   }, [cleanupRecognizer]);
 
   const unlockAudio = useCallback(() => {
-    if (audioUnlockedRef.current) return;
-    const audio = audioRef.current;
-    if (!audio) return;
-    audio.src = SILENCE_MP3;
-    audio.volume = 0;
-    audio.play().then(() => { audio.pause(); audioUnlockedRef.current = true; audio.volume = 1; }).catch(() => {});
+    const a = audioRef.current;
+    if (!a || audioUnlockedRef.current) return;
+    audioUnlockedRef.current = true;
+    if (pendingUrlRef.current || !a.paused) return;
+    a.muted = true;
+    a.src = SILENCE_MP3;
+    a.play().catch(() => {}).finally(() => { a.pause(); a.muted = false; });
   }, []);
 
   const stopSharedAudio = useCallback(() => {
     const audio = audioRef.current;
     if (audio) {
       audio.pause();
-      audio.src = '';
-    }
-    if (pendingUrlRef.current) {
-      URL.revokeObjectURL(pendingUrlRef.current);
-      pendingUrlRef.current = null;
+      audio.currentTime = 0;
     }
   }, []);
 
@@ -361,8 +358,9 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
 
       const url = URL.createObjectURL(blob);
       pendingUrlRef.current = url;
-      audio.src = url;
+      audio.muted = false;
       audio.volume = 1;
+      audio.src = url;
       if (safetyNetTimerRef.current) {
         clearTimeout(safetyNetTimerRef.current);
         safetyNetTimerRef.current = null;
@@ -394,6 +392,8 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
       isSpeakingRef.current = true;
       bob.setAvatarState('talking');
       console.log('[BobVoice] play() starting');
+      audio.muted = false;
+      audio.volume = 1;
       audio.play().catch((playErr: any) => {
         console.log('[BobVoice] play() rejected:', playErr?.name || playErr);
         setNeedTapToHear(true);
@@ -413,6 +413,8 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
 
   const replayMessage = (content: string, hasActions: boolean) => {
     stopSharedAudio();
+    setIsSpeaking(false);
+    isSpeakingRef.current = false;
     speakReply(content, hasActions);
   };
 
@@ -424,8 +426,6 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
 
   const startRecording = useCallback(async () => {
     if (!mediaInputSupported || isRecording) return;
-    const audio = audioRef.current;
-    if (audio) { audio.pause(); audio.currentTime = 0; }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const { mime, ext } = pickRecordingMime();
@@ -531,8 +531,6 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
       try { recognitionRef.current.abort(); } catch { /* noop */ }
       recognitionRef.current = null;
     }
-    stopSharedAudio();
-
     const Ctor = ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) as SpeechRecognitionCtor;
     const recognition = new Ctor();
     recognition.lang = 'en-US';
@@ -595,9 +593,6 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
     }
 
     startWatchdogRef.current = setTimeout(() => resetListening(), 3000);
-    setIsSpeaking(false);
-    isSpeakingRef.current = false;
-    bob.setAvatarState('idle');
     setInput('');
     setError('');
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -627,9 +622,6 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
     }
 
     cleanupRecognizer('startHandsFreeListening — replace old recognizer');
-
-    stopSharedAudio();
-    unlockAudio();
 
     const Ctor = ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) as SpeechRecognitionCtor;
     const recognition = new Ctor();
@@ -774,6 +766,7 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
   reListenRef.current = startHandsFreeListening;
 
   const toggleListening = () => {
+    unlockAudio();
     if (handsFreeRef.current) {
       stopHandsFree();
       return;
@@ -785,7 +778,6 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
     if (isSpeakingRef.current) {
       const audio = audioRef.current;
       if (audio) { audio.pause(); audio.currentTime = 0; }
-      stopSharedAudio();
       setIsSpeaking(false);
       isSpeakingRef.current = false;
       bob.setAvatarState('idle');
@@ -798,14 +790,13 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
   };
 
   const toggleHandsFree = () => {
+    unlockAudio();
     if (handsFreeRef.current) {
       stopHandsFree();
       return;
     }
 
     if (iosDevice) {
-      stopSharedAudio();
-      unlockAudio();
       if (speechSupported) startListening();
       else startRecording();
       setHandsFreeMode(true);
@@ -840,7 +831,6 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
     if (isSpeakingRef.current) {
       const audio = audioRef.current;
       if (audio) { audio.pause(); audio.currentTime = 0; }
-      stopSharedAudio();
       setIsSpeaking(false);
       isSpeakingRef.current = false;
       bob.setAvatarState('idle');
@@ -852,8 +842,14 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
   const handleTapToHear = () => {
     console.log('[BobVoice] tap to hear pressed');
     const a = audioRef.current;
-    if (!a || !pendingUrlRef.current) return;
+    if (!a) return;
+    if (!pendingUrlRef.current) {
+      console.warn('[BobVoice] nothing to replay');
+      return;
+    }
     if (a.src !== pendingUrlRef.current) a.src = pendingUrlRef.current;
+    a.muted = false;
+    a.volume = 1;
     a.currentTime = 0;
     a.play().then(() => setNeedTapToHear(false)).catch((err: any) => {
       console.error('[BobVoice] tap play failed', err);
@@ -864,7 +860,6 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
   const sendWithText = useCallback(async (text: string) => {
     const userMsg = text.trim();
     if (!userMsg || loading) return;
-    if (!audioUnlockedRef.current) unlockAudio();
     setInput('');
     setError('');
     setLoading(true);
@@ -932,6 +927,7 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
   sendWithTextRef.current = sendWithText;
 
   const handleSend = () => {
+    unlockAudio();
     const text = input.trim();
     if (!text || loading) return;
     sendWithText(text);
@@ -941,6 +937,7 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
     intentionalStopRef.current = true;
     stopSharedAudio();
     setIsSpeaking(false);
+    isSpeakingRef.current = false;
     stopListening();
     stopHandsFree();
     setMessages([]);
