@@ -1,5 +1,6 @@
 import { Users, Mail, Printer, X, Save, Eye, EyeOff, Ship, UserX, UserCheck, Clock, CreditCard as Edit2, ArrowLeftRight, AlertCircle, MousePointer, CheckCircle, ChevronDown, UserPlus } from 'lucide-react';
 import { Yacht } from '../../lib/supabase';
+import { formatDateNoShift } from '../../utils/timezone';
 
 interface UserProfile {
   user_id: string; first_name: string; last_name: string; email: string;
@@ -384,7 +385,7 @@ export default function UsersView(props: UsersViewProps) {
           <div className="flex flex-wrap gap-2 mb-3">
             <span className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-xs font-medium">{user.role}</span>
             {user.trip_number && <span className="px-3 py-1 bg-purple-500/20 text-purple-400 rounded-full text-xs font-medium">Trip #{user.trip_number}</span>}
-            {user.trip_start_date && user.trip_end_date && <span className="px-3 py-1 bg-cyan-500/20 text-cyan-400 rounded-full text-xs font-medium">{new Date(user.trip_start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – {new Date(user.trip_end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>}
+            {user.trip_start_date && user.trip_end_date && <span className="px-3 py-1 bg-cyan-500/20 text-cyan-400 rounded-full text-xs font-medium">{formatDateNoShift(user.trip_start_date, { month: 'short', day: 'numeric' })} – {formatDateNoShift(user.trip_end_date, { month: 'short', day: 'numeric' })}</span>}
             {user.phone && <span className="px-3 py-1 bg-slate-600 text-slate-300 rounded-full text-xs">{user.phone}</span>}
             {user.secondary_phone && <span className="px-3 py-1 bg-slate-600 text-slate-300 rounded-full text-xs">{user.secondary_phone}</span>}
           </div>

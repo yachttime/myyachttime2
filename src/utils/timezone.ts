@@ -73,6 +73,23 @@ export function toPhxTimeInput(date: Date | string | null | undefined): string {
   return `${h === '24' ? '00' : h}:${min}`;
 }
 
+/**
+ * Formats a plain "YYYY-MM-DD" date string without timezone shift.
+ * new Date('2025-05-28') is interpreted as UTC midnight, which displays as
+ * May 27 in negative-UTC-offset timezones. This parses the string parts directly.
+ */
+export function formatDateNoShift(
+  dateStr: string | null | undefined,
+  opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', year: 'numeric' }
+): string {
+  if (!dateStr) return '';
+  const parts = dateStr.slice(0, 10).split('-');
+  if (parts.length !== 3) return '';
+  const [y, m, d] = parts.map(Number);
+  if (!y || !m || !d) return '';
+  return new Date(y, m - 1, d).toLocaleDateString('en-US', opts);
+}
+
 /** Groups time entries by their Phoenix-local date string ("Mon, Jan 1") */
 export function toPhxDateLabel(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date;

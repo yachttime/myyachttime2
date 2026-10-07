@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { VesselManagementAgreement, UserProfile, Yacht, TripInspection, OwnerHandoffInspection, YachtBooking, YachtInvoice, YachtEngine, YachtGenerator } from '../lib/supabase';
+import { formatDateNoShift } from './timezone';
 
 const PHX = 'America/Phoenix';
 const phxDate = (d: Date | string) => new Date(d).toLocaleDateString('en-US', { timeZone: PHX });
@@ -346,7 +347,7 @@ export function generateUserListPDF(users: (UserProfile & { yachts?: Yacht })[],
     const yachtName = user.yachts?.name || 'N/A';
 
     const tripDates = user.trip_start_date && user.trip_end_date
-      ? `${new Date(user.trip_start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${new Date(user.trip_end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+      ? `${formatDateNoShift(user.trip_start_date, { month: 'short', day: 'numeric' })} – ${formatDateNoShift(user.trip_end_date, { month: 'short', day: 'numeric' })}`
       : 'N/A';
 
     return [
@@ -439,7 +440,7 @@ export function generateOwnerContactListPDF(users: (UserProfile & { yachts?: Yac
     const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'N/A';
     const role = user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'N/A';
     const tripDates = user.trip_start_date && user.trip_end_date
-      ? `${new Date(user.trip_start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} – ${new Date(user.trip_end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+      ? `${formatDateNoShift(user.trip_start_date, { month: 'short', day: 'numeric', year: 'numeric' })} – ${formatDateNoShift(user.trip_end_date, { month: 'short', day: 'numeric', year: 'numeric' })}`
       : 'N/A';
 
     return [
