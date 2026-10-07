@@ -423,9 +423,19 @@ export function generateOwnerContactListPDF(users: (UserProfile & { yachts?: Yac
   yPos += 0.4;
 
   const sortedUsers = [...users].sort((a, b) => {
-    if (a.trip_number && b.trip_number) return a.trip_number.localeCompare(b.trip_number);
-    if (a.trip_number && !b.trip_number) return -1;
-    if (!a.trip_number && b.trip_number) return 1;
+    const tripA = a.trip_number?.trim();
+    const tripB = b.trip_number?.trim();
+
+    if (tripA && tripB) {
+      const numberA = Number(tripA);
+      const numberB = Number(tripB);
+      if (Number.isFinite(numberA) && Number.isFinite(numberB) && numberA !== numberB) return numberA - numberB;
+      if (Number.isFinite(numberA) && !Number.isFinite(numberB)) return -1;
+      if (!Number.isFinite(numberA) && Number.isFinite(numberB)) return 1;
+      return tripA.localeCompare(tripB);
+    }
+    if (tripA) return -1;
+    if (tripB) return 1;
     const nameA = `${a.first_name} ${a.last_name}`.toLowerCase();
     const nameB = `${b.first_name} ${b.last_name}`.toLowerCase();
     return nameA.localeCompare(nameB);
