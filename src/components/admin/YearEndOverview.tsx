@@ -12,6 +12,10 @@ interface YachtRow {
   userCount: number;
   usersLoggedIn: number;
   usersNeverLoggedIn: number;
+  portEngineHoursUsed: number;
+  stbdEngineHoursUsed: number;
+  portGenHoursUsed: number;
+  stbdGenHoursUsed: number;
 }
 
 interface Props {
@@ -24,7 +28,7 @@ export default function YearEndOverview({ companyId }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<YachtRow[]>([]);
-  const [sortKey, setSortKey] = useState<'name' | 'invoiceGross' | 'inspectionCount' | 'repairRequests' | 'userCount' | 'usersLoggedIn' | 'usersNeverLoggedIn'>('name');
+  const [sortKey, setSortKey] = useState<'name' | 'invoiceGross' | 'inspectionCount' | 'repairRequests' | 'userCount' | 'usersLoggedIn' | 'usersNeverLoggedIn' | 'portEngineHoursUsed' | 'stbdEngineHoursUsed' | 'portGenHoursUsed' | 'stbdGenHoursUsed'>('name');
   const [sortAsc, setSortAsc] = useState(true);
 
   const yearStart = `${selectedYear}-01-01`;
@@ -48,7 +52,7 @@ export default function YearEndOverview({ companyId }: Props) {
           .select('id, yacht_id, total_amount, archived, payment_status')
           .gte('invoice_date', yearStart).lte('invoice_date', yearEnd),
         supabase.from('trip_inspections')
-          .select('id, yacht_id, created_at')
+          .select('id, yacht_id, created_at, port_engine_hours, stbd_engine_hours, port_gen_hours, stbd_gen_hours')
           .gte('created_at', yearStart).lte('created_at', yearEnd),
         supabase.from('repair_requests')
           .select('id, yacht_id, archived, created_at, estimating_invoice_id, yacht_invoices!repair_request_id(payment_status)')
@@ -72,8 +76,16 @@ export default function YearEndOverview({ companyId }: Props) {
           id: y.id, name: y.name, is_active: y.is_active,
           invoiceGross: 0, inspectionCount: 0,
           repairRequests: 0, userCount: 0, usersLoggedIn: 0, usersNeverLoggedIn: 0,
+          portEngineHoursUsed: 0, stbdEngineHoursUsed: 0, portGenHoursUsed: 0, stbdGenHoursUsed: 0,
         });
       }
+
+      const hourBounds = new Map<string, {
+        pEngMin?: number; pEngMax?: number;
+        sEngMin?: number; sEngMax?: number;
+        pGenMin?: number; pGenMax?: number;
+        sGenMin?: number; sGenMax?: number;
+      }>();
 
       // Build dedup set from estimating invoices
       const estPaymentIds = new Set<string>(
@@ -96,10 +108,34 @@ export default function YearEndOverview({ companyId }: Props) {
         if (row) row.invoiceGross += Number(yi.invoice_amount_numeric) || 0;
       }
 
-      // Trip inspection counts
+      // Trip inspection counts and engine/generator hour tracking
       for (const ti of (tiRes.data || []) as any[]) {
         const row = map.get(ti.yacht_id);
         if (row) row.inspectionCount += 1;
+
+        const bounds = hourBounds.get(ti.yacht_id) || {};
+        const track = (val: any, minKey: keyof typeof bounds, maxKey: keyof typeof bounds) => {
+          if (val == null) return;
+          const n = Number(val);
+          if (isNaN(n)) return;
+          if (bounds[minKey] == null || n < (bounds[minKey] as number)) bounds[minKey] = n;
+          if (bounds[maxKey] == null || n > (bounds[maxKey] as number)) bounds[maxKey] = n;
+        };
+        track(ti.port_engine_hours, 'pEngMin', 'pEngMax');
+        track(ti.stbd_engine_hours, 'sEngMin', 'sEngMax');
+        track(ti.port_gen_hours, 'pGenMin', 'pGenMax');
+        track(ti.stbd_gen_hours, 'sGenMin', 'sGenMax');
+        hourBounds.set(ti.yacht_id, bounds);
+      }
+
+      // Compute seasonal hour usage (max - min reading) per yacht
+      for (const [yachtId, b] of hourBounds) {
+        const row = map.get(yachtId);
+        if (!row) continue;
+        row.portEngineHoursUsed = (b.pEngMax != null && b.pEngMin != null) ? Math.round((b.pEngMax - b.pEngMin) * 10) / 10 : 0;
+        row.stbdEngineHoursUsed = (b.sEngMax != null && b.sEngMin != null) ? Math.round((b.sEngMax - b.sEngMin) * 10) / 10 : 0;
+        row.portGenHoursUsed = (b.pGenMax != null && b.pGenMin != null) ? Math.round((b.pGenMax - b.pGenMin) * 10) / 10 : 0;
+        row.stbdGenHoursUsed = (b.sGenMax != null && b.sGenMin != null) ? Math.round((b.sGenMax - b.sGenMin) * 10) / 10 : 0;
       }
 
       // Repair request counts
@@ -142,8 +178,12 @@ export default function YearEndOverview({ companyId }: Props) {
       userCount: acc.userCount + r.userCount,
       usersLoggedIn: acc.usersLoggedIn + r.usersLoggedIn,
       usersNeverLoggedIn: acc.usersNeverLoggedIn + r.usersNeverLoggedIn,
+      portEngineHoursUsed: acc.portEngineHoursUsed + r.portEngineHoursUsed,
+      stbdEngineHoursUsed: acc.stbdEngineHoursUsed + r.stbdEngineHoursUsed,
+      portGenHoursUsed: acc.portGenHoursUsed + r.portGenHoursUsed,
+      stbdGenHoursUsed: acc.stbdGenHoursUsed + r.stbdGenHoursUsed,
     }),
-    { invoiceGross: 0, inspectionCount: 0, repairRequests: 0, userCount: 0, usersLoggedIn: 0, usersNeverLoggedIn: 0 }
+    { invoiceGross: 0, inspectionCount: 0, repairRequests: 0, userCount: 0, usersLoggedIn: 0, usersNeverLoggedIn: 0, portEngineHoursUsed: 0, stbdEngineHoursUsed: 0, portGenHoursUsed: 0, stbdGenHoursUsed: 0 }
   );
 
   const sortedRows = [...rows].sort((a, b) => {
@@ -170,6 +210,7 @@ export default function YearEndOverview({ companyId }: Props) {
   const fleetAvg = yachtCount > 0 ? totals.invoiceGross / yachtCount : 0;
   const avgMoney = (total: number) => yachtCount > 0 ? fmtMoney(total / yachtCount) : '—';
   const avgNum = (total: number) => yachtCount > 0 ? (total / yachtCount).toFixed(1) : '—';
+  const fmtHrs = (n: number) => n > 0 ? n.toFixed(1) : '—';
 
   const pctVsAvg = (gross: number) => {
     if (fleetAvg === 0) return null;
@@ -286,6 +327,18 @@ export default function YearEndOverview({ companyId }: Props) {
                 <th className="text-center px-4 py-3 cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('inspectionCount')}>
                   Inspections {sortKey === 'inspectionCount' ? (sortAsc ? '↑' : '↓') : ''}
                 </th>
+                <th className="text-center px-4 py-3 cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('portEngineHoursUsed')}>
+                  Port Eng {sortKey === 'portEngineHoursUsed' ? (sortAsc ? '↑' : '↓') : ''}
+                </th>
+                <th className="text-center px-4 py-3 cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('stbdEngineHoursUsed')}>
+                  Stbd Eng {sortKey === 'stbdEngineHoursUsed' ? (sortAsc ? '↑' : '↓') : ''}
+                </th>
+                <th className="text-center px-4 py-3 cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('portGenHoursUsed')}>
+                  Port Gen {sortKey === 'portGenHoursUsed' ? (sortAsc ? '↑' : '↓') : ''}
+                </th>
+                <th className="text-center px-4 py-3 cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('stbdGenHoursUsed')}>
+                  Stbd Gen {sortKey === 'stbdGenHoursUsed' ? (sortAsc ? '↑' : '↓') : ''}
+                </th>
                 <th className="text-center px-4 py-3 cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('repairRequests')}>
                   Repair Requests {sortKey === 'repairRequests' ? (sortAsc ? '↑' : '↓') : ''}
                 </th>
@@ -303,7 +356,7 @@ export default function YearEndOverview({ companyId }: Props) {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-12 text-slate-400">
+                  <td colSpan={11} className="text-center py-12 text-slate-400">
                     <div className="inline-flex items-center gap-3">
                       <div className="w-5 h-5 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
                       Loading fleet data...
@@ -312,7 +365,7 @@ export default function YearEndOverview({ companyId }: Props) {
                 </tr>
               ) : sortedRows.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-12 text-slate-400">
+                  <td colSpan={11} className="text-center py-12 text-slate-400">
                     No yachts found for this company.
                   </td>
                 </tr>
@@ -354,6 +407,10 @@ export default function YearEndOverview({ companyId }: Props) {
                       })()}
                     </td>
                     <td className="px-4 py-3 text-center text-amber-400">{r.inspectionCount}</td>
+                    <td className="px-4 py-3 text-center text-cyan-400 font-mono text-sm">{fmtHrs(r.portEngineHoursUsed)}</td>
+                    <td className="px-4 py-3 text-center text-cyan-400 font-mono text-sm">{fmtHrs(r.stbdEngineHoursUsed)}</td>
+                    <td className="px-4 py-3 text-center text-orange-400 font-mono text-sm">{fmtHrs(r.portGenHoursUsed)}</td>
+                    <td className="px-4 py-3 text-center text-orange-400 font-mono text-sm">{fmtHrs(r.stbdGenHoursUsed)}</td>
                     <td className="px-4 py-3 text-center text-blue-400">{r.repairRequests}</td>
                     <td className="px-4 py-3 text-center">
                       <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-violet-500/20 text-violet-300 font-bold text-base">{r.userCount}</span>
@@ -370,6 +427,10 @@ export default function YearEndOverview({ companyId }: Props) {
                   <td className="px-4 py-3">Total ({rows.length} yachts)</td>
                   <td className="px-4 py-3 text-right font-mono text-emerald-400">{fmtMoney(totals.invoiceGross)}</td>
                   <td className="px-4 py-3 text-center text-amber-400">{totals.inspectionCount}</td>
+                  <td className="px-4 py-3 text-center text-cyan-400 font-mono">{totals.portEngineHoursUsed.toFixed(1)}</td>
+                  <td className="px-4 py-3 text-center text-cyan-400 font-mono">{totals.stbdEngineHoursUsed.toFixed(1)}</td>
+                  <td className="px-4 py-3 text-center text-orange-400 font-mono">{totals.portGenHoursUsed.toFixed(1)}</td>
+                  <td className="px-4 py-3 text-center text-orange-400 font-mono">{totals.stbdGenHoursUsed.toFixed(1)}</td>
                   <td className="px-4 py-3 text-center text-blue-400">{totals.repairRequests}</td>
                   <td className="px-4 py-3 text-center">
                     <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-lg bg-violet-500/20 text-violet-300 font-bold text-lg">{totals.userCount}</span>
