@@ -7345,6 +7345,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       await loadAdminNotifications();
       await loadYachtHistory(selectedYachtForInspection);
+      loadPendingInspectionCount();
 
       setInspectionSuccess(true);
       // If this was opened from the offline queue, remove it since it was submitted directly
@@ -7567,6 +7568,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
         await loadAdminNotifications();
         await loadYachtHistory(item.yachtId);
+        loadPendingInspectionCount();
       } else {
         // Owner handoff inspection
         const { data: inserted, error: dbError } = await supabase.from('owner_handoff_inspections').insert({
