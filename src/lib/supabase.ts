@@ -127,6 +127,8 @@ export interface UserProfile {
   last_sign_in_at?: string;
   last_sign_out_at?: string;
   trip_number?: string;
+  trip_start_date?: string;
+  trip_end_date?: string;
   can_approve_repairs?: boolean;
   can_approve_billing?: boolean;
   rate_of_pay?: number | null;

@@ -4,7 +4,7 @@ import { Yacht } from '../../lib/supabase';
 interface UserProfile {
   user_id: string; first_name: string; last_name: string; email: string;
   role: string; phone?: string; secondary_phone?: string; secondary_email?: string;
-  trip_number?: string; yacht_id?: string; is_active?: boolean;
+  trip_number?: string; trip_start_date?: string; trip_end_date?: string; yacht_id?: string; is_active?: boolean;
   last_sign_in_at?: string; last_sign_out_at?: string;
   yachts?: { name: string };
   notification_email?: string; notification_phone?: string;
@@ -17,7 +17,7 @@ interface UserProfile {
 
 export interface UserEditForm {
   first_name: string; last_name: string; email: string; password: string;
-  trip_number: string; role: string; employee_type: string; yacht_id: string;
+  trip_number: string; trip_start_date: string; trip_end_date: string; role: string; employee_type: string; yacht_id: string;
   phone: string; secondary_phone: string; secondary_email: string;
   street: string; city: string; state: string; zip_code: string;
   email_notifications_enabled: boolean; sms_notifications_enabled: boolean;
@@ -29,7 +29,7 @@ export interface UserEditForm {
 
 interface StaffMessage { id: string; notification_type: string; yacht_name: string; email_subject: string; email_body?: string; email_sent_at?: string; created_at: string; email_recipients?: any[]; email_cc_recipients?: string[]; email_delivered_at?: string; email_opened_at?: string; email_clicked_at?: string; email_bounced_at?: string; email_open_count?: number; email_click_count?: number; user_profiles?: { first_name: string; last_name: string } }
 
-interface TransferForm { first_name: string; last_name: string; email: string; password: string; phone: string; trip_number: string; street: string; city: string; state: string; zip_code: string; notification_email: string; notification_phone: string; secondary_email: string; secondary_phone: string; email_notifications_enabled: boolean; sms_notifications_enabled: boolean }
+interface TransferForm { first_name: string; last_name: string; email: string; password: string; phone: string; trip_number: string; trip_start_date: string; trip_end_date: string; street: string; city: string; state: string; zip_code: string; notification_email: string; notification_phone: string; secondary_email: string; secondary_phone: string; email_notifications_enabled: boolean; sms_notifications_enabled: boolean }
 
 interface UsersViewProps {
   allUsers: UserProfile[];
@@ -249,7 +249,7 @@ export default function UsersView(props: UsersViewProps) {
   const handleAddNew = () => {
     p.onSelectedUserChange(null);
     p.onUserEditFormChange({
-      first_name: '', last_name: '', email: '', password: '', trip_number: '', role: 'owner',
+      first_name: '', last_name: '', email: '', password: '', trip_number: '', trip_start_date: '', trip_end_date: '', role: 'owner',
       employee_type: 'hourly', yacht_id: (p.effectiveRole === 'manager' && p.effectiveYacht?.id) ? p.effectiveYacht.id : '',
       phone: '', secondary_phone: '', secondary_email: '', street: '', city: '', state: '', zip_code: '',
       email_notifications_enabled: true, sms_notifications_enabled: false, notification_email: '', notification_phone: '',
@@ -311,6 +311,8 @@ export default function UsersView(props: UsersViewProps) {
             )}
           </div>
           <div><label className="block text-sm font-medium text-slate-300 mb-2">Trip Number</label><input type="text" value={f.trip_number} onChange={(e) => setF({ ...f, trip_number: e.target.value })} placeholder="e.g., T1, T2, Trip 1" className={inputCls} /><p className="text-xs text-slate-500 mt-1">Optional field to track owner trip sequence</p></div>
+          <div><label className="block text-sm font-medium text-slate-300 mb-2">Trip Start Date</label><input type="date" value={f.trip_start_date} onChange={(e) => setF({ ...f, trip_start_date: e.target.value })} className={inputCls} /></div>
+          <div><label className="block text-sm font-medium text-slate-300 mb-2">Trip End Date</label><input type="date" value={f.trip_end_date} onChange={(e) => setF({ ...f, trip_end_date: e.target.value })} className={inputCls} /></div>
         </div>
 
         {f.role === 'manager' && (
@@ -382,6 +384,7 @@ export default function UsersView(props: UsersViewProps) {
           <div className="flex flex-wrap gap-2 mb-3">
             <span className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-xs font-medium">{user.role}</span>
             {user.trip_number && <span className="px-3 py-1 bg-purple-500/20 text-purple-400 rounded-full text-xs font-medium">Trip #{user.trip_number}</span>}
+            {user.trip_start_date && user.trip_end_date && <span className="px-3 py-1 bg-cyan-500/20 text-cyan-400 rounded-full text-xs font-medium">{new Date(user.trip_start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – {new Date(user.trip_end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>}
             {user.phone && <span className="px-3 py-1 bg-slate-600 text-slate-300 rounded-full text-xs">{user.phone}</span>}
             {user.secondary_phone && <span className="px-3 py-1 bg-slate-600 text-slate-300 rounded-full text-xs">{user.secondary_phone}</span>}
           </div>

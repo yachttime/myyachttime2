@@ -345,19 +345,24 @@ export function generateUserListPDF(users: (UserProfile & { yachts?: Yacht })[],
     const role = user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'N/A';
     const yachtName = user.yachts?.name || 'N/A';
 
+    const tripDates = user.trip_start_date && user.trip_end_date
+      ? `${new Date(user.trip_start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${new Date(user.trip_end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+      : 'N/A';
+
     return [
       fullName,
       user.email || 'N/A',
       user.phone || 'N/A',
       role,
       user.trip_number || 'N/A',
+      tripDates,
       yachtName
     ];
   });
 
   autoTable(doc, {
     startY: yPos,
-    head: [['Name', 'Email', 'Phone', 'Role', 'Trip #', 'Yacht']],
+    head: [['Name', 'Email', 'Phone', 'Role', 'Trip #', 'Trip Dates', 'Yacht']],
     body: tableData,
     theme: 'grid',
     styles: {
@@ -433,10 +438,15 @@ export function generateOwnerContactListPDF(users: (UserProfile & { yachts?: Yac
   const tableData = sortedUsers.map((user) => {
     const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'N/A';
     const role = user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'N/A';
+    const tripDates = user.trip_start_date && user.trip_end_date
+      ? `${new Date(user.trip_start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} – ${new Date(user.trip_end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+      : 'N/A';
+
     return [
       fullName,
       role,
       user.trip_number || 'N/A',
+      tripDates,
       user.phone || 'N/A',
       user.secondary_phone || '—',
       user.email || 'N/A',
@@ -447,7 +457,7 @@ export function generateOwnerContactListPDF(users: (UserProfile & { yachts?: Yac
 
   autoTable(doc, {
     startY: yPos,
-    head: [['Name', 'Role', 'Trip #', 'Primary Phone', 'Secondary Phone', 'Primary Email', 'Secondary Email', 'Mailing Address']],
+    head: [['Name', 'Role', 'Trip #', 'Trip Dates', 'Primary Phone', 'Secondary Phone', 'Primary Email', 'Secondary Email', 'Mailing Address']],
     body: tableData,
     theme: 'grid',
     styles: {
@@ -472,12 +482,13 @@ export function generateOwnerContactListPDF(users: (UserProfile & { yachts?: Yac
     columnStyles: {
       0: { cellWidth: 1.4 },
       1: { cellWidth: 0.8 },
-      2: { cellWidth: 0.6 },
+      2: { cellWidth: 0.5 },
       3: { cellWidth: 1.1 },
       4: { cellWidth: 1.1 },
-      5: { cellWidth: 1.6 },
-      6: { cellWidth: 1.6 },
-      7: { cellWidth: 1.8 },
+      5: { cellWidth: 1.1 },
+      6: { cellWidth: 1.5 },
+      7: { cellWidth: 1.5 },
+      8: { cellWidth: 1.8 },
     },
     margin: { left: margin, right: margin },
   });

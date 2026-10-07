@@ -13,6 +13,8 @@ interface CreateUserRequest {
   last_name: string;
   phone?: string;
   trip_number?: string;
+  trip_start_date?: string;
+  trip_end_date?: string;
   street?: string;
   city?: string;
   state?: string;
@@ -181,6 +183,8 @@ Deno.serve(async (req: Request) => {
         email: requestData.email,
         phone: requestData.phone,
         trip_number: requestData.trip_number || null,
+        trip_start_date: requestData.trip_start_date || null,
+        trip_end_date: requestData.trip_end_date || null,
         street: requestData.street,
         city: requestData.city,
         state: requestData.state,

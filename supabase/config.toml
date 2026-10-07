@@ -57,3 +57,9 @@ verify_jwt = true
 
 [functions.jarvis-transcribe]
 verify_jwt = true
+
+[functions.create-user]
+verify_jwt = true
+
+[functions.restore-user-profile]
+verify_jwt = false

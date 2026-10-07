@@ -216,6 +216,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     password: '',
     phone: '',
     trip_number: '',
+    trip_start_date: '',
+    trip_end_date: '',
     street: '',
     city: '',
     state: '',
@@ -896,6 +898,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     email: '',
     password: '',
     trip_number: '',
+    trip_start_date: '',
+    trip_end_date: '',
     phone: '',
     street: '',
     city: '',
@@ -1671,6 +1675,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           phone,
           email,
           trip_number,
+          trip_start_date,
+          trip_end_date,
           street,
           city,
           state,
@@ -1886,6 +1892,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       email: user.email || '',
       password: '',
       trip_number: user.trip_number || '',
+      trip_start_date: user.trip_start_date || '',
+      trip_end_date: user.trip_end_date || '',
       phone: user.phone || '',
       street: user.street || '',
       city: user.city || '',
@@ -1999,6 +2007,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           last_name: transferForm.last_name,
           phone: transferForm.phone || null,
           trip_number: transferForm.trip_number || null,
+          trip_start_date: transferForm.trip_start_date || null,
+          trip_end_date: transferForm.trip_end_date || null,
           street: transferForm.street || null,
           city: transferForm.city || null,
           state: transferForm.state || null,
@@ -2103,7 +2113,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       setTransferNotes('');
       setTransferForm({
         first_name: '', last_name: '', email: '', password: '', phone: '',
-        trip_number: '', street: '', city: '', state: '', zip_code: '',
+        trip_number: '', trip_start_date: '', trip_end_date: '', street: '', city: '', state: '', zip_code: '',
         notification_email: '', notification_phone: '', secondary_email: '', secondary_phone: '',
         email_notifications_enabled: true, sms_notifications_enabled: false,
       });
@@ -2147,6 +2157,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               last_name: userEditForm.last_name,
               phone: userEditForm.phone,
               trip_number: userEditForm.trip_number || null,
+              trip_start_date: userEditForm.trip_start_date || null,
+              trip_end_date: userEditForm.trip_end_date || null,
               street: userEditForm.street,
               city: userEditForm.city,
               state: userEditForm.state,
@@ -2192,6 +2204,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               last_name: userEditForm.last_name,
               phone: userEditForm.phone,
               trip_number: userEditForm.trip_number || null,
+              trip_start_date: userEditForm.trip_start_date || null,
+              trip_end_date: userEditForm.trip_end_date || null,
               street: userEditForm.street,
               city: userEditForm.city,
               state: userEditForm.state,
@@ -2235,6 +2249,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     last_name: userEditForm.last_name,
                     phone: userEditForm.phone,
                     trip_number: userEditForm.trip_number || null,
+                    trip_start_date: userEditForm.trip_start_date || null,
+                    trip_end_date: userEditForm.trip_end_date || null,
                     street: userEditForm.street,
                     city: userEditForm.city,
                     state: userEditForm.state,
@@ -2304,6 +2320,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             email: userEditForm.email,
             phone: userEditForm.phone,
             trip_number: userEditForm.trip_number || null,
+            trip_start_date: userEditForm.trip_start_date || null,
+            trip_end_date: userEditForm.trip_end_date || null,
             street: userEditForm.street,
             city: userEditForm.city,
             state: userEditForm.state,
@@ -17474,7 +17492,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                     onExpandedEmailIdChange={setExpandedEmailId}
                     recipientTrackingMap={recipientTrackingMap}
                     onFetchRecipientTracking={async (msgId) => { const { data } = await supabase.from('staff_message_recipient_tracking').select('*').eq('staff_message_id', msgId).order('recipient_email'); setRecipientTrackingMap(prev => ({ ...prev, [msgId]: data || [] })); }}
-                    onTransferClick={(user, yachtName) => { setTransferModal({ user, yachtName }); setTransferStep(1); setTransferNotes(''); setTransferForm({ first_name: '', last_name: '', email: '', password: '', phone: '', trip_number: '', street: '', city: '', state: '', zip_code: '', notification_email: '', notification_phone: '', secondary_email: '', secondary_phone: '', email_notifications_enabled: true, sms_notifications_enabled: false }); }}
+                    onTransferClick={(user, yachtName) => { setTransferModal({ user, yachtName }); setTransferStep(1); setTransferNotes(''); setTransferForm({ first_name: '', last_name: '', email: '', password: '', phone: '', trip_number: '', trip_start_date: '', trip_end_date: '', street: '', city: '', state: '', zip_code: '', notification_email: '', notification_phone: '', secondary_email: '', secondary_phone: '', email_notifications_enabled: true, sms_notifications_enabled: false }); }}
                     yachtPartners={yachtPartners}
                     onEmailGroup={(yachtName, users) => { const recipients: Array<{ email: string; name: string }> = []; const ccEmails: string[] = []; users.forEach((user: any) => { const primaryEmail = user.notification_email || user.email; const userName = user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : user.email; if (primaryEmail) recipients.push({ email: primaryEmail, name: userName }); if (user.secondary_email && user.secondary_email !== primaryEmail) ccEmails.push(user.secondary_email); }); if (recipients.length === 0) { alert('No email addresses found for yacht members'); return; } setBulkEmailRecipients(recipients); setBulkEmailCcRecipients(ccEmails); setBulkEmailYachtName(yachtName); setShowBulkEmailModal(true); }}
                     onEmailManagementTeam={fetchManagementTeamForEmail}
