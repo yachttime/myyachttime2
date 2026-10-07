@@ -392,6 +392,109 @@ export function generateUserListPDF(users: (UserProfile & { yachts?: Yacht })[],
   return doc;
 }
 
+export function generateOwnerContactListPDF(users: (UserProfile & { yachts?: Yacht })[], title: string): jsPDF {
+  const doc = new jsPDF({
+    orientation: 'landscape',
+    unit: 'in',
+    format: 'letter',
+  });
+
+  const pageWidth = 11;
+  const margin = 0.5;
+  let yPos = margin;
+
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  const titleWidth = doc.getTextWidth(title);
+  doc.text(title, (pageWidth - titleWidth) / 2, yPos);
+  yPos += 0.3;
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  const dateText = `Generated: ${phxDateTime(new Date())}`;
+  const dateWidth = doc.getTextWidth(dateText);
+  doc.text(dateText, (pageWidth - dateWidth) / 2, yPos);
+  yPos += 0.4;
+
+  const sortedUsers = [...users].sort((a, b) => {
+    if (a.trip_number && b.trip_number) return a.trip_number.localeCompare(b.trip_number);
+    if (a.trip_number && !b.trip_number) return -1;
+    if (!a.trip_number && b.trip_number) return 1;
+    const nameA = `${a.first_name} ${a.last_name}`.toLowerCase();
+    const nameB = `${b.first_name} ${b.last_name}`.toLowerCase();
+    return nameA.localeCompare(nameB);
+  });
+
+  const fmtAddr = (u: UserProfile) => {
+    const parts = [u.street, u.city, u.state, u.zip_code].filter(Boolean);
+    return parts.length > 0 ? parts.join(', ') : 'N/A';
+  };
+
+  const tableData = sortedUsers.map((user) => {
+    const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'N/A';
+    const role = user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'N/A';
+    return [
+      fullName,
+      role,
+      user.trip_number || 'N/A',
+      user.phone || 'N/A',
+      user.secondary_phone || '—',
+      user.email || 'N/A',
+      user.secondary_email || '—',
+      fmtAddr(user),
+    ];
+  });
+
+  autoTable(doc, {
+    startY: yPos,
+    head: [['Name', 'Role', 'Trip #', 'Primary Phone', 'Secondary Phone', 'Primary Email', 'Secondary Email', 'Mailing Address']],
+    body: tableData,
+    theme: 'grid',
+    styles: {
+      fontSize: 7.5,
+      cellPadding: 0.06,
+      font: 'helvetica',
+      lineColor: [203, 213, 225],
+      lineWidth: 0.01,
+      overflow: 'lineheight',
+      valign: 'top',
+    },
+    headStyles: {
+      fillColor: [241, 245, 249],
+      textColor: [0, 0, 0],
+      fontStyle: 'bold',
+      halign: 'left',
+      fontSize: 8,
+    },
+    alternateRowStyles: {
+      fillColor: [249, 250, 251]
+    },
+    columnStyles: {
+      0: { cellWidth: 1.4 },
+      1: { cellWidth: 0.8 },
+      2: { cellWidth: 0.6 },
+      3: { cellWidth: 1.1 },
+      4: { cellWidth: 1.1 },
+      5: { cellWidth: 1.6 },
+      6: { cellWidth: 1.6 },
+      7: { cellWidth: 1.8 },
+    },
+    margin: { left: margin, right: margin },
+  });
+
+  const pageCount = doc.getNumberOfPages();
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(100);
+
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.text(`Page ${i} of ${pageCount}`, pageWidth - margin - 0.5, 8, { align: 'right' });
+  }
+
+  return doc;
+}
+
 export interface InspectionPhoto {
   photo_url: string;
   caption?: string;

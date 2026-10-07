@@ -1,6 +1,6 @@
 import { Download, Eye, X } from 'lucide-react';
 import { UserProfile, Yacht } from '../lib/supabase';
-import { generateUserListPDF } from '../utils/pdfGenerator';
+import { generateUserListPDF, generateOwnerContactListPDF } from '../utils/pdfGenerator';
 
 interface PrintableUserListProps {
   users: (UserProfile & { yachts?: Yacht })[];
@@ -9,9 +9,12 @@ interface PrintableUserListProps {
 }
 
 export function PrintableUserList({ users, title, onClose }: PrintableUserListProps) {
+  const isContactList = title.toLowerCase().includes('contact list');
+  const generatePDF = () => isContactList ? generateOwnerContactListPDF(users, title) : generateUserListPDF(users, title);
+
   const handlePreview = () => {
     try {
-      const pdf = generateUserListPDF(users, title);
+      const pdf = generatePDF();
       const pdfBlob = pdf.output('blob');
       const pdfUrl = URL.createObjectURL(pdfBlob);
       window.open(pdfUrl, '_blank');
@@ -23,7 +26,7 @@ export function PrintableUserList({ users, title, onClose }: PrintableUserListPr
 
   const handleDownload = () => {
     try {
-      const pdf = generateUserListPDF(users, title);
+      const pdf = generatePDF();
       const fileName = `${title.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
       pdf.save(fileName);
     } catch (error) {

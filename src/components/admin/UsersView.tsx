@@ -239,6 +239,13 @@ export default function UsersView(props: UsersViewProps) {
     p.onPrintUsers(usersWithYachts, title);
   };
 
+  const handlePrintContacts = (yachtName: string, users: UserProfile[]) => {
+    const contactUsers = users.filter(u => u.is_active !== false);
+    if (contactUsers.length === 0) { alert('No contacts to print for this yacht.'); return; }
+    const usersWithYachts = contactUsers.map(u => ({ ...u, yachts: p.allYachts.find(y => y.name === yachtName) }));
+    p.onPrintUsers(usersWithYachts, `${yachtName} - Owner Contact List`);
+  };
+
   const handleAddNew = () => {
     p.onSelectedUserChange(null);
     p.onUserEditFormChange({
@@ -492,6 +499,7 @@ export default function UsersView(props: UsersViewProps) {
             <div className="grid grid-cols-2 gap-3">
               <button onClick={() => p.onSelectedUserGroupChange(yachtName)} className="px-6 py-3 bg-teal-500 hover:bg-teal-600 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">Access <Ship className="w-4 h-4" /></button>
               <button onClick={() => p.onEmailGroup(yachtName, users)} className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">Email All <Mail className="w-4 h-4" /></button>
+              <button onClick={() => handlePrintContacts(yachtName, users)} className="col-span-2 px-6 py-3 bg-slate-600 hover:bg-slate-500 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"><Printer className="w-4 h-4" />Print Contact List</button>
               <button onClick={() => p.onEmailManagementTeam(yachtName, users)} className="col-span-2 px-6 py-3 bg-slate-600 hover:bg-slate-500 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"><Mail className="w-4 h-4" />Email Management Team</button>
               <button onClick={() => p.onSendIntroVideo(yachtName, users)} className="col-span-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"><Mail className="w-4 h-4" />Send Intro Video</button>
             </div>
