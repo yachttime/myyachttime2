@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import jsPDF from 'jspdf';
-import { Anchor, Calendar, CheckCircle, AlertCircle, BookOpen, LogOut, Wrench, Send, Play, Shield, ClipboardCheck, ClipboardList, Ship, CalendarPlus, FileUp, MessageCircle, Mail, CreditCard as Edit2, Trash2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, History, UserCheck, FileText, Upload, Download, X, Users, Save, RefreshCw, Clock, Thermometer, Camera, Receipt, Pencil, Lock, CreditCard, Eye, EyeOff, MousePointer, Ligature as FileSignature, Folder, Menu, Phone, Printer, Plus, QrCode, CircleUser as UserCircle2, DollarSign, Archive, Building2, MessageSquare, ShieldAlert, Paperclip, ExternalLink, User, Image, ArrowLeftRight, Copy, Link, Gauge, ZoomIn, UserX, Cloud, Wind, Droplets, AlertTriangle, MapPin } from 'lucide-react';
+import { Anchor, BarChart3, Calendar, CheckCircle, AlertCircle, BookOpen, LogOut, Wrench, Send, Play, Shield, ClipboardCheck, ClipboardList, Ship, CalendarPlus, FileUp, MessageCircle, Mail, CreditCard as Edit2, Trash2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, History, UserCheck, FileText, Upload, Download, X, Users, Save, RefreshCw, Clock, Thermometer, Camera, Receipt, Pencil, Lock, CreditCard, Eye, EyeOff, MousePointer, Ligature as FileSignature, Folder, Menu, Phone, Printer, Plus, QrCode, CircleUser as UserCircle2, DollarSign, Archive, Building2, MessageSquare, ShieldAlert, Paperclip, ExternalLink, User, Image, ArrowLeftRight, Copy, Link, Gauge, ZoomIn, UserX, Cloud, Wind, Droplets, AlertTriangle, MapPin } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCompany } from '../contexts/CompanyContext';
 import { useRoleImpersonation } from '../contexts/RoleImpersonationContext';
@@ -32,7 +32,7 @@ import CustomerManagement, { CustomerPrefill } from './CustomerManagement';
 import { CompanyManagement } from './CompanyManagement';
 import SupportTickets from './SupportTickets';
 import { uploadFileToStorage, deleteFileFromStorage, isStorageUrl, UploadProgress, isTokenExpiredError } from '../utils/fileUpload';
-import { generateAllYachtTripsPDF, generateEstimatingInvoicePDF, generateTripInspectionPDF, generateEngineHoursReportPDF, generateOffSeasonEstimatesPDF, InvoicePaymentRecord } from '../utils/pdfGenerator';
+import { generateAllYachtTripsPDF, generateEstimatingInvoicePDF, generateTripInspectionPDF, generateEngineHoursReportPDF, generateOffSeasonEstimatesPDF, generateYachtYearEndSummaryPDF, YachtYearEndRow, InvoicePaymentRecord } from '../utils/pdfGenerator';
 import { getCompanyInfoForPdf } from '../utils/companyInfo';
 import {
   getQueue, addItem, updateItem, removeItem, getReadyItems,
@@ -948,6 +948,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [qrCodeYacht, setQrCodeYacht] = useState<{ id: string; name: string } | null>(null);
   const [printingAllQR, setPrintingAllQR] = useState(false);
   const [printingAllTrips, setPrintingAllTrips] = useState(false);
+  const [yearEndSummaryLoading, setYearEndSummaryLoading] = useState<string | null>(null);
   const [printingAllInvoicesYachtId, setPrintingAllInvoicesYachtId] = useState<string | null>(null);
   const [showAgreementForm, setShowAgreementForm] = useState(false);
   const [showAgreementViewer, setShowAgreementViewer] = useState(false);
@@ -3106,6 +3107,97 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       popup?.close();
     } finally {
       setPrintingEngineHoursId(null);
+    }
+  };
+
+  const handlePrintYachtYearEndSummary = async (yachtId: string, yachtName: string) => {
+    if (yearEndSummaryLoading) return;
+    setYearEndSummaryLoading(yachtId);
+    try {
+      const year = new Date().getFullYear();
+      const yearStart = `${year}-01-01`;
+      const yearEnd = `${year}-12-31`;
+
+      const [yiRes, eiRes, tiRes, rrRes, usersRes] = await Promise.all([
+        supabase.from('yacht_invoices')
+          .select('id, yacht_id, invoice_amount_numeric, repair_request_id, repair_requests!repair_request_id(estimating_invoice_id), stripe_payment_intent_id, repair_title')
+          .eq('yacht_id', yachtId)
+          .gte('invoice_date', yearStart).lte('invoice_date', yearEnd),
+        supabase.from('estimating_invoices')
+          .select('id, yacht_id, total_amount, archived, payment_status, final_payment_stripe_payment_intent_id, stripe_payment_intent_id')
+          .eq('yacht_id', yachtId)
+          .gte('invoice_date', yearStart).lte('invoice_date', yearEnd),
+        supabase.from('trip_inspections')
+          .select('id, yacht_id, created_at, port_engine_hours, stbd_engine_hours, port_gen_hours, stbd_gen_hours')
+          .eq('yacht_id', yachtId)
+          .gte('created_at', yearStart).lte('created_at', yearEnd),
+        supabase.from('repair_requests')
+          .select('id, yacht_id, archived, created_at')
+          .eq('yacht_id', yachtId)
+          .gte('created_at', yearStart).lte('created_at', yearEnd),
+        supabase.from('user_profiles').select('id, yacht_id, last_sign_in_at').eq('yacht_id', yachtId),
+      ]);
+
+      const row: YachtYearEndRow = {
+        id: yachtId, name: yachtName, is_active: true,
+        invoiceGross: 0, inspectionCount: 0, repairRequests: 0,
+        userCount: 0, usersLoggedIn: 0, usersNeverLoggedIn: 0,
+        portEngineHoursUsed: 0, stbdEngineHoursUsed: 0, portGenHoursUsed: 0, stbdGenHoursUsed: 0,
+      };
+
+      const estPaymentIds = new Set<string>(
+        (eiRes.data || []).map((ei: any) => ei.final_payment_stripe_payment_intent_id || ei.stripe_payment_intent_id).filter(Boolean)
+      );
+
+      for (const ei of (eiRes.data || []) as any[]) {
+        if (ei.archived && ei.payment_status !== 'paid') continue;
+        row.invoiceGross += Number(ei.total_amount) || 0;
+      }
+
+      for (const yi of (yiRes.data || []) as any[]) {
+        if (yi.repair_request_id && yi.repair_requests?.estimating_invoice_id) continue;
+        if (yi.stripe_payment_intent_id && estPaymentIds.has(yi.stripe_payment_intent_id)) continue;
+        if (yi.repair_title && yi.repair_title.startsWith('Work Order WO')) continue;
+        row.invoiceGross += Number(yi.invoice_amount_numeric) || 0;
+      }
+
+      const hourBounds: { pEngMin?: number; pEngMax?: number; sEngMin?: number; sEngMax?: number; pGenMin?: number; pGenMax?: number; sGenMin?: number; sGenMax?: number } = {};
+      for (const ti of (tiRes.data || []) as any[]) {
+        row.inspectionCount += 1;
+        const track = (val: any, minKey: keyof typeof hourBounds, maxKey: keyof typeof hourBounds) => {
+          if (val == null) return;
+          const n = Number(val);
+          if (isNaN(n)) return;
+          if (hourBounds[minKey] == null || n < (hourBounds[minKey] as number)) (hourBounds as any)[minKey] = n;
+          if (hourBounds[maxKey] == null || n > (hourBounds[maxKey] as number)) (hourBounds as any)[maxKey] = n;
+        };
+        track(ti.port_engine_hours, 'pEngMin', 'pEngMax');
+        track(ti.stbd_engine_hours, 'sEngMin', 'sEngMax');
+        track(ti.port_gen_hours, 'pGenMin', 'pGenMax');
+        track(ti.stbd_gen_hours, 'sGenMin', 'sGenMax');
+      }
+
+      row.portEngineHoursUsed = (hourBounds.pEngMax != null && hourBounds.pEngMin != null) ? Math.round((hourBounds.pEngMax - hourBounds.pEngMin) * 10) / 10 : 0;
+      row.stbdEngineHoursUsed = (hourBounds.sEngMax != null && hourBounds.sEngMin != null) ? Math.round((hourBounds.sEngMax - hourBounds.sEngMin) * 10) / 10 : 0;
+      row.portGenHoursUsed = (hourBounds.pGenMax != null && hourBounds.pGenMin != null) ? Math.round((hourBounds.pGenMax - hourBounds.pGenMin) * 10) / 10 : 0;
+      row.stbdGenHoursUsed = (hourBounds.sGenMax != null && hourBounds.sGenMin != null) ? Math.round((hourBounds.sGenMax - hourBounds.sGenMin) * 10) / 10 : 0;
+
+      row.repairRequests = (rrRes.data || []).length;
+
+      for (const u of (usersRes.data || []) as any[]) {
+        row.userCount += 1;
+        if (u.last_sign_in_at) row.usersLoggedIn += 1;
+        else row.usersNeverLoggedIn += 1;
+      }
+
+      const pdf = generateYachtYearEndSummaryPDF(yachtName, row, year);
+      const fileName = `${yachtName.replace(/\s+/g, '_')}_Year_End_Summary_${year}.pdf`;
+      pdf.save(fileName);
+    } catch (error) {
+      console.error('Error generating year-end summary PDF:', error);
+      showError('Failed to generate year-end summary PDF');
+    } finally {
+      setYearEndSummaryLoading(null);
     }
   };
 
@@ -12518,6 +12610,15 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             >
                               <Printer className="w-4 h-4" />
                               Print Hours
+                            </button>
+                            <button
+                              onClick={() => handlePrintYachtYearEndSummary(yacht.id, yacht.name)}
+                              disabled={yearEndSummaryLoading === yacht.id}
+                              className="flex items-center justify-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white rounded-lg transition-colors text-sm"
+                              title="Print year-end summary for this yacht"
+                            >
+                              <BarChart3 className="w-4 h-4" />
+                              {yearEndSummaryLoading === yacht.id ? 'Generating...' : 'Year-End Summary'}
                             </button>
                             <button
                               onClick={() => toggleOffSeasonEstimates(yacht.id)}

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { BarChart3, Ship, ClipboardCheck, Wrench, DollarSign, Users, UserCheck, UserX } from 'lucide-react';
+import { BarChart3, Ship, ClipboardCheck, Wrench, DollarSign, Users, UserCheck, UserX, Printer } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { generateFleetYearEndPDF } from '../../utils/pdfGenerator';
 
 interface YachtRow {
   id: string;
@@ -30,6 +31,7 @@ export default function YearEndOverview({ companyId }: Props) {
   const [rows, setRows] = useState<YachtRow[]>([]);
   const [sortKey, setSortKey] = useState<'name' | 'invoiceGross' | 'inspectionCount' | 'repairRequests' | 'userCount' | 'usersLoggedIn' | 'usersNeverLoggedIn' | 'portEngineHoursUsed' | 'stbdEngineHoursUsed' | 'portGenHoursUsed' | 'stbdGenHoursUsed'>('name');
   const [sortAsc, setSortAsc] = useState(true);
+  const [printing, setPrinting] = useState(false);
 
   const yearStart = `${selectedYear}-01-01`;
   const yearEnd = `${selectedYear}-12-31`;
@@ -239,6 +241,25 @@ export default function YearEndOverview({ companyId }: Props) {
           >
             {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
+          <button
+            onClick={() => {
+              if (printing || rows.length === 0) return;
+              setPrinting(true);
+              try {
+                const pdf = generateFleetYearEndPDF(rows, selectedYear);
+                pdf.save(`Fleet_Year_End_Overview_${selectedYear}.pdf`);
+              } catch (err) {
+                console.error('Error generating fleet PDF:', err);
+              } finally {
+                setPrinting(false);
+              }
+            }}
+            disabled={printing || loading || rows.length === 0}
+            className="bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white px-5 py-2 rounded-lg font-semibold transition-all duration-300 shadow-lg flex items-center gap-2"
+          >
+            <Printer className="w-5 h-5" />
+            {printing ? 'Generating...' : 'Print Report'}
+          </button>
         </div>
       </div>
 

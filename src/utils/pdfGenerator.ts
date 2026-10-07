@@ -4043,3 +4043,215 @@ export async function generateOffSeasonEstimatesPDF(
 
   return combinedDoc;
 }
+
+export interface YachtYearEndRow {
+  id: string;
+  name: string;
+  is_active: boolean;
+  invoiceGross: number;
+  inspectionCount: number;
+  repairRequests: number;
+  userCount: number;
+  usersLoggedIn: number;
+  usersNeverLoggedIn: number;
+  portEngineHoursUsed: number;
+  stbdEngineHoursUsed: number;
+  portGenHoursUsed: number;
+  stbdGenHoursUsed: number;
+}
+
+export function generateFleetYearEndPDF(rows: YachtYearEndRow[], year: number): jsPDF {
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'in', format: 'letter' });
+  const pageWidth = 11;
+  const margin = 0.5;
+  let yPos = margin;
+
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  const title = `Fleet End-of-Year Overview — ${year}`;
+  const titleWidth = doc.getTextWidth(title);
+  doc.text(title, (pageWidth - titleWidth) / 2, yPos);
+  yPos += 0.3;
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(100, 116, 139);
+  const dateText = `Generated: ${phxDateTime(new Date())}`;
+  const dateWidth = doc.getTextWidth(dateText);
+  doc.text(dateText, (pageWidth - dateWidth) / 2, yPos);
+  yPos += 0.4;
+  doc.setTextColor(0, 0, 0);
+
+  const fmtMoney = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fmtHrs = (n: number) => n > 0 ? n.toFixed(1) : '—';
+
+  const sortedRows = [...rows].sort((a, b) => a.name.localeCompare(b.name));
+
+  const tableData = sortedRows.map(r => [
+    r.name + (r.is_active ? '' : ' (Inactive)'),
+    fmtMoney(r.invoiceGross),
+    String(r.inspectionCount),
+    fmtHrs(r.portEngineHoursUsed),
+    fmtHrs(r.stbdEngineHoursUsed),
+    fmtHrs(r.portGenHoursUsed),
+    fmtHrs(r.stbdGenHoursUsed),
+    String(r.repairRequests),
+    String(r.userCount),
+    String(r.usersLoggedIn),
+    String(r.usersNeverLoggedIn),
+  ]);
+
+  const totals = sortedRows.reduce(
+    (acc, r) => ({
+      invoiceGross: acc.invoiceGross + r.invoiceGross,
+      inspectionCount: acc.inspectionCount + r.inspectionCount,
+      repairRequests: acc.repairRequests + r.repairRequests,
+      userCount: acc.userCount + r.userCount,
+      usersLoggedIn: acc.usersLoggedIn + r.usersLoggedIn,
+      usersNeverLoggedIn: acc.usersNeverLoggedIn + r.usersNeverLoggedIn,
+      portEngineHoursUsed: acc.portEngineHoursUsed + r.portEngineHoursUsed,
+      stbdEngineHoursUsed: acc.stbdEngineHoursUsed + r.stbdEngineHoursUsed,
+      portGenHoursUsed: acc.portGenHoursUsed + r.portGenHoursUsed,
+      stbdGenHoursUsed: acc.stbdGenHoursUsed + r.stbdGenHoursUsed,
+    }),
+    { invoiceGross: 0, inspectionCount: 0, repairRequests: 0, userCount: 0, usersLoggedIn: 0, usersNeverLoggedIn: 0, portEngineHoursUsed: 0, stbdEngineHoursUsed: 0, portGenHoursUsed: 0, stbdGenHoursUsed: 0 }
+  );
+
+  tableData.push([
+    `TOTAL (${sortedRows.length} yachts)`,
+    fmtMoney(totals.invoiceGross),
+    String(totals.inspectionCount),
+    fmtHrs(totals.portEngineHoursUsed),
+    fmtHrs(totals.stbdEngineHoursUsed),
+    fmtHrs(totals.portGenHoursUsed),
+    fmtHrs(totals.stbdGenHoursUsed),
+    String(totals.repairRequests),
+    String(totals.userCount),
+    String(totals.usersLoggedIn),
+    String(totals.usersNeverLoggedIn),
+  ]);
+
+  autoTable(doc, {
+    startY: yPos,
+    head: [['Yacht', 'Invoice Gross', 'Inspections', 'Port Eng', 'Stbd Eng', 'Port Gen', 'Stbd Gen', 'Repairs', 'Users', 'Logged In', 'Never Logged In']],
+    body: tableData,
+    theme: 'striped',
+    styles: { fontSize: 8, cellPadding: 0.06, font: 'helvetica', lineColor: [203, 213, 225], lineWidth: 0.01 },
+    headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center', fontSize: 8 },
+    alternateRowStyles: { fillColor: [249, 250, 251] },
+    columnStyles: {
+      0: { cellWidth: 1.4, halign: 'left' },
+      1: { cellWidth: 1.1, halign: 'right' },
+      2: { cellWidth: 0.7, halign: 'center' },
+      3: { cellWidth: 0.7, halign: 'center' },
+      4: { cellWidth: 0.7, halign: 'center' },
+      5: { cellWidth: 0.7, halign: 'center' },
+      6: { cellWidth: 0.7, halign: 'center' },
+      7: { cellWidth: 0.6, halign: 'center' },
+      8: { cellWidth: 0.6, halign: 'center' },
+      9: { cellWidth: 0.7, halign: 'center' },
+      10: { cellWidth: 0.8, halign: 'center' },
+    },
+    margin: { left: margin, right: margin },
+    didParseCell: (data: any) => {
+      if (data.section === 'body') {
+        const isLastRow = data.row.index === tableData.length - 1;
+        if (isLastRow) {
+          data.cell.styles.fillColor = [241, 245, 249];
+          data.cell.styles.fontStyle = 'bold';
+        }
+        if (data.column.index === 1 && !isLastRow) {
+          data.cell.styles.textColor = [5, 150, 105];
+          data.cell.styles.fontStyle = 'bold';
+        }
+      }
+    },
+  });
+
+  const pageCount = doc.getNumberOfPages();
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(100);
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.text(`Page ${i} of ${pageCount}`, pageWidth - margin, 8, { align: 'right' });
+  }
+
+  return doc;
+}
+
+export function generateYachtYearEndSummaryPDF(
+  yachtName: string,
+  row: YachtYearEndRow,
+  year: number
+): jsPDF {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'in', format: 'letter' });
+  const pageWidth = 8.5;
+  const margin = 0.75;
+  let yPos = margin;
+
+  doc.setFontSize(20);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`${yachtName} — Year-End Summary`, margin, yPos);
+  yPos += 0.3;
+
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(100, 116, 139);
+  doc.text(`Calendar Year ${year}`, margin, yPos);
+  yPos += 0.2;
+  doc.text(`Generated: ${phxDateTime(new Date())}`, margin, yPos);
+  yPos += 0.35;
+  doc.setTextColor(0, 0, 0);
+
+  const fmtMoney = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fmtHrs = (n: number) => n > 0 ? `${n.toFixed(1)} hrs` : '—';
+
+  const summaryData: [string, string][] = [
+    ['Invoice Gross', fmtMoney(row.invoiceGross)],
+    ['Trip Inspections', String(row.inspectionCount)],
+    ['Repair Requests', String(row.repairRequests)],
+    ['Port Engine Hours Used', fmtHrs(row.portEngineHoursUsed)],
+    ['Starboard Engine Hours Used', fmtHrs(row.stbdEngineHoursUsed)],
+    ['Port Generator Hours Used', fmtHrs(row.portGenHoursUsed)],
+    ['Starboard Generator Hours Used', fmtHrs(row.stbdGenHoursUsed)],
+    ['Total Users', String(row.userCount)],
+    ['Users Logged In', String(row.usersLoggedIn)],
+    ['Users Never Logged In', String(row.usersNeverLoggedIn)],
+  ];
+
+  autoTable(doc, {
+    startY: yPos,
+    head: [['Metric', 'Value']],
+    body: summaryData,
+    theme: 'striped',
+    styles: { fontSize: 11, cellPadding: 0.1, font: 'helvetica', lineColor: [203, 213, 225], lineWidth: 0.01 },
+    headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'left' },
+    alternateRowStyles: { fillColor: [249, 250, 251] },
+    columnStyles: {
+      0: { cellWidth: 3.5, fontStyle: 'bold' },
+      1: { cellWidth: 2.5, halign: 'right' },
+    },
+    margin: { left: margin, right: margin },
+    didParseCell: (data: any) => {
+      if (data.section === 'body' && data.column.index === 1) {
+        const label = summaryData[data.row.index]?.[0] || '';
+        if (label === 'Invoice Gross') {
+          data.cell.styles.textColor = [5, 150, 105];
+          data.cell.styles.fontStyle = 'bold';
+        }
+      }
+    },
+  });
+
+  const pageCount = doc.getNumberOfPages();
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(100);
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.text(`Page ${i} of ${pageCount}`, pageWidth - margin, 8, { align: 'right' });
+  }
+
+  return doc;
+}
