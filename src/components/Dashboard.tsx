@@ -3120,7 +3120,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       const [yiRes, eiRes, tiRes, rrRes, usersRes, allYiRes, allEiRes] = await Promise.all([
         supabase.from('yacht_invoices')
-          .select('id, yacht_id, invoice_amount_numeric, repair_request_id, repair_requests!repair_request_id(estimating_invoice_id), stripe_payment_intent_id, repair_title, invoice_number, invoice_date, vessel_agreement_id')
+          .select('id, yacht_id, invoice_amount_numeric, repair_request_id, repair_requests!repair_request_id(estimating_invoice_id), stripe_payment_intent_id, repair_title, invoice_date, invoice_file_name, vessel_management_agreement_id')
           .eq('yacht_id', yachtId)
           .gte('invoice_date', yearStart).lte('invoice_date', yearEnd),
         supabase.from('estimating_invoices')
@@ -3143,6 +3143,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           .select('id, yacht_id, total_amount, archived, payment_status, final_payment_stripe_payment_intent_id, stripe_payment_intent_id')
           .gte('invoice_date', yearStart).lte('invoice_date', yearEnd),
       ]);
+
+      const queryError = yiRes.error || eiRes.error || tiRes.error || rrRes.error || usersRes.error || allYiRes.error || allEiRes.error;
+      if (queryError) throw queryError;
 
       const row: YachtYearEndRow = {
         id: yachtId, name: yachtName, is_active: true,
@@ -3236,11 +3239,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         if (yi.stripe_payment_intent_id && estPaymentIds.has(yi.stripe_payment_intent_id)) continue;
         if (yi.repair_title && yi.repair_title.startsWith('Work Order WO')) continue;
         invoiceDetails.push({
-          number: yi.invoice_number || '—',
+          number: yi.invoice_file_name || yi.id.slice(0, 8),
           date: yi.invoice_date || '—',
-          description: yi.vessel_agreement_id ? 'Vessel Management Agreement' : (yi.repair_title || 'Yacht Invoice'),
+          description: yi.vessel_management_agreement_id ? 'Vessel Management Agreement' : (yi.repair_title || 'Yacht Invoice'),
           amount: Number(yi.invoice_amount_numeric) || 0,
-          type: yi.vessel_agreement_id ? 'Agreement' : 'Yacht',
+          type: yi.vessel_management_agreement_id ? 'Agreement' : 'Yacht',
         });
       }
 
