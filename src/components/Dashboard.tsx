@@ -3191,8 +3191,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       }
 
       const pdf = generateYachtYearEndSummaryPDF(yachtName, row, year);
-      const fileName = `${yachtName.replace(/\s+/g, '_')}_Year_End_Summary_${year}.pdf`;
-      pdf.save(fileName);
+      const pdfUrl = URL.createObjectURL(pdf.output('blob'));
+      window.open(pdfUrl, '_blank');
     } catch (error) {
       console.error('Error generating year-end summary PDF:', error);
       showError('Failed to generate year-end summary PDF');

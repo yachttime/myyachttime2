@@ -247,7 +247,8 @@ export default function YearEndOverview({ companyId }: Props) {
               setPrinting(true);
               try {
                 const pdf = generateFleetYearEndPDF(rows, selectedYear);
-                pdf.save(`Fleet_Year_End_Overview_${selectedYear}.pdf`);
+                const pdfUrl = URL.createObjectURL(pdf.output('blob'));
+                window.open(pdfUrl, '_blank');
               } catch (err) {
                 console.error('Error generating fleet PDF:', err);
               } finally {
