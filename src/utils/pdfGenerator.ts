@@ -4087,9 +4087,17 @@ export function generateFleetYearEndPDF(rows: YachtYearEndRow[], year: number): 
 
   const sortedRows = [...rows].sort((a, b) => a.name.localeCompare(b.name));
 
+  const fleetAvgGross = sortedRows.length > 0 ? totals.invoiceGross / sortedRows.length : 0;
+  const fmtPct = (gross: number) => {
+    if (fleetAvgGross === 0) return '—';
+    const pct = ((gross - fleetAvgGross) / fleetAvgGross) * 100;
+    return `${pct >= 0 ? '+' : ''}${pct.toFixed(0)}%`;
+  };
+
   const tableData = sortedRows.map(r => [
     r.name + (r.is_active ? '' : ' (Inactive)'),
     fmtMoney(r.invoiceGross),
+    fmtPct(r.invoiceGross),
     String(r.inspectionCount),
     fmtHrs(r.portEngineHoursUsed),
     fmtHrs(r.stbdEngineHoursUsed),
@@ -4120,6 +4128,7 @@ export function generateFleetYearEndPDF(rows: YachtYearEndRow[], year: number): 
   tableData.push([
     `TOTAL (${sortedRows.length} yachts)`,
     fmtMoney(totals.invoiceGross),
+    '—',
     String(totals.inspectionCount),
     fmtHrs(totals.portEngineHoursUsed),
     fmtHrs(totals.stbdEngineHoursUsed),
@@ -4133,24 +4142,25 @@ export function generateFleetYearEndPDF(rows: YachtYearEndRow[], year: number): 
 
   autoTable(doc, {
     startY: yPos,
-    head: [['Yacht', 'Invoice Gross', 'Inspections', 'Port Eng', 'Stbd Eng', 'Port Gen', 'Stbd Gen', 'Repairs', 'Users', 'Logged In', 'Never Logged In']],
+    head: [['Yacht', 'Invoice Gross', '% vs Avg', 'Inspections', 'Port Eng', 'Stbd Eng', 'Port Gen', 'Stbd Gen', 'Repairs', 'Users', 'Logged In', 'Never Logged In']],
     body: tableData,
     theme: 'striped',
     styles: { fontSize: 8, cellPadding: 0.06, font: 'helvetica', lineColor: [203, 213, 225], lineWidth: 0.01 },
     headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center', fontSize: 8 },
     alternateRowStyles: { fillColor: [249, 250, 251] },
     columnStyles: {
-      0: { cellWidth: 1.4, halign: 'left' },
-      1: { cellWidth: 1.1, halign: 'right' },
-      2: { cellWidth: 0.7, halign: 'center' },
-      3: { cellWidth: 0.7, halign: 'center' },
-      4: { cellWidth: 0.7, halign: 'center' },
-      5: { cellWidth: 0.7, halign: 'center' },
-      6: { cellWidth: 0.7, halign: 'center' },
-      7: { cellWidth: 0.6, halign: 'center' },
-      8: { cellWidth: 0.6, halign: 'center' },
-      9: { cellWidth: 0.7, halign: 'center' },
-      10: { cellWidth: 0.8, halign: 'center' },
+      0: { cellWidth: 1.3, halign: 'left' },
+      1: { cellWidth: 1.0, halign: 'right' },
+      2: { cellWidth: 0.6, halign: 'center' },
+      3: { cellWidth: 0.65, halign: 'center' },
+      4: { cellWidth: 0.65, halign: 'center' },
+      5: { cellWidth: 0.65, halign: 'center' },
+      6: { cellWidth: 0.65, halign: 'center' },
+      7: { cellWidth: 0.65, halign: 'center' },
+      8: { cellWidth: 0.55, halign: 'center' },
+      9: { cellWidth: 0.55, halign: 'center' },
+      10: { cellWidth: 0.6, halign: 'center' },
+      11: { cellWidth: 0.7, halign: 'center' },
     },
     margin: { left: margin, right: margin },
     didParseCell: (data: any) => {
@@ -4162,6 +4172,11 @@ export function generateFleetYearEndPDF(rows: YachtYearEndRow[], year: number): 
         }
         if (data.column.index === 1 && !isLastRow) {
           data.cell.styles.textColor = [5, 150, 105];
+          data.cell.styles.fontStyle = 'bold';
+        }
+        if (data.column.index === 2 && !isLastRow) {
+          const pctVal = fleetAvgGross > 0 ? ((sortedRows[data.row.index].invoiceGross - fleetAvgGross) / fleetAvgGross) * 100 : 0;
+          data.cell.styles.textColor = pctVal >= 0 ? [5, 150, 105] : [220, 38, 38];
           data.cell.styles.fontStyle = 'bold';
         }
       }
@@ -4183,7 +4198,8 @@ export function generateFleetYearEndPDF(rows: YachtYearEndRow[], year: number): 
 export function generateYachtYearEndSummaryPDF(
   yachtName: string,
   row: YachtYearEndRow,
-  year: number
+  year: number,
+  fleetAvgInvoiceGross?: number
 ): jsPDF {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'in', format: 'letter' });
   const pageWidth = 8.5;
@@ -4209,6 +4225,12 @@ export function generateYachtYearEndSummaryPDF(
 
   const summaryData: [string, string][] = [
     ['Invoice Gross', fmtMoney(row.invoiceGross)],
+    ...(fleetAvgInvoiceGross != null && fleetAvgInvoiceGross > 0
+      ? [[
+          'Invoice Gross vs Fleet Avg',
+          `${row.invoiceGross >= fleetAvgInvoiceGross ? '+' : ''}${(((row.invoiceGross - fleetAvgInvoiceGross) / fleetAvgInvoiceGross) * 100).toFixed(0)}% (${row.invoiceGross >= fleetAvgInvoiceGross ? 'above' : 'below'} avg of ${fmtMoney(fleetAvgInvoiceGross)})`
+        ] as [string, string]]
+      : []),
     ['Trip Inspections', String(row.inspectionCount)],
     ['Repair Requests', String(row.repairRequests)],
     ['Port Engine Hours Used', fmtHrs(row.portEngineHoursUsed)],

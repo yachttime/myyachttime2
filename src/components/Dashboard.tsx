@@ -3118,7 +3118,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       const yearStart = `${year}-01-01`;
       const yearEnd = `${year}-12-31`;
 
-      const [yiRes, eiRes, tiRes, rrRes, usersRes] = await Promise.all([
+      const [yiRes, eiRes, tiRes, rrRes, usersRes, allYiRes, allEiRes] = await Promise.all([
         supabase.from('yacht_invoices')
           .select('id, yacht_id, invoice_amount_numeric, repair_request_id, repair_requests!repair_request_id(estimating_invoice_id), stripe_payment_intent_id, repair_title')
           .eq('yacht_id', yachtId)
@@ -3136,6 +3136,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           .eq('yacht_id', yachtId)
           .gte('created_at', yearStart).lte('created_at', yearEnd),
         supabase.from('user_profiles').select('id, yacht_id, last_sign_in_at').eq('yacht_id', yachtId),
+        supabase.from('yacht_invoices')
+          .select('id, yacht_id, invoice_amount_numeric, repair_request_id, repair_requests!repair_request_id(estimating_invoice_id), stripe_payment_intent_id, repair_title')
+          .gte('invoice_date', yearStart).lte('invoice_date', yearEnd),
+        supabase.from('estimating_invoices')
+          .select('id, yacht_id, total_amount, archived, payment_status, final_payment_stripe_payment_intent_id, stripe_payment_intent_id')
+          .gte('invoice_date', yearStart).lte('invoice_date', yearEnd),
       ]);
 
       const row: YachtYearEndRow = {
@@ -3190,7 +3196,28 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         else row.usersNeverLoggedIn += 1;
       }
 
-      const pdf = generateYachtYearEndSummaryPDF(yachtName, row, year);
+      // Compute fleet average invoice gross
+      const allEstPaymentIds = new Set<string>(
+        (allEiRes.data || []).map((ei: any) => ei.final_payment_stripe_payment_intent_id || ei.stripe_payment_intent_id).filter(Boolean)
+      );
+      const fleetTotals = new Map<string, number>();
+      for (const ei of (allEiRes.data || []) as any[]) {
+        if (ei.archived && ei.payment_status !== 'paid') continue;
+        const prev = fleetTotals.get(ei.yacht_id) || 0;
+        fleetTotals.set(ei.yacht_id, prev + (Number(ei.total_amount) || 0));
+      }
+      for (const yi of (allYiRes.data || []) as any[]) {
+        if (yi.repair_request_id && yi.repair_requests?.estimating_invoice_id) continue;
+        if (yi.stripe_payment_intent_id && allEstPaymentIds.has(yi.stripe_payment_intent_id)) continue;
+        if (yi.repair_title && yi.repair_title.startsWith('Work Order WO')) continue;
+        const prev = fleetTotals.get(yi.yacht_id) || 0;
+        fleetTotals.set(yi.yacht_id, prev + (Number(yi.invoice_amount_numeric) || 0));
+      }
+      const fleetAvg = fleetTotals.size > 0
+        ? Array.from(fleetTotals.values()).reduce((a, b) => a + b, 0) / fleetTotals.size
+        : 0;
+
+      const pdf = generateYachtYearEndSummaryPDF(yachtName, row, year, fleetAvg > 0 ? fleetAvg : undefined);
       const pdfUrl = URL.createObjectURL(pdf.output('blob'));
       window.open(pdfUrl, '_blank');
     } catch (error) {
