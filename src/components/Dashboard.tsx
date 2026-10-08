@@ -32,7 +32,7 @@ import CustomerManagement, { CustomerPrefill } from './CustomerManagement';
 import { CompanyManagement } from './CompanyManagement';
 import SupportTickets from './SupportTickets';
 import { uploadFileToStorage, deleteFileFromStorage, isStorageUrl, UploadProgress, isTokenExpiredError } from '../utils/fileUpload';
-import { generateAllYachtTripsPDF, generateEstimatingInvoicePDF, generateTripInspectionPDF, generateEngineHoursReportPDF, generateOffSeasonEstimatesPDF, generateYachtYearEndSummaryPDF, YachtYearEndRow, InvoicePaymentRecord } from '../utils/pdfGenerator';
+import { generateAllYachtTripsPDF, generateEstimatingInvoicePDF, generateTripInspectionPDF, generateEngineHoursReportPDF, generateOffSeasonEstimatesPDF, generateYachtYearEndSummaryPDF, YachtYearEndRow, YachtYearEndInvoiceDetail, InvoicePaymentRecord } from '../utils/pdfGenerator';
 import { getCompanyInfoForPdf } from '../utils/companyInfo';
 import {
   getQueue, addItem, updateItem, removeItem, getReadyItems,
@@ -3120,11 +3120,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       const [yiRes, eiRes, tiRes, rrRes, usersRes, allYiRes, allEiRes] = await Promise.all([
         supabase.from('yacht_invoices')
-          .select('id, yacht_id, invoice_amount_numeric, repair_request_id, repair_requests!repair_request_id(estimating_invoice_id), stripe_payment_intent_id, repair_title')
+          .select('id, yacht_id, invoice_amount_numeric, repair_request_id, repair_requests!repair_request_id(estimating_invoice_id), stripe_payment_intent_id, repair_title, invoice_number, invoice_date, vessel_agreement_id')
           .eq('yacht_id', yachtId)
           .gte('invoice_date', yearStart).lte('invoice_date', yearEnd),
         supabase.from('estimating_invoices')
-          .select('id, yacht_id, total_amount, archived, payment_status, final_payment_stripe_payment_intent_id, stripe_payment_intent_id')
+          .select('id, yacht_id, total_amount, archived, payment_status, final_payment_stripe_payment_intent_id, stripe_payment_intent_id, invoice_number, invoice_date, work_title')
           .eq('yacht_id', yachtId)
           .gte('invoice_date', yearStart).lte('invoice_date', yearEnd),
         supabase.from('trip_inspections')
@@ -3217,7 +3217,36 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         ? Array.from(fleetTotals.values()).reduce((a, b) => a + b, 0) / fleetTotals.size
         : 0;
 
-      const pdf = generateYachtYearEndSummaryPDF(yachtName, row, year, fleetAvg > 0 ? fleetAvg : undefined);
+      // Build invoice detail list for the PDF
+      const invoiceDetails: YachtYearEndInvoiceDetail[] = [];
+
+      for (const ei of (eiRes.data || []) as any[]) {
+        if (ei.archived && ei.payment_status !== 'paid') continue;
+        invoiceDetails.push({
+          number: ei.invoice_number || '—',
+          date: ei.invoice_date || '—',
+          description: ei.work_title || 'Estimating Invoice',
+          amount: Number(ei.total_amount) || 0,
+          type: 'Estimating',
+        });
+      }
+
+      for (const yi of (yiRes.data || []) as any[]) {
+        if (yi.repair_request_id && yi.repair_requests?.estimating_invoice_id) continue;
+        if (yi.stripe_payment_intent_id && estPaymentIds.has(yi.stripe_payment_intent_id)) continue;
+        if (yi.repair_title && yi.repair_title.startsWith('Work Order WO')) continue;
+        invoiceDetails.push({
+          number: yi.invoice_number || '—',
+          date: yi.invoice_date || '—',
+          description: yi.vessel_agreement_id ? 'Vessel Management Agreement' : (yi.repair_title || 'Yacht Invoice'),
+          amount: Number(yi.invoice_amount_numeric) || 0,
+          type: yi.vessel_agreement_id ? 'Agreement' : 'Yacht',
+        });
+      }
+
+      invoiceDetails.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+
+      const pdf = generateYachtYearEndSummaryPDF(yachtName, row, year, fleetAvg > 0 ? fleetAvg : undefined, invoiceDetails);
       const pdfUrl = URL.createObjectURL(pdf.output('blob'));
       window.open(pdfUrl, '_blank');
     } catch (error) {

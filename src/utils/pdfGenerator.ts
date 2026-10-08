@@ -4195,11 +4195,20 @@ export function generateFleetYearEndPDF(rows: YachtYearEndRow[], year: number): 
   return doc;
 }
 
+export interface YachtYearEndInvoiceDetail {
+  number: string;
+  date: string;
+  description: string;
+  amount: number;
+  type: string;
+}
+
 export function generateYachtYearEndSummaryPDF(
   yachtName: string,
   row: YachtYearEndRow,
   year: number,
-  fleetAvgInvoiceGross?: number
+  fleetAvgInvoiceGross?: number,
+  invoiceDetails?: YachtYearEndInvoiceDetail[]
 ): jsPDF {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'in', format: 'letter' });
   const pageWidth = 8.5;
@@ -4265,6 +4274,69 @@ export function generateYachtYearEndSummaryPDF(
       }
     },
   });
+
+  // Invoice detail table
+  if (invoiceDetails && invoiceDetails.length > 0) {
+    const afterTableY = (doc as any).lastAutoTable?.finalY || yPos;
+    let invYPos = afterTableY + 0.35;
+
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(30, 41, 59);
+    doc.text('Invoices', margin, invYPos);
+    invYPos += 0.25;
+    doc.setTextColor(0, 0, 0);
+
+    const fmtInvMoney = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const fmtInvDate = (d: string) => {
+      if (!d || d === '—') return '—';
+      const dt = new Date(d);
+      if (isNaN(dt.getTime())) return d;
+      return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    };
+
+    const invTableData = invoiceDetails.map(inv => [
+      inv.number,
+      fmtInvDate(inv.date),
+      inv.description,
+      inv.type,
+      fmtInvMoney(inv.amount),
+    ]);
+
+    const invTotal = invoiceDetails.reduce((sum, inv) => sum + inv.amount, 0);
+    invTableData.push(['', '', 'TOTAL', '', fmtInvMoney(invTotal)]);
+
+    autoTable(doc, {
+      startY: invYPos,
+      head: [['Invoice #', 'Date', 'Description', 'Type', 'Amount']],
+      body: invTableData,
+      theme: 'striped',
+      styles: { fontSize: 9, cellPadding: 0.07, font: 'helvetica', lineColor: [203, 213, 225], lineWidth: 0.01 },
+      headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center', fontSize: 9 },
+      alternateRowStyles: { fillColor: [249, 250, 251] },
+      columnStyles: {
+        0: { cellWidth: 1.0, halign: 'left' },
+        1: { cellWidth: 1.0, halign: 'center' },
+        2: { cellWidth: 2.8, halign: 'left' },
+        3: { cellWidth: 0.8, halign: 'center' },
+        4: { cellWidth: 1.0, halign: 'right' },
+      },
+      margin: { left: margin, right: margin },
+      didParseCell: (data: any) => {
+        if (data.section === 'body') {
+          const isLastRow = data.row.index === invTableData.length - 1;
+          if (isLastRow) {
+            data.cell.styles.fillColor = [241, 245, 249];
+            data.cell.styles.fontStyle = 'bold';
+          }
+          if (data.column.index === 4 && !isLastRow) {
+            data.cell.styles.textColor = [5, 150, 105];
+            data.cell.styles.fontStyle = 'bold';
+          }
+        }
+      },
+    });
+  }
 
   const pageCount = doc.getNumberOfPages();
   doc.setFontSize(8);
