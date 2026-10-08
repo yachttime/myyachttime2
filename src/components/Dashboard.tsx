@@ -3124,7 +3124,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           .eq('yacht_id', yachtId)
           .gte('invoice_date', yearStart).lte('invoice_date', yearEnd),
         supabase.from('estimating_invoices')
-          .select('id, yacht_id, total_amount, archived, payment_status, final_payment_stripe_payment_intent_id, stripe_payment_intent_id, invoice_number, invoice_date, work_title')
+          .select('id, yacht_id, total_amount, archived, payment_status, final_payment_stripe_payment_intent_id, stripe_payment_intent_id, invoice_number, invoice_date')
           .eq('yacht_id', yachtId)
           .gte('invoice_date', yearStart).lte('invoice_date', yearEnd),
         supabase.from('trip_inspections')
@@ -3228,7 +3228,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         invoiceDetails.push({
           number: ei.invoice_number || '—',
           date: ei.invoice_date || '—',
-          description: ei.work_title || 'Estimating Invoice',
+          description: 'Estimating Invoice',
           amount: Number(ei.total_amount) || 0,
           type: 'Estimating',
         });
