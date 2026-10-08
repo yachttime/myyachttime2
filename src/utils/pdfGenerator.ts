@@ -4353,7 +4353,7 @@ export function generateYachtYearEndSummaryPDF(
       autoTable(doc, {
         startY: margin + 0.55,
         head: [['Invoice Detail', 'Value']],
-        body: invoice.details,
+        body: invoice.details.map((detail) => [detail.label, detail.value]),
         theme: 'striped',
         styles: { fontSize: 10, cellPadding: 0.11, font: 'helvetica', lineColor: [203, 213, 225], lineWidth: 0.01 },
         headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'left' },
