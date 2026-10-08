@@ -3124,7 +3124,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           .eq('yacht_id', yachtId)
           .gte('invoice_date', yearStart).lte('invoice_date', yearEnd),
         supabase.from('estimating_invoices')
-          .select('id, yacht_id, work_order_id, total_amount, subtotal, tax_amount, amount_paid, archived, payment_status, final_payment_stripe_payment_intent_id, stripe_payment_intent_id, invoice_number, invoice_date, due_date, customer_name, customer_email, customer_phone, notes')
+          .select('*, work_orders!estimating_invoices_work_order_id_fkey(work_order_number)')
           .eq('yacht_id', yachtId)
           .gte('invoice_date', yearStart).lte('invoice_date', yearEnd),
         supabase.from('trip_inspections')
@@ -3220,34 +3220,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         ? Array.from(fleetTotals.values()).reduce((a, b) => a + b, 0) / fleetTotals.size
         : 0;
 
-      // Build invoice detail list for the PDF
+      // Keep uploaded yacht invoices in the summary as reference pages. Estimating invoices are appended below as their complete invoice documents.
       const invoiceDetails: YachtYearEndInvoiceDetail[] = [];
-
-      for (const ei of (eiRes.data || []) as any[]) {
-        if (ei.archived && ei.payment_status !== 'paid') continue;
-        invoiceDetails.push({
-          number: ei.invoice_number || '—',
-          date: ei.invoice_date || '—',
-          description: 'Estimating Invoice',
-          amount: Number(ei.total_amount) || 0,
-          type: 'Estimating',
-          details: [
-            { label: 'Invoice Number', value: ei.invoice_number || '—' },
-            { label: 'Invoice Date', value: ei.invoice_date || '—' },
-            { label: 'Due Date', value: ei.due_date || '—' },
-            { label: 'Customer', value: ei.customer_name || '—' },
-            { label: 'Email', value: ei.customer_email || '—' },
-            { label: 'Phone', value: ei.customer_phone || '—' },
-            { label: 'Work Order', value: ei.work_order_id || '—' },
-            { label: 'Subtotal', value: `${(Number(ei.subtotal) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
-            { label: 'Tax', value: `${(Number(ei.tax_amount) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
-            { label: 'Total', value: `${(Number(ei.total_amount) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
-            { label: 'Amount Paid', value: `${(Number(ei.amount_paid) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
-            { label: 'Payment Status', value: ei.payment_status || '—' },
-            { label: 'Notes', value: ei.notes || '—' },
-          ],
-        });
-      }
 
       for (const yi of (yiRes.data || []) as any[]) {
         if (yi.repair_request_id && yi.repair_requests?.estimating_invoice_id) continue;
@@ -3274,8 +3248,88 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       invoiceDetails.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 
-      const pdf = generateYachtYearEndSummaryPDF(yachtName, row, year, fleetAvg > 0 ? fleetAvg : undefined, invoiceDetails);
-      const pdfUrl = URL.createObjectURL(pdf.output('blob'));
+      let combinedDoc = generateYachtYearEndSummaryPDF(yachtName, row, year, fleetAvg > 0 ? fleetAvg : undefined, invoiceDetails);
+      const companyInfo = await getCompanyInfoForPdf();
+
+      for (const ei of (eiRes.data || []) as any[]) {
+        if (ei.archived && ei.payment_status !== 'paid') continue;
+
+        const invoiceForPDF = {
+          ...ei,
+          work_order_number: ei.work_orders?.work_order_number || null,
+          yacht_name: ei.yacht_name || yachtName,
+        };
+        let lineItems: any[] = [];
+
+        if (ei.work_order_id) {
+          const [tasksResult, woLineItemsResult] = await Promise.all([
+            supabase.from('work_order_tasks').select('*').eq('work_order_id', ei.work_order_id).order('task_order', { ascending: true }),
+            supabase.from('work_order_line_items').select('*').eq('work_order_id', ei.work_order_id).order('line_order', { ascending: true }),
+          ]);
+          const tasks = tasksResult.data || [];
+          const woLineItems = woLineItemsResult.data || [];
+          if (tasks.length > 0 && woLineItems.length > 0) {
+            tasks.forEach((task: any) => {
+              woLineItems.filter((item: any) => item.task_id === task.id).forEach((item: any) => {
+                lineItems.push({
+                  line_type: item.line_type || 'labor',
+                  description: item.description || '',
+                  work_details: item.work_details || null,
+                  quantity: Number(item.quantity) || 1,
+                  unit_price: Number(item.unit_price) || 0,
+                  total_price: Number(item.total_price) || 0,
+                  task_name: task.task_name || null,
+                  task_overview: task.task_overview || null,
+                });
+              });
+            });
+          }
+        }
+
+        if (lineItems.length === 0) {
+          const { data: estimatingLineItems } = await supabase
+            .from('estimating_invoice_line_items')
+            .select('*')
+            .eq('invoice_id', ei.id)
+            .order('line_order', { ascending: true });
+          lineItems = (estimatingLineItems || []).map((item: any) => ({
+            line_type: item.line_type || 'labor',
+            description: item.description || '',
+            work_details: item.work_details || null,
+            quantity: Number(item.quantity) || 1,
+            unit_price: Number(item.unit_price) || 0,
+            total_price: Number(item.total_price) || 0,
+            task_name: item.task_name || null,
+          }));
+        }
+
+        let paymentRecords: { deposits: InvoicePaymentRecord[]; finalPayments: InvoicePaymentRecord[] } | undefined;
+        if (ei.deposit_applied && ei.deposit_applied > 0) {
+          const { data: deposits } = await supabase
+            .from('estimating_payments')
+            .select('id, amount, payment_method, reference_number, notes, payment_date')
+            .eq(ei.work_order_id ? 'work_order_id' : 'invoice_id', ei.work_order_id || ei.id)
+            .eq('payment_type', 'deposit')
+            .order('payment_date', { ascending: true });
+          if (deposits && deposits.length > 0) paymentRecords = { deposits: deposits as InvoicePaymentRecord[], finalPayments: [] };
+        }
+        if (ei.amount_paid && ei.amount_paid > 0) {
+          const { data: finalPayments } = await supabase
+            .from('estimating_payments')
+            .select('id, amount, payment_method, payment_method_type, reference_number, notes, payment_date, stripe_payment_intent_id')
+            .eq('invoice_id', ei.id)
+            .eq('payment_type', 'invoice_payment')
+            .order('payment_date', { ascending: true });
+          if (finalPayments && finalPayments.length > 0) {
+            paymentRecords = paymentRecords || { deposits: [], finalPayments: [] };
+            paymentRecords.finalPayments = finalPayments as InvoicePaymentRecord[];
+          }
+        }
+
+        combinedDoc = await generateEstimatingInvoicePDF(invoiceForPDF, lineItems, companyInfo, combinedDoc, paymentRecords);
+      }
+
+      const pdfUrl = URL.createObjectURL(combinedDoc.output('blob'));
       window.open(pdfUrl, '_blank');
     } catch (error) {
       console.error('Error generating year-end summary PDF:', error);
