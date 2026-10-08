@@ -4204,12 +4204,22 @@ export interface YachtYearEndInvoiceDetail {
   details: { label: string; value: string }[];
 }
 
+export interface YachtYearEndRepairDetail {
+  title: string;
+  date: string;
+  status: string;
+  description: string;
+  archived: boolean;
+  submitter: string;
+}
+
 export function generateYachtYearEndSummaryPDF(
   yachtName: string,
   row: YachtYearEndRow,
   year: number,
   fleetAvgInvoiceGross?: number,
-  invoiceDetails?: YachtYearEndInvoiceDetail[]
+  invoiceDetails?: YachtYearEndInvoiceDetail[],
+  repairDetails?: YachtYearEndRepairDetail[]
 ): jsPDF {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'in', format: 'letter' });
   const pageWidth = 8.5;
@@ -4365,6 +4375,72 @@ export function generateYachtYearEndSummaryPDF(
         margin: { left: margin, right: margin },
       });
     }
+  }
+
+  if (repairDetails && repairDetails.length > 0) {
+    doc.addPage();
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(30, 41, 59);
+    doc.text('Repair Requests', margin, margin);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 116, 139);
+    doc.text(`${repairDetails.length} request${repairDetails.length !== 1 ? 's' : ''} this year`, margin, margin + 0.22);
+    doc.setTextColor(0, 0, 0);
+
+    const fmtRepairDate = (d: string) => {
+      if (!d || d === '—') return '—';
+      const dt = new Date(d);
+      if (isNaN(dt.getTime())) return d;
+      return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    };
+
+    const repairTableData = repairDetails.map(r => [
+      fmtRepairDate(r.date),
+      r.title,
+      r.status,
+      r.archived ? 'Yes' : 'No',
+      r.submitter,
+      r.description || '—',
+    ]);
+
+    autoTable(doc, {
+      startY: margin + 0.45,
+      head: [['Date', 'Title', 'Status', 'Archived', 'Submitted By', 'Description']],
+      body: repairTableData,
+      theme: 'striped',
+      styles: { fontSize: 8, cellPadding: 0.06, font: 'helvetica', lineColor: [203, 213, 225], lineWidth: 0.01, valign: 'top' },
+      headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center', fontSize: 8 },
+      alternateRowStyles: { fillColor: [249, 250, 251] },
+      columnStyles: {
+        0: { cellWidth: 0.85, halign: 'left' },
+        1: { cellWidth: 1.5, halign: 'left' },
+        2: { cellWidth: 0.7, halign: 'center' },
+        3: { cellWidth: 0.55, halign: 'center' },
+        4: { cellWidth: 1.0, halign: 'left' },
+        5: { cellWidth: 2.4, halign: 'left' },
+      },
+      margin: { left: margin, right: margin },
+      didParseCell: (data: any) => {
+        if (data.section === 'body' && data.column.index === 2) {
+          const status = repairTableData[data.row.index]?.[2] || '';
+          if (status === 'completed') {
+            data.cell.styles.textColor = [5, 150, 105];
+            data.cell.styles.fontStyle = 'bold';
+          } else if (status === 'approved') {
+            data.cell.styles.textColor = [16, 185, 129];
+            data.cell.styles.fontStyle = 'bold';
+          } else if (status === 'rejected') {
+            data.cell.styles.textColor = [220, 38, 38];
+            data.cell.styles.fontStyle = 'bold';
+          } else if (status === 'pending') {
+            data.cell.styles.textColor = [217, 119, 6];
+            data.cell.styles.fontStyle = 'bold';
+          }
+        }
+      },
+    });
   }
 
   const pageCount = doc.getNumberOfPages();

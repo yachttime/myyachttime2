@@ -32,7 +32,7 @@ import CustomerManagement, { CustomerPrefill } from './CustomerManagement';
 import { CompanyManagement } from './CompanyManagement';
 import SupportTickets from './SupportTickets';
 import { uploadFileToStorage, deleteFileFromStorage, isStorageUrl, UploadProgress, isTokenExpiredError } from '../utils/fileUpload';
-import { generateAllYachtTripsPDF, generateEstimatingInvoicePDF, generateTripInspectionPDF, generateEngineHoursReportPDF, generateOffSeasonEstimatesPDF, generateYachtYearEndSummaryPDF, YachtYearEndRow, YachtYearEndInvoiceDetail, InvoicePaymentRecord } from '../utils/pdfGenerator';
+import { generateAllYachtTripsPDF, generateEstimatingInvoicePDF, generateTripInspectionPDF, generateEngineHoursReportPDF, generateOffSeasonEstimatesPDF, generateYachtYearEndSummaryPDF, YachtYearEndRow, YachtYearEndInvoiceDetail, YachtYearEndRepairDetail, InvoicePaymentRecord } from '../utils/pdfGenerator';
 import { getCompanyInfoForPdf } from '../utils/companyInfo';
 import {
   getQueue, addItem, updateItem, removeItem, getReadyItems,
@@ -852,6 +852,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [yachtUnpaidCounts, setYachtUnpaidCounts] = useState<Record<string, { count: number; total: number; unpaidCount: number; processingCount: number; paidCount: number; unpaidTotal: number; processingTotal: number; paidTotal: number }>>({});
   const [pendingEstimatingInvoiceId, setPendingEstimatingInvoiceId] = useState<string | undefined>(undefined);
   const [invoiceYachtId, setInvoiceYachtId] = useState<string | null>(null);
+  const [repairHistoryYachtId, setRepairHistoryYachtId] = useState<string | null>(null);
   const [selectedInvoiceYear, setSelectedInvoiceYear] = useState<number>(new Date().getFullYear());
   const [yachtBudgets, setYachtBudgets] = useState<Record<string, YachtBudget | null>>({});
   const [budgetBreakdownInput, setBudgetBreakdownInput] = useState({
@@ -3132,7 +3133,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           .eq('yacht_id', yachtId)
           .gte('created_at', yearStart).lte('created_at', yearEnd),
         supabase.from('repair_requests')
-          .select('id, yacht_id, archived, created_at')
+          .select('id, yacht_id, archived, created_at, title, description, status, submitted_by')
           .eq('yacht_id', yachtId)
           .gte('created_at', yearStart).lte('created_at', yearEnd),
         supabase.from('user_profiles').select('id, yacht_id, last_sign_in_at').eq('yacht_id', yachtId),
@@ -3248,7 +3249,32 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       invoiceDetails.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 
-      let combinedDoc = generateYachtYearEndSummaryPDF(yachtName, row, year, fleetAvg > 0 ? fleetAvg : undefined, invoiceDetails);
+      const repairDetails: YachtYearEndRepairDetail[] = [];
+      const repairData = (rrRes.data || []) as any[];
+      const repairSubmitterIds = [...new Set(repairData.map((r: any) => r.submitted_by).filter(Boolean))];
+      let repairSubmitterMap: Record<string, string> = {};
+      if (repairSubmitterIds.length > 0) {
+        const { data: repairProfiles } = await supabase
+          .from('user_profiles')
+          .select('user_id, first_name, last_name')
+          .in('user_id', repairSubmitterIds);
+        for (const p of repairProfiles || []) {
+          repairSubmitterMap[p.user_id] = `${p.first_name || ''} ${p.last_name || ''}`.trim() || 'Unknown';
+        }
+      }
+      for (const r of repairData) {
+        repairDetails.push({
+          title: r.title || 'Untitled',
+          date: r.created_at || '—',
+          status: r.status || 'pending',
+          description: r.description || '',
+          archived: !!r.archived,
+          submitter: repairSubmitterMap[r.submitted_by] || 'Unknown',
+        });
+      }
+      repairDetails.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+
+      let combinedDoc = generateYachtYearEndSummaryPDF(yachtName, row, year, fleetAvg > 0 ? fleetAvg : undefined, invoiceDetails, repairDetails);
       const companyInfo = await getCompanyInfoForPdf();
 
       for (const ei of (eiRes.data || []) as any[]) {
@@ -12839,6 +12865,15 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 {invoiceYachtId === yacht.id ? 'Hide' : 'Invoices'}
                               </button>
                             )}
+                            {canManageYacht(effectiveRole) && (
+                              <button
+                                onClick={() => setRepairHistoryYachtId(repairHistoryYachtId === yacht.id ? null : yacht.id)}
+                                className="flex items-center justify-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors text-sm"
+                              >
+                                <Wrench className="w-4 h-4" />
+                                {repairHistoryYachtId === yacht.id ? 'Hide' : 'Repairs'}
+                              </button>
+                            )}
                             <button
                               onClick={() => {
                                 setEditingYacht(yacht);
@@ -14595,6 +14630,72 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 </>
                               );
                             })()}
+                          </div>
+                        )}
+
+                        {repairHistoryYachtId === yacht.id && canManageYacht(effectiveRole) && (
+                          <div className="mt-4 pt-4 border-t border-slate-700">
+                            <div className="flex items-center justify-between mb-3">
+                              <h4 className="text-sm font-semibold text-slate-300">Repair Request History</h4>
+                              <span className="text-xs text-slate-400 bg-slate-700 px-2 py-1 rounded">
+                                {maintenanceRequests.filter(r => r.yacht_id === yacht.id).length} request{maintenanceRequests.filter(r => r.yacht_id === yacht.id).length !== 1 ? 's' : ''}
+                              </span>
+                            </div>
+                            <div className="space-y-2 max-h-96 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800">
+                              {(() => {
+                                const yachtRepairs = maintenanceRequests
+                                  .filter(r => r.yacht_id === yacht.id)
+                                  .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+                                if (yachtRepairs.length === 0) {
+                                  return (
+                                    <div className="text-slate-500 text-xs text-center py-4">
+                                      No repair requests for this yacht
+                                    </div>
+                                  );
+                                }
+                                return yachtRepairs.map((req) => {
+                                  const statusColor = req.status === 'completed'
+                                    ? 'bg-emerald-500/20 text-emerald-400'
+                                    : req.status === 'approved'
+                                      ? 'bg-green-500/20 text-green-400'
+                                      : req.status === 'rejected'
+                                        ? 'bg-red-500/20 text-red-400'
+                                        : 'bg-amber-500/20 text-amber-400';
+                                  return (
+                                    <div key={req.id} className="bg-slate-900/50 rounded-lg p-3 text-xs">
+                                      <div className="flex items-start justify-between gap-2">
+                                        <div className="flex-1 min-w-0">
+                                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                            <Wrench className="w-3 h-3 text-orange-400 shrink-0" />
+                                            <span className="text-slate-300 font-medium truncate">{req.subject || req.title}</span>
+                                            <span className={`px-2 py-0.5 rounded text-xs font-medium capitalize ${statusColor}`}>
+                                              {req.status}
+                                            </span>
+                                            {req.archived && (
+                                              <span className="px-2 py-0.5 bg-slate-600/40 text-slate-400 rounded text-xs font-medium">
+                                                Archived
+                                              </span>
+                                            )}
+                                          </div>
+                                          {req.description && (
+                                            <p className="text-slate-400 text-xs mb-1 line-clamp-2">{req.description}</p>
+                                          )}
+                                          <div className="text-slate-500 flex items-center gap-2 flex-wrap">
+                                            <span>{new Date(req.created_at).toLocaleDateString()}</span>
+                                            {(req.first_name || req.last_name) && (
+                                              <span>• {(req.first_name || '') + ' ' + (req.last_name || '')}</span>
+                                            )}
+                                            {req.submitter_role && (
+                                              <span className="capitalize">• {req.submitter_role}</span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                });
+                              })()}
+                            </div>
                           </div>
                         )}
                       </div>
