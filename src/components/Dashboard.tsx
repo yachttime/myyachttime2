@@ -3120,11 +3120,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       const [yiRes, eiRes, tiRes, rrRes, usersRes, allYiRes, allEiRes] = await Promise.all([
         supabase.from('yacht_invoices')
-          .select('id, yacht_id, invoice_amount_numeric, repair_request_id, repair_requests!repair_request_id(estimating_invoice_id), stripe_payment_intent_id, repair_title, invoice_date, invoice_file_name, vessel_management_agreement_id')
+          .select('id, yacht_id, invoice_amount, invoice_amount_numeric, repair_request_id, repair_requests!repair_request_id(estimating_invoice_id), stripe_payment_intent_id, repair_title, invoice_date, invoice_file_name, vessel_management_agreement_id')
           .eq('yacht_id', yachtId)
           .gte('invoice_date', yearStart).lte('invoice_date', yearEnd),
         supabase.from('estimating_invoices')
-          .select('id, yacht_id, total_amount, archived, payment_status, final_payment_stripe_payment_intent_id, stripe_payment_intent_id, invoice_number, invoice_date')
+          .select('id, yacht_id, work_order_id, total_amount, subtotal, tax_amount, amount_paid, archived, payment_status, final_payment_stripe_payment_intent_id, stripe_payment_intent_id, invoice_number, invoice_date, due_date, customer_name, customer_email, customer_phone, notes')
           .eq('yacht_id', yachtId)
           .gte('invoice_date', yearStart).lte('invoice_date', yearEnd),
         supabase.from('trip_inspections')
@@ -3231,6 +3231,21 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           description: 'Estimating Invoice',
           amount: Number(ei.total_amount) || 0,
           type: 'Estimating',
+          details: [
+            { label: 'Invoice Number', value: ei.invoice_number || '—' },
+            { label: 'Invoice Date', value: ei.invoice_date || '—' },
+            { label: 'Due Date', value: ei.due_date || '—' },
+            { label: 'Customer', value: ei.customer_name || '—' },
+            { label: 'Email', value: ei.customer_email || '—' },
+            { label: 'Phone', value: ei.customer_phone || '—' },
+            { label: 'Work Order', value: ei.work_order_id || '—' },
+            { label: 'Subtotal', value: `${(Number(ei.subtotal) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
+            { label: 'Tax', value: `${(Number(ei.tax_amount) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
+            { label: 'Total', value: `${(Number(ei.total_amount) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
+            { label: 'Amount Paid', value: `${(Number(ei.amount_paid) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
+            { label: 'Payment Status', value: ei.payment_status || '—' },
+            { label: 'Notes', value: ei.notes || '—' },
+          ],
         });
       }
 
@@ -3244,6 +3259,16 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           description: yi.vessel_management_agreement_id ? 'Vessel Management Agreement' : (yi.repair_title || 'Yacht Invoice'),
           amount: Number(yi.invoice_amount_numeric) || 0,
           type: yi.vessel_management_agreement_id ? 'Agreement' : 'Yacht',
+          details: [
+            { label: 'Invoice Reference', value: yi.invoice_file_name || yi.id.slice(0, 8) },
+            { label: 'Invoice Date', value: yi.invoice_date || '—' },
+            { label: 'Description', value: yi.repair_title || (yi.vessel_management_agreement_id ? 'Vessel Management Agreement' : 'Yacht Invoice') },
+            { label: 'Recorded Amount', value: yi.invoice_amount || '—' },
+            { label: 'Numeric Amount', value: `${(Number(yi.invoice_amount_numeric) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
+            { label: 'Invoice File', value: yi.invoice_file_name || 'No uploaded file name' },
+            { label: 'Repair Request', value: yi.repair_request_id || '—' },
+            { label: 'Invoice Type', value: yi.vessel_management_agreement_id ? 'Vessel Management Agreement' : 'Yacht Invoice' },
+          ],
         });
       }
 

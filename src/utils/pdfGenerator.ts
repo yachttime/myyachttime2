@@ -4201,6 +4201,7 @@ export interface YachtYearEndInvoiceDetail {
   description: string;
   amount: number;
   type: string;
+  details: { label: string; value: string }[];
 }
 
 export function generateYachtYearEndSummaryPDF(
@@ -4336,6 +4337,34 @@ export function generateYachtYearEndSummaryPDF(
         }
       },
     });
+
+    for (const invoice of invoiceDetails) {
+      doc.addPage();
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(30, 41, 59);
+      doc.text(`Invoice ${invoice.number}`, margin, margin);
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 116, 139);
+      doc.text(`${invoice.type} — ${invoice.description}`, margin, margin + 0.25);
+      doc.setTextColor(0, 0, 0);
+
+      autoTable(doc, {
+        startY: margin + 0.55,
+        head: [['Invoice Detail', 'Value']],
+        body: invoice.details,
+        theme: 'striped',
+        styles: { fontSize: 10, cellPadding: 0.11, font: 'helvetica', lineColor: [203, 213, 225], lineWidth: 0.01 },
+        headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'left' },
+        alternateRowStyles: { fillColor: [249, 250, 251] },
+        columnStyles: {
+          0: { cellWidth: 2.2, fontStyle: 'bold' },
+          1: { cellWidth: 4.4 },
+        },
+        margin: { left: margin, right: margin },
+      });
+    }
   }
 
   const pageCount = doc.getNumberOfPages();
