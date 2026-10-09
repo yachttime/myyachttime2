@@ -262,13 +262,13 @@ function getWeatherDisplay(sensor: MonitorSensor): WeatherDisplay {
 
   if (sensor.sensor_name === 'Lightning Strike') {
     if (value.status === 'Strike detected') {
-      return { primary: `${formatWeatherNumber(value.distance_km, 0)} km`, details: [] };
+      return { primary: `${formatWeatherNumber(Number(value.distance_km) * 0.621371, 1)} miles away`, details: [] };
     }
     if (value.status === 'No strikes detected') {
-      return { primary: 'No strikes', details: [] };
+      return { primary: 'No strikes detected', details: [] };
     }
     if (value.distance_km !== undefined) {
-      return { primary: `${formatWeatherNumber(value.distance_km, 0)} km`, details: [] };
+      return { primary: `${formatWeatherNumber(Number(value.distance_km) * 0.621371, 1)} miles away`, details: [] };
     }
     return { primary: 'No strikes', details: [] };
   }
