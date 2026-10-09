@@ -207,16 +207,29 @@ function formatWeatherNumber(value: unknown, maximumFractionDigits = 2): string 
   return number.toLocaleString(undefined, { maximumFractionDigits });
 }
 
-function getWeatherDisplay(sensor: MonitorSensor): WeatherDisplay {
-  let value: Record<string, unknown> | null = null;
+function parseSensorValue(sensor: MonitorSensor): Record<string, unknown> | null {
   try {
     const parsed: unknown = JSON.parse(sensor.current_value || '');
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-      value = parsed as Record<string, unknown>;
+      return parsed as Record<string, unknown>;
     }
   } catch {
-    value = null;
+    return null;
   }
+  return null;
+}
+
+function getSensorStatus(sensor: MonitorSensor): MonitorSensor['status'] {
+  if (sensor.sensor_name === 'Lightning Strike') {
+    const value = parseSensorValue(sensor);
+    if (value?.status === 'Strike detected') return 'critical';
+    if (value?.status === 'No strikes detected') return 'normal';
+  }
+  return sensor.status;
+}
+
+function getWeatherDisplay(sensor: MonitorSensor): WeatherDisplay {
+  const value = parseSensorValue(sensor);
 
   if (!value) {
     return {
@@ -1301,10 +1314,11 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
               ) : (
                 sensors.filter(s => s.device_id === weatherDevice.id).map(sensor => {
                   const Icon = SENSOR_ICONS[sensor.sensor_type] || Gauge;
+                  const displayStatus = getSensorStatus(sensor);
                   return (
                     <div key={sensor.id} className="flex items-center justify-between px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg ${STATUS_COLORS[sensor.status]}`}>
+                        <div className={`p-2 rounded-lg ${STATUS_COLORS[displayStatus]}`}>
                           <Icon className="w-5 h-5" />
                         </div>
                         <div>
@@ -1328,7 +1342,7 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
                               </div>
                             )}
                             <div className="mt-2">
-                              <span className={`text-xs px-2 py-0.5 rounded-full border ${STATUS_COLORS[sensor.status]} capitalize`}>{sensor.status}</span>
+                              <span className={`text-xs px-2 py-0.5 rounded-full border ${STATUS_COLORS[displayStatus]} capitalize`}>{displayStatus}</span>
                               {sensor.last_reading_at && (
                                 <p className="text-xs text-slate-500 mt-0.5">{new Date(sensor.last_reading_at).toLocaleTimeString()}</p>
                               )}
