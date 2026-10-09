@@ -75,6 +75,7 @@ const unsigned long RECONNECT_INTERVAL_MS = 30000;
 const unsigned long CONFIG_REFRESH_INTERVAL_MS = 600000;
 
 volatile bool lightningInterrupt = false;
+unsigned long lastStrikeMs = 0;  // 0 = no strike since boot
 
 void IRAM_ATTR onLightningIRQ() {
   lightningInterrupt = true;
@@ -336,7 +337,8 @@ void loop() {
     lightningInterrupt = false;
     if (lightningOK && myLightning.readInterruptReg() == LIGHTNING) {
       int distance = myLightning.distanceToStorm();
-      pushReading("Lightning Strike", String("{\"distance_km\":") + distance + "}");
+      lastStrikeMs = now;
+      pushReading("Lightning Strike", String("{\"status\":\"Strike detected\",\"distance_km\":") + distance + "}");
       Serial.printf("Lightning detected — distance: %d km\r\n", distance);
     }
   }
@@ -354,6 +356,13 @@ void loop() {
       pushReading("Atmospheric", String("{\"temp_f\":") + myBME280.readTempF() +
                   ",\"humidity_pct\":" + myBME280.readFloatHumidity() +
                   ",\"pressure_pa\":" + myBME280.readFloatPressure() + "}");
+    }
+
+    // Lightning heartbeat: only sent when the sensor started OK, so the
+    // dashboard shows "No strikes detected" instead of Offline. Skipped for
+    // 30 min after a real strike so the strike stays visible.
+    if (lightningOK && (lastStrikeMs == 0 || now - lastStrikeMs > 1800000UL)) {
+      pushReading("Lightning Strike", String("{\"status\":\"No strikes detected\"}"));
     }
 
     Serial.print("Weather reading cycle complete\r\n");

@@ -249,6 +249,15 @@ Deno.serve(async (req: Request) => {
           valueStr = String(d.pressure_pa);
           numericVal = d.pressure_pa;
           unit = "Pa";
+        } else if (d.status !== undefined && sensorName === "Lightning Strike") {
+          valueStr = JSON.stringify({ status: d.status, ...(d.distance_km !== undefined ? { distance_km: d.distance_km } : {}) });
+          unit = "status";
+          if (d.status === "Strike detected") {
+            status = "critical";
+            if (d.distance_km !== undefined) numericVal = d.distance_km;
+          } else {
+            status = "normal";
+          }
         } else if (d.distance_km !== undefined) {
           valueStr = String(d.distance_km);
           numericVal = d.distance_km;

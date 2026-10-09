@@ -248,8 +248,16 @@ function getWeatherDisplay(sensor: MonitorSensor): WeatherDisplay {
   }
 
   if (sensor.sensor_name === 'Lightning Strike') {
-    const distance = formatWeatherNumber(value.distance_km, 0);
-    return { primary: `${distance} km`, details: [] };
+    if (value.status === 'Strike detected') {
+      return { primary: `${formatWeatherNumber(value.distance_km, 0)} km`, details: [] };
+    }
+    if (value.status === 'No strikes detected') {
+      return { primary: 'No strikes', details: [] };
+    }
+    if (value.distance_km !== undefined) {
+      return { primary: `${formatWeatherNumber(value.distance_km, 0)} km`, details: [] };
+    }
+    return { primary: 'No strikes', details: [] };
   }
 
   return { primary: JSON.stringify(value), details: [] };
