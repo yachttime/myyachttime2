@@ -2,7 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Bot, Send, Check, X, Clock, ListTodo, BookOpen, Loader2, AlertCircle, Volume2, VolumeX, Mic, Square, Play, Headphones } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { supabase } from '../../lib/supabase';
+import { supabase, isMasterRole } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
 import { BOB_SCREENS, BOB_SCREEN_MAP } from '../../lib/bobScreens';
 import type { BobAppAction } from '../../contexts/BobContext';
 import { useBob } from '../../contexts/BobContext';
@@ -144,6 +145,8 @@ function pickRecordingMime(): { mime: string; ext: string } {
 }
 
 export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatProps) {
+  const { userProfile } = useAuth();
+  const canEditKnowledge = isMasterRole(userProfile?.role);
   const bob = useBob();
   const handsFreePausedRef = useRef(false);
   handsFreePausedRef.current = bob.handsFreePaused;
@@ -1444,7 +1447,7 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
       )}
 
       {activeTab === 'knowledge' && (
-        <KnowledgeManager knowledge={knowledge} onLoad={loadKnowledge} onDelete={handleDeleteKnowledge} onToggle={handleToggleKnowledge} supabaseUrl={supabaseUrl} />
+        <KnowledgeManager knowledge={knowledge} onLoad={loadKnowledge} onDelete={handleDeleteKnowledge} onToggle={handleToggleKnowledge} supabaseUrl={supabaseUrl} canEdit={canEditKnowledge} />
       )}
     </div>
   );
@@ -1456,9 +1459,10 @@ interface KnowledgeManagerProps {
   onDelete: (id: string) => void;
   onToggle: (id: string, currentActive: boolean) => void;
   supabaseUrl: string;
+  canEdit: boolean;
 }
 
-function KnowledgeManager({ knowledge, onLoad, onDelete, onToggle, supabaseUrl }: KnowledgeManagerProps) {
+function KnowledgeManager({ knowledge, onLoad, onDelete, onToggle, supabaseUrl, canEdit }: KnowledgeManagerProps) {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<KnowledgeEntry | null>(null);
   const [form, setForm] = useState({ category: 'general', title: '', content: '' });
@@ -1496,9 +1500,11 @@ function KnowledgeManager({ knowledge, onLoad, onDelete, onToggle, supabaseUrl }
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <p className="text-sm text-slate-400">Manage what Bob knows about your business</p>
-        <button onClick={() => { setEditing(null); setForm({ category: 'general', title: '', content: '' }); setShowForm(true); }} className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-900 text-sm font-medium rounded-lg transition-colors">
-          + Add Entry
-        </button>
+        {canEdit && (
+          <button onClick={() => { setEditing(null); setForm({ category: 'general', title: '', content: '' }); setShowForm(true); }} className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-900 text-sm font-medium rounded-lg transition-colors">
+            + Add Entry
+          </button>
+        )}
       </div>
 
       {showForm && (
@@ -1543,11 +1549,13 @@ function KnowledgeManager({ knowledge, onLoad, onDelete, onToggle, supabaseUrl }
                   <p className="text-sm text-white font-medium">{entry.title}</p>
                   <p className="text-xs text-slate-400 mt-1">{entry.content.substring(0, 120)}{entry.content.length > 120 ? '...' : ''}</p>
                 </div>
-                <div className="flex gap-1 ml-2">
-                  <button onClick={() => handleEdit(entry)} className="text-slate-400 hover:text-amber-500 text-xs px-2 py-1">Edit</button>
-                  <button onClick={() => onToggle(entry.id, entry.active)} className="text-slate-400 hover:text-blue-400 text-xs px-2 py-1">{entry.active ? 'Disable' : 'Enable'}</button>
-                  <button onClick={() => onDelete(entry.id)} className="text-slate-400 hover:text-red-400 text-xs px-2 py-1">Delete</button>
-                </div>
+                {canEdit && (
+                  <div className="flex gap-1 ml-2">
+                    <button onClick={() => handleEdit(entry)} className="text-slate-400 hover:text-amber-500 text-xs px-2 py-1">Edit</button>
+                    <button onClick={() => onToggle(entry.id, entry.active)} className="text-slate-400 hover:text-blue-400 text-xs px-2 py-1">{entry.active ? 'Disable' : 'Enable'}</button>
+                    <button onClick={() => onDelete(entry.id)} className="text-slate-400 hover:text-red-400 text-xs px-2 py-1">Delete</button>
+                  </div>
+                )}
               </div>
             </div>
           ))
