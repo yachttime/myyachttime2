@@ -196,6 +196,65 @@ const DEVICE_TYPE_ICONS: Record<string, any> = {
   weather_station: CloudRain,
 };
 
+type WeatherDisplay = {
+  primary: string;
+  details: Array<{ label: string; value: string }>;
+};
+
+function formatWeatherNumber(value: unknown, maximumFractionDigits = 2): string {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return '--';
+  return number.toLocaleString(undefined, { maximumFractionDigits });
+}
+
+function getWeatherDisplay(sensor: MonitorSensor): WeatherDisplay {
+  let value: Record<string, unknown> | null = null;
+  try {
+    const parsed: unknown = JSON.parse(sensor.current_value || '');
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      value = parsed as Record<string, unknown>;
+    }
+  } catch {
+    value = null;
+  }
+
+  if (!value) {
+    return {
+      primary: `${sensor.current_value || '--'}${sensor.unit_of_measure ? ` ${sensor.unit_of_measure}` : ''}`,
+      details: [],
+    };
+  }
+
+  if (sensor.sensor_name === 'Atmospheric') {
+    return {
+      primary: `${formatWeatherNumber(value.temp_f)} °F`,
+      details: [
+        { label: 'Humidity', value: `${formatWeatherNumber(value.humidity_pct)}%` },
+        { label: 'Pressure', value: `${formatWeatherNumber(Number(value.pressure_pa) / 100, 1)} hPa` },
+      ],
+    };
+  }
+
+  if (sensor.sensor_name === 'Wind Speed') {
+    return { primary: `${formatWeatherNumber(value.mph)} mph`, details: [] };
+  }
+
+  if (sensor.sensor_name === 'Wind Direction') {
+    return { primary: `${formatWeatherNumber(value.deg, 0)}°`, details: [] };
+  }
+
+  if (sensor.sensor_name === 'Rainfall') {
+    return { primary: `${formatWeatherNumber(value.mm)} mm`, details: [] };
+  }
+
+  if (sensor.sensor_name === 'Lightning Strike') {
+    const distance = formatWeatherNumber(value.distance_km, 0);
+    return { primary: `${distance} km`, details: [] };
+  }
+
+  return { primary: JSON.stringify(value), details: [] };
+}
+
 export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole }) {
   const { isMaster, selectedCompany } = useCompany();
   const [view, setView] = useState<'fleet' | 'yacht' | 'enroll' | 'devices'>('fleet');
@@ -1245,13 +1304,30 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
                           <p className="text-xs text-slate-400 capitalize">{sensor.sensor_type.replace(/_/g, ' ')}</p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="font-mono font-bold">{sensor.current_value || '--'}{sensor.unit_of_measure ? ` ${sensor.unit_of_measure}` : ''}</p>
-                        <span className={`text-xs px-2 py-0.5 rounded-full border ${STATUS_COLORS[sensor.status]} capitalize`}>{sensor.status}</span>
-                        {sensor.last_reading_at && (
-                          <p className="text-xs text-slate-500 mt-0.5">{new Date(sensor.last_reading_at).toLocaleTimeString()}</p>
-                        )}
-                      </div>
+                      {(() => {
+                        const display = getWeatherDisplay(sensor);
+                        return (
+                          <div className="text-right min-w-[180px] max-w-[52%]">
+                            <p className="font-mono font-bold text-base text-white whitespace-nowrap">{display.primary}</p>
+                            {display.details.length > 0 && (
+                              <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-1 text-left">
+                                {display.details.map(detail => (
+                                  <div key={detail.label}>
+                                    <p className="text-[10px] uppercase tracking-wide text-slate-500">{detail.label}</p>
+                                    <p className="font-mono text-xs font-semibold text-slate-200 whitespace-nowrap">{detail.value}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            <div className="mt-2">
+                              <span className={`text-xs px-2 py-0.5 rounded-full border ${STATUS_COLORS[sensor.status]} capitalize`}>{sensor.status}</span>
+                              {sensor.last_reading_at && (
+                                <p className="text-xs text-slate-500 mt-0.5">{new Date(sensor.last_reading_at).toLocaleTimeString()}</p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   );
                 })
