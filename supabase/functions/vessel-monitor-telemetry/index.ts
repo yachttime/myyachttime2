@@ -200,7 +200,16 @@ Deno.serve(async (req: Request) => {
         let unit = "";
         let status: "normal" | "warning" | "critical" | "offline" = "normal";
 
-        if (d.active !== undefined) {
+        const nestedValue = d.value && typeof d.value === "object" && !Array.isArray(d.value)
+          ? d.value as Record<string, unknown>
+          : null;
+
+        if (sensorName === "Lightning Strike" && typeof nestedValue?.status === "string") {
+          valueStr = JSON.stringify(nestedValue);
+          unit = "status";
+          if (typeof nestedValue.distance_km === "number") numericVal = nestedValue.distance_km;
+          status = nestedValue.status === "Strike detected" ? "critical" : "normal";
+        } else if (d.active !== undefined) {
           valueStr = d.active ? "active" : "inactive";
           unit = "on/off";
           if (sensorName.includes("Alarm") && d.active) status = "critical";
