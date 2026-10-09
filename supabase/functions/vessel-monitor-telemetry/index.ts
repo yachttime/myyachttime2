@@ -298,7 +298,9 @@ Deno.serve(async (req: Request) => {
               company_id: device.company_id,
               alert_type: "sensor_critical",
               severity: "critical",
-              message: `${sensorName} reported critical: ${valueStr}`,
+              message: sensorName === "Lightning Strike" && typeof nestedValue?.distance_km === "number"
+                  ? `${sensorName} reported critical: ${(nestedValue.distance_km * 0.621371).toFixed(1)} miles away`
+                  : `${sensorName} reported critical: ${valueStr}`,
             });
           }
         }

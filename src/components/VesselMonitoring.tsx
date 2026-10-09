@@ -228,6 +228,12 @@ function getSensorStatus(sensor: MonitorSensor): MonitorSensor['status'] {
   return sensor.status;
 }
 
+function formatAlertMessage(message: string): string {
+  const match = message.match(/^Lightning Strike reported critical: \{\s*"distance_km"\s*:\s*([\d.]+)\s*\}$/);
+  if (!match) return message;
+  return `Lightning Strike reported critical: ${formatWeatherNumber(Number(match[1]) * 0.621371, 1)} miles away`;
+}
+
 function getWeatherDisplay(sensor: MonitorSensor): WeatherDisplay {
   const value = parseSensorValue(sensor);
 
@@ -972,7 +978,7 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
                     <div className="flex items-center gap-3">
                       <AlertTriangle className="w-4 h-4 flex-shrink-0" />
                       <div>
-                        <p className="text-sm font-medium">{alert.message}</p>
+                        <p className="text-sm font-medium">{formatAlertMessage(alert.message)}</p>
                         <p className="text-xs opacity-70">{yachtName} - {new Date(alert.created_at).toLocaleString()}</p>
                       </div>
                     </div>
@@ -1418,7 +1424,7 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
                   <div className="flex items-center gap-3">
                     <AlertTriangle className="w-4 h-4 flex-shrink-0" />
                     <div>
-                      <p className="text-sm font-medium">{alert.message}</p>
+                      <p className="text-sm font-medium">{formatAlertMessage(alert.message)}</p>
                       <p className="text-xs opacity-70">{new Date(alert.created_at).toLocaleString()}</p>
                     </div>
                   </div>
