@@ -1871,6 +1871,7 @@ function WorkScheduleModal({ staff, onClose }: { staff: UserProfile[]; onClose: 
     try {
       setSaving(true);
       const seasonStatus = getCurrentSeasonStatus();
+      const selectedStaff = staff.find(s => s.user_id === selectedStaffId);
 
       for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {
         const schedule = schedules[dayOfWeek];
@@ -1881,6 +1882,7 @@ function WorkScheduleModal({ staff, onClose }: { staff: UserProfile[]; onClose: 
           .from('staff_schedules')
           .upsert({
             user_id: selectedStaffId,
+            company_id: selectedStaff?.company_id || null,
             day_of_week: dayOfWeek,
             is_working_day: schedule.isWorking,
             start_time: schedule.isWorking ? schedule.startTime : null,
