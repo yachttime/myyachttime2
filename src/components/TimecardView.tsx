@@ -478,7 +478,7 @@ interface AddEntryModalProps {
 }
 
 function AddEntryModal({ dateStr, userId, onClose, onSave }: AddEntryModalProps) {
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
   const [punchInTime, setPunchInTime] = useState('08:00');
   const [punchOutTime, setPunchOutTime] = useState('');
   const [notes, setNotes] = useState('');
@@ -536,7 +536,8 @@ function AddEntryModal({ dateStr, userId, onClose, onSave }: AddEntryModalProps)
           is_edited: true,
           edited_by: user?.id,
           edited_at: new Date().toISOString(),
-          edit_reason: editReason
+          edit_reason: editReason,
+          company_id: userProfile?.company_id || null
         });
 
       if (insertError) throw insertError;
