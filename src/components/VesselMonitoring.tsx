@@ -1118,7 +1118,7 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
                 </div>
               </div>
               <a
-                href={`https://www.google.com/maps/@?api=1&map_action=map&center=${toughDevice.gps_lat},${toughDevice.gps_lng}&zoom=18&basemap=satellite`}
+                href={`https://www.google.com/maps/search/?api=1&query=${toughDevice.gps_lat},${toughDevice.gps_lng}&basemap=satellite`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white font-medium rounded-lg transition-colors"
