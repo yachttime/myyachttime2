@@ -1219,15 +1219,23 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
                 const sensor = sensorName
                   ? yachtSensors.find(candidate => candidate.sensor_name.startsWith(sensorName))
                   : undefined;
-                const status = sensor?.status || 'offline';
+                const reading = sensor?.current_value?.trim().toLowerCase();
+                const isOn = reading === 'active' || reading === 'on' || reading === 'true' || reading === '1';
+                const isOff = reading === 'inactive' || reading === 'off' || reading === 'false' || reading === '0';
+                const stateLabel = isOn ? 'On' : isOff ? 'Off' : 'Waiting for reading';
+                const stateColor = isOn
+                  ? 'text-green-400 bg-green-500/10 border-green-500/30'
+                  : isOff
+                    ? 'text-slate-300 bg-slate-500/10 border-slate-500/30'
+                    : 'text-amber-400 bg-amber-500/10 border-amber-500/30';
                 return (
                   <div key={channel} className="flex items-center justify-between gap-4 px-4 py-3">
                     <div className="flex items-center gap-3 min-w-0">
                       <span className="text-xs font-mono text-slate-400 whitespace-nowrap">{channel}</span>
                       <span className="font-medium text-sm break-words">{label}</span>
                     </div>
-                    <span className={`text-xs px-2 py-0.5 rounded-full border capitalize whitespace-nowrap ${STATUS_COLORS[status]}`}>
-                      {sensor ? status : 'not configured'}
+                    <span className={`text-xs px-2 py-0.5 rounded-full border whitespace-nowrap ${stateColor}`}>
+                      {stateLabel}
                     </span>
                   </div>
                 );
