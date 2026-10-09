@@ -11,6 +11,13 @@ select {
   color-scheme: light;
 }
 
+.staff-calendar-select,
+.staff-calendar-select option {
+  color: #f8fafc;
+  background-color: #334155;
+  color-scheme: dark;
+}
+
 @keyframes slideIn {
   from {
     transform: translateX(100%);

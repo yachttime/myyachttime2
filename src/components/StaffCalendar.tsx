@@ -1948,7 +1948,7 @@ function WorkScheduleModal({ staff, onClose }: { staff: UserProfile[]; onClose: 
           <select
             value={selectedStaffId}
             onChange={e => setSelectedStaffId(e.target.value)}
-            className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            className="staff-calendar-select w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
           >
             <option value="">-- Select Staff Member --</option>
             {staff.map(member => (
