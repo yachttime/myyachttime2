@@ -222,7 +222,7 @@ function parseSensorValue(sensor: MonitorSensor): Record<string, unknown> | null
 function getSensorStatus(sensor: MonitorSensor): MonitorSensor['status'] {
   if (sensor.sensor_name === 'Lightning Strike') {
     const value = parseSensorValue(sensor);
-    if (value?.status === 'Strike detected') return 'critical';
+    if (value?.status === 'Strike detected' || typeof value?.distance_km === 'number') return 'critical';
     if (value?.status === 'No strikes detected') return 'normal';
   }
   return sensor.status;
