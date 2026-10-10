@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Anchor, Eye, EyeOff, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { DEFAULT_SIGN_IN_VIDEO } from '../lib/defaultSignInVideo';
 import { supabase } from '../lib/supabase';
 
 interface Yacht {
@@ -19,6 +20,7 @@ interface EducationVideo {
   created_at: string;
 }
 
+
 export const SignIn = () => {
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [email, setEmail] = useState('');
@@ -28,7 +30,7 @@ export const SignIn = () => {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const [retrying, setRetrying] = useState(false);
-  const [signInVideo, setSignInVideo] = useState<EducationVideo | null>(null);
+  const [signInVideo, setSignInVideo] = useState<EducationVideo | null>(DEFAULT_SIGN_IN_VIDEO);
   const [scannedYachtName, setScannedYachtName] = useState<string | null>(null);
   const [showWelcomeVideo, setShowWelcomeVideo] = useState(false);
   const [welcomeVideo, setWelcomeVideo] = useState<EducationVideo | null>(null);
@@ -444,7 +446,7 @@ export const SignIn = () => {
               <video
                 key={signInVideo.video_url}
                 src={signInVideo.video_url}
-                className="w-full h-64 object-cover bg-slate-800"
+                className="w-full max-h-[32rem] object-contain bg-slate-800"
                 controls
                 autoPlay
                 muted
