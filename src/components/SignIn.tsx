@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Anchor, Eye, EyeOff, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { DEFAULT_SIGN_IN_VIDEO } from '../lib/defaultSignInVideo';
 import { supabase } from '../lib/supabase';
 
 interface Yacht {
@@ -19,17 +20,6 @@ interface EducationVideo {
   created_at: string;
 }
 
-// Shown on the sign-in page unless a general (no yacht) SignIn video exists in education_videos
-const DEFAULT_SIGN_IN_VIDEO: EducationVideo = {
-  id: 'default-sign-in-video',
-  title: 'See My Yacht Time in action',
-  description: null,
-  video_url: '/videos/storm-call.mp4',
-  thumbnail_url: null,
-  category: 'SignIn',
-  order_index: 0,
-  created_at: '2026-10-10T00:00:00Z',
-};
 
 export const SignIn = () => {
   const [isForgotPassword, setIsForgotPassword] = useState(false);

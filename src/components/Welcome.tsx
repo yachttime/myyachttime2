@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Anchor, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { DEFAULT_SIGN_IN_VIDEO } from '../lib/defaultSignInVideo';
 
 interface WelcomeProps {
   onGetStarted: () => void;
@@ -23,7 +24,7 @@ interface Yacht {
 }
 
 export const Welcome = ({ onGetStarted }: WelcomeProps) => {
-  const [signInVideo, setSignInVideo] = useState<EducationVideo | null>(null);
+  const [signInVideo, setSignInVideo] = useState<EducationVideo | null>(DEFAULT_SIGN_IN_VIDEO);
   const [yachtWelcomeVideo, setYachtWelcomeVideo] = useState<EducationVideo | null>(null);
   const [yacht, setYacht] = useState<Yacht | null>(null);
   const [showYachtVideo, setShowYachtVideo] = useState(false);
@@ -203,7 +204,7 @@ export const Welcome = ({ onGetStarted }: WelcomeProps) => {
               <video
                 key={signInVideo.video_url}
                 src={signInVideo.video_url}
-                className="w-full aspect-video object-contain bg-slate-900"
+                className="w-full max-h-[80vh] object-contain bg-slate-900"
                 controls
                 autoPlay
                 muted
