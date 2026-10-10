@@ -19,6 +19,18 @@ interface EducationVideo {
   created_at: string;
 }
 
+// Shown on the sign-in page unless a general (no yacht) SignIn video exists in education_videos
+const DEFAULT_SIGN_IN_VIDEO: EducationVideo = {
+  id: 'default-sign-in-video',
+  title: 'See My Yacht Time in action',
+  description: null,
+  video_url: '/videos/storm-call.mp4',
+  thumbnail_url: null,
+  category: 'SignIn',
+  order_index: 0,
+  created_at: '2026-10-10T00:00:00Z',
+};
+
 export const SignIn = () => {
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [email, setEmail] = useState('');
@@ -28,7 +40,7 @@ export const SignIn = () => {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const [retrying, setRetrying] = useState(false);
-  const [signInVideo, setSignInVideo] = useState<EducationVideo | null>(null);
+  const [signInVideo, setSignInVideo] = useState<EducationVideo | null>(DEFAULT_SIGN_IN_VIDEO);
   const [scannedYachtName, setScannedYachtName] = useState<string | null>(null);
   const [showWelcomeVideo, setShowWelcomeVideo] = useState(false);
   const [welcomeVideo, setWelcomeVideo] = useState<EducationVideo | null>(null);
@@ -444,7 +456,7 @@ export const SignIn = () => {
               <video
                 key={signInVideo.video_url}
                 src={signInVideo.video_url}
-                className="w-full h-64 object-cover bg-slate-800"
+                className="w-full max-h-[32rem] object-contain bg-slate-800"
                 controls
                 autoPlay
                 muted
