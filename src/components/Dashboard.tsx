@@ -18,6 +18,7 @@ import { VesselMonitoring } from './VesselMonitoring';
 import { LiveClock } from './LiveClock';
 import { VesselManagementAgreementForm } from './VesselManagementAgreementForm';
 import { VesselAgreementViewer } from './VesselAgreementViewer';
+import { PrintableVesselAgreement } from './PrintableVesselAgreement';
 import { PrintableUserList } from './PrintableUserList';
 import { PrintableOwnerTrips } from './PrintableOwnerTrips';
 import { PrintableYachtsList } from './PrintableYachtsList';
@@ -953,6 +954,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [printingAllInvoicesYachtId, setPrintingAllInvoicesYachtId] = useState<string | null>(null);
   const [showAgreementForm, setShowAgreementForm] = useState(false);
   const [showAgreementViewer, setShowAgreementViewer] = useState(false);
+  const [showAgreementPrint, setShowAgreementPrint] = useState(false);
   const [selectedAgreement, setSelectedAgreement] = useState<VesselManagementAgreement | null>(null);
   const [agreementFilter, setAgreementFilter] = useState<'all' | 'draft' | 'pending' | 'approved'>('all');
   const [signingLinkState, setSigningLinkState] = useState<Record<string, { generating?: boolean; copied?: boolean; sending?: boolean }>>({});
@@ -13879,15 +13881,27 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                           </div>
                                         )}
                                         {agreement.status === 'approved' && (
-                                          <button
-                                            onClick={() => {
-                                              setSelectedAgreement(agreement);
-                                              setShowAgreementViewer(true);
-                                            }}
-                                            className="px-2 py-1 bg-cyan-500/20 text-cyan-500 rounded hover:bg-cyan-500/30 transition-colors text-xs"
-                                          >
-                                            View
-                                          </button>
+                                          <>
+                                            <button
+                                              onClick={() => {
+                                                setSelectedAgreement(agreement);
+                                                setShowAgreementViewer(true);
+                                              }}
+                                              className="px-2 py-1 bg-cyan-500/20 text-cyan-500 rounded hover:bg-cyan-500/30 transition-colors text-xs"
+                                            >
+                                              View
+                                            </button>
+                                            <button
+                                              onClick={() => {
+                                                setSelectedAgreement(agreement);
+                                                setShowAgreementPrint(true);
+                                              }}
+                                              className="px-2 py-1 bg-cyan-600/20 text-cyan-400 rounded hover:bg-cyan-600/30 transition-colors text-xs flex items-center gap-1"
+                                            >
+                                              <Printer className="w-3 h-3" />
+                                              Print
+                                            </button>
+                                          </>
                                         )}
                                         {agreement.status === 'approved' && vmaInvoice && vmaInvoice.payment_status !== 'paid' && isStaffRole(effectiveRole) && (
                                           <button
@@ -19144,6 +19158,16 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               loadVesselAgreements(agreementYachtId);
               loadAgreementSummaries();
             }
+          }}
+        />
+      )}
+
+      {showAgreementPrint && selectedAgreement && (
+        <PrintableVesselAgreement
+          agreement={selectedAgreement}
+          onClose={() => {
+            setShowAgreementPrint(false);
+            setSelectedAgreement(null);
           }}
         />
       )}
