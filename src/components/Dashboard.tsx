@@ -14421,6 +14421,22 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                 </div>
                                               </div>
                                               <div className="flex flex-col gap-1">
+                                                {invoice.vessel_management_agreement_id && (
+                                                  <button
+                                                    onClick={() => {
+                                                      const agreement = (vesselAgreements[yacht.id] || []).find((item) => item.id === invoice.vessel_management_agreement_id);
+                                                      if (!agreement) {
+                                                        showError('The linked vessel management agreement could not be found.');
+                                                        return;
+                                                      }
+                                                      setSelectedAgreement(agreement);
+                                                      setShowAgreementPrint(true);
+                                                    }}
+                                                    className="px-2 py-1 bg-cyan-500/20 text-cyan-400 rounded hover:bg-cyan-500/30 transition-colors flex items-center gap-1 whitespace-nowrap"
+                                                  >
+                                                    <Printer className="w-3 h-3" /><span>Print Agreement</span>
+                                                  </button>
+                                                )}
                                                 {invoice.invoice_file_url && (
                                                   <a href={invoice.invoice_file_url} target="_blank" rel="noopener noreferrer"
                                                     className="px-2 py-1 bg-emerald-500/20 text-emerald-500 rounded hover:bg-emerald-500/30 transition-colors flex items-center gap-1 whitespace-nowrap">
