@@ -14423,12 +14423,25 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                               <div className="flex flex-col gap-1">
                                                 {invoice.vessel_management_agreement_id && (
                                                   <button
-                                                    onClick={() => {
-                                                      const agreement = (vesselAgreements[yacht.id] || []).find((item) => item.id === invoice.vessel_management_agreement_id);
-                                                      if (!agreement) {
+                                                    onClick={async () => {
+                                                      const cachedAgreement = (vesselAgreements[yacht.id] || []).find((item) => item.id === invoice.vessel_management_agreement_id);
+                                                      if (cachedAgreement) {
+                                                        setSelectedAgreement(cachedAgreement);
+                                                        setShowAgreementPrint(true);
+                                                        return;
+                                                      }
+
+                                                      const { data: agreement, error } = await supabase
+                                                        .from('vessel_management_agreements')
+                                                        .select('*')
+                                                        .eq('id', invoice.vessel_management_agreement_id)
+                                                        .maybeSingle();
+
+                                                      if (error || !agreement) {
                                                         showError('The linked vessel management agreement could not be found.');
                                                         return;
                                                       }
+
                                                       setSelectedAgreement(agreement);
                                                       setShowAgreementPrint(true);
                                                     }}
