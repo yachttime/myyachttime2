@@ -2702,7 +2702,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     try {
       const currentYear = new Date().getFullYear();
       const yearStart = `${currentYear}-01-01`;
-      const yearEnd = `${currentYear}-12-31`;
+      const yearEnd = `${currentYear + 1}-12-31`;
 
       const { data, error } = await supabase
         .from('yacht_bookings')
