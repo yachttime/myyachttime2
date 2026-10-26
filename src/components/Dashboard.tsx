@@ -58,6 +58,7 @@ import EngineCatalogManager from './admin/EngineCatalogManager';
 import YearEndOverview from './admin/YearEndOverview';
 import { SalvageReports } from './SalvageReports';
 import JarvisChat from './admin/JarvisChat';
+import { BudgetBuilder } from './BudgetBuilder';
 
 interface DashboardProps {
   onNavigate: (page: 'maintenance' | 'education' | 'staffCalendar') => void;
@@ -976,6 +977,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [offseasonLoading, setOffseasonLoading] = useState<Record<string, boolean>>({});
   const [offseasonPrinting, setOffseasonPrinting] = useState<string | null>(null);
   const [offseasonSending, setOffseasonSending] = useState<string | null>(null);
+  const [budgetBuilderYacht, setBudgetBuilderYacht] = useState<{ id: string; name: string } | null>(null);
+  const [budgetItems, setBudgetItems] = useState<Record<string, any[]>>({});
 
   useEffect(() => {
     const handleQRScannedYacht = async () => {
@@ -4077,6 +4080,16 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           misc_2: data.misc_2?.toString() || '0',
           misc_2_notes: data.misc_2_notes || ''
         });
+
+        // Load budget items (packages and offseason estimates)
+        const { data: items, error: itemsError } = await supabase
+          .from('yacht_budget_items')
+          .select('id, item_type, source_id, name, amount, created_at')
+          .eq('budget_id', data.id)
+          .order('created_at');
+
+        if (itemsError) throw itemsError;
+        setBudgetItems(prev => ({ ...prev, [data.id]: items || [] }));
       } else {
         setBudgetBreakdownInput({
           management_fees: '',
@@ -14018,49 +14031,59 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 mb-3">
                                     <div className="flex items-center justify-between mb-3">
                                       <p className="text-xs font-semibold text-slate-300">Budget for {selectedInvoiceYear}</p>
-                                      {!isEditingBudget && (
+                                      <div className="flex items-center gap-2">
                                         <button
-                                          onClick={() => {
-                                            setBudgetEditMode(prev => ({ ...prev, [budgetKey]: true }));
-                                            if (currentBudget) {
-                                              setBudgetBreakdownInput({
-                                                management_fees: currentBudget.management_fees?.toString() || '0',
-                                                trip_inspection_fees: currentBudget.trip_inspection_fees?.toString() || '0',
-                                                spring_startup_cost: currentBudget.spring_startup_cost?.toString() || '0',
-                                                oil_change_200hr: currentBudget.oil_change_200hr?.toString() || '0',
-                                                oil_change_600hr: currentBudget.oil_change_600hr?.toString() || '0',
-                                                preventive_maintenance: currentBudget.preventive_maintenance?.toString() || '0',
-                                                winter_repairs_upgrades: currentBudget.winter_repairs_upgrades?.toString() || '0',
-                                                winterizations: currentBudget.winterizations?.toString() || '0',
-                                                water_filters: currentBudget.water_filters?.toString() || '0',
-                                                misc_1: currentBudget.misc_1?.toString() || '0',
-                                                misc_1_notes: currentBudget.misc_1_notes || '',
-                                                misc_2: currentBudget.misc_2?.toString() || '0',
-                                                misc_2_notes: currentBudget.misc_2_notes || ''
-                                              });
-                                            } else {
-                                              setBudgetBreakdownInput({
-                                                management_fees: '0',
-                                                trip_inspection_fees: '0',
-                                                spring_startup_cost: '0',
-                                                oil_change_200hr: '0',
-                                                oil_change_600hr: '0',
-                                                preventive_maintenance: '0',
-                                                winter_repairs_upgrades: '0',
-                                                winterizations: '0',
-                                                water_filters: '0',
-                                                misc_1: '0',
-                                                misc_1_notes: '',
-                                                misc_2: '0',
-                                                misc_2_notes: ''
-                                              });
-                                            }
-                                          }}
-                                          className="text-xs px-2 py-1 bg-slate-700 hover:bg-slate-600 text-white rounded transition-colors"
+                                          onClick={() => setBudgetBuilderYacht({ id: yacht.id, name: yacht.name })}
+                                          className="flex items-center gap-1 px-2 py-1 bg-teal-600 hover:bg-teal-700 text-white rounded text-xs transition-colors"
+                                          title="Build budget from packages and off-season estimates"
                                         >
-                                          {currentBudget ? 'Edit' : 'Set Budget'}
+                                          <Plus className="w-3 h-3" />
+                                          Build Budget
                                         </button>
-                                      )}
+                                        {!isEditingBudget && (
+                                          <button
+                                            onClick={() => {
+                                              setBudgetEditMode(prev => ({ ...prev, [budgetKey]: true }));
+                                              if (currentBudget) {
+                                                setBudgetBreakdownInput({
+                                                  management_fees: currentBudget.management_fees?.toString() || '0',
+                                                  trip_inspection_fees: currentBudget.trip_inspection_fees?.toString() || '0',
+                                                  spring_startup_cost: currentBudget.spring_startup_cost?.toString() || '0',
+                                                  oil_change_200hr: currentBudget.oil_change_200hr?.toString() || '0',
+                                                  oil_change_600hr: currentBudget.oil_change_600hr?.toString() || '0',
+                                                  preventive_maintenance: currentBudget.preventive_maintenance?.toString() || '0',
+                                                  winter_repairs_upgrades: currentBudget.winter_repairs_upgrades?.toString() || '0',
+                                                  winterizations: currentBudget.winterizations?.toString() || '0',
+                                                  water_filters: currentBudget.water_filters?.toString() || '0',
+                                                  misc_1: currentBudget.misc_1?.toString() || '0',
+                                                  misc_1_notes: currentBudget.misc_1_notes || '',
+                                                  misc_2: currentBudget.misc_2?.toString() || '0',
+                                                  misc_2_notes: currentBudget.misc_2_notes || ''
+                                                });
+                                              } else {
+                                                setBudgetBreakdownInput({
+                                                  management_fees: '0',
+                                                  trip_inspection_fees: '0',
+                                                  spring_startup_cost: '0',
+                                                  oil_change_200hr: '0',
+                                                  oil_change_600hr: '0',
+                                                  preventive_maintenance: '0',
+                                                  winter_repairs_upgrades: '0',
+                                                  winterizations: '0',
+                                                  water_filters: '0',
+                                                  misc_1: '0',
+                                                  misc_1_notes: '',
+                                                  misc_2: '0',
+                                                  misc_2_notes: ''
+                                                });
+                                              }
+                                            }}
+                                            className="text-xs px-2 py-1 bg-slate-700 hover:bg-slate-600 text-white rounded transition-colors"
+                                          >
+                                            {currentBudget ? 'Edit' : 'Set Budget'}
+                                          </button>
+                                        )}
+                                      </div>
                                     </div>
 
                                     {isEditingBudget ? (
@@ -14345,6 +14368,41 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                   )}
                                                 </div>
                                               </div>
+                                              {(() => {
+                                                const items = (currentBudget && budgetItems[currentBudget.id]) || [];
+                                                if (items.length === 0) return null;
+                                                const pkgItems = items.filter(i => i.item_type === 'package');
+                                                const estItems = items.filter(i => i.item_type === 'offseason_estimate');
+                                                return (
+                                                  <div className="mt-3 pt-3 border-t border-slate-700">
+                                                    <div className="text-xs font-semibold text-slate-300 mb-2">Budget Breakdown Items</div>
+                                                    <div className="space-y-1">
+                                                      {pkgItems.length > 0 && (
+                                                        <div className="mb-1">
+                                                          <div className="text-xs text-teal-400 mb-1">Packages</div>
+                                                          {pkgItems.map(item => (
+                                                            <div key={item.id} className="flex items-center justify-between text-xs">
+                                                              <span className="text-slate-400">{item.name}</span>
+                                                              <span className="text-white">${Number(item.amount).toFixed(2)}</span>
+                                                            </div>
+                                                          ))}
+                                                        </div>
+                                                      )}
+                                                      {estItems.length > 0 && (
+                                                        <div className="mb-1">
+                                                          <div className="text-xs text-cyan-400 mb-1">Off-Season Estimates</div>
+                                                          {estItems.map(item => (
+                                                            <div key={item.id} className="flex items-center justify-between text-xs">
+                                                              <span className="text-slate-400">{item.name}</span>
+                                                              <span className="text-white">${Number(item.amount).toFixed(2)}</span>
+                                                            </div>
+                                                          ))}
+                                                        </div>
+                                                      )}
+                                                    </div>
+                                                  </div>
+                                                );
+                                              })()}
                                             </div>
                                             <div className="text-xs text-slate-400 mb-3 pt-3 border-t border-slate-700">
                                               Budget Remaining: <span className={`font-semibold ${budgetRemaining >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
@@ -19910,6 +19968,21 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           yachtId={qrCodeYacht.id}
           yachtName={qrCodeYacht.name}
           onClose={() => setQrCodeYacht(null)}
+        />
+      )}
+
+      {/* Budget Builder Modal */}
+      {budgetBuilderYacht && (
+        <BudgetBuilder
+          yachtId={budgetBuilderYacht.id}
+          yachtName={budgetBuilderYacht.name}
+          budgetYear={selectedInvoiceYear}
+          existingBudgetId={yachtBudgets[`${budgetBuilderYacht.id}-${selectedInvoiceYear}`]?.id || null}
+          onClose={() => setBudgetBuilderYacht(null)}
+          onSaved={() => {
+            setBudgetBuilderYacht(null);
+            void loadYachtBudget(budgetBuilderYacht.id, selectedInvoiceYear);
+          }}
         />
       )}
 
