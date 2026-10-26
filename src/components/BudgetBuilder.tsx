@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { X, Package, FileText, CheckCircle, Circle, DollarSign, Loader2, AlertTriangle, ChevronRight, ChevronLeft } from 'lucide-react';
+import { X, Package, FileText, CheckCircle, Circle, DollarSign, Loader2, AlertTriangle, ChevronRight, ChevronLeft, Plus, Minus } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface BudgetBuilderProps {
@@ -18,25 +18,6 @@ interface EstimatePackage {
   is_active: boolean;
 }
 
-interface PackageLabor {
-  id: string;
-  package_id: string;
-  hours: number;
-  rate: number;
-  description: string | null;
-}
-
-interface PackagePart {
-  id: string;
-  package_id: string;
-  quantity: number;
-  unit_price: number;
-  description: string | null;
-  part_source: string;
-  part_number_display: string | null;
-  description_display: string | null;
-}
-
 interface OffseasonEstimate {
   id: string;
   estimate_number: string;
@@ -50,6 +31,7 @@ interface SelectedItem {
   type: 'package' | 'offseason_estimate';
   name: string;
   amount: number;
+  quantity: number;
 }
 
 export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId, onClose, onSaved }: BudgetBuilderProps) => {
@@ -57,13 +39,13 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
   const [packages, setPackages] = useState<EstimatePackage[]>([]);
   const [packageTotals, setPackageTotals] = useState<Record<string, number>>({});
   const [offseasonEstimates, setOffseasonEstimates] = useState<OffseasonEstimate[]>([]);
-  const [selectedPackages, setSelectedPackages] = useState<Set<string>>(new Set());
+  const [packageQuantities, setPackageQuantities] = useState<Record<string, number>>({});
   const [selectedEstimates, setSelectedEstimates] = useState<Set<string>>(new Set());
   const [loadingPackages, setLoadingPackages] = useState(true);
   const [loadingOffseason, setLoadingOffseason] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [existingItems, setExistingItems] = useState<SelectedItem[]>([]);
+  const [hasExistingItems, setHasExistingItems] = useState(false);
 
   const loadPackages = useCallback(async () => {
     setLoadingPackages(true);
@@ -125,23 +107,24 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
     try {
       const { data, error: itemsError } = await supabase
         .from('yacht_budget_items')
-        .select('id, item_type, source_id, name, amount')
+        .select('id, item_type, source_id, name, amount, quantity')
         .eq('budget_id', existingBudgetId)
         .order('created_at');
 
       if (itemsError) throw itemsError;
 
       if (data && data.length > 0) {
-        const items = data.map((d: any) => ({
-          id: d.source_id || d.id,
-          type: d.item_type as 'package' | 'offseason_estimate',
-          name: d.name,
-          amount: Number(d.amount) || 0,
-        }));
-        setExistingItems(items);
-        const pkgIds = new Set(items.filter(i => i.type === 'package').map(i => i.id));
-        const estIds = new Set(items.filter(i => i.type === 'offseason_estimate').map(i => i.id));
-        setSelectedPackages(pkgIds);
+        setHasExistingItems(true);
+        const pkgQty: Record<string, number> = {};
+        const estIds = new Set<string>();
+        data.forEach((d: any) => {
+          if (d.item_type === 'package' && d.source_id) {
+            pkgQty[d.source_id] = Number(d.quantity) || 1;
+          } else if (d.item_type === 'offseason_estimate' && d.source_id) {
+            estIds.add(d.source_id);
+          }
+        });
+        setPackageQuantities(pkgQty);
         setSelectedEstimates(estIds);
       }
     } catch (err: any) {
@@ -156,21 +139,36 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
   }, [loadPackages, loadOffseason, loadExistingItems]);
 
   const selectedPackageItems: SelectedItem[] = packages
-    .filter(p => selectedPackages.has(p.id))
-    .map(p => ({ id: p.id, type: 'package' as const, name: p.name, amount: packageTotals[p.id] || 0 }));
+    .filter(p => (packageQuantities[p.id] || 0) > 0)
+    .map(p => ({
+      id: p.id,
+      type: 'package' as const,
+      name: p.name,
+      amount: (packageTotals[p.id] || 0) * (packageQuantities[p.id] || 0),
+      quantity: packageQuantities[p.id] || 0,
+    }));
 
   const selectedEstimateItems: SelectedItem[] = offseasonEstimates
     .filter(e => selectedEstimates.has(e.id))
-    .map(e => ({ id: e.id, type: 'offseason_estimate' as const, name: `Estimate ${e.estimate_number}`, amount: Number(e.total_amount) || 0 }));
+    .map(e => ({ id: e.id, type: 'offseason_estimate' as const, name: `Estimate ${e.estimate_number}`, amount: Number(e.total_amount) || 0, quantity: 1 }));
 
   const allSelectedItems = [...selectedPackageItems, ...selectedEstimateItems];
   const grandTotal = allSelectedItems.reduce((sum, item) => sum + item.amount, 0);
+  const selectedPackageCount = selectedPackageItems.length;
 
-  const togglePackage = (id: string) => {
-    setSelectedPackages(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
+  const incrementPackage = (id: string) => {
+    setPackageQuantities(prev => ({ ...prev, [id]: (prev[id] || 0) + 1 }));
+  };
+
+  const decrementPackage = (id: string) => {
+    setPackageQuantities(prev => {
+      const current = prev[id] || 0;
+      if (current <= 1) {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      }
+      return { ...prev, [id]: current - 1 };
     });
   };
 
@@ -238,6 +236,7 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
           source_id: item.id,
           name: item.name,
           amount: item.amount,
+          quantity: item.quantity,
         }));
 
         const { error: itemsErr } = await supabase
@@ -298,7 +297,7 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
             </div>
           )}
 
-          {existingItems.length > 0 && step === 1 && (
+          {hasExistingItems && step === 1 && (
             <div className="mb-4 flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-xs text-amber-300">
               <AlertTriangle className="w-4 h-4 shrink-0" />
               <span>A budget already exists for {budgetYear}. Saving will replace the existing budget items. The manual category amounts will be reset to $0 — add those separately after building.</span>
@@ -310,8 +309,9 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-semibold text-slate-300">Estimate Packages</h3>
-                <span className="text-xs text-slate-400">{selectedPackages.size} selected</span>
+                <span className="text-xs text-slate-400">{selectedPackageCount} selected</span>
               </div>
+              <p className="text-xs text-slate-500 mb-3">Use the + and − buttons to set how many times each service occurs during the year.</p>
               {loadingPackages ? (
                 <div className="flex items-center justify-center py-12 text-slate-400">
                   <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading packages...
@@ -321,26 +321,62 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
               ) : (
                 <div className="space-y-2">
                   {packages.map(pkg => {
-                    const selected = selectedPackages.has(pkg.id);
-                    const total = packageTotals[pkg.id] || 0;
+                    const qty = packageQuantities[pkg.id] || 0;
+                    const perUnit = packageTotals[pkg.id] || 0;
+                    const lineTotal = perUnit * qty;
                     return (
-                      <button
+                      <div
                         key={pkg.id}
-                        onClick={() => togglePackage(pkg.id)}
-                        className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-all text-left ${
-                          selected
+                        className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${
+                          qty > 0
                             ? 'bg-teal-500/10 border-teal-500/50'
                             : 'bg-slate-800/50 border-slate-700 hover:border-slate-600'
                         }`}
                       >
-                        {selected ? <CheckCircle className="w-5 h-5 text-teal-400 shrink-0" /> : <Circle className="w-5 h-5 text-slate-600 shrink-0" />}
+                        <div className="flex-shrink-0">
+                          {qty > 0 ? <CheckCircle className="w-5 h-5 text-teal-400" /> : <Circle className="w-5 h-5 text-slate-600" />}
+                        </div>
                         <Package className="w-4 h-4 text-slate-400 shrink-0" />
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium text-white truncate">{pkg.name}</div>
                           {pkg.description && <div className="text-xs text-slate-400 truncate">{pkg.description}</div>}
+                          {qty > 1 && (
+                            <div className="text-xs text-teal-400 mt-0.5">{fmt(perUnit)} each x {qty}</div>
+                          )}
                         </div>
-                        <div className="text-sm font-semibold text-emerald-400 shrink-0">{fmt(total)}</div>
-                      </button>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {qty > 0 ? (
+                            <>
+                              <button
+                                onClick={() => decrementPackage(pkg.id)}
+                                className="w-7 h-7 flex items-center justify-center bg-slate-700 hover:bg-slate-600 text-white rounded transition-colors"
+                                disabled={saving}
+                              >
+                                <Minus className="w-3.5 h-3.5" />
+                              </button>
+                              <span className="w-8 text-center text-sm font-semibold text-white tabular-nums">{qty}</span>
+                              <button
+                                onClick={() => incrementPackage(pkg.id)}
+                                className="w-7 h-7 flex items-center justify-center bg-teal-600 hover:bg-teal-700 text-white rounded transition-colors"
+                                disabled={saving}
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              onClick={() => incrementPackage(pkg.id)}
+                              className="px-3 h-7 flex items-center gap-1 bg-teal-600 hover:bg-teal-700 text-white rounded text-xs transition-colors"
+                              disabled={saving}
+                            >
+                              <Plus className="w-3.5 h-3.5" /> Add
+                            </button>
+                          )}
+                        </div>
+                        {qty > 0 && (
+                          <div className="text-sm font-semibold text-emerald-400 shrink-0 w-20 text-right">{fmt(lineTotal)}</div>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
@@ -410,6 +446,9 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
                             <div className="flex items-center gap-2">
                               <Package className="w-4 h-4 text-slate-400" />
                               <span className="text-sm text-white">{item.name}</span>
+                              {item.quantity > 1 && (
+                                <span className="text-xs text-teal-400 bg-teal-500/10 px-1.5 py-0.5 rounded">x{item.quantity}</span>
+                              )}
                             </div>
                             <span className="text-sm font-semibold text-emerald-400">{fmt(item.amount)}</span>
                           </div>

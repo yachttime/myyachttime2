@@ -4084,7 +4084,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         // Load budget items (packages and offseason estimates)
         const { data: items, error: itemsError } = await supabase
           .from('yacht_budget_items')
-          .select('id, item_type, source_id, name, amount, created_at')
+          .select('id, item_type, source_id, name, amount, quantity, created_at')
           .eq('budget_id', data.id)
           .order('created_at');
 
@@ -14382,7 +14382,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                           <div className="text-xs text-teal-400 mb-1">Packages</div>
                                                           {pkgItems.map(item => (
                                                             <div key={item.id} className="flex items-center justify-between text-xs">
-                                                              <span className="text-slate-400">{item.name}</span>
+                                                              <span className="text-slate-400">
+                                                                {item.name}
+                                                                {Number(item.quantity) > 1 && (
+                                                                  <span className="text-teal-400 ml-1">x{item.quantity}</span>
+                                                                )}
+                                                              </span>
                                                               <span className="text-white">${Number(item.amount).toFixed(2)}</span>
                                                             </div>
                                                           ))}
