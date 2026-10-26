@@ -4095,6 +4095,22 @@ export function generateFleetYearEndPDF(rows: YachtYearEndRow[], year: number): 
 
   const sortedRows = [...rows].sort((a, b) => a.name.localeCompare(b.name));
 
+  const totals = sortedRows.reduce(
+    (acc, r) => ({
+      invoiceGross: acc.invoiceGross + r.invoiceGross,
+      inspectionCount: acc.inspectionCount + r.inspectionCount,
+      repairRequests: acc.repairRequests + r.repairRequests,
+      userCount: acc.userCount + r.userCount,
+      usersLoggedIn: acc.usersLoggedIn + r.usersLoggedIn,
+      usersNeverLoggedIn: acc.usersNeverLoggedIn + r.usersNeverLoggedIn,
+      portEngineHoursUsed: acc.portEngineHoursUsed + r.portEngineHoursUsed,
+      stbdEngineHoursUsed: acc.stbdEngineHoursUsed + r.stbdEngineHoursUsed,
+      portGenHoursUsed: acc.portGenHoursUsed + r.portGenHoursUsed,
+      stbdGenHoursUsed: acc.stbdGenHoursUsed + r.stbdGenHoursUsed,
+    }),
+    { invoiceGross: 0, inspectionCount: 0, repairRequests: 0, userCount: 0, usersLoggedIn: 0, usersNeverLoggedIn: 0, portEngineHoursUsed: 0, stbdEngineHoursUsed: 0, portGenHoursUsed: 0, stbdGenHoursUsed: 0 }
+  );
+
   const fleetAvgGross = sortedRows.length > 0 ? totals.invoiceGross / sortedRows.length : 0;
   const fmtPct = (gross: number) => {
     if (fleetAvgGross === 0) return '—';
@@ -4116,22 +4132,6 @@ export function generateFleetYearEndPDF(rows: YachtYearEndRow[], year: number): 
     String(r.usersLoggedIn),
     String(r.usersNeverLoggedIn),
   ]);
-
-  const totals = sortedRows.reduce(
-    (acc, r) => ({
-      invoiceGross: acc.invoiceGross + r.invoiceGross,
-      inspectionCount: acc.inspectionCount + r.inspectionCount,
-      repairRequests: acc.repairRequests + r.repairRequests,
-      userCount: acc.userCount + r.userCount,
-      usersLoggedIn: acc.usersLoggedIn + r.usersLoggedIn,
-      usersNeverLoggedIn: acc.usersNeverLoggedIn + r.usersNeverLoggedIn,
-      portEngineHoursUsed: acc.portEngineHoursUsed + r.portEngineHoursUsed,
-      stbdEngineHoursUsed: acc.stbdEngineHoursUsed + r.stbdEngineHoursUsed,
-      portGenHoursUsed: acc.portGenHoursUsed + r.portGenHoursUsed,
-      stbdGenHoursUsed: acc.stbdGenHoursUsed + r.stbdGenHoursUsed,
-    }),
-    { invoiceGross: 0, inspectionCount: 0, repairRequests: 0, userCount: 0, usersLoggedIn: 0, usersNeverLoggedIn: 0, portEngineHoursUsed: 0, stbdEngineHoursUsed: 0, portGenHoursUsed: 0, stbdGenHoursUsed: 0 }
-  );
 
   tableData.push([
     `TOTAL (${sortedRows.length} yachts)`,

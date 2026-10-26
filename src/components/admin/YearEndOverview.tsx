@@ -245,12 +245,14 @@ export default function YearEndOverview({ companyId }: Props) {
             onClick={() => {
               if (printing || rows.length === 0) return;
               setPrinting(true);
+              setError(null);
               try {
                 const pdf = generateFleetYearEndPDF(rows, selectedYear);
                 const pdfUrl = URL.createObjectURL(pdf.output('blob'));
                 window.open(pdfUrl, '_blank');
-              } catch (err) {
+              } catch (err: any) {
                 console.error('Error generating fleet PDF:', err);
+                setError(err?.message || 'Failed to generate PDF report. Please try again.');
               } finally {
                 setPrinting(false);
               }
