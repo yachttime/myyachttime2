@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Anchor, X, ExternalLink, Play } from 'lucide-react';
+import { Anchor, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { DEFAULT_SIGN_IN_VIDEO } from '../lib/defaultSignInVideo';
-
-const PRESENTATION_URL = 'https://claude.ai/artifact/JqsetnSNyrBxDZ6gAZng1Q';
+import { RemoteMonitoringPresentation } from './RemoteMonitoringPresentation';
 
 interface WelcomeProps {
   onGetStarted: () => void;
@@ -26,17 +24,10 @@ interface Yacht {
 }
 
 export const Welcome = ({ onGetStarted }: WelcomeProps) => {
-  const [signInVideo, setSignInVideo] = useState<EducationVideo | null>(DEFAULT_SIGN_IN_VIDEO);
   const [yachtWelcomeVideo, setYachtWelcomeVideo] = useState<EducationVideo | null>(null);
   const [yacht, setYacht] = useState<Yacht | null>(null);
   const [showYachtVideo, setShowYachtVideo] = useState(false);
   const [videoEnded, setVideoEnded] = useState(false);
-  const [iframeFailed, setIframeFailed] = useState(false);
-
-  useEffect(() => {
-    const t = setTimeout(() => setIframeFailed(true), 1500);
-    return () => clearTimeout(t);
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -73,20 +64,6 @@ export const Welcome = ({ onGetStarted }: WelcomeProps) => {
           } else {
             onGetStarted();
           }
-        }
-      } else {
-        const { data, error } = await supabase
-          .from('education_videos')
-          .select('*')
-          .eq('category', 'SignIn')
-          .is('yacht_id', null)
-          .order('order_index', { ascending: true })
-          .limit(1)
-          .maybeSingle();
-
-        if (cancelled) return;
-        if (!error && data) {
-          setSignInVideo(data);
         }
       }
     };
@@ -207,49 +184,12 @@ export const Welcome = ({ onGetStarted }: WelcomeProps) => {
             </button>
           </div>
 
-          {signInVideo && (
-            <div className="mb-16">
-              <h3 className="text-2xl font-bold text-center mb-4">
-                See how Remote Monitoring protects your yacht
-              </h3>
-
-              {!iframeFailed && (
-                <div className="relative rounded-2xl overflow-hidden shadow-2xl bg-slate-900">
-                  <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
-                    <iframe
-                      src={PRESENTATION_URL}
-                      title="MyYachtTime sales presentation"
-                      className="absolute inset-0 w-full h-full"
-                      style={{ border: 0 }}
-                      allow="fullscreen"
-                      onError={() => setIframeFailed(true)}
-                    />
-                  </div>
-                </div>
-              )}
-
-              <div className="flex flex-col sm:flex-row justify-center gap-4 mt-4">
-                <a
-                  href={PRESENTATION_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold px-8 py-3 rounded-lg text-lg transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105"
-                >
-                  <ExternalLink className="w-5 h-5" />
-                  Open full screen
-                </a>
-                {!iframeFailed && (
-                  <a
-                    href="/watch"
-                    className="flex items-center justify-center gap-2 border border-amber-500 text-amber-500 hover:bg-amber-500/10 font-semibold px-8 py-3 rounded-lg text-lg transition-all duration-300"
-                  >
-                    <Play className="w-5 h-5" />
-                    Watch the 45-second video
-                  </a>
-                )}
-              </div>
-            </div>
-          )}
+          <div className="mb-16">
+            <h3 className="text-2xl font-bold text-center mb-4">
+              See how Remote Monitoring protects your yacht
+            </h3>
+            <RemoteMonitoringPresentation />
+          </div>
 
           <div className="text-center mt-12 mb-8">
             <p className="text-lg text-slate-300">
