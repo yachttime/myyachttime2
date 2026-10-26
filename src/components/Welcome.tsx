@@ -32,15 +32,11 @@ export const Welcome = ({ onGetStarted }: WelcomeProps) => {
   const [showYachtVideo, setShowYachtVideo] = useState(false);
   const [videoEnded, setVideoEnded] = useState(false);
   const [iframeFailed, setIframeFailed] = useState(false);
-  const [iframeLoaded, setIframeLoaded] = useState(false);
 
   useEffect(() => {
-    if (iframeLoaded || iframeFailed) return;
-    const t = setTimeout(() => {
-      if (!iframeLoaded) setIframeFailed(true);
-    }, 8000);
+    const t = setTimeout(() => setIframeFailed(true), 1500);
     return () => clearTimeout(t);
-  }, [iframeLoaded, iframeFailed]);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -226,7 +222,6 @@ export const Welcome = ({ onGetStarted }: WelcomeProps) => {
                       className="absolute inset-0 w-full h-full"
                       style={{ border: 0 }}
                       allow="fullscreen"
-                      onLoad={() => setIframeLoaded(true)}
                       onError={() => setIframeFailed(true)}
                     />
                   </div>

@@ -1,7 +1,7 @@
 import { Anchor } from 'lucide-react';
 
 const VIDEO_URL =
-  'https://eqiecntollhfxmmbize.supabase.co/storage/v1/object/public/myyachttime-media/remote-monitoring/bob-karen-remote-monitoring.mp4';
+  'https://eqiecntollhgfxmmbize.supabase.co/storage/v1/object/public/myyachttime-media/remote-monitoring/bob-karen-remote-monitoring.mp4';
 
 export const WatchPresentation = () => {
   return (
