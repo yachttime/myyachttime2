@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { X, Package, FileText, CheckCircle, Circle, DollarSign, Loader2, AlertTriangle, ChevronRight, ChevronLeft, Plus, Minus } from 'lucide-react';
+import { X, Package, FileText, CheckCircle, Circle, DollarSign, Loader2, AlertTriangle, ChevronRight, ChevronLeft, Plus, Minus, Gauge, Zap, Wrench, Sparkles } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface BudgetBuilderProps {
@@ -34,6 +34,20 @@ interface SelectedItem {
   quantity: number;
 }
 
+interface HourUsage {
+  label: string;
+  hoursUsed: number;
+}
+
+interface ServiceRecommendation {
+  interval: 200 | 600;
+  label: string;
+  recommendedQty: number;
+  basisHours: number;
+  basisLabel: string;
+  matchedPackageId: string | null;
+}
+
 export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId, onClose, onSaved }: BudgetBuilderProps) => {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [packages, setPackages] = useState<EstimatePackage[]>([]);
@@ -46,6 +60,108 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [hasExistingItems, setHasExistingItems] = useState(false);
+
+  // Hours data
+  const [engineHours, setEngineHours] = useState<HourUsage[]>([]);
+  const [generatorHours, setGeneratorHours] = useState<HourUsage[]>([]);
+  const [loadingHours, setLoadingHours] = useState(true);
+
+  const loadHours = useCallback(async () => {
+    setLoadingHours(true);
+    try {
+      const priorYear = budgetYear - 1;
+      const yearStart = `${priorYear}-01-01`;
+      const yearEnd = `${priorYear}-12-31`;
+
+      const { data, error: tiError } = await supabase
+        .from('trip_inspections')
+        .select('id, yacht_id, created_at, port_engine_hours, stbd_engine_hours, port_gen_hours, stbd_gen_hours')
+        .eq('yacht_id', yachtId)
+        .gte('created_at', yearStart)
+        .lte('created_at', yearEnd);
+
+      if (tiError) throw tiError;
+
+      const inspections = (data || []) as any[];
+
+      // Also load engine/generator labels
+      const [engRes, genRes] = await Promise.all([
+        supabase.from('yacht_engines').select('id, label, sort_order').eq('yacht_id', yachtId).order('sort_order'),
+        supabase.from('yacht_generators').select('id, label, sort_order').eq('yacht_id', yachtId).order('sort_order'),
+      ]);
+
+      const engineLabels = (engRes.data || []) as any[];
+      const generatorLabels = (genRes.data || []) as any[];
+
+      // Track min/max for each hour field
+      const bounds: Record<string, { min?: number; max?: number }> = {
+        port_engine: {},
+        stbd_engine: {},
+        port_gen: {},
+        stbd_gen: {},
+      };
+
+      const track = (val: any, key: string) => {
+        if (val == null) return;
+        const n = Number(val);
+        if (isNaN(n)) return;
+        if (bounds[key].min == null || n < bounds[key].min!) bounds[key].min = n;
+        if (bounds[key].max == null || n > bounds[key].max!) bounds[key].max = n;
+      };
+
+      inspections.forEach((ti) => {
+        track(ti.port_engine_hours, 'port_engine');
+        track(ti.stbd_engine_hours, 'stbd_engine');
+        track(ti.port_gen_hours, 'port_gen');
+        track(ti.stbd_gen_hours, 'stbd_gen');
+      });
+
+      const computeUsed = (b: { min?: number; max?: number }) =>
+        b.min != null && b.max != null ? Math.round((b.max - b.min) * 10) / 10 : 0;
+
+      // Build engine hours list
+      const engUsage: HourUsage[] = [];
+      const portEngLabel = engineLabels.find((e) => e.label.toLowerCase().includes('port'))?.label || 'Port Engine';
+      const stbdEngLabel = engineLabels.find((e) => e.label.toLowerCase().includes('starboard') || e.label.toLowerCase().includes('stbd'))?.label || 'Starboard Engine';
+
+      const pEngUsed = computeUsed(bounds.port_engine);
+      const sEngUsed = computeUsed(bounds.stbd_engine);
+      if (pEngUsed > 0) engUsage.push({ label: portEngLabel, hoursUsed: pEngUsed });
+      if (sEngUsed > 0) engUsage.push({ label: stbdEngLabel, hoursUsed: sEngUsed });
+
+      // If we only have generic labels, use those
+      if (engUsage.length === 0 && engineLabels.length > 0) {
+        engineLabels.forEach((e, idx) => {
+          const used = idx === 0 ? pEngUsed : idx === 1 ? sEngUsed : 0;
+          if (used > 0) engUsage.push({ label: e.label, hoursUsed: used });
+        });
+      }
+
+      // Build generator hours list
+      const genUsage: HourUsage[] = [];
+      const portGenLabel = generatorLabels.find((g) => g.label.toLowerCase().includes('port'))?.label || 'Port Generator';
+      const stbdGenLabel = generatorLabels.find((g) => g.label.toLowerCase().includes('starboard') || g.label.toLowerCase().includes('stbd'))?.label || 'Starboard Generator';
+
+      const pGenUsed = computeUsed(bounds.port_gen);
+      const sGenUsed = computeUsed(bounds.stbd_gen);
+      if (pGenUsed > 0) genUsage.push({ label: portGenLabel, hoursUsed: pGenUsed });
+      if (sGenUsed > 0) genUsage.push({ label: stbdGenLabel, hoursUsed: sGenUsed });
+
+      if (genUsage.length === 0 && generatorLabels.length > 0) {
+        generatorLabels.forEach((g, idx) => {
+          const used = idx === 0 ? pGenUsed : idx === 1 ? sGenUsed : 0;
+          if (used > 0) genUsage.push({ label: g.label, hoursUsed: used });
+        });
+      }
+
+      setEngineHours(engUsage);
+      setGeneratorHours(genUsage);
+    } catch (err: any) {
+      console.error('Error loading hours:', err);
+    } finally {
+      setLoadingHours(false);
+    }
+  }, [yachtId, budgetYear]);
 
   const loadPackages = useCallback(async () => {
     setLoadingPackages(true);
@@ -136,7 +252,59 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
     loadPackages();
     loadOffseason();
     loadExistingItems();
-  }, [loadPackages, loadOffseason, loadExistingItems]);
+    loadHours();
+  }, [loadPackages, loadOffseason, loadExistingItems, loadHours]);
+
+  // Compute service recommendations from generator hours
+  const recommendations: ServiceRecommendation[] = (() => {
+    if (generatorHours.length === 0) return [];
+    const maxGenHours = Math.max(...generatorHours.map((g) => g.hoursUsed));
+    const maxGenLabel = generatorHours.find((g) => g.hoursUsed === maxGenHours)?.label || 'Generator';
+
+    const recs: ServiceRecommendation[] = [];
+
+    const oil200Qty = Math.floor(maxGenHours / 200);
+    const oil600Qty = Math.floor(maxGenHours / 600);
+
+    // Match packages by name
+    const findMatchingPackage = (keywords: string[]): string | null => {
+      const lower = keywords.map((k) => k.toLowerCase());
+      const match = packages.find((p) => {
+        const name = p.name.toLowerCase();
+        return lower.every((k) => name.includes(k));
+      });
+      return match?.id || null;
+    };
+
+    if (oil200Qty > 0) {
+      recs.push({
+        interval: 200,
+        label: '200hr Generator Oil Change',
+        recommendedQty: oil200Qty,
+        basisHours: maxGenHours,
+        basisLabel: maxGenLabel,
+        matchedPackageId: findMatchingPackage(['200', 'oil']),
+      });
+    }
+
+    if (oil600Qty > 0) {
+      recs.push({
+        interval: 600,
+        label: '600hr Generator Oil Change + Impeller',
+        recommendedQty: oil600Qty,
+        basisHours: maxGenHours,
+        basisLabel: maxGenLabel,
+        matchedPackageId: findMatchingPackage(['600']),
+      });
+    }
+
+    return recs;
+  })();
+
+  const applyRecommendation = (rec: ServiceRecommendation) => {
+    if (!rec.matchedPackageId) return;
+    setPackageQuantities((prev) => ({ ...prev, [rec.matchedPackageId!]: rec.recommendedQty }));
+  };
 
   const selectedPackageItems: SelectedItem[] = packages
     .filter(p => (packageQuantities[p.id] || 0) > 0)
@@ -254,6 +422,9 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
   };
 
   const fmt = (n: number) => `$${n.toFixed(2)}`;
+  const fmtHrs = (n: number) => n > 0 ? n.toFixed(1) : '—';
+  const totalEngineHrs = engineHours.reduce((s, e) => s + e.hoursUsed, 0);
+  const totalGenHrs = generatorHours.reduce((s, g) => s + g.hoursUsed, 0);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
@@ -307,6 +478,119 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
           {/* Step 1: Packages */}
           {step === 1 && (
             <div>
+              {/* Hours Summary Panel */}
+              <div className="mb-4 bg-slate-800/60 border border-slate-700 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Gauge className="w-4 h-4 text-amber-400" />
+                  <h3 className="text-sm font-semibold text-slate-200">Last Season Usage ({budgetYear - 1})</h3>
+                  {loadingHours && <Loader2 className="w-3.5 h-3.5 text-slate-500 animate-spin" />}
+                </div>
+
+                {!loadingHours && engineHours.length === 0 && generatorHours.length === 0 ? (
+                  <p className="text-xs text-slate-500">No trip inspection hour data found for {budgetYear - 1}. Recommendations will not be available.</p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Engine hours */}
+                    <div className="bg-slate-900/50 rounded-lg p-3">
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <Gauge className="w-3.5 h-3.5 text-blue-400" />
+                        <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Engine Hours</span>
+                      </div>
+                      {engineHours.length > 0 ? (
+                        <div className="space-y-1">
+                          {engineHours.map((e, i) => (
+                            <div key={i} className="flex items-center justify-between text-xs">
+                              <span className="text-slate-300">{e.label}</span>
+                              <span className="text-blue-300 font-semibold tabular-nums">{fmtHrs(e.hoursUsed)} hrs</span>
+                            </div>
+                          ))}
+                          <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-700/50">
+                            <span className="text-slate-400 font-medium">Total</span>
+                            <span className="text-blue-200 font-bold tabular-nums">{fmtHrs(totalEngineHrs)} hrs</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-slate-500">No engine hours recorded</p>
+                      )}
+                    </div>
+
+                    {/* Generator hours */}
+                    <div className="bg-slate-900/50 rounded-lg p-3">
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <Zap className="w-3.5 h-3.5 text-amber-400" />
+                        <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Generator Hours</span>
+                      </div>
+                      {generatorHours.length > 0 ? (
+                        <div className="space-y-1">
+                          {generatorHours.map((g, i) => (
+                            <div key={i} className="flex items-center justify-between text-xs">
+                              <span className="text-slate-300">{g.label}</span>
+                              <span className="text-amber-300 font-semibold tabular-nums">{fmtHrs(g.hoursUsed)} hrs</span>
+                            </div>
+                          ))}
+                          <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-700/50">
+                            <span className="text-slate-400 font-medium">Total</span>
+                            <span className="text-amber-200 font-bold tabular-nums">{fmtHrs(totalGenHrs)} hrs</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-slate-500">No generator hours recorded</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Service Recommendations */}
+              {recommendations.length > 0 && (
+                <div className="mb-4 bg-teal-500/10 border border-teal-500/30 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Sparkles className="w-4 h-4 text-teal-400" />
+                    <h3 className="text-sm font-semibold text-teal-200">Service Recommendations</h3>
+                  </div>
+                  <p className="text-xs text-teal-300/70 mb-3">Based on generator hours from {budgetYear - 1}. Click "Apply" to set the package quantity automatically.</p>
+                  <div className="space-y-2">
+                    {recommendations.map((rec, i) => {
+                      const matchedPkg = rec.matchedPackageId ? packages.find((p) => p.id === rec.matchedPackageId) : null;
+                      const currentQty = rec.matchedPackageId ? packageQuantities[rec.matchedPackageId] || 0 : 0;
+                      const isApplied = currentQty === rec.recommendedQty;
+                      return (
+                        <div key={i} className="flex items-center gap-3 bg-slate-900/40 rounded-lg p-3">
+                          <Wrench className="w-4 h-4 text-teal-400 shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium text-white">
+                              {rec.recommendedQty}x {rec.label}
+                            </div>
+                            <div className="text-xs text-slate-400">
+                              Based on {fmtHrs(rec.basisHours)} hrs on {rec.basisLabel} — every {rec.interval} hrs
+                            </div>
+                            {matchedPkg ? (
+                              <div className="text-xs text-teal-400 mt-0.5">Matches: {matchedPkg.name}{isApplied && ' (applied)'}</div>
+                            ) : (
+                              <div className="text-xs text-slate-500 mt-0.5">No matching package found — set quantity manually below</div>
+                            )}
+                          </div>
+                          {rec.matchedPackageId && (
+                            <button
+                              onClick={() => applyRecommendation(rec)}
+                              disabled={saving || isApplied}
+                              className={`px-3 py-1.5 rounded text-xs font-medium transition-colors shrink-0 ${
+                                isApplied
+                                  ? 'bg-teal-500/20 text-teal-300 cursor-default'
+                                  : 'bg-teal-600 hover:bg-teal-700 text-white'
+                              }`}
+                            >
+                              {isApplied ? 'Applied' : 'Apply'}
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Package selection */}
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-semibold text-slate-300">Estimate Packages</h3>
                 <span className="text-xs text-slate-400">{selectedPackageCount} selected</span>
@@ -437,6 +721,24 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
                 </div>
               ) : (
                 <div className="space-y-4">
+                  {/* Hours recap on review */}
+                  {(engineHours.length > 0 || generatorHours.length > 0) && (
+                    <div className="bg-slate-800/40 border border-slate-700/50 rounded-lg p-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Gauge className="w-3.5 h-3.5 text-amber-400" />
+                        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">{budgetYear - 1} Hours Used</span>
+                      </div>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400">
+                        {engineHours.length > 0 && (
+                          <span>Engine: <span className="text-blue-300 font-medium">{fmtHrs(totalEngineHrs)} hrs</span></span>
+                        )}
+                        {generatorHours.length > 0 && (
+                          <span>Generator: <span className="text-amber-300 font-medium">{fmtHrs(totalGenHrs)} hrs</span></span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {selectedPackageItems.length > 0 && (
                     <div>
                       <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Packages</div>
