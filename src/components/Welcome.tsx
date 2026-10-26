@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Anchor, X } from 'lucide-react';
+import { Anchor, X, ExternalLink, Play } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { DEFAULT_SIGN_IN_VIDEO } from '../lib/defaultSignInVideo';
+
+const PRESENTATION_URL = 'https://claude.ai/artifact/JqsetnSNyrBxDZ6gAZng1Q';
 
 interface WelcomeProps {
   onGetStarted: () => void;
@@ -29,6 +31,16 @@ export const Welcome = ({ onGetStarted }: WelcomeProps) => {
   const [yacht, setYacht] = useState<Yacht | null>(null);
   const [showYachtVideo, setShowYachtVideo] = useState(false);
   const [videoEnded, setVideoEnded] = useState(false);
+  const [iframeFailed, setIframeFailed] = useState(false);
+  const [iframeLoaded, setIframeLoaded] = useState(false);
+
+  useEffect(() => {
+    if (iframeLoaded || iframeFailed) return;
+    const t = setTimeout(() => {
+      if (!iframeLoaded) setIframeFailed(true);
+    }, 8000);
+    return () => clearTimeout(t);
+  }, [iframeLoaded, iframeFailed]);
 
   useEffect(() => {
     let cancelled = false;
@@ -200,29 +212,47 @@ export const Welcome = ({ onGetStarted }: WelcomeProps) => {
           </div>
 
           {signInVideo && (
-            <div className="relative rounded-2xl overflow-hidden shadow-2xl">
-              <video
-                key={signInVideo.video_url}
-                src={signInVideo.video_url}
-                className="w-full max-h-[80vh] object-contain bg-slate-900"
-                controls
-                autoPlay
-                muted
-                loop
-                playsInline
-                poster={signInVideo.thumbnail_url || undefined}
-                onError={(e) => {
-                  console.error('Video failed to load on Welcome page:', {
-                    videoUrl: signInVideo.video_url,
-                    videoTitle: signInVideo.title,
-                    videoId: signInVideo.id,
-                    category: signInVideo.category,
-                    error: e
-                  });
-                }}
-              >
-                Your browser does not support the video tag.
-              </video>
+            <div className="mb-16">
+              <h3 className="text-2xl font-bold text-center mb-4">
+                See how Remote Monitoring protects your yacht
+              </h3>
+
+              {!iframeFailed && (
+                <div className="relative rounded-2xl overflow-hidden shadow-2xl bg-slate-900">
+                  <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                    <iframe
+                      src={PRESENTATION_URL}
+                      title="MyYachtTime sales presentation"
+                      className="absolute inset-0 w-full h-full"
+                      style={{ border: 0 }}
+                      allow="fullscreen"
+                      onLoad={() => setIframeLoaded(true)}
+                      onError={() => setIframeFailed(true)}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="flex flex-col sm:flex-row justify-center gap-4 mt-4">
+                <a
+                  href={PRESENTATION_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold px-8 py-3 rounded-lg text-lg transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105"
+                >
+                  <ExternalLink className="w-5 h-5" />
+                  Open full screen
+                </a>
+                {!iframeFailed && (
+                  <a
+                    href="/watch"
+                    className="flex items-center justify-center gap-2 border border-amber-500 text-amber-500 hover:bg-amber-500/10 font-semibold px-8 py-3 rounded-lg text-lg transition-all duration-300"
+                  >
+                    <Play className="w-5 h-5" />
+                    Watch the 45-second video
+                  </a>
+                )}
+              </div>
             </div>
           )}
 

@@ -15,6 +15,7 @@ import { Education } from './components/Education';
 import { PasswordChange } from './components/PasswordChange';
 import { StaffCalendar } from './components/StaffCalendar';
 import { PublicAgreementSigner } from './components/PublicAgreementSigner';
+import { WatchPresentation } from './components/WatchPresentation';
 
 function ProfileLoadFallback({ onSignOut, onRetry }: { onSignOut: () => void; onRetry: () => Promise<void> }) {
   const [countdown, setCountdown] = useState(8);
@@ -128,6 +129,11 @@ function AppContent() {
         </div>
       </div>
     );
+  }
+
+  // Public watch route — no auth required
+  if (typeof window !== 'undefined' && window.location.pathname === '/watch') {
+    return <WatchPresentation />;
   }
 
   // Public signing route — no auth required
