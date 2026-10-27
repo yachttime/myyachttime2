@@ -13044,7 +13044,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             )}
                             {canManageYacht(effectiveRole) && (
                               <button
-                                onClick={() => toggleYachtBudget(yacht.id)}
+                                onClick={async () => {
+                                  await loadYachtBudget(yacht.id, selectedInvoiceYear);
+                                  setBudgetBuilderYacht({ id: yacht.id, name: yacht.name });
+                                }}
                                 className="flex items-center justify-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors text-sm"
                               >
                                 <DollarSign className="w-4 h-4" />
