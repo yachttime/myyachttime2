@@ -4229,13 +4229,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         packageEntries.map(async (pe) => {
           const [laborRes, partsRes] = await Promise.all([
             supabase.from('estimate_package_labor').select('description, hours, rate').eq('package_id', pe.sourceId),
-            supabase.from('estimate_package_parts').select('description, part_number, quantity, unit_price').eq('package_id', pe.sourceId),
+            supabase.from('estimate_package_parts').select('description_display, part_number_display, quantity, unit_price').eq('package_id', pe.sourceId),
           ]);
           if (laborRes.error) throw laborRes.error;
           if (partsRes.error) throw partsRes.error;
           const detail: BudgetPackageDetail = {
             labor: (laborRes.data || []).map(l => ({ description: l.description, hours: Number(l.hours) || 0, rate: Number(l.rate) || 0 })),
-            parts: (partsRes.data || []).map(p => ({ description: p.description, part_number: p.part_number, quantity: Number(p.quantity) || 0, unit_price: Number(p.unit_price) || 0 })),
+            parts: (partsRes.data || []).map(p => ({ description: p.description_display || p.description, part_number: p.part_number_display, quantity: Number(p.quantity) || 0, unit_price: Number(p.unit_price) || 0 })),
           };
           return { ...pe, detail };
         })
@@ -4254,7 +4254,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
           const { data: tasks, error: tasksErr } = await supabase
             .from('estimate_tasks')
-            .select('id, title')
+            .select('id, task_name')
             .eq('estimate_id', est.id)
             .order('created_at');
           if (tasksErr) throw tasksErr;
@@ -4263,18 +4263,18 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             (tasks || []).map(async (t: any) => {
               const { data: lineItems, error: liErr } = await supabase
                 .from('estimate_line_items')
-                .select('line_type, description, quantity, unit_price, line_total')
+                .select('line_type, description, quantity, unit_price, total_price')
                 .eq('task_id', t.id)
                 .order('created_at');
               if (liErr) throw liErr;
               return {
-                title: t.title,
+                title: t.task_name,
                 line_items: (lineItems || []).map((li: any) => ({
                   line_type: li.line_type,
                   description: li.description,
                   quantity: Number(li.quantity) || 0,
                   unit_price: Number(li.unit_price) || 0,
-                  line_total: Number(li.line_total) || 0,
+                  line_total: Number(li.total_price) || 0,
                 })),
               };
             })
