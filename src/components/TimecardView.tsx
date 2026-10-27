@@ -14,7 +14,7 @@ interface DayRow {
   label: string;
   date: Date;
   dateStr: string;
-  entry: TimeEntry | null;
+  entries: TimeEntry[];
   isMissedPunchOut: boolean;
 }
 
@@ -171,20 +171,20 @@ export function TimecardView({ userId, userName }: TimecardViewProps) {
         if (current > periodEnd) break;
         const ds = toDateStr(current);
         const dayEntries = entriesByDate.get(ds) || [];
-        const entry = dayEntries[0] || null;
+        const hasMissedPunchOut = dayEntries.some(e => !e.punch_out_time);
         days.push({
           label: DAY_LABELS[current.getDay()],
           date: new Date(current),
           dateStr: ds,
-          entry,
-          isMissedPunchOut: !!entry && !entry.punch_out_time
+          entries: dayEntries,
+          isMissedPunchOut: hasMissedPunchOut
         });
         current = addDays(current, 1);
       }
 
-      const totalHours = days.reduce((s, d) => s + (d.entry?.total_hours || 0), 0);
-      const standardHours = days.reduce((s, d) => s + (d.entry?.standard_hours || 0), 0);
-      const overtimeHours = days.reduce((s, d) => s + (d.entry?.overtime_hours || 0), 0);
+      const totalHours = days.reduce((s, d) => s + d.entries.reduce((ds, e) => ds + (e.total_hours || 0), 0), 0);
+      const standardHours = days.reduce((s, d) => s + d.entries.reduce((ds, e) => ds + (e.standard_hours || 0), 0), 0);
+      const overtimeHours = days.reduce((s, d) => s + d.entries.reduce((ds, e) => ds + (e.overtime_hours || 0), 0), 0);
 
       weeks.push({
         label: `Week ${weekNum}`,
@@ -309,50 +309,21 @@ export function TimecardView({ userId, userName }: TimecardViewProps) {
                   const isToday = toDateStr(new Date()) === day.dateStr;
                   const isWeekend = day.date.getDay() === 0 || day.date.getDay() === 6;
 
-                  return (
-                    <tr
-                      key={di}
-                      className={`border-b border-gray-200 transition-colors group ${
-                        isToday ? 'bg-blue-50' : isWeekend ? 'bg-gray-50' : 'bg-white hover:bg-gray-50'
-                      }`}
-                    >
-                      <td className="px-3 py-2.5 font-semibold text-gray-600 text-xs">
-                        {day.label}
-                      </td>
-                      <td className="px-3 py-2.5 text-gray-800 text-xs font-semibold">
-                        {day.date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', timeZone: 'America/Phoenix' })}
-                      </td>
-                      <td className="px-3 py-2.5">
-                        {day.entry ? (
-                          <div className="flex items-center gap-2">
-                            <span className={`font-semibold text-xs ${day.isMissedPunchOut ? 'text-amber-700' : 'text-gray-900'}`}>
-                              {formatTime(day.entry.punch_in_time)}
-                              {' \u2013 '}
-                              {day.entry.punch_out_time ? (
-                                formatTime(day.entry.punch_out_time)
-                              ) : (
-                                <span className="inline-flex items-center gap-1 text-amber-700 font-bold">
-                                  <AlertCircle className="w-3 h-3" />
-                                  Missing
-                                </span>
-                              )}
-                            </span>
-                            {day.entry.is_edited && (
-                              <span className="text-[10px] text-orange-700 font-bold bg-orange-100 border border-orange-300 px-1.5 py-0.5 rounded">
-                                Edited
-                              </span>
-                            )}
-                            {isMaster && (
-                              <button
-                                onClick={() => handleEditEntry(day.entry!)}
-                                className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-blue-100 text-blue-700 transition-all ml-auto"
-                                title="Edit this entry"
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </div>
-                        ) : (
+                  if (day.entries.length === 0) {
+                    return (
+                      <tr
+                        key={di}
+                        className={`border-b border-gray-200 transition-colors group ${
+                          isToday ? 'bg-blue-50' : isWeekend ? 'bg-gray-50' : 'bg-white hover:bg-gray-50'
+                        }`}
+                      >
+                        <td className="px-3 py-2.5 font-semibold text-gray-600 text-xs">
+                          {day.label}
+                        </td>
+                        <td className="px-3 py-2.5 text-gray-800 text-xs font-semibold">
+                          {day.date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', timeZone: 'America/Phoenix' })}
+                        </td>
+                        <td className="px-3 py-2.5">
                           <div className="flex items-center gap-2">
                             <span className="text-gray-400 text-xs font-medium">&ndash;</span>
                             {isMaster && (
@@ -366,36 +337,98 @@ export function TimecardView({ userId, userName }: TimecardViewProps) {
                               </button>
                             )}
                           </div>
-                        )}
-                      </td>
-                      <td className="px-3 py-2.5 text-xs text-gray-700 font-medium">
-                        {day.entry?.lunch_break_start && day.entry?.lunch_break_end ? (
-                          <span>
-                            {formatTime(day.entry.lunch_break_start)} &ndash; {formatTime(day.entry.lunch_break_end)}
-                          </span>
-                        ) : (
-                          <span className="text-gray-400">&ndash;</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2.5 text-right text-xs font-semibold text-gray-800">
-                        {day.entry?.punch_out_time ? formatHours(day.entry.total_hours) : (
-                          <span className="text-gray-400 font-normal">0.00</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2.5 text-right text-xs font-semibold text-gray-700">
-                        {day.entry?.punch_out_time ? formatHours(day.entry.standard_hours) : (
-                          <span className="text-gray-400 font-normal">0.00</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2.5 text-right text-xs">
-                        {day.entry?.overtime_hours && day.entry.overtime_hours > 0 ? (
-                          <span className="font-bold text-orange-700">{formatHours(day.entry.overtime_hours)}</span>
-                        ) : (
-                          <span className="text-gray-400">0.00</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
+                        </td>
+                        <td className="px-3 py-2.5 text-xs text-gray-400">&ndash;</td>
+                        <td className="px-3 py-2.5 text-right text-xs text-gray-400 font-normal">0.00</td>
+                        <td className="px-3 py-2.5 text-right text-xs text-gray-400 font-normal">0.00</td>
+                        <td className="px-3 py-2.5 text-right text-xs text-gray-400">0.00</td>
+                      </tr>
+                    );
+                  }
+
+                  return day.entries.map((entry, ei) => (
+                    <React.Fragment key={`${di}-${ei}`}>
+                      <tr
+                        className={`border-b border-gray-200 transition-colors group ${
+                          isToday ? 'bg-blue-50' : isWeekend ? 'bg-gray-50' : 'bg-white hover:bg-gray-50'
+                        }`}
+                      >
+                        {ei === 0 ? (
+                          <>
+                            <td className="px-3 py-2.5 font-semibold text-gray-600 text-xs" rowSpan={day.entries.length}>
+                              {day.label}
+                            </td>
+                            <td className="px-3 py-2.5 text-gray-800 text-xs font-semibold" rowSpan={day.entries.length}>
+                              {day.date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', timeZone: 'America/Phoenix' })}
+                            </td>
+                          </>
+                        ) : null}
+                        <td className="px-3 py-2.5">
+                          <div className="flex items-center gap-2">
+                            <span className={`font-semibold text-xs ${!entry.punch_out_time ? 'text-amber-700' : 'text-gray-900'}`}>
+                              {formatTime(entry.punch_in_time)}
+                              {' \u2013 '}
+                              {entry.punch_out_time ? (
+                                formatTime(entry.punch_out_time)
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-amber-700 font-bold">
+                                  <AlertCircle className="w-3 h-3" />
+                                  Missing
+                                </span>
+                              )}
+                            </span>
+                            {entry.is_edited && (
+                              <span className="text-[10px] text-orange-700 font-bold bg-orange-100 border border-orange-300 px-1.5 py-0.5 rounded">
+                                Edited
+                              </span>
+                            )}
+                            {isMaster && (
+                              <button
+                                onClick={() => handleEditEntry(entry)}
+                                className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-blue-100 text-blue-700 transition-all ml-auto"
+                                title="Edit this entry"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2.5 text-xs text-gray-700 font-medium">
+                          {entry.lunch_break_start && entry.lunch_break_end ? (
+                            <span>
+                              {formatTime(entry.lunch_break_start)} &ndash; {formatTime(entry.lunch_break_end)}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">&ndash;</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2.5 text-right text-xs font-semibold text-gray-800">
+                          {entry.punch_out_time ? formatHours(entry.total_hours) : (
+                            <span className="text-gray-400 font-normal">0.00</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2.5 text-right text-xs font-semibold text-gray-700">
+                          {entry.punch_out_time ? formatHours(entry.standard_hours) : (
+                            <span className="text-gray-400 font-normal">0.00</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2.5 text-right text-xs">
+                          {entry.overtime_hours && entry.overtime_hours > 0 ? (
+                            <span className="font-bold text-orange-700">{formatHours(entry.overtime_hours)}</span>
+                          ) : (
+                            <span className="text-gray-400">0.00</span>
+                          )}
+                        </td>
+                      </tr>
+                      {entry.notes && (
+                        <tr className={isToday ? 'bg-blue-50' : isWeekend ? 'bg-gray-50' : 'bg-white'}>
+                          <td colSpan={7} className="px-3 py-1 text-xs text-gray-500 italic border-b border-gray-100">
+                            {entry.notes}
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  ));
                 })}
 
                 <tr className="bg-gray-200 border-t border-b-2 border-gray-300">

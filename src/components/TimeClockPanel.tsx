@@ -184,7 +184,7 @@ export function TimeClockPanel() {
     }
 
     setCurrentEntry(data);
-    if (data) {
+    if (data && !notes.trim()) {
       setNotes(data.notes || '');
     }
   };
@@ -262,13 +262,17 @@ export function TimeClockPanel() {
 
     setLoading(true);
     try {
+      const updates: { punch_out_time: string; punch_out_ip: string; notes?: string | null } = {
+        punch_out_time: new Date().toISOString(),
+        punch_out_ip: getClientIP()
+      };
+      if (notes.trim()) {
+        updates.notes = notes;
+      }
+
       const { error } = await supabase
         .from('staff_time_entries')
-        .update({
-          punch_out_time: new Date().toISOString(),
-          notes: notes || null,
-          punch_out_ip: getClientIP()
-        })
+        .update(updates)
         .eq('id', currentEntry.id);
 
       if (error) throw error;
