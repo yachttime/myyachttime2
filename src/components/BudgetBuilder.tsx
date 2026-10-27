@@ -1028,7 +1028,7 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
                       <span className="text-xs font-semibold text-slate-300 uppercase tracking-wide">Additional Fees</span>
                     </div>
                     <div>
-                      <label className="block text-xs text-slate-400 mb-1">Annual Management Fee</label>
+                      <label className="block text-xs text-slate-400 mb-1">Management Agreement Cost</label>
                       <input
                         type="number"
                         step="0.01"
