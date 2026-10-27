@@ -4569,6 +4569,16 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
               </div>
             )}
 
+            {!editingId && (
+              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                <div className="flex items-center gap-2 mb-1">
+                  <Camera className="w-5 h-5 text-gray-400" />
+                  <h3 className="text-sm font-semibold text-gray-500">Supporting Photos</h3>
+                </div>
+                <p className="text-xs text-gray-400">Save this estimate first, then you'll be able to upload photos that document damage, parts, or work needed.</p>
+              </div>
+            )}
+
             <div className="flex justify-end gap-3">
               <button
                 type="button"
