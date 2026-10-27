@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { supabase } from '../lib/supabase';
-import { Plus, FileText, AlertCircle, CreditCard as Edit2, Trash2, Check, X, ChevronDown, ChevronUp, Printer, CheckCircle, XCircle, Package, Archive, RotateCcw, Search, User, ClipboardList } from 'lucide-react';
+import { Plus, FileText, AlertCircle, CreditCard as Edit2, Trash2, Check, X, ChevronDown, ChevronUp, Printer, CheckCircle, XCircle, Package, Archive, RotateCcw, Search, User, ClipboardList, Camera, Upload, Image as ImageIcon } from 'lucide-react';
 import { generateEstimatePDF, generateTripInspectionPDF, generateWorkOrderPDF } from '../utils/pdfGenerator';
 import { attachPdfToEstimateSalvageReport, attachPdfToWorkOrderSalvageReport } from '../utils/salvagePdfAttach';
 import { getCompanyInfoForPdf } from '../utils/companyInfo';
@@ -234,6 +234,11 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
   const [servicePartsTarget, setServicePartsTarget] = useState<{ type: 'engine' | 'generator'; label: string; parts: ServicePartEntry[] } | null>(null);
   const [servicePartsSelections, setServicePartsSelections] = useState<Record<string, boolean>>({});
   const [servicePartsQuickMode, setServicePartsQuickMode] = useState(false);
+
+  const [estimatePhotos, setEstimatePhotos] = useState<any[]>([]);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoCategory, setPhotoCategory] = useState<'damage' | 'parts' | 'work_needed' | 'general'>('general');
+  const photoFileInputRef = useRef<HTMLInputElement>(null);
 
   const draftLoadedRef = React.useRef(false);
 
@@ -1803,6 +1808,137 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
     return data;
   };
 
+  const loadEstimatePhotos = async (estimateId: string) => {
+    const { data, error } = await supabase
+      .from('estimate_photos')
+      .select('*')
+      .eq('estimate_id', estimateId)
+      .order('created_at', { ascending: false });
+    if (error) {
+      console.error('Error loading estimate photos:', error);
+      return;
+    }
+    setEstimatePhotos(data || []);
+  };
+
+  const handlePhotoUpload = async (file: File) => {
+    if (!editingId) return;
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/heif'];
+    if (!validTypes.includes(file.type) && !file.type.startsWith('image/')) {
+      showError('Please select an image file (JPG, PNG, GIF, WebP)');
+      return;
+    }
+    if (file.size > 50 * 1024 * 1024) {
+      showError('Image must be under 50MB');
+      return;
+    }
+
+    setPhotoUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop() || 'jpg';
+      const timestamp = Date.now();
+      const randomString = Math.random().toString(36).substring(2, 15);
+      const filePath = `${userId}/${timestamp}-${randomString}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('estimate-photos')
+        .upload(filePath, file, { cacheControl: '3600', upsert: false });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('estimate-photos')
+        .getPublicUrl(filePath);
+
+      const { data: userProfile } = await supabase
+        .from('user_profiles')
+        .select('company_id, selected_company_id')
+        .eq('user_id', userId)
+        .maybeSingle();
+      const userCompanyId = userProfile?.selected_company_id || userProfile?.company_id || null;
+
+      const { data: photoRecord, error: insertError } = await supabase
+        .from('estimate_photos')
+        .insert({
+          estimate_id: editingId,
+          photo_url: urlData.publicUrl,
+          caption: '',
+          category: photoCategory,
+          company_id: userCompanyId,
+          created_by: userId
+        })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+
+      setEstimatePhotos(prev => [photoRecord, ...prev]);
+      showSuccess('Photo uploaded successfully');
+    } catch (err: any) {
+      console.error('Error uploading photo:', err);
+      showError(err.message || 'Failed to upload photo');
+    } finally {
+      setPhotoUploading(false);
+      if (photoFileInputRef.current) {
+        photoFileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handlePhotoDelete = async (photoId: string, photoUrl: string) => {
+    try {
+      const { error: deleteError } = await supabase
+        .from('estimate_photos')
+        .delete()
+        .eq('id', photoId);
+
+      if (deleteError) throw deleteError;
+
+      const urlParts = photoUrl.split('/estimate-photos/');
+      if (urlParts.length === 2) {
+        await supabase.storage.from('estimate-photos').remove([urlParts[1]]);
+      }
+
+      setEstimatePhotos(prev => prev.filter(p => p.id !== photoId));
+      showSuccess('Photo deleted');
+    } catch (err: any) {
+      console.error('Error deleting photo:', err);
+      showError(err.message || 'Failed to delete photo');
+    }
+  };
+
+  const handlePhotoCaptionUpdate = async (photoId: string, caption: string) => {
+    try {
+      const { error } = await supabase
+        .from('estimate_photos')
+        .update({ caption })
+        .eq('id', photoId);
+
+      if (error) throw error;
+
+      setEstimatePhotos(prev => prev.map(p => p.id === photoId ? { ...p, caption } : p));
+    } catch (err: any) {
+      console.error('Error updating caption:', err);
+      showError('Failed to update caption');
+    }
+  };
+
+  const handlePhotoCategoryUpdate = async (photoId: string, category: string) => {
+    try {
+      const { error } = await supabase
+        .from('estimate_photos')
+        .update({ category })
+        .eq('id', photoId);
+
+      if (error) throw error;
+
+      setEstimatePhotos(prev => prev.map(p => p.id === photoId ? { ...p, category } : p));
+    } catch (err: any) {
+      console.error('Error updating category:', err);
+      showError('Failed to update category');
+    }
+  };
+
   const handleCancel = () => {
     if (editingId) {
       resetForm();
@@ -1868,6 +2004,8 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
     setExpandedTasks(new Set());
     setExistingRepairRequestId(null);
     setRepairRequestDeposit(null);
+    setEstimatePhotos([]);
+    setPhotoCategory('general');
     localStorage.removeItem('estimate_draft');
   };
 
@@ -2077,6 +2215,8 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
         paid_at: existingRR.deposit_paid_at,
         method: existingRR.deposit_payment_method_type,
       } : null);
+
+      await loadEstimatePhotos(estimateId);
 
       setShowForm(true);
       setLoading(false);
@@ -4333,6 +4473,96 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
                 />
               </div>
             </div>
+
+            {editingId && (
+              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                <div className="flex items-center gap-2 mb-3">
+                  <Camera className="w-5 h-5 text-gray-700" />
+                  <h3 className="text-sm font-semibold text-gray-900">Supporting Photos</h3>
+                  <span className="text-xs text-gray-500">({estimatePhotos.length})</span>
+                </div>
+                <p className="text-xs text-gray-500 mb-3">Upload photos to document damage, parts needed, or work that supports the charges on this estimate.</p>
+
+                <div className="flex flex-wrap items-center gap-2 mb-3">
+                  <input
+                    ref={photoFileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/heic,image/heif"
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handlePhotoUpload(f); }}
+                    className="hidden"
+                  />
+                  <select
+                    value={photoCategory}
+                    onChange={(e) => setPhotoCategory(e.target.value as 'damage' | 'parts' | 'work_needed' | 'general')}
+                    className="px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-900"
+                    style={{ color: '#111827' }}
+                  >
+                    <option value="general">General</option>
+                    <option value="damage">Damage</option>
+                    <option value="parts">Parts</option>
+                    <option value="work_needed">Work Needed</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => photoFileInputRef.current?.click()}
+                    disabled={photoUploading}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+                  >
+                    {photoUploading ? <><Upload className="w-4 h-4 animate-pulse" /> Uploading...</> : <><Upload className="w-4 h-4" /> Add Photo</>}
+                  </button>
+                </div>
+
+                {estimatePhotos.length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    {estimatePhotos.map((photo) => (
+                      <div key={photo.id} className="border border-gray-200 rounded-lg overflow-hidden bg-white">
+                        <div className="relative group">
+                          <img src={photo.photo_url} alt={photo.caption || 'Estimate photo'} className="w-full h-32 object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => handlePhotoDelete(photo.id, photo.photo_url)}
+                            className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Delete photo"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <div className="p-2 space-y-1.5">
+                          <select
+                            value={photo.category}
+                            onChange={(e) => handlePhotoCategoryUpdate(photo.id, e.target.value)}
+                            className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded bg-white text-gray-900"
+                            style={{ color: '#111827' }}
+                          >
+                            <option value="general">General</option>
+                            <option value="damage">Damage</option>
+                            <option value="parts">Parts</option>
+                            <option value="work_needed">Work Needed</option>
+                          </select>
+                          <input
+                            type="text"
+                            value={photo.caption || ''}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setEstimatePhotos(prev => prev.map(p => p.id === photo.id ? { ...p, caption: val } : p));
+                            }}
+                            onBlur={(e) => handlePhotoCaptionUpdate(photo.id, e.target.value)}
+                            placeholder="Add caption..."
+                            className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded bg-white text-gray-900"
+                            style={{ color: '#111827' }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6 text-gray-400 text-sm border border-dashed border-gray-300 rounded-lg">
+                    <ImageIcon className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    No photos uploaded yet
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="flex justify-end gap-3">
               <button
