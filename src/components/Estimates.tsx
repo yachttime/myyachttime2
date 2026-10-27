@@ -1792,8 +1792,13 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
       }
 
       localStorage.removeItem('estimate_draft');
-      await resetForm();
-      await loadData();
+      if (currentEditingId) {
+        await resetForm();
+        await loadData();
+      } else {
+        await loadData();
+        await handleEditEstimate(estimate.id);
+      }
     } catch (err: any) {
       console.error('Error saving estimate:', err);
       setError(err.message || 'Failed to save estimate');
