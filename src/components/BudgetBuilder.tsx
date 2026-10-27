@@ -340,8 +340,8 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
 
     return generatorHours.flatMap((generator) => {
       const recs: ServiceRecommendation[] = [];
-      const oil200Qty = Math.floor(generator.hoursUsed / 200);
       const oil600Qty = Math.floor(generator.hoursUsed / 600);
+      const oil200Qty = Math.floor(generator.hoursUsed / 200) - oil600Qty;
 
       if (oil200Qty > 0) {
         recs.push({
