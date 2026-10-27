@@ -307,20 +307,23 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
     loadMotorEquipment();
   }, [loadPackages, loadOffseason, loadExistingItems, loadHours, loadMotorEquipment]);
 
-  const associatedPackages = packages.filter((pkg) => {
+  const packageMatchesMotor = (pkg: EstimatePackage, motor: MotorEquipment) => {
     const searchableText = `${pkg.name} ${pkg.description || ''}`.toLowerCase();
-    return motorEquipment.some((motor) => {
-      const manufacturer = motor.manufacturer.toLowerCase().trim();
-      const model = motor.modelName.toLowerCase().trim();
-      const manufacturerTerms = manufacturer
-        .split(/[^a-z0-9.]+/)
-        .filter((term) => term.length > 2 && term !== 'marine');
-      const modelTerms = model.match(/\d+(?:\.\d+)?|[a-z]{3,}/g) || [];
-      const brandMatches = manufacturerTerms.length === 0 || manufacturerTerms.some((term) => searchableText.includes(term));
-      const modelMatches = modelTerms.length === 0 || modelTerms.some((term) => searchableText.includes(term));
-      return brandMatches && modelMatches;
-    });
-  });
+    const manufacturerTerms = motor.manufacturer
+      .toLowerCase()
+      .trim()
+      .split(/[^a-z0-9.]+/)
+      .filter((term) => term.length > 2 && term !== 'marine');
+    const modelTerms = motor.modelName.toLowerCase().trim().match(/\d+(?:\.\d+)?|[a-z]{3,}/g) || [];
+    const brandMatches = manufacturerTerms.length === 0 || manufacturerTerms.some((term) => searchableText.includes(term));
+    const modelMatches = modelTerms.length === 0 || modelTerms.some((term) => searchableText.includes(term));
+    return brandMatches && modelMatches;
+  };
+
+  const associatedMotorPackages = motorEquipment
+    .filter((motor) => motor.equipmentType === 'engine')
+    .map((motor) => ({ motor, packages: packages.filter((pkg) => packageMatchesMotor(pkg, motor)) }))
+    .filter((entry) => entry.packages.length > 0);
 
   // Compute service recommendations for each generator independently
   const recommendations: ServiceRecommendation[] = (() => {
@@ -629,39 +632,52 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
                       </div>
                     ))}
                   </div>
-                  {associatedPackages.length > 0 && (
-                    <div className="mt-4 rounded-xl border-2 border-teal-400/60 bg-teal-950/40 p-3 shadow-lg shadow-teal-950/30">
-                      <div className="flex items-center justify-between gap-3 mb-3">
-                        <div className="flex items-center gap-2">
-                          <Sparkles className="w-4 h-4 text-teal-300" />
-                          <div>
-                            <div className="text-sm font-black uppercase tracking-wide text-teal-100">Recommended Packages</div>
-                            <div className="text-[11px] text-teal-200/80">Matched to the selected motor models</div>
-                          </div>
-                        </div>
-                        <span className="rounded-full bg-teal-400/20 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-teal-200">{associatedPackages.length} match{associatedPackages.length === 1 ? '' : 'es'}</span>
+                  {associatedMotorPackages.length > 0 && (
+                    <div className="mb-4 rounded-lg border border-teal-500/30 bg-teal-500/10 p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Sparkles className="w-4 h-4 text-teal-400" />
+                        <h3 className="text-sm font-semibold text-teal-200">Engine Package Recommendations</h3>
                       </div>
-                      <div className="space-y-2">
-                        {associatedPackages.map((pkg) => {
-                          const qty = packageQuantities[pkg.id] || 0;
+                      <p className="text-xs text-teal-300/70 mb-3">Matched to the selected engine models. Choose the package for each motor.</p>
+                      <div className="space-y-3">
+                        {associatedMotorPackages.map(({ motor, packages: motorPackages }) => {
+                          const isPort = motor.label.toLowerCase().includes('port');
+                          const sideLabel = isPort ? 'PORT' : 'STARBOARD';
+                          const sideClasses = isPort
+                            ? 'border-l-4 border-l-sky-400 bg-sky-950/40'
+                            : 'border-l-4 border-l-amber-400 bg-amber-950/30';
+                          const sideText = isPort ? 'text-sky-200' : 'text-amber-200';
+                          const sideBadge = isPort ? 'bg-sky-400/20 text-sky-200' : 'bg-amber-400/20 text-amber-200';
                           return (
-                            <div key={pkg.id} className="flex items-center justify-between gap-3 rounded-lg border border-teal-300/30 bg-slate-950/70 px-3 py-3 transition-colors hover:border-teal-200/70">
-                              <div className="flex min-w-0 items-center gap-3">
-                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-teal-400/15 text-teal-300">
-                                  <Package className="w-4 h-4" />
-                                </div>
-                                <div className="min-w-0">
-                                  <div className="text-sm font-bold text-white truncate">{pkg.name}</div>
-                                  {pkg.description && <div className="text-[11px] text-teal-100/70 truncate">{pkg.description}</div>}
-                                </div>
+                            <div key={motor.id} className={`rounded-lg p-3 ${sideClasses}`}>
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className={`text-[10px] font-black tracking-widest px-2 py-0.5 rounded ${sideBadge}`}>{sideLabel}</span>
+                                <span className="text-sm font-medium text-white">{motor.label}</span>
                               </div>
-                              <button
-                                onClick={() => incrementPackage(pkg.id)}
-                                disabled={saving}
-                                className="rounded-lg border border-teal-200/60 bg-teal-400 px-3 py-1.5 text-xs font-black text-slate-950 shadow-md shadow-teal-950/40 transition-all hover:bg-teal-300 hover:shadow-teal-400/20 disabled:opacity-50"
-                              >
-                                {qty > 0 ? `Add another (${qty})` : 'Recommend'}
-                              </button>
+                              <div className={`text-xs font-semibold ${sideText} mb-2`}>
+                                {motor.manufacturer ? `${motor.manufacturer} ` : ''}{motor.modelName}
+                              </div>
+                              <div className="space-y-2">
+                                {motorPackages.map((pkg) => {
+                                  const qty = packageQuantities[pkg.id] || 0;
+                                  return (
+                                    <div key={pkg.id} className="flex items-center gap-3 rounded-lg bg-slate-950/55 px-3 py-2">
+                                      <Wrench className={`w-4 h-4 shrink-0 ${isPort ? 'text-sky-300' : 'text-amber-300'}`} />
+                                      <div className="flex-1 min-w-0">
+                                        <div className="text-sm font-medium text-white truncate">{pkg.name}</div>
+                                        {pkg.description && <div className="text-[11px] text-slate-400 truncate">{pkg.description}</div>}
+                                      </div>
+                                      <button
+                                        onClick={() => incrementPackage(pkg.id)}
+                                        disabled={saving}
+                                        className="rounded bg-teal-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-teal-500 disabled:opacity-50 shrink-0"
+                                      >
+                                        {qty > 0 ? `Add another (${qty})` : 'Recommend'}
+                                      </button>
+                                    </div>
+                                  );
+                                })}
+                              </div>
                             </div>
                           );
                         })}
