@@ -14321,13 +14321,20 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                                               {(() => {
                                                 const items = (currentBudget && budgetItems[currentBudget.id]) || [];
-                                                if (items.length === 0) return null;
+                                                const managementAgreementCost = Number(currentBudget?.annual_management_fee) || 0;
+                                                if (items.length === 0 && managementAgreementCost === 0) return null;
                                                 const pkgItems = items.filter(i => i.item_type === 'package');
                                                 const estItems = items.filter(i => i.item_type === 'offseason_estimate');
                                                 return (
                                                   <div className="mt-3 pt-3 border-t border-slate-700">
                                                     <div className="text-xs font-semibold text-slate-300 mb-2">Budget Breakdown Items</div>
                                                     <div className="space-y-1">
+                                                      {managementAgreementCost > 0 && (
+                                                        <div className="flex items-center justify-between text-xs mb-1">
+                                                          <span className="text-slate-400">Management Agreement Cost</span>
+                                                          <span className="text-white">${managementAgreementCost.toFixed(2)}</span>
+                                                        </div>
+                                                      )}
                                                       {pkgItems.length > 0 && (
                                                         <div className="mb-1">
                                                           <div className="text-xs text-teal-400 mb-1">Packages</div>
