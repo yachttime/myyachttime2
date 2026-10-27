@@ -4238,14 +4238,39 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       const packageDetails = await Promise.all(
         packageEntries.map(async (pe) => {
           const [laborRes, partsRes] = await Promise.all([
-            supabase.from('estimate_package_labor').select('description, hours, rate').eq('package_id', pe.sourceId),
-            supabase.from('estimate_package_parts').select('description_display, part_number_display, quantity, unit_price').eq('package_id', pe.sourceId),
+            supabase
+              .from('estimate_package_labor')
+              .select('description, hours, rate, labor_code:labor_codes(code, name)')
+              .eq('package_id', pe.sourceId),
+            supabase
+              .from('estimate_package_parts')
+              .select(`description, description_display, part_number_display, quantity, unit_price, part_source,
+                part:parts_inventory(part_number, name, description),
+                mercury_part:mercury_marine_parts(part_number, description),
+                marine_wholesale_part:marine_wholesale_parts(sku, mfg_part_number, description)`)
+              .eq('package_id', pe.sourceId),
           ]);
           if (laborRes.error) throw laborRes.error;
           if (partsRes.error) throw partsRes.error;
           const detail: BudgetPackageDetail = {
-            labor: (laborRes.data || []).map(l => ({ description: l.description, hours: Number(l.hours) || 0, rate: Number(l.rate) || 0 })),
-            parts: (partsRes.data || []).map(p => ({ description: p.description_display || p.description, part_number: p.part_number_display, quantity: Number(p.quantity) || 0, unit_price: Number(p.unit_price) || 0 })),
+            labor: (laborRes.data || []).map((l: any) => ({
+              description: l.description || [l.labor_code?.code, l.labor_code?.name].filter(Boolean).join(' - '),
+              hours: Number(l.hours) || 0,
+              rate: Number(l.rate) || 0,
+            })),
+            parts: (partsRes.data || []).map((p: any) => {
+              const catalogPart = p.part_source === 'mercury'
+                ? p.mercury_part
+                : p.part_source === 'marine_wholesale'
+                  ? p.marine_wholesale_part
+                  : p.part;
+              return {
+                description: p.description_display || p.description || catalogPart?.name || catalogPart?.description || '',
+                part_number: p.part_number_display || catalogPart?.part_number || catalogPart?.sku || catalogPart?.mfg_part_number || '',
+                quantity: Number(p.quantity) || 0,
+                unit_price: Number(p.unit_price) || 0,
+              };
+            }),
           };
           return { ...pe, detail };
         })
