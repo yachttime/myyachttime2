@@ -310,10 +310,15 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
   const associatedPackages = packages.filter((pkg) => {
     const searchableText = `${pkg.name} ${pkg.description || ''}`.toLowerCase();
     return motorEquipment.some((motor) => {
-      const motorTerms = [motor.modelName, motor.manufacturer]
-        .map((term) => term.trim().toLowerCase())
-        .filter((term) => term.length > 1);
-      return motorTerms.some((term) => searchableText.includes(term));
+      const manufacturer = motor.manufacturer.toLowerCase().trim();
+      const model = motor.modelName.toLowerCase().trim();
+      const manufacturerTerms = manufacturer
+        .split(/[^a-z0-9.]+/)
+        .filter((term) => term.length > 2 && term !== 'marine');
+      const modelTerms = model.match(/\d+(?:\.\d+)?|[a-z]{3,}/g) || [];
+      const brandMatches = manufacturerTerms.length === 0 || manufacturerTerms.some((term) => searchableText.includes(term));
+      const modelMatches = modelTerms.length === 0 || modelTerms.some((term) => searchableText.includes(term));
+      return brandMatches && modelMatches;
     });
   });
 
