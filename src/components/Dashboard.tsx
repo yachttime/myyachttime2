@@ -870,7 +870,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     misc_1: '',
     misc_1_notes: '',
     misc_2: '',
-    misc_2_notes: ''
+    misc_2_notes: '',
+    annual_management_fee: '',
+    season_trip_fees: '',
+    off_season_trip_fees: ''
   });
   const [yachtTrips, setYachtTrips] = useState<Record<string, any[]>>({});
   const [tripsYachtId, setTripsYachtId] = useState<string | null>(null);
@@ -4078,7 +4081,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           misc_1: data.misc_1?.toString() || '0',
           misc_1_notes: data.misc_1_notes || '',
           misc_2: data.misc_2?.toString() || '0',
-          misc_2_notes: data.misc_2_notes || ''
+          misc_2_notes: data.misc_2_notes || '',
+          annual_management_fee: data.annual_management_fee?.toString() || '0',
+          season_trip_fees: data.season_trip_fees?.toString() || '0',
+          off_season_trip_fees: data.off_season_trip_fees?.toString() || '0'
         });
 
         // Load budget items (packages and offseason estimates)
@@ -4104,7 +4110,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           misc_1: '',
           misc_1_notes: '',
           misc_2: '',
-          misc_2_notes: ''
+          misc_2_notes: '',
+          annual_management_fee: '',
+          season_trip_fees: '',
+          off_season_trip_fees: ''
         });
       }
     } catch (error) {
@@ -4130,11 +4139,15 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       const waterFilters = parseFloat(budgetBreakdownInput.water_filters) || 0;
       const misc1 = parseFloat(budgetBreakdownInput.misc_1) || 0;
       const misc2 = parseFloat(budgetBreakdownInput.misc_2) || 0;
+      const annualManagementFee = parseFloat(budgetBreakdownInput.annual_management_fee) || 0;
+      const seasonTripFees = parseFloat(budgetBreakdownInput.season_trip_fees) || 0;
+      const offSeasonTripFees = parseFloat(budgetBreakdownInput.off_season_trip_fees) || 0;
 
       if (
         managementFees < 0 || tripInspectionFees < 0 || springStartupCost < 0 ||
         oilChange200hr < 0 || oilChange600hr < 0 || preventiveMaintenance < 0 ||
-        winterRepairsUpgrades < 0 || winterizations < 0 || waterFilters < 0 || misc1 < 0 || misc2 < 0
+        winterRepairsUpgrades < 0 || winterizations < 0 || waterFilters < 0 || misc1 < 0 || misc2 < 0 ||
+        annualManagementFee < 0 || seasonTripFees < 0 || offSeasonTripFees < 0
       ) {
         alert('Please enter valid budget amounts (no negative values)');
         return;
@@ -4142,7 +4155,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       const totalBudget = managementFees + tripInspectionFees + springStartupCost +
         oilChange200hr + oilChange600hr + preventiveMaintenance +
-        winterRepairsUpgrades + winterizations + waterFilters + misc1 + misc2;
+        winterRepairsUpgrades + winterizations + waterFilters + misc1 + misc2 +
+        annualManagementFee + seasonTripFees + offSeasonTripFees;
 
       const existingBudget = yachtBudgets[budgetKey];
 
@@ -4160,6 +4174,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         misc_1_notes: budgetBreakdownInput.misc_1_notes,
         misc_2: misc2,
         misc_2_notes: budgetBreakdownInput.misc_2_notes,
+        annual_management_fee: annualManagementFee,
+        season_trip_fees: seasonTripFees,
+        off_season_trip_fees: offSeasonTripFees,
         budget_amount: totalBudget,
         updated_at: new Date().toISOString(),
         updated_by: user.id
@@ -14227,6 +14244,39 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                               disabled={isSavingBudget}
                                             />
                                           </div>
+                                          <div>
+                                            <label className="block text-xs text-slate-400 mb-1">Annual Management Fee</label>
+                                            <input
+                                              type="number"
+                                              step="0.01"
+                                              value={budgetBreakdownInput.annual_management_fee}
+                                              onChange={(e) => setBudgetBreakdownInput(prev => ({ ...prev, annual_management_fee: e.target.value }))}
+                                              className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded text-sm focus:outline-none focus:border-emerald-500 text-white"
+                                              disabled={isSavingBudget}
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="block text-xs text-slate-400 mb-1">Season Trip Fees</label>
+                                            <input
+                                              type="number"
+                                              step="0.01"
+                                              value={budgetBreakdownInput.season_trip_fees}
+                                              onChange={(e) => setBudgetBreakdownInput(prev => ({ ...prev, season_trip_fees: e.target.value }))}
+                                              className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded text-sm focus:outline-none focus:border-emerald-500 text-white"
+                                              disabled={isSavingBudget}
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="block text-xs text-slate-400 mb-1">Off-Season Trip Fees</label>
+                                            <input
+                                              type="number"
+                                              step="0.01"
+                                              value={budgetBreakdownInput.off_season_trip_fees}
+                                              onChange={(e) => setBudgetBreakdownInput(prev => ({ ...prev, off_season_trip_fees: e.target.value }))}
+                                              className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded text-sm focus:outline-none focus:border-emerald-500 text-white"
+                                              disabled={isSavingBudget}
+                                            />
+                                          </div>
                                         </div>
                                         <div className="pt-2 border-t border-slate-700">
                                           <div className="text-xs text-slate-400 mb-1">
@@ -14242,7 +14292,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                 (parseFloat(budgetBreakdownInput.winterizations) || 0) +
                                                 (parseFloat(budgetBreakdownInput.water_filters) || 0) +
                                                 (parseFloat(budgetBreakdownInput.misc_1) || 0) +
-                                                (parseFloat(budgetBreakdownInput.misc_2) || 0)
+                                                (parseFloat(budgetBreakdownInput.misc_2) || 0) +
+                                                (parseFloat(budgetBreakdownInput.annual_management_fee) || 0) +
+                                                (parseFloat(budgetBreakdownInput.season_trip_fees) || 0) +
+                                                (parseFloat(budgetBreakdownInput.off_season_trip_fees) || 0)
                                               ).toFixed(2)}
                                             </span>
                                           </div>
@@ -14259,7 +14312,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                               (parseFloat(budgetBreakdownInput.winterizations) || 0) +
                                               (parseFloat(budgetBreakdownInput.water_filters) || 0) +
                                               (parseFloat(budgetBreakdownInput.misc_1) || 0) +
-                                              (parseFloat(budgetBreakdownInput.misc_2) || 0)
+                                              (parseFloat(budgetBreakdownInput.misc_2) || 0) +
+                                              (parseFloat(budgetBreakdownInput.annual_management_fee) || 0) +
+                                              (parseFloat(budgetBreakdownInput.season_trip_fees) || 0) +
+                                              (parseFloat(budgetBreakdownInput.off_season_trip_fees) || 0)
                                             );
                                             const ownerPortion = ownerCount > 0 ? totalBudget / ownerCount : 0;
                                             return (
@@ -14367,6 +14423,18 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                       {currentBudget.misc_2_notes}
                                                     </div>
                                                   )}
+                                                </div>
+                                                <div className="flex justify-between">
+                                                  <span className="text-slate-400">Annual Mgmt Fee:</span>
+                                                  <span className="text-white">${currentBudget?.annual_management_fee?.toFixed(2) || '0.00'}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                  <span className="text-slate-400">Season Trip Fees:</span>
+                                                  <span className="text-white">${currentBudget?.season_trip_fees?.toFixed(2) || '0.00'}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                  <span className="text-slate-400">Off-Season Trip Fees:</span>
+                                                  <span className="text-white">${currentBudget?.off_season_trip_fees?.toFixed(2) || '0.00'}</span>
                                                 </div>
                                               </div>
                                               {(() => {

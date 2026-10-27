@@ -77,6 +77,11 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
   const [motorPackageSelections, setMotorPackageSelections] = useState<Record<string, Set<string>>>({});
   const [appliedRecKeys, setAppliedRecKeys] = useState<Set<string>>(new Set());
 
+  // Fee inputs
+  const [annualManagementFee, setAnnualManagementFee] = useState('');
+  const [seasonTripFees, setSeasonTripFees] = useState('');
+  const [offSeasonTripFees, setOffSeasonTripFees] = useState('');
+
   const loadMotorEquipment = useCallback(async () => {
     try {
       const [enginesRes, generatorsRes] = await Promise.all([
@@ -296,6 +301,20 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
         setPackageQuantities(pkgQty);
         setSelectedEstimates(estIds);
       }
+
+      // Load fee values from the existing budget header
+      if (existingBudgetId) {
+        const { data: budget, error: budgetErr } = await supabase
+          .from('yacht_budgets')
+          .select('annual_management_fee, season_trip_fees, off_season_trip_fees')
+          .eq('id', existingBudgetId)
+          .maybeSingle();
+        if (!budgetErr && budget) {
+          setAnnualManagementFee(budget.annual_management_fee ? String(budget.annual_management_fee) : '');
+          setSeasonTripFees(budget.season_trip_fees ? String(budget.season_trip_fees) : '');
+          setOffSeasonTripFees(budget.off_season_trip_fees ? String(budget.off_season_trip_fees) : '');
+        }
+      }
     } catch (err: any) {
       console.error('Error loading existing budget items:', err);
     }
@@ -416,7 +435,11 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
     .map(e => ({ id: e.id, type: 'offseason_estimate' as const, name: `Estimate ${e.estimate_number}`, amount: Number(e.total_amount) || 0, quantity: 1 }));
 
   const allSelectedItems = [...selectedPackageItems, ...selectedEstimateItems];
-  const grandTotal = allSelectedItems.reduce((sum, item) => sum + item.amount, 0);
+  const annualMgmtFeeNum = parseFloat(annualManagementFee) || 0;
+  const seasonTripFeesNum = parseFloat(seasonTripFees) || 0;
+  const offSeasonTripFeesNum = parseFloat(offSeasonTripFees) || 0;
+  const feesTotal = annualMgmtFeeNum + seasonTripFeesNum + offSeasonTripFeesNum;
+  const grandTotal = allSelectedItems.reduce((sum, item) => sum + item.amount, 0) + feesTotal;
   const selectedPackageCount = selectedPackageItems.length;
 
   const toggleMotorPackage = (motorId: string, packageId: string) => {
@@ -486,6 +509,9 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
         misc_1_notes: '',
         misc_2: 0,
         misc_2_notes: '',
+        annual_management_fee: annualMgmtFeeNum,
+        season_trip_fees: seasonTripFeesNum,
+        off_season_trip_fees: offSeasonTripFeesNum,
         updated_at: new Date().toISOString(),
       };
 
@@ -589,6 +615,12 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
             <div className="mb-4 flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-xs text-amber-300">
               <AlertTriangle className="w-4 h-4 shrink-0" />
               <span>A budget already exists for {budgetYear}. Saving will replace the existing budget items. The manual category amounts will be reset to $0 — add those separately after building.</span>
+            </div>
+          )}
+          {hasExistingItems && step === 3 && (
+            <div className="mb-4 flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-xs text-amber-300">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              <span>Saving will update the fee fields below and replace budget items. Other manual category amounts on the Dashboard will be reset to $0.</span>
             </div>
           )}
 
@@ -929,9 +961,9 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
           {step === 3 && (
             <div>
               <h3 className="text-sm font-semibold text-slate-300 mb-3">Review & Save</h3>
-              {allSelectedItems.length === 0 ? (
+              {allSelectedItems.length === 0 && feesTotal === 0 ? (
                 <div className="text-center py-12 text-slate-500 text-sm">
-                  No items selected. Go back and select at least one package or off-season estimate.
+                  No items or fees entered. Go back and select at least one package or off-season estimate, or enter a fee below.
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -988,6 +1020,60 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
                       </div>
                     </div>
                   )}
+
+                  {/* Fee Inputs */}
+                  <div className="bg-slate-800/40 border border-slate-700/50 rounded-lg p-4 space-y-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <DollarSign className="w-4 h-4 text-teal-400" />
+                      <span className="text-xs font-semibold text-slate-300 uppercase tracking-wide">Additional Fees</span>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-slate-400 mb-1">Annual Management Fee</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="0.00"
+                        value={annualManagementFee}
+                        onChange={(e) => setAnnualManagementFee(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded text-sm focus:outline-none focus:border-teal-500 text-white"
+                        disabled={saving}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-slate-400 mb-1">Season Trip Fees</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="0.00"
+                        value={seasonTripFees}
+                        onChange={(e) => setSeasonTripFees(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded text-sm focus:outline-none focus:border-teal-500 text-white"
+                        disabled={saving}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-slate-400 mb-1">Off-Season Trip Fees</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="0.00"
+                        value={offSeasonTripFees}
+                        onChange={(e) => setOffSeasonTripFees(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded text-sm focus:outline-none focus:border-teal-500 text-white"
+                        disabled={saving}
+                      />
+                    </div>
+                    {feesTotal > 0 && (
+                      <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-700/50">
+                        <span className="text-slate-400">Fee Subtotal</span>
+                        <span className="text-teal-300 font-semibold">{fmt(feesTotal)}</span>
+                      </div>
+                    )}
+                  </div>
+
                   <div className="border-t border-slate-700 pt-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -1018,7 +1104,7 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
           </button>
 
           <div className="flex items-center gap-3">
-            {allSelectedItems.length > 0 && (
+            {(allSelectedItems.length > 0 || feesTotal > 0) && (
               <span className="text-sm text-slate-400">
                 Total: <span className="text-emerald-400 font-semibold">{fmt(grandTotal)}</span>
               </span>
@@ -1035,7 +1121,7 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
             ) : (
               <button
                 onClick={handleSave}
-                disabled={saving || allSelectedItems.length === 0}
+                disabled={saving || (allSelectedItems.length === 0 && feesTotal === 0)}
                 className="flex items-center gap-2 px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
               >
                 {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</> : <><CheckCircle className="w-4 h-4" /> Save Budget</>}
