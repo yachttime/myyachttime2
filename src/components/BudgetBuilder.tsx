@@ -78,8 +78,8 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
   const loadMotorEquipment = useCallback(async () => {
     try {
       const [enginesRes, generatorsRes] = await Promise.all([
-        supabase.from('yacht_engines').select('id, label, model_number, catalog_id').eq('yacht_id', yachtId).order('sort_order'),
-        supabase.from('yacht_generators').select('id, label, model_number, catalog_id').eq('yacht_id', yachtId).order('sort_order'),
+        supabase.from('yacht_engines').select('id, label, description, model_number, catalog_id').eq('yacht_id', yachtId).order('sort_order'),
+        supabase.from('yacht_generators').select('id, label, description, model_number, catalog_id').eq('yacht_id', yachtId).order('sort_order'),
       ]);
 
       if (enginesRes.error) throw enginesRes.error;
@@ -107,7 +107,7 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
           id: row.id,
           label: row.label || (row.equipmentType === 'engine' ? 'Engine' : 'Generator'),
           equipmentType: row.equipmentType,
-          modelName: catalog?.model_name || row.model_number || '',
+          modelName: catalog?.model_name || row.model_number || row.description || '',
           manufacturer: catalog?.manufacturer || '',
         };
       }).filter((row) => row.modelName.trim()));
@@ -310,9 +310,10 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
   const associatedPackages = packages.filter((pkg) => {
     const searchableText = `${pkg.name} ${pkg.description || ''}`.toLowerCase();
     return motorEquipment.some((motor) => {
-      const model = motor.modelName.trim().toLowerCase();
-      const manufacturer = motor.manufacturer.trim().toLowerCase();
-      return (model.length > 1 && searchableText.includes(model)) || (manufacturer.length > 1 && searchableText.includes(manufacturer));
+      const motorTerms = [motor.modelName, motor.manufacturer]
+        .map((term) => term.trim().toLowerCase())
+        .filter((term) => term.length > 1);
+      return motorTerms.some((term) => searchableText.includes(term));
     });
   });
 
