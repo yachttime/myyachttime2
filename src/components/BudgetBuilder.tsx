@@ -665,15 +665,25 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
                       const matchedPkg = rec.matchedPackageId ? packages.find((p) => p.id === rec.matchedPackageId) : null;
                       const currentQty = rec.matchedPackageId ? packageQuantities[rec.matchedPackageId] || 0 : 0;
                       const isApplied = currentQty === rec.recommendedQty;
+                      const isPort = rec.basisLabel.toLowerCase().includes('port');
+                      const sideLabel = isPort ? 'PORT' : 'STARBOARD';
+                      const sideClasses = isPort
+                        ? 'border-l-4 border-l-sky-400 bg-sky-950/40'
+                        : 'border-l-4 border-l-amber-400 bg-amber-950/30';
                       return (
-                        <div key={i} className="flex items-center gap-3 bg-slate-900/40 rounded-lg p-3">
-                          <Wrench className="w-4 h-4 text-teal-400 shrink-0" />
+                        <div key={i} className={`flex items-center gap-3 rounded-lg p-3 ${sideClasses}`}>
+                          <Wrench className={`w-4 h-4 shrink-0 ${isPort ? 'text-sky-300' : 'text-amber-300'}`} />
                           <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium text-white">
-                              {rec.recommendedQty}x {rec.label}
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className={`text-[10px] font-black tracking-widest px-2 py-0.5 rounded ${isPort ? 'bg-sky-400/20 text-sky-200' : 'bg-amber-400/20 text-amber-200'}`}>
+                                {sideLabel}
+                              </span>
+                              <div className="text-sm font-medium text-white">
+                                {rec.recommendedQty}x {rec.label}
+                              </div>
                             </div>
-                            <div className="text-xs text-slate-400">
-                              Based on {fmtHrs(rec.basisHours)} hrs on {rec.basisLabel} — every {rec.interval} hrs
+                            <div className="text-xs text-slate-300">
+                              Based on <span className="font-semibold text-white">{fmtHrs(rec.basisHours)} hrs</span> on <span className={`font-bold ${isPort ? 'text-sky-200' : 'text-amber-200'}`}>{rec.basisLabel}</span> — every {rec.interval} hrs
                             </div>
                             {matchedPkg ? (
                               <div className="text-xs text-teal-400 mt-0.5">Matches: {matchedPkg.name}{isApplied && ' (applied)'}</div>
