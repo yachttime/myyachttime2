@@ -39,6 +39,14 @@ interface HourUsage {
   hoursUsed: number;
 }
 
+interface MotorEquipment {
+  id: string;
+  label: string;
+  equipmentType: 'engine' | 'generator';
+  modelName: string;
+  manufacturer: string;
+}
+
 interface ServiceRecommendation {
   interval: 200 | 600;
   label: string;
@@ -65,6 +73,49 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
   const [engineHours, setEngineHours] = useState<HourUsage[]>([]);
   const [generatorHours, setGeneratorHours] = useState<HourUsage[]>([]);
   const [loadingHours, setLoadingHours] = useState(true);
+  const [motorEquipment, setMotorEquipment] = useState<MotorEquipment[]>([]);
+
+  const loadMotorEquipment = useCallback(async () => {
+    try {
+      const [enginesRes, generatorsRes] = await Promise.all([
+        supabase.from('yacht_engines').select('id, label, model_number, catalog_id').eq('yacht_id', yachtId).order('sort_order'),
+        supabase.from('yacht_generators').select('id, label, model_number, catalog_id').eq('yacht_id', yachtId).order('sort_order'),
+      ]);
+
+      if (enginesRes.error) throw enginesRes.error;
+      if (generatorsRes.error) throw generatorsRes.error;
+
+      const equipmentRows = [
+        ...(enginesRes.data || []).map((row) => ({ ...row, equipmentType: 'engine' as const })),
+        ...(generatorsRes.data || []).map((row) => ({ ...row, equipmentType: 'generator' as const })),
+      ];
+      const catalogIds = equipmentRows.map((row) => row.catalog_id).filter((id): id is string => Boolean(id));
+      const catalogById = new Map<string, { model_name: string; manufacturer: string | null }>();
+
+      if (catalogIds.length > 0) {
+        const { data, error } = await supabase
+          .from('engine_catalog')
+          .select('id, model_name, manufacturer')
+          .in('id', catalogIds);
+        if (error) throw error;
+        (data || []).forEach((catalog) => catalogById.set(catalog.id, catalog));
+      }
+
+      setMotorEquipment(equipmentRows.map((row) => {
+        const catalog = row.catalog_id ? catalogById.get(row.catalog_id) : undefined;
+        return {
+          id: row.id,
+          label: row.label || (row.equipmentType === 'engine' ? 'Engine' : 'Generator'),
+          equipmentType: row.equipmentType,
+          modelName: catalog?.model_name || row.model_number || '',
+          manufacturer: catalog?.manufacturer || '',
+        };
+      }).filter((row) => row.modelName.trim()));
+    } catch (err) {
+      console.error('Error loading motor catalog references:', err);
+      setMotorEquipment([]);
+    }
+  }, [yachtId]);
 
   const loadHours = useCallback(async () => {
     setLoadingHours(true);
@@ -253,7 +304,17 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
     loadOffseason();
     loadExistingItems();
     loadHours();
-  }, [loadPackages, loadOffseason, loadExistingItems, loadHours]);
+    loadMotorEquipment();
+  }, [loadPackages, loadOffseason, loadExistingItems, loadHours, loadMotorEquipment]);
+
+  const associatedPackages = packages.filter((pkg) => {
+    const searchableText = `${pkg.name} ${pkg.description || ''}`.toLowerCase();
+    return motorEquipment.some((motor) => {
+      const model = motor.modelName.trim().toLowerCase();
+      const manufacturer = motor.manufacturer.trim().toLowerCase();
+      return (model.length > 1 && searchableText.includes(model)) || (manufacturer.length > 1 && searchableText.includes(manufacturer));
+    });
+  });
 
   // Compute service recommendations from generator hours
   const recommendations: ServiceRecommendation[] = (() => {
@@ -540,6 +601,54 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
                   </div>
                 )}
               </div>
+
+              {/* Motor catalog references */}
+              {motorEquipment.length > 0 && (
+                <div className="mb-4 bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Wrench className="w-4 h-4 text-blue-300" />
+                    <h3 className="text-sm font-semibold text-blue-100">Selected Motors</h3>
+                  </div>
+                  <div className="space-y-2">
+                    {motorEquipment.map((motor) => (
+                      <div key={motor.id} className="flex items-center justify-between gap-3 bg-slate-900/40 rounded-lg px-3 py-2">
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium text-white">{motor.label}</div>
+                          <div className="text-xs text-blue-200 truncate">
+                            {motor.manufacturer ? `${motor.manufacturer} ` : ''}{motor.modelName}
+                          </div>
+                        </div>
+                        <span className="text-[10px] uppercase tracking-wide text-blue-300 shrink-0">Motor database</span>
+                      </div>
+                    ))}
+                  </div>
+                  {associatedPackages.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-blue-400/20">
+                      <div className="text-xs font-semibold text-blue-100 mb-2">Packages associated with these motors</div>
+                      <div className="space-y-2">
+                        {associatedPackages.map((pkg) => {
+                          const qty = packageQuantities[pkg.id] || 0;
+                          return (
+                            <div key={pkg.id} className="flex items-center justify-between gap-3 bg-slate-900/40 rounded-lg px-3 py-2">
+                              <div className="min-w-0">
+                                <div className="text-xs font-medium text-white truncate">{pkg.name}</div>
+                                {pkg.description && <div className="text-[11px] text-slate-400 truncate">{pkg.description}</div>}
+                              </div>
+                              <button
+                                onClick={() => incrementPackage(pkg.id)}
+                                disabled={saving}
+                                className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs shrink-0 disabled:opacity-50"
+                              >
+                                {qty > 0 ? `Add another (${qty})` : 'Recommend'}
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Service Recommendations */}
               {recommendations.length > 0 && (
