@@ -14322,7 +14322,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                               {(() => {
                                                 const items = (currentBudget && budgetItems[currentBudget.id]) || [];
                                                 const managementAgreementCost = Number(currentBudget?.annual_management_fee) || 0;
-                                                if (items.length === 0 && managementAgreementCost === 0) return null;
+                                                const seasonTripFees = Number(currentBudget?.season_trip_fees) || 0;
+                                                const offSeasonTripFees = Number(currentBudget?.off_season_trip_fees) || 0;
+                                                const feesTotal = managementAgreementCost + seasonTripFees + offSeasonTripFees;
+                                                if (items.length === 0 && feesTotal === 0) return null;
                                                 const pkgItems = items.filter(i => i.item_type === 'package');
                                                 const estItems = items.filter(i => i.item_type === 'offseason_estimate');
                                                 return (
@@ -14333,6 +14336,18 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                                         <div className="flex items-center justify-between text-xs mb-1">
                                                           <span className="text-slate-400">Management Agreement Cost</span>
                                                           <span className="text-white">${managementAgreementCost.toFixed(2)}</span>
+                                                        </div>
+                                                      )}
+                                                      {seasonTripFees > 0 && (
+                                                        <div className="flex items-center justify-between text-xs mb-1">
+                                                          <span className="text-slate-400">Season Trip Fees</span>
+                                                          <span className="text-white">${seasonTripFees.toFixed(2)}</span>
+                                                        </div>
+                                                      )}
+                                                      {offSeasonTripFees > 0 && (
+                                                        <div className="flex items-center justify-between text-xs mb-1">
+                                                          <span className="text-slate-400">Off-Season Trip Fees</span>
+                                                          <span className="text-white">${offSeasonTripFees.toFixed(2)}</span>
                                                         </div>
                                                       )}
                                                       {pkgItems.length > 0 && (
