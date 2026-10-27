@@ -14206,14 +14206,6 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                     <div className="flex items-center justify-between mb-3">
                                       <p className="text-xs font-semibold text-slate-300">Budget for {selectedInvoiceYear}</p>
                                       <div className="flex items-center gap-2">
-                                        <button
-                                          onClick={() => setBudgetBuilderYacht({ id: yacht.id, name: yacht.name })}
-                                          className="flex items-center gap-1 px-2 py-1 bg-teal-600 hover:bg-teal-700 text-white rounded text-xs transition-colors"
-                                          title="Build budget from packages and off-season estimates"
-                                        >
-                                          <Plus className="w-3 h-3" />
-                                          Build Budget
-                                        </button>
                                         {!isEditingBudget && (
                                           <button
                                             onClick={() => {
