@@ -75,6 +75,7 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
   const [loadingHours, setLoadingHours] = useState(true);
   const [motorEquipment, setMotorEquipment] = useState<MotorEquipment[]>([]);
   const [motorPackageSelections, setMotorPackageSelections] = useState<Record<string, Set<string>>>({});
+  const [appliedRecKeys, setAppliedRecKeys] = useState<Set<string>>(new Set());
 
   const loadMotorEquipment = useCallback(async () => {
     try {
@@ -370,12 +371,34 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
     });
   })();
 
-  const applyRecommendation = (rec: ServiceRecommendation) => {
+  const recKey = (rec: ServiceRecommendation) => `${rec.basisLabel}-${rec.interval}`;
+
+  const toggleRecommendation = (rec: ServiceRecommendation) => {
     if (!rec.matchedPackageId) return;
-    setPackageQuantities((prev) => ({
-      ...prev,
-      [rec.matchedPackageId!]: (prev[rec.matchedPackageId!] || 0) + rec.recommendedQty,
-    }));
+    const key = recKey(rec);
+    setAppliedRecKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+        setPackageQuantities((q) => {
+          const current = q[rec.matchedPackageId!] || 0;
+          const newQty = current - rec.recommendedQty;
+          if (newQty <= 0) {
+            const copy = { ...q };
+            delete copy[rec.matchedPackageId!];
+            return copy;
+          }
+          return { ...q, [rec.matchedPackageId!]: newQty };
+        });
+      } else {
+        next.add(key);
+        setPackageQuantities((q) => ({
+          ...q,
+          [rec.matchedPackageId!]: (q[rec.matchedPackageId!] || 0) + rec.recommendedQty,
+        }));
+      }
+      return next;
+    });
   };
 
   const selectedPackageItems: SelectedItem[] = packages
@@ -730,20 +753,19 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
                     <Sparkles className="w-4 h-4 text-teal-400" />
                     <h3 className="text-sm font-semibold text-teal-200">Service Recommendations</h3>
                   </div>
-                  <p className="text-xs text-teal-300/70 mb-3">Based on generator hours from {budgetYear - 1}. Click "Apply" to set the package quantity automatically.</p>
+                  <p className="text-xs text-teal-300/70 mb-3">Based on generator hours from {budgetYear - 1}. Click "Apply" to add the recommended quantity, or "Remove" to undo.</p>
                   <div className="space-y-2">
                     {recommendations.map((rec, i) => {
                       const matchedPkg = rec.matchedPackageId ? packages.find((p) => p.id === rec.matchedPackageId) : null;
-                      const currentQty = rec.matchedPackageId ? packageQuantities[rec.matchedPackageId] || 0 : 0;
-                      const isApplied = currentQty === rec.recommendedQty;
+                      const isApplied = appliedRecKeys.has(recKey(rec));
                       const isPort = rec.basisLabel.toLowerCase().includes('port');
                       const sideLabel = isPort ? 'PORT' : 'STARBOARD';
                       const sideClasses = isPort
                         ? 'border-l-4 border-l-sky-400 bg-sky-950/40'
                         : 'border-l-4 border-l-amber-400 bg-amber-950/30';
                       return (
-                        <div key={i} className={`flex items-center gap-3 rounded-lg p-3 ${sideClasses}`}>
-                          <Wrench className={`w-4 h-4 shrink-0 ${isPort ? 'text-sky-300' : 'text-amber-300'}`} />
+                        <div key={i} className={`flex items-center gap-3 rounded-lg p-3 ${sideClasses} ${isApplied ? 'ring-1 ring-teal-500/40' : ''}`}>
+                          <Wrench className={`w-4 h-4 shrink-0 ${isApplied ? 'text-teal-300' : isPort ? 'text-sky-300' : 'text-amber-300'}`} />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
                               <span className={`text-[10px] font-black tracking-widest px-2 py-0.5 rounded ${isPort ? 'bg-sky-400/20 text-sky-200' : 'bg-amber-400/20 text-amber-200'}`}>
@@ -764,15 +786,15 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
                           </div>
                           {rec.matchedPackageId && (
                             <button
-                              onClick={() => applyRecommendation(rec)}
-                              disabled={saving || isApplied}
+                              onClick={() => toggleRecommendation(rec)}
+                              disabled={saving}
                               className={`px-3 py-1.5 rounded text-xs font-medium transition-colors shrink-0 ${
                                 isApplied
-                                  ? 'bg-teal-500/20 text-teal-300 cursor-default'
+                                  ? 'bg-slate-700 hover:bg-slate-600 text-white'
                                   : 'bg-teal-600 hover:bg-teal-700 text-white'
                               }`}
                             >
-                              {isApplied ? 'Applied' : 'Apply'}
+                              {isApplied ? 'Remove' : 'Apply'}
                             </button>
                           )}
                         </div>
