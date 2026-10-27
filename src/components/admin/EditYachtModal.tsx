@@ -431,7 +431,7 @@ export default function EditYachtModal({
           <div className="border-t border-slate-700 pt-4">
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-sm font-semibold text-slate-300">Engines</h4>
-              <button type="button" onClick={() => setEnginesForm([...enginesForm, { ...EMPTY_ENGINE_GEN_ENTRY }])} className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">+ Add Engine</button>
+              <button type="button" onClick={() => setEnginesForm((current) => [...current, { ...EMPTY_ENGINE_GEN_ENTRY }])} className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">+ Add Engine</button>
             </div>
             {enginesForm.length === 0 && <p className="text-xs text-slate-500 mb-3">No engines added yet.</p>}
             {(() => {
@@ -510,7 +510,7 @@ export default function EditYachtModal({
           <div className="border-t border-slate-700 pt-4">
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-sm font-semibold text-slate-300">Generators</h4>
-              <button type="button" onClick={() => setGeneratorsForm([...generatorsForm, { ...EMPTY_ENGINE_GEN_ENTRY }])} className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">+ Add Generator</button>
+              <button type="button" onClick={() => setGeneratorsForm((current) => [...current, { ...EMPTY_ENGINE_GEN_ENTRY }])} className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">+ Add Generator</button>
             </div>
             {generatorsForm.length === 0 && <p className="text-xs text-slate-500 mb-3">No generators added yet.</p>}
             {(() => {
