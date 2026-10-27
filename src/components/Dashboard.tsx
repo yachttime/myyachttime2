@@ -14183,7 +14183,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               </div>
                             )}
 
-                            {budgetYachtId === yacht.id && (() => {
+                            {(() => {
                               const invoices = (yachtInvoices[yacht.id] || []).filter(
                                 inv => inv.invoice_year === selectedInvoiceYear
                               );
@@ -14202,6 +14202,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                               return (
                                 <>
+                                  {budgetYachtId === yacht.id && (
                                   <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 mb-3">
                                     <div className="flex items-center justify-between mb-3">
                                       <p className="text-xs font-semibold text-slate-300">Budget for {selectedInvoiceYear}</p>
@@ -14571,6 +14572,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                       </>
                                     )}
                                   </div>
+                                  )}
 
                                   {invoiceYachtId === yacht.id && (
                                   <>
