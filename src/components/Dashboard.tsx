@@ -14183,7 +14183,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               </div>
                             )}
 
-                            {(() => {
+                            {budgetYachtId === yacht.id && (() => {
                               const invoices = (yachtInvoices[yacht.id] || []).filter(
                                 inv => inv.invoice_year === selectedInvoiceYear
                               );
