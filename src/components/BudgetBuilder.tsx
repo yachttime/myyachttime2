@@ -74,6 +74,7 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
   const [generatorHours, setGeneratorHours] = useState<HourUsage[]>([]);
   const [loadingHours, setLoadingHours] = useState(true);
   const [motorEquipment, setMotorEquipment] = useState<MotorEquipment[]>([]);
+  const [motorPackageSelections, setMotorPackageSelections] = useState<Record<string, Set<string>>>({});
 
   const loadMotorEquipment = useCallback(async () => {
     try {
@@ -395,6 +396,28 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
   const grandTotal = allSelectedItems.reduce((sum, item) => sum + item.amount, 0);
   const selectedPackageCount = selectedPackageItems.length;
 
+  const toggleMotorPackage = (motorId: string, packageId: string) => {
+    setMotorPackageSelections((prev) => {
+      const current = new Set(prev[motorId] || []);
+      if (current.has(packageId)) {
+        current.delete(packageId);
+        setPackageQuantities((q) => {
+          const qty = q[packageId] || 0;
+          if (qty <= 1) {
+            const next = { ...q };
+            delete next[packageId];
+            return next;
+          }
+          return { ...q, [packageId]: qty - 1 };
+        });
+      } else {
+        current.add(packageId);
+        setPackageQuantities((q) => ({ ...q, [packageId]: (q[packageId] || 0) + 1 }));
+      }
+      return { ...prev, [motorId]: current };
+    });
+  };
+
   const incrementPackage = (id: string) => {
     setPackageQuantities(prev => ({ ...prev, [id]: (prev[id] || 0) + 1 }));
   };
@@ -659,21 +682,34 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
                               </div>
                               <div className="space-y-2">
                                 {motorPackages.map((pkg) => {
-                                  const qty = packageQuantities[pkg.id] || 0;
+                                  const isSelected = (motorPackageSelections[motor.id] || new Set()).has(pkg.id);
                                   return (
-                                    <div key={pkg.id} className="flex items-center gap-3 rounded-lg bg-slate-950/55 px-3 py-2">
-                                      <Wrench className={`w-4 h-4 shrink-0 ${isPort ? 'text-sky-300' : 'text-amber-300'}`} />
+                                    <div key={pkg.id} className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-colors ${isSelected ? 'bg-teal-950/50 ring-1 ring-teal-500/40' : 'bg-slate-950/55'}`}>
+                                      <Wrench className={`w-4 h-4 shrink-0 ${isSelected ? 'text-teal-300' : isPort ? 'text-sky-300' : 'text-amber-300'}`} />
                                       <div className="flex-1 min-w-0">
                                         <div className="text-sm font-medium text-white truncate">{pkg.name}</div>
                                         {pkg.description && <div className="text-[11px] text-slate-400 truncate">{pkg.description}</div>}
+                                        {isSelected && packageTotals[pkg.id] != null && (
+                                          <div className="text-[11px] text-teal-300 mt-0.5">{fmt(packageTotals[pkg.id] || 0)}</div>
+                                        )}
                                       </div>
-                                      <button
-                                        onClick={() => incrementPackage(pkg.id)}
-                                        disabled={saving}
-                                        className="rounded bg-teal-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-teal-500 disabled:opacity-50 shrink-0"
-                                      >
-                                        {qty > 0 ? `Add another (${qty})` : 'Recommend'}
-                                      </button>
+                                      {isSelected ? (
+                                        <button
+                                          onClick={() => toggleMotorPackage(motor.id, pkg.id)}
+                                          disabled={saving}
+                                          className="rounded bg-slate-700 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-slate-600 disabled:opacity-50 shrink-0"
+                                        >
+                                          Remove
+                                        </button>
+                                      ) : (
+                                        <button
+                                          onClick={() => toggleMotorPackage(motor.id, pkg.id)}
+                                          disabled={saving}
+                                          className="rounded bg-teal-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-teal-500 disabled:opacity-50 shrink-0"
+                                        >
+                                          Recommend
+                                        </button>
+                                      )}
                                     </div>
                                   );
                                 })}
