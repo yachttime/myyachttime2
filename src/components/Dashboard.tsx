@@ -13989,6 +13989,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                       years.add(y);
                                     });
                                     if (!years.has(currentYear)) years.add(currentYear);
+                                    if (!years.has(currentYear + 1)) years.add(currentYear + 1);
                                     return Array.from(years).sort((a, b) => b - a).map(year => (
                                       <option key={year} value={year}>{year}</option>
                                     ));
