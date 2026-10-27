@@ -317,55 +317,56 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
     });
   });
 
-  // Compute service recommendations from generator hours
+  // Compute service recommendations for each generator independently
   const recommendations: ServiceRecommendation[] = (() => {
     if (generatorHours.length === 0) return [];
-    const maxGenHours = Math.max(...generatorHours.map((g) => g.hoursUsed));
-    const maxGenLabel = generatorHours.find((g) => g.hoursUsed === maxGenHours)?.label || 'Generator';
 
-    const recs: ServiceRecommendation[] = [];
-
-    const oil200Qty = Math.floor(maxGenHours / 200);
-    const oil600Qty = Math.floor(maxGenHours / 600);
-
-    // Match packages by name
     const findMatchingPackage = (keywords: string[]): string | null => {
       const lower = keywords.map((k) => k.toLowerCase());
       const match = packages.find((p) => {
-        const name = p.name.toLowerCase();
-        return lower.every((k) => name.includes(k));
+        const searchableText = `${p.name} ${p.description || ''}`.toLowerCase();
+        return lower.every((k) => searchableText.includes(k));
       });
       return match?.id || null;
     };
 
-    if (oil200Qty > 0) {
-      recs.push({
-        interval: 200,
-        label: '200hr Generator Oil Change',
-        recommendedQty: oil200Qty,
-        basisHours: maxGenHours,
-        basisLabel: maxGenLabel,
-        matchedPackageId: findMatchingPackage(['200', 'oil']),
-      });
-    }
+    return generatorHours.flatMap((generator) => {
+      const recs: ServiceRecommendation[] = [];
+      const oil200Qty = Math.floor(generator.hoursUsed / 200);
+      const oil600Qty = Math.floor(generator.hoursUsed / 600);
 
-    if (oil600Qty > 0) {
-      recs.push({
-        interval: 600,
-        label: '600hr Generator Oil Change + Impeller',
-        recommendedQty: oil600Qty,
-        basisHours: maxGenHours,
-        basisLabel: maxGenLabel,
-        matchedPackageId: findMatchingPackage(['600']),
-      });
-    }
+      if (oil200Qty > 0) {
+        recs.push({
+          interval: 200,
+          label: '200hr Generator Oil Change',
+          recommendedQty: oil200Qty,
+          basisHours: generator.hoursUsed,
+          basisLabel: generator.label,
+          matchedPackageId: findMatchingPackage(['200', 'oil']),
+        });
+      }
 
-    return recs;
+      if (oil600Qty > 0) {
+        recs.push({
+          interval: 600,
+          label: '600hr Generator Oil Change + Impeller',
+          recommendedQty: oil600Qty,
+          basisHours: generator.hoursUsed,
+          basisLabel: generator.label,
+          matchedPackageId: findMatchingPackage(['600']),
+        });
+      }
+
+      return recs;
+    });
   })();
 
   const applyRecommendation = (rec: ServiceRecommendation) => {
     if (!rec.matchedPackageId) return;
-    setPackageQuantities((prev) => ({ ...prev, [rec.matchedPackageId!]: rec.recommendedQty }));
+    setPackageQuantities((prev) => ({
+      ...prev,
+      [rec.matchedPackageId!]: (prev[rec.matchedPackageId!] || 0) + rec.recommendedQty,
+    }));
   };
 
   const selectedPackageItems: SelectedItem[] = packages
