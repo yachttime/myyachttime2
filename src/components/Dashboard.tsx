@@ -853,6 +853,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [yachtUnpaidCounts, setYachtUnpaidCounts] = useState<Record<string, { count: number; total: number; unpaidCount: number; processingCount: number; paidCount: number; unpaidTotal: number; processingTotal: number; paidTotal: number }>>({});
   const [pendingEstimatingInvoiceId, setPendingEstimatingInvoiceId] = useState<string | undefined>(undefined);
   const [invoiceYachtId, setInvoiceYachtId] = useState<string | null>(null);
+  const [budgetYachtId, setBudgetYachtId] = useState<string | null>(null);
   const [repairHistoryYachtId, setRepairHistoryYachtId] = useState<string | null>(null);
   const [selectedInvoiceYear, setSelectedInvoiceYear] = useState<number>(new Date().getFullYear());
   const [yachtBudgets, setYachtBudgets] = useState<Record<string, YachtBudget | null>>({});
@@ -3756,6 +3757,15 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       setYachtUnpaidCounts(counts);
     } catch (error) {
       console.error('Error loading unpaid invoice counts:', error);
+    }
+  };
+
+  const toggleYachtBudget = async (yachtId: string) => {
+    if (budgetYachtId === yachtId) {
+      setBudgetYachtId(null);
+    } else {
+      setBudgetYachtId(yachtId);
+      await loadYachtBudget(yachtId, selectedInvoiceYear);
     }
   };
 
@@ -13009,6 +13019,15 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                             )}
                             {canManageYacht(effectiveRole) && (
                               <button
+                                onClick={() => toggleYachtBudget(yacht.id)}
+                                className="flex items-center justify-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors text-sm"
+                              >
+                                <DollarSign className="w-4 h-4" />
+                                {budgetYachtId === yacht.id ? 'Hide' : 'Budget'}
+                              </button>
+                            )}
+                            {canManageYacht(effectiveRole) && (
+                              <button
                                 onClick={() => setRepairHistoryYachtId(repairHistoryYachtId === yacht.id ? null : yacht.id)}
                                 className="flex items-center justify-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors text-sm"
                               >
@@ -14092,10 +14111,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                           </div>
                         )}
 
-                        {invoiceYachtId === yacht.id && canManageYacht(effectiveRole) && (
+                        {(invoiceYachtId === yacht.id || budgetYachtId === yacht.id) && canManageYacht(effectiveRole) && (
                           <div className="mt-4 pt-4 border-t border-slate-700">
-                            <div className="flex items-center justify-between mb-3">
-                              <h4 className="text-sm font-semibold text-slate-300">Invoices</h4>
+                            {invoiceYachtId === yacht.id && (
+                              <div className="flex items-center justify-between mb-3">
+                                <h4 className="text-sm font-semibold text-slate-300">Invoices</h4>
                               <div className="flex items-center gap-2">
                                 <select
                                   value={selectedInvoiceYear}
@@ -14135,7 +14155,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   )}
                                 </button>
                               </div>
-                            </div>
+                              </div>
+                            )}
 
                             {(() => {
                               const invoices = (yachtInvoices[yacht.id] || []).filter(
@@ -14534,6 +14555,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                     )}
                                   </div>
 
+                                  {invoiceYachtId === yacht.id && (
+                                  <>
                                   <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4 mb-3">
                                     <div className="flex items-center justify-between">
                                       <div>
@@ -14836,6 +14859,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                       </div>
                                     )}
                                   </div>
+                                  </>
+                                  )}
                                 </>
                               );
                             })()}
