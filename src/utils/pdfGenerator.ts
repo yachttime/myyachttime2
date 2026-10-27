@@ -1912,86 +1912,93 @@ export async function generateEstimatePDF(
     addText('SUPPORTING PHOTOS', 14, 'bold', 'center');
     addSpace(0.15);
 
-    const photoSize = 3.0;
-    const gap = 0.25;
     const photosPerRow = 2;
-    let xCol = 0;
+    const cellWidth = contentWidth / photosPerRow;
+    const imageMaxWidth = cellWidth - 0.2;
+    const imageMaxHeight = 2.65;
+    const rowGap = 0.3;
+    const preparedPhotos: Array<{ dataUrl: string; width: number; height: number; caption: string }> = [];
 
     for (const photo of photos) {
       try {
         const response = await fetch(photo.photo_url);
+        if (!response.ok) {
+          console.warn('Could not fetch photo for PDF:', response.status);
+          continue;
+        }
+
         const blob = await response.blob();
-        const reader = new FileReader();
-
-        await new Promise<void>((resolve) => {
-          reader.onloadend = () => {
-            try {
-              const base64data = reader.result as string;
-              const img = new Image();
-              img.onload = () => {
-                try {
-                  const aspectRatio = img.width / img.height;
-                  let w = photoSize;
-                  let h = w / aspectRatio;
-                  if (h > photoSize) {
-                    h = photoSize;
-                    w = h * aspectRatio;
-                  }
-
-                  if (xCol >= photosPerRow) {
-                    xCol = 0;
-                  }
-
-                  const cellWidth = contentWidth / photosPerRow;
-                  const x = margin + (xCol * cellWidth) + (cellWidth - w) / 2;
-
-                  if (yPos + h + 0.35 > 10.25) {
-                    doc.addPage();
-                    yPos = margin;
-                  }
-
-                  doc.addImage(base64data, 'JPEG', x, yPos, w, h);
-                  yPos += h + 0.05;
-
-                  const categoryLabel = photo.category ? photo.category.charAt(0).toUpperCase() + photo.category.slice(1) : '';
-                  const captionText = photo.caption || categoryLabel;
-                  if (captionText) {
-                    doc.setFontSize(8);
-                    doc.setFont('helvetica', 'normal');
-                    const captionLines = doc.splitTextToSize(captionText, cellWidth - 0.1);
-                    captionLines.forEach((line: string) => {
-                      doc.text(line, margin + (xCol * cellWidth), yPos);
-                      yPos += 0.1;
-                    });
-                  }
-
-                  xCol++;
-                  if (xCol >= photosPerRow) {
-                    addSpace(gap);
-                  }
-
-                  resolve();
-                } catch (err) {
-                  console.warn('Could not add photo to PDF:', err);
-                  resolve();
-                }
-              };
-              img.onerror = () => {
-                console.warn('Could not load photo image');
-                resolve();
-              };
-              img.src = base64data;
-            } catch (err) {
-              console.warn('Could not process photo:', err);
-              resolve();
-            }
-          };
-          reader.onerror = () => resolve();
+        const base64data = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = () => reject(new Error('Could not read photo'));
           reader.readAsDataURL(blob);
         });
+
+        const preparedPhoto = await new Promise<{ dataUrl: string; width: number; height: number }>((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            const context = canvas.getContext('2d');
+            if (!context) {
+              reject(new Error('Could not prepare photo canvas'));
+              return;
+            }
+
+            context.drawImage(img, 0, 0);
+            resolve({
+              dataUrl: canvas.toDataURL('image/jpeg', 0.9),
+              width: canvas.width,
+              height: canvas.height,
+            });
+          };
+          img.onerror = () => reject(new Error('Could not load photo image'));
+          img.src = base64data;
+        });
+
+        const categoryLabel = photo.category ? photo.category.charAt(0).toUpperCase() + photo.category.slice(1) : '';
+        preparedPhotos.push({
+          ...preparedPhoto,
+          caption: photo.caption || categoryLabel,
+        });
       } catch (err) {
-        console.warn('Could not fetch photo for PDF:', err);
+        console.warn('Could not process photo for PDF:', err);
       }
+    }
+
+    for (let rowStart = 0; rowStart < preparedPhotos.length; rowStart += photosPerRow) {
+      const rowPhotos = preparedPhotos.slice(rowStart, rowStart + photosPerRow);
+      const rowLayouts = rowPhotos.map((photo) => {
+        const scale = Math.min(imageMaxWidth / photo.width, imageMaxHeight / photo.height);
+        const width = photo.width * scale;
+        const height = photo.height * scale;
+        const captionLines = photo.caption ? doc.splitTextToSize(photo.caption, cellWidth - 0.1) : [];
+        return { ...photo, width, height, captionLines };
+      });
+      const rowHeight = Math.max(...rowLayouts.map((photo) => photo.height + (photo.captionLines.length * 0.1) + 0.08));
+
+      if (yPos + rowHeight > 10.15) {
+        doc.addPage();
+        yPos = margin;
+      }
+
+      rowLayouts.forEach((photo, columnIndex) => {
+        const cellX = margin + columnIndex * cellWidth;
+        const imageX = cellX + (cellWidth - photo.width) / 2;
+        doc.addImage(photo.dataUrl, 'JPEG', imageX, yPos, photo.width, photo.height);
+
+        if (photo.captionLines.length > 0) {
+          doc.setFontSize(8);
+          doc.setFont('helvetica', 'normal');
+          photo.captionLines.forEach((line: string, lineIndex: number) => {
+            doc.text(line, cellX + 0.05, yPos + photo.height + 0.12 + lineIndex * 0.1);
+          });
+        }
+      });
+
+      yPos += rowHeight + rowGap;
     }
   }
 
