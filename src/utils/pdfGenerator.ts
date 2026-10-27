@@ -3486,6 +3486,309 @@ export interface EstimatingInvoiceSummary {
   credit_amount?: number | string | null;
 }
 
+export interface BudgetPackageDetail {
+  labor: Array<{ description: string | null; hours: number | string; rate: number | string }>;
+  parts: Array<{ description: string | null; part_number: string | null; quantity: number | string; unit_price: number | string }>;
+}
+
+export interface BudgetEstimateDetail {
+  estimate_number: string;
+  customer_name: string | null;
+  total_amount: number | string;
+  created_at: string;
+  work_title: string | null;
+  tasks: Array<{
+    title: string | null;
+    line_items: Array<{
+      line_type: string;
+      description: string | null;
+      quantity: number | string;
+      unit_price: number | string;
+      line_total: number | string;
+    }>;
+  }>;
+}
+
+export interface BudgetPDFData {
+  yachtName: string;
+  budgetYear: number;
+  budgetAmount: number;
+  annualManagementFee: number;
+  seasonTripFees: number;
+  offSeasonTripFees: number;
+  companyInfo?: any;
+  packages: Array<{
+    name: string;
+    quantity: number;
+    amount: number;
+    detail: BudgetPackageDetail | null;
+  }>;
+  estimates: Array<{
+    name: string;
+    amount: number;
+    detail: BudgetEstimateDetail | null;
+  }>;
+}
+
+const money = (n: number | string | null | undefined): string => `${(Number(n) || 0).toFixed(2)}`;
+
+export function generateBudgetPDF(data: BudgetPDFData): jsPDF {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'in', format: 'letter' });
+  const pageWidth = 8.5;
+  const margin = 0.75;
+  const contentWidth = pageWidth - margin * 2;
+  let yPos = margin;
+
+  const ensureSpace = (need: number = 0.4) => {
+    if (yPos + need > 10.25) {
+      doc.addPage();
+      yPos = margin;
+    }
+  };
+
+  const addText = (text: string, fontSize = 10, style: 'normal' | 'bold' = 'normal', align: 'left' | 'center' | 'right' = 'left') => {
+    doc.setFontSize(fontSize);
+    doc.setFont('helvetica', style);
+    const lines = doc.splitTextToSize(text, contentWidth);
+    const lineHeight = (fontSize / 72) * 1.2;
+    for (const line of lines) {
+      ensureSpace(lineHeight);
+      if (align === 'center') {
+        doc.text(line, pageWidth / 2, yPos);
+      } else if (align === 'right') {
+        doc.text(line, pageWidth - margin, yPos, { align: 'right' });
+      } else {
+        doc.text(line, margin, yPos);
+      }
+      yPos += lineHeight;
+    }
+  };
+
+  const addSpace = (inches = 0.12) => {
+    yPos += inches;
+    ensureSpace(0.1);
+  };
+
+  const addLine = () => {
+    ensureSpace(0.1);
+    doc.setLineWidth(0.02);
+    doc.line(margin, yPos, pageWidth - margin, yPos);
+    yPos += 0.1;
+  };
+
+  // Header
+  if (data.companyInfo?.name) {
+    addText(data.companyInfo.name, 14, 'bold', 'center');
+    if (data.companyInfo.address_line_1) addText(data.companyInfo.address_line_1, 9, 'normal', 'center');
+    if (data.companyInfo.phone) addText(`Phone: ${data.companyInfo.phone}`, 9, 'normal', 'center');
+    addSpace(0.1);
+  }
+
+  addText(`ANNUAL BUDGET — ${data.yachtName}`, 16, 'bold', 'center');
+  addText(`Budget Year: ${data.budgetYear}`, 11, 'normal', 'center');
+  addText(`Generated: ${phxDateTime(new Date())}`, 9, 'normal', 'center');
+  addSpace(0.2);
+  addLine();
+
+  // Summary table
+  const summaryRows: string[][] = [];
+
+  if (data.annualManagementFee > 0) {
+    summaryRows.push(['Management Agreement Cost', money(data.annualManagementFee)]);
+  }
+  if (data.seasonTripFees > 0) {
+    summaryRows.push(['Season Trip Fees', money(data.seasonTripFees)]);
+  }
+  if (data.offSeasonTripFees > 0) {
+    summaryRows.push(['Off-Season Trip Fees', money(data.offSeasonTripFees)]);
+  }
+  for (const pkg of data.packages) {
+    summaryRows.push([
+      `${pkg.name}${pkg.quantity > 1 ? ` (x${pkg.quantity})` : ''}`,
+      money(pkg.amount),
+    ]);
+  }
+  for (const est of data.estimates) {
+    summaryRows.push([est.name, money(est.amount)]);
+  }
+  summaryRows.push(['GRAND TOTAL', money(data.budgetAmount)]);
+
+  autoTable(doc, {
+    startY: yPos,
+    head: [['Budget Item', 'Amount']],
+    body: summaryRows,
+    theme: 'grid',
+    styles: { fontSize: 10, cellPadding: 0.07, font: 'helvetica', lineColor: [203, 213, 225], lineWidth: 0.01 },
+    headStyles: { fillColor: [15, 118, 110], textColor: [255, 255, 255], fontStyle: 'bold' },
+    columnStyles: {
+      0: { halign: 'left' },
+      1: { halign: 'right', fontStyle: 'bold' },
+    },
+    margin: { left: margin, right: margin },
+    didDrawPage: (d: any) => { yPos = d.cursor.y + 0.2; },
+  });
+
+  ensureSpace(0.3);
+  addSpace(0.1);
+
+  // Package detail breakdowns
+  const packagesWithDetail = data.packages.filter(p => p.detail && (p.detail.labor.length > 0 || p.detail.parts.length > 0));
+  if (packagesWithDetail.length > 0) {
+    addText('PACKAGE DETAILS', 13, 'bold');
+    addLine();
+    addSpace(0.1);
+
+    for (const pkg of packagesWithDetail) {
+      ensureSpace(0.6);
+      addText(`${pkg.name}${pkg.quantity > 1 ? ` (x${pkg.quantity})` : ''} — ${money(pkg.amount)}`, 11, 'bold');
+      addSpace(0.05);
+
+      const detail = pkg.detail!;
+      const perUnit = pkg.quantity > 0 ? pkg.amount / pkg.quantity : pkg.amount;
+
+      if (detail.labor.length > 0) {
+        addText('Labor', 10, 'bold');
+        const laborRows = detail.labor.map(l => [
+          l.description || '—',
+          (Number(l.hours) || 0).toFixed(1),
+          money(l.rate),
+          money((Number(l.hours) || 0) * (Number(l.rate) || 0)),
+        ]);
+        autoTable(doc, {
+          startY: yPos,
+          head: [['Description', 'Hours', 'Rate', 'Total']],
+          body: laborRows,
+          theme: 'striped',
+          styles: { fontSize: 9, cellPadding: 0.05, font: 'helvetica', lineColor: [226, 232, 240], lineWidth: 0.01 },
+          headStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0], fontStyle: 'bold' },
+          columnStyles: {
+            0: { halign: 'left' },
+            1: { halign: 'right' },
+            2: { halign: 'right' },
+            3: { halign: 'right' },
+          },
+          margin: { left: margin + 0.15, right: margin },
+          didDrawPage: (d: any) => { yPos = d.cursor.y + 0.1; },
+        });
+        addSpace(0.08);
+      }
+
+      if (detail.parts.length > 0) {
+        addText('Parts', 10, 'bold');
+        const partsRows = detail.parts.map(p => [
+          p.description || '—',
+          p.part_number || '—',
+          String(Number(p.quantity) || 0),
+          money(p.unit_price),
+          money((Number(p.quantity) || 0) * (Number(p.unit_price) || 0)),
+        ]);
+        autoTable(doc, {
+          startY: yPos,
+          head: [['Description', 'Part #', 'Qty', 'Unit Price', 'Total']],
+          body: partsRows,
+          theme: 'striped',
+          styles: { fontSize: 9, cellPadding: 0.05, font: 'helvetica', lineColor: [226, 232, 240], lineWidth: 0.01 },
+          headStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0], fontStyle: 'bold' },
+          columnStyles: {
+            0: { halign: 'left' },
+            1: { halign: 'left' },
+            2: { halign: 'right' },
+            3: { halign: 'right' },
+            4: { halign: 'right' },
+          },
+          margin: { left: margin + 0.15, right: margin },
+          didDrawPage: (d: any) => { yPos = d.cursor.y + 0.1; },
+        });
+        addSpace(0.08);
+      }
+
+      if (pkg.quantity > 1) {
+        addText(`Per unit: ${money(perUnit)} × ${pkg.quantity} = ${money(pkg.amount)}`, 9, 'normal', 'right');
+        addSpace(0.1);
+      } else {
+        addSpace(0.12);
+      }
+    }
+  }
+
+  // Estimate copies
+  const estimatesWithDetail = data.estimates.filter(e => e.detail);
+  if (estimatesWithDetail.length > 0) {
+    doc.addPage();
+    yPos = margin;
+    addText('ATTACHED OFF-SEASON ESTIMATES', 13, 'bold', 'center');
+    addSpace(0.2);
+  }
+
+  for (let i = 0; i < estimatesWithDetail.length; i++) {
+    const estItem = estimatesWithDetail[i];
+    const est = estItem.detail!;
+    if (i > 0) {
+      doc.addPage();
+      yPos = margin;
+    }
+
+    addText(`ESTIMATE ${est.estimate_number}`, 14, 'bold', 'center');
+    if (est.work_title) addText(est.work_title, 11, 'normal', 'center');
+    addText(`${data.yachtName}${est.customer_name ? ` — ${est.customer_name}` : ''}`, 10, 'normal', 'center');
+    addText(`Date: ${phxDate(est.created_at)}`, 9, 'normal', 'center');
+    addText(`Total: ${money(est.total_amount)}`, 11, 'bold', 'center');
+    addSpace(0.15);
+    addLine();
+    addSpace(0.1);
+
+    for (const task of est.tasks) {
+      ensureSpace(0.4);
+      addText(task.title || 'Untitled Task', 11, 'bold');
+      addSpace(0.04);
+
+      if (task.line_items.length === 0) {
+        addText('No line items', 9, 'normal');
+        addSpace(0.1);
+        continue;
+      }
+
+      const itemRows = task.line_items.map(li => [
+        li.line_type || '—',
+        li.description || '—',
+        String(Number(li.quantity) || 0),
+        money(li.unit_price),
+        money(li.line_total),
+      ]);
+      autoTable(doc, {
+        startY: yPos,
+        head: [['Type', 'Description', 'Qty', 'Unit', 'Total']],
+        body: itemRows,
+        theme: 'striped',
+        styles: { fontSize: 9, cellPadding: 0.05, font: 'helvetica', lineColor: [226, 232, 240], lineWidth: 0.01 },
+        headStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0], fontStyle: 'bold' },
+        columnStyles: {
+          0: { halign: 'left', cellWidth: 0.8 },
+          1: { halign: 'left' },
+          2: { halign: 'right' },
+          3: { halign: 'right' },
+          4: { halign: 'right' },
+        },
+        margin: { left: margin + 0.15, right: margin },
+        didDrawPage: (d: any) => { yPos = d.cursor.y + 0.12; },
+      });
+      addSpace(0.1);
+    }
+  }
+
+  // Footer page numbers
+  const pageCount = doc.getNumberOfPages();
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(100);
+  for (let pg = 1; pg <= pageCount; pg++) {
+    doc.setPage(pg);
+    doc.text(`Page ${pg} of ${pageCount}`, pageWidth - margin, 8, { align: 'right' });
+  }
+
+  return doc;
+}
+
 export function generateYachtInvoicesSummaryPDF(
   yachtName: string,
   year: number,

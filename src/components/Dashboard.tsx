@@ -33,7 +33,7 @@ import CustomerManagement, { CustomerPrefill } from './CustomerManagement';
 import { CompanyManagement } from './CompanyManagement';
 import SupportTickets from './SupportTickets';
 import { uploadFileToStorage, deleteFileFromStorage, isStorageUrl, UploadProgress, isTokenExpiredError } from '../utils/fileUpload';
-import { generateAllYachtTripsPDF, generateEstimatingInvoicePDF, generateTripInspectionPDF, generateEngineHoursReportPDF, generateOffSeasonEstimatesPDF, generateYachtYearEndSummaryPDF, YachtYearEndRow, YachtYearEndInvoiceDetail, YachtYearEndRepairDetail, InvoicePaymentRecord } from '../utils/pdfGenerator';
+import { generateAllYachtTripsPDF, generateEstimatingInvoicePDF, generateTripInspectionPDF, generateEngineHoursReportPDF, generateOffSeasonEstimatesPDF, generateYachtYearEndSummaryPDF, YachtYearEndRow, YachtYearEndInvoiceDetail, YachtYearEndRepairDetail, InvoicePaymentRecord, generateBudgetPDF, BudgetPDFData, BudgetPackageDetail, BudgetEstimateDetail } from '../utils/pdfGenerator';
 import { getCompanyInfoForPdf } from '../utils/companyInfo';
 import {
   getQueue, addItem, updateItem, removeItem, getReadyItems,
@@ -4199,6 +4199,126 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       alert(`Error saving budget: ${error.message}`);
     } finally {
       setBudgetSaving(prev => ({ ...prev, [budgetKey]: false }));
+    }
+  };
+
+  const [budgetPrinting, setBudgetPrinting] = useState<Set<string>>(new Set());
+
+  const handlePrintBudget = async (yachtId: string, yachtName: string, year: number, currentBudget: YachtBudget | undefined) => {
+    const key = `${yachtId}-${year}`;
+    setBudgetPrinting(prev => new Set(prev).add(key));
+    try {
+      if (!currentBudget) {
+        alert('No budget found to print.');
+        return;
+      }
+
+      const items = budgetItems[currentBudget.id] || [];
+
+      // Fetch package details for package items
+      const packageEntries = items
+        .filter(i => i.item_type === 'package' && i.source_id)
+        .map(i => ({ itemId: i.id, sourceId: i.source_id!, name: i.name, quantity: Number(i.quantity) || 1, amount: Number(i.amount) || 0 }));
+
+      const estimateEntries = items
+        .filter(i => i.item_type === 'offseason_estimate' && i.source_id)
+        .map(i => ({ itemId: i.id, sourceId: i.source_id!, name: i.name, amount: Number(i.amount) || 0 }));
+
+      // Load package details (labor + parts)
+      const packageDetails = await Promise.all(
+        packageEntries.map(async (pe) => {
+          const [laborRes, partsRes] = await Promise.all([
+            supabase.from('estimate_package_labor').select('description, hours, rate').eq('package_id', pe.sourceId),
+            supabase.from('estimate_package_parts').select('description, part_number, quantity, unit_price').eq('package_id', pe.sourceId),
+          ]);
+          if (laborRes.error) throw laborRes.error;
+          if (partsRes.error) throw partsRes.error;
+          const detail: BudgetPackageDetail = {
+            labor: (laborRes.data || []).map(l => ({ description: l.description, hours: Number(l.hours) || 0, rate: Number(l.rate) || 0 })),
+            parts: (partsRes.data || []).map(p => ({ description: p.description, part_number: p.part_number, quantity: Number(p.quantity) || 0, unit_price: Number(p.unit_price) || 0 })),
+          };
+          return { ...pe, detail };
+        })
+      );
+
+      // Load estimate details (tasks with line items)
+      const estimateDetails = await Promise.all(
+        estimateEntries.map(async (ee) => {
+          const { data: est, error: estErr } = await supabase
+            .from('estimates')
+            .select('id, estimate_number, customer_name, total_amount, created_at, work_title')
+            .eq('id', ee.sourceId)
+            .maybeSingle();
+          if (estErr) throw estErr;
+          if (!est) return { ...ee, detail: null };
+
+          const { data: tasks, error: tasksErr } = await supabase
+            .from('estimate_tasks')
+            .select('id, title')
+            .eq('estimate_id', est.id)
+            .order('created_at');
+          if (tasksErr) throw tasksErr;
+
+          const tasksWithItems = await Promise.all(
+            (tasks || []).map(async (t: any) => {
+              const { data: lineItems, error: liErr } = await supabase
+                .from('estimate_line_items')
+                .select('line_type, description, quantity, unit_price, line_total')
+                .eq('task_id', t.id)
+                .order('created_at');
+              if (liErr) throw liErr;
+              return {
+                title: t.title,
+                line_items: (lineItems || []).map((li: any) => ({
+                  line_type: li.line_type,
+                  description: li.description,
+                  quantity: Number(li.quantity) || 0,
+                  unit_price: Number(li.unit_price) || 0,
+                  line_total: Number(li.line_total) || 0,
+                })),
+              };
+            })
+          );
+
+          const detail: BudgetEstimateDetail = {
+            estimate_number: est.estimate_number,
+            customer_name: est.customer_name,
+            total_amount: Number(est.total_amount) || 0,
+            created_at: est.created_at,
+            work_title: est.work_title,
+            tasks: tasksWithItems,
+          };
+          return { ...ee, detail };
+        })
+      );
+
+      const companyInfo = await getCompanyInfoForPdf();
+
+      const pdfData: BudgetPDFData = {
+        yachtName,
+        budgetYear: year,
+        budgetAmount: Number(currentBudget.budget_amount) || 0,
+        annualManagementFee: Number(currentBudget.annual_management_fee) || 0,
+        seasonTripFees: Number(currentBudget.season_trip_fees) || 0,
+        offSeasonTripFees: Number(currentBudget.off_season_trip_fees) || 0,
+        companyInfo,
+        packages: packageDetails.map(pe => ({ name: pe.name, quantity: pe.quantity, amount: pe.amount, detail: pe.detail })),
+        estimates: estimateDetails.map(ee => ({ name: ee.name, amount: ee.amount, detail: ee.detail })),
+      };
+
+      const pdf = generateBudgetPDF(pdfData);
+      const pdfBlob = pdf.output('blob');
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      window.open(pdfUrl, '_blank');
+    } catch (error: any) {
+      console.error('Error generating budget PDF:', error);
+      alert(`Failed to generate budget PDF: ${error.message}`);
+    } finally {
+      setBudgetPrinting(prev => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
     }
   };
 
@@ -14089,6 +14209,16 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                             className="text-xs px-2 py-1 bg-slate-700 hover:bg-slate-600 text-white rounded transition-colors"
                                           >
                                             {currentBudget ? 'Edit' : 'Set Budget'}
+                                          </button>
+                                        )}
+                                        {!isEditingBudget && budgetAmount > 0 && (
+                                          <button
+                                            onClick={() => handlePrintBudget(yacht.id, yacht.name, selectedInvoiceYear, currentBudget)}
+                                            className="flex items-center gap-1 px-2 py-1 bg-cyan-600 hover:bg-cyan-700 text-white rounded text-xs transition-colors"
+                                            title="Print budget with package details and attached estimates"
+                                          >
+                                            <Printer className="w-3 h-3" />
+                                            Print Budget
                                           </button>
                                         )}
                                       </div>

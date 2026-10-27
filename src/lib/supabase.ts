@@ -545,6 +545,9 @@ export interface YachtBudget {
   winterizations: number;
   misc_1: number;
   misc_2: number;
+  annual_management_fee?: number;
+  season_trip_fees?: number;
+  off_season_trip_fees?: number;
   created_at: string;
   updated_at: string;
   created_by?: string;
