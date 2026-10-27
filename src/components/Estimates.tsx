@@ -1784,7 +1784,8 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
           const yachtName = estData.yachts?.name || null;
           const yachtMake = estData.yachts?.manufacturer || null;
           const yachtModel = estData.yachts?.model || null;
-          const pdf = await generateEstimatePDF(estData, tasksWithItems, yachtName, companyInfo, yachtMake, yachtModel);
+          const { data: salvagePhotosData } = await supabase.from('estimate_photos').select('*').eq('estimate_id', estimateIdForPdf).order('created_at', { ascending: false });
+          const pdf = await generateEstimatePDF(estData, tasksWithItems, yachtName, companyInfo, yachtMake, yachtModel, undefined, salvagePhotosData || []);
           await attachPdfToEstimateSalvageReport(estimateIdForPdf, pdf, `${estData.estimate_number} - Estimate.pdf`);
         }
       } catch (salvageErr) {
@@ -2487,7 +2488,8 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
       const yachtName = estimateData.yachts?.name || null;
       const yachtMake = estimateData.yachts?.manufacturer || null;
       const yachtModel = estimateData.yachts?.model || null;
-      let pdf = await generateEstimatePDF(estimateData, tasksWithLineItems, yachtName, companyInfo, yachtMake, yachtModel, showPartNumbers);
+      const { data: printPhotosData } = await supabase.from('estimate_photos').select('*').eq('estimate_id', estimateId).order('created_at', { ascending: false });
+      let pdf = await generateEstimatePDF(estimateData, tasksWithLineItems, yachtName, companyInfo, yachtMake, yachtModel, showPartNumbers, printPhotosData || []);
 
       if (estimateData.trip_inspection_id) {
         const { data: inspectionData } = await supabase
@@ -2631,7 +2633,8 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
       const yachtName = estimateData.yachts?.name || null;
       const yachtMake = estimateData.yachts?.manufacturer || null;
       const yachtModel = estimateData.yachts?.model || null;
-      let pdf = await generateEstimatePDF(estimateData, tasksWithLineItems, yachtName, companyInfo, yachtMake, yachtModel);
+      const { data: sendPhotosData } = await supabase.from('estimate_photos').select('*').eq('estimate_id', estimateId).order('created_at', { ascending: false });
+      let pdf = await generateEstimatePDF(estimateData, tasksWithLineItems, yachtName, companyInfo, yachtMake, yachtModel, undefined, sendPhotosData || []);
 
       if (estimateData.trip_inspection_id) {
         const { data: inspectionData } = await supabase

@@ -1351,7 +1351,8 @@ export async function generateEstimatePDF(
   companyInfo?: any,
   yachtMake?: string | null,
   yachtModel?: string | null,
-  showPartNumbers?: boolean
+  showPartNumbers?: boolean,
+  photos?: any[]
 ): Promise<jsPDF> {
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -1902,6 +1903,96 @@ export async function generateEstimatePDF(
         addSpace(0.1);
       }
     });
+  }
+
+  if (photos && photos.length > 0) {
+    doc.addPage();
+    yPos = margin;
+
+    addText('SUPPORTING PHOTOS', 14, 'bold', 'center');
+    addSpace(0.15);
+
+    const photoSize = 3.0;
+    const gap = 0.25;
+    const photosPerRow = 2;
+    let xCol = 0;
+
+    for (const photo of photos) {
+      try {
+        const response = await fetch(photo.photo_url);
+        const blob = await response.blob();
+        const reader = new FileReader();
+
+        await new Promise<void>((resolve) => {
+          reader.onloadend = () => {
+            try {
+              const base64data = reader.result as string;
+              const img = new Image();
+              img.onload = () => {
+                try {
+                  const aspectRatio = img.width / img.height;
+                  let w = photoSize;
+                  let h = w / aspectRatio;
+                  if (h > photoSize) {
+                    h = photoSize;
+                    w = h * aspectRatio;
+                  }
+
+                  if (xCol >= photosPerRow) {
+                    xCol = 0;
+                  }
+
+                  const cellWidth = contentWidth / photosPerRow;
+                  const x = margin + (xCol * cellWidth) + (cellWidth - w) / 2;
+
+                  if (yPos + h + 0.35 > 10.25) {
+                    doc.addPage();
+                    yPos = margin;
+                  }
+
+                  doc.addImage(base64data, 'JPEG', x, yPos, w, h);
+                  yPos += h + 0.05;
+
+                  const categoryLabel = photo.category ? photo.category.charAt(0).toUpperCase() + photo.category.slice(1) : '';
+                  const captionText = photo.caption || categoryLabel;
+                  if (captionText) {
+                    doc.setFontSize(8);
+                    doc.setFont('helvetica', 'normal');
+                    const captionLines = doc.splitTextToSize(captionText, cellWidth - 0.1);
+                    captionLines.forEach((line: string) => {
+                      doc.text(line, margin + (xCol * cellWidth), yPos);
+                      yPos += 0.1;
+                    });
+                  }
+
+                  xCol++;
+                  if (xCol >= photosPerRow) {
+                    addSpace(gap);
+                  }
+
+                  resolve();
+                } catch (err) {
+                  console.warn('Could not add photo to PDF:', err);
+                  resolve();
+                }
+              };
+              img.onerror = () => {
+                console.warn('Could not load photo image');
+                resolve();
+              };
+              img.src = base64data;
+            } catch (err) {
+              console.warn('Could not process photo:', err);
+              resolve();
+            }
+          };
+          reader.onerror = () => resolve();
+          reader.readAsDataURL(blob);
+        });
+      } catch (err) {
+        console.warn('Could not fetch photo for PDF:', err);
+      }
+    }
   }
 
   const pageCount = doc.getNumberOfPages();
