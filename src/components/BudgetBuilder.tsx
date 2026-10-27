@@ -630,21 +630,35 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
                     ))}
                   </div>
                   {associatedPackages.length > 0 && (
-                    <div className="mt-3 pt-3 border-t border-blue-400/20">
-                      <div className="text-xs font-semibold text-blue-100 mb-2">Packages associated with these motors</div>
+                    <div className="mt-4 rounded-xl border-2 border-teal-400/60 bg-teal-950/40 p-3 shadow-lg shadow-teal-950/30">
+                      <div className="flex items-center justify-between gap-3 mb-3">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="w-4 h-4 text-teal-300" />
+                          <div>
+                            <div className="text-sm font-black uppercase tracking-wide text-teal-100">Recommended Packages</div>
+                            <div className="text-[11px] text-teal-200/80">Matched to the selected motor models</div>
+                          </div>
+                        </div>
+                        <span className="rounded-full bg-teal-400/20 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-teal-200">{associatedPackages.length} match{associatedPackages.length === 1 ? '' : 'es'}</span>
+                      </div>
                       <div className="space-y-2">
                         {associatedPackages.map((pkg) => {
                           const qty = packageQuantities[pkg.id] || 0;
                           return (
-                            <div key={pkg.id} className="flex items-center justify-between gap-3 bg-slate-900/40 rounded-lg px-3 py-2">
-                              <div className="min-w-0">
-                                <div className="text-xs font-medium text-white truncate">{pkg.name}</div>
-                                {pkg.description && <div className="text-[11px] text-slate-400 truncate">{pkg.description}</div>}
+                            <div key={pkg.id} className="flex items-center justify-between gap-3 rounded-lg border border-teal-300/30 bg-slate-950/70 px-3 py-3 transition-colors hover:border-teal-200/70">
+                              <div className="flex min-w-0 items-center gap-3">
+                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-teal-400/15 text-teal-300">
+                                  <Package className="w-4 h-4" />
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="text-sm font-bold text-white truncate">{pkg.name}</div>
+                                  {pkg.description && <div className="text-[11px] text-teal-100/70 truncate">{pkg.description}</div>}
+                                </div>
                               </div>
                               <button
                                 onClick={() => incrementPackage(pkg.id)}
                                 disabled={saving}
-                                className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs shrink-0 disabled:opacity-50"
+                                className="rounded-lg border border-teal-200/60 bg-teal-400 px-3 py-1.5 text-xs font-black text-slate-950 shadow-md shadow-teal-950/40 transition-all hover:bg-teal-300 hover:shadow-teal-400/20 disabled:opacity-50"
                               >
                                 {qty > 0 ? `Add another (${qty})` : 'Recommend'}
                               </button>
