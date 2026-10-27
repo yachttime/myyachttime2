@@ -448,6 +448,23 @@ export default function EditYachtModal({
                           <input type="text" value={enginesForm[i].label} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], label: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500" placeholder="Label (e.g. Port Engine)" />
                           <input type="text" value={enginesForm[i].description} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], description: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500" placeholder="Description (e.g. Cat C18 1000HP)" />
                         </div>
+                        <div className="border border-blue-500/30 bg-blue-500/5 rounded-lg p-2">
+                          <p className="text-xs font-semibold text-blue-300 mb-1">Engine Database</p>
+                          <CatalogSearchDropdown
+                            equipmentType="engine"
+                            onSelect={(cat) => {
+                              if (isShared) {
+                                const a = [...enginesForm];
+                                for (const idx of group.indices) { a[idx] = { ...a[idx], ...cat }; }
+                                setEnginesForm(a);
+                              } else {
+                                const a = [...enginesForm]; a[firstIdx] = { ...a[firstIdx], ...cat }; setEnginesForm(a);
+                              }
+                            }}
+                            className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-blue-500"
+                            placeholder="Search engine database..."
+                          />
+                        </div>
                         <MercuryPartsLink description={enginesForm[i].description} modelNumber={enginesForm[i].model_number} />
                         <div className="grid grid-cols-2 gap-2">
                           <input type="text" value={enginesForm[i].model_number} onChange={(e) => { const a = [...enginesForm]; a[i] = {...a[i], model_number: e.target.value}; setEnginesForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500" placeholder="Model Number" />
@@ -484,22 +501,6 @@ export default function EditYachtModal({
                     {isShared && (
                       <p className="text-[10px] text-amber-500/70">Parts shared across: {getGroupLabels(enginesForm, group)}</p>
                     )}
-                    <div className="flex items-center gap-2">
-                      <CatalogSearchDropdown
-                        equipmentType="engine"
-                        onSelect={(cat) => {
-                          if (isShared) {
-                            const a = [...enginesForm];
-                            for (const idx of group.indices) { a[idx] = { ...a[idx], ...cat }; }
-                            setEnginesForm(a);
-                          } else {
-                            const a = [...enginesForm]; a[firstIdx] = { ...a[firstIdx], ...cat }; setEnginesForm(a);
-                          }
-                        }}
-                        className="flex-1 bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500"
-                        placeholder="Pick from engine database..."
-                      />
-                    </div>
                   </div>
                 );
               });
@@ -525,6 +526,23 @@ export default function EditYachtModal({
                         <div className="grid grid-cols-2 gap-2">
                           <input type="text" value={generatorsForm[i].label} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], label: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500" placeholder="Label (e.g. Port Generator)" />
                           <input type="text" value={generatorsForm[i].description} onChange={(e) => { const a = [...generatorsForm]; a[i] = {...a[i], description: e.target.value}; setGeneratorsForm(a); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500" placeholder="Description (e.g. Northern Lights 27kW)" />
+                        </div>
+                        <div className="border border-blue-500/30 bg-blue-500/5 rounded-lg p-2">
+                          <p className="text-xs font-semibold text-blue-300 mb-1">Engine Database</p>
+                          <CatalogSearchDropdown
+                            equipmentType="generator"
+                            onSelect={(cat) => {
+                              if (isShared) {
+                                const a = [...generatorsForm];
+                                for (const idx of group.indices) { a[idx] = { ...a[idx], ...cat }; }
+                                setGeneratorsForm(a);
+                              } else {
+                                const a = [...generatorsForm]; a[firstIdx] = { ...a[firstIdx], ...cat }; setGeneratorsForm(a);
+                              }
+                            }}
+                            className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-blue-500"
+                            placeholder="Search generator database..."
+                          />
                         </div>
                         <MercuryPartsLink description={generatorsForm[i].description} modelNumber={generatorsForm[i].model_number} />
                         <div className="grid grid-cols-2 gap-2">
@@ -562,22 +580,6 @@ export default function EditYachtModal({
                     {isShared && (
                       <p className="text-[10px] text-amber-500/70">Parts shared across: {getGroupLabels(generatorsForm, group)}</p>
                     )}
-                    <div className="flex items-center gap-2">
-                      <CatalogSearchDropdown
-                        equipmentType="generator"
-                        onSelect={(cat) => {
-                          if (isShared) {
-                            const a = [...generatorsForm];
-                            for (const idx of group.indices) { a[idx] = { ...a[idx], ...cat }; }
-                            setGeneratorsForm(a);
-                          } else {
-                            const a = [...generatorsForm]; a[firstIdx] = { ...a[firstIdx], ...cat }; setGeneratorsForm(a);
-                          }
-                        }}
-                        className="flex-1 bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500"
-                        placeholder="Pick from generator database..."
-                      />
-                    </div>
                   </div>
                 );
               });
