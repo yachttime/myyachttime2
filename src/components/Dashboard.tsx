@@ -4306,16 +4306,20 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             const response = await fetch(photo.photo_url);
             if (!response.ok) throw new Error(`Failed to load estimate photo: ${response.status}`);
             const blob = await response.blob();
-            const photoDataUrl = await new Promise<string>((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onload = () => resolve(String(reader.result));
-              reader.onerror = () => reject(reader.error || new Error('Failed to read estimate photo'));
-              reader.readAsDataURL(blob);
-            });
+            const bitmap = await createImageBitmap(blob, { imageOrientation: 'from-image' });
+            const canvas = document.createElement('canvas');
+            canvas.width = bitmap.width;
+            canvas.height = bitmap.height;
+            const context = canvas.getContext('2d');
+            if (!context) throw new Error('Failed to prepare estimate photo');
+            context.drawImage(bitmap, 0, 0);
+            bitmap.close();
             return {
-              photo_data_url: photoDataUrl,
+              photo_data_url: canvas.toDataURL('image/jpeg', 0.9),
               caption: photo.caption,
               category: photo.category,
+              width: canvas.width,
+              height: canvas.height,
             };
           }));
 
