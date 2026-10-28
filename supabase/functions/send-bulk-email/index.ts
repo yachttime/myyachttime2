@@ -253,7 +253,8 @@ Deno.serve(async (req: Request) => {
 
       for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
         const chunk = recipients.slice(i, i + BATCH_SIZE);
-        const batchPayload = chunk.map(recipient => {
+        const batchPayload = chunk.map((recipient, idxInChunk) => {
+          const isFirstOverall = i + idxInChunk === 0;
           const item: any = {
             from: fromEmail,
             to: [recipient],
@@ -261,7 +262,7 @@ Deno.serve(async (req: Request) => {
             html: htmlContent,
             tags,
           };
-          if (cc_recipients && cc_recipients.length > 0) item.cc = cc_recipients;
+          if (cc_recipients && cc_recipients.length > 0 && isFirstOverall) item.cc = cc_recipients;
           if (attachmentPayload) item.attachments = attachmentPayload;
           return item;
         });
