@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 
 interface DeviceRow {
@@ -10,21 +10,81 @@ interface DeviceRow {
 
 interface SensorRow {
   id: string;
+  device_id: string | null;
   sensor_name: string;
+  sensor_type: string;
   current_value: string | null;
   unit_of_measure: string | null;
   status: 'normal' | 'warning' | 'critical' | 'offline';
   last_reading_at: string | null;
 }
 
-const REFRESH_MS = 60_000;
+interface Reading {
+  primary: string;
+  secondary: string | null;
+}
 
-const statusClass: Record<SensorRow['status'], string> = {
-  normal: 'text-emerald-400',
-  warning: 'text-amber-400',
-  critical: 'text-red-400',
-  offline: 'text-slate-500',
+const REFRESH_MS = 60_000;
+const MILES_PER_KM = 0.621371;
+
+const statusPill: Record<SensorRow['status'], string> = {
+  normal: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/30',
+  warning: 'text-amber-300 bg-amber-500/10 border-amber-500/30',
+  critical: 'text-red-300 bg-red-500/10 border-red-500/30',
+  offline: 'text-slate-300 bg-slate-500/10 border-slate-500/30',
 };
+
+function formatNumber(value: unknown, maximumFractionDigits = 1): string {
+  const number = Number(value);
+  return Number.isFinite(number) ? number.toLocaleString(undefined, { maximumFractionDigits }) : '--';
+}
+
+function parseReadingObject(raw: string): Record<string, unknown> | null {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function describeReading(sensor: SensorRow): Reading {
+  const raw = sensor.current_value?.trim();
+  if (!raw) return { primary: '--', secondary: null };
+
+  const value = parseReadingObject(raw);
+  if (!value) {
+    const withUnit = sensor.unit_of_measure && sensor.sensor_type !== 'gps' ? `${raw} ${sensor.unit_of_measure}` : raw;
+    return { primary: withUnit, secondary: null };
+  }
+
+  if (typeof value.distance_km === 'number') {
+    return { primary: `${formatNumber(value.distance_km * MILES_PER_KM)} mi away`, secondary: null };
+  }
+  if (typeof value.status === 'string') {
+    return { primary: value.status, secondary: null };
+  }
+  if ('temp_f' in value) {
+    return {
+      primary: `${formatNumber(value.temp_f)} °F`,
+      secondary: `Humidity ${formatNumber(value.humidity_pct, 0)}%  ·  Pressure ${formatNumber(Number(value.pressure_pa) / 100)} hPa`,
+    };
+  }
+  if ('mph' in value) return { primary: `${formatNumber(value.mph)} mph`, secondary: null };
+  if ('deg' in value) return { primary: `${formatNumber(value.deg, 0)}°`, secondary: null };
+  if ('mm' in value) return { primary: `${formatNumber(value.mm)} mm`, secondary: null };
+
+  return {
+    primary: Object.entries(value).map(([key, item]) => `${key}: ${String(item)}`).join(', '),
+    secondary: null,
+  };
+}
+
+function formatTime(iso: string | null): string {
+  return iso ? new Date(iso).toLocaleTimeString() : '--';
+}
 
 export function VesselMonitoringTab({ yachtId }: { yachtId: string }) {
   const [devices, setDevices] = useState<DeviceRow[]>([]);
@@ -40,7 +100,7 @@ export function VesselMonitoringTab({ yachtId }: { yachtId: string }) {
         .eq('yacht_id', yachtId),
       supabase
         .from('vessel_monitor_sensors')
-        .select('id, sensor_name, current_value, unit_of_measure, status, last_reading_at')
+        .select('id, device_id, sensor_name, sensor_type, current_value, unit_of_measure, status, last_reading_at')
         .eq('yacht_id', yachtId)
         .order('sensor_name'),
     ]);
@@ -60,6 +120,21 @@ export function VesselMonitoringTab({ yachtId }: { yachtId: string }) {
     const timer = setInterval(() => void load(), REFRESH_MS);
     return () => clearInterval(timer);
   }, [load]);
+
+  const deviceNames = useMemo(
+    () => new Map(devices.map((device) => [device.id, device.device_name])),
+    [devices],
+  );
+
+  const sortedSensors = useMemo(
+    () =>
+      [...sensors].sort(
+        (a, b) =>
+          (deviceNames.get(a.device_id ?? '') ?? '').localeCompare(deviceNames.get(b.device_id ?? '') ?? '') ||
+          a.sensor_name.localeCompare(b.sensor_name),
+      ),
+    [sensors, deviceNames],
+  );
 
   if (loading) {
     return <p className="text-slate-400">Loading vessel readings...</p>;
@@ -92,17 +167,39 @@ export function VesselMonitoringTab({ yachtId }: { yachtId: string }) {
         {sensors.length === 0 ? (
           <p className="text-slate-400">No sensors are set up for this yacht yet.</p>
         ) : (
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-            {sensors.map((sensor) => (
-              <div key={sensor.id} className="rounded-xl bg-slate-800 px-4 py-4 space-y-1">
-                <p className="text-sm text-slate-400">{sensor.sensor_name}</p>
-                <p className={`text-2xl font-semibold ${statusClass[sensor.status]}`}>
-                  {sensor.current_value ?? '--'}
-                  {sensor.current_value && sensor.unit_of_measure ? ` ${sensor.unit_of_measure}` : ''}
-                </p>
-                <p className="text-xs text-slate-500 capitalize">{sensor.status}</p>
-              </div>
-            ))}
+          <div className="overflow-x-auto rounded-xl border border-slate-700">
+            <table className="w-full min-w-[640px] text-sm">
+              <thead className="bg-slate-800 text-left text-xs uppercase tracking-wide text-slate-400">
+                <tr>
+                  <th scope="col" className="px-4 py-3 font-semibold">Device</th>
+                  <th scope="col" className="px-4 py-3 font-semibold">Sensor</th>
+                  <th scope="col" className="px-4 py-3 font-semibold">Reading</th>
+                  <th scope="col" className="px-4 py-3 font-semibold">Status</th>
+                  <th scope="col" className="px-4 py-3 font-semibold text-right">Updated</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-700 bg-slate-800/40">
+                {sortedSensors.map((sensor) => {
+                  const reading = describeReading(sensor);
+                  return (
+                    <tr key={sensor.id} className="align-middle">
+                      <td className="px-4 py-3 text-slate-300">{deviceNames.get(sensor.device_id ?? '') ?? '--'}</td>
+                      <td className="px-4 py-3 font-medium text-white">{sensor.sensor_name}</td>
+                      <td className="px-4 py-3">
+                        <p className="text-lg font-semibold text-white">{reading.primary}</p>
+                        {reading.secondary && <p className="mt-0.5 text-xs text-slate-400">{reading.secondary}</p>}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-block rounded-full border px-2.5 py-0.5 text-xs font-medium capitalize ${statusPill[sensor.status]}`}>
+                          {sensor.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right whitespace-nowrap text-slate-400">{formatTime(sensor.last_reading_at)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </section>
