@@ -3497,6 +3497,11 @@ export interface BudgetEstimateDetail {
   total_amount: number | string;
   created_at: string;
   work_title: string | null;
+  photos: Array<{
+    photo_data_url: string;
+    caption: string | null;
+    category: string;
+  }>;
   tasks: Array<{
     title: string | null;
     line_items: Array<{
@@ -3776,6 +3781,20 @@ export function generateBudgetPDF(data: BudgetPDFData): jsPDF {
       });
       addSpace(0.1);
     }
+
+    if (est.photos.length > 0) {
+      ensureSpace(0.4);
+      addText('PHOTOS', 11, 'bold');
+      addSpace(0.08);
+      for (const photo of est.photos) {
+        ensureSpace(3.15);
+        const imageFormat = photo.photo_data_url.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+        doc.addImage(photo.photo_data_url, imageFormat, margin + 0.15, yPos, contentWidth - 0.3, 2.65, undefined, 'FAST');
+        yPos += 2.75;
+        if (photo.caption) addText(photo.caption, 9);
+        addSpace(0.12);
+      }
+    }
   }
 
   // Footer page numbers
@@ -3785,7 +3804,7 @@ export function generateBudgetPDF(data: BudgetPDFData): jsPDF {
   doc.setTextColor(100);
   for (let pg = 1; pg <= pageCount; pg++) {
     doc.setPage(pg);
-    doc.text(`Page ${pg} of ${pageCount}`, pageWidth - margin, 8, { align: 'right' });
+    doc.text(`Page ${pg} of ${pageCount}`, pageWidth - margin, 10.65, { align: 'right' });
   }
 
   return doc;

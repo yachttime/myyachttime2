@@ -4287,12 +4287,37 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           if (estErr) throw estErr;
           if (!est) return { ...ee, detail: null };
 
-          const { data: tasks, error: tasksErr } = await supabase
-            .from('estimate_tasks')
-            .select('id, task_name')
-            .eq('estimate_id', est.id)
-            .order('created_at');
+          const [{ data: tasks, error: tasksErr }, { data: photos, error: photosErr }] = await Promise.all([
+            supabase
+              .from('estimate_tasks')
+              .select('id, task_name')
+              .eq('estimate_id', est.id)
+              .order('created_at'),
+            supabase
+              .from('estimate_photos')
+              .select('photo_url, caption, category')
+              .eq('estimate_id', est.id)
+              .order('created_at'),
+          ]);
           if (tasksErr) throw tasksErr;
+          if (photosErr) throw photosErr;
+
+          const photosWithData = await Promise.all((photos || []).map(async (photo: any) => {
+            const response = await fetch(photo.photo_url);
+            if (!response.ok) throw new Error(`Failed to load estimate photo: ${response.status}`);
+            const blob = await response.blob();
+            const photoDataUrl = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(String(reader.result));
+              reader.onerror = () => reject(reader.error || new Error('Failed to read estimate photo'));
+              reader.readAsDataURL(blob);
+            });
+            return {
+              photo_data_url: photoDataUrl,
+              caption: photo.caption,
+              category: photo.category,
+            };
+          }));
 
           const tasksWithItems = await Promise.all(
             (tasks || []).map(async (t: any) => {
@@ -4321,6 +4346,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             total_amount: Number(est.total_amount) || 0,
             created_at: est.created_at,
             work_title: est.work_title,
+            photos: photosWithData,
             tasks: tasksWithItems,
           };
           return { ...ee, detail };
