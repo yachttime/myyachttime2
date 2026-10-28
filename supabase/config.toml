@@ -70,8 +70,4 @@ verify_jwt = true
 [functions.send-checkin-notification]
 verify_jwt = true
 
-[functions.create-tablet-login]
-verify_jwt = true
 
-[functions.reset-tablet-login]
-verify_jwt = true

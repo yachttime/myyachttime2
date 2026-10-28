@@ -167,7 +167,7 @@ function AppContent() {
     );
   }
 
-  if (window.location.pathname === '/tablet' || userProfile?.role === 'tablet') {
+  if (window.location.pathname === '/tablet') {
     return <TabletApp />;
   }
 
