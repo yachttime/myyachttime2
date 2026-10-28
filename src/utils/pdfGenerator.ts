@@ -3634,6 +3634,8 @@ export function generateBudgetPDF(data: BudgetPDFData): jsPDF {
   // Package detail breakdowns
   const packagesWithDetail = data.packages.filter(p => p.detail && (p.detail.labor.length > 0 || p.detail.parts.length > 0));
   if (packagesWithDetail.length > 0) {
+    doc.addPage();
+    yPos = margin;
     addText('PACKAGE DETAILS', 13, 'bold');
     addLine();
     addSpace(0.1);
