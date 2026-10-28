@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { X, Package, FileText, CheckCircle, Circle, DollarSign, Loader2, AlertTriangle, ChevronRight, ChevronLeft, Plus, Minus, Gauge, Zap, Wrench, Sparkles } from 'lucide-react';
+import { X, Package, FileText, CheckCircle, Circle, DollarSign, Loader2, AlertTriangle, ChevronRight, ChevronLeft, Plus, Minus, Gauge, Zap, Wrench, Sparkles, Printer } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface BudgetBuilderProps {
@@ -9,6 +9,7 @@ interface BudgetBuilderProps {
   existingBudgetId: string | null;
   onClose: () => void;
   onSaved: (year: number) => void;
+  onPrint: (year: number) => void;
 }
 
 interface EstimatePackage {
@@ -56,7 +57,7 @@ interface ServiceRecommendation {
   matchedPackageId: string | null;
 }
 
-export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId, onClose, onSaved }: BudgetBuilderProps) => {
+export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId, onClose, onSaved, onPrint }: BudgetBuilderProps) => {
   const [selectedYear, setSelectedYear] = useState(budgetYear);
   const [activeBudgetId, setActiveBudgetId] = useState(existingBudgetId);
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -1160,6 +1161,16 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
               <span className="text-sm text-slate-400">
                 Total: <span className="text-emerald-400 font-semibold">{fmt(grandTotal)}</span>
               </span>
+            )}
+            {hasExistingItems && activeBudgetId && (
+              <button
+                onClick={() => onPrint(selectedYear)}
+                disabled={saving}
+                className="flex items-center gap-1 px-3 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-sm transition-colors disabled:opacity-50"
+              >
+                <Printer className="w-4 h-4" />
+                Print Budget
+              </button>
             )}
             {step < 3 ? (
               <button

@@ -20138,6 +20138,24 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             setBudgetBuilderYacht(null);
             void loadYachtBudget(budgetBuilderYacht.id, savedYear);
           }}
+          onPrint={async (printYear) => {
+            const { data: budget, error } = await supabase
+              .from('yacht_budgets')
+              .select('*')
+              .eq('yacht_id', budgetBuilderYacht.id)
+              .eq('budget_year', printYear)
+              .maybeSingle();
+            if (error || !budget) {
+              alert('No budget found to print for that year.');
+              return;
+            }
+            const { data: items } = await supabase
+              .from('yacht_budget_items')
+              .select('id, item_type, source_id, name, amount, quantity')
+              .eq('budget_id', budget.id);
+            setBudgetItems(prev => ({ ...prev, [budget.id]: items || [] }));
+            void handlePrintBudget(budgetBuilderYacht.id, budgetBuilderYacht.name, printYear, budget as any);
+          }}
         />
       )}
 
