@@ -4213,9 +4213,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   };
 
   const [budgetPrinting, setBudgetPrinting] = useState<Set<string>>(new Set());
+  const budgetPrintInFlight = useRef<Set<string>>(new Set());
 
   const handlePrintBudget = async (yachtId: string, yachtName: string, year: number, currentBudget: YachtBudget | undefined) => {
     const key = `${yachtId}-${year}`;
+    if (budgetPrintInFlight.current.has(key)) return;
+    budgetPrintInFlight.current.add(key);
     setBudgetPrinting(prev => new Set(prev).add(key));
     try {
       if (!currentBudget) {
@@ -4347,6 +4350,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       console.error('Error generating budget PDF:', error);
       alert(`Failed to generate budget PDF: ${error.message}`);
     } finally {
+      budgetPrintInFlight.current.delete(key);
       setBudgetPrinting(prev => {
         const next = new Set(prev);
         next.delete(key);
@@ -14254,11 +14258,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                         {!isEditingBudget && budgetAmount > 0 && (
                                           <button
                                             onClick={() => handlePrintBudget(yacht.id, yacht.name, selectedInvoiceYear, currentBudget)}
-                                            className="flex items-center gap-1 px-2 py-1 bg-cyan-600 hover:bg-cyan-700 text-white rounded text-xs transition-colors"
+                                            disabled={budgetPrinting.has(`${yacht.id}-${selectedInvoiceYear}`)}
+                                            className="flex items-center gap-1 px-2 py-1 bg-cyan-600 hover:bg-cyan-700 text-white rounded text-xs transition-colors disabled:opacity-60 disabled:cursor-wait"
                                             title="Print budget with package details and attached estimates"
                                           >
-                                            <Printer className="w-3 h-3" />
-                                            Print Budget
+                                            {budgetPrinting.has(`${yacht.id}-${selectedInvoiceYear}`) ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Printer className="w-3 h-3" />}
+                                            {budgetPrinting.has(`${yacht.id}-${selectedInvoiceYear}`) ? 'Preparing...' : 'Print Budget'}
                                           </button>
                                         )}
                                       </div>
