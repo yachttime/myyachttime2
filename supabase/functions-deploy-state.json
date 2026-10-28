@@ -107,7 +107,7 @@
     },
     "send-bulk-email": {
       "hasChanged": false,
-      "hash": "7f6c2908d8686fc9f275326a896181b925b47d62750e4d90156581c93ca61390a257b264ec2605d1daace3e4bee60bd285f279da20d55cd11820360ef628542d"
+      "hash": "f30ddb16c9c2410dd7ae4714198a6cac5a41e2faaf5589aa755263a959f1f8d9a257b264ec2605d1daace3e4bee60bd285f279da20d55cd11820360ef628542d"
     },
     "send-checkin-notification": {
       "hasChanged": false,

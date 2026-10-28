@@ -247,70 +247,68 @@ Deno.serve(async (req: Request) => {
       recipientEmailIdMap = [{ email: recipients[0], resendEmailId: emailData.id }];
       console.log('Single email sent successfully:', emailData.id);
     } else {
-      // Resend batch API limit is 100 per call — chunk and send in multiple requests
-      const BATCH_SIZE = 100;
-      const allSentEmails: Array<{ id: string }> = [];
+      // Send individual emails with limited concurrency instead of one giant batch.
+      // The batch API serializes attachments N times into a single payload, which
+      // exceeds the edge function memory limit for large recipient lists.
+      const CONCURRENCY = 5;
+      const sentEmails: Array<{ email: string; id: string }> = [];
 
-      for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
-        const chunk = recipients.slice(i, i + BATCH_SIZE);
-        const batchPayload = chunk.map((recipient, idxInChunk) => {
-          const isFirstOverall = i + idxInChunk === 0;
-          const item: any = {
+      for (let i = 0; i < recipients.length; i += CONCURRENCY) {
+        const chunk = recipients.slice(i, i + CONCURRENCY);
+        const chunkResults = await Promise.all(chunk.map(async (recipient, idxInChunk) => {
+          const emailPayload: any = {
             from: fromEmail,
             to: [recipient],
             subject,
             html: htmlContent,
             tags,
           };
-          if (cc_recipients && cc_recipients.length > 0 && isFirstOverall) item.cc = cc_recipients;
-          if (attachmentPayload) item.attachments = attachmentPayload;
-          return item;
-        });
-
-        console.log(`Sending batch ${Math.floor(i / BATCH_SIZE) + 1}: recipients ${i + 1}–${i + chunk.length}`);
-
-        const batchResponse = await fetch('https://api.resend.com/emails/batch', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${resendApiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(batchPayload),
-        });
-
-        if (!batchResponse.ok) {
-          const errorText = await batchResponse.text();
-          console.error('Resend batch API error:', errorText);
-          let errorMessage = 'Failed to send email via Resend';
-          try {
-            const errorData = JSON.parse(errorText);
-            if (errorData.message) {
-              errorMessage = `Resend Error: ${errorData.message}`;
-              if (errorData.message.includes('You can only send testing emails to your own email address')) {
-                errorMessage += '\n\nTo fix this:\n1. Go to resend.com/domains and verify your domain\n2. In Supabase Edge Functions, add RESEND_FROM_EMAIL secret\n3. Or for testing, only send emails to your verified address';
-              }
-            }
-          } catch {
-            errorMessage = `Resend Error (${batchResponse.status}): ${errorText}`;
+          if (cc_recipients && cc_recipients.length > 0 && i + idxInChunk === 0) {
+            emailPayload.cc = cc_recipients;
           }
-          return new Response(
-            JSON.stringify({ error: errorMessage }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
+          if (attachmentPayload) emailPayload.attachments = attachmentPayload;
 
-        const batchData = await batchResponse.json();
-        const chunkSent: Array<{ id: string }> = Array.isArray(batchData) ? batchData : (batchData.data || []);
-        allSentEmails.push(...chunkSent);
-        console.log(`Batch ${Math.floor(i / BATCH_SIZE) + 1} sent successfully:`, chunkSent.length, 'emails');
+          const emailResponse = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${resendApiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(emailPayload),
+          });
+
+          if (!emailResponse.ok) {
+            const errorText = await emailResponse.text();
+            console.error('Resend email API error:', errorText);
+            let errorMessage = 'Failed to send email via Resend';
+            try {
+              const errorData = JSON.parse(errorText);
+              if (errorData.message) {
+                errorMessage = `Resend Error: ${errorData.message}`;
+                if (errorData.message.includes('You can only send testing emails to your own email address')) {
+                  errorMessage += '\n\nTo fix this:\n1. Go to resend.com/domains and verify your domain\n2. In Supabase Edge Functions, add RESEND_FROM_EMAIL secret\n3. Or for testing, only send emails to your verified address';
+                }
+              }
+            } catch {
+              errorMessage = `Resend Error (${emailResponse.status}): ${errorText}`;
+            }
+            throw new Error(errorMessage);
+          }
+
+          const emailData = await emailResponse.json();
+          return { email: recipient, id: emailData.id as string };
+        }));
+
+        sentEmails.push(...chunkResults);
+        console.log(`Sent emails ${i + 1}–${i + chunk.length} of ${recipients.length}`);
       }
 
-      resendEmailIds = allSentEmails.map((e: { id: string }) => e.id).filter(Boolean);
+      resendEmailIds = sentEmails.map(e => e.id).filter(Boolean);
       primaryEmailId = resendEmailIds[0] || null;
-      recipientEmailIdMap = recipients.map((email, idx) => ({
-        email,
-        resendEmailId: allSentEmails[idx]?.id || '',
-      })).filter(r => r.resendEmailId);
+      recipientEmailIdMap = sentEmails.map(e => ({
+        email: e.email,
+        resendEmailId: e.id,
+      }));
     }
 
     const recipientsArray = recipients.map(email => ({ email, name: email }));
