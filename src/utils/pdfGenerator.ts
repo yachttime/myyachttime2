@@ -3794,20 +3794,24 @@ export function generateBudgetPDF(data: BudgetPDFData): jsPDF {
       const maxImageHeight = 2.35;
       const maxImageWidth = cellWidth - 0.1;
 
+      let galleryStartY = yPos;
       for (let photoIndex = 0; photoIndex < est.photos.length; photoIndex++) {
-        if (photoIndex > 0 && photoIndex % 6 === 0) {
-          doc.addPage();
-          yPos = margin;
-          addText('PHOTOS (CONTINUED)', 11, 'bold');
-          addSpace(0.15);
+        if (photoIndex % 6 === 0) {
+          if (photoIndex > 0) {
+            doc.addPage();
+            yPos = margin;
+            addText('PHOTOS (CONTINUED)', 11, 'bold');
+            addSpace(0.15);
+          }
+          ensureSpace(cellHeight * 3);
+          galleryStartY = yPos;
         }
-        if (photoIndex % 2 === 0) ensureSpace(cellHeight);
 
         const photo = est.photos[photoIndex];
         const column = photoIndex % 2;
         const row = Math.floor((photoIndex % 6) / 2);
         const cellX = margin + column * (cellWidth + columnGap);
-        const cellY = yPos + row * cellHeight;
+        const cellY = galleryStartY + row * cellHeight;
         const imageFormat = photo.photo_data_url.startsWith('data:image/png') ? 'PNG' : 'JPEG';
         const scale = Math.min(maxImageWidth / photo.width, maxImageHeight / photo.height);
         const imageWidth = photo.width * scale;
@@ -3820,8 +3824,8 @@ export function generateBudgetPDF(data: BudgetPDFData): jsPDF {
           doc.text(photo.caption, cellX + cellWidth / 2, cellY + maxImageHeight + 0.12, { align: 'center', maxWidth: cellWidth });
         }
 
-        if (column === 1 || photoIndex === est.photos.length - 1) {
-          yPos += cellHeight;
+        if (photoIndex % 6 === 5 || photoIndex === est.photos.length - 1) {
+          yPos = galleryStartY + cellHeight * 3;
         }
       }
     }
