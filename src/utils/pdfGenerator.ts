@@ -1354,12 +1354,34 @@ export async function generateEstimatePDF(
   showPartNumbers?: boolean,
   photos?: any[]
 ): Promise<jsPDF> {
-  const doc = new jsPDF({
-    orientation: 'portrait',
-    unit: 'in',
-    format: 'letter',
-  });
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'in', format: 'letter' });
+  await drawEstimatePDF(doc, estimate, tasks, yachtName, companyInfo, yachtMake, yachtModel, showPartNumbers, photos);
 
+  const pageWidth = 8.5;
+  const margin = 0.75;
+  const pageCount = doc.getNumberOfPages();
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(100);
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.text(`Generated: ${phxDateTime(new Date())}`, margin, 10.5);
+    doc.text(`Page ${i} of ${pageCount}`, pageWidth - margin - 0.5, 10.5, { align: 'right' });
+  }
+  return doc;
+}
+
+async function drawEstimatePDF(
+  doc: jsPDF,
+  estimate: any,
+  tasks: any[],
+  yachtName: string | null,
+  companyInfo: any,
+  yachtMake: string | null | undefined,
+  yachtModel: string | null | undefined,
+  showPartNumbers: boolean | undefined,
+  photos: any[] | undefined
+): Promise<void> {
   const pageWidth = 8.5;
   const margin = 0.75;
   const contentWidth = pageWidth - (margin * 2);
@@ -2001,19 +2023,6 @@ export async function generateEstimatePDF(
       yPos += rowHeight + rowGap;
     }
   }
-
-  const pageCount = doc.getNumberOfPages();
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(100);
-
-  for (let i = 1; i <= pageCount; i++) {
-    doc.setPage(i);
-    doc.text(`Generated: ${phxDateTime(new Date())}`, margin, 10.5);
-    doc.text(`Page ${i} of ${pageCount}`, pageWidth - margin - 0.5, 10.5, { align: 'right' });
-  }
-
-  return doc;
 }
 
 export async function generateWorkOrderPDF(
@@ -3492,28 +3501,11 @@ export interface BudgetPackageDetail {
 }
 
 export interface BudgetEstimateDetail {
-  estimate_number: string;
-  customer_name: string | null;
-  total_amount: number | string;
-  created_at: string;
-  work_title: string | null;
-  photos: Array<{
-    photo_data_url: string;
-    caption: string | null;
-    category: string;
-    width: number;
-    height: number;
-  }>;
-  tasks: Array<{
-    title: string | null;
-    line_items: Array<{
-      line_type: string;
-      description: string | null;
-      quantity: number | string;
-      unit_price: number | string;
-      line_total: number | string;
-    }>;
-  }>;
+  estimate: any;
+  tasks: any[];
+  photos: any[];
+  yachtMake: string | null;
+  yachtModel: string | null;
 }
 
 export interface BudgetPDFData {
@@ -3539,7 +3531,7 @@ export interface BudgetPDFData {
 
 const money = (n: number | string | null | undefined): string => `${(Number(n) || 0).toFixed(2)}`;
 
-export function generateBudgetPDF(data: BudgetPDFData): jsPDF {
+export async function generateBudgetPDF(data: BudgetPDFData): Promise<jsPDF> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'in', format: 'letter' });
   const pageWidth = 8.5;
   const margin = 0.75;
@@ -3720,115 +3712,11 @@ export function generateBudgetPDF(data: BudgetPDFData): jsPDF {
     }
   }
 
-  // Estimate copies
   const estimatesWithDetail = data.estimates.filter(e => e.detail);
-  if (estimatesWithDetail.length > 0) {
-    doc.addPage();
-    yPos = margin;
-    addText('ATTACHED OFF-SEASON ESTIMATES', 13, 'bold', 'center');
-    addSpace(0.2);
-  }
-
-  for (let i = 0; i < estimatesWithDetail.length; i++) {
-    const estItem = estimatesWithDetail[i];
+  for (const estItem of estimatesWithDetail) {
     const est = estItem.detail!;
-    if (i > 0) {
-      doc.addPage();
-      yPos = margin;
-    }
-
-    addText(`ESTIMATE ${est.estimate_number}`, 14, 'bold', 'center');
-    if (est.work_title) addText(est.work_title, 11, 'normal', 'center');
-    addText(`${data.yachtName}${est.customer_name ? ` — ${est.customer_name}` : ''}`, 10, 'normal', 'center');
-    addText(`Date: ${phxDate(est.created_at)}`, 9, 'normal', 'center');
-    addText(`Total: ${money(est.total_amount)}`, 11, 'bold', 'center');
-    addSpace(0.15);
-    addLine();
-    addSpace(0.1);
-
-    for (const task of est.tasks) {
-      ensureSpace(0.4);
-      addText(task.title || 'Untitled Task', 11, 'bold');
-      addSpace(0.04);
-
-      if (task.line_items.length === 0) {
-        addText('No line items', 9, 'normal');
-        addSpace(0.1);
-        continue;
-      }
-
-      const itemRows = task.line_items.map(li => [
-        li.line_type || '—',
-        li.description || '—',
-        String(Number(li.quantity) || 0),
-        money(li.unit_price),
-        money(li.line_total),
-      ]);
-      autoTable(doc, {
-        startY: yPos,
-        head: [['Type', 'Description', 'Qty', 'Unit', 'Total']],
-        body: itemRows,
-        theme: 'striped',
-        styles: { fontSize: 9, cellPadding: 0.05, font: 'helvetica', lineColor: [226, 232, 240], lineWidth: 0.01 },
-        headStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0], fontStyle: 'bold' },
-        columnStyles: {
-          0: { halign: 'left', cellWidth: 0.8 },
-          1: { halign: 'left' },
-          2: { halign: 'right' },
-          3: { halign: 'right' },
-          4: { halign: 'right' },
-        },
-        margin: { left: margin + 0.15, right: margin },
-        didDrawPage: (d: any) => { yPos = d.cursor.y + 0.12; },
-      });
-      addSpace(0.1);
-    }
-
-    if (est.photos.length > 0) {
-      ensureSpace(0.4);
-      addText('PHOTOS', 11, 'bold');
-      addSpace(0.08);
-      const columnGap = 0.2;
-      const cellWidth = (contentWidth - columnGap) / 2;
-      const cellHeight = 2.75;
-      const maxImageHeight = 2.35;
-      const maxImageWidth = cellWidth - 0.1;
-
-      let galleryStartY = yPos;
-      for (let photoIndex = 0; photoIndex < est.photos.length; photoIndex++) {
-        if (photoIndex % 6 === 0) {
-          if (photoIndex > 0) {
-            doc.addPage();
-            yPos = margin;
-            addText('PHOTOS (CONTINUED)', 11, 'bold');
-            addSpace(0.15);
-          }
-          ensureSpace(cellHeight * 3);
-          galleryStartY = yPos;
-        }
-
-        const photo = est.photos[photoIndex];
-        const column = photoIndex % 2;
-        const row = Math.floor((photoIndex % 6) / 2);
-        const cellX = margin + column * (cellWidth + columnGap);
-        const cellY = galleryStartY + row * cellHeight;
-        const imageFormat = photo.photo_data_url.startsWith('data:image/png') ? 'PNG' : 'JPEG';
-        const scale = Math.min(maxImageWidth / photo.width, maxImageHeight / photo.height);
-        const imageWidth = photo.width * scale;
-        const imageHeight = photo.height * scale;
-        const imageX = cellX + (cellWidth - imageWidth) / 2;
-        doc.addImage(photo.photo_data_url, imageFormat, imageX, cellY, imageWidth, imageHeight, undefined, 'FAST');
-        if (photo.caption) {
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(7);
-          doc.text(photo.caption, cellX + cellWidth / 2, cellY + maxImageHeight + 0.12, { align: 'center', maxWidth: cellWidth });
-        }
-
-        if (photoIndex % 6 === 5 || photoIndex === est.photos.length - 1) {
-          yPos = galleryStartY + cellHeight * 3;
-        }
-      }
-    }
+    doc.addPage();
+    await drawEstimatePDF(doc, est.estimate, est.tasks, data.yachtName, data.companyInfo, est.yachtMake, est.yachtModel, undefined, est.photos);
   }
 
   // Footer page numbers

@@ -4276,12 +4276,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         })
       );
 
-      // Load estimate details (tasks with line items)
+      // Load full estimate data so attached estimates print exactly like the real estimate
       const estimateDetails = await Promise.all(
         estimateEntries.map(async (ee) => {
           const { data: est, error: estErr } = await supabase
             .from('estimates')
-            .select('id, estimate_number, customer_name, total_amount, created_at, work_title')
+            .select('*, yachts(name, manufacturer, model)')
             .eq('id', ee.sourceId)
             .maybeSingle();
           if (estErr) throw estErr;
@@ -4290,68 +4290,36 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           const [{ data: tasks, error: tasksErr }, { data: photos, error: photosErr }] = await Promise.all([
             supabase
               .from('estimate_tasks')
-              .select('id, task_name')
+              .select('*')
               .eq('estimate_id', est.id)
-              .order('created_at'),
+              .order('task_order'),
             supabase
               .from('estimate_photos')
-              .select('photo_url, caption, category')
+              .select('*')
               .eq('estimate_id', est.id)
-              .order('created_at'),
+              .order('created_at', { ascending: false }),
           ]);
           if (tasksErr) throw tasksErr;
           if (photosErr) throw photosErr;
 
-          const photosWithData = await Promise.all((photos || []).map(async (photo: any) => {
-            const response = await fetch(photo.photo_url);
-            if (!response.ok) throw new Error(`Failed to load estimate photo: ${response.status}`);
-            const blob = await response.blob();
-            const bitmap = await createImageBitmap(blob, { imageOrientation: 'from-image' });
-            const canvas = document.createElement('canvas');
-            canvas.width = bitmap.width;
-            canvas.height = bitmap.height;
-            const context = canvas.getContext('2d');
-            if (!context) throw new Error('Failed to prepare estimate photo');
-            context.drawImage(bitmap, 0, 0);
-            bitmap.close();
-            return {
-              photo_data_url: canvas.toDataURL('image/jpeg', 0.9),
-              caption: photo.caption,
-              category: photo.category,
-              width: canvas.width,
-              height: canvas.height,
-            };
-          }));
-
           const tasksWithItems = await Promise.all(
-            (tasks || []).map(async (t: any) => {
+            (tasks || []).map(async (task: any) => {
               const { data: lineItems, error: liErr } = await supabase
                 .from('estimate_line_items')
-                .select('line_type, description, quantity, unit_price, total_price')
-                .eq('task_id', t.id)
-                .order('created_at');
+                .select('*')
+                .eq('task_id', task.id)
+                .order('line_order');
               if (liErr) throw liErr;
-              return {
-                title: t.task_name,
-                line_items: (lineItems || []).map((li: any) => ({
-                  line_type: li.line_type,
-                  description: li.description,
-                  quantity: Number(li.quantity) || 0,
-                  unit_price: Number(li.unit_price) || 0,
-                  line_total: Number(li.total_price) || 0,
-                })),
-              };
+              return { ...task, lineItems: lineItems || [] };
             })
           );
 
           const detail: BudgetEstimateDetail = {
-            estimate_number: est.estimate_number,
-            customer_name: est.customer_name,
-            total_amount: Number(est.total_amount) || 0,
-            created_at: est.created_at,
-            work_title: est.work_title,
-            photos: photosWithData,
+            estimate: est,
             tasks: tasksWithItems,
+            photos: photos || [],
+            yachtMake: est.yachts?.manufacturer ?? null,
+            yachtModel: est.yachts?.model ?? null,
           };
           return { ...ee, detail };
         })
@@ -4371,7 +4339,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         estimates: estimateDetails.map(ee => ({ name: ee.name, amount: ee.amount, detail: ee.detail })),
       };
 
-      const pdf = generateBudgetPDF(pdfData);
+      const pdf = await generateBudgetPDF(pdfData);
       const pdfBlob = pdf.output('blob');
       const pdfUrl = URL.createObjectURL(pdfBlob);
       window.open(pdfUrl, '_blank');
