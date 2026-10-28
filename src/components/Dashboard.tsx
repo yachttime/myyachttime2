@@ -20134,9 +20134,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           budgetYear={selectedInvoiceYear}
           existingBudgetId={yachtBudgets[`${budgetBuilderYacht.id}-${selectedInvoiceYear}`]?.id || null}
           onClose={() => setBudgetBuilderYacht(null)}
-          onSaved={() => {
+          onSaved={(savedYear) => {
             setBudgetBuilderYacht(null);
-            void loadYachtBudget(budgetBuilderYacht.id, selectedInvoiceYear);
+            void loadYachtBudget(budgetBuilderYacht.id, savedYear);
           }}
         />
       )}

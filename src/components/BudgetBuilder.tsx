@@ -8,7 +8,7 @@ interface BudgetBuilderProps {
   budgetYear: number;
   existingBudgetId: string | null;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (year: number) => void;
 }
 
 interface EstimatePackage {
@@ -57,6 +57,8 @@ interface ServiceRecommendation {
 }
 
 export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId, onClose, onSaved }: BudgetBuilderProps) => {
+  const [selectedYear, setSelectedYear] = useState(budgetYear);
+  const [activeBudgetId, setActiveBudgetId] = useState(existingBudgetId);
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [packages, setPackages] = useState<EstimatePackage[]>([]);
   const [packageTotals, setPackageTotals] = useState<Record<string, number>>({});
@@ -127,7 +129,7 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
   const loadHours = useCallback(async () => {
     setLoadingHours(true);
     try {
-      const priorYear = budgetYear - 1;
+      const priorYear = selectedYear - 1;
       const yearStart = `${priorYear}-01-01`;
       const yearEnd = `${priorYear}-12-31`;
 
@@ -219,7 +221,7 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
     } finally {
       setLoadingHours(false);
     }
-  }, [yachtId, budgetYear]);
+  }, [yachtId, selectedYear]);
 
   const loadPackages = useCallback(async () => {
     setLoadingPackages(true);
@@ -277,12 +279,12 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
   }, [yachtId]);
 
   const loadExistingItems = useCallback(async () => {
-    if (!existingBudgetId) return;
+    if (!activeBudgetId) return;
     try {
       const { data, error: itemsError } = await supabase
         .from('yacht_budget_items')
         .select('id, item_type, source_id, name, amount, quantity')
-        .eq('budget_id', existingBudgetId)
+        .eq('budget_id', activeBudgetId)
         .order('created_at');
 
       if (itemsError) throw itemsError;
@@ -303,11 +305,11 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
       }
 
       // Load fee values from the existing budget header
-      if (existingBudgetId) {
+      if (activeBudgetId) {
         const { data: budget, error: budgetErr } = await supabase
           .from('yacht_budgets')
           .select('annual_management_fee, season_trip_fees, off_season_trip_fees')
-          .eq('id', existingBudgetId)
+          .eq('id', activeBudgetId)
           .maybeSingle();
         if (!budgetErr && budget) {
           setAnnualManagementFee(budget.annual_management_fee ? String(budget.annual_management_fee) : '');
@@ -318,15 +320,50 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
     } catch (err: any) {
       console.error('Error loading existing budget items:', err);
     }
-  }, [existingBudgetId]);
+  }, [activeBudgetId]);
+
+  // When the selected year changes, look up the existing budget for that year and reload items/hours
+  useEffect(() => {
+    let cancelled = false;
+    const lookupBudget = async () => {
+      const { data, error } = await supabase
+        .from('yacht_budgets')
+        .select('id')
+        .eq('yacht_id', yachtId)
+        .eq('budget_year', selectedYear)
+        .maybeSingle();
+      if (cancelled) return;
+      if (error) {
+        console.error('Error looking up budget for year:', error);
+        setActiveBudgetId(null);
+      } else {
+        setActiveBudgetId(data?.id || null);
+      }
+    };
+    lookupBudget();
+    return () => { cancelled = true; };
+  }, [yachtId, selectedYear]);
+
+  // Reset selections when the active budget changes (year change)
+  useEffect(() => {
+    setHasExistingItems(false);
+    setPackageQuantities({});
+    setSelectedEstimates(new Set());
+    setMotorPackageSelections({});
+    setAppliedRecKeys(new Set());
+    setAnnualManagementFee('');
+    setSeasonTripFees('');
+    setOffSeasonTripFees('');
+    setStep(1);
+    loadExistingItems();
+    loadHours();
+  }, [activeBudgetId, loadExistingItems, loadHours]);
 
   useEffect(() => {
     loadPackages();
     loadOffseason();
-    loadExistingItems();
-    loadHours();
     loadMotorEquipment();
-  }, [loadPackages, loadOffseason, loadExistingItems, loadHours, loadMotorEquipment]);
+  }, [loadPackages, loadOffseason, loadMotorEquipment]);
 
   const packageMatchesMotor = (pkg: EstimatePackage, motor: MotorEquipment) => {
     const searchableText = `${pkg.name} ${pkg.description || ''}`.toLowerCase();
@@ -494,7 +531,7 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
     try {
       const budgetData = {
         yacht_id: yachtId,
-        budget_year: budgetYear,
+        budget_year: selectedYear,
         budget_amount: grandTotal,
         management_fees: 0,
         trip_inspection_fees: 0,
@@ -515,7 +552,7 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
         updated_at: new Date().toISOString(),
       };
 
-      let budgetId = existingBudgetId;
+      let budgetId = activeBudgetId;
 
       if (budgetId) {
         const { error: updateErr } = await supabase
@@ -556,7 +593,7 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
         if (itemsErr) throw itemsErr;
       }
 
-      onSaved();
+      onSaved(selectedYear);
     } catch (err: any) {
       setError(`Failed to save budget: ${err.message}`);
     } finally {
@@ -575,8 +612,23 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700">
           <div>
-            <h2 className="text-lg font-bold text-white">Build Budget for {yachtName}</h2>
-            <p className="text-sm text-slate-400">Year {budgetYear} — Select packages and off-season estimates</p>
+            <div className="flex items-center gap-3">
+              <h2 className="text-lg font-bold text-white">Build Budget for {yachtName}</h2>
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(Number(e.target.value))}
+                className="text-sm px-2 py-1 bg-slate-800 border border-slate-600 rounded focus:outline-none focus:border-emerald-500 text-white"
+              >
+                {(() => {
+                  const currentYear = new Date().getFullYear();
+                  const years = new Set<number>([currentYear, currentYear + 1, currentYear + 2, budgetYear, selectedYear]);
+                  return Array.from(years).sort((a, b) => b - a).map(year => (
+                    <option key={year} value={year}>{year}</option>
+                  ));
+                })()}
+              </select>
+            </div>
+            <p className="text-sm text-slate-400">Year {selectedYear} — Select packages and off-season estimates</p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors">
             <X className="w-5 h-5" />
@@ -614,7 +666,7 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
           {hasExistingItems && step === 1 && (
             <div className="mb-4 flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-xs text-amber-300">
               <AlertTriangle className="w-4 h-4 shrink-0" />
-              <span>A budget already exists for {budgetYear}. Saving will replace the existing budget items. The manual category amounts will be reset to $0 — add those separately after building.</span>
+              <span>A budget already exists for {selectedYear}. Saving will replace the existing budget items. The manual category amounts will be reset to $0 — add those separately after building.</span>
             </div>
           )}
           {hasExistingItems && step === 3 && (
@@ -631,12 +683,12 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
               <div className="mb-4 bg-slate-800/60 border border-slate-700 rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <Gauge className="w-4 h-4 text-amber-400" />
-                  <h3 className="text-sm font-semibold text-slate-200">Last Season Usage ({budgetYear - 1})</h3>
+                  <h3 className="text-sm font-semibold text-slate-200">Last Season Usage ({selectedYear - 1})</h3>
                   {loadingHours && <Loader2 className="w-3.5 h-3.5 text-slate-500 animate-spin" />}
                 </div>
 
                 {!loadingHours && engineHours.length === 0 && generatorHours.length === 0 ? (
-                  <p className="text-xs text-slate-500">No trip inspection hour data found for {budgetYear - 1}. Recommendations will not be available.</p>
+                  <p className="text-xs text-slate-500">No trip inspection hour data found for {selectedYear - 1}. Recommendations will not be available.</p>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {/* Engine hours */}
@@ -785,7 +837,7 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
                     <Sparkles className="w-4 h-4 text-teal-400" />
                     <h3 className="text-sm font-semibold text-teal-200">Service Recommendations</h3>
                   </div>
-                  <p className="text-xs text-teal-300/70 mb-3">Based on generator hours from {budgetYear - 1}. Click "Apply" to add the recommended quantity, or "Remove" to undo.</p>
+                  <p className="text-xs text-teal-300/70 mb-3">Based on generator hours from {selectedYear - 1}. Click "Apply" to add the recommended quantity, or "Remove" to undo.</p>
                   <div className="space-y-2">
                     {recommendations.map((rec, i) => {
                       const matchedPkg = rec.matchedPackageId ? packages.find((p) => p.id === rec.matchedPackageId) : null;
@@ -972,7 +1024,7 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
                     <div className="bg-slate-800/40 border border-slate-700/50 rounded-lg p-3">
                       <div className="flex items-center gap-2 mb-2">
                         <Gauge className="w-3.5 h-3.5 text-amber-400" />
-                        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">{budgetYear - 1} Hours Used</span>
+                        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">{selectedYear - 1} Hours Used</span>
                       </div>
                       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400">
                         {engineHours.length > 0 && (
@@ -1083,7 +1135,7 @@ export const BudgetBuilder = ({ yachtId, yachtName, budgetYear, existingBudgetId
                       <span className="text-xl font-bold text-emerald-400">{fmt(grandTotal)}</span>
                     </div>
                     <p className="text-xs text-slate-500 mt-2">
-                      This will be saved as the {budgetYear} budget for {yachtName}. You can still add manual category amounts after building.
+                      This will be saved as the {selectedYear} budget for {yachtName}. You can still add manual category amounts after building.
                     </p>
                   </div>
                 </div>
