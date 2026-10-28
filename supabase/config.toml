@@ -72,3 +72,6 @@ verify_jwt = true
 
 [functions.create-tablet-login]
 verify_jwt = true
+
+[functions.reset-tablet-login]
+verify_jwt = true

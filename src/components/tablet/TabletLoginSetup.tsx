@@ -40,20 +40,29 @@ export function TabletLoginSetup({ onSignOut }: { onSignOut: () => void }) {
     void load();
   }, []);
 
-  const createLogin = async (yacht: YachtRow) => {
+  const issueLogin = async (yacht: YachtRow, functionName: 'create-tablet-login' | 'reset-tablet-login') => {
     setBusyYachtId(yacht.id);
     setActionError('');
-    const { data, error } = await supabase.functions.invoke('create-tablet-login', {
+    const { data, error } = await supabase.functions.invoke(functionName, {
       body: { yacht_id: yacht.id },
     });
     setBusyYachtId(null);
 
     if (error || !data?.email || !data?.password) {
-      setActionError(`The tablet login for ${yacht.name} could not be created. Check that it does not already exist.`);
+      setActionError(
+        functionName === 'create-tablet-login'
+          ? `The tablet login for ${yacht.name} could not be created. Check that it does not already exist.`
+          : `The tablet password for ${yacht.name} could not be reset. Try again.`,
+      );
       return;
     }
     setCreated({ yachtName: yacht.name, email: data.email, password: data.password });
     await load();
+  };
+
+  const resetLogin = (yacht: YachtRow) => {
+    if (!window.confirm(`Reset the tablet password for ${yacht.name}? The current password will stop working right away.`)) return;
+    void issueLogin(yacht, 'reset-tablet-login');
   };
 
   return (
@@ -75,7 +84,7 @@ export function TabletLoginSetup({ onSignOut }: { onSignOut: () => void }) {
 
         {created && (
           <div className="rounded-xl border border-amber-500/50 bg-amber-500/10 p-5 space-y-3">
-            <p className="font-semibold text-amber-300">Login created for {created.yachtName}</p>
+            <p className="font-semibold text-amber-300">New login for {created.yachtName}</p>
             <p className="text-sm text-slate-300">Enter these on the helm tablet. The password will not be shown again.</p>
             <p className="text-sm">Email: <span className="font-mono break-all">{created.email}</span></p>
             <p className="text-sm">Password: <span className="font-mono break-all">{created.password}</span></p>
@@ -108,10 +117,19 @@ export function TabletLoginSetup({ onSignOut }: { onSignOut: () => void }) {
                       {hasLogin ? 'Tablet login set up' : 'No tablet login yet'}
                     </p>
                   </div>
-                  {!hasLogin && (
+                  {hasLogin ? (
                     <button
                       type="button"
-                      onClick={() => void createLogin(yacht)}
+                      onClick={() => resetLogin(yacht)}
+                      disabled={busyYachtId !== null}
+                      className="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium transition-colors disabled:opacity-50"
+                    >
+                      {busyYachtId === yacht.id ? 'Resetting...' : 'Reset password'}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => void issueLogin(yacht, 'create-tablet-login')}
                       disabled={busyYachtId !== null}
                       className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-900 text-sm font-semibold transition-colors disabled:opacity-50"
                     >
