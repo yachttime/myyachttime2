@@ -15,7 +15,7 @@ export function TabletSignIn() {
     try {
       await signIn(email.trim(), password);
     } catch {
-      setError('Sign-in failed. Check the tablet login details.');
+      setError('Sign-in failed. Check your email and password.');
     } finally {
       setSubmitting(false);
     }
@@ -26,10 +26,10 @@ export function TabletSignIn() {
       <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-5">
         <div className="text-center space-y-1">
           <h1 className="text-2xl font-semibold">Helm Tablet Sign-In</h1>
-          <p className="text-sm text-slate-400">Use the yacht's tablet login.</p>
+          <p className="text-sm text-slate-400">Sign in with your master account.</p>
         </div>
         <div className="space-y-2">
-          <label htmlFor="tablet-email" className="block text-sm text-slate-300">Login email</label>
+          <label htmlFor="tablet-email" className="block text-sm text-slate-300">Email</label>
           <input
             id="tablet-email"
             type="email"
