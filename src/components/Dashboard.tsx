@@ -8554,7 +8554,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       const ownersData = validOwners.map(owner => ({
         booking_id: booking.id,
         owner_name: owner.owner_name,
-        owner_contact: owner.owner_contact || null
+        owner_contact: owner.owner_contact || null,
+        company_id: selectedYacht.company_id
       }));
 
       const { error: ownersError } = await supabase
