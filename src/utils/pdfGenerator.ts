@@ -3788,19 +3788,41 @@ export function generateBudgetPDF(data: BudgetPDFData): jsPDF {
       ensureSpace(0.4);
       addText('PHOTOS', 11, 'bold');
       addSpace(0.08);
-      for (const photo of est.photos) {
-        ensureSpace(3.15);
+      const columnGap = 0.2;
+      const cellWidth = (contentWidth - columnGap) / 2;
+      const cellHeight = 2.75;
+      const maxImageHeight = 2.35;
+      const maxImageWidth = cellWidth - 0.1;
+
+      for (let photoIndex = 0; photoIndex < est.photos.length; photoIndex++) {
+        if (photoIndex > 0 && photoIndex % 6 === 0) {
+          doc.addPage();
+          yPos = margin;
+          addText('PHOTOS (CONTINUED)', 11, 'bold');
+          addSpace(0.15);
+        }
+        if (photoIndex % 2 === 0) ensureSpace(cellHeight);
+
+        const photo = est.photos[photoIndex];
+        const column = photoIndex % 2;
+        const row = Math.floor((photoIndex % 6) / 2);
+        const cellX = margin + column * (cellWidth + columnGap);
+        const cellY = yPos + row * cellHeight;
         const imageFormat = photo.photo_data_url.startsWith('data:image/png') ? 'PNG' : 'JPEG';
-        const maxWidth = contentWidth - 0.3;
-        const maxHeight = 2.65;
-        const scale = Math.min(maxWidth / photo.width, maxHeight / photo.height);
+        const scale = Math.min(maxImageWidth / photo.width, maxImageHeight / photo.height);
         const imageWidth = photo.width * scale;
         const imageHeight = photo.height * scale;
-        const imageX = (pageWidth - imageWidth) / 2;
-        doc.addImage(photo.photo_data_url, imageFormat, imageX, yPos, imageWidth, imageHeight, undefined, 'FAST');
-        yPos += imageHeight + 0.1;
-        if (photo.caption) addText(photo.caption, 9);
-        addSpace(0.12);
+        const imageX = cellX + (cellWidth - imageWidth) / 2;
+        doc.addImage(photo.photo_data_url, imageFormat, imageX, cellY, imageWidth, imageHeight, undefined, 'FAST');
+        if (photo.caption) {
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(7);
+          doc.text(photo.caption, cellX + cellWidth / 2, cellY + maxImageHeight + 0.12, { align: 'center', maxWidth: cellWidth });
+        }
+
+        if (column === 1 || photoIndex === est.photos.length - 1) {
+          yPos += cellHeight;
+        }
       }
     }
   }
