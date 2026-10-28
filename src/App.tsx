@@ -16,6 +16,7 @@ import { PasswordChange } from './components/PasswordChange';
 import { StaffCalendar } from './components/StaffCalendar';
 import { PublicAgreementSigner } from './components/PublicAgreementSigner';
 import { WatchPresentation } from './components/WatchPresentation';
+import { CameraWall } from './components/CameraWall';
 
 function ProfileLoadFallback({ onSignOut, onRetry }: { onSignOut: () => void; onRetry: () => Promise<void> }) {
   const [countdown, setCountdown] = useState(8);
@@ -87,6 +88,9 @@ function AppContent() {
   const { user, userProfile, loading, isPasswordRecovery, signOut, refreshProfile } = useAuth();
   const [page, setPage] = useState<Page>('welcome');
   const [mounted, setMounted] = useState(false);
+  const [camerasOpen, setCamerasOpen] = useState(
+    () => typeof window !== 'undefined' && window.location.pathname === '/cameras'
+  );
 
   // Handle yacht QR code from URL parameter BEFORE routing
   useEffect(() => {
@@ -180,6 +184,22 @@ function AppContent() {
 
   if (userProfile?.must_change_password) {
     return <PasswordChange />;
+  }
+
+  // Helm tablet logins only ever see the camera wall
+  if (userProfile.camera_only) {
+    return <CameraWall />;
+  }
+
+  if (camerasOpen) {
+    return (
+      <CameraWall
+        onBack={() => {
+          window.history.replaceState({}, '', '/');
+          setCamerasOpen(false);
+        }}
+      />
+    );
   }
 
   if (page === 'maintenance') {
