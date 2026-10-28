@@ -212,6 +212,10 @@
     "vessel-monitor-telemetry": {
       "hasChanged": false,
       "hash": "da6f40daec2efe9a144002fc1f1a0bc56aec68ec60d983387e28863596375756a257b264ec2605d1daace3e4bee60bd285f279da20d55cd11820360ef628542d"
+    },
+    "create-tablet-login": {
+      "hasChanged": false,
+      "hash": "0e28fb8dda922df4bb97a6bf0da97a1f7b185c8377fad5ff7304eab2b64d63fca257b264ec2605d1daace3e4bee60bd285f279da20d55cd11820360ef628542d"
     }
   }
 }

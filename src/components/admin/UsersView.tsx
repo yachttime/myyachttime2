@@ -1,6 +1,7 @@
 import { Users, Mail, Printer, X, Save, Eye, EyeOff, Ship, UserX, UserCheck, Clock, CreditCard as Edit2, ArrowLeftRight, AlertCircle, MousePointer, CheckCircle, ChevronDown, UserPlus } from 'lucide-react';
 import { Yacht } from '../../lib/supabase';
 import { formatDateNoShift } from '../../utils/timezone';
+import { TabletPinSection } from './TabletPinSection';
 
 interface UserProfile {
   user_id: string; first_name: string; last_name: string; email: string;
@@ -347,6 +348,13 @@ export default function UsersView(props: UsersViewProps) {
               )}
             </div>
           </div>
+        )}
+
+        {!p.isCreatingNewUser && p.userProfile?.role === 'master' && p.selectedUser && ['staff', 'master', 'mechanic'].includes(p.selectedUser.role) && (
+          <TabletPinSection
+            userId={p.selectedUser.user_id}
+            userName={`${p.selectedUser.first_name} ${p.selectedUser.last_name}`.trim()}
+          />
         )}
 
         {!p.isCreatingNewUser && p.userProfile?.role === 'master' && p.selectedUser && (

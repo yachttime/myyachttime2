@@ -21,7 +21,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   }
 });
 
-export type UserRole = 'owner' | 'manager' | 'staff' | 'mechanic' | 'master';
+export type UserRole = 'owner' | 'manager' | 'staff' | 'mechanic' | 'master' | 'tablet';
 
 export interface ServiceParts {
   fuel_type?: string;
