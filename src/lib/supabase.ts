@@ -133,6 +133,7 @@ export interface UserProfile {
   can_approve_billing?: boolean;
   rate_of_pay?: number | null;
   company_id?: string;
+  camera_only?: boolean;
   created_at: string;
   updated_at: string;
 }
