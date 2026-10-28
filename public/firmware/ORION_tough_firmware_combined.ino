@@ -310,14 +310,15 @@ struct MonitoredChannel {
   uint8_t bit;
   const char* name;
   bool lastState;
+  bool reported;
 };
 MonitoredChannel channels[6] = {
-  {0, "Engine Room Starboard Bilge Pump", false},
-  {1, "Aft Bilge Pump",                   false},
-  {2, "Midship Bilge Pump",               false},
-  {3, "High Water Alarm",                 false},
-  {4, "A/C Water Pump",                   false},
-  {5, "Fresh Water Pump",                 false},
+  {0, "Engine Room Starboard Bilge Pump", false, false},
+  {1, "Aft Bilge Pump",                   false, false},
+  {2, "Midship Bilge Pump",               false, false},
+  {3, "High Water Alarm",                 false, false},
+  {4, "A/C Water Pump",                   false, false},
+  {5, "Fresh Water Pump",                 false, false},
 };
 const int NUM_CHANNELS = 6;
 
@@ -349,11 +350,12 @@ void handleBilgePump() {
 
   for (int i = 0; i < NUM_CHANNELS; i++) {
     bool active = !extio.getDigitalInput(channels[i].bit);
-    if (active != channels[i].lastState) {
+    if (!channels[i].reported || active != channels[i].lastState) {
       String payload = String("{\"sensor_name\":\"") + channels[i].name +
                         "\",\"value\":{\"active\":" + (active ? "true" : "false") + "}}";
       bufferOrSend(SENSOR_READINGS_EP, payload);
       channels[i].lastState = active;
+      channels[i].reported = true;
     }
   }
 }

@@ -96,6 +96,13 @@ function readingRows(sensor: SensorRow): ReadingRow[] {
   ];
 }
 
+function isBetterReading(candidate: ReadingRow, current: ReadingRow): boolean {
+  const candidateHasValue = candidate.primary !== '--';
+  const currentHasValue = current.primary !== '--';
+  if (candidateHasValue !== currentHasValue) return candidateHasValue;
+  return (Date.parse(candidate.updatedAt ?? '') || 0) > (Date.parse(current.updatedAt ?? '') || 0);
+}
+
 function formatTime(iso: string | null): string {
   return iso ? new Date(iso).toLocaleTimeString() : '--';
 }
@@ -136,11 +143,12 @@ export function VesselMonitoringTab({ yachtId }: { yachtId: string }) {
   }, [load]);
 
   const visibleRows = useMemo(() => {
-    const rows = sensors.flatMap(readingRows);
-    const namesWithValue = new Set(rows.filter((row) => row.primary !== '--').map((row) => row.sensorName));
-    return rows
-      .filter((row) => row.primary !== '--' || !namesWithValue.has(row.sensorName))
-      .sort((a, b) => a.sensorName.localeCompare(b.sensorName));
+    const bestBySensor = new Map<string, ReadingRow>();
+    for (const row of sensors.flatMap(readingRows)) {
+      const current = bestBySensor.get(row.sensorName);
+      if (!current || isBetterReading(row, current)) bestBySensor.set(row.sensorName, row);
+    }
+    return [...bestBySensor.values()].sort((a, b) => a.sensorName.localeCompare(b.sensorName));
   }, [sensors]);
 
   if (loading) {
