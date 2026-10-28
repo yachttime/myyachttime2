@@ -8,13 +8,15 @@ export const todayInPhoenix = (now: Date = new Date()) =>
     day: '2-digit',
   }).format(now);
 
+const toIsoTimestamp = (value: string) => value.replace(' ', 'T').replace(/([+-]\d{2})$/, '$1:00');
+
 export const phoenixDateOf = (value: string) =>
   new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Phoenix',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
-  }).format(new Date(value));
+  }).format(new Date(toIsoTimestamp(value)));
 
 export const ownerNameForBooking = (booking: YachtBooking) =>
   booking.owner_name || booking.yacht_booking_owners?.[0]?.owner_name || 'Scheduled owner';
