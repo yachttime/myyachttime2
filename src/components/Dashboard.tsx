@@ -1081,6 +1081,30 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     }
   }, [effectiveRole]);
 
+  // Keeps the master calendar in step with owner check-ins and check-outs made on the tablet
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('yacht_bookings_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'yacht_bookings',
+        },
+        () => {
+          loadMasterCalendar();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Set up realtime subscription for yacht_invoices to track email engagement
   useEffect(() => {
     if (!user) return;

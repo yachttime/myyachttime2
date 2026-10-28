@@ -8,11 +8,22 @@ export const todayInPhoenix = (now: Date = new Date()) =>
     day: '2-digit',
   }).format(now);
 
+export const phoenixDateOf = (value: string) =>
+  new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Phoenix',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date(value));
+
 export const ownerNameForBooking = (booking: YachtBooking) =>
   booking.owner_name || booking.yacht_booking_owners?.[0]?.owner_name || 'Scheduled owner';
 
+const startDay = (b: YachtBooking) => phoenixDateOf(b.start_date);
+const endDay = (b: YachtBooking) => phoenixDateOf(b.end_date);
+
 const byStartThenArrival = (a: YachtBooking, b: YachtBooking) =>
-  a.start_date.localeCompare(b.start_date) || (a.arrival_time ?? '').localeCompare(b.arrival_time ?? '');
+  startDay(a).localeCompare(startDay(b)) || (a.arrival_time ?? '').localeCompare(b.arrival_time ?? '');
 
 export interface TabletBookingState {
   onBoard: YachtBooking | null;
@@ -23,14 +34,14 @@ export interface TabletBookingState {
 export const selectTabletBookingState = (bookings: YachtBooking[], today: string): TabletBookingState => {
   const open = bookings.filter((b) => !b.checked_out).sort(byStartThenArrival);
   const onBoard = open.find((b) => b.checked_in) ?? null;
-  const awaiting = onBoard ? null : open.find((b) => b.start_date <= today && b.end_date >= today) ?? null;
+  const awaiting = onBoard ? null : open.find((b) => startDay(b) <= today && endDay(b) >= today) ?? null;
   const current = onBoard ?? awaiting;
-  const upcoming = open.find((b) => b.id !== current?.id && b.start_date >= today) ?? null;
+  const upcoming = open.find((b) => b.id !== current?.id && startDay(b) >= today) ?? null;
   return { onBoard, awaiting, upcoming };
 };
 
 export const formatArrival = (booking: YachtBooking) => {
-  const date = new Date(`${booking.start_date}T00:00:00`).toLocaleDateString('en-US', {
+  const date = new Date(`${startDay(booking)}T12:00:00`).toLocaleDateString('en-US', {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
