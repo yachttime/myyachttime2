@@ -14,6 +14,7 @@ interface CheckInNotificationRequest {
   eventType: 'check_in' | 'check_out' | 'trip_inspection';
   companyId: string;
   inspectorId?: string;
+  identityFlag?: { scheduledOwnerName: string; confirmedName: string };
 }
 
 Deno.serve(async (req: Request) => {
@@ -23,7 +24,7 @@ Deno.serve(async (req: Request) => {
 
   try {
     const payload: CheckInNotificationRequest = await req.json();
-    const { ownerName, yachtName, checkInTime, eventType, companyId, inspectorId } = payload;
+    const { ownerName, yachtName, checkInTime, eventType, companyId, inspectorId, identityFlag } = payload;
 
     if (!ownerName || !yachtName || !companyId) {
       throw new Error('ownerName, yachtName, and companyId are required');
@@ -90,9 +91,10 @@ Deno.serve(async (req: Request) => {
     const isTripInspection = eventType === 'trip_inspection';
     const isCheckIn = eventType === 'check_in';
     const eventLabel = isTripInspection ? 'Trip Inspection' : isCheckIn ? 'Check-In' : 'Check-Out';
-    const subject = isTripInspection
+    const baseSubject = isTripInspection
       ? `Trip Inspection Completed: ${yachtName} — by ${ownerName}`
       : `${eventLabel} Alert: ${ownerName} — ${yachtName}`;
+    const subject = identityFlag ? `IDENTITY FLAG - ${baseSubject}` : baseSubject;
     const smsBody = isTripInspection
       ? `TRIP INSPECTION: ${ownerName} completed a trip inspection on ${yachtName} at ${checkInTime}. Log in to view.`
       : `${eventLabel.toUpperCase()} ALERT: ${ownerName} has ${isCheckIn ? 'checked in to' : 'checked out of'} ${yachtName} at ${checkInTime}. Log in to view.`;
@@ -146,6 +148,7 @@ Deno.serve(async (req: Request) => {
                   <p><strong>Time:</strong> ${checkInTime}</p>
                   <p><strong>Event:</strong> ${isTripInspection ? 'Trip inspection completed' : isCheckIn ? 'Arrived at vessel' : 'Departed vessel'}</p>
                 </div>
+                ${identityFlag ? `<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:16px;margin:20px 0;"><p style="margin:0 0 6px 0;"><strong>Identity flag for office review</strong></p><p style="margin:4px 0;"><strong>Scheduled owner:</strong> ${identityFlag.scheduledOwnerName}</p><p style="margin:4px 0;"><strong>Confirmed as:</strong> ${identityFlag.confirmedName}</p></div>` : ''}
                 <p style="text-align: center; margin: 25px 0;">
                   <a href="${siteUrl}" class="view-button" style="color: white;">View Dashboard</a>
                 </p>

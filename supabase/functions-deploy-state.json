@@ -111,7 +111,7 @@
     },
     "send-checkin-notification": {
       "hasChanged": false,
-      "hash": "04fad2f38b9dc4223956c429af381d8e72e82967d4b8fe9c2a8c2ad223cf7ce2a257b264ec2605d1daace3e4bee60bd285f279da20d55cd11820360ef628542d"
+      "hash": "2ebaedceaa5b6f7f3b362f1f11eef476b829a42f2bd1f1d4bd748decaaa68968a257b264ec2605d1daace3e4bee60bd285f279da20d55cd11820360ef628542d"
     },
     "send-deposit-request-email": {
       "hasChanged": false,
