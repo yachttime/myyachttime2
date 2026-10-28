@@ -23,7 +23,7 @@ export function TabletLoginSetup({ onSignOut }: { onSignOut: () => void }) {
 
   const load = async () => {
     const [yachtsRes, loginsRes] = await Promise.all([
-      supabase.from('yachts').select('id, name').order('name'),
+      supabase.from('yachts').select('id, name').eq('is_active', true).order('name'),
       supabase.from('user_profiles').select('yacht_id').eq('role', 'tablet'),
     ]);
     if (yachtsRes.error || loginsRes.error) {
