@@ -8,6 +8,7 @@ import { BOB_SCREENS, BOB_SCREEN_MAP } from '../../lib/bobScreens';
 import type { BobAppAction } from '../../contexts/BobContext';
 import { useBob } from '../../contexts/BobContext';
 import { BobAvatar } from './BobAvatar';
+import { toSpeakableText } from '../../utils/speechText';
 
 interface JarvisChatProps {
   userId: string;
@@ -357,7 +358,7 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
     const audio = audioRef.current;
     if (!audio) return;
 
-    let spokenText = text;
+    let spokenText = toSpeakableText(text);
     if (hasActions) {
       spokenText += ' I need your approval on screen before I make that change.';
     }
