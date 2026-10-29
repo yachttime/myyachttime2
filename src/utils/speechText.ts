@@ -47,21 +47,32 @@ function spokenInteger(digits: string): string {
   return integerToWords(value);
 }
 
-const NUMBER_PATTERN = /(\$)?(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d+))?/g;
+const TIME_PATTERN = /\b(\d{1,2}):(\d{2})(?:\s*([ap])\.?m\.?)?\b/gi;
+const NUMBER_PATTERN = /(\$)?(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d+))?(%)?/g;
+
+function timeToWords(hour: string, minute: string, meridiem: string | undefined): string {
+  const hourWords = spokenInteger(String(Number(hour)));
+  const minuteWords = minute === '00' ? "o'clock" : spokenInteger(String(Number(minute)));
+  const suffix = meridiem ? ` ${meridiem.toLowerCase()} m` : '';
+  return `${hourWords} ${minuteWords}${suffix}`;
+}
 
 export function toSpeakableText(text: string): string {
-  return text.replace(NUMBER_PATTERN, (match, dollar: string | undefined, intPart: string, decimals: string | undefined) => {
-    const digits = intPart.replace(/,/g, '');
-    if (digits.length < 3) return match;
+  const withTimes = text.replace(TIME_PATTERN, (_match, hour: string, minute: string, meridiem: string | undefined) =>
+    timeToWords(hour, minute, meridiem),
+  );
 
+  return withTimes.replace(NUMBER_PATTERN, (_match, dollar: string | undefined, intPart: string, decimals: string | undefined, percent: string | undefined) => {
+    const digits = intPart.replace(/,/g, '');
     const words = spokenInteger(digits);
+
     if (dollar) {
       if (!decimals) return `${words} dollars`;
       const cents = decimals.padEnd(2, '0').slice(0, 2);
       if (cents === '00') return `${words} dollars`;
       return `${words} dollars and ${spokenInteger(String(Number(cents)))} cents`;
     }
-    if (decimals) return `${words} point ${digitsToWords(decimals)}`;
-    return words;
+    const base = decimals ? `${words} point ${digitsToWords(decimals)}` : words;
+    return percent ? `${base} percent` : base;
   });
 }
