@@ -24,7 +24,9 @@ interface ChatRequest {
   mode?: 'chat' | 'data';
   message?: string;
   conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
-  dataAction?: 'loadPending' | 'loadTasks' | 'loadKnowledge' | 'saveKnowledge' | 'deleteKnowledge' | 'toggleKnowledge' | 'updateTask';
+  dataAction?: 'loadPending' | 'loadTasks' | 'loadKnowledge' | 'saveKnowledge' | 'deleteKnowledge' | 'toggleKnowledge' | 'updateTask' | 'loadUnanswered' | 'updateUnanswered';
+  unansweredId?: string;
+  unansweredStatus?: 'open' | 'resolved' | 'dismissed';
   knowledgeData?: { id?: string; category: string; title: string; content: string };
   taskId?: string;
   taskStatus?: string;
@@ -278,6 +280,7 @@ HOW TO WORK
 - Money: estimates/work_orders/estimating_invoices use total_amount; estimating_invoices has amount_paid, balance_due, payment_status. yacht_invoices uses invoice_amount_numeric and payment_status.
 - People: user_profiles (role, first_name, last_name, email, yacht_id) links to auth users via user_profiles.user_id. Owners are user_profiles tied to a yacht.
 - Use create_task for follow-ups. Use propose_change to suggest an update to an allowed table — it does NOT change anything; it creates an approval card the user must approve. Say it's waiting for approval.
+- If you cannot answer a question from the live data, the knowledge base, or the reference info above, do not guess. Call log_unanswered_question with the question as the user asked it, then tell the user you have passed it to a master to review so Bob can learn the answer.
 - Don't reveal pay rates, wifi passwords or personal contact details unless the user specifically asks for them.
 - Be concise and practical: short bullets or small markdown tables. Money as $1,234.56; dates like "Tue Oct 6". Keep answers under ~300 words unless asked for detail.
 
@@ -322,6 +325,18 @@ const TOOLS = [
     },
   },
   {
+    name: 'log_unanswered_question',
+    description: 'Record a question you could not answer so a master can review it and add the answer to the knowledge base.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        question: { type: 'string', description: 'The question as the user asked it.' },
+        attempted_note: { type: 'string', description: 'What you checked and why it did not answer the question.' },
+      },
+      required: ['question'],
+    },
+  },
+  {
     name: 'propose_change',
     description: 'Propose UPDATING one record in an allowed table. Nothing changes until the user approves it in the app.',
     input_schema: {
@@ -352,6 +367,14 @@ async function runTool(name: string, input: any, ctx: ToolCtx) {
     if (error) throw new Error(error.message);
     ctx.createdTasks.push(data);
     return { created: data };
+  }
+
+  if (name === 'log_unanswered_question') {
+    const { error } = await ctx.serviceClient.from('jarvis_unanswered_questions').insert({
+      question: input.question, attempted_note: input.attempted_note ?? null, asked_by: ctx.userId, status: 'open',
+    });
+    if (error) throw new Error(error.message);
+    return { logged: true, note: 'Recorded for master review.' };
   }
 
   if (name === 'propose_change') {
@@ -455,6 +478,21 @@ async function handleData(body: ChatRequest, serviceClient: any) {
       if (error) throw error;
       ctxCache = null;
       return jsonResp({ success: true, active: newActive });
+    }
+    case 'loadUnanswered': {
+      const { data, error } = await serviceClient.from('jarvis_unanswered_questions')
+        .select('id, question, attempted_note, status, created_at, resolved_at')
+        .order('created_at', { ascending: false }).limit(200);
+      if (error) throw error;
+      return jsonResp({ data: data || [] });
+    }
+    case 'updateUnanswered': {
+      if (!body.unansweredId || !body.unansweredStatus) return jsonResp({ error: 'unansweredId and unansweredStatus are required' }, 400);
+      const { error } = await serviceClient.from('jarvis_unanswered_questions')
+        .update({ status: body.unansweredStatus, resolved_at: body.unansweredStatus === 'open' ? null : new Date().toISOString() })
+        .eq('id', body.unansweredId);
+      if (error) throw error;
+      return jsonResp({ success: true });
     }
     case 'updateTask': {
       if (!body.taskId || !body.taskStatus) return jsonResp({ error: 'taskId and taskStatus are required' }, 400);

@@ -53,6 +53,13 @@ interface KnowledgeEntry {
   active: boolean;
 }
 
+interface UnansweredQuestion {
+  id: string;
+  question: string;
+  attempted_note: string | null;
+  created_at: string;
+}
+
 type Tab = 'chat' | 'pending' | 'tasks' | 'knowledge';
 
 // ---- Speech Recognition types (not in standard TS lib) ----
@@ -1220,7 +1227,7 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
         {tabButton('chat', 'Chat', <BobAvatar size={16} state={avatarState} borderClass="border border-amber-500/40" />)}
         {tabButton('pending', 'Pending Actions', <Clock className="w-4 h-4" />, pendingBadge)}
         {tabButton('tasks', 'Tasks', <ListTodo className="w-4 h-4" />)}
-        {tabButton('knowledge', 'Knowledge Base', <BookOpen className="w-4 h-4" />)}
+        {canEditKnowledge && tabButton('knowledge', 'Knowledge Base', <BookOpen className="w-4 h-4" />)}
       </div>
 
       {error && (
@@ -1448,7 +1455,87 @@ export default function JarvisChat({ userId, supabaseUrl, inPanel }: JarvisChatP
       )}
 
       {activeTab === 'knowledge' && (
-        <KnowledgeManager knowledge={knowledge} onLoad={loadKnowledge} onDelete={handleDeleteKnowledge} onToggle={handleToggleKnowledge} supabaseUrl={supabaseUrl} canEdit={canEditKnowledge} />
+        <>
+          <KnowledgeManager knowledge={knowledge} onLoad={loadKnowledge} onDelete={handleDeleteKnowledge} onToggle={handleToggleKnowledge} supabaseUrl={supabaseUrl} canEdit={canEditKnowledge} />
+          <UnansweredReview supabaseUrl={supabaseUrl} />
+        </>
+      )}
+    </div>
+  );
+}
+
+interface UnansweredReviewProps {
+  supabaseUrl: string;
+}
+
+function UnansweredReview({ supabaseUrl }: UnansweredReviewProps) {
+  const [items, setItems] = useState<UnansweredQuestion[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  const loadUnanswered = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await callJarvis(supabaseUrl, { mode: 'data', dataAction: 'loadUnanswered' });
+      if (!Array.isArray(res?.data)) throw new Error('Unexpected response from Bob');
+      setItems(res.data as UnansweredQuestion[]);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [supabaseUrl]);
+
+  useEffect(() => {
+    loadUnanswered();
+  }, [loadUnanswered]);
+
+  const closeQuestion = async (id: string, status: 'resolved' | 'dismissed') => {
+    setUpdatingId(id);
+    setError(null);
+    try {
+      await callJarvis(supabaseUrl, { mode: 'data', dataAction: 'updateUnanswered', unansweredId: id, unansweredStatus: status });
+      setItems(prev => prev.filter(q => q.id !== id));
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  return (
+    <div className="space-y-3 pt-4 border-t border-slate-700">
+      <div>
+        <h3 className="text-sm font-semibold text-white">Questions Bob could not answer</h3>
+        <p className="text-xs text-slate-400">Add the answer to the knowledge base, then mark the question resolved.</p>
+      </div>
+
+      {error && <p className="text-sm text-red-400">{error}</p>}
+
+      {loading ? (
+        <p className="text-center text-slate-500 py-4">Loading questions...</p>
+      ) : items.length === 0 ? (
+        <p className="text-center text-slate-500 py-4">No open questions. Bob has everything he has been asked.</p>
+      ) : (
+        items.map(q => (
+          <div key={q.id} className="bg-slate-800/50 border border-slate-700 rounded-xl p-3 space-y-2">
+            <p className="text-sm text-white">{q.question}</p>
+            {q.attempted_note && <p className="text-xs text-slate-400">{q.attempted_note}</p>}
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs text-slate-500">{new Date(q.created_at).toLocaleString()}</span>
+              <div className="flex gap-2">
+                <button onClick={() => closeQuestion(q.id, 'dismissed')} disabled={updatingId === q.id} className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white text-xs rounded-lg transition-colors">
+                  Dismiss
+                </button>
+                <button onClick={() => closeQuestion(q.id, 'resolved')} disabled={updatingId === q.id} className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-900 text-xs font-medium rounded-lg transition-colors">
+                  Mark resolved
+                </button>
+              </div>
+            </div>
+          </div>
+        ))
       )}
     </div>
   );
