@@ -8567,6 +8567,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         end_date: endDateTime,
         departure_time: ownerTripForm.departure_time,
         arrival_time: ownerTripForm.arrival_time,
+        owner_name: validOwners[0].owner_name,
         notes: 'Owner trip',
         checked_in: false,
         checked_out: false,
@@ -8586,7 +8587,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         .from('yacht_booking_owners')
         .insert(ownersData);
 
-      if (ownersError) throw ownersError;
+      if (ownersError) {
+        await supabase.from('yacht_bookings').delete().eq('id', booking.id);
+        throw ownersError;
+      }
 
       const userName = userProfile?.first_name && userProfile?.last_name
         ? `${userProfile.first_name} ${userProfile.last_name}`
