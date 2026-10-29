@@ -74,8 +74,8 @@ Deno.serve(async (req: Request) => {
     if (!userMessage) return jsonResp({ error: 'Message is required' }, 400);
 
     const name = jarvisStaff.display_name || [profile.first_name, profile.last_name].filter(Boolean).join(' ') || 'a staff member';
-    const [context, elevation] = await Promise.all([getContext(), getLakeElevationText()]);
-    const system = [{ type: 'text', text: buildSystemPrompt(name, context, elevation), cache_control: { type: 'ephemeral' } }];
+    const [context, elevation, weather] = await Promise.all([getContext(), getLakeElevationText(), getWeatherText()]);
+    const system = [{ type: 'text', text: buildSystemPrompt(name, context, elevation, weather), cache_control: { type: 'ephemeral' } }];
 
     // Conversation: text only, alternating, starts with user
     const messages: any[] = [];
@@ -232,7 +232,36 @@ async function getLakeElevationText(): Promise<string> {
   }
 }
 
-function buildSystemPrompt(name: string, context: string, elevation: string) {
+async function getWeatherText(): Promise<string> {
+  const unavailable = 'CURRENT WEATHER FORECAST: unavailable right now. Say so if asked about today\'s weather.';
+  const headers = { 'Accept': 'application/geo+json', 'User-Agent': 'AZMarine-Jarvis' };
+  try {
+    const points = await fetch('https://api.weather.gov/points/36.9147,-111.4558', { headers, signal: AbortSignal.timeout(5000) });
+    if (!points.ok) return unavailable;
+    const forecastUrl = (await points.json()).properties?.forecast;
+    if (!forecastUrl) return unavailable;
+    const forecast = await fetch(forecastUrl, { headers, signal: AbortSignal.timeout(5000) });
+    if (!forecast.ok) return unavailable;
+    const periods: any[] = (await forecast.json()).properties?.periods ?? [];
+    if (!periods.length) return unavailable;
+    const lines = periods.slice(0, 6).map((p) => {
+      const precip = p.probabilityOfPrecipitation?.value;
+      const parts = [
+        `${p.name}: ${p.temperature} ${p.temperatureUnit}`,
+        p.shortForecast,
+        `precip ${precip ?? 0}%`,
+        `wind ${p.windSpeed} ${p.windDirection}`,
+      ];
+      return `- ${parts.join(', ')}`;
+    });
+    return `CURRENT WEATHER FORECAST (National Weather Service, Page AZ / Lake Powell, next periods):\n${lines.join('\n')}\nUse this for any weather question. Say it is the NWS forecast.`;
+  } catch (e) {
+    console.error('NWS weather fetch failed:', e);
+    return unavailable;
+  }
+}
+
+function buildSystemPrompt(name: string, context: string, elevation: string, weather: string) {
   const now = new Date().toLocaleString('en-US', {
     timeZone: 'America/Phoenix', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit',
   });
@@ -253,6 +282,8 @@ HOW TO WORK
 - Be concise and practical: short bullets or small markdown tables. Money as $1,234.56; dates like "Tue Oct 6". Keep answers under ~300 words unless asked for detail.
 
 ${elevation}
+
+${weather}
 
 ${context}`;
 }
