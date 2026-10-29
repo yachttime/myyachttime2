@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Lock, Unlock } from 'lucide-react';
-import type { Yacht } from '../../lib/supabase';
+import { supabase, type Yacht } from '../../lib/supabase';
 import { OwnerCheckInTab } from './OwnerCheckInTab';
 import { VesselMonitoringTab } from './VesselMonitoringTab';
 import { SecurityCamerasTab } from './SecurityCamerasTab';
@@ -23,6 +23,20 @@ export function TabletScreen({ yacht, tabletUserId }: TabletScreenProps) {
   const [activeTab, setActiveTab] = useState<TabletTab>('checkin');
   const [unlockedBy, setUnlockedBy] = useState<string | null>(null);
   const [pinPadOpen, setPinPadOpen] = useState(false);
+  const [companyName, setCompanyName] = useState<string | null>(null);
+
+  useEffect(() => {
+    setCompanyName(null);
+    if (!yacht.company_id) return;
+    void (async () => {
+      const { data, error } = await supabase
+        .from('companies')
+        .select('company_name')
+        .eq('id', yacht.company_id)
+        .maybeSingle();
+      if (!error && data) setCompanyName(data.company_name);
+    })();
+  }, [yacht.company_id]);
 
   return (
     <div className="min-h-screen bg-slate-900 text-white flex flex-col">
@@ -30,6 +44,11 @@ export function TabletScreen({ yacht, tabletUserId }: TabletScreenProps) {
         <div className="min-w-0">
           <p className="text-xs uppercase tracking-wider text-slate-400">Helm Tablet</p>
           <h1 className="text-xl font-semibold truncate">{yacht.name}</h1>
+          {companyName && (
+            <p className="text-sm text-slate-400 truncate">
+              Managed by <span className="text-slate-200 font-medium">{companyName}</span>
+            </p>
+          )}
         </div>
         {unlockedBy ? (
           <button
@@ -79,6 +98,10 @@ export function TabletScreen({ yacht, tabletUserId }: TabletScreenProps) {
         {activeTab === 'checkin' && <OwnerCheckInTab yacht={yacht} tabletUserId={tabletUserId} />}
         {activeTab === 'monitoring' && <VesselMonitoringTab yachtId={yacht.id} />}
       </main>
+
+      <footer className="px-6 py-3 border-t border-slate-800 text-center text-xs text-slate-500">
+        Powered by Myyachttime
+      </footer>
 
       {pinPadOpen && (
         <TabletPinPad
