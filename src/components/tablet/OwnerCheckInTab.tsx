@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { supabase, logYachtActivity, type Yacht, type YachtBooking } from '../../lib/supabase';
+import { Play } from 'lucide-react';
+import { supabase, logYachtActivity, type EducationVideo, type Yacht, type YachtBooking } from '../../lib/supabase';
 import { namesMatch, type IdentityFlagDetails } from '../../utils/identityConfirmation';
 import {
   formatArrival,
@@ -113,6 +114,20 @@ export function OwnerCheckInTab({ yacht, tabletUserId }: OwnerCheckInTabProps) {
   const [submitting, setSubmitting] = useState(false);
   const [actionError, setActionError] = useState('');
   const [actionNotice, setActionNotice] = useState('');
+  const [welcomeVideo, setWelcomeVideo] = useState<EducationVideo | null>(null);
+
+  useEffect(() => {
+    void (async () => {
+      const { data } = await supabase
+        .from('education_videos')
+        .select('*')
+        .eq('category', 'Welcome')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      setWelcomeVideo(data);
+    })();
+  }, []);
 
   const load = useCallback(async () => {
     const { data, error } = await supabase
@@ -187,6 +202,32 @@ export function OwnerCheckInTab({ yacht, tabletUserId }: OwnerCheckInTabProps) {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       {loadError && <p role="alert" className="text-red-400">{loadError}</p>}
+
+      {welcomeVideo && yacht.name !== 'LOVIN LIFE' && (
+        <section className="rounded-2xl bg-slate-800 overflow-hidden">
+          <div className="flex items-center gap-2 px-6 pt-5 pb-3">
+            <Play className="w-4 h-4 text-amber-500" />
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-300">Welcome Video</h2>
+          </div>
+          <video
+            key={welcomeVideo.video_url}
+            controls
+            className="w-full aspect-video bg-black"
+            preload="metadata"
+            poster={welcomeVideo.thumbnail_url || undefined}
+            playsInline
+          >
+            <source src={welcomeVideo.video_url} type="video/mp4" />
+            Your browser does not support the video tag.
+          </video>
+          <div className="px-6 py-4">
+            <h3 className="font-semibold text-white">{welcomeVideo.title}</h3>
+            {welcomeVideo.description && (
+              <p className="text-sm text-slate-400 leading-relaxed mt-1">{welcomeVideo.description}</p>
+            )}
+          </div>
+        </section>
+      )}
 
       <section className="rounded-2xl bg-slate-800 p-6 space-y-5">
         {onBoard ? (
