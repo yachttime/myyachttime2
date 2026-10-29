@@ -74,7 +74,8 @@ Deno.serve(async (req: Request) => {
     if (!userMessage) return jsonResp({ error: 'Message is required' }, 400);
 
     const name = jarvisStaff.display_name || [profile.first_name, profile.last_name].filter(Boolean).join(' ') || 'a staff member';
-    const system = [{ type: 'text', text: buildSystemPrompt(name, await getContext()), cache_control: { type: 'ephemeral' } }];
+    const [context, elevation] = await Promise.all([getContext(), getLakeElevationText()]);
+    const system = [{ type: 'text', text: buildSystemPrompt(name, context, elevation), cache_control: { type: 'ephemeral' } }];
 
     // Conversation: text only, alternating, starts with user
     const messages: any[] = [];
@@ -214,7 +215,24 @@ async function getContext(): Promise<string> {
   return text;
 }
 
-function buildSystemPrompt(name: string, context: string) {
+async function getLakeElevationText(): Promise<string> {
+  const unavailable = 'CURRENT LAKE POWELL ELEVATION: unavailable right now. Say so if asked about ramp access today.';
+  try {
+    const res = await fetch('https://waterservices.usgs.gov/nwis/iv/?format=json&sites=09379900', { signal: AbortSignal.timeout(5000) });
+    if (!res.ok) return unavailable;
+    const latest = (await res.json()).value?.timeSeries?.[0]?.values?.[0]?.value?.[0];
+    if (!latest?.value) return unavailable;
+    const when = new Date(latest.dateTime).toLocaleString('en-US', {
+      timeZone: 'America/Phoenix', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
+    });
+    return `CURRENT LAKE POWELL ELEVATION (USGS site 09379900, Glen Canyon Dam): ${latest.value} ft, reading taken ${when} (Arizona time). Compare this to the ramp minimums in the knowledge base to answer ramp access questions.`;
+  } catch (e) {
+    console.error('USGS elevation fetch failed:', e);
+    return unavailable;
+  }
+}
+
+function buildSystemPrompt(name: string, context: string, elevation: string) {
   const now = new Date().toLocaleString('en-US', {
     timeZone: 'America/Phoenix', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit',
   });
@@ -232,6 +250,8 @@ HOW TO WORK
 - Use create_task for follow-ups. Use propose_change to suggest an update to an allowed table — it does NOT change anything; it creates an approval card the user must approve. Say it's waiting for approval.
 - Don't reveal pay rates, wifi passwords or personal contact details unless the user specifically asks for them.
 - Be concise and practical: short bullets or small markdown tables. Money as $1,234.56; dates like "Tue Oct 6". Keep answers under ~300 words unless asked for detail.
+
+${elevation}
 
 ${context}`;
 }

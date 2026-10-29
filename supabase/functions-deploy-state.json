@@ -21,10 +21,6 @@
       "hasChanged": false,
       "hash": "dafed575b926571064096176b0c6c0945b580c8d2ccebd8818786a92663ca770a257b264ec2605d1daace3e4bee60bd285f279da20d55cd11820360ef628542d"
     },
-    "create-tablet-login": {
-      "hasChanged": false,
-      "hash": "0e28fb8dda922df4bb97a6bf0da97a1f7b185c8377fad5ff7304eab2b64d63fca257b264ec2605d1daace3e4bee60bd285f279da20d55cd11820360ef628542d"
-    },
     "create-user": {
       "hasChanged": false,
       "hash": "26087670d1be22e8c0320fd2a801ac70cf2189575095cd8b5a7cc097eaf8eadfa257b264ec2605d1daace3e4bee60bd285f279da20d55cd11820360ef628542d"
@@ -55,7 +51,7 @@
     },
     "jarvis-chat": {
       "hasChanged": false,
-      "hash": "2c6ece3742847615da4ff61ed546af2f573df00ebc58ab1f9e41e1f2e71c6bc7a257b264ec2605d1daace3e4bee60bd285f279da20d55cd11820360ef628542d"
+      "hash": "49c3bab989d0ba199ab562e80e3a00628367c5189ef1784ded45892c95fe2fafa257b264ec2605d1daace3e4bee60bd285f279da20d55cd11820360ef628542d"
     },
     "jarvis-transcribe": {
       "hasChanged": false,
@@ -216,10 +212,6 @@
     "vessel-monitor-telemetry": {
       "hasChanged": false,
       "hash": "da6f40daec2efe9a144002fc1f1a0bc56aec68ec60d983387e28863596375756a257b264ec2605d1daace3e4bee60bd285f279da20d55cd11820360ef628542d"
-    },
-    "reset-tablet-login": {
-      "hasChanged": false,
-      "hash": "c1deecbe7d38843336e584f845ad3f11552dd31b1e1c0b8bf7a2bfc0f84cb18ba257b264ec2605d1daace3e4bee60bd285f279da20d55cd11820360ef628542d"
     }
   }
 }
