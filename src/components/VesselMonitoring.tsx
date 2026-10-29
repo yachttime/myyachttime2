@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useCompany } from '../contexts/CompanyContext';
 import { isStaffRole, UserRole } from '../lib/supabase';
+import { formatAlertMessage, formatWeatherNumber } from '../utils/vesselFormatting';
 import {
   Activity, AlertTriangle, Battery, Gauge, Navigation, Wind,
   Droplets, Zap, Thermometer, Lock, Shield, ChevronRight,
@@ -201,12 +202,6 @@ type WeatherDisplay = {
   details: Array<{ label: string; value: string }>;
 };
 
-function formatWeatherNumber(value: unknown, maximumFractionDigits = 2): string {
-  const number = Number(value);
-  if (!Number.isFinite(number)) return '--';
-  return number.toLocaleString(undefined, { maximumFractionDigits });
-}
-
 function parseSensorValue(sensor: MonitorSensor): Record<string, unknown> | null {
   try {
     const parsed: unknown = JSON.parse(sensor.current_value || '');
@@ -226,12 +221,6 @@ function getSensorStatus(sensor: MonitorSensor): MonitorSensor['status'] {
     if (value?.status === 'No strikes detected') return 'normal';
   }
   return sensor.status;
-}
-
-function formatAlertMessage(message: string): string {
-  const match = message.match(/^Lightning Strike reported critical: \{\s*"distance_km"\s*:\s*([\d.]+)\s*\}$/);
-  if (!match) return message;
-  return `Lightning Strike reported critical: ${formatWeatherNumber(Number(match[1]) * 0.621371, 1)} miles away`;
 }
 
 function getWeatherDisplay(sensor: MonitorSensor): WeatherDisplay {

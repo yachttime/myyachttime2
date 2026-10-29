@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase';
+import { formatAlertMessage } from '../../utils/vesselFormatting';
 
 interface DeviceRow {
   id: string;
@@ -187,7 +188,7 @@ export function VesselMonitoringTab({ yachtId }: { yachtId: string }) {
           <div className="space-y-2">
             {alerts.map((alert) => (
               <div key={alert.id} className={`flex items-center justify-between gap-3 rounded-lg border px-4 py-3 ${alertPill[alert.severity]}`}>
-                <span className="font-medium">{alert.message}</span>
+                <span className="font-medium">{formatAlertMessage(alert.message)}</span>
                 <span className="whitespace-nowrap text-xs text-slate-400">{new Date(alert.created_at).toLocaleString()}</span>
               </div>
             ))}
