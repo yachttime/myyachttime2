@@ -18,6 +18,19 @@ interface SensorRow {
   last_reading_at: string | null;
 }
 
+interface AlertRow {
+  id: string;
+  message: string;
+  severity: 'info' | 'warning' | 'critical';
+  created_at: string;
+}
+
+const alertPill: Record<AlertRow['severity'], string> = {
+  info: 'text-blue-300 bg-blue-500/10 border-blue-500/30',
+  warning: 'text-amber-300 bg-amber-500/10 border-amber-500/30',
+  critical: 'text-red-300 bg-red-500/10 border-red-500/30',
+};
+
 interface ReadingRow {
   sensorName: string;
   primary: string;
@@ -110,11 +123,12 @@ function formatTime(iso: string | null): string {
 export function VesselMonitoringTab({ yachtId }: { yachtId: string }) {
   const [devices, setDevices] = useState<DeviceRow[]>([]);
   const [sensors, setSensors] = useState<SensorRow[]>([]);
+  const [alerts, setAlerts] = useState<AlertRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
-    const [devicesRes, sensorsRes] = await Promise.all([
+    const [devicesRes, sensorsRes, alertsRes] = await Promise.all([
       supabase
         .from('vessel_monitor_devices')
         .select('id, device_name, is_online, last_check_in')
@@ -124,14 +138,22 @@ export function VesselMonitoringTab({ yachtId }: { yachtId: string }) {
         .select('id, sensor_name, sensor_type, current_value, unit_of_measure, status, last_reading_at')
         .eq('yacht_id', yachtId)
         .order('sensor_name'),
+      supabase
+        .from('vessel_monitor_alerts')
+        .select('id, message, severity, created_at')
+        .eq('yacht_id', yachtId)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(10),
     ]);
 
-    if (devicesRes.error || sensorsRes.error) {
+    if (devicesRes.error || sensorsRes.error || alertsRes.error) {
       setError('Vessel readings could not be loaded. They will retry shortly.');
     } else {
       setError('');
       setDevices((devicesRes.data as DeviceRow[]) ?? []);
       setSensors((sensorsRes.data as SensorRow[]) ?? []);
+      setAlerts((alertsRes.data as AlertRow[]) ?? []);
     }
     setLoading(false);
   }, [yachtId]);
@@ -158,6 +180,20 @@ export function VesselMonitoringTab({ yachtId }: { yachtId: string }) {
   return (
     <div className="space-y-6">
       {error && <p role="alert" className="text-red-400">{error}</p>}
+
+      {alerts.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold">Recent Alerts</h2>
+          <div className="space-y-2">
+            {alerts.map((alert) => (
+              <div key={alert.id} className={`flex items-center justify-between gap-3 rounded-lg border px-4 py-3 ${alertPill[alert.severity]}`}>
+                <span className="font-medium">{alert.message}</span>
+                <span className="whitespace-nowrap text-xs text-slate-400">{new Date(alert.created_at).toLocaleString()}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Devices</h2>
