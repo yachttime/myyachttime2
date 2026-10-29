@@ -56,7 +56,10 @@ export function TabletApp() {
   return (
     <>
       <div className="bg-slate-800 text-white px-4 py-2 flex items-center justify-between gap-4 text-sm">
-        <span className="font-medium truncate">{selectedYacht.name}</span>
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="font-medium truncate">{selectedYacht.name}</span>
+          <span className="text-xs text-slate-400 truncate">Powered by Myyachttime</span>
+        </div>
         <div className="flex items-center gap-4 shrink-0">
           <button
             type="button"

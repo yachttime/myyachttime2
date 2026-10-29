@@ -98,7 +98,6 @@ export function TabletScreen({ yacht, tabletUserId }: TabletScreenProps) {
         {activeTab === 'checkin' && <OwnerCheckInTab yacht={yacht} tabletUserId={tabletUserId} />}
         {activeTab === 'monitoring' && <VesselMonitoringTab yachtId={yacht.id} />}
       </main>
-
       <footer className="px-6 py-3 border-t border-slate-800 text-center text-xs text-slate-500">
         Powered by Myyachttime
       </footer>
