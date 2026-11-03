@@ -47,7 +47,8 @@
 
   Requires: M5Unified, WiFi, HTTPClient, Wire, SPI, SD, TinyGPSPlus,
   PubSubClient, ArduinoJson, M5Unit-EXTIO2 (install from GitHub).
-  ENV III uses the M5Stack M5Unit-ENVIII library (SHT40 + QMP6988).
+  ENV III uses the official M5Unit-ENV library (SHT30 + QMP6988),
+  installed from the Arduino Library Manager.
 
   CAMERAS: Uniview WiFi domes listed in /cameras.txt on the SD card. Each
   snapshot is fetched over HTTP Digest and uploaded to vessel-camera-snapshot.
@@ -63,7 +64,7 @@
 #include <TinyGPSPlus.h>
 #include <ArduinoJson.h>
 #include <PubSubClient.h>
-#include "M5Unit-ENVIII.hpp"
+#include "M5UnitENV.h"
 
 // ============================================================
 // SHARED: WiFi, Telemetry endpoint, SD buffering
@@ -560,9 +561,9 @@ void handleVoltagePoints() {
 
 // ============================================================
 // MODULE 3: ENV III (temp/humidity/pressure) — PaHub Ch4
-// Uses M5Unit-ENVIII library: SHT40 (temp/humidity) + QMP6988 (pressure)
+// Uses the M5Unit-ENV library: SHT30 (temp/humidity) + QMP6988 (pressure)
 // ============================================================
-SHT40 sht40;
+SHT3X sht3x;
 QMP6988 qmp6988;
 bool envReady = false;
 
@@ -570,11 +571,11 @@ void setupENVIII() {
   selectHubChannel(4);
   delay(10);
 
-  if (!sht40.begin(&Wire, SHT40_I2C_ADDR, 32, 33)) {
-    Serial.println("ENV III: SHT40 not found on PaHub Ch4 — continuing without it.");
+  if (!sht3x.begin(&Wire, SHT3X_I2C_ADDR, 32, 33, 400000U)) {
+    Serial.println("ENV III: SHT30 not found on PaHub Ch4 — continuing without it.");
     return;
   }
-  if (!qmp6988.begin(&Wire, QMP6988_I2C_ADDR, 32, 33)) {
+  if (!qmp6988.begin(&Wire, QMP6988_SLAVE_ADDRESS_L, 32, 33, 400000U)) {
     Serial.println("ENV III: QMP6988 not found on PaHub Ch4 — continuing without it.");
     return;
   }
@@ -593,20 +594,20 @@ void handleENVIII() {
   selectHubChannel(4);
   delay(5);
 
-  if (sht40.update()) {
-    float tempF = sht40.cTemp * 9.0f / 5.0f + 32.0f;
+  if (sht3x.update()) {
+    float tempF = sht3x.cTemp * 9.0f / 5.0f + 32.0f;
     String tempPayload = String("{\"sensor_name\":\"Temperature\",\"value\":{\"temp_f\":") +
                          String(tempF, 1) + "}}";
     bufferOrSend(SENSOR_READINGS_EP, tempPayload);
 
     String humidPayload = String("{\"sensor_name\":\"Humidity\",\"value\":{\"percent\":") +
-                          String(sht40.humidity, 1) + "}}";
+                          String(sht3x.humidity, 1) + "}}";
     bufferOrSend(SENSOR_READINGS_EP, humidPayload);
   }
 
   if (qmp6988.update()) {
     String pressurePayload = String("{\"sensor_name\":\"Barometric Pressure\",\"value\":{\"hpa\":") +
-                             String(qmp6988.pressure, 1) + "}}";
+                             String(qmp6988.pressure / 100.0f, 1) + "}}";
     bufferOrSend(SENSOR_READINGS_EP, pressurePayload);
   }
 }
