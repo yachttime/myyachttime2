@@ -94,7 +94,7 @@ export function TabletScreen({ yacht, tabletUserId }: TabletScreenProps) {
       </nav>
 
       <main className="flex-1 p-6">
-        {activeTab === 'cameras' && <SecurityCamerasTab />}
+        {activeTab === 'cameras' && <SecurityCamerasTab yachtId={yacht.id} />}
         {activeTab === 'checkin' && <OwnerCheckInTab yacht={yacht} tabletUserId={tabletUserId} />}
         {activeTab === 'monitoring' && <VesselMonitoringTab yachtId={yacht.id} />}
       </main>
