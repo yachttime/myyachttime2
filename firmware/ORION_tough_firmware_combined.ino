@@ -48,6 +48,9 @@
   Requires: M5Unified, WiFi, HTTPClient, Wire, SPI, SD, TinyGPSPlus,
   PubSubClient, ArduinoJson, M5Unit-EXTIO2 (install from GitHub).
   ENV III uses the M5Stack M5Unit-ENVIII library (SHT40 + QMP6988).
+
+  CAMERAS: Uniview WiFi domes listed in /cameras.txt on the SD card. Each
+  snapshot is fetched over HTTP Digest and uploaded to vessel-camera-snapshot.
 */
 
 #include <M5Unified.h>
@@ -649,6 +652,237 @@ void handleGPS() {
 }
 
 // ============================================================
+// MODULE 5: Cameras — Uniview WiFi domes on the boat LAN
+// ------------------------------------------------------------
+// Fetches http://<camera-ip>/images/snapshot.jpg (640x360, ~40 KB, Digest
+// login) and POSTs the raw JPEG to the vessel-camera-snapshot function.
+// One camera per tick, round-robin, so the loop is never blocked for long.
+//
+// Camera IPs and the camera login live on the SD card in /cameras.txt so the
+// password is never baked into this file:
+//   user=admin
+//   password=<camera password>
+//   1=192.168.1.201
+//   2=192.168.1.202
+// Each "N=ip" line is a camera slot (1-8) matching vessel_cameras.camera_slot.
+// ============================================================
+#include <MD5Builder.h>
+
+const char* CAMERA_SNAPSHOT_URL = "https://eqiecntollhgfxmmbize.supabase.co/functions/v1/vessel-camera-snapshot";
+const char* CAMERA_CONFIG_FILE  = "/cameras.txt";
+const char* CAMERA_SNAPSHOT_PATH = "/images/snapshot.jpg";
+
+#define MAX_CAMERAS 8
+const size_t MAX_SNAPSHOT_BYTES = 300 * 1024;
+
+struct CameraConfig {
+  uint8_t slot;
+  String ip;
+};
+CameraConfig cameras[MAX_CAMERAS];
+int numCameras = 0;
+String cameraUser = "admin";
+String cameraPassword = "";
+
+unsigned long lastCameraSnapshot = 0;
+const unsigned long CAMERA_SNAPSHOT_INTERVAL_MS = 60000;  // each camera, once a minute
+int cameraIndex = 0;
+
+void loadCameraConfig() {
+  if (!sdReady || !SD.exists(CAMERA_CONFIG_FILE)) {
+    Serial.println("No /cameras.txt on SD — camera snapshots disabled.");
+    return;
+  }
+  File f = SD.open(CAMERA_CONFIG_FILE, FILE_READ);
+  if (!f) return;
+
+  while (f.available() && numCameras < MAX_CAMERAS) {
+    String line = f.readStringUntil('\n');
+    line.trim();
+    if (line.length() == 0 || line.startsWith("#")) continue;
+    int eq = line.indexOf('=');
+    if (eq < 0) continue;
+    String key = line.substring(0, eq);
+    String value = line.substring(eq + 1);
+    key.trim();
+    value.trim();
+
+    if (key == "user") {
+      cameraUser = value;
+    } else if (key == "password") {
+      cameraPassword = value;
+    } else {
+      int slot = key.toInt();
+      if (slot >= 1 && slot <= 8 && value.length() > 0) {
+        cameras[numCameras].slot = slot;
+        cameras[numCameras].ip = value;
+        numCameras++;
+      }
+    }
+  }
+  f.close();
+  Serial.printf("Loaded %d camera(s) from /cameras.txt\n", numCameras);
+}
+
+String md5Hex(const String& input) {
+  MD5Builder md5;
+  md5.begin();
+  md5.add(input);
+  md5.calculate();
+  return md5.toString();
+}
+
+// Pulls one field (realm, nonce, qop, opaque) out of a WWW-Authenticate header.
+String digestParam(const String& header, const char* name) {
+  String key = String(name) + "=";
+  int start = header.indexOf(key);
+  if (start < 0) return "";
+  start += key.length();
+  if (header.charAt(start) == '"') {
+    int end = header.indexOf('"', start + 1);
+    return end < 0 ? "" : header.substring(start + 1, end);
+  }
+  int end = header.indexOf(',', start);
+  return end < 0 ? header.substring(start) : header.substring(start, end);
+}
+
+String buildDigestAuth(const String& challenge, const String& uri) {
+  String realm  = digestParam(challenge, "realm");
+  String nonce  = digestParam(challenge, "nonce");
+  String opaque = digestParam(challenge, "opaque");
+  bool useQop = digestParam(challenge, "qop").indexOf("auth") >= 0;
+
+  String cnonce = String((uint32_t)esp_random(), HEX);
+  String nc = "00000001";
+  String ha1 = md5Hex(cameraUser + ":" + realm + ":" + cameraPassword);
+  String ha2 = md5Hex(String("GET:") + uri);
+  String response = useQop
+    ? md5Hex(ha1 + ":" + nonce + ":" + nc + ":" + cnonce + ":auth:" + ha2)
+    : md5Hex(ha1 + ":" + nonce + ":" + ha2);
+
+  String auth = "Digest username=\"" + cameraUser + "\", realm=\"" + realm +
+                "\", nonce=\"" + nonce + "\", uri=\"" + uri +
+                "\", response=\"" + response + "\"";
+  if (useQop) auth += ", qop=auth, nc=" + nc + ", cnonce=\"" + cnonce + "\"";
+  if (opaque.length() > 0) auth += ", opaque=\"" + opaque + "\"";
+  return auth;
+}
+
+// Fixed-size buffer the HTTP client can write a response body into.
+// writeToStream() handles chunked responses, so the JPEG arrives intact either way.
+class SnapshotBuffer : public Stream {
+ public:
+  uint8_t* data;
+  size_t capacity;
+  size_t length = 0;
+  bool overflowed = false;
+
+  explicit SnapshotBuffer(size_t cap) : capacity(cap) {
+    data = (uint8_t*)(psramFound() ? ps_malloc(cap) : malloc(cap));
+  }
+  size_t write(uint8_t b) override { return write(&b, 1); }
+  size_t write(const uint8_t* buf, size_t size) override {
+    if (!data || length + size > capacity) {
+      overflowed = true;
+      return 0;
+    }
+    memcpy(data + length, buf, size);
+    length += size;
+    return size;
+  }
+  int available() override { return 0; }
+  int read() override { return -1; }
+  int peek() override { return -1; }
+  void flush() override {}
+};
+
+uint8_t* fetchCameraSnapshot(const String& ip, size_t& length) {
+  String url = "http://" + ip + CAMERA_SNAPSHOT_PATH;
+  const char* authHeaders[] = {"WWW-Authenticate"};
+
+  HTTPClient http;
+  http.setTimeout(5000);
+  http.begin(url);
+  http.collectHeaders(authHeaders, 1);
+  int code = http.GET();
+
+  if (code == 401) {
+    String challenge = http.header("WWW-Authenticate");
+    http.end();
+
+    http.begin(url);
+    if (challenge.startsWith("Digest")) {
+      http.addHeader("Authorization", buildDigestAuth(challenge, CAMERA_SNAPSHOT_PATH));
+    } else {
+      http.setAuthorization(cameraUser.c_str(), cameraPassword.c_str());
+    }
+    code = http.GET();
+  }
+
+  if (code != 200) {
+    Serial.printf("Camera %s snapshot -> HTTP %d\n", ip.c_str(), code);
+    http.end();
+    return nullptr;
+  }
+
+  int contentLength = http.getSize();
+  if (contentLength > (int)MAX_SNAPSHOT_BYTES) {
+    Serial.printf("Camera %s snapshot too large (%d bytes)\n", ip.c_str(), contentLength);
+    http.end();
+    return nullptr;
+  }
+  SnapshotBuffer body(contentLength > 0 ? (size_t)contentLength : MAX_SNAPSHOT_BYTES);
+  http.writeToStream(&body);
+  http.end();
+
+  if (!body.data || body.overflowed || body.length < 2 ||
+      body.data[0] != 0xFF || body.data[1] != 0xD8) {
+    Serial.printf("Camera %s returned no usable JPEG\n", ip.c_str());
+    free(body.data);
+    return nullptr;
+  }
+  length = body.length;
+  return body.data;  // caller frees
+}
+
+bool uploadCameraSnapshot(uint8_t slot, uint8_t* jpeg, size_t length) {
+  WiFiClientSecure client;
+  client.setInsecure();
+  client.setTimeout(15000);
+
+  HTTPClient http;
+  http.setTimeout(15000);
+  if (!http.begin(client, CAMERA_SNAPSHOT_URL)) return false;
+  http.addHeader("Content-Type", "image/jpeg");
+  http.addHeader("X-Device-Key", DEVICE_API_KEY);
+  http.addHeader("X-Camera-Slot", String(slot));
+  int code = http.POST(jpeg, length);
+  if (code < 200 || code >= 300) {
+    Serial.printf("Camera slot %d upload -> HTTP %d %s\n", slot, code, http.getString().c_str());
+  }
+  http.end();
+  return code >= 200 && code < 300;
+}
+
+void handleCameras() {
+  if (numCameras == 0 || WiFi.status() != WL_CONNECTED) return;
+  if (millis() - lastCameraSnapshot < CAMERA_SNAPSHOT_INTERVAL_MS / numCameras) return;
+  lastCameraSnapshot = millis();
+
+  CameraConfig& cam = cameras[cameraIndex];
+  cameraIndex = (cameraIndex + 1) % numCameras;
+
+  size_t length = 0;
+  uint8_t* jpeg = fetchCameraSnapshot(cam.ip, length);
+  if (!jpeg) return;
+
+  if (uploadCameraSnapshot(cam.slot, jpeg, length)) {
+    Serial.printf("Camera slot %d: uploaded %u bytes\n", cam.slot, (unsigned)length);
+  }
+  free(jpeg);
+}
+
+// ============================================================
 // SETUP / LOOP
 // ============================================================
 unsigned long lastFlush = 0;
@@ -668,8 +902,9 @@ void setup() {
   setupEXTIO2();
   setupCerboMQTT();
   setupENVIII();
+  loadCameraConfig();
 
-  Serial.println("ORION Tough online: bilge/pump, Cerbo battery MQTT, alternators, ENV III, GPS. "
+  Serial.println("ORION Tough online: bilge/pump, Cerbo battery MQTT, alternators, ENV III, GPS, cameras. "
                  "Wind/rain via weather station.");
 }
 
@@ -695,6 +930,7 @@ void loop() {
 
   handleENVIII();
   handleGPS();
+  handleCameras();
 
   if (millis() - lastFlush > FLUSH_INTERVAL_MS) {
     flushBuffer();

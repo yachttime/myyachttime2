@@ -39,4 +39,19 @@ Content-Type: image/jpeg
 <raw JPEG bytes, under 2 MB>
 ```
 
-Use the camera's 640x360 substream snapshot if the full 1080p picture is too slow over the boat's connection.
+The Uniview IPC322LB-AF28WK-G returns a 640x360 JPEG (about 40 KB) from `/images/snapshot.jpg` and requires an HTTP Digest login.
+
+## Tough camera config (SD card)
+
+The ORION Tough firmware (`firmware/ORION_tough_firmware_combined.ino`, Module 5) reads the camera list and login from `/cameras.txt` on its SD card, so the camera password is never in the firmware file:
+
+```
+user=admin
+password=<camera password>
+1=192.168.1.201
+2=192.168.1.202
+```
+
+Each `N=ip` line is a camera slot (1-8) and must match a `vessel_cameras.camera_slot` row for that Tough. The Tough uploads one camera at a time, so each camera refreshes about once a minute. Without the file, the camera module stays off and the rest of the firmware runs as before.
+
+Give every camera a fixed IP in its own network settings, high in the Starlink range (for example .201 to .204), so the addresses never change.
