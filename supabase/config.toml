@@ -49,6 +49,9 @@ verify_jwt = false
 [functions.device-config]
 verify_jwt = false
 
+[functions.vessel-camera-snapshot]
+verify_jwt = false
+
 [functions.jarvis-chat]
 verify_jwt = true
 
