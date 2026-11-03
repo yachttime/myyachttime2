@@ -12,6 +12,7 @@ import { supabase, YachtBooking, MaintenanceRequest, EducationVideo, TripInspect
 import { InspectionPDFView } from './InspectionPDFView';
 import { OwnerHandoffPDFView } from './OwnerHandoffPDFView';
 import { FileUploadDropzone } from './FileUploadDropzone';
+import { namesMatch, type IdentityFlagDetails } from '../utils/identityConfirmation';
 import { SmartLockControls } from './SmartLockControls';
 import { SmartDeviceManagement } from './SmartDeviceManagement';
 import { VesselMonitoring } from './VesselMonitoring';
@@ -169,6 +170,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     return 'calendar';
   });
   const [activeBooking, setActiveBooking] = useState<YachtBooking | null>(null);
+  const [identityPrompt, setIdentityPrompt] = useState<{ eventType: 'check_in' | 'check_out' } | null>(null);
+  const [identityNameInput, setIdentityNameInput] = useState('');
+  const [identitySubmitting, setIdentitySubmitting] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState<EducationVideo | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showVideoUploadModal, setShowVideoUploadModal] = useState(false);
@@ -1076,6 +1080,30 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       setAdminViewPersisted('menu');
     }
   }, [effectiveRole]);
+
+  // Keeps the master calendar in step with owner check-ins and check-outs made on the tablet
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('yacht_bookings_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'yacht_bookings',
+        },
+        () => {
+          loadMasterCalendar();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Set up realtime subscription for yacht_invoices to track email engagement
   useEffect(() => {
@@ -7351,7 +7379,52 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     }
   };
 
-  const handleCheckIn = async () => {
+  const scheduledOwnerNameForBooking = (booking: YachtBooking) =>
+    booking.owner_name || booking.yacht_booking_owners?.[0]?.owner_name || 'Scheduled owner';
+
+  const recordIdentityFlag = async (eventType: 'check_in' | 'check_out', details: IdentityFlagDetails) => {
+    if (!activeBooking || !user || !yacht) return;
+    const companyId = yacht.company_id || userProfile?.company_id;
+    if (!companyId) return;
+
+    const { error } = await supabase.from('identity_flags').insert({
+      company_id: companyId,
+      booking_id: activeBooking.id,
+      yacht_id: yacht.id,
+      user_id: user.id,
+      event_type: eventType,
+      scheduled_owner_name: details.scheduledOwnerName,
+      confirmed_name: details.confirmedName,
+    });
+    if (error) {
+      console.error('Error recording identity flag:', error);
+      showError('Identity flag could not be saved. Please tell the office about this check.');
+    }
+  };
+
+  const submitIdentityConfirmation = async () => {
+    if (!identityPrompt || !activeBooking || !identityNameInput.trim()) return;
+    const scheduledOwnerName = scheduledOwnerNameForBooking(activeBooking);
+    const confirmedName = identityNameInput.trim();
+    const flag = namesMatch(scheduledOwnerName, confirmedName)
+      ? null
+      : { scheduledOwnerName, confirmedName };
+
+    setIdentitySubmitting(true);
+    try {
+      if (identityPrompt.eventType === 'check_in') {
+        await handleCheckIn(flag);
+      } else {
+        await handleCheckOut(flag);
+      }
+      setIdentityPrompt(null);
+      setIdentityNameInput('');
+    } finally {
+      setIdentitySubmitting(false);
+    }
+  };
+
+  const handleCheckIn = async (identityFlag: IdentityFlagDetails | null) => {
     if (!activeBooking || !user || !yacht) return;
 
     if (!isWithinBookingPeriod(activeBooking)) {
@@ -7371,6 +7444,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       const userName = userProfile?.first_name && userProfile?.last_name
         ? `${userProfile.first_name} ${userProfile.last_name}`
         : user.email;
+
+      if (identityFlag) {
+        await recordIdentityFlag('check_in', identityFlag);
+      }
 
       const checkInMessage = `Check-In Alert: ${userName} checked in to ${yacht.name} on ${now.toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })} at ${now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Phoenix' })} MST`;
 
@@ -7410,6 +7487,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           checkInTime: checkInTimeStr,
           eventType: 'check_in',
           companyId: yacht.company_id || userProfile?.company_id,
+          identityFlag: identityFlag ?? undefined,
         }),
       }).catch(err => console.error('Check-in notification error:', err));
 
@@ -7420,7 +7498,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     }
   };
 
-  const handleCheckOut = async () => {
+  const handleCheckOut = async (identityFlag: IdentityFlagDetails | null) => {
     if (!activeBooking || !user || !yacht) return;
 
     if (!isWithinBookingPeriod(activeBooking)) {
@@ -7440,6 +7518,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       const userName = userProfile?.first_name && userProfile?.last_name
         ? `${userProfile.first_name} ${userProfile.last_name}`
         : user.email;
+
+      if (identityFlag) {
+        await recordIdentityFlag('check_out', identityFlag);
+      }
 
       const checkOutMessage = `Check-Out Alert: ${userName} checked out from ${yacht.name} on ${now.toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })} at ${now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Phoenix' })} MST`;
 
@@ -7479,6 +7561,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           checkInTime: checkOutTimeStr,
           eventType: 'check_out',
           companyId: yacht.company_id || userProfile?.company_id,
+          identityFlag: identityFlag ?? undefined,
         }),
       }).catch(err => console.error('Check-out notification error:', err));
 
@@ -8484,6 +8567,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         end_date: endDateTime,
         departure_time: ownerTripForm.departure_time,
         arrival_time: ownerTripForm.arrival_time,
+        owner_name: validOwners[0].owner_name,
         notes: 'Owner trip',
         checked_in: false,
         checked_out: false,
@@ -8495,14 +8579,18 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       const ownersData = validOwners.map(owner => ({
         booking_id: booking.id,
         owner_name: owner.owner_name,
-        owner_contact: owner.owner_contact || null
+        owner_contact: owner.owner_contact || null,
+        company_id: selectedYacht.company_id
       }));
 
       const { error: ownersError } = await supabase
         .from('yacht_booking_owners')
         .insert(ownersData);
 
-      if (ownersError) throw ownersError;
+      if (ownersError) {
+        await supabase.from('yacht_bookings').delete().eq('id', booking.id);
+        throw ownersError;
+      }
 
       const userName = userProfile?.first_name && userProfile?.last_name
         ? `${userProfile.first_name} ${userProfile.last_name}`
@@ -10355,7 +10443,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
                     <div className="space-y-3 pt-4">
                       <button
-                        onClick={handleCheckIn}
+                        onClick={() => setIdentityPrompt({ eventType: 'check_in' })}
                         disabled={activeBooking.checked_in || !isWithinBookingPeriod(activeBooking)}
                         className="w-full bg-slate-700 hover:bg-slate-600 text-white font-semibold py-3 rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                       >
@@ -10370,7 +10458,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       </button>
 
                       <button
-                        onClick={handleCheckOut}
+                        onClick={() => setIdentityPrompt({ eventType: 'check_out' })}
                         disabled={activeBooking.checked_out || !activeBooking.checked_in}
                         className="w-full bg-slate-700 hover:bg-slate-600 text-white font-semibold py-3 rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                       >
@@ -10394,6 +10482,46 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                       )}
                     </div>
                   </div>
+
+                  {identityPrompt && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+                      <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 w-full max-w-md space-y-4">
+                        <h3 className="text-xl font-bold text-white">
+                          {identityPrompt.eventType === 'check_in' ? 'Confirm check in' : 'Confirm check out'}
+                        </h3>
+                        <p className="text-slate-300">
+                          Type your full name to confirm you are the scheduled owner, {scheduledOwnerNameForBooking(activeBooking)}.
+                        </p>
+                        <p className="text-sm text-slate-400">
+                          If the name does not match, you can still continue. The office will be notified to review it.
+                        </p>
+                        <input
+                          type="text"
+                          value={identityNameInput}
+                          onChange={(e) => setIdentityNameInput(e.target.value)}
+                          placeholder="Your full name"
+                          autoFocus
+                          className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+                        />
+                        <div className="flex gap-3 pt-2">
+                          <button
+                            onClick={() => { setIdentityPrompt(null); setIdentityNameInput(''); }}
+                            disabled={identitySubmitting}
+                            className="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-semibold py-3 rounded-lg transition-colors disabled:opacity-50"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={submitIdentityConfirmation}
+                            disabled={identitySubmitting || !identityNameInput.trim()}
+                            className="flex-1 bg-cyan-600 hover:bg-cyan-500 text-white font-semibold py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {identitySubmitting ? 'Saving...' : 'Confirm'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   </>
                 ) : (
                   <div className="text-center py-8">

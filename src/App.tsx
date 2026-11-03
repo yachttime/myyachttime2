@@ -10,6 +10,7 @@ import { BobVideoModal } from './components/admin/BobVideoModal';
 import { Welcome } from './components/Welcome';
 import { SignIn } from './components/SignIn';
 import { Dashboard } from './components/Dashboard';
+import { TabletApp } from './components/tablet/TabletApp';
 import { MaintenanceRequest } from './components/MaintenanceRequest';
 import { Education } from './components/Education';
 import { PasswordChange } from './components/PasswordChange';
@@ -168,6 +169,10 @@ function AppContent() {
         </div>
       </div>
     );
+  }
+
+  if (window.location.pathname === '/tablet') {
+    return <TabletApp />;
   }
 
   if (!user) {

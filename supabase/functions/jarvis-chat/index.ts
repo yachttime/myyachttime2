@@ -24,7 +24,9 @@ interface ChatRequest {
   mode?: 'chat' | 'data';
   message?: string;
   conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
-  dataAction?: 'loadPending' | 'loadTasks' | 'loadKnowledge' | 'saveKnowledge' | 'deleteKnowledge' | 'toggleKnowledge' | 'updateTask';
+  dataAction?: 'loadPending' | 'loadTasks' | 'loadKnowledge' | 'saveKnowledge' | 'deleteKnowledge' | 'toggleKnowledge' | 'updateTask' | 'loadUnanswered' | 'updateUnanswered';
+  unansweredId?: string;
+  unansweredStatus?: 'open' | 'resolved' | 'dismissed';
   knowledgeData?: { id?: string; category: string; title: string; content: string };
   taskId?: string;
   taskStatus?: string;
@@ -74,7 +76,8 @@ Deno.serve(async (req: Request) => {
     if (!userMessage) return jsonResp({ error: 'Message is required' }, 400);
 
     const name = jarvisStaff.display_name || [profile.first_name, profile.last_name].filter(Boolean).join(' ') || 'a staff member';
-    const system = [{ type: 'text', text: buildSystemPrompt(name, await getContext()), cache_control: { type: 'ephemeral' } }];
+    const [context, elevation, weather] = await Promise.all([getContext(), getLakeElevationText(), getWeatherText()]);
+    const system = [{ type: 'text', text: buildSystemPrompt(name, context, elevation, weather), cache_control: { type: 'ephemeral' } }];
 
     // Conversation: text only, alternating, starts with user
     const messages: any[] = [];
@@ -214,7 +217,53 @@ async function getContext(): Promise<string> {
   return text;
 }
 
-function buildSystemPrompt(name: string, context: string) {
+async function getLakeElevationText(): Promise<string> {
+  const unavailable = 'CURRENT LAKE POWELL ELEVATION: unavailable right now. Say so if asked about ramp access today.';
+  try {
+    const res = await fetch('https://waterservices.usgs.gov/nwis/iv/?format=json&sites=09379900', { signal: AbortSignal.timeout(5000) });
+    if (!res.ok) return unavailable;
+    const latest = (await res.json()).value?.timeSeries?.[0]?.values?.[0]?.value?.[0];
+    if (!latest?.value) return unavailable;
+    const when = new Date(latest.dateTime).toLocaleString('en-US', {
+      timeZone: 'America/Phoenix', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
+    });
+    return `CURRENT LAKE POWELL ELEVATION (USGS site 09379900, Glen Canyon Dam): ${latest.value} ft, reading taken ${when} (Arizona time). Compare this to the ramp minimums in the knowledge base to answer ramp access questions.`;
+  } catch (e) {
+    console.error('USGS elevation fetch failed:', e);
+    return unavailable;
+  }
+}
+
+async function getWeatherText(): Promise<string> {
+  const unavailable = 'CURRENT WEATHER FORECAST: unavailable right now. Say so if asked about today\'s weather.';
+  const headers = { 'Accept': 'application/geo+json', 'User-Agent': 'AZMarine-Jarvis' };
+  try {
+    const points = await fetch('https://api.weather.gov/points/36.9147,-111.4558', { headers, signal: AbortSignal.timeout(5000) });
+    if (!points.ok) return unavailable;
+    const forecastUrl = (await points.json()).properties?.forecast;
+    if (!forecastUrl) return unavailable;
+    const forecast = await fetch(forecastUrl, { headers, signal: AbortSignal.timeout(5000) });
+    if (!forecast.ok) return unavailable;
+    const periods: any[] = (await forecast.json()).properties?.periods ?? [];
+    if (!periods.length) return unavailable;
+    const lines = periods.slice(0, 6).map((p) => {
+      const precip = p.probabilityOfPrecipitation?.value;
+      const parts = [
+        `${p.name}: ${p.temperature} ${p.temperatureUnit}`,
+        p.shortForecast,
+        `precip ${precip ?? 0}%`,
+        `wind ${p.windSpeed} ${p.windDirection}`,
+      ];
+      return `- ${parts.join(', ')}`;
+    });
+    return `CURRENT WEATHER FORECAST (National Weather Service, Page AZ / Lake Powell, next periods):\n${lines.join('\n')}\nUse this for any weather question. Say it is the NWS forecast.`;
+  } catch (e) {
+    console.error('NWS weather fetch failed:', e);
+    return unavailable;
+  }
+}
+
+function buildSystemPrompt(name: string, context: string, elevation: string, weather: string) {
   const now = new Date().toLocaleString('en-US', {
     timeZone: 'America/Phoenix', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit',
   });
@@ -224,14 +273,20 @@ You are talking with ${name} (master/admin user). Current time: ${now} (Arizona 
 
 HOW TO WORK
 - Answer questions about yachts, owner bookings/trips, repair requests, estimates, work orders, invoices & payments, parts, purchase orders, staff time, daily tasks, customers and salvage reports by querying the live database with run_query. Never guess or invent records, numbers, names or dates — if it isn't in the data, say so.
+- Answer the exact question first, in one or two sentences, with only the facts it needs. Do not add other rows, other ramps, extra lists or tables to that reply. Offer them with a yes-or-no question instead, for example "Would you like me to go through the other ramps?", then stop and wait. Only share the extra details after the user says yes. If the user says no, drop it and do not bring it up again unless asked.
 - Use the schema below. If a query errors, read the error, fix the SQL and retry. Prefer a few focused queries over one huge one.
 - Write efficient SELECTs: only needed columns, WHERE filters, ORDER BY, LIMIT. Join to yachts/customers/user_profiles to show names instead of UUIDs. Exclude archived rows (archived = true) unless asked.
 - mercury_marine_parts is a ~300k-row Mercury price list: always filter it (e.g. part number or ILIKE on description) and LIMIT.
 - Money: estimates/work_orders/estimating_invoices use total_amount; estimating_invoices has amount_paid, balance_due, payment_status. yacht_invoices uses invoice_amount_numeric and payment_status.
 - People: user_profiles (role, first_name, last_name, email, yacht_id) links to auth users via user_profiles.user_id. Owners are user_profiles tied to a yacht.
 - Use create_task for follow-ups. Use propose_change to suggest an update to an allowed table — it does NOT change anything; it creates an approval card the user must approve. Say it's waiting for approval.
+- If you cannot answer a question from the live data, the knowledge base, or the reference info above, do not guess. Call log_unanswered_question with the question as the user asked it, then tell the user you have passed it to a master to review so Bob can learn the answer.
 - Don't reveal pay rates, wifi passwords or personal contact details unless the user specifically asks for them.
 - Be concise and practical: short bullets or small markdown tables. Money as $1,234.56; dates like "Tue Oct 6". Keep answers under ~300 words unless asked for detail.
+
+${elevation}
+
+${weather}
 
 ${context}`;
 }
@@ -270,6 +325,18 @@ const TOOLS = [
     },
   },
   {
+    name: 'log_unanswered_question',
+    description: 'Record a question you could not answer so a master can review it and add the answer to the knowledge base.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        question: { type: 'string', description: 'The question as the user asked it.' },
+        attempted_note: { type: 'string', description: 'What you checked and why it did not answer the question.' },
+      },
+      required: ['question'],
+    },
+  },
+  {
     name: 'propose_change',
     description: 'Propose UPDATING one record in an allowed table. Nothing changes until the user approves it in the app.',
     input_schema: {
@@ -300,6 +367,14 @@ async function runTool(name: string, input: any, ctx: ToolCtx) {
     if (error) throw new Error(error.message);
     ctx.createdTasks.push(data);
     return { created: data };
+  }
+
+  if (name === 'log_unanswered_question') {
+    const { error } = await ctx.serviceClient.from('jarvis_unanswered_questions').insert({
+      question: input.question, attempted_note: input.attempted_note ?? null, asked_by: ctx.userId, status: 'open',
+    });
+    if (error) throw new Error(error.message);
+    return { logged: true, note: 'Recorded for master review.' };
   }
 
   if (name === 'propose_change') {
@@ -403,6 +478,21 @@ async function handleData(body: ChatRequest, serviceClient: any) {
       if (error) throw error;
       ctxCache = null;
       return jsonResp({ success: true, active: newActive });
+    }
+    case 'loadUnanswered': {
+      const { data, error } = await serviceClient.from('jarvis_unanswered_questions')
+        .select('id, question, attempted_note, status, created_at, resolved_at')
+        .order('created_at', { ascending: false }).limit(200);
+      if (error) throw error;
+      return jsonResp({ data: data || [] });
+    }
+    case 'updateUnanswered': {
+      if (!body.unansweredId || !body.unansweredStatus) return jsonResp({ error: 'unansweredId and unansweredStatus are required' }, 400);
+      const { error } = await serviceClient.from('jarvis_unanswered_questions')
+        .update({ status: body.unansweredStatus, resolved_at: body.unansweredStatus === 'open' ? null : new Date().toISOString() })
+        .eq('id', body.unansweredId);
+      if (error) throw error;
+      return jsonResp({ success: true });
     }
     case 'updateTask': {
       if (!body.taskId || !body.taskStatus) return jsonResp({ error: 'taskId and taskStatus are required' }, 400);

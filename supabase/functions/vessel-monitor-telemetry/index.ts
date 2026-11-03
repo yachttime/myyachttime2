@@ -428,6 +428,8 @@ async function upsertSensor(
     .select("id, min_threshold, max_threshold")
     .eq("device_id", device.id)
     .eq("sensor_name", sensorName)
+    .order("created_at", { ascending: true })
+    .limit(1)
     .maybeSingle();
 
   if (existing) {
