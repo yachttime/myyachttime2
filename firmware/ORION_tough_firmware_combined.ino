@@ -692,8 +692,16 @@ const unsigned long CAMERA_SNAPSHOT_INTERVAL_MS = 60000;  // each camera, once a
 int cameraIndex = 0;
 
 void loadCameraConfig() {
-  if (!sdReady || !SD.exists(CAMERA_CONFIG_FILE)) {
-    Serial.println("No /cameras.txt on SD — camera snapshots disabled.");
+  if (!sdReady) {
+    Serial.println("Cameras: SD card not ready — camera snapshots disabled.");
+    return;
+  }
+  if (!SD.exists(CAMERA_CONFIG_FILE)) {
+    Serial.println("Cameras: no /cameras.txt on SD — camera snapshots disabled. Files on the card:");
+    File root = SD.open("/");
+    for (File entry = root.openNextFile(); entry; entry = root.openNextFile()) {
+      Serial.println(String("  ") + entry.name());
+    }
     return;
   }
   File f = SD.open(CAMERA_CONFIG_FILE, FILE_READ);
