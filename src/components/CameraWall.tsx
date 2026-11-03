@@ -23,6 +23,10 @@ interface VesselCamera {
 
 interface CameraWallProps {
   onBack?: () => void;
+  // Show only this yacht's cameras (helm tablet Security Cameras tab)
+  yachtId?: string;
+  // Render inside another screen: no page-height layout, title or sign out
+  embedded?: boolean;
 }
 
 function formatAge(seconds: number) {
@@ -32,7 +36,7 @@ function formatAge(seconds: number) {
   return `${Math.floor(seconds / 86400)} days ago`;
 }
 
-export function CameraWall({ onBack }: CameraWallProps) {
+export function CameraWall({ onBack, yachtId, embedded = false }: CameraWallProps) {
   const { signOut } = useAuth();
   const [cameras, setCameras] = useState<VesselCamera[]>([]);
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
@@ -44,10 +48,12 @@ export function CameraWall({ onBack }: CameraWallProps) {
   const loadedAt = useRef<Record<string, string>>({});
 
   const load = useCallback(async () => {
-    const { data, error: fetchError } = await supabase
+    let query = supabase
       .from('vessel_cameras')
       .select('id, yacht_id, camera_name, sort_order, camera_slot, last_snapshot_path, last_snapshot_at, yachts(name)')
-      .eq('is_enabled', true)
+      .eq('is_enabled', true);
+    if (yachtId) query = query.eq('yacht_id', yachtId);
+    const { data, error: fetchError } = await query
       .order('sort_order')
       .order('camera_slot');
 
@@ -82,7 +88,7 @@ export function CameraWall({ onBack }: CameraWallProps) {
       }
     }
     setLoading(false);
-  }, []);
+  }, [yachtId]);
 
   useEffect(() => {
     load();
@@ -158,7 +164,11 @@ export function CameraWall({ onBack }: CameraWallProps) {
     );
 
   return (
-    <div className="h-screen flex flex-col bg-slate-950 text-white select-none overflow-hidden">
+    <div
+      className={`${
+        embedded ? 'h-[calc(100vh-15rem)] min-h-[24rem] rounded-xl border border-slate-800' : 'h-screen'
+      } flex flex-col bg-slate-950 text-white select-none overflow-hidden`}
+    >
       <header className="flex items-center justify-between gap-4 px-5 py-3 border-b border-slate-800">
         <div className="flex items-center gap-4 min-w-0">
           {onBack && (
@@ -170,7 +180,9 @@ export function CameraWall({ onBack }: CameraWallProps) {
               <ArrowLeft className="w-5 h-5" />
             </button>
           )}
-          {yachts.length > 1 ? (
+          {embedded ? (
+            <h2 className="text-lg font-semibold">Security Cameras</h2>
+          ) : yachts.length > 1 ? (
             <div className="flex gap-2 overflow-x-auto">
               {yachts.map(y => (
                 <button
@@ -208,13 +220,15 @@ export function CameraWall({ onBack }: CameraWallProps) {
           >
             <Maximize className="w-5 h-5" />
           </button>
-          <button
-            onClick={signOut}
-            className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 transition-colors"
-            aria-label="Sign out"
-          >
-            <LogOut className="w-5 h-5" />
-          </button>
+          {!embedded && (
+            <button
+              onClick={signOut}
+              className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 transition-colors"
+              aria-label="Sign out"
+            >
+              <LogOut className="w-5 h-5" />
+            </button>
+          )}
         </div>
       </header>
 
