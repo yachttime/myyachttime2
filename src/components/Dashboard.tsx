@@ -3097,10 +3097,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         return getBookingName(candidates[0].booking);
       };
 
-      const enriched = (data || []).map((r: any) => ({
-        ...r,
-        _ownerName: getOwnerForDate(r.created_at),
-      }));
+      const effectiveDate = (r: any): string => r.inspection_date || r.created_at;
+      const enriched = [...(data || [])]
+        .sort((a: any, b: any) => new Date(effectiveDate(a)).getTime() - new Date(effectiveDate(b)).getTime())
+        .map((r: any) => ({
+          ...r,
+          _ownerName: getOwnerForDate(effectiveDate(r)),
+        }));
       setYachtEngineHourHistory(prev => ({ ...prev, [yachtId]: enriched }));
       return enriched;
     } catch (error) {
@@ -3158,7 +3161,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           .eq('yacht_id', yachtId)
           .gte('invoice_date', yearStart).lte('invoice_date', yearEnd),
         supabase.from('trip_inspections')
-          .select('id, yacht_id, created_at, port_engine_hours, stbd_engine_hours, port_gen_hours, stbd_gen_hours')
+          .select('id, yacht_id, created_at, inspection_date, port_engine_hours, stbd_engine_hours, port_gen_hours, stbd_gen_hours')
           .eq('yacht_id', yachtId)
           .gte('created_at', yearStart).lte('created_at', yearEnd),
         supabase.from('repair_requests')
@@ -12688,15 +12691,15 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                 );
                                 used.add(insp.id);
                                 if (partner) used.add(partner.id);
-                                trips.push({ checkIn: insp, checkOut: partner || null, date: insp.created_at, ownerName: getOwnerName(insp) || getOwnerName(partner) || null });
+                                trips.push({ checkIn: insp, checkOut: partner || null, date: insp.inspection_date || insp.created_at, ownerName: getOwnerName(insp) || getOwnerName(partner) || null });
                               } else if (insp.inspection_type === 'check_out') {
                                 // Orphan check_out (no matching check_in found yet)
                                 used.add(insp.id);
-                                trips.push({ checkIn: null, checkOut: insp, date: insp.created_at, ownerName: getOwnerName(insp) });
+                                trips.push({ checkIn: null, checkOut: insp, date: insp.inspection_date || insp.created_at, ownerName: getOwnerName(insp) });
                               } else {
                                 // Standalone inspection with hours
                                 used.add(insp.id);
-                                trips.push({ checkIn: insp, checkOut: null, date: insp.created_at, ownerName: getOwnerName(insp) });
+                                trips.push({ checkIn: insp, checkOut: null, date: insp.inspection_date || insp.created_at, ownerName: getOwnerName(insp) });
                               }
                             }
 
