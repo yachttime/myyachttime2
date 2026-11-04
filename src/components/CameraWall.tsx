@@ -2,9 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Camera, LogOut, Maximize, RefreshCw, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { LiveCameraVideo, type LiveStatus } from './LiveCameraVideo';
 
 // Camera-only screen for the helm tablets (Galaxy Tab Active, landscape, kiosk mode).
 // Shows the latest snapshot the M5 Tough uploaded for each camera and refreshes on a timer.
+// Cameras with a live_url (the boat's go2rtc video box) play live video, with the
+// snapshot underneath as the fallback while live view connects or drops out.
 
 const REFRESH_SECONDS = 15;
 const STALE_SECONDS = 120;
@@ -18,6 +21,7 @@ interface VesselCamera {
   camera_slot: number;
   last_snapshot_path: string | null;
   last_snapshot_at: string | null;
+  live_url: string | null;
   yachts: { name: string } | null;
 }
 
@@ -45,12 +49,13 @@ export function CameraWall({ onBack, yachtId, embedded = false }: CameraWallProp
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
+  const [liveStatus, setLiveStatus] = useState<Record<string, LiveStatus>>({});
   const loadedAt = useRef<Record<string, string>>({});
 
   const load = useCallback(async () => {
     let query = supabase
       .from('vessel_cameras')
-      .select('id, yacht_id, camera_name, sort_order, camera_slot, last_snapshot_path, last_snapshot_at, yachts(name)')
+      .select('id, yacht_id, camera_name, sort_order, camera_slot, last_snapshot_path, last_snapshot_at, live_url, yachts(name)')
       .eq('is_enabled', true);
     if (yachtId) query = query.eq('yacht_id', yachtId);
     const { data, error: fetchError } = await query
@@ -144,6 +149,23 @@ export function CameraWall({ onBack, yachtId, embedded = false }: CameraWallProp
   };
 
   const renderStatus = (c: VesselCamera, large = false) => {
+    if (c.live_url && liveStatus[c.id] === 'live') {
+      return (
+        <span className={`${large ? 'text-sm' : 'text-xs'} flex items-center gap-1.5 font-semibold text-emerald-400`}>
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          LIVE
+        </span>
+      );
+    }
+    if (c.live_url) {
+      const age = ageSeconds(c);
+      return (
+        <span className={`${large ? 'text-sm' : 'text-xs'} tabular-nums text-amber-400`}>
+          {liveStatus[c.id] === 'reconnecting' ? 'Live view reconnecting' : 'Connecting live view'}
+          {age !== null && ` · picture ${formatAge(age)}`}
+        </span>
+      );
+    }
     const age = ageSeconds(c);
     const stale = age === null || age > STALE_SECONDS;
     return (
@@ -153,7 +175,7 @@ export function CameraWall({ onBack, yachtId, embedded = false }: CameraWallProp
     );
   };
 
-  const renderImage = (c: VesselCamera, className: string) =>
+  const renderSnapshot = (c: VesselCamera, className: string) =>
     imageUrls[c.id] ? (
       <img src={imageUrls[c.id]} alt={c.camera_name} className={className} />
     ) : (
@@ -161,6 +183,20 @@ export function CameraWall({ onBack, yachtId, embedded = false }: CameraWallProp
         <Camera className="w-10 h-10" />
         <span className="text-sm">Waiting for first picture</span>
       </div>
+    );
+
+  const renderImage = (c: VesselCamera, className: string) =>
+    c.live_url ? (
+      <div className="relative w-full h-full">
+        {renderSnapshot(c, className)}
+        <LiveCameraVideo
+          url={c.live_url}
+          className={`absolute inset-0 bg-black ${className}`}
+          onStatusChange={status => setLiveStatus(prev => (prev[c.id] === status ? prev : { ...prev, [c.id]: status }))}
+        />
+      </div>
+    ) : (
+      renderSnapshot(c, className)
     );
 
   return (
