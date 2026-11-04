@@ -401,7 +401,7 @@ export const InspectionPDFView = ({ inspection, onClose }: InspectionPDFViewProp
           Trip Inspection Report
         </h2>
         <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '1.25rem' }}>
-          {inspection.yachts?.name} &mdash; {new Date(inspection.created_at || '').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+          {inspection.yachts?.name} &mdash; {new Date(inspection.inspection_date || inspection.created_at || '').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
         </p>
 
         {/* Attached photos status */}

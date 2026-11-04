@@ -9081,7 +9081,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     try {
       const { data, error } = await supabase
         .from('trip_inspections')
-        .select('id, yacht_id, inspection_type, created_at, inspector_id, owner_name, yachts(name)')
+        .select('id, yacht_id, inspection_type, inspection_date, created_at, inspector_id, owner_name, yachts(name)')
         .eq('review_status', 'pending_review')
         .eq('company_id', companyId)
         .order('created_at', { ascending: false });
@@ -11958,7 +11958,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                               <div className="flex items-center gap-3 flex-1 min-w-0">
                                 <span className="text-amber-400 font-semibold text-sm flex-shrink-0">{inspection.yacht_name}</span>
                                 <span className="text-slate-300 text-sm">
-                                  {new Date(inspection.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                  {new Date(inspection.inspection_date || inspection.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                                 </span>
                                 {inspection.owner_name && (
                                   <span className="text-slate-400 text-sm">· {inspection.owner_name}</span>
