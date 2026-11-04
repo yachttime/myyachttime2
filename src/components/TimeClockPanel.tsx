@@ -556,11 +556,6 @@ export function TimeClockPanel() {
             <strong>Employee Type:</strong>{' '}
             {profile?.employee_type === 'hourly' ? 'Hourly' : 'Salary'}
           </p>
-          {profile?.employee_type === 'salary' && (
-            <p className="text-xs text-gray-500">
-              Note: 1 hour will be automatically deducted for lunch
-            </p>
-          )}
         </div>
       </div>
     </div>
