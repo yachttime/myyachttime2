@@ -18,6 +18,7 @@ import { StaffCalendar } from './components/StaffCalendar';
 import { PublicAgreementSigner } from './components/PublicAgreementSigner';
 import { WatchPresentation } from './components/WatchPresentation';
 import { CameraWall } from './components/CameraWall';
+import { StaffApp } from './components/staff/StaffApp';
 
 function ProfileLoadFallback({ onSignOut, onRetry }: { onSignOut: () => void; onRetry: () => Promise<void> }) {
   const [countdown, setCountdown] = useState(8);
@@ -173,6 +174,19 @@ function AppContent() {
 
   if (window.location.pathname === '/tablet') {
     return <TabletApp />;
+  }
+
+  if (window.location.pathname === '/staff') {
+    if (!user) {
+      return <SignIn />;
+    }
+    if (!userProfile) {
+      return <ProfileLoadFallback onSignOut={signOut} onRetry={refreshProfile} />;
+    }
+    if (userProfile.must_change_password) {
+      return <PasswordChange />;
+    }
+    return <StaffApp />;
   }
 
   if (!user) {
