@@ -12687,7 +12687,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                                   !used.has(o.id) &&
                                   o.inspection_type === 'check_out' &&
                                   o.id !== insp.id &&
-                                  (insp.booking_id ? o.booking_id === insp.booking_id : new Date(o.created_at) > new Date(insp.created_at))
+                                  (insp.booking_id ? o.booking_id === insp.booking_id : new Date(o.inspection_date || o.created_at) > new Date(insp.inspection_date || insp.created_at))
                                 );
                                 used.add(insp.id);
                                 if (partner) used.add(partner.id);
