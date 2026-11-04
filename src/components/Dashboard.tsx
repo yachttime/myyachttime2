@@ -3036,7 +3036,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     try {
       const { data, error } = await supabase
         .from('trip_inspections')
-        .select('id, inspection_type, created_at, booking_id, port_engine_hours, stbd_engine_hours, port_gen_hours, stbd_gen_hours')
+        .select('id, inspection_type, created_at, inspection_date, booking_id, port_engine_hours, stbd_engine_hours, port_gen_hours, stbd_gen_hours')
         .eq('yacht_id', yachtId)
         .or('port_engine_hours.not.is.null,stbd_engine_hours.not.is.null,port_gen_hours.not.is.null,stbd_gen_hours.not.is.null')
         .order('created_at', { ascending: true });
