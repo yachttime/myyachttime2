@@ -41,6 +41,7 @@ import {
   OfflineInspectionItem, OfflinePhoto,
 } from '../utils/offlineInspectionQueue';
 import { convertTo12Hour, formatPhoneNumber, toAZDateStr, isAntelopePointMarina, isWithinBookingPeriod } from '../utils/dashboardHelpers';
+import { phxDateInputToTimestamp, toPhxDateInput } from '../utils/timezone';
 import AdminMenu from './admin/AdminMenu';
 import AdminViewWrapper from './admin/AdminViewWrapper';
 import MaintenanceRequestsView from './admin/MaintenanceRequestsView';
@@ -361,6 +362,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [ownerNameForInspection, setOwnerNameForInspection] = useState<string>('');
   const [mechanics, setMechanics] = useState<UserProfile[]>([]);
   const [inspectionForm, setInspectionForm] = useState({
+    inspection_date: toPhxDateInput(new Date()),
     hull_condition: '' as ConditionRating,
     hull_notes: '',
     deck_condition: '' as ConditionRating,
@@ -7788,6 +7790,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         inspector_id: selectedMechanicId,
         inspection_type: inspectionType,
         ...inspectionForm,
+        inspection_date: phxDateInputToTimestamp(inspectionForm.inspection_date),
         owner_name: ownerNameForInspection.trim() || null,
         port_engine_hours: inspectionForm.port_engine_hours !== '' ? parseFloat(inspectionForm.port_engine_hours) : null,
         stbd_engine_hours: inspectionForm.stbd_engine_hours !== '' ? parseFloat(inspectionForm.stbd_engine_hours) : null,
@@ -7855,7 +7858,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         inspection_id: insertedInspection.id,
         inspection_type: 'trip_inspection',
         hours: 2.0,
-        inspection_date: new Date().toISOString(),
+        inspection_date: phxDateInputToTimestamp(inspectionForm.inspection_date),
         company_id: selectedYacht.company_id,
       }).then(({ error }) => {
         if (error) console.error('Failed to log inspection hours:', error);
@@ -7877,6 +7880,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       setOwnerNameForInspection('');
       setInspectionPhotos([]);
       setInspectionForm({
+        inspection_date: toPhxDateInput(new Date()),
         hull_condition: 'good',
         hull_notes: '',
         deck_condition: 'good',
@@ -8036,6 +8040,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           inspector_id: item.inspectorId,
           inspection_type: item.inspectionType,
           ...form,
+          inspection_date: phxDateInputToTimestamp(form.inspection_date as string | undefined),
           owner_name: item.ownerName || null,
           port_engine_hours: form.port_engine_hours !== '' && form.port_engine_hours != null ? parseFloat(String(form.port_engine_hours)) : null,
           stbd_engine_hours: form.stbd_engine_hours !== '' && form.stbd_engine_hours != null ? parseFloat(String(form.stbd_engine_hours)) : null,
@@ -8080,7 +8085,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         // Credit 2.0 inspection hours
         supabase.from('inspection_time_entries').insert({
           user_id: item.inspectorId, yacht_id: item.yachtId, inspection_id: inserted.id,
-          inspection_type: 'trip_inspection', hours: 2.0, inspection_date: new Date().toISOString(),
+          inspection_type: 'trip_inspection', hours: 2.0, inspection_date: phxDateInputToTimestamp(form.inspection_date as string | undefined),
           company_id: yacht.company_id,
         }).then(({ error }) => { if (error) console.error('Failed to log inspection hours:', error); });
 
@@ -8217,6 +8222,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     setOwnerNameForInspection('');
     setInspectionPhotos([]);
     setInspectionForm({
+      inspection_date: toPhxDateInput(new Date()),
       hull_condition: '' as ConditionRating, hull_notes: '', deck_condition: '' as ConditionRating, deck_notes: '',
       cabin_condition: '' as ConditionRating, cabin_notes: '', galley_condition: '' as ConditionRating, galley_notes: '',
       head_condition: '' as ConditionRating, head_notes: '', navigation_equipment: '' as ConditionRating, navigation_notes: '',

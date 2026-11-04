@@ -58,6 +58,12 @@ export function toPhxDateInput(date: Date | string | null | undefined): string {
   return `${y}-${m}-${day}`;
 }
 
+// Phoenix does not observe DST, so the fixed offset is correct year-round; noon avoids date shifts.
+export function phxDateInputToTimestamp(dateInput: string | undefined): string {
+  if (!dateInput) return new Date().toISOString();
+  return new Date(`${dateInput}T12:00:00-07:00`).toISOString();
+}
+
 /** Returns "HH:MM" in Phoenix local time — used for time input values */
 export function toPhxTimeInput(date: Date | string | null | undefined): string {
   if (!date) return '';

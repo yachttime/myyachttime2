@@ -2,6 +2,7 @@ import { ClipboardCheck, Camera, CheckCircle, X, Save, UploadCloud, Headphones }
 import { useEffect, useRef, useState } from 'react';
 import { Yacht } from '../../lib/supabase';
 import type { OfflineInspectionItem } from '../../utils/offlineInspectionQueue';
+import { toPhxDateInput } from '../../utils/timezone';
 import PendingQueuePanel from './PendingQueuePanel';
 import { useBob, BobFormField } from '../../contexts/BobContext';
 import { BobAvatar } from './BobAvatar';
@@ -90,6 +91,7 @@ export interface InspectionForm {
   engine_batteries_notes: string;
   additional_notes: string;
   issues_found: boolean;
+  inspection_date: string;
 }
 
 interface Mechanic {
@@ -451,6 +453,19 @@ export default function InspectionView({
                 </option>
               ))}
             </select>
+          </div>
+          <div id="bob-field-inspection_date">
+            <label htmlFor="inspectionDate" className="block text-sm font-medium mb-2">Inspection Date</label>
+            <input
+              id="inspectionDate"
+              type="date"
+              value={form.inspection_date}
+              max={toPhxDateInput(new Date())}
+              onChange={(e) => set({ inspection_date: e.target.value })}
+              required
+              className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500 transition-colors text-white"
+            />
+            <p className="text-xs text-slate-400 mt-2">Defaults to today. For a late report, choose the day the inspection was actually done.</p>
           </div>
           <div className="md:col-span-2" id="bob-field-ownerName">
             <label htmlFor="ownerName" className="block text-sm font-medium mb-2">Owner Name (for this trip)</label>
