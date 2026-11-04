@@ -29,7 +29,7 @@ if [[ ${#CAM_IPS[@]} -eq 0 ]]; then
   echo "At least one camera IP is needed." >&2
   exit 1
 fi
-read -rp "Box web address from Cloudflare (e.g. orion-cams.myyachttime.com): " PUBLIC_HOST
+read -rp "Box web address from Cloudflare (e.g. orion.myyachttime-cams.com): " PUBLIC_HOST
 read -rp "Cloudflare tunnel token (long text from the Cloudflare dashboard): " TUNNEL_TOKEN
 
 # Keep the secret path if the box was set up before, so saved live URLs keep working

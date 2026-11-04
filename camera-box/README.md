@@ -24,11 +24,11 @@ The tablet page connects to the box through a secure https address (Cloudflare t
 
 ## One-time Cloudflare setup (per boat)
 
-Needs the domain (for example myyachttime.com) to use Cloudflare for DNS.
+Uses a camera-only domain registered in Cloudflare (for example myyachttime-cams.com), so the main myyachttime.com at GoDaddy is never touched.
 
 1. In the Cloudflare dashboard go to **Zero Trust → Networks → Tunnels → Create a tunnel** (Cloudflared). Name it after the boat, e.g. `orion-cams`.
 2. Copy the tunnel **token** shown in the install command.
-3. Add a **public hostname**: `orion-cams.myyachttime.com`, **Path** `^/.+/api/webrtc$`, service `HTTP` → `localhost:1984`.
+3. Add a **public hostname**: `orion.myyachttime-cams.com`, **Path** `^/.+/api/webrtc$`, service `HTTP` → `localhost:1984`.
    The path limit matters: it lets only the live video requests through, so the box's settings page and API can't be reached from the internet.
 
 ## Setting up the Pi
@@ -40,7 +40,7 @@ Needs the domain (for example myyachttime.com) to use Cloudflare for DNS.
 5. It prints one live URL per camera. Save each into `vessel_cameras.live_url` for that camera slot:
 
 ```sql
-UPDATE vessel_cameras SET live_url = 'https://orion-cams.myyachttime.com/<secret>/api/webrtc?src=cam1'
+UPDATE vessel_cameras SET live_url = 'https://orion.myyachttime-cams.com/<secret>/api/webrtc?src=cam1'
 WHERE device_id = (SELECT id FROM vessel_monitor_devices WHERE device_serial = '<m5-serial>') AND camera_slot = 1;
 ```
 
