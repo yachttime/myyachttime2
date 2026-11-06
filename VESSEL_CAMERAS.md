@@ -11,6 +11,10 @@ The camera wall shows the latest snapshot from each camera on a yacht, refreshin
 
 Only the newest picture per camera is kept. There is no history.
 
+## Live view
+
+Cameras with `vessel_cameras.live_url` set play live video (WebRTC) from the boat's camera box, a Raspberry Pi 5 running go2rtc. The snapshot stays underneath as the fallback. See `camera-box/README.md` for the box setup.
+
 ## Setup
 
 1. Apply the migration `20261028210000_create_vessel_cameras.sql` and deploy the `vessel-camera-snapshot` function (`verify_jwt = false`, it authenticates with the device key).
