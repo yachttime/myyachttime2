@@ -32,6 +32,17 @@ fi
 read -rp "Box web address from Cloudflare (e.g. orion.myyachttime-cams.com): " PUBLIC_HOST
 read -rsp "Cloudflare tunnel token (long text from the Cloudflare dashboard, hidden while typing): " TUNNEL_TOKEN
 echo
+# Accept the whole "sudo cloudflared service install <token>" line too: keep only the token
+TUNNEL_TOKEN=$(printf '%s' "$TUNNEL_TOKEN" | tr -d '[:space:]' | grep -oE 'eyJ[A-Za-z0-9_=-]+' | head -n1 || true)
+# A double paste gives the token twice in a row: keep one copy
+half=$(( ${#TUNNEL_TOKEN} / 2 ))
+if (( ${#TUNNEL_TOKEN} % 2 == 0 )) && [[ "${TUNNEL_TOKEN:0:half}" == "${TUNNEL_TOKEN:half}" ]]; then
+  TUNNEL_TOKEN=${TUNNEL_TOKEN:0:half}
+fi
+if [[ -z "$TUNNEL_TOKEN" ]]; then
+  echo "That doesn't look like a Cloudflare tunnel token (it starts with eyJ)." >&2
+  exit 1
+fi
 
 # Keep the secret path if the box was set up before, so saved live URLs keep working
 SECRET=""
@@ -52,8 +63,10 @@ fi
 CAM_PASS_ENC=$(python3 -c 'import sys,urllib.parse;print(urllib.parse.quote(sys.argv[1],safe=""))' "$CAM_PASS")
 
 echo "== Installing go2rtc ${GO2RTC_VERSION} =="
-curl -fsSL "$GO2RTC_URL" -o /usr/local/bin/go2rtc
-chmod 755 /usr/local/bin/go2rtc
+# Download beside the old copy, then swap it in: a running go2rtc can't be overwritten
+curl -fsSL "$GO2RTC_URL" -o /usr/local/bin/go2rtc.new
+chmod 755 /usr/local/bin/go2rtc.new
+mv -f /usr/local/bin/go2rtc.new /usr/local/bin/go2rtc
 
 mkdir -p "$CONFIG_DIR"
 {
