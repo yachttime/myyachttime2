@@ -42,7 +42,7 @@ SECRET=${SECRET:-$(python3 -c 'import secrets; print(secrets.token_hex(16))')}
 
 # The Pi's own address on the boat network. WebRTC must advertise it or the
 # fast live view stays on "loading" (found in the office test).
-LAN_IP=$(hostname -I | tr ' ' '\n' | grep -E '^[0-9]+\.' | head -n1)
+LAN_IP=$(hostname -I | awk '{for (i = 1; i <= NF; i++) if ($i ~ /^[0-9]+\./) { print $i; exit }}')
 if [[ -z "$LAN_IP" ]]; then
   echo "Could not find this Pi's network address. Is the ethernet cable plugged in?" >&2
   exit 1
