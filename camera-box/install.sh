@@ -30,14 +30,15 @@ if [[ ${#CAM_IPS[@]} -eq 0 ]]; then
   exit 1
 fi
 read -rp "Box web address from Cloudflare (e.g. orion.myyachttime-cams.com): " PUBLIC_HOST
-read -rp "Cloudflare tunnel token (long text from the Cloudflare dashboard): " TUNNEL_TOKEN
+read -rsp "Cloudflare tunnel token (long text from the Cloudflare dashboard, hidden while typing): " TUNNEL_TOKEN
+echo
 
 # Keep the secret path if the box was set up before, so saved live URLs keep working
 SECRET=""
 if [[ -f "$CONFIG_FILE" ]]; then
   SECRET=$(grep -oP 'base_path:\s*"/\K[A-Za-z0-9]+' "$CONFIG_FILE" || true)
 fi
-SECRET=${SECRET:-$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 32)}
+SECRET=${SECRET:-$(python3 -c 'import secrets; print(secrets.token_hex(16))')}
 
 # The Pi's own address on the boat network. WebRTC must advertise it or the
 # fast live view stays on "loading" (found in the office test).
