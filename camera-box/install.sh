@@ -8,7 +8,7 @@
 # Run on the Pi:  sudo bash install.sh
 set -euo pipefail
 
-GO2RTC_VERSION="v1.9.9"
+GO2RTC_VERSION="v1.9.15"
 GO2RTC_URL="https://github.com/AlexxIT/go2rtc/releases/download/${GO2RTC_VERSION}/go2rtc_linux_arm64"
 CLOUDFLARED_URL="https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64.deb"
 CONFIG_DIR=/etc/go2rtc
