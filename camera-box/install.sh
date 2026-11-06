@@ -39,6 +39,14 @@ if [[ -f "$CONFIG_FILE" ]]; then
 fi
 SECRET=${SECRET:-$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 32)}
 
+# The Pi's own address on the boat network. WebRTC must advertise it or the
+# fast live view stays on "loading" (found in the office test).
+LAN_IP=$(hostname -I | tr ' ' '\n' | grep -E '^[0-9]+\.' | head -n1)
+if [[ -z "$LAN_IP" ]]; then
+  echo "Could not find this Pi's network address. Is the ethernet cable plugged in?" >&2
+  exit 1
+fi
+
 # URL-encode the password for the RTSP address
 CAM_PASS_ENC=$(python3 -c 'import sys,urllib.parse;print(urllib.parse.quote(sys.argv[1],safe=""))' "$CAM_PASS")
 
@@ -57,6 +65,8 @@ mkdir -p "$CONFIG_DIR"
   echo "  listen: \"\"                  # not needed"
   echo "webrtc:"
   echo "  listen: \":8555\"             # video goes straight to tablets on the boat WiFi"
+  echo "  candidates:"
+  echo "    - ${LAN_IP}:8555"
   echo "streams:"
   slot=1
   for ip in "${CAM_IPS[@]}"; do

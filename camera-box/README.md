@@ -35,7 +35,7 @@ Uses a camera-only domain registered in Cloudflare (for example myyachttime-cams
 
 1. With **Raspberry Pi Imager**, write **Raspberry Pi OS Lite (64-bit)** to the card. In the settings, set the hostname (e.g. `orion-cams`), a user and password, and turn on SSH.
 2. Put the card in the Pi, connect ethernet to the router and power it on.
-3. Give the Pi a fixed address (or note the one the router gives it), then from a computer on the same network: `ssh <user>@orion-cams.local`
+3. Give the Pi a fixed address in the router (DHCP reservation), because the live view uses it; if it changes, run the installer again, then from a computer on the same network: `ssh <user>@orion-cams.local`
 4. Copy `install.sh` to the Pi and run `sudo bash install.sh`. It asks for the camera login, the camera IPs in slot order, the box web address and the tunnel token.
 5. It prints one live URL per camera. Save each into `vessel_cameras.live_url` for that camera slot:
 
