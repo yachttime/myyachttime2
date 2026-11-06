@@ -6,7 +6,13 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <link rel="icon" type="image/png" href="/icon-192.png" />
-    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="manifest" id="app-manifest" href="/manifest.webmanifest" />
+    <script>
+      // The helm tablet screen installs as its own app that opens on /tablet
+      if (location.pathname === '/tablet') {
+        document.getElementById('app-manifest').href = '/manifest-tablet.webmanifest';
+      }
+    </script>
     <link rel="apple-touch-icon" href="/icon-192.png" />
     <meta name="theme-color" content="#0f172a" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
