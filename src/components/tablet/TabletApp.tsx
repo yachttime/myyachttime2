@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Yacht } from '../../lib/supabase';
 import { TabletSignIn } from './TabletSignIn';
@@ -23,11 +23,35 @@ function TabletMessage({ title, body, onSignOut }: { title: string; body: string
   );
 }
 
+// The profile loads just after sign-in (with retries on a weak connection),
+// so wait this long before saying it failed
+const PROFILE_WAIT_MS = 20000;
+
 export function TabletApp() {
   const { user, userProfile, signOut } = useAuth();
   const [selectedYacht, setSelectedYacht] = useState<Yacht | null>(null);
+  const [profileTimedOut, setProfileTimedOut] = useState(false);
+
+  const waitingForProfile = !!user && !userProfile;
+  useEffect(() => {
+    setProfileTimedOut(false);
+    if (!waitingForProfile) return;
+    const timer = setTimeout(() => setProfileTimedOut(true), PROFILE_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, [waitingForProfile]);
 
   if (!user) return <TabletSignIn />;
+
+  if (!userProfile && !profileTimedOut) {
+    return (
+      <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center p-6">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 border-4 border-slate-600 border-t-white rounded-full animate-spin" />
+          <p className="text-slate-300">Signing in…</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!userProfile) {
     return (
