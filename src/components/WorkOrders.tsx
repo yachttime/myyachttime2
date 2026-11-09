@@ -136,6 +136,7 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
     shop_supplies_rate: '0.05',
     park_fees_rate: '0.02',
     surcharge_rate: '0.03',
+    surcharge_cap: '',
     discount_pct: '0',
     apply_shop_supplies: true,
     apply_park_fees: true,
@@ -462,7 +463,8 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
           sales_tax_rate: settingsResult.data.sales_tax_rate.toString(),
           shop_supplies_rate: settingsResult.data.shop_supplies_rate.toString(),
           park_fees_rate: settingsResult.data.park_fees_rate.toString(),
-          surcharge_rate: settingsResult.data.surcharge_rate.toString()
+          surcharge_rate: settingsResult.data.surcharge_rate.toString(),
+          surcharge_cap: settingsResult.data.surcharge_cap != null ? settingsResult.data.surcharge_cap.toString() : ''
         }));
       }
     } catch (err) {
@@ -1015,7 +1017,9 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
   };
 
   const calculateSurcharge = () => {
-    return calculateSurchargeableSubtotal() * parseFloat(formData.surcharge_rate || '0');
+    const calculated = calculateSurchargeableSubtotal() * parseFloat(formData.surcharge_rate || '0');
+    const cap = formData.surcharge_cap !== '' ? parseFloat(formData.surcharge_cap) : null;
+    return cap != null && calculated > cap ? cap : calculated;
   };
 
   const calculateDiscount = () => {
@@ -1177,7 +1181,8 @@ export function WorkOrders({ userId }: WorkOrdersProps) {
       sales_tax_rate: settingsResult.data.sales_tax_rate.toString(),
       shop_supplies_rate: settingsResult.data.shop_supplies_rate.toString(),
       park_fees_rate: settingsResult.data.park_fees_rate.toString(),
-      surcharge_rate: settingsResult.data.surcharge_rate.toString()
+      surcharge_rate: settingsResult.data.surcharge_rate.toString(),
+      surcharge_cap: settingsResult.data.surcharge_cap != null ? settingsResult.data.surcharge_cap.toString() : ''
     } : {
       sales_tax_rate: '0.08',
       shop_supplies_rate: '0.05',
