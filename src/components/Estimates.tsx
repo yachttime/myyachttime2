@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { supabase } from '../lib/supabase';
-import { Plus, FileText, AlertCircle, CreditCard as Edit2, Trash2, Check, X, ChevronDown, ChevronUp, Printer, CheckCircle, XCircle, Package, Archive, RotateCcw, Search, User, ClipboardList, Camera, Upload, Image as ImageIcon } from 'lucide-react';
+import { Plus, FileText, AlertCircle, AlertTriangle, CreditCard as Edit2, Trash2, Check, X, ChevronDown, ChevronUp, Printer, CheckCircle, XCircle, Package, Archive, RotateCcw, Search, User, ClipboardList, Camera, Upload, Image as ImageIcon } from 'lucide-react';
 import { generateEstimatePDF, generateTripInspectionPDF, generateWorkOrderPDF } from '../utils/pdfGenerator';
+import { findInventoryPartByNumber } from '../utils/partNumberMatching';
 import { attachPdfToEstimateSalvageReport, attachPdfToWorkOrderSalvageReport } from '../utils/salvagePdfAttach';
 import { getCompanyInfoForPdf } from '../utils/companyInfo';
 import { useNotification } from '../contexts/NotificationContext';
@@ -1145,17 +1146,6 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
     return result;
   };
 
-  const findMatchingInventoryPart = (partNumber: string): any | null => {
-    if (!partNumber) return null;
-    const normalized = partNumber.toLowerCase().replace(/[-\s]/g, '');
-    for (const p of parts) {
-      const partNum = p.part_number.toLowerCase().replace(/[-\s]/g, '');
-      const altNum = (p.alternative_part_numbers || '').toLowerCase().replace(/[-\s]/g, '');
-      if (partNum === normalized || altNum === normalized) return p;
-    }
-    return null;
-  };
-
   const openServicePartsModal = (type: 'engine' | 'generator', record: any, label: string) => {
     const extractedParts = extractServiceParts(record);
     if (extractedParts.length === 0) {
@@ -1183,8 +1173,8 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
       const partNumber = part.partNumber;
       if (!partNumber) continue;
 
-      const matchedPart = findMatchingInventoryPart(partNumber);
-      const unitPrice = matchedPart ? matchedPart.unit_price : 0;
+      const matchedPart = findInventoryPartByNumber(partNumber, parts);
+      const unitPrice = matchedPart ? Number(matchedPart.unit_price) : 0;
       const isTaxable = matchedPart ? matchedPart.is_taxable : true;
       const contextLabel = servicePartsTarget.label;
 
@@ -1250,8 +1240,8 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
       if (!servicePartsSelections[part.key]) continue;
       const partNumber = part.partNumber;
       if (!partNumber) continue;
-      const matchedPart = findMatchingInventoryPart(partNumber);
-      const unitPrice = matchedPart ? matchedPart.unit_price : 0;
+      const matchedPart = findInventoryPartByNumber(partNumber, parts);
+      const unitPrice = matchedPart ? Number(matchedPart.unit_price) : 0;
       const isTaxable = matchedPart ? matchedPart.is_taxable : true;
       newTask.lineItems.push({
         line_type: 'part',
@@ -3826,6 +3816,12 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
                                             )}
                                           </div>
                                           <div className="font-medium text-gray-900">{item.description}</div>
+                                          {item.line_type === 'part' && item.unit_price === 0 && (
+                                            <div className="flex items-center gap-1 text-xs text-amber-700 mt-1">
+                                              <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                                              <span>No price on file for this part. Enter a unit price before sending.</span>
+                                            </div>
+                                          )}
                                           {item.work_details && (
                                             <div className="text-xs text-gray-600 mt-1 whitespace-pre-wrap">
                                               {item.work_details}
