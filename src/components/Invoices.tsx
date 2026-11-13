@@ -3048,12 +3048,12 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                         >
                           Open
                         </button>
-                        {qbConnection?.is_active && invoice.quickbooks_export_status !== 'exported' && (
+                        {qbConnection?.is_active && invoice.quickbooks_export_status !== 'error' && (
                           <button
                             onClick={() => handleQbExport(invoice)}
                             disabled={qbExporting[invoice.id]}
                             className="p-2 text-green-700 hover:text-green-900 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50"
-                            title={invoice.quickbooks_export_status === 'error' ? `Retry QB Export (${invoice.quickbooks_export_error || 'error'})` : 'Export to QuickBooks'}
+                            title={invoice.quickbooks_export_status === 'exported' ? 'Resend to QuickBooks' : 'Export to QuickBooks'}
                           >
                             {qbExporting[invoice.id] ? (
                               <RefreshCw className="w-4 h-4 animate-spin" />
@@ -3166,7 +3166,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                     Email Surcharge Manager
                   </button>
                 )}
-                {qbConnection?.is_active && selectedInvoice.quickbooks_export_status !== 'exported' && (
+                {qbConnection?.is_active && (
                   <button
                     onClick={() => handleQbExport(selectedInvoice)}
                     disabled={qbExporting[selectedInvoice.id]}
@@ -3177,7 +3177,7 @@ export function Invoices({ userId, initialInvoiceId }: InvoicesProps) {
                     ) : (
                       <FileText className="w-4 h-4" />
                     )}
-                    {qbExporting[selectedInvoice.id] ? 'Exporting...' : selectedInvoice.quickbooks_export_status === 'error' ? 'Retry QB Export' : 'Export to QuickBooks'}
+                    {qbExporting[selectedInvoice.id] ? 'Sending...' : selectedInvoice.quickbooks_export_status === 'error' ? 'Retry QB Export' : selectedInvoice.quickbooks_export_status === 'exported' ? 'Resend to QuickBooks' : 'Export to QuickBooks'}
                   </button>
                 )}
                 {selectedInvoice.quickbooks_export_status === 'exported' && (
