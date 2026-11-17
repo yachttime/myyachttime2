@@ -9,6 +9,7 @@ const PART_FIELDS = [
   'oil_weight', 'oil_quantity',
   'spark_plug_part_number', 'distributor_cap_part_number',
   'rotor_part_number', 'plug_wires_part_number',
+  'kit100_part_number', 'kit300_part_number',
   'include_oil_filter', 'include_oil_filter_alt1', 'include_oil_filter_alt2',
   'include_fuel_filter', 'include_fuel_filter_alt1', 'include_fuel_filter_alt2',
   'include_impeller', 'include_impeller_alt1', 'include_impeller_alt2',

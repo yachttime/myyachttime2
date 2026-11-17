@@ -289,54 +289,48 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
   }, [formData.yacht_id]);
 
   useEffect(() => {
-    if (formData.vessel_id) {
-      Promise.all([
-        supabase
-          .from('customer_vessel_engines')
-          .select('*')
-          .eq('vessel_id', formData.vessel_id)
-          .order('sort_order', { ascending: true }),
-        supabase
-          .from('customer_vessel_generators')
-          .select('*')
-          .eq('vessel_id', formData.vessel_id)
-          .order('sort_order', { ascending: true })
-      ]).then(([enginesRes, gensRes]) => {
-        setVesselEngines(enginesRes.data || []);
-        setVesselGenerators(gensRes.data || []);
-        setShowVesselPartsSummary((enginesRes.data?.length || 0) > 0 || (gensRes.data?.length || 0) > 0);
-      });
-    } else {
-      setVesselEngines([]);
-      setVesselGenerators([]);
-      setShowVesselPartsSummary(false);
-    }
-  }, [formData.vessel_id]);
+    let cancelled = false;
 
-  useEffect(() => {
-    if (formData.yacht_id && !formData.is_retail_customer) {
-      Promise.all([
-        supabase
-          .from('yacht_engines')
-          .select('*')
-          .eq('yacht_id', formData.yacht_id)
-          .order('sort_order', { ascending: true }),
-        supabase
-          .from('yacht_generators')
-          .select('*')
-          .eq('yacht_id', formData.yacht_id)
-          .order('sort_order', { ascending: true })
-      ]).then(([enginesRes, gensRes]) => {
-        setVesselEngines(enginesRes.data || []);
-        setVesselGenerators(gensRes.data || []);
-        setShowVesselPartsSummary((enginesRes.data?.length || 0) > 0 || (gensRes.data?.length || 0) > 0);
-      });
-    } else if (!formData.vessel_id) {
+    const loadVesselEquipment = async () => {
+      const isYachtCustomer = Boolean(formData.yacht_id && !formData.is_retail_customer);
+      const isWalkInVessel = Boolean(formData.vessel_id && formData.is_retail_customer);
+
+      if (!isYachtCustomer && !isWalkInVessel) {
+        setVesselEngines([]);
+        setVesselGenerators([]);
+        setShowVesselPartsSummary(false);
+        return;
+      }
+
+      const engineQuery = isYachtCustomer
+        ? supabase.from('yacht_engines').select('*').eq('yacht_id', formData.yacht_id).order('sort_order', { ascending: true })
+        : supabase.from('customer_vessel_engines').select('*').eq('vessel_id', formData.vessel_id).order('sort_order', { ascending: true });
+      const generatorQuery = isYachtCustomer
+        ? supabase.from('yacht_generators').select('*').eq('yacht_id', formData.yacht_id).order('sort_order', { ascending: true })
+        : supabase.from('customer_vessel_generators').select('*').eq('vessel_id', formData.vessel_id).order('sort_order', { ascending: true });
+
+      const [enginesRes, gensRes] = await Promise.all([engineQuery, generatorQuery]);
+      if (enginesRes.error) throw enginesRes.error;
+      if (gensRes.error) throw gensRes.error;
+      if (cancelled) return;
+
+      setVesselEngines(enginesRes.data || []);
+      setVesselGenerators(gensRes.data || []);
+      setShowVesselPartsSummary((enginesRes.data?.length || 0) > 0 || (gensRes.data?.length || 0) > 0);
+    };
+
+    loadVesselEquipment().catch((loadError) => {
+      if (cancelled) return;
+      console.error('Error loading vessel equipment:', loadError);
       setVesselEngines([]);
       setVesselGenerators([]);
       setShowVesselPartsSummary(false);
-    }
-  }, [formData.yacht_id, formData.is_retail_customer]);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [formData.vessel_id, formData.yacht_id, formData.is_retail_customer]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
