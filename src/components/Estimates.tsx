@@ -74,6 +74,8 @@ interface EstimateLineItem {
   line_order: number;
   work_details?: string | null;
   package_header?: string;
+  mercury_part_id?: string | null;
+  part_source?: 'inventory' | 'mercury' | 'marine_wholesale' | 'custom' | null;
 }
 
 interface EstimatesProps {
@@ -1128,6 +1130,81 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
     return result;
   };
 
+  const normalizePartNumber = (partNumber: string): string => partNumber.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  const resolveServicePartPricing = async (serviceParts: ServicePartEntry[]) => {
+    const pricing = new Map<string, {
+      unitPrice: number;
+      isTaxable: boolean;
+      partId: string | null;
+      mercuryPartId: string | null;
+      partSource: 'inventory' | 'mercury' | 'custom';
+    }>();
+    const inventoryFallbacks = new Map<string, { partId: string; unitPrice: number; isTaxable: boolean }>();
+    const unresolvedPartNumbers = new Set<string>();
+
+    for (const servicePart of serviceParts) {
+      const inventoryPart = findInventoryPartByNumber(servicePart.partNumber, parts);
+      const inventoryPrice = inventoryPart ? Number(inventoryPart.unit_price) : 0;
+      if (inventoryPart && inventoryPrice > 0) {
+        pricing.set(servicePart.key, {
+          unitPrice: inventoryPrice,
+          isTaxable: inventoryPart.is_taxable,
+          partId: inventoryPart.id,
+          mercuryPartId: null,
+          partSource: 'inventory',
+        });
+      } else {
+        if (inventoryPart) {
+          inventoryFallbacks.set(servicePart.key, {
+            partId: inventoryPart.id,
+            unitPrice: inventoryPrice,
+            isTaxable: inventoryPart.is_taxable,
+          });
+        }
+        unresolvedPartNumbers.add(servicePart.partNumber);
+      }
+    }
+
+    if (unresolvedPartNumbers.size > 0) {
+      const { data: mercuryData, error: mercuryError } = await supabase
+        .from('mercury_marine_parts')
+        .select('id, part_number, msrp')
+        .eq('is_active', true)
+        .in('part_number', [...unresolvedPartNumbers]);
+      if (mercuryError) throw mercuryError;
+
+      const mercuryByPartNumber = new Map(
+        (mercuryData || []).map((part) => [normalizePartNumber(part.part_number), part])
+      );
+
+      for (const servicePart of serviceParts) {
+        if (pricing.has(servicePart.key)) continue;
+        const mercuryPart = mercuryByPartNumber.get(normalizePartNumber(servicePart.partNumber));
+        if (mercuryPart) {
+          pricing.set(servicePart.key, {
+            unitPrice: Number(mercuryPart.msrp) || 0,
+            isTaxable: true,
+            partId: null,
+            mercuryPartId: mercuryPart.id,
+            partSource: 'mercury',
+          });
+        } else {
+          const inventoryFallback = inventoryFallbacks.get(servicePart.key);
+          pricing.set(servicePart.key, {
+            unitPrice: inventoryFallback?.unitPrice || 0,
+            isTaxable: inventoryFallback?.isTaxable ?? true,
+            partId: inventoryFallback?.partId || null,
+            mercuryPartId: null,
+            partSource: inventoryFallback ? 'inventory' : 'custom',
+          });
+        }
+      }
+    }
+
+    return pricing;
+  };
+
   const extractServicePartsGrouped = (record: any): { fieldName: string; label: string; primary: string; alt1: string; alt2: string }[] => {
     const result: { fieldName: string; label: string; primary: string; alt1: string; alt2: string }[] = [];
     for (const field of SERVICE_PART_FIELDS) {
@@ -1160,52 +1237,57 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
     setShowServicePartsModal(true);
   };
 
-  const handleAddServicePartsToTask = (taskIndex: number) => {
+  const handleAddServicePartsToTask = async (taskIndex: number) => {
     if (!servicePartsTarget) return;
-    const updatedTasks = tasks.map((t, i) => i === taskIndex ? { ...t, lineItems: t.lineItems ? [...t.lineItems] : [] } : t);
-    let lineOrder = updatedTasks[taskIndex].lineItems.length;
-    const newItems: EstimateLineItem[] = [];
 
-    for (const part of servicePartsTarget.parts) {
-      if (!servicePartsSelections[part.key]) continue;
-      const partNumber = part.partNumber;
-      if (!partNumber) continue;
+    try {
+      const pricing = await resolveServicePartPricing(servicePartsTarget.parts);
+      const updatedTasks = tasks.map((t, i) => i === taskIndex ? { ...t, lineItems: t.lineItems ? [...t.lineItems] : [] } : t);
+      let lineOrder = updatedTasks[taskIndex].lineItems.length;
+      const newItems: EstimateLineItem[] = [];
 
-      const matchedPart = findInventoryPartByNumber(partNumber, parts);
-      const unitPrice = matchedPart ? Number(matchedPart.unit_price) : 0;
-      const isTaxable = matchedPart ? matchedPart.is_taxable : true;
-      const contextLabel = servicePartsTarget.label;
+      for (const part of servicePartsTarget.parts) {
+        if (!servicePartsSelections[part.key] || !part.partNumber) continue;
+        const partPricing = pricing.get(part.key);
+        if (!partPricing) continue;
+        const contextLabel = servicePartsTarget.label;
 
-      newItems.push({
-        line_type: 'part',
-        description: `${partNumber} - ${part.label} (${contextLabel})`,
-        quantity: 1,
-        unit_price: unitPrice,
-        total_price: unitPrice,
-        is_taxable: isTaxable,
-        labor_code_id: null,
-        part_id: matchedPart?.id || null,
-        line_order: lineOrder,
-        work_details: null,
-      });
-      lineOrder++;
+        newItems.push({
+          line_type: 'part',
+          description: `${part.partNumber} - ${part.label} (${contextLabel})`,
+          quantity: 1,
+          unit_price: partPricing.unitPrice,
+          total_price: partPricing.unitPrice,
+          is_taxable: partPricing.isTaxable,
+          labor_code_id: null,
+          part_id: partPricing.partId,
+          mercury_part_id: partPricing.mercuryPartId,
+          part_source: partPricing.partSource,
+          line_order: lineOrder,
+          work_details: null,
+        });
+        lineOrder++;
+      }
+
+      if (newItems.length === 0) {
+        showSuccess('No parts selected to add');
+        return;
+      }
+
+      updatedTasks[taskIndex] = {
+        ...updatedTasks[taskIndex],
+        lineItems: [...updatedTasks[taskIndex].lineItems, ...newItems]
+      };
+      setTasks(updatedTasks);
+      setShowServicePartsModal(false);
+      setServicePartsTarget(null);
+      setServicePartsSelections({});
+      setExpandedTasks(new Set([...expandedTasks, taskIndex]));
+      showSuccess(`${newItems.length} service part${newItems.length !== 1 ? 's' : ''} added`);
+    } catch (error) {
+      console.error('Error pricing service parts:', error);
+      showError('Failed to load service part pricing');
     }
-
-    if (newItems.length === 0) {
-      showSuccess('No parts selected to add');
-      return;
-    }
-
-    updatedTasks[taskIndex] = {
-      ...updatedTasks[taskIndex],
-      lineItems: [...updatedTasks[taskIndex].lineItems, ...newItems]
-    };
-    setTasks(updatedTasks);
-    setShowServicePartsModal(false);
-    setServicePartsTarget(null);
-    setServicePartsSelections({});
-    setExpandedTasks(new Set([...expandedTasks, taskIndex]));
-    showSuccess(`${newItems.length} service part${newItems.length !== 1 ? 's' : ''} added`);
   };
 
   const handleQuickFullService = (type: 'engine' | 'generator', record: any, label: string) => {
@@ -1224,49 +1306,55 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
     setShowServicePartsModal(true);
   };
 
-  const handleConfirmQuickFullService = () => {
+  const handleConfirmQuickFullService = async () => {
     if (!servicePartsTarget) return;
-    const newTask: EstimateTask = {
-      task_name: `${servicePartsTarget.label} Service`,
-      task_overview: `Full service for ${servicePartsTarget.label} (${servicePartsTarget.type})`,
-      task_order: tasks.length,
-      apply_surcharge: true,
-      lineItems: []
-    };
-    let lineOrder = 0;
-    for (const part of servicePartsTarget.parts) {
-      if (!servicePartsSelections[part.key]) continue;
-      const partNumber = part.partNumber;
-      if (!partNumber) continue;
-      const matchedPart = findInventoryPartByNumber(partNumber, parts);
-      const unitPrice = matchedPart ? Number(matchedPart.unit_price) : 0;
-      const isTaxable = matchedPart ? matchedPart.is_taxable : true;
-      newTask.lineItems.push({
-        line_type: 'part',
-        description: `${partNumber} - ${part.label} (${servicePartsTarget.label})`,
-        quantity: 1,
-        unit_price: unitPrice,
-        total_price: unitPrice,
-        is_taxable: isTaxable,
-        labor_code_id: null,
-        part_id: matchedPart?.id || null,
-        line_order: lineOrder,
-        work_details: null,
-      });
-      lineOrder++;
+
+    try {
+      const pricing = await resolveServicePartPricing(servicePartsTarget.parts);
+      const newTask: EstimateTask = {
+        task_name: `${servicePartsTarget.label} Service`,
+        task_overview: `Full service for ${servicePartsTarget.label} (${servicePartsTarget.type})`,
+        task_order: tasks.length,
+        apply_surcharge: true,
+        lineItems: []
+      };
+      let lineOrder = 0;
+      for (const part of servicePartsTarget.parts) {
+        if (!servicePartsSelections[part.key] || !part.partNumber) continue;
+        const partPricing = pricing.get(part.key);
+        if (!partPricing) continue;
+        newTask.lineItems.push({
+          line_type: 'part',
+          description: `${part.partNumber} - ${part.label} (${servicePartsTarget.label})`,
+          quantity: 1,
+          unit_price: partPricing.unitPrice,
+          total_price: partPricing.unitPrice,
+          is_taxable: partPricing.isTaxable,
+          labor_code_id: null,
+          part_id: partPricing.partId,
+          mercury_part_id: partPricing.mercuryPartId,
+          part_source: partPricing.partSource,
+          line_order: lineOrder,
+          work_details: null,
+        });
+        lineOrder++;
+      }
+      if (newTask.lineItems.length === 0) {
+        showSuccess('No parts selected to add');
+        return;
+      }
+      const newTaskIndex = tasks.length;
+      setTasks([...tasks, newTask]);
+      setExpandedTasks(new Set([...expandedTasks, newTaskIndex]));
+      setShowServicePartsModal(false);
+      setServicePartsTarget(null);
+      setServicePartsSelections({});
+      setServicePartsQuickMode(false);
+      showSuccess(`Created "${servicePartsTarget.label} Service" task with ${newTask.lineItems.length} parts`);
+    } catch (error) {
+      console.error('Error pricing quick service parts:', error);
+      showError('Failed to load service part pricing');
     }
-    if (newTask.lineItems.length === 0) {
-      showSuccess('No parts selected to add');
-      return;
-    }
-    const newTaskIndex = tasks.length;
-    setTasks([...tasks, newTask]);
-    setExpandedTasks(new Set([...expandedTasks, newTaskIndex]));
-    setShowServicePartsModal(false);
-    setServicePartsTarget(null);
-    setServicePartsSelections({});
-    setServicePartsQuickMode(false);
-    showSuccess(`Created "${servicePartsTarget.label} Service" task with ${newTask.lineItems.length} parts`);
   };
 
   const handleLaborCodeChange = (laborCodeId: string) => {
