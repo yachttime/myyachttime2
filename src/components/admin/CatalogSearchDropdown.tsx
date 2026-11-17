@@ -37,6 +37,10 @@ interface CatalogRow {
   distributor_cap_part_number: string | null;
   rotor_part_number: string | null;
   plug_wires_part_number: string | null;
+  kit100_part_number: string | null;
+  kit300_part_number: string | null;
+  include_kit100: boolean;
+  include_kit300: boolean;
   include_oil_filter: boolean;
   include_fuel_filter: boolean;
   include_impeller: boolean;
@@ -132,6 +136,10 @@ export default function CatalogSearchDropdown({ equipmentType, onSelect, placeho
       distributor_cap_part_number: row.distributor_cap_part_number || '',
       rotor_part_number: row.rotor_part_number || '',
       plug_wires_part_number: row.plug_wires_part_number || '',
+      kit100_part_number: row.kit100_part_number || '',
+      kit300_part_number: row.kit300_part_number || '',
+      include_kit100: row.include_kit100 === true,
+      include_kit300: row.include_kit300 === true,
       include_oil_filter: row.include_oil_filter === true,
       include_fuel_filter: row.include_fuel_filter === true,
       include_impeller: row.include_impeller === true,
