@@ -32,6 +32,8 @@ export interface EngineCatalogEntry {
   distributor_cap_part_number: string;
   rotor_part_number: string;
   plug_wires_part_number: string;
+  kit100_part_number: string;
+  kit300_part_number: string;
   include_oil_filter: boolean;
   include_fuel_filter: boolean;
   include_impeller: boolean;
@@ -41,6 +43,8 @@ export interface EngineCatalogEntry {
   include_distributor_cap: boolean;
   include_rotor: boolean;
   include_plug_wires: boolean;
+  include_kit100: boolean;
+  include_kit300: boolean;
   include_oil_weight: boolean;
   include_oil_quantity: boolean;
   include_oil_filter_alt1: boolean;
@@ -82,6 +86,8 @@ const EMPTY_ENTRY: Omit<EngineCatalogEntry, 'id'> = {
   distributor_cap_part_number: '',
   rotor_part_number: '',
   plug_wires_part_number: '',
+  kit100_part_number: '',
+  kit300_part_number: '',
   include_oil_filter: false,
   include_fuel_filter: false,
   include_impeller: false,
@@ -91,6 +97,8 @@ const EMPTY_ENTRY: Omit<EngineCatalogEntry, 'id'> = {
   include_distributor_cap: false,
   include_rotor: false,
   include_plug_wires: false,
+  include_kit100: false,
+  include_kit300: false,
   include_oil_weight: false,
   include_oil_quantity: false,
   include_oil_filter_alt1: false,
@@ -386,6 +394,21 @@ function CatalogFormModal({ entry, onClose, onSave }: { entry: EngineCatalogEntr
                 <div className="grid grid-cols-2 gap-2">
                   <PartNumberSearchInput value={form.oil_weight} onChange={(v) => update('oil_weight', v)} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Oil Weight (e.g. 15W-40)" />
                   <input type="text" value={form.oil_quantity} onChange={(e) => update('oil_quantity', e.target.value)} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="Oil Quantity (e.g. 8 qts)" />
+                </div>
+              </div>
+              <div className="bg-slate-900/50 rounded-lg p-3 space-y-2 border-t border-slate-700">
+                <p className="text-xs font-semibold text-slate-400">Service Kits (outboards)</p>
+                <div className="grid grid-cols-2 gap-1">
+                  <label className="text-[10px] font-medium text-slate-500 leading-tight flex items-center gap-1">
+                    <input type="checkbox" checked={form.include_kit100} onChange={(e) => update('include_kit100', e.target.checked)} className="w-3 h-3" />100 Hour Service Kit P/N
+                  </label>
+                  <label className="text-[10px] font-medium text-slate-500 leading-tight flex items-center gap-1">
+                    <input type="checkbox" checked={form.include_kit300} onChange={(e) => update('include_kit300', e.target.checked)} className="w-3 h-3" />300 Hour Service Kit P/N
+                  </label>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <PartNumberSearchInput value={form.kit100_part_number} onChange={(v) => update('kit100_part_number', v)} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="100 Hour Service Kit P/N" />
+                  <PartNumberSearchInput value={form.kit300_part_number} onChange={(v) => update('kit300_part_number', v)} className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="300 Hour Service Kit P/N" />
                 </div>
               </div>
               {form.fuel_type === 'gas' && (

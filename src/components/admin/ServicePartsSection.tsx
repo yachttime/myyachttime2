@@ -10,6 +10,7 @@ const SERVICE_PART_FIELDS = [
   'oil_weight', 'oil_quantity',
   'spark_plug_part_number', 'distributor_cap_part_number',
   'rotor_part_number', 'plug_wires_part_number',
+  'kit100_part_number', 'kit300_part_number',
 ] as const;
 
 const INCLUDE_FIELDS = [
@@ -21,6 +22,7 @@ const INCLUDE_FIELDS = [
   'include_oil_weight', 'include_oil_quantity',
   'include_spark_plug', 'include_distributor_cap',
   'include_rotor', 'include_plug_wires',
+  'include_kit100', 'include_kit300',
 ] as const;
 
 export type ServicePartField = typeof SERVICE_PART_FIELDS[number];
@@ -110,6 +112,16 @@ export default function ServicePartsSection({ entry, onChange, theme }: ServiceP
         <PartNumberSearchInput value={entry.belt2_part_number} onChange={(v) => onChange('belt2_part_number', v)} className={inputClass} placeholder="Belt 2 P/N" />
         <PartNumberSearchInput value={entry.belt2_alt1} onChange={(v) => onChange('belt2_alt1', v)} className={inputClass} placeholder="Belt 2 Alt 1" />
         <PartNumberSearchInput value={entry.belt2_alt2} onChange={(v) => onChange('belt2_alt2', v)} className={inputClass} placeholder="Belt 2 Alt 2" />
+      </div>
+
+      {/* Service Kits (outboards) */}
+      <div className="grid grid-cols-2 gap-1 mb-0.5">
+        <label className={labelClass}><input type="checkbox" checked={entry.include_kit100} onChange={(e) => onChange('include_kit100', e.target.checked)} className="w-3 h-3" />100 Hour Service Kit P/N</label>
+        <label className={labelClass}><input type="checkbox" checked={entry.include_kit300} onChange={(e) => onChange('include_kit300', e.target.checked)} className="w-3 h-3" />300 Hour Service Kit P/N</label>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <PartNumberSearchInput value={entry.kit100_part_number} onChange={(v) => onChange('kit100_part_number', v)} className={inputClass} placeholder="100 Hour Service Kit P/N" />
+        <PartNumberSearchInput value={entry.kit300_part_number} onChange={(v) => onChange('kit300_part_number', v)} className={inputClass} placeholder="300 Hour Service Kit P/N" />
       </div>
 
       {/* Oil Weight & Quantity */}

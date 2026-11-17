@@ -53,6 +53,8 @@ export type EngineGenFormEntry = {
   distributor_cap_part_number: string;
   rotor_part_number: string;
   plug_wires_part_number: string;
+  kit100_part_number: string;
+  kit300_part_number: string;
   include_oil_filter: boolean;
   include_fuel_filter: boolean;
   include_impeller: boolean;
@@ -62,6 +64,8 @@ export type EngineGenFormEntry = {
   include_distributor_cap: boolean;
   include_rotor: boolean;
   include_plug_wires: boolean;
+  include_kit100: boolean;
+  include_kit300: boolean;
   include_oil_weight: boolean;
   include_oil_quantity: boolean;
   include_oil_filter_alt1: boolean;
@@ -99,6 +103,8 @@ export const EMPTY_SERVICE_PARTS = {
   distributor_cap_part_number: '',
   rotor_part_number: '',
   plug_wires_part_number: '',
+  kit100_part_number: '',
+  kit300_part_number: '',
   include_oil_filter: false,
   include_fuel_filter: false,
   include_impeller: false,
@@ -108,6 +114,8 @@ export const EMPTY_SERVICE_PARTS = {
   include_distributor_cap: false,
   include_rotor: false,
   include_plug_wires: false,
+  include_kit100: false,
+  include_kit300: false,
   include_oil_weight: false,
   include_oil_quantity: false,
   include_oil_filter_alt1: false,
@@ -248,6 +256,8 @@ export default function EditYachtModal({
           distributor_cap_part_number: safeTrim(eng.distributor_cap_part_number),
           rotor_part_number: safeTrim(eng.rotor_part_number),
           plug_wires_part_number: safeTrim(eng.plug_wires_part_number),
+          kit100_part_number: safeTrim(eng.kit100_part_number),
+          kit300_part_number: safeTrim(eng.kit300_part_number),
           include_oil_filter: eng.include_oil_filter === true,
           include_fuel_filter: eng.include_fuel_filter === true,
           include_impeller: eng.include_impeller === true,
@@ -257,6 +267,8 @@ export default function EditYachtModal({
           include_distributor_cap: eng.include_distributor_cap === true,
           include_rotor: eng.include_rotor === true,
           include_plug_wires: eng.include_plug_wires === true,
+          include_kit100: eng.include_kit100 === true,
+          include_kit300: eng.include_kit300 === true,
           include_oil_weight: eng.include_oil_weight === true,
           include_oil_quantity: eng.include_oil_quantity === true,
           include_oil_filter_alt1: eng.include_oil_filter_alt1 === true,
@@ -321,6 +333,8 @@ export default function EditYachtModal({
           distributor_cap_part_number: safeTrim(gen.distributor_cap_part_number),
           rotor_part_number: safeTrim(gen.rotor_part_number),
           plug_wires_part_number: safeTrim(gen.plug_wires_part_number),
+          kit100_part_number: safeTrim(gen.kit100_part_number),
+          kit300_part_number: safeTrim(gen.kit300_part_number),
           include_oil_filter: gen.include_oil_filter === true,
           include_fuel_filter: gen.include_fuel_filter === true,
           include_impeller: gen.include_impeller === true,
@@ -330,6 +344,8 @@ export default function EditYachtModal({
           include_distributor_cap: gen.include_distributor_cap === true,
           include_rotor: gen.include_rotor === true,
           include_plug_wires: gen.include_plug_wires === true,
+          include_kit100: gen.include_kit100 === true,
+          include_kit300: gen.include_kit300 === true,
           include_oil_weight: gen.include_oil_weight === true,
           include_oil_quantity: gen.include_oil_quantity === true,
           include_oil_filter_alt1: gen.include_oil_filter_alt1 === true,

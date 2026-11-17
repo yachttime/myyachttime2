@@ -100,6 +100,8 @@ const SERVICE_PART_FIELDS: { fieldName: string; altFields: string[]; label: stri
   { fieldName: 'plug_wires_part_number', altFields: [], label: 'Plug Wires', includeField: 'include_plug_wires', altIncludeFields: [] },
   { fieldName: 'oil_weight', altFields: [], label: 'Oil Weight', includeField: 'include_oil_weight', altIncludeFields: [] },
   { fieldName: 'oil_quantity', altFields: [], label: 'Oil Quantity', includeField: 'include_oil_quantity', altIncludeFields: [] },
+  { fieldName: 'kit100_part_number', altFields: [], label: '100 Hour Service Kit', includeField: 'include_kit100', altIncludeFields: [] },
+  { fieldName: 'kit300_part_number', altFields: [], label: '300 Hour Service Kit', includeField: 'include_kit300', altIncludeFields: [] },
 ];
 
 export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
