@@ -107,6 +107,7 @@ interface VesselGenerator {
 interface Vessel {
   id: string;
   customer_id: string;
+  company_id?: string | null;
   vessel_name: string;
   manufacturer?: string;
   model?: string;
@@ -685,6 +686,7 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
         if (!eng.label.trim()) continue;
         const payload = {
           vessel_id: vessel.id,
+          company_id: vessel.company_id || userProfile?.company_id || null,
           label: eng.label.trim(),
           model_number: eng.model_number.trim(),
           serial_number: eng.serial_number.trim(),
@@ -756,6 +758,7 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
         if (!gen.label.trim()) continue;
         const payload = {
           vessel_id: vessel.id,
+          company_id: vessel.company_id || userProfile?.company_id || null,
           label: gen.label.trim(),
           model_number: gen.model_number.trim(),
           serial_number: gen.serial_number.trim(),
