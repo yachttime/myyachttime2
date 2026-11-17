@@ -300,6 +300,10 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
       return;
     }
 
+    setVesselEngines([]);
+    setVesselGenerators([]);
+    setShowVesselPartsSummary(false);
+
     const equipmentId = isYachtCustomer ? formData.yacht_id : formData.vessel_id;
     const equipmentSource = isYachtCustomer ? 'yacht' : 'customer';
     loadVesselEquipment(equipmentId, equipmentSource).catch((loadError) => {
@@ -2964,7 +2968,12 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  onClick={() => setFormData({ ...formData, is_retail_customer: false })}
+                  onClick={() => {
+                    setFormData(prev => ({ ...prev, is_retail_customer: false, vessel_id: '' }));
+                    setVesselEngines([]);
+                    setVesselGenerators([]);
+                    setShowVesselPartsSummary(false);
+                  }}
                   className={`py-2.5 px-4 rounded-lg font-medium text-sm transition-all border ${
                     !formData.is_retail_customer
                       ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
@@ -2975,7 +2984,12 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setFormData({ ...formData, is_retail_customer: true })}
+                  onClick={() => {
+                    setFormData(prev => ({ ...prev, is_retail_customer: true, yacht_id: '', trip_inspection_id: '' }));
+                    setVesselEngines([]);
+                    setVesselGenerators([]);
+                    setShowVesselPartsSummary(false);
+                  }}
                   className={`py-2.5 px-4 rounded-lg font-medium text-sm transition-all border ${
                     formData.is_retail_customer
                       ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
