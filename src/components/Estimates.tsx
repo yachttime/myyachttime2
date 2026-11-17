@@ -290,36 +290,19 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
 
   useEffect(() => {
     let cancelled = false;
+    const isYachtCustomer = Boolean(formData.yacht_id && !formData.is_retail_customer);
+    const isWalkInVessel = Boolean(formData.vessel_id && formData.is_retail_customer);
 
-    const loadVesselEquipment = async () => {
-      const isYachtCustomer = Boolean(formData.yacht_id && !formData.is_retail_customer);
-      const isWalkInVessel = Boolean(formData.vessel_id && formData.is_retail_customer);
+    if (!isYachtCustomer && !isWalkInVessel) {
+      setVesselEngines([]);
+      setVesselGenerators([]);
+      setShowVesselPartsSummary(false);
+      return;
+    }
 
-      if (!isYachtCustomer && !isWalkInVessel) {
-        setVesselEngines([]);
-        setVesselGenerators([]);
-        setShowVesselPartsSummary(false);
-        return;
-      }
-
-      const engineQuery = isYachtCustomer
-        ? supabase.from('yacht_engines').select('*').eq('yacht_id', formData.yacht_id).order('sort_order', { ascending: true })
-        : supabase.from('customer_vessel_engines').select('*').eq('vessel_id', formData.vessel_id).order('sort_order', { ascending: true });
-      const generatorQuery = isYachtCustomer
-        ? supabase.from('yacht_generators').select('*').eq('yacht_id', formData.yacht_id).order('sort_order', { ascending: true })
-        : supabase.from('customer_vessel_generators').select('*').eq('vessel_id', formData.vessel_id).order('sort_order', { ascending: true });
-
-      const [enginesRes, gensRes] = await Promise.all([engineQuery, generatorQuery]);
-      if (enginesRes.error) throw enginesRes.error;
-      if (gensRes.error) throw gensRes.error;
-      if (cancelled) return;
-
-      setVesselEngines(enginesRes.data || []);
-      setVesselGenerators(gensRes.data || []);
-      setShowVesselPartsSummary((enginesRes.data?.length || 0) > 0 || (gensRes.data?.length || 0) > 0);
-    };
-
-    loadVesselEquipment().catch((loadError) => {
+    const equipmentId = isYachtCustomer ? formData.yacht_id : formData.vessel_id;
+    const equipmentSource = isYachtCustomer ? 'yacht' : 'customer';
+    loadVesselEquipment(equipmentId, equipmentSource).catch((loadError) => {
       if (cancelled) return;
       console.error('Error loading vessel equipment:', loadError);
       setVesselEngines([]);
@@ -555,6 +538,21 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
     } finally {
       setSavingNewCustomer(false);
     }
+  };
+
+  const loadVesselEquipment = async (equipmentId: string, source: 'yacht' | 'customer'): Promise<void> => {
+    const engineTable = source === 'yacht' ? 'yacht_engines' : 'customer_vessel_engines';
+    const generatorTable = source === 'yacht' ? 'yacht_generators' : 'customer_vessel_generators';
+    const foreignKey = source === 'yacht' ? 'yacht_id' : 'vessel_id';
+    const [enginesRes, gensRes] = await Promise.all([
+      supabase.from(engineTable).select('*').eq(foreignKey, equipmentId).order('sort_order', { ascending: true }),
+      supabase.from(generatorTable).select('*').eq(foreignKey, equipmentId).order('sort_order', { ascending: true })
+    ]);
+    if (enginesRes.error) throw enginesRes.error;
+    if (gensRes.error) throw gensRes.error;
+    setVesselEngines(enginesRes.data || []);
+    setVesselGenerators(gensRes.data || []);
+    setShowVesselPartsSummary((enginesRes.data?.length || 0) > 0 || (gensRes.data?.length || 0) > 0);
   };
 
   const loadCustomerVessels = async (customerId: string): Promise<any[]> => {
@@ -3065,6 +3063,9 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
                                     const vessels = await loadCustomerVessels(c.id);
                                     const autoVesselId = vessels.length === 1 ? vessels[0].id : '';
                                     setFormData(prev => ({ ...prev, customer_name: displayName, customer_email: c.email || '', customer_phone: c.phone || '', vessel_id: autoVesselId }));
+                                    if (autoVesselId) {
+                                      await loadVesselEquipment(autoVesselId, 'customer');
+                                    }
                                   }}
                                   className="w-full text-left px-4 py-2.5 hover:bg-blue-50 transition-colors flex items-center gap-3 border-b border-gray-100 last:border-0"
                                 >
@@ -3279,7 +3280,24 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
 
                     <select
                       value={formData.vessel_id}
-                      onChange={(e) => setFormData(prev => ({ ...prev, vessel_id: e.target.value }))}
+                      onChange={async (e) => {
+                        const vesselId = e.target.value;
+                        setFormData(prev => ({ ...prev, vessel_id: vesselId }));
+                        if (vesselId) {
+                          try {
+                            await loadVesselEquipment(vesselId, 'customer');
+                          } catch (loadError) {
+                            console.error('Error loading customer vessel equipment:', loadError);
+                            setVesselEngines([]);
+                            setVesselGenerators([]);
+                            setShowVesselPartsSummary(false);
+                          }
+                        } else {
+                          setVesselEngines([]);
+                          setVesselGenerators([]);
+                          setShowVesselPartsSummary(false);
+                        }
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm text-gray-900"
                     >
                       <option value="">Select a vessel</option>
