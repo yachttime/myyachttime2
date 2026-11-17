@@ -316,15 +316,55 @@ export default function CustomerManagement({ prefillCustomer, onPrefillConsumed 
 
   const loadCustomerVessels = async (customerId: string) => {
     try {
-      const { data, error } = await supabase
+      const { data: vessels, error: vesselsError } = await supabase
         .from('customer_vessels')
-        .select('*, customer_vessel_engines(*), customer_vessel_generators(*)')
+        .select('*')
         .eq('customer_id', customerId)
         .eq('is_active', true)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setCustomerVessels(data || []);
+      if (vesselsError) throw vesselsError;
+      if (!vessels || vessels.length === 0) {
+        setCustomerVessels([]);
+        return;
+      }
+
+      const vesselIds = vessels.map(vessel => vessel.id);
+      const [enginesResult, generatorsResult] = await Promise.all([
+        supabase
+          .from('customer_vessel_engines')
+          .select('*')
+          .in('vessel_id', vesselIds)
+          .order('sort_order', { ascending: true }),
+        supabase
+          .from('customer_vessel_generators')
+          .select('*')
+          .in('vessel_id', vesselIds)
+          .order('sort_order', { ascending: true }),
+      ]);
+
+      if (enginesResult.error) throw enginesResult.error;
+      if (generatorsResult.error) throw generatorsResult.error;
+
+      const enginesByVessel = new Map<string, VesselEngine[]>();
+      for (const engine of enginesResult.data || []) {
+        const engines = enginesByVessel.get(engine.vessel_id) || [];
+        engines.push(engine);
+        enginesByVessel.set(engine.vessel_id, engines);
+      }
+
+      const generatorsByVessel = new Map<string, VesselGenerator[]>();
+      for (const generator of generatorsResult.data || []) {
+        const generators = generatorsByVessel.get(generator.vessel_id) || [];
+        generators.push(generator);
+        generatorsByVessel.set(generator.vessel_id, generators);
+      }
+
+      setCustomerVessels(vessels.map(vessel => ({
+        ...vessel,
+        customer_vessel_engines: enginesByVessel.get(vessel.id) || [],
+        customer_vessel_generators: generatorsByVessel.get(vessel.id) || [],
+      })));
     } catch (error) {
       console.error('Error loading vessels:', error);
     }
