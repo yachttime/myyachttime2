@@ -21,27 +21,41 @@ select {
 .smart-device-management input,
 .smart-device-management textarea,
 .smart-device-management select {
-  color: #f8fafc;
-  background-color: #1e293b;
-  color-scheme: dark;
+  color: #f8fafc !important;
+  -webkit-text-fill-color: #f8fafc !important;
+  background-color: #1e293b !important;
+  caret-color: #f8fafc;
+  color-scheme: dark !important;
 }
 
 .smart-device-management input::placeholder,
 .smart-device-management textarea::placeholder {
-  color: #94a3b8;
+  color: #94a3b8 !important;
+  -webkit-text-fill-color: #94a3b8 !important;
   opacity: 1;
 }
 
+.smart-device-management input:-webkit-autofill,
+.smart-device-management input:-webkit-autofill:hover,
+.smart-device-management input:-webkit-autofill:focus,
+.smart-device-management input:-webkit-autofill:active {
+  -webkit-text-fill-color: #f8fafc !important;
+  -webkit-box-shadow: 0 0 0 1000px #1e293b inset !important;
+  box-shadow: 0 0 0 1000px #1e293b inset !important;
+  caret-color: #f8fafc;
+}
+
 .smart-device-management select option {
-  color: #f8fafc;
-  background-color: #0f172a;
+  color: #f8fafc !important;
+  background-color: #0f172a !important;
 }
 
 .smart-device-management .smart-device-yacht-select,
 .smart-device-management .smart-device-yacht-select option {
-  color: #f8fafc;
-  background-color: #0f172a;
-  color-scheme: dark;
+  color: #f8fafc !important;
+  -webkit-text-fill-color: #f8fafc !important;
+  background-color: #0f172a !important;
+  color-scheme: dark !important;
 }
 
 @keyframes slideIn {
