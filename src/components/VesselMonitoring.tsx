@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useCompany } from '../contexts/CompanyContext';
 import { isStaffRole, UserRole } from '../lib/supabase';
 import { formatAlertMessage, formatWeatherNumber } from '../utils/vesselFormatting';
+import { alarmLabel, getBatteryDisplay } from '../utils/batteryDisplay';
 import {
   Activity, AlertTriangle, Battery, Gauge, Navigation, Wind,
   Droplets, Zap, Thermometer, Lock, Shield, ChevronRight,
@@ -1251,7 +1252,8 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
         {toughDevice && (() => {
           const batterySensors = yachtSensors.filter(s => s.sensor_type === 'battery_bank');
           if (batterySensors.length === 0) return null;
-          const reportingCount = batterySensors.filter(s => s.status !== 'offline').length;
+          const batteryRows = batterySensors.map(sensor => ({ sensor, display: getBatteryDisplay(sensor) }));
+          const reportingCount = batteryRows.filter(r => r.display.status !== 'offline').length;
           return (
             <div className="bg-slate-800/30 rounded-xl border border-slate-700 overflow-hidden mb-6">
               <div className="bg-slate-800/80 px-4 py-3 border-b border-slate-700">
@@ -1259,38 +1261,68 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
                   <Battery className="w-5 h-5 text-amber-400" />
                   Battery Banks
                   <span className="text-xs font-normal text-slate-400 ml-2">
-                    via Cerbo GX MQTT{reportingCount > 0 ? ` — ${reportingCount}/${batterySensors.length} reporting` : ''}
+                    via Cerbo GX{reportingCount > 0 ? ` — ${reportingCount}/${batterySensors.length} reporting` : ''}
                   </span>
                 </h3>
               </div>
               <div className="divide-y divide-slate-700">
-                {batterySensors.map(sensor => {
+                {batteryRows.map(({ sensor, display }) => {
                   const Icon = SENSOR_ICONS[sensor.sensor_type] || Battery;
-                  const isOffline = sensor.status === 'offline';
                   return (
-                    <div key={sensor.id} className="flex items-center justify-between px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg ${STATUS_COLORS[sensor.status]}`}>
-                          <Icon className="w-5 h-5" />
+                    <div key={sensor.id} className="px-4 py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className={`p-2 rounded-lg ${STATUS_COLORS[display.status]}`}>
+                            <Icon className="w-5 h-5" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-medium text-sm">{sensor.sensor_name}</p>
+                            <p className="font-mono font-bold text-base text-white">{display.primary}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-medium text-sm">{sensor.sensor_name}</p>
-                          <p className="text-xs text-slate-400 capitalize">{sensor.sensor_type.replace(/_/g, ' ')}</p>
+                        <div className="text-right shrink-0">
+                          <span className={`text-xs px-2 py-0.5 rounded-full border ${STATUS_COLORS[display.status]} capitalize`}>
+                            {display.stale ? 'No recent data' : display.status}
+                          </span>
+                          {sensor.last_reading_at && (
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              {display.stale ? new Date(sensor.last_reading_at).toLocaleString() : new Date(sensor.last_reading_at).toLocaleTimeString()}
+                            </p>
+                          )}
                         </div>
                       </div>
-                      <div className="text-right">
-                        {isOffline ? (
-                          <span className="text-xs px-2 py-0.5 rounded-full border text-slate-400 bg-slate-500/10 border-slate-500/30 capitalize">Offline</span>
-                        ) : (
-                          <>
-                            <p className="font-mono font-bold text-sm">{sensor.current_value || '--'}{sensor.unit_of_measure ? ` ${sensor.unit_of_measure}` : ''}</p>
-                            <span className={`text-xs px-2 py-0.5 rounded-full border ${STATUS_COLORS[sensor.status]} capitalize`}>{sensor.status}</span>
-                            {sensor.last_reading_at && (
-                              <p className="text-xs text-slate-500 mt-0.5">{new Date(sensor.last_reading_at).toLocaleTimeString()}</p>
-                            )}
-                          </>
-                        )}
-                      </div>
+                      {display.alarms.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          {display.alarms.map(a => (
+                            <span key={a.name} className={`text-xs px-2 py-0.5 rounded-full border ${STATUS_COLORS[a.level === 'alarm' ? 'critical' : 'warning']}`}>
+                              {alarmLabel(a.name)}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {display.details.length > 0 && (
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 mt-2">
+                          {display.details.map(detail => (
+                            <div key={detail.label}>
+                              <p className="text-[10px] uppercase tracking-wide text-slate-500">{detail.label}</p>
+                              <p className="font-mono text-xs font-semibold text-slate-200 whitespace-nowrap">{detail.value}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {display.history.length > 0 && (
+                        <details className="mt-2">
+                          <summary className="text-xs text-slate-400 cursor-pointer select-none">History</summary>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 mt-1">
+                            {display.history.map(item => (
+                              <div key={item.label}>
+                                <p className="text-[10px] uppercase tracking-wide text-slate-500">{item.label}</p>
+                                <p className="font-mono text-xs font-semibold text-slate-200 whitespace-nowrap">{item.value}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+                      )}
                     </div>
                   );
                 })}
