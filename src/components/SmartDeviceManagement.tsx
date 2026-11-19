@@ -602,7 +602,7 @@ export const SmartDeviceManagement = () => {
   const yachtTTLockCredentials = ttlockCredentials[0];
 
   return (
-    <div className="space-y-6">
+    <div className="smart-device-management space-y-6">
       {message && (
         <div className={`p-4 rounded-lg border ${
           message.type === 'success'
