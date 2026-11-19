@@ -149,6 +149,11 @@ function isDeviceEffectivelyOnline(device: MonitorDevice): boolean {
   return Date.now() - new Date(device.last_check_in).getTime() < ONLINE_STALE_MS;
 }
 
+function isSensorEffectivelyOnline(sensor: MonitorSensor, devices: MonitorDevice[]): boolean {
+  const device = devices.find(candidate => candidate.id === sensor.device_id);
+  return Boolean(device && isDeviceEffectivelyOnline(device) && sensor.status !== 'offline');
+}
+
 const BATTERY_BANK_SENSORS = [
   { sensor_type: 'battery_bank', sensor_name: 'Port Engine Battery', unit_of_measure: 'V/A' },
   { sensor_type: 'battery_bank', sensor_name: 'Starboard Engine Battery', unit_of_measure: 'V/A' },
@@ -281,6 +286,7 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
   const [alerts, setAlerts] = useState<MonitorAlert[]>([]);
   const [smartDevices, setSmartDevices] = useState<SmartDevice[]>([]);
   const [yachts, setYachts] = useState<YachtInfo[]>([]);
+  const [, setStatusTick] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showEnrollModal, setShowEnrollModal] = useState(false);
@@ -373,6 +379,11 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
   }, [loadEnrollments, loadDevices, loadSensors, loadAlerts, loadYachts, loadCompanies]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
+
+  useEffect(() => {
+    const statusTimer = window.setInterval(() => setStatusTick(tick => tick + 1), 60_000);
+    return () => window.clearInterval(statusTimer);
+  }, []);
 
   useEffect(() => {
     if (selectedYachtId) {
@@ -921,7 +932,7 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
                       { label: 'Weather', icon: Wind, types: ['anemometer', 'wind_vane'] },
                     ];
                     const activeCats = categories
-                      .map(c => ({ ...c, count: yachtSensorsList.filter(s => c.types.includes(s.sensor_type) && s.status !== 'offline').length, total: yachtSensorsList.filter(s => c.types.includes(s.sensor_type)).length }))
+                      .map(c => ({ ...c, count: yachtSensorsList.filter(s => c.types.includes(s.sensor_type) && isSensorEffectivelyOnline(s, yachtDevices)).length, total: yachtSensorsList.filter(s => c.types.includes(s.sensor_type)).length }))
                       .filter(c => c.total > 0);
                     const hasGpsSensor = yachtSensorsList.some(s => s.sensor_type === 'gps');
                     if (activeCats.length === 0 && !hasGps && !hasGpsSensor && !tough) return null;
@@ -1289,74 +1300,80 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
         })()}
 
         {/* Weather Station Sensors (show separately from port-based Tough sensors) */}
-        {weatherDevice && (
-          <div className="bg-slate-800/30 rounded-xl border border-slate-700 overflow-hidden mb-6">
-            <div className="bg-slate-800/80 px-4 py-3 border-b border-slate-700">
-              <h3 className="font-bold flex items-center gap-2">
-                <CloudRain className="w-5 h-5 text-cyan-400" />
-                Weather Station Sensors
-              </h3>
-            </div>
-            <div className="divide-y divide-slate-700">
-              {sensors.filter(s => s.device_id === weatherDevice.id).length === 0 ? (
-                <div className="flex items-center justify-between px-4 py-3">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg text-slate-400 bg-slate-500/10 border border-slate-500/30">
-                      <WifiOff className="w-5 h-5" />
+        {weatherDevice && (() => {
+          const weatherSensors = sensors.filter(s => s.device_id === weatherDevice.id);
+          const weatherOnline = isDeviceEffectivelyOnline(weatherDevice);
+          return (
+            <div className="bg-slate-800/30 rounded-xl border border-slate-700 overflow-hidden mb-6">
+              <div className="bg-slate-800/80 px-4 py-3 border-b border-slate-700 flex items-center justify-between gap-3">
+                <h3 className="font-bold flex items-center gap-2">
+                  <CloudRain className="w-5 h-5 text-cyan-400" />
+                  Weather Station Sensors
+                </h3>
+                <span className={`text-xs px-2.5 py-1 rounded-full border ${weatherOnline ? 'text-green-400 bg-green-500/10 border-green-500/30' : 'text-slate-400 bg-slate-500/10 border-slate-500/30'}`}>
+                  {weatherOnline ? 'Online' : 'Offline'}
+                </span>
+              </div>
+              <div className="divide-y divide-slate-700">
+                {weatherSensors.length === 0 || !weatherOnline ? (
+                  <div className="flex items-center justify-between gap-4 px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg text-slate-400 bg-slate-500/10 border border-slate-500/30">
+                        <WifiOff className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm text-slate-400">{weatherSensors.length === 0 ? 'No sensors reporting' : 'Weather station offline'}</p>
+                        <p className="text-xs text-slate-500">{weatherSensors.length === 0 ? 'Waiting for weather station telemetry' : 'Live readings will appear when the station checks in'}</p>
+                        {!weatherOnline && weatherDevice.last_check_in && (
+                          <p className="text-xs text-slate-600 mt-1">Last check-in: {new Date(weatherDevice.last_check_in).toLocaleString()}</p>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium text-sm text-slate-400">No sensors reporting</p>
-                      <p className="text-xs text-slate-500">Waiting for weather station telemetry</p>
-                    </div>
+                    <span className="text-xs px-2 py-0.5 rounded-full border text-slate-400 bg-slate-500/10 border-slate-500/30">Offline</span>
                   </div>
-                  <span className="text-xs px-2 py-0.5 rounded-full border text-slate-400 bg-slate-500/10 border-slate-500/30 capitalize">Offline</span>
-                </div>
-              ) : (
-                sensors.filter(s => s.device_id === weatherDevice.id).map(sensor => {
-                  const Icon = SENSOR_ICONS[sensor.sensor_type] || Gauge;
-                  const displayStatus = getSensorStatus(sensor);
-                  return (
-                    <div key={sensor.id} className="flex items-center justify-between px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg ${STATUS_COLORS[displayStatus]}`}>
-                          <Icon className="w-5 h-5" />
+                ) : (
+                  weatherSensors.map(sensor => {
+                    const Icon = SENSOR_ICONS[sensor.sensor_type] || Gauge;
+                    const displayStatus = getSensorStatus(sensor);
+                    const display = getWeatherDisplay(sensor);
+                    return (
+                      <div key={sensor.id} className="flex items-center justify-between px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-lg ${STATUS_COLORS[displayStatus]}`}>
+                            <Icon className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm">{sensor.sensor_name}</p>
+                            <p className="text-xs text-slate-400 capitalize">{sensor.sensor_type.replace(/_/g, ' ')}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-medium text-sm">{sensor.sensor_name}</p>
-                          <p className="text-xs text-slate-400 capitalize">{sensor.sensor_type.replace(/_/g, ' ')}</p>
+                        <div className="text-right min-w-[180px] max-w-[52%]">
+                          <p className="font-mono font-bold text-base text-white whitespace-nowrap">{display.primary}</p>
+                          {display.details.length > 0 && (
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-1 text-left">
+                              {display.details.map(detail => (
+                                <div key={detail.label}>
+                                  <p className="text-[10px] uppercase tracking-wide text-slate-500">{detail.label}</p>
+                                  <p className="font-mono text-xs font-semibold text-slate-200 whitespace-nowrap">{detail.value}</p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          <div className="mt-2">
+                            <span className={`text-xs px-2 py-0.5 rounded-full border ${STATUS_COLORS[displayStatus]} capitalize`}>{displayStatus}</span>
+                            {sensor.last_reading_at && (
+                              <p className="text-xs text-slate-500 mt-0.5">{new Date(sensor.last_reading_at).toLocaleTimeString()}</p>
+                            )}
+                          </div>
                         </div>
                       </div>
-                      {(() => {
-                        const display = getWeatherDisplay(sensor);
-                        return (
-                          <div className="text-right min-w-[180px] max-w-[52%]">
-                            <p className="font-mono font-bold text-base text-white whitespace-nowrap">{display.primary}</p>
-                            {display.details.length > 0 && (
-                              <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-1 text-left">
-                                {display.details.map(detail => (
-                                  <div key={detail.label}>
-                                    <p className="text-[10px] uppercase tracking-wide text-slate-500">{detail.label}</p>
-                                    <p className="font-mono text-xs font-semibold text-slate-200 whitespace-nowrap">{detail.value}</p>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                            <div className="mt-2">
-                              <span className={`text-xs px-2 py-0.5 rounded-full border ${STATUS_COLORS[displayStatus]} capitalize`}>{displayStatus}</span>
-                              {sensor.last_reading_at && (
-                                <p className="text-xs text-slate-500 mt-0.5">{new Date(sensor.last_reading_at).toLocaleTimeString()}</p>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  );
-                })
-              )}
+                    );
+                  })
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Smart Locks Section */}
         {smartDevices.length > 0 && (
