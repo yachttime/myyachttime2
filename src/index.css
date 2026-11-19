@@ -18,6 +18,13 @@ select {
   color-scheme: dark;
 }
 
+.smart-device-yacht-select,
+.smart-device-yacht-select option {
+  color: #f8fafc;
+  background-color: #0f172a;
+  color-scheme: dark;
+}
+
 @keyframes slideIn {
   from {
     transform: translateX(100%);

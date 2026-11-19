@@ -635,7 +635,7 @@ export const SmartDeviceManagement = () => {
               name="yacht"
               value={selectedYachtId}
               onChange={(e) => setSelectedYachtId(e.target.value)}
-              className="px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
+              className="smart-device-yacht-select px-4 py-2 bg-slate-900 text-slate-100 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
             >
               {yachts.map((yacht) => (
                 <option key={yacht.id} value={yacht.id}>
