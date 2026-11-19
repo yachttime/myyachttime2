@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { formatAlertMessage } from '../../utils/vesselFormatting';
+import { getBatteryDisplay } from '../../utils/batteryDisplay';
 
 interface DeviceRow {
   id: string;
@@ -85,6 +86,11 @@ function describeReading(sensor: SensorRow, value: Record<string, unknown> | nul
 }
 
 function readingRows(sensor: SensorRow): ReadingRow[] {
+  if (sensor.sensor_type === 'battery_bank') {
+    const battery = getBatteryDisplay(sensor);
+    return [{ sensorName: sensor.sensor_name, primary: battery.primary, status: battery.status, updatedAt: sensor.last_reading_at }];
+  }
+
   const value = sensor.current_value ? parseReadingObject(sensor.current_value.trim()) : null;
 
   if (value && 'temp_f' in value) {
