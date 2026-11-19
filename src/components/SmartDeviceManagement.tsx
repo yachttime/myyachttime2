@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Lock, Plus, CreditCard as Edit2, Trash2, RefreshCw, AlertCircle, CheckCircle, X, Save, Key, Globe, Battery, WifiOff, Clock, Eye, EyeOff, Activity, Wifi } from 'lucide-react';
+import { Lock, Plus, CreditCard as Edit2, Trash2, RefreshCw, AlertCircle, CheckCircle, X, Save, Key, Globe, Battery, WifiOff, Clock, Eye, EyeOff, Activity, Wifi, Thermometer } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useConfirm } from '../hooks/useConfirm';
 
@@ -932,7 +932,7 @@ export const SmartDeviceManagement = () => {
             <div>
               <h3 className="text-lg font-semibold">Smart Devices</h3>
               <p className="text-sm text-slate-400 mt-1">
-                Manage door locks and other smart devices
+                Manage door locks, thermostats and other smart devices
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -976,6 +976,33 @@ export const SmartDeviceManagement = () => {
                 </button>
               </div>
 
+              <div>
+                <label htmlFor="device-type" className="block text-sm font-medium mb-2">
+                  Device Type <span className="text-red-500">*</span>
+                </label>
+                <select
+                  id="device-type"
+                  name="device_type"
+                  value={deviceForm.device_type}
+                  onChange={(e) => setDeviceForm({
+                    ...deviceForm,
+                    device_type: e.target.value,
+                    // Thermostats only work through Tuya, and lock locations don't apply to them.
+                    lock_provider: e.target.value === 'thermostat' ? 'tuya' : deviceForm.lock_provider,
+                    location: '',
+                  })}
+                  className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
+                >
+                  <option value="door_lock">Door Lock</option>
+                  <option value="thermostat">Thermostat (Tuya)</option>
+                </select>
+                {deviceForm.device_type === 'thermostat' && (
+                  <p className="text-xs text-slate-400 mt-1">
+                    Add the thermostat in the Smart Life / Tuya Smart app first, then copy its Device ID from your Tuya cloud project's Devices list.
+                  </p>
+                )}
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="device-name" className="block text-sm font-medium mb-2">
@@ -988,7 +1015,7 @@ export const SmartDeviceManagement = () => {
                     value={deviceForm.device_name}
                     onChange={(e) => setDeviceForm({ ...deviceForm, device_name: e.target.value })}
                     className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg focus:outline-none focus:border-amber-500"
-                    placeholder="e.g., Main Entrance Lock"
+                    placeholder={deviceForm.device_type === 'thermostat' ? 'e.g., Salon Thermostat' : 'e.g., Main Entrance Lock'}
                     required
                   />
                 </div>
@@ -1005,10 +1032,23 @@ export const SmartDeviceManagement = () => {
                     required
                   >
                     <option value="">Select location...</option>
-                    <option value="front_door">Front Door</option>
-                    <option value="rear_door">Rear Door</option>
-                    <option value="side_door">Side Door</option>
-                    <option value="cabin_door">Cabin Door</option>
+                    {deviceForm.device_type === 'thermostat' ? (
+                      <>
+                        <option value="salon">Salon</option>
+                        <option value="main_cabin">Main Cabin</option>
+                        <option value="guest_cabin">Guest Cabin</option>
+                        <option value="helm">Helm</option>
+                        <option value="galley">Galley</option>
+                        <option value="whole_vessel">Whole Vessel</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="front_door">Front Door</option>
+                        <option value="rear_door">Rear Door</option>
+                        <option value="side_door">Side Door</option>
+                        <option value="cabin_door">Cabin Door</option>
+                      </>
+                    )}
                   </select>
                 </div>
               </div>
@@ -1104,7 +1144,11 @@ export const SmartDeviceManagement = () => {
                           ? 'bg-green-500/20 text-green-500'
                           : 'bg-slate-700 text-slate-400'
                       }`}>
-                        <Lock className="w-6 h-6" />
+                        {device.device_type === 'thermostat' ? (
+                          <Thermometer className="w-6 h-6" />
+                        ) : (
+                          <Lock className="w-6 h-6" />
+                        )}
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">

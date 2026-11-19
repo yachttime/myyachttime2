@@ -14,6 +14,7 @@ import { OwnerHandoffPDFView } from './OwnerHandoffPDFView';
 import { FileUploadDropzone } from './FileUploadDropzone';
 import { namesMatch, type IdentityFlagDetails } from '../utils/identityConfirmation';
 import { SmartLockControls } from './SmartLockControls';
+import { ThermostatControls } from './ThermostatControls';
 import { SmartDeviceManagement } from './SmartDeviceManagement';
 import { VesselMonitoring } from './VesselMonitoring';
 import { LiveClock } from './LiveClock';
@@ -10796,6 +10797,11 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                   userName={`${userProfile?.first_name || ''} ${userProfile?.last_name || ''}`.trim() || userProfile?.email || 'Unknown'}
                   hasActiveBooking={activeBooking ? !activeBooking.checked_out : false}
                 />
+              )}
+
+              {/* Thermostat Controls */}
+              {yacht && effectiveYacht && hasSmartDevices && (
+                <ThermostatControls yachtId={effectiveYacht.id} />
               )}
 
               {bookings.length > 0 && (

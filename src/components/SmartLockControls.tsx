@@ -484,22 +484,10 @@ export const SmartLockControls = ({ yachtId, userId, userName, hasActiveBooking 
     );
   }
 
+  // Thermostats and other non-lock devices also make the dashboard render this
+  // component, so show nothing when the yacht has no locks.
   if (devices.length === 0) {
-    return (
-      <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700">
-        <div className="flex items-center gap-2 mb-4">
-          <Lock className="w-6 h-6 text-amber-500" />
-          <h3 className="text-xl font-semibold">Smart Access Control</h3>
-        </div>
-        <div className="text-center py-8">
-          <Lock className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-          <p className="text-slate-400 text-lg mb-2">No Smart Locks Configured</p>
-          <p className="text-slate-500 text-sm">
-            Smart lock controls will appear here once your yacht manager sets up the devices.
-          </p>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   return (
