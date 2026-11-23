@@ -57,6 +57,8 @@ interface EstimateTask {
   task_overview: string;
   task_order: number;
   apply_surcharge: boolean;
+  vessel_id?: string | null;
+  vessel_source?: 'yacht' | 'customer_vessel' | null;
   lineItems: EstimateLineItem[];
 }
 
@@ -163,7 +165,8 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
   const [expandedTasks, setExpandedTasks] = useState<Set<number>>(new Set());
   const [taskFormData, setTaskFormData] = useState({
     task_name: '',
-    task_overview: ''
+    task_overview: '',
+    vessel_id: ''
   });
 
   const [showLineItemForm, setShowLineItemForm] = useState(false);
@@ -660,7 +663,9 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
       updatedTasks[editingTaskIndex] = {
         ...updatedTasks[editingTaskIndex],
         task_name: taskFormData.task_name,
-        task_overview: taskFormData.task_overview
+        task_overview: taskFormData.task_overview,
+        vessel_id: taskFormData.vessel_id || null,
+        vessel_source: taskFormData.vessel_id ? (formData.is_retail_customer ? 'customer_vessel' : 'yacht') : null
       };
       setTasks(updatedTasks);
       setEditingTaskIndex(null);
@@ -670,13 +675,15 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
         task_overview: taskFormData.task_overview,
         task_order: tasks.length,
         apply_surcharge: true,
+        vessel_id: taskFormData.vessel_id || null,
+        vessel_source: taskFormData.vessel_id ? (formData.is_retail_customer ? 'customer_vessel' : 'yacht') : null,
         lineItems: []
       };
       setTasks([...tasks, newTask]);
       setExpandedTasks(new Set([...expandedTasks, tasks.length]));
     }
 
-    setTaskFormData({ task_name: '', task_overview: '' });
+    setTaskFormData({ task_name: '', task_overview: '', vessel_id: '' });
     setShowTaskForm(false);
   };
 
@@ -684,7 +691,8 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
     const task = tasks[index];
     setTaskFormData({
       task_name: task.task_name,
-      task_overview: task.task_overview
+      task_overview: task.task_overview,
+      vessel_id: task.vessel_id || ''
     });
     setEditingTaskIndex(index);
     setTaskFormPosition('bottom');
@@ -1693,6 +1701,8 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
           task_overview: task.task_overview,
           task_order: i,
           apply_surcharge: task.apply_surcharge,
+          vessel_id: task.vessel_id || '',
+          vessel_source: task.vessel_source || '',
           lineItems: task.lineItems.map((item: any) => ({
             line_type: item.line_type,
             description: item.description,
@@ -1790,6 +1800,8 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
               task_overview: task.task_overview,
               task_order: i,
               apply_surcharge: task.apply_surcharge,
+              vessel_id: task.vessel_id || null,
+              vessel_source: task.vessel_source || null,
               company_id: taskCompanyId
             });
 
@@ -2274,6 +2286,8 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
           task_overview: task.task_overview,
           task_order: task.task_order,
           apply_surcharge: task.apply_surcharge,
+          vessel_id: task.vessel_id || null,
+          vessel_source: task.vessel_source || null,
           lineItems: taskLineItems
         };
       });
@@ -3732,6 +3746,26 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
                     />
                   </div>
                   <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Vessel</label>
+                    <select
+                      value={taskFormData.vessel_id}
+                      onChange={(e) => setTaskFormData({ ...taskFormData, vessel_id: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
+                    >
+                      <option value="">{formData.is_retail_customer ? 'Main vessel on this estimate' : 'Estimate vessel (default)'}</option>
+                      {formData.is_retail_customer
+                        ? customerVessels.map((vessel) => (
+                            <option key={vessel.id} value={vessel.id}>
+                              {vessel.vessel_name}{vessel.manufacturer || vessel.model ? ` (${[vessel.manufacturer, vessel.model].filter(Boolean).join(' ')})` : ''}
+                            </option>
+                          ))
+                        : yachts.map((yacht) => (
+                            <option key={yacht.id} value={yacht.id}>{yacht.name}</option>
+                          ))}
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">Pick a different vessel to tag this task to it — useful when servicing multiple jet skis on one bill.</p>
+                  </div>
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Task Overview</label>
                     <textarea
                       value={taskFormData.task_overview}
@@ -3783,6 +3817,19 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
                           </button>
                           <div className="flex-1">
                             <h5 className="font-semibold text-gray-900">{task.task_name}</h5>
+                            {(() => {
+                              let taskVesselLabel = '';
+                              if (task.vessel_id && task.vessel_source === 'customer_vessel') {
+                                const v = customerVessels.find((cv: any) => cv.id === task.vessel_id);
+                                taskVesselLabel = v ? v.vessel_name : '';
+                              } else if (task.vessel_id && task.vessel_source === 'yacht') {
+                                const y = yachts.find((yy: any) => yy.id === task.vessel_id);
+                                taskVesselLabel = y ? y.name : '';
+                              }
+                              return taskVesselLabel ? (
+                                <p className="text-xs font-medium text-blue-700 mt-0.5">Vessel: {taskVesselLabel}</p>
+                              ) : null;
+                            })()}
                             {task.task_overview && (
                               <p className="text-sm text-gray-600 mt-1">{task.task_overview}</p>
                             )}
@@ -4291,6 +4338,26 @@ export function Estimates({ userId, onCreateSalvageReport }: EstimatesProps) {
                       placeholder="e.g., Engine Service, Hull Cleaning, etc."
                       autoFocus
                     />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Vessel</label>
+                    <select
+                      value={taskFormData.vessel_id}
+                      onChange={(e) => setTaskFormData({ ...taskFormData, vessel_id: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
+                    >
+                      <option value="">{formData.is_retail_customer ? 'Main vessel on this estimate' : 'Estimate vessel (default)'}</option>
+                      {formData.is_retail_customer
+                        ? customerVessels.map((vessel) => (
+                            <option key={vessel.id} value={vessel.id}>
+                              {vessel.vessel_name}{vessel.manufacturer || vessel.model ? ` (${[vessel.manufacturer, vessel.model].filter(Boolean).join(' ')})` : ''}
+                            </option>
+                          ))
+                        : yachts.map((yacht) => (
+                            <option key={yacht.id} value={yacht.id}>{yacht.name}</option>
+                          ))}
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">Pick a different vessel to tag this task to it — useful when servicing multiple jet skis on one bill.</p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Task Overview</label>
