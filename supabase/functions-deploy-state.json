@@ -201,6 +201,10 @@
       "hasChanged": false,
       "hash": "8db0b08a62b87fea4577ed090eb9e3b8765ce8b4299a75f0660f8228bee33830"
     },
+    "tuya-thermostat-control": {
+      "hasChanged": false,
+      "hash": "8a173cb857be0df847c843c18ae192557929769038f8c19249fd5e7e0a5b66b6"
+    },
     "upload-large-video": {
       "hasChanged": false,
       "hash": "dcc856242340d0882fc4e7a124e0fa201a709e72d92d49db0c7fb14c444efe16"
@@ -208,6 +212,10 @@
     "verify-recaptcha": {
       "hasChanged": false,
       "hash": "cef523367a9213b92ef2162adb7f07801a120bcb1025cf6b83de6c7a4a94d3a9"
+    },
+    "vessel-camera-snapshot": {
+      "hasChanged": false,
+      "hash": "7de9617c70899bcaa37096b7127aa223255404ce54027ef0f973007ed5ee1888"
     },
     "vessel-monitor-telemetry": {
       "hasChanged": false,

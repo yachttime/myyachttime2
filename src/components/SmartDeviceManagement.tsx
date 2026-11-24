@@ -21,6 +21,13 @@ interface SmartDevice {
   online_status: boolean;
   is_active: boolean;
   last_status_check: string | null;
+  metadata: {
+    thermostat_state?: {
+      currentTemp: number | null;
+      unit: 'F' | 'C';
+      checked_at?: string;
+    };
+  } | null;
   created_at: string;
   updated_at: string;
 }
@@ -537,7 +544,10 @@ export const SmartDeviceManagement = () => {
 
       for (const device of devices) {
         try {
-          const response = await fetch(`${supabaseUrl}/functions/v1/tuya-smart-lock-control`, {
+          const functionName = device.device_type === 'thermostat'
+            ? 'tuya-thermostat-control'
+            : 'tuya-smart-lock-control';
+          const response = await fetch(`${supabaseUrl}/functions/v1/${functionName}`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${session.access_token}`,
@@ -551,7 +561,7 @@ export const SmartDeviceManagement = () => {
           });
 
           const result = await response.json();
-          if (result.success) {
+          if (response.ok && result.success) {
             successCount++;
           } else {
             failCount++;
@@ -1196,6 +1206,17 @@ export const SmartDeviceManagement = () => {
                             </div>
                           )}
                         </div>
+                        {device.device_type === 'thermostat' && (
+                          <div className="flex items-center gap-2 mt-3 text-sm">
+                            <Thermometer className="w-4 h-4 text-amber-400" />
+                            <span className="text-slate-400">Temperature:</span>
+                            <span className="font-semibold text-slate-100">
+                              {device.metadata?.thermostat_state?.currentTemp !== null && device.metadata?.thermostat_state?.currentTemp !== undefined
+                                ? `${device.metadata.thermostat_state.currentTemp.toFixed(1)}°${device.metadata.thermostat_state.unit}`
+                                : 'Unavailable until checked'}
+                            </span>
+                          </div>
+                        )}
                         {device.last_status_check && (
                           <div className="flex items-center gap-2 mt-2 text-xs text-slate-400">
                             <Clock className="w-3 h-3" />

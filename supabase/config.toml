@@ -73,4 +73,7 @@ verify_jwt = true
 [functions.send-checkin-notification]
 verify_jwt = true
 
+[functions.tuya-thermostat-control]
+verify_jwt = true
+
 
