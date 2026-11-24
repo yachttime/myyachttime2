@@ -437,10 +437,13 @@ Deno.serve(async (req: Request) => {
     if (!secret) throw new Error('Failed to decrypt Tuya credentials');
 
     const tuya = new TuyaClient(credentials.tuya_client_id, secret, credentials.tuya_region);
-    const [info, spec] = await Promise.all([
-      tuya.getDevice(device.tuya_device_id),
-      tuya.getSpecifications(device.tuya_device_id),
-    ]);
+    const info = await tuya.getDevice(device.tuya_device_id);
+    let spec: any = {};
+    try {
+      spec = await tuya.getSpecifications(device.tuya_device_id);
+    } catch (error) {
+      console.warn('Tuya specifications unavailable; continuing with live device status:', error);
+    }
 
     if (action === 'details') {
       // Leave out the device's local encryption key; staff only need the data points.
