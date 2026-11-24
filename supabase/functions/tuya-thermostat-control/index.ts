@@ -377,8 +377,11 @@ Deno.serve(async (req: Request) => {
     return new Response(null, { status: 200, headers: corsHeaders });
   }
 
+  let supabase: ReturnType<typeof createClient> | null = null;
+  let accessibleDevice: { id: string; yacht_id: string; metadata: Record<string, unknown> | null } | null = null;
+
   try {
-    const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+    supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) throw new Error('Missing authorization header');
@@ -423,6 +426,12 @@ Deno.serve(async (req: Request) => {
       if (!booking) throw new Error('Access denied: No active booking found');
     }
     if (action === 'details' && !isStaff) throw new Error('Access denied');
+
+    accessibleDevice = {
+      id: device.id,
+      yacht_id: device.yacht_id,
+      metadata: device.metadata && typeof device.metadata === 'object' ? device.metadata : null,
+    };
 
     const { data: credentials } = await supabase
       .from('tuya_device_credentials')
@@ -517,21 +526,44 @@ Deno.serve(async (req: Request) => {
 
     const thermostat = normalize(resolved, online);
 
+    const { thermostat_error: _thermostatError, ...metadataWithoutError } =
+      device.metadata && typeof device.metadata === 'object' ? device.metadata : {};
+    const checkedAt = new Date().toISOString();
+
     await supabase
       .from('yacht_smart_devices')
       .update({
         online_status: online,
-        last_status_check: new Date().toISOString(),
+        last_status_check: checkedAt,
         metadata: {
-          ...(device.metadata || {}),
-          thermostat_state: { ...thermostat, checked_at: new Date().toISOString() },
+          ...metadataWithoutError,
+          thermostat_state: { ...thermostat, checked_at: checkedAt },
         },
       })
       .eq('id', device.id);
 
     return json({ success: true, thermostat });
   } catch (error: any) {
+    const message = error instanceof Error ? error.message : 'Unable to check thermostat status';
     console.error('Error in tuya-thermostat-control:', error);
-    return json({ success: false, error: error.message }, 400);
+
+    if (supabase && accessibleDevice) {
+      const failedAt = new Date().toISOString();
+      const { thermostat_error: _previousError, ...metadataWithoutError } = accessibleDevice.metadata || {};
+      const { error: saveError } = await supabase
+        .from('yacht_smart_devices')
+        .update({
+          metadata: {
+            ...metadataWithoutError,
+            thermostat_error: { message, checked_at: failedAt },
+          },
+        })
+        .eq('id', accessibleDevice.id)
+        .eq('yacht_id', accessibleDevice.yacht_id);
+
+      if (saveError) console.error('Failed to save thermostat error:', saveError);
+    }
+
+    return json({ success: false, error: message }, 400);
   }
 });

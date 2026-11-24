@@ -27,6 +27,10 @@ interface SmartDevice {
       unit: 'F' | 'C';
       checked_at?: string;
     };
+    thermostat_error?: {
+      message: string;
+      checked_at?: string;
+    };
   } | null;
   created_at: string;
   updated_at: string;
@@ -1292,8 +1296,10 @@ export const SmartDeviceManagement = () => {
                             Last checked: {formatTimestamp(device.last_status_check)}
                           </div>
                         )}
-                        {deviceStatusErrors[device.id] && (
-                          <p className="mt-2 text-xs text-red-400">Tuya check: {deviceStatusErrors[device.id]}</p>
+                        {(deviceStatusErrors[device.id] || device.metadata?.thermostat_error?.message) && (
+                          <p className="mt-2 text-xs text-red-400">
+                            Tuya check: {deviceStatusErrors[device.id] || formatDeviceStatusError(device.metadata?.thermostat_error?.message || '')}
+                          </p>
                         )}
                       </div>
                     </div>
