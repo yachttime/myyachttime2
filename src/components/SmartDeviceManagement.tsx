@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Lock, Plus, CreditCard as Edit2, Trash2, RefreshCw, AlertCircle, CheckCircle, X, Save, Key, Globe, Battery, WifiOff, Clock, Eye, EyeOff, Activity, Wifi, Thermometer } from 'lucide-react';
+import { Lock, Plus, CreditCard as Edit2, Trash2, RefreshCw, AlertCircle, CheckCircle, X, Save, Key, Globe, Battery, WifiOff, Clock, Eye, EyeOff, Activity, Wifi, Thermometer, Power } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useConfirm } from '../hooks/useConfirm';
 
@@ -90,6 +90,7 @@ export const SmartDeviceManagement = () => {
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [testingDevice, setTestingDevice] = useState<string | null>(null);
   const [refreshingAll, setRefreshingAll] = useState(false);
+  const [refreshingDevice, setRefreshingDevice] = useState<string | null>(null);
 
   const [deviceForm, setDeviceForm] = useState({
     device_name: '',
@@ -524,6 +525,47 @@ export const SmartDeviceManagement = () => {
       showMessage('error', error.message || 'Failed to run diagnostics');
     } finally {
       setTestingDevice(null);
+    }
+  };
+
+  const refreshDeviceStatus = async (device: SmartDevice) => {
+    setRefreshingDevice(device.id);
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('No active session');
+
+      const functionName = device.device_type === 'thermostat'
+        ? 'tuya-thermostat-control'
+        : 'tuya-smart-lock-control';
+      const response = await fetch(`${supabaseUrl}/functions/v1/${functionName}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'status',
+          deviceId: device.id,
+          yachtId: selectedYachtId,
+        }),
+      });
+      const result: { success?: boolean; error?: string } = await response.json();
+      if (!response.ok || !result.success) {
+        const error = result.error || '';
+        if (error.includes('credentials')) throw new Error('Tuya credentials are not available for this yacht.');
+        if (error.includes('subscription')) throw new Error('The Tuya cloud subscription needs attention.');
+        if (error.includes('Access denied')) throw new Error('You do not have access to check this device.');
+        throw new Error('Unable to check this device through Tuya.');
+      }
+
+      await loadDevices();
+      showMessage('success', `${device.device_name} status refreshed.`);
+    } catch (error) {
+      console.error('Error refreshing device status:', error);
+      showMessage('error', error instanceof Error ? error.message : 'Unable to refresh device status.');
+    } finally {
+      setRefreshingDevice(null);
     }
   };
 
@@ -1238,6 +1280,16 @@ export const SmartDeviceManagement = () => {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
+                      {device.device_type === 'thermostat' && (
+                        <button
+                          onClick={() => refreshDeviceStatus(device)}
+                          disabled={refreshingDevice === device.id || refreshingAll}
+                          className="p-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 transition-colors disabled:opacity-50"
+                          title="Check thermostat status"
+                        >
+                          <RefreshCw className={`w-4 h-4 ${refreshingDevice === device.id ? 'animate-spin' : ''}`} />
+                        </button>
+                      )}
                       <button
                         onClick={() => runDiagnostics(device.id)}
                         disabled={testingDevice === device.id}
@@ -1273,7 +1325,7 @@ export const SmartDeviceManagement = () => {
                         }`}
                         title={device.is_active ? 'Deactivate' : 'Activate'}
                       >
-                        <RefreshCw className="w-4 h-4" />
+                        <Power className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDeleteDevice(device.id)}
