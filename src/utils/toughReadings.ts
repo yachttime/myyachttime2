@@ -73,3 +73,21 @@ export function getAlternatorDisplay(sensor: {
     stale,
   };
 }
+
+// The Tough re-sends every pump state every 5 minutes (firmware v3.4+), so a
+// pump reading older than this means the Tough stopped reading the pumps and
+// the last state can't be trusted.
+export const PUMP_STALE_MINUTES = 15;
+
+export type PumpState = 'on' | 'off' | 'unknown';
+
+export function getPumpState(sensor: {
+  current_value: string | null;
+  last_reading_at: string | null;
+} | undefined, now = Date.now()): PumpState {
+  if (!sensor) return 'unknown';
+  const t = sensor.last_reading_at ? Date.parse(sensor.last_reading_at) : NaN;
+  if (!Number.isFinite(t) || now - t > PUMP_STALE_MINUTES * 60 * 1000) return 'unknown';
+  const active = parseActiveReading(sensor.current_value);
+  return active === null ? 'unknown' : active ? 'on' : 'off';
+}

@@ -4,7 +4,7 @@ import { useCompany } from '../contexts/CompanyContext';
 import { isStaffRole, UserRole } from '../lib/supabase';
 import { formatAlertMessage, formatWeatherNumber } from '../utils/vesselFormatting';
 import { alarmLabel, getBatteryDisplay } from '../utils/batteryDisplay';
-import { ALTERNATOR_NAMES, getAlternatorDisplay, parseActiveReading } from '../utils/toughReadings';
+import { ALTERNATOR_NAMES, getAlternatorDisplay, getPumpState } from '../utils/toughReadings';
 import {
   Activity, AlertTriangle, Battery, Gauge, Navigation, Wind,
   Droplets, Zap, Thermometer, Lock, Shield, ChevronRight,
@@ -1224,10 +1224,10 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
                 const sensor = sensorName
                   ? yachtSensors.find(candidate => candidate.sensor_name.startsWith(sensorName))
                   : undefined;
-                const active = parseActiveReading(sensor?.current_value);
-                const isOn = active === true;
-                const isOff = active === false;
-                const stateLabel = isOn ? 'On' : isOff ? 'Off' : 'Waiting for reading';
+                const pumpState = getPumpState(sensor);
+                const isOn = pumpState === 'on';
+                const isOff = pumpState === 'off';
+                const stateLabel = isOn ? 'On' : isOff ? 'Off' : sensor ? 'Unknown — no recent reading' : 'Waiting for reading';
                 const stateColor = isOn
                   ? 'text-green-400 bg-green-500/10 border-green-500/30'
                   : isOff
