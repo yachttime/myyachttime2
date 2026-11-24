@@ -91,6 +91,7 @@ export const SmartDeviceManagement = () => {
   const [testingDevice, setTestingDevice] = useState<string | null>(null);
   const [refreshingAll, setRefreshingAll] = useState(false);
   const [refreshingDevice, setRefreshingDevice] = useState<string | null>(null);
+  const [deviceStatusErrors, setDeviceStatusErrors] = useState<Record<string, string>>({});
 
   const [deviceForm, setDeviceForm] = useState({
     device_name: '',
@@ -528,6 +529,15 @@ export const SmartDeviceManagement = () => {
     }
   };
 
+  const formatDeviceStatusError = (error: string) => {
+    if (error.includes('credentials')) return 'Tuya credentials are not available for this yacht.';
+    if (error.includes('subscription')) return 'The Tuya cloud subscription needs attention.';
+    if (error.includes('Access denied')) return 'You do not have access to check this device.';
+    if (error.includes('Tuya authentication failed')) return 'Tuya rejected the saved credentials.';
+    if (error.includes('Tuya request failed')) return error;
+    return error || 'Unable to check this device through Tuya.';
+  };
+
   const refreshDeviceStatus = async (device: SmartDevice) => {
     setRefreshingDevice(device.id);
     try {
@@ -552,18 +562,21 @@ export const SmartDeviceManagement = () => {
       });
       const result: { success?: boolean; error?: string } = await response.json();
       if (!response.ok || !result.success) {
-        const error = result.error || '';
-        if (error.includes('credentials')) throw new Error('Tuya credentials are not available for this yacht.');
-        if (error.includes('subscription')) throw new Error('The Tuya cloud subscription needs attention.');
-        if (error.includes('Access denied')) throw new Error('You do not have access to check this device.');
-        throw new Error('Unable to check this device through Tuya.');
+        throw new Error(formatDeviceStatusError(result.error || ''));
       }
 
+      setDeviceStatusErrors((current) => {
+        const next = { ...current };
+        delete next[device.id];
+        return next;
+      });
       await loadDevices();
       showMessage('success', `${device.device_name} status refreshed.`);
     } catch (error) {
       console.error('Error refreshing device status:', error);
-      showMessage('error', error instanceof Error ? error.message : 'Unable to refresh device status.');
+      const errorMessage = formatDeviceStatusError(error instanceof Error ? error.message : '');
+      setDeviceStatusErrors((current) => ({ ...current, [device.id]: errorMessage }));
+      showMessage('error', errorMessage);
     } finally {
       setRefreshingDevice(null);
     }
@@ -608,7 +621,9 @@ export const SmartDeviceManagement = () => {
             successCount++;
           } else {
             failCount++;
-            if (!firstFailure && typeof result.error === 'string') firstFailure = result.error;
+            const errorMessage = formatDeviceStatusError(typeof result.error === 'string' ? result.error : '');
+            setDeviceStatusErrors((current) => ({ ...current, [device.id]: errorMessage }));
+            if (!firstFailure) firstFailure = result.error;
           }
         } catch (error) {
           failCount++;
@@ -1222,17 +1237,17 @@ export const SmartDeviceManagement = () => {
                               ? 'bg-green-500/20 text-green-500'
                               : 'bg-slate-700 text-slate-400'
                           }`}>
-                            {device.is_active ? 'Active' : 'Inactive'}
+                            {device.is_active ? 'Enabled' : 'Disabled'}
                           </span>
                           {device.online_status ? (
                             <span className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-green-500/20 text-green-500">
                               <Wifi className="w-3 h-3" />
-                              Online
+                              Tuya Online
                             </span>
                           ) : (
                             <span className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-orange-500/20 text-orange-500">
                               <WifiOff className="w-3 h-3" />
-                              Offline
+                              Tuya Offline
                             </span>
                           )}
                         </div>
@@ -1276,6 +1291,9 @@ export const SmartDeviceManagement = () => {
                             <Clock className="w-3 h-3" />
                             Last checked: {formatTimestamp(device.last_status_check)}
                           </div>
+                        )}
+                        {deviceStatusErrors[device.id] && (
+                          <p className="mt-2 text-xs text-red-400">Tuya check: {deviceStatusErrors[device.id]}</p>
                         )}
                       </div>
                     </div>

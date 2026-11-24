@@ -137,6 +137,10 @@ class TuyaClient {
     return this.request('GET', `/v1.0/devices/${deviceId}`);
   }
 
+  getStatus(deviceId: string) {
+    return this.request('GET', `/v1.0/devices/${deviceId}/status`);
+  }
+
   getSpecifications(deviceId: string) {
     return this.request('GET', `/v1.0/devices/${deviceId}/specifications`);
   }
@@ -438,6 +442,16 @@ Deno.serve(async (req: Request) => {
 
     const tuya = new TuyaClient(credentials.tuya_client_id, secret, credentials.tuya_region);
     const info = await tuya.getDevice(device.tuya_device_id);
+    let rawStatus = Array.isArray(info?.status) ? info.status : [];
+    if (action !== 'details') {
+      try {
+        const status = await tuya.getStatus(device.tuya_device_id);
+        if (Array.isArray(status)) rawStatus = status;
+      } catch (error) {
+        console.warn('Tuya live status endpoint unavailable; using device details status:', error);
+      }
+    }
+
     let spec: any = {};
     try {
       spec = await tuya.getSpecifications(device.tuya_device_id);
@@ -452,7 +466,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const overrides = (device.metadata && device.metadata.thermostat_codes) || {};
-    const resolved = resolve(info?.status || [], spec, overrides);
+    const resolved = resolve(rawStatus, spec, overrides);
     const online = !!info?.online;
 
     let command: DataPoint | null = null;
