@@ -229,6 +229,7 @@ interface Resolved {
     fan: string | null;
     humidity: string | null;
     state: string | null;
+    hold: string | null;
   };
   status: Map<string, any>;
   specs: Map<string, SpecEntry>;
@@ -247,7 +248,11 @@ function resolve(statusList: DataPoint[], spec: any, overrides: Record<string, s
 
   const codes = {
     current: pick(
-      orderByUnit(['temp_current', 'temp_current_f', 'temp_indoor', 'temp_indoor_f', 'current_temp', 'indoor_temp', 'temp_current_c'], preferF),
+      orderByUnit([
+        'temp_current', 'temp_current_f', 'temp_indoor', 'temp_indoor_f',
+        'current_temp', 'indoor_temp', 'temp_current_c', 'temp_room', 'room_temp',
+        ...fuzzy(/(temp|temperature).*(current|indoor|room|inside|inner)|^(current|indoor|room|inside|inner)_(temp|temperature)/),
+      ].filter((c) => !/set|target|outdoor|outside/.test(c)), preferF),
       status, specs, overrides.current,
     ),
     setpoint: pick(
@@ -255,18 +260,19 @@ function resolve(statusList: DataPoint[], spec: any, overrides: Record<string, s
       status, specs, overrides.setpoint, true,
     ),
     heat: pick(
-      orderByUnit(['heat_temp_set', 'heat_temp_set_f', 'temp_set_heat', 'temp_set_heat_f', 'heating_temp_set', ...fuzzy(/heat.*(set|point)|(set|point).*heat/)], preferF),
+      orderByUnit(['heat_temp_set', 'heat_temp_set_f', 'temp_set_heat', 'temp_set_heat_f', 'heating_temp_set', 'heat_setpoint', 'heating_setpoint', ...fuzzy(/heat/).filter((c) => !/mode|state|switch|alarm/.test(c))], preferF),
       status, specs, overrides.heat, true,
     ),
     cool: pick(
-      orderByUnit(['cool_temp_set', 'cool_temp_set_f', 'temp_set_cool', 'temp_set_cool_f', 'cooling_temp_set', ...fuzzy(/cool.*(set|point)|(set|point).*cool/)], preferF),
+      orderByUnit(['cool_temp_set', 'cool_temp_set_f', 'temp_set_cool', 'temp_set_cool_f', 'cooling_temp_set', 'cool_setpoint', 'cooling_setpoint', ...fuzzy(/cool/).filter((c) => !/mode|state|switch|alarm/.test(c))], preferF),
       status, specs, overrides.cool, true,
     ),
-    mode: pick(['mode', 'work_mode', 'system_mode', 'thermostat_mode', 'hvac_mode'], status, specs, overrides.mode),
+    mode: pick(['mode', 'work_mode', 'system_mode', 'thermostat_mode', 'hvac_mode', ...fuzzy(/mode/).filter((c) => !/fan|wind/.test(c))], status, specs, overrides.mode),
     power: pick(['switch', 'power', 'switch_1'], status, specs, overrides.power),
-    fan: pick(['fan_mode', 'fan_speed_enum', 'windspeed', 'fan_speed', 'fan'], status, specs, overrides.fan),
-    humidity: pick(['humidity_current', 'humidity_indoor', 'va_humidity', 'humidity'], status, specs, overrides.humidity),
+    fan: pick(['fan_mode', 'fan_speed_enum', 'windspeed', 'fan_speed', 'fan', ...fuzzy(/fan|wind/)], status, specs, overrides.fan),
+    humidity: pick(['humidity_current', 'humidity_indoor', 'va_humidity', 'humidity', 'humidity_relative', ...fuzzy(/humid/)], status, specs, overrides.humidity),
     state: pick(['work_state', 'running_state', 'work_status', 'hvac_state', 'valve_state'], status, specs, overrides.state),
+    hold: pick(['hold', 'temporary_hold', 'hold_state', 'temp_hold', 'hold_flag', 'hold_mode', ...fuzzy(/hold/)], status, specs, overrides.hold),
   };
 
   return { codes, status, specs, preferF };
@@ -318,6 +324,7 @@ function normalize(r: Resolved, online: boolean) {
       ? { code: codes.fan, value: String(r.status.get(codes.fan) ?? ''), options: enumOptions(codes.fan, r), writable: !!r.specs.get(codes.fan)?.writable }
       : null,
     workState: codes.state ? String(r.status.get(codes.state) ?? '') : null,
+    hold: codes.hold ? { code: codes.hold, value: r.status.get(codes.hold) ?? null } : null,
   };
 }
 
@@ -408,6 +415,14 @@ Deno.serve(async (req: Request) => {
     if (!device) throw new Error('Device not found');
     if (device.device_type !== 'thermostat') throw new Error('Device is not a thermostat');
     if (!device.tuya_device_id) throw new Error('Thermostat has no Tuya Device ID set');
+
+    // Assign before the access checks so even those failures persist to the device card.
+    accessibleDevice = {
+      id: device.id,
+      yacht_id: device.yacht_id,
+      metadata: device.metadata && typeof device.metadata === 'object' ? device.metadata : null,
+    };
+
     if (action !== 'status' && action !== 'details' && !device.is_active) throw new Error('Device is not active');
 
     // Same access rules as the smart locks: staff, the yacht's owner, or a guest with an active booking.
@@ -426,12 +441,6 @@ Deno.serve(async (req: Request) => {
       if (!booking) throw new Error('Access denied: No active booking found');
     }
     if (action === 'details' && !isStaff) throw new Error('Access denied');
-
-    accessibleDevice = {
-      id: device.id,
-      yacht_id: device.yacht_id,
-      metadata: device.metadata && typeof device.metadata === 'object' ? device.metadata : null,
-    };
 
     const { data: credentials } = await supabase
       .from('tuya_device_credentials')

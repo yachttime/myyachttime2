@@ -25,6 +25,11 @@ interface SmartDevice {
     thermostat_state?: {
       currentTemp: number | null;
       unit: 'F' | 'C';
+      humidity?: number | null;
+      heatSetpoint?: { value: number | null; unit: 'F' | 'C' } | null;
+      mode?: { value: string } | null;
+      fan?: { value: string } | null;
+      hold?: { value: unknown } | null;
       checked_at?: string;
     };
     thermostat_error?: {
@@ -1243,15 +1248,22 @@ export const SmartDeviceManagement = () => {
                           }`}>
                             {device.is_active ? 'Enabled' : 'Disabled'}
                           </span>
-                          {device.online_status ? (
-                            <span className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-green-500/20 text-green-500">
-                              <Wifi className="w-3 h-3" />
-                              Tuya Online
-                            </span>
+                          {device.last_status_check ? (
+                            device.online_status ? (
+                              <span className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-green-500/20 text-green-500">
+                                <Wifi className="w-3 h-3" />
+                                Tuya Online
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-orange-500/20 text-orange-500">
+                                <WifiOff className="w-3 h-3" />
+                                Tuya Offline
+                              </span>
+                            )
                           ) : (
-                            <span className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-orange-500/20 text-orange-500">
+                            <span className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-slate-700 text-slate-300">
                               <WifiOff className="w-3 h-3" />
-                              Tuya Offline
+                              Not checked yet
                             </span>
                           )}
                         </div>
@@ -1279,17 +1291,67 @@ export const SmartDeviceManagement = () => {
                             </div>
                           )}
                         </div>
-                        {device.device_type === 'thermostat' && (
-                          <div className="flex items-center gap-2 mt-3 text-sm">
-                            <Thermometer className="w-4 h-4 text-amber-400" />
-                            <span className="text-slate-400">Temperature:</span>
-                            <span className="font-semibold text-slate-100">
-                              {device.metadata?.thermostat_state?.currentTemp !== null && device.metadata?.thermostat_state?.currentTemp !== undefined
-                                ? `${device.metadata.thermostat_state.currentTemp.toFixed(1)}°${device.metadata.thermostat_state.unit}`
-                                : 'Unavailable until checked'}
-                            </span>
-                          </div>
-                        )}
+                        {device.device_type === 'thermostat' && (() => {
+                          const state = device.metadata?.thermostat_state;
+                          const modeLabel = state?.mode?.value
+                            ? state.mode.value.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+                            : null;
+                          const fanLabel = state?.fan?.value
+                            ? state.fan.value.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+                            : null;
+                          const heatValue = state?.heatSetpoint?.value;
+                          const heatUnit = state?.heatSetpoint?.unit ?? state?.unit;
+                          const holdRaw = state?.hold?.value;
+                          const isHold = holdRaw === true || holdRaw === 'true' || holdRaw === '1' || holdRaw === 1;
+                          return (
+                            <div className="mt-3 p-3 bg-slate-900/60 rounded-lg border border-slate-700">
+                              <div className="flex items-center gap-6">
+                                <div>
+                                  <div className="text-xs uppercase tracking-wide text-slate-400">Current</div>
+                                  <div className="text-2xl font-bold text-slate-100 flex items-center gap-2">
+                                    <Thermometer className="w-5 h-5 text-amber-400" />
+                                    {state?.currentTemp !== null && state?.currentTemp !== undefined
+                                      ? `${Number.isInteger(state.currentTemp) ? state.currentTemp : state.currentTemp.toFixed(1)}°${state.unit}`
+                                      : '--'}
+                                  </div>
+                                </div>
+                                {state?.humidity !== null && state?.humidity !== undefined && (
+                                  <div>
+                                    <div className="text-xs uppercase tracking-wide text-slate-400">Humidity</div>
+                                    <div className="text-2xl font-bold text-slate-100">{Math.round(state.humidity)}%</div>
+                                  </div>
+                                )}
+                                {heatValue !== null && heatValue !== undefined && (
+                                  <div>
+                                    <div className="text-xs uppercase tracking-wide text-slate-400">Heat Setting</div>
+                                    <div className="text-2xl font-bold text-slate-100">
+                                      {Number.isInteger(heatValue) ? heatValue : heatValue.toFixed(1)}°{heatUnit}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                              {(modeLabel || fanLabel || isHold) && (
+                                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                  {modeLabel && (
+                                    <span className="px-2 py-0.5 rounded text-xs font-medium bg-amber-500/20 text-amber-400">
+                                      System: {modeLabel}
+                                    </span>
+                                  )}
+                                  {fanLabel && (
+                                    <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-500/20 text-blue-400">
+                                      Fan: {fanLabel}
+                                    </span>
+                                  )}
+                                  {isHold && (
+                                    <span className="px-2 py-0.5 rounded text-xs font-medium bg-slate-700 text-slate-300">
+                                      Temporary Hold
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                         {device.last_status_check && (
                           <div className="flex items-center gap-2 mt-2 text-xs text-slate-400">
                             <Clock className="w-3 h-3" />
