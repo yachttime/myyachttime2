@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { formatAlertMessage } from '../../utils/vesselFormatting';
 import { getBatteryDisplay } from '../../utils/batteryDisplay';
+import { parseActiveReading } from '../../utils/toughReadings';
 
 interface DeviceRow {
   id: string;
@@ -78,6 +79,11 @@ function describeReading(sensor: SensorRow, value: Record<string, unknown> | nul
     return `${formatNumber(value.distance_km * MILES_PER_KM)} mi away`;
   }
   if (typeof value.status === 'string') return value.status;
+  if ('voltage' in value && Object.keys(value).length === 1) return `${formatNumber(value.voltage, 2)} V`;
+  if ('active' in value && Object.keys(value).length === 1) {
+    const active = parseActiveReading(raw);
+    return active === null ? '--' : active ? 'On' : 'Off';
+  }
   if ('mph' in value) return `${formatNumber(value.mph)} mph`;
   if ('deg' in value) return `${formatNumber(value.deg, 0)}°`;
   if ('mm' in value) return `${formatNumber(value.mm)} mm`;

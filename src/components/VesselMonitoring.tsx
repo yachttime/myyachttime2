@@ -4,6 +4,7 @@ import { useCompany } from '../contexts/CompanyContext';
 import { isStaffRole, UserRole } from '../lib/supabase';
 import { formatAlertMessage, formatWeatherNumber } from '../utils/vesselFormatting';
 import { alarmLabel, getBatteryDisplay } from '../utils/batteryDisplay';
+import { ALTERNATOR_NAMES, getAlternatorDisplay, parseActiveReading } from '../utils/toughReadings';
 import {
   Activity, AlertTriangle, Battery, Gauge, Navigation, Wind,
   Droplets, Zap, Thermometer, Lock, Shield, ChevronRight,
@@ -1223,9 +1224,9 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
                 const sensor = sensorName
                   ? yachtSensors.find(candidate => candidate.sensor_name.startsWith(sensorName))
                   : undefined;
-                const reading = sensor?.current_value?.trim().toLowerCase();
-                const isOn = reading === 'active' || reading === 'on' || reading === 'true' || reading === '1';
-                const isOff = reading === 'inactive' || reading === 'off' || reading === 'false' || reading === '0';
+                const active = parseActiveReading(sensor?.current_value);
+                const isOn = active === true;
+                const isOff = active === false;
                 const stateLabel = isOn ? 'On' : isOff ? 'Off' : 'Waiting for reading';
                 const stateColor = isOn
                   ? 'text-green-400 bg-green-500/10 border-green-500/30'
@@ -1326,6 +1327,59 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Alternators — Tough Voltmeter Units */}
+        {toughDevice && (() => {
+          const alternatorSensors = yachtSensors.filter(s => s.sensor_type === 'engine_alternator');
+          if (alternatorSensors.length === 0) return null;
+          const known = ALTERNATOR_NAMES.map(name => ({
+            name,
+            sensor: alternatorSensors.find(s => s.sensor_name === name),
+          }));
+          const extra = alternatorSensors
+            .filter(s => !(ALTERNATOR_NAMES as readonly string[]).includes(s.sensor_name))
+            .map(s => ({ name: s.sensor_name, sensor: s }));
+          const rows = [...known, ...extra].map(r => ({ ...r, display: getAlternatorDisplay(r.sensor) }));
+          const reportingCount = rows.filter(r => r.display.status !== 'offline').length;
+          return (
+            <div className="bg-slate-800/30 rounded-xl border border-slate-700 overflow-hidden mb-6">
+              <div className="bg-slate-800/80 px-4 py-3 border-b border-slate-700">
+                <h3 className="font-bold flex items-center gap-2">
+                  <Zap className="w-5 h-5 text-yellow-400" />
+                  Alternators
+                  <span className="text-xs font-normal text-slate-400 ml-2">
+                    via ORION Tough{reportingCount > 0 ? ` — ${reportingCount}/${rows.length} reporting` : ''}
+                  </span>
+                </h3>
+              </div>
+              <div className="divide-y divide-slate-700">
+                {rows.map(({ name, sensor, display }) => (
+                  <div key={name} className="flex items-center justify-between gap-3 px-4 py-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={`p-2 rounded-lg ${STATUS_COLORS[display.status]}`}>
+                        <Zap className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm">{name}</p>
+                        <p className="font-mono font-bold text-base text-white">{display.primary}</p>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className={`text-xs px-2 py-0.5 rounded-full border ${STATUS_COLORS[display.status]}`}>
+                        {!sensor ? 'Not reporting' : display.stale ? 'No recent data' : 'Reporting'}
+                      </span>
+                      {sensor?.last_reading_at && (
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          {display.stale ? new Date(sensor.last_reading_at).toLocaleString() : new Date(sensor.last_reading_at).toLocaleTimeString()}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           );
