@@ -541,6 +541,7 @@ export const SmartDeviceManagement = () => {
 
       let successCount = 0;
       let failCount = 0;
+      let firstFailure: string | null = null;
 
       for (const device of devices) {
         try {
@@ -565,14 +566,25 @@ export const SmartDeviceManagement = () => {
             successCount++;
           } else {
             failCount++;
+            if (!firstFailure && typeof result.error === 'string') firstFailure = result.error;
           }
         } catch (error) {
           failCount++;
+          if (!firstFailure) firstFailure = 'Request failed';
         }
       }
 
       await loadDevices();
-      showMessage('success', `Refreshed ${successCount} device(s). ${failCount > 0 ? `${failCount} failed.` : ''}`);
+      if (successCount === 0) {
+        showMessage(
+          'error',
+          firstFailure === 'Tuya credentials not configured for this yacht'
+            ? 'Tuya credentials are not available for this yacht.'
+            : 'Unable to refresh device status. Check the Tuya connection and try again.'
+        );
+      } else {
+        showMessage('success', `Refreshed ${successCount} device(s). ${failCount > 0 ? `${failCount} failed.` : ''}`);
+      }
     } catch (error: any) {
       console.error('Error refreshing all devices:', error);
       showMessage('error', 'Failed to refresh devices');
