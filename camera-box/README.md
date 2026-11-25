@@ -28,8 +28,69 @@ Uses a camera-only domain registered in Cloudflare (for example myyachttime-cams
 
 1. In the Cloudflare dashboard go to **Zero Trust → Networks → Tunnels → Create a tunnel** (Cloudflared). Name it after the boat, e.g. `orion-cams`.
 2. Copy the tunnel **token** shown in the install command.
-3. Add a **public hostname**: `orion.myyachttime-cams.com`, **Path** `^/.+/api/webrtc$`, service `HTTP` → `localhost:1984`.
-   The path limit matters: it lets only the live video requests through, so the box's settings page and API can't be reached from the internet.
+3. Add a **public hostname**: `orion.myyachttime-cams.com`, **Path** `^/.+/api/(webrtc|ws)# MyYachtTime camera box (live view)
+
+One Raspberry Pi 5 per boat, plugged into the Starlink router. It turns the camera feeds into live video that the **Security Cameras** tab on the helm tablet plays, with well under a second of delay, so the cameras can be used for blind spots.
+
+```
+Uniview cameras ──RTSP──► Pi 5 (go2rtc) ──WebRTC video, boat WiFi──► Galaxy tablet
+                               │
+                               └─ Cloudflare tunnel (https) ◄── tablet page connects here
+```
+
+The tablet page connects to the box through a secure https address (Cloudflare tunnel), because a web page served over https can't talk to a plain local address. The video itself then goes straight from the box to the tablet over the boat's WiFi, so it is fast and uses no Starlink data.
+
+**Internet note:** the tablet page and the connection step need the internet. Once a camera is playing it keeps playing over the boat's WiFi through a short Starlink drop, but a reconnect waits for the internet to come back. The minute-by-minute snapshots stay as the fallback.
+
+**Remote note:** live view works on the boat's network. From the office or a phone the tab shows the snapshots. Live view off the boat needs a relay server, which can be added later.
+
+## Parts (office test)
+
+- Raspberry Pi 5, 4 GB (SC1111)
+- Raspberry Pi Active Cooler (SC1148)
+- Raspberry Pi 27W USB-C power supply (SC1157); on the boat, a 12V to 5V 5A USB-C converter instead
+- SanDisk High Endurance 64 GB microSD (SDSQQNR-064G-GN6IA)
+- Short ethernet cable to the router
+
+## One-time Cloudflare setup (per boat)
+
+Uses a camera-only domain registered in Cloudflare (for example myyachttime-cams.com), so the main myyachttime.com at GoDaddy is never touched.
+
+1. In the Cloudflare dashboard go to **Zero Trust → Networks → Tunnels → Create a tunnel** (Cloudflared). Name it after the boat, e.g. `orion-cams`.
+2. Copy the tunnel **token** shown in the install command.
+, service `HTTP` → `localhost:1984`.
+   The path limit matters: it lets only the live video requests through (WebRTC handshake and the WebSocket fallback), so the box's settings page and API can't be reached from the internet.
+   The `ws` part is what lets devices away from the boat watch live video through the tunnel; boxes set up before Nov 2026 have `^/.+/api/webrtc# MyYachtTime camera box (live view)
+
+One Raspberry Pi 5 per boat, plugged into the Starlink router. It turns the camera feeds into live video that the **Security Cameras** tab on the helm tablet plays, with well under a second of delay, so the cameras can be used for blind spots.
+
+```
+Uniview cameras ──RTSP──► Pi 5 (go2rtc) ──WebRTC video, boat WiFi──► Galaxy tablet
+                               │
+                               └─ Cloudflare tunnel (https) ◄── tablet page connects here
+```
+
+The tablet page connects to the box through a secure https address (Cloudflare tunnel), because a web page served over https can't talk to a plain local address. The video itself then goes straight from the box to the tablet over the boat's WiFi, so it is fast and uses no Starlink data.
+
+**Internet note:** the tablet page and the connection step need the internet. Once a camera is playing it keeps playing over the boat's WiFi through a short Starlink drop, but a reconnect waits for the internet to come back. The minute-by-minute snapshots stay as the fallback.
+
+**Remote note:** live view works on the boat's network. From the office or a phone the tab shows the snapshots. Live view off the boat needs a relay server, which can be added later.
+
+## Parts (office test)
+
+- Raspberry Pi 5, 4 GB (SC1111)
+- Raspberry Pi Active Cooler (SC1148)
+- Raspberry Pi 27W USB-C power supply (SC1157); on the boat, a 12V to 5V 5A USB-C converter instead
+- SanDisk High Endurance 64 GB microSD (SDSQQNR-064G-GN6IA)
+- Short ethernet cable to the router
+
+## One-time Cloudflare setup (per boat)
+
+Uses a camera-only domain registered in Cloudflare (for example myyachttime-cams.com), so the main myyachttime.com at GoDaddy is never touched.
+
+1. In the Cloudflare dashboard go to **Zero Trust → Networks → Tunnels → Create a tunnel** (Cloudflared). Name it after the boat, e.g. `orion-cams`.
+2. Copy the tunnel **token** shown in the install command.
+ and need this updated in the Cloudflare dashboard.
 
 ## Setting up the Pi
 

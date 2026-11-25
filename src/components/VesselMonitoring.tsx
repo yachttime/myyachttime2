@@ -1227,7 +1227,7 @@ export function VesselMonitoring({ effectiveRole, userProfile, viewedYachtId }: 
                 </div>
                 <CameraWall yachtId={selectedYachtId} embedded embeddedHeightClass="h-[32rem] min-h-[20rem]" />
                 <p className="text-xs text-slate-500 mt-2">
-                  Live video plays only on the boat's own WiFi (same network as the helm tablet). Away from the boat you'll see the latest saved picture instead.
+                  Live video plays with under a second delay on the boat's WiFi (same as the helm tablet). Away from the boat it streams through the internet with a few seconds delay.
                 </p>
               </div>
             )}
