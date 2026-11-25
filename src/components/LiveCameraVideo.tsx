@@ -100,9 +100,21 @@ export function LiveCameraVideo({ url, className, onStatusChange }: LiveCameraVi
       if (video) video.removeAttribute('src');
     };
 
+    // Drop the failed direct (WebRTC) connection. Its stream stays attached to
+    // the <video> as srcObject even though no video ever arrives, and srcObject
+    // takes priority over src, so the tunnel video would play into a black box.
+    const dropWhep = () => {
+      controller?.abort();
+      controller = null;
+      if (pc) { pc.onconnectionstatechange = null; pc.ontrack = null; pc.close(); pc = null; }
+      const video = videoRef.current;
+      if (video) video.srcObject = null;
+    };
+
     const connectFallback = () => {
       if (cancelled) return;
       usingFallback = true;
+      dropWhep();
       cleanupFallbackVideo();
       const video = videoRef.current;
       const wsUrl = wsUrlFromWhep(url);
