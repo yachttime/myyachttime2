@@ -1398,6 +1398,18 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
                         ))}
                       </div>
                     )}
+                    {display.legs.length > 0 && (
+                      <div className="mt-2 rounded-lg border border-slate-700 divide-y divide-slate-700/60">
+                        {display.legs.map(leg => (
+                          <div key={leg.label} className="grid grid-cols-4 gap-2 px-3 py-1.5 font-mono text-xs">
+                            <span className="text-slate-400 font-sans">{leg.label}</span>
+                            <span className="text-slate-200 text-right">{leg.voltage}</span>
+                            <span className="text-slate-200 text-right">{leg.current}</span>
+                            <span className="text-slate-200 text-right font-semibold">{leg.power}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
