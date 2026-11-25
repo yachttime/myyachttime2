@@ -59,6 +59,9 @@ interface SpecEntry {
 const SUBSCRIPTION_EXPIRED =
   'SUBSCRIPTION_EXPIRED: Your Tuya Cloud Development subscription has expired. Please renew it at https://iot.tuya.com/';
 
+// Placeholder key the browser uses when VITE_SMART_DEVICE_ENCRYPTION_KEY is missing.
+const LEGACY_BROWSER_KEY = 'temporary_migration_key_replace_in_production';
+
 const tokenCache = new Map<string, { token: string; expiresAt: number }>();
 
 class TuyaClient {
@@ -452,10 +455,36 @@ Deno.serve(async (req: Request) => {
 
     const encryptionKey = Deno.env.get('SMART_DEVICE_ENCRYPTION_KEY');
     if (!encryptionKey) throw new Error('Encryption key not configured');
-    const { data: secret } = await supabase.rpc('decrypt_credential', {
+    let { data: secret } = await supabase.rpc('decrypt_credential', {
       ciphertext: credentials.tuya_client_secret,
       key: encryptionKey,
     });
+
+    // The Smart Device Management page encrypts the secret in the browser and falls back
+    // to a placeholder key when VITE_SMART_DEVICE_ENCRYPTION_KEY isn't set, so some saved
+    // secrets can't be opened with the real key. Try the placeholder, and if it works,
+    // re-encrypt the secret with the real key so it is fixed for good.
+    if (!secret) {
+      const { data: legacySecret } = await supabase.rpc('decrypt_credential', {
+        ciphertext: credentials.tuya_client_secret,
+        key: LEGACY_BROWSER_KEY,
+      });
+      if (legacySecret) {
+        secret = legacySecret;
+        const { data: reEncrypted, error: encryptError } = await supabase.rpc('encrypt_credential', {
+          plaintext: legacySecret,
+          key: encryptionKey,
+        });
+        if (!encryptError && reEncrypted) {
+          const { error: saveError } = await supabase
+            .from('tuya_device_credentials')
+            .update({ tuya_client_secret: reEncrypted, updated_at: new Date().toISOString() })
+            .eq('id', credentials.id);
+          if (saveError) console.error('Could not re-encrypt Tuya secret:', saveError);
+          else console.log('Re-encrypted Tuya secret with the server key for yacht', yachtId);
+        }
+      }
+    }
     if (!secret) throw new Error('Failed to decrypt Tuya credentials');
 
     const tuya = new TuyaClient(credentials.tuya_client_id, secret, credentials.tuya_region);
