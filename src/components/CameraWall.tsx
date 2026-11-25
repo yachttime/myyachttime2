@@ -161,10 +161,12 @@ export function CameraWall({ onBack, yachtId, embedded = false, embeddedHeightCl
     }
     if (c.live_url) {
       const age = ageSeconds(c);
+      const stale = age === null || age > STALE_SECONDS;
       return (
         <span className={`${large ? 'text-sm' : 'text-xs'} tabular-nums text-amber-400`}>
           {liveStatus[c.id] === 'reconnecting' ? 'Live view reconnecting' : 'Connecting live view'}
           {age !== null && ` · picture ${formatAge(age)}`}
+          {stale && ' · cameras on the boat are not uploading'}
         </span>
       );
     }
@@ -184,6 +186,7 @@ export function CameraWall({ onBack, yachtId, embedded = false, embeddedHeightCl
       <div className={`${className} flex flex-col items-center justify-center gap-2 text-slate-500`}>
         <Camera className="w-10 h-10" />
         <span className="text-sm">Waiting for first picture</span>
+        <span className="px-4 text-center text-xs text-slate-600">Live video connects only while on the boat&apos;s WiFi; pictures arrive once the boat&apos;s cameras are powered and connected</span>
       </div>
     );
 
