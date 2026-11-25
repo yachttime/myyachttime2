@@ -282,10 +282,11 @@ function getWeatherDisplay(sensor: MonitorSensor): WeatherDisplay {
   return { primary: JSON.stringify(value), details: [] };
 }
 
-export function VesselMonitoring({ effectiveRole, userProfile }: { effectiveRole: UserRole; userProfile?: { yacht_id?: string } | null }) {
+export function VesselMonitoring({ effectiveRole, userProfile, viewedYachtId }: { effectiveRole: UserRole; userProfile?: { yacht_id?: string } | null; viewedYachtId?: string | null }) {
   const { isMaster, selectedCompany } = useCompany();
   const isManager = effectiveRole === 'manager';
-  const managerYachtId = isManager ? (userProfile?.yacht_id ?? null) : null;
+  const isMasterView = isMaster && !isManager;
+  const managerYachtId = isManager ? (viewedYachtId ?? userProfile?.yacht_id ?? null) : null;
   const [view, setView] = useState<'fleet' | 'yacht' | 'enroll' | 'devices'>(isManager && managerYachtId ? 'yacht' : 'fleet');
   const [selectedYachtId, setSelectedYachtId] = useState<string | null>(null);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
@@ -377,7 +378,10 @@ export function VesselMonitoring({ effectiveRole, userProfile }: { effectiveRole
     }
     const { data } = await query;
     setYachts(data || []);
-    if (managerYachtId && data && data.length > 0) setSelectedYachtId(data[0].id);
+    if (managerYachtId && data && data.length > 0) {
+      setSelectedYachtId(data[0].id);
+      setView('yacht');
+    }
   }, [isMaster, selectedCompany, managerYachtId]);
 
   const loadCompanies = useCallback(async () => {
@@ -836,10 +840,10 @@ export function VesselMonitoring({ effectiveRole, userProfile }: { effectiveRole
               Vessel Monitoring
             </h2>
             <p className="text-slate-400 text-sm mt-1">
-              {isMaster ? 'All monitored yachts across all companies' : managerYachtId ? 'Monitoring for your yacht' : 'Monitored yachts for your company'}
+              {isMasterView ? 'All monitored yachts across all companies' : managerYachtId ? 'Monitoring for your yacht' : 'Monitored yachts for your company'}
             </p>
           </div>
-          {isMaster && (
+          {isMasterView && (
             <button
               onClick={() => { setShowEnrollModal(true); setEnrollForm({ yacht_id: '', provider_company_id: selectedCompany?.id || '', plan_tier: 'standard' }); }}
               className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white font-medium rounded-lg transition-colors"
@@ -885,7 +889,7 @@ export function VesselMonitoring({ effectiveRole, userProfile }: { effectiveRole
           <div className="text-center py-16 bg-slate-800/30 rounded-xl border border-slate-700">
             <Activity className="w-12 h-12 text-slate-600 mx-auto mb-3" />
             <p className="text-slate-400 mb-1">No yachts are enrolled in monitoring yet</p>
-            {isMaster && <p className="text-slate-500 text-sm">Click "Enroll Yacht" to get started — both devices are created automatically</p>}
+            {isMasterView && <p className="text-slate-500 text-sm">Click "Enroll Yacht" to get started — both devices are created automatically</p>}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -994,7 +998,7 @@ export function VesselMonitoring({ effectiveRole, userProfile }: { effectiveRole
                         <p className="text-xs opacity-70">{yachtName} - {new Date(alert.created_at).toLocaleString()}</p>
                       </div>
                     </div>
-                    {(isMaster || isStaffRole(effectiveRole)) && (
+                    {(isMasterView || isStaffRole(effectiveRole)) && (
                       <button
                         onClick={() => handleAcknowledgeAlert(alert.id)}
                         className="text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-white transition-colors flex items-center gap-1"
@@ -1009,7 +1013,7 @@ export function VesselMonitoring({ effectiveRole, userProfile }: { effectiveRole
           </div>
         )}
 
-        {isMaster && companies.length > 0 && (
+        {isMasterView && companies.length > 0 && (
           <div className="mt-8">
             <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
               <Shield className="w-5 h-5 text-cyan-400" />
@@ -1101,7 +1105,7 @@ export function VesselMonitoring({ effectiveRole, userProfile }: { effectiveRole
               </p>
             )}
           </div>
-          {(isMaster || isStaffRole(effectiveRole)) && (
+          {(isMasterView || isStaffRole(effectiveRole)) && (
             <button
               onClick={() => { setShowDeviceModal(true); setEditingDevice(null); setDeviceForm({ yacht_id: selectedYachtId, device_serial: '', device_name: 'M5 Tough', device_type: 'orion_tough', firmware_version: '' }); }}
               className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white font-medium rounded-lg transition-colors"
@@ -1181,7 +1185,7 @@ export function VesselMonitoring({ effectiveRole, userProfile }: { effectiveRole
           <div className="text-center py-12 bg-slate-800/30 rounded-xl border border-slate-700 mb-6">
             <Radio className="w-10 h-10 text-slate-600 mx-auto mb-2" />
             <p className="text-slate-400">No monitoring devices are registered for this yacht yet</p>
-            {(isMaster || isStaffRole(effectiveRole) || isManager) && (
+            {(isMasterView || isStaffRole(effectiveRole) || isManager) && (
               <p className="text-slate-500 text-sm mt-1">
                 {isManager
                   ? 'This yacht has not been enrolled in Vessel Monitoring yet. Once it is enrolled, GPS, sensors, battery, and camera data will appear here.'
@@ -1223,7 +1227,7 @@ export function VesselMonitoring({ effectiveRole, userProfile }: { effectiveRole
                       )}
                     </div>
                   </div>
-                  {(isMaster || isStaffRole(effectiveRole)) && (
+                  {(isMasterView || isStaffRole(effectiveRole)) && (
                     <div className="flex items-center gap-2 mt-3 flex-wrap">
                       <button
                         onClick={() => handleDownloadFirmware(device)}
@@ -1651,7 +1655,7 @@ export function VesselMonitoring({ effectiveRole, userProfile }: { effectiveRole
                       <p className="text-xs opacity-70">{new Date(alert.created_at).toLocaleString()}</p>
                     </div>
                   </div>
-                  {(isMaster || isStaffRole(effectiveRole)) && (
+                  {(isMasterView || isStaffRole(effectiveRole)) && (
                     <button
                       onClick={() => handleAcknowledgeAlert(alert.id)}
                       className="text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-white transition-colors flex items-center gap-1"

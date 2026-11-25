@@ -18178,7 +18178,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                 </AdminViewWrapper>
               ) : adminView === 'vesselmonitoring' ? (
                 <AdminViewWrapper onBack={() => setAdminViewPersisted('menu')} backHoverColor="hover:text-cyan-500">
-                  <VesselMonitoring effectiveRole={effectiveRole} userProfile={userProfile} />
+                  <VesselMonitoring effectiveRole={effectiveRole} userProfile={userProfile} viewedYachtId={effectiveYacht?.id ?? null} />
                 </AdminViewWrapper>
               ) : adminView === 'maintenancerequests' ? (
                 <AdminViewWrapper onBack={() => setAdminViewPersisted('menu')}>
