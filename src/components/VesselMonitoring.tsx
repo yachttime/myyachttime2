@@ -1148,24 +1148,33 @@ export function VesselMonitoring({ effectiveRole, userProfile }: { effectiveRole
           </div>
         )}
 
-        {/* Security Cameras (same feeds as the helm tablet) — collapsible so sensor data stays visible */}
-        <div className="bg-slate-800/30 rounded-xl border border-slate-700 overflow-hidden mb-6">
-          <button
-            onClick={() => setShowCameras(v => !v)}
-            className="w-full flex items-center justify-between px-4 py-3 bg-slate-800/80 hover:bg-slate-800 transition-colors"
-          >
-            <h3 className="font-bold flex items-center gap-2">
-              <MapPin className="w-5 h-5 text-cyan-400" />
-              Security Cameras
-            </h3>
-            <span className="text-xs text-slate-400">{showCameras ? 'Hide ▲' : 'Show ▼'}</span>
-          </button>
-          {showCameras && (
-            <div className="p-3">
-              <CameraWall yachtId={selectedYachtId} embedded embeddedHeightClass="h-[32rem] min-h-[20rem]" />
-            </div>
-          )}
-        </div>
+        {/* Security Cameras (same feeds as the helm tablet) — only for yachts enrolled in monitoring */}
+        {selectedYachtEnrollment ? (
+          <div className="bg-slate-800/30 rounded-xl border border-slate-700 overflow-hidden mb-6">
+            <button
+              onClick={() => setShowCameras(v => !v)}
+              className="w-full flex items-center justify-between px-4 py-3 bg-slate-800/80 hover:bg-slate-800 transition-colors"
+            >
+              <h3 className="font-bold flex items-center gap-2">
+                <MapPin className="w-5 h-5 text-cyan-400" />
+                Security Cameras
+              </h3>
+              <span className="text-xs text-slate-400">{showCameras ? 'Hide ▲' : 'Show ▼'}</span>
+            </button>
+            {showCameras && (
+              <div className="p-3">
+                <CameraWall yachtId={selectedYachtId} embedded embeddedHeightClass="h-[32rem] min-h-[20rem]" />
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="bg-slate-800/30 rounded-xl border border-slate-700 p-4 mb-6 flex items-center gap-3">
+            <MapPin className="w-5 h-5 text-slate-500 flex-shrink-0" />
+            <p className="text-sm text-slate-400">
+              Security camera feeds are available once this yacht is enrolled in Vessel Monitoring.
+            </p>
+          </div>
+        )}
 
         {/* Device Status Cards */}
         {selectedYachtDevices.length === 0 ? (
@@ -1175,7 +1184,7 @@ export function VesselMonitoring({ effectiveRole, userProfile }: { effectiveRole
             {(isMaster || isStaffRole(effectiveRole) || isManager) && (
               <p className="text-slate-500 text-sm mt-1">
                 {isManager
-                  ? 'This yacht has not been enrolled in Vessel Monitoring, so only the security cameras are available. Once it is enrolled, GPS, sensors, and battery data will appear here.'
+                  ? 'This yacht has not been enrolled in Vessel Monitoring yet. Once it is enrolled, GPS, sensors, battery, and camera data will appear here.'
                   : 'Enroll this yacht in Vessel Monitoring to see GPS, sensors, and battery data here.'}
               </p>
             )}
