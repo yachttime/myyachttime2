@@ -4,10 +4,11 @@ import { useCompany } from '../contexts/CompanyContext';
 import { isStaffRole, UserRole } from '../lib/supabase';
 import { formatAlertMessage, formatWeatherNumber } from '../utils/vesselFormatting';
 import { alarmLabel, getBatteryDisplay } from '../utils/batteryDisplay';
+import { getInverterDisplay, inverterAlarmLabel, withInverterType } from '../utils/inverterDisplay';
 import { ALTERNATOR_NAMES, getAlternatorDisplay, getPumpState } from '../utils/toughReadings';
 import { ThermostatControls } from './ThermostatControls';
 import {
-  Activity, AlertTriangle, Battery, Gauge, Navigation, Wind,
+  Activity, AlertTriangle, Battery, PlugZap, Gauge, Navigation, Wind,
   Droplets, Zap, Thermometer, Lock, Shield, ChevronRight,
   Plus, Wifi, WifiOff, CheckCircle, XCircle, Clock, Radio,
   Key, Download, MapPin, CloudRain, CloudLightning, RefreshCw, Copy,
@@ -105,6 +106,7 @@ const SENSOR_ICONS: Record<string, any> = {
   water_pump: Droplets,
   ac_pump: Zap,
   battery_bank: Battery,
+  inverter: PlugZap,
   engine_alternator: Zap,
   wind_vane: Wind,
   environment: Thermometer,
@@ -342,7 +344,7 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
     if (yachtId) query = query.eq('yacht_id', yachtId);
     const { data, error: err } = await query;
     if (err) { return; }
-    setSensors(data || []);
+    setSensors((data || []).map(withInverterType));
   }, []);
 
   const loadAlerts = useCallback(async () => {
@@ -747,7 +749,7 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
   const sensorsByPort: Record<string, MonitorSensor[]> = { A: [], B: [], C: [], D: [] };
   const yachtSensors = sensors.filter(s => s.yacht_id === selectedYachtId);
   yachtSensors.forEach(s => {
-    if (s.sensor_type === 'battery_bank') return; // battery banks shown in their own section
+    if (s.sensor_type === 'battery_bank' || s.sensor_type === 'inverter') return; // shown in their own sections
     const port = Object.entries(PORT_LABELS).find(([_, info]) => {
       if (info.name === 'Pumps' && ['bilge_pump', 'water_pump', 'ac_pump'].includes(s.sensor_type)) return true;
       if (info.name === 'Alternators & ENV III' && ['engine_alternator', 'environment'].includes(s.sensor_type)) return true;
@@ -932,6 +934,7 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
                     const yachtSensorsList = sensors.filter(s => s.yacht_id === yacht.id);
                     const categories: { label: string; icon: any; types: string[] }[] = [
                       { label: 'Batteries', icon: Battery, types: ['battery_bank'] },
+                      { label: 'Inverters', icon: PlugZap, types: ['inverter'] },
                       { label: 'Alternators', icon: Zap, types: ['engine_alternator'] },
                       { label: 'Environment', icon: Thermometer, types: ['environment'] },
                       { label: 'Weather', icon: Wind, types: ['anemometer', 'wind_vane'] },
@@ -1330,6 +1333,73 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Cerbo GX Inverters */}
+        {toughDevice && (() => {
+          const inverterSensors = yachtSensors.filter(s => s.sensor_type === 'inverter');
+          if (inverterSensors.length === 0) return null;
+          const inverterRows = inverterSensors.map(sensor => ({ sensor, display: getInverterDisplay(sensor) }));
+          const reportingCount = inverterRows.filter(r => r.display.status !== 'offline').length;
+          return (
+            <div className="bg-slate-800/30 rounded-xl border border-slate-700 overflow-hidden mb-6">
+              <div className="bg-slate-800/80 px-4 py-3 border-b border-slate-700">
+                <h3 className="font-bold flex items-center gap-2">
+                  <PlugZap className="w-5 h-5 text-sky-400" />
+                  Inverters
+                  <span className="text-xs font-normal text-slate-400 ml-2">
+                    via Cerbo GX{reportingCount > 0 ? ` — ${reportingCount}/${inverterSensors.length} reporting` : ''}
+                  </span>
+                </h3>
+              </div>
+              <div className="divide-y divide-slate-700">
+                {inverterRows.map(({ sensor, display }) => (
+                  <div key={sensor.id} className="px-4 py-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className={`p-2 rounded-lg ${STATUS_COLORS[display.status]}`}>
+                          <PlugZap className="w-5 h-5" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-medium text-sm">{sensor.sensor_name}</p>
+                          <p className="font-mono font-bold text-base text-white">{display.primary}</p>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className={`text-xs px-2 py-0.5 rounded-full border ${STATUS_COLORS[display.status]}`}>
+                          {display.stale ? 'No recent data' : display.state}
+                        </span>
+                        {sensor.last_reading_at && (
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            {display.stale ? new Date(sensor.last_reading_at).toLocaleString() : new Date(sensor.last_reading_at).toLocaleTimeString()}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    {display.alarms.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {display.alarms.map(a => (
+                          <span key={a.name} className={`text-xs px-2 py-0.5 rounded-full border ${STATUS_COLORS[a.level === 'alarm' ? 'critical' : 'warning']}`}>
+                            {inverterAlarmLabel(a.name)}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {display.details.length > 0 && (
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 mt-2">
+                        {display.details.map(detail => (
+                          <div key={detail.label}>
+                            <p className="text-[10px] uppercase tracking-wide text-slate-500">{detail.label}</p>
+                            <p className="font-mono text-xs font-semibold text-slate-200 whitespace-nowrap">{detail.value}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
           );

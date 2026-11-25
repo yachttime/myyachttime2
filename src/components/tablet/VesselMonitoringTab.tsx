@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { formatAlertMessage } from '../../utils/vesselFormatting';
 import { getBatteryDisplay } from '../../utils/batteryDisplay';
 import { getPumpState } from '../../utils/toughReadings';
+import { getInverterDisplay, withInverterType } from '../../utils/inverterDisplay';
 
 interface DeviceRow {
   id: string;
@@ -97,6 +98,12 @@ function readingRows(sensor: SensorRow): ReadingRow[] {
     return [{ sensorName: sensor.sensor_name, primary: battery.primary, status: battery.status, updatedAt: sensor.last_reading_at }];
   }
 
+  if (sensor.sensor_type === 'inverter') {
+    const inverter = getInverterDisplay(sensor);
+    const primary = inverter.primary === '--' ? inverter.state : `${inverter.state} · ${inverter.primary}`;
+    return [{ sensorName: sensor.sensor_name, primary, status: inverter.status, updatedAt: sensor.last_reading_at }];
+  }
+
   const value = sensor.current_value ? parseReadingObject(sensor.current_value.trim()) : null;
 
   if (value && 'temp_f' in value) {
@@ -165,7 +172,7 @@ export function VesselMonitoringTab({ yachtId }: { yachtId: string }) {
     } else {
       setError('');
       setDevices((devicesRes.data as DeviceRow[]) ?? []);
-      setSensors((sensorsRes.data as SensorRow[]) ?? []);
+      setSensors(((sensorsRes.data as SensorRow[]) ?? []).map(withInverterType));
       setAlerts((alertsRes.data as AlertRow[]) ?? []);
     }
     setLoading(false);
