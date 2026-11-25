@@ -174,6 +174,14 @@ export function CameraWall({ onBack, yachtId, embedded = false, embeddedHeightCl
     if (c.live_url) {
       const age = ageSeconds(c);
       const stale = age === null || age > STALE_SECONDS;
+      if (liveStatus[c.id] === 'unreachable') {
+        return (
+          <span className={`${large ? 'text-sm' : 'text-xs'} tabular-nums text-amber-400`}>
+            Video box unreachable from this device{age !== null && ` · picture ${formatAge(age)}`}
+            {stale && ' · cameras on the boat are not uploading'}
+          </span>
+        );
+      }
       return (
         <span className={`${large ? 'text-sm' : 'text-xs'} tabular-nums text-amber-400`}>
           {liveStatus[c.id] === 'reconnecting' ? 'Live view reconnecting' : 'Connecting live view'}

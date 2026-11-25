@@ -12,7 +12,7 @@ import {
   Activity, AlertTriangle, Battery, PlugZap, Gauge, Navigation, Wind,
   Droplets, Zap, Thermometer, Lock, Shield, ChevronRight,
   Plus, Wifi, WifiOff, CheckCircle, XCircle, Clock, Radio,
-  Key, Download, MapPin, CloudRain, CloudLightning, RefreshCw, Copy,
+  Key, Download, MapPin, CloudRain, CloudLightning, RefreshCw, Copy, Maximize,
 } from 'lucide-react';
 
 interface MonitorDevice {
@@ -318,6 +318,7 @@ export function VesselMonitoring({ effectiveRole, userProfile, viewedYachtId }: 
   const [keyModalData, setKeyModalData] = useState<{ deviceName: string; apiKey: string; deviceSerial: string; isNew: boolean } | null>(null);
   const [showReplaceKeyConfirm, setShowReplaceKeyConfirm] = useState<string | null>(null);
   const [showCameras, setShowCameras] = useState(false);
+  const [showFullCameras, setShowFullCameras] = useState(false);
   const [firmwareLoading, setFirmwareLoading] = useState<string | null>(null);
 
   const loadEnrollments = useCallback(async () => {
@@ -1215,7 +1216,19 @@ export function VesselMonitoring({ effectiveRole, userProfile, viewedYachtId }: 
             </button>
             {showCameras && (
               <div className="p-3">
+                <div className="flex items-center justify-end mb-2">
+                  <button
+                    onClick={() => setShowFullCameras(true)}
+                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+                  >
+                    <Maximize className="w-3.5 h-3.5" />
+                    Open full camera view
+                  </button>
+                </div>
                 <CameraWall yachtId={selectedYachtId} embedded embeddedHeightClass="h-[32rem] min-h-[20rem]" />
+                <p className="text-xs text-slate-500 mt-2">
+                  Live video plays only on the boat's own WiFi (same network as the helm tablet). Away from the boat you'll see the latest saved picture instead.
+                </p>
               </div>
             )}
           </div>
@@ -1717,7 +1730,14 @@ export function VesselMonitoring({ effectiveRole, userProfile, viewedYachtId }: 
           </div>
         )}
 
-        {/* Device Registration Modal */}
+        {/* Full-screen camera wall (same view as the helm tablet) for the embedded panel's "Open full camera view" */}
+      {showFullCameras && (
+        <div className="fixed inset-0 z-50">
+          <CameraWall yachtId={selectedYachtId} onBack={() => setShowFullCameras(false)} />
+        </div>
+      )}
+
+      {/* Device Registration Modal */}
         {showDeviceModal && (
           <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-slate-900 rounded-2xl border border-slate-700 max-w-md w-full p-6">

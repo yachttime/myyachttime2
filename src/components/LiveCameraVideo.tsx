@@ -7,7 +7,9 @@ import { useEffect, useRef, useState } from 'react';
 // On the boat's own WiFi the video goes straight from the box to the tablet,
 // so the delay stays low enough to use the cameras for blind spots.
 
-export type LiveStatus = 'connecting' | 'live' | 'reconnecting';
+// 'unreachable' = the browser could not reach the video box at all (usually the
+// viewing device is not on the boat's network, or the box/tunnel is offline)
+export type LiveStatus = 'connecting' | 'live' | 'reconnecting' | 'unreachable';
 
 interface LiveCameraVideoProps {
   url: string;
@@ -53,9 +55,9 @@ export function LiveCameraVideo({ url, className, onStatusChange }: LiveCameraVi
       statusCallback.current?.(next);
     };
 
-    const scheduleRetry = () => {
+    const scheduleRetry = (silent = false) => {
       if (cancelled || retryTimer) return;
-      report('reconnecting');
+      if (!silent) report('reconnecting');
       retryTimer = setTimeout(() => {
         retryTimer = null;
         connect();
@@ -79,7 +81,10 @@ export function LiveCameraVideo({ url, className, onStatusChange }: LiveCameraVi
       peer.onconnectionstatechange = () => {
         if (peer !== pc) return;
         if (peer.connectionState === 'connected') report('live');
-        if (peer.connectionState === 'failed' || peer.connectionState === 'disconnected') scheduleRetry();
+        if (peer.connectionState === 'failed' || peer.connectionState === 'disconnected') {
+          report('reconnecting');
+          scheduleRetry(true);
+        }
       };
 
       try {
@@ -98,7 +103,8 @@ export function LiveCameraVideo({ url, className, onStatusChange }: LiveCameraVi
       } catch (err) {
         if (cancelled || peer !== pc) return;
         console.warn('[LiveCameraVideo] connect failed:', err);
-        scheduleRetry();
+        report('unreachable');
+        scheduleRetry(true);
       }
     };
 
