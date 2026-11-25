@@ -52,6 +52,8 @@ export function CameraWall({ onBack, yachtId, embedded = false, embeddedHeightCl
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
   const [liveStatus, setLiveStatus] = useState<Record<string, LiveStatus>>({});
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastCheckedAt, setLastCheckedAt] = useState<number | null>(null);
   const loadedAt = useRef<Record<string, string>>({});
 
   const load = useCallback(async () => {
@@ -64,6 +66,7 @@ export function CameraWall({ onBack, yachtId, embedded = false, embeddedHeightCl
       .order('sort_order')
       .order('camera_slot');
 
+    setLastCheckedAt(Date.now());
     if (fetchError) {
       setError('Could not load cameras. Check the boat\'s internet connection.');
       setLoading(false);
@@ -106,6 +109,15 @@ export function CameraWall({ onBack, yachtId, embedded = false, embeddedHeightCl
       clearInterval(tick);
     };
   }, [load]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await load();
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   // Keep the helm tablet screen on while this page is open
   useEffect(() => {
@@ -244,15 +256,20 @@ export function CameraWall({ onBack, yachtId, embedded = false, embeddedHeightCl
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          <span className="hidden lg:inline text-xs text-slate-500 tabular-nums">
+            {lastCheckedAt ? `Checked ${new Date(lastCheckedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Checking...'}
+          </span>
           <span className="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 text-sm tabular-nums">
             {new Date(now).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </span>
           <button
-            onClick={() => load()}
-            className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors"
-            aria-label="Refresh now"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-60 transition-colors"
+            aria-label={refreshing ? 'Refreshing cameras' : 'Refresh cameras'}
+            title={lastCheckedAt ? `Last checked ${new Date(lastCheckedAt).toLocaleTimeString()}` : 'Refresh cameras'}
           >
-            <RefreshCw className="w-5 h-5" />
+            <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
           </button>
           <button
             onClick={enterFullscreen}

@@ -299,6 +299,7 @@ export function VesselMonitoring({ effectiveRole, userProfile, viewedYachtId }: 
   const [yachts, setYachts] = useState<YachtInfo[]>([]);
   const [, setStatusTick] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [showEnrollModal, setShowEnrollModal] = useState(false);
   const [showDeviceModal, setShowDeviceModal] = useState(false);
@@ -389,11 +390,11 @@ export function VesselMonitoring({ effectiveRole, userProfile, viewedYachtId }: 
     setCompanies(data || []);
   }, []);
 
-  const loadAll = useCallback(async () => {
-    setLoading(true);
+  const loadAll = useCallback(async (showLoading: boolean = true) => {
+    if (showLoading) setLoading(true);
     setError('');
     await Promise.all([loadEnrollments(), loadDevices(), loadSensors(), loadAlerts(), loadYachts(), loadCompanies()]);
-    setLoading(false);
+    if (showLoading) setLoading(false);
   }, [loadEnrollments, loadDevices, loadSensors, loadAlerts, loadYachts, loadCompanies]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
@@ -423,6 +424,29 @@ export function VesselMonitoring({ effectiveRole, userProfile, viewedYachtId }: 
       .subscribe();
     return () => { deviceChannel.unsubscribe(); sensorChannel.unsubscribe(); alertChannel.unsubscribe(); };
   }, [loadDevices, loadSensors, loadAlerts]);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await loadAll(false);
+      if (view === 'yacht' && selectedYachtId) {
+        await Promise.all([
+          loadDevices(selectedYachtId),
+          loadSensors(selectedYachtId),
+          loadSmartDevices(selectedYachtId),
+        ]);
+      }
+    } finally {
+      setRefreshing(false);
+    }
+  }, [loadAll, loadDevices, loadSensors, loadSmartDevices, selectedYachtId, view]);
+
+  useEffect(() => {
+    const refreshTimer = window.setInterval(() => {
+      void handleRefresh();
+    }, 60_000);
+    return () => window.clearInterval(refreshTimer);
+  }, [handleRefresh]);
 
   // ---- Auto-provision two devices when enrolling a yacht ----
   const provisionDevice = async (
@@ -843,15 +867,27 @@ export function VesselMonitoring({ effectiveRole, userProfile, viewedYachtId }: 
               {isMasterView ? 'All monitored yachts across all companies' : managerYachtId ? 'Monitoring for your yacht' : 'Monitored yachts for your company'}
             </p>
           </div>
-          {isMasterView && (
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => { setShowEnrollModal(true); setEnrollForm({ yacht_id: '', provider_company_id: selectedCompany?.id || '', plan_tier: 'standard' }); }}
-              className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white font-medium rounded-lg transition-colors"
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="flex items-center gap-2 px-3 py-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-60 text-white font-medium rounded-lg transition-colors"
+              aria-label={refreshing ? 'Refreshing vessel monitoring' : 'Refresh vessel monitoring'}
+              title="Refresh vessel monitoring"
             >
-              <Plus className="w-4 h-4" />
-              Enroll Yacht
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">Refresh</span>
             </button>
-          )}
+            {isMasterView && (
+              <button
+                onClick={() => { setShowEnrollModal(true); setEnrollForm({ yacht_id: '', provider_company_id: selectedCompany?.id || '', plan_tier: 'standard' }); }}
+                className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white font-medium rounded-lg transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Enroll Yacht
+              </button>
+            )}
+          </div>
         </div>
 
         {error && <div className="bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg px-4 py-3 mb-4 text-sm">{error}</div>}
@@ -1105,15 +1141,27 @@ export function VesselMonitoring({ effectiveRole, userProfile, viewedYachtId }: 
               </p>
             )}
           </div>
-          {(isMasterView || isStaffRole(effectiveRole)) && (
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => { setShowDeviceModal(true); setEditingDevice(null); setDeviceForm({ yacht_id: selectedYachtId, device_serial: '', device_name: 'M5 Tough', device_type: 'orion_tough', firmware_version: '' }); }}
-              className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white font-medium rounded-lg transition-colors"
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="flex items-center gap-2 px-3 py-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-60 text-white font-medium rounded-lg transition-colors"
+              aria-label={refreshing ? 'Refreshing vessel monitoring' : 'Refresh vessel monitoring'}
+              title="Refresh vessel monitoring"
             >
-              <Plus className="w-4 h-4" />
-              Register Device
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">Refresh</span>
             </button>
-          )}
+            {(isMasterView || isStaffRole(effectiveRole)) && (
+              <button
+                onClick={() => { setShowDeviceModal(true); setEditingDevice(null); setDeviceForm({ yacht_id: selectedYachtId, device_serial: '', device_name: 'M5 Tough', device_type: 'orion_tough', firmware_version: '' }); }}
+                className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white font-medium rounded-lg transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Register Device
+              </button>
+            )}
+          </div>
         </div>
 
         {/* GPS Live Location Panel */}
