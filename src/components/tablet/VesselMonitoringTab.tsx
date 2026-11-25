@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { CameraWall } from '../CameraWall';
 import { supabase } from '../../lib/supabase';
 import { formatAlertMessage } from '../../utils/vesselFormatting';
 import { getBatteryDisplay } from '../../utils/batteryDisplay';
@@ -200,6 +201,11 @@ export function VesselMonitoringTab({ yachtId }: { yachtId: string }) {
   return (
     <div className="space-y-6">
       {error && <p role="alert" className="text-red-400">{error}</p>}
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">Security Cameras</h2>
+        <CameraWall yachtId={yachtId} embedded />
+      </section>
 
       {alerts.length > 0 && (
         <section className="space-y-3">
