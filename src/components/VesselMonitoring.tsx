@@ -281,9 +281,11 @@ function getWeatherDisplay(sensor: MonitorSensor): WeatherDisplay {
   return { primary: JSON.stringify(value), details: [] };
 }
 
-export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole }) {
+export function VesselMonitoring({ effectiveRole, userProfile }: { effectiveRole: UserRole; userProfile?: { yacht_id?: string } | null }) {
   const { isMaster, selectedCompany } = useCompany();
-  const [view, setView] = useState<'fleet' | 'yacht' | 'enroll' | 'devices'>('fleet');
+  const isManager = effectiveRole === 'manager';
+  const managerYachtId = isManager ? (userProfile?.yacht_id ?? null) : null;
+  const [view, setView] = useState<'fleet' | 'yacht' | 'enroll' | 'devices'>(isManager && managerYachtId ? 'yacht' : 'fleet');
   const [selectedYachtId, setSelectedYachtId] = useState<string | null>(null);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [devices, setDevices] = useState<MonitorDevice[]>([]);
@@ -366,12 +368,15 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
 
   const loadYachts = useCallback(async () => {
     let query = supabase.from('yachts').select('id, name, company_id, wifi_name, wifi_password').order('name');
-    if (!isMaster && selectedCompany?.id) {
+    if (managerYachtId) {
+      query = query.eq('id', managerYachtId);
+    } else if (!isMaster && selectedCompany?.id) {
       query = query.eq('company_id', selectedCompany.id);
     }
     const { data } = await query;
     setYachts(data || []);
-  }, [isMaster, selectedCompany]);
+    if (managerYachtId && data && data.length > 0) setSelectedYachtId(data[0].id);
+  }, [isMaster, selectedCompany, managerYachtId]);
 
   const loadCompanies = useCallback(async () => {
     const { data } = await supabase.from('companies').select('id, company_name, offers_monitoring').order('company_name');
@@ -829,7 +834,7 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
               Vessel Monitoring
             </h2>
             <p className="text-slate-400 text-sm mt-1">
-              {isMaster ? 'All monitored yachts across all companies' : 'Monitored yachts for your company'}
+              {isMaster ? 'All monitored yachts across all companies' : managerYachtId ? 'Monitoring for your yacht' : 'Monitored yachts for your company'}
             </p>
           </div>
           {isMaster && (
@@ -976,7 +981,7 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
               Recent Alerts
             </h3>
             <div className="space-y-2">
-              {alerts.slice(0, 10).map(alert => {
+              {alerts.filter(a => !managerYachtId || a.yacht_id === managerYachtId).slice(0, 10).map(alert => {
                 const yachtName = yachts.find(y => y.id === alert.yacht_id)?.name || 'Unknown';
                 return (
                   <div key={alert.id} className={`rounded-lg px-4 py-3 border flex items-center justify-between ${SEVERITY_COLORS[alert.severity]}`}>
