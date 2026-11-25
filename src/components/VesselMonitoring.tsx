@@ -7,6 +7,7 @@ import { alarmLabel, getBatteryDisplay } from '../utils/batteryDisplay';
 import { getInverterDisplay, inverterAlarmLabel, withInverterType } from '../utils/inverterDisplay';
 import { ALTERNATOR_NAMES, getAlternatorDisplay, getPumpState } from '../utils/toughReadings';
 import { ThermostatControls } from './ThermostatControls';
+import { CameraWall } from './CameraWall';
 import {
   Activity, AlertTriangle, Battery, PlugZap, Gauge, Navigation, Wind,
   Droplets, Zap, Thermometer, Lock, Shield, ChevronRight,
@@ -1145,6 +1146,15 @@ export function VesselMonitoring({ effectiveRole, userProfile }: { effectiveRole
             </div>
           </div>
         )}
+
+        {/* Security Cameras (same feeds as the helm tablet) */}
+        <div className="mb-6">
+          <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
+            <MapPin className="w-5 h-5 text-cyan-400" />
+            Security Cameras
+          </h3>
+          <CameraWall yachtId={selectedYachtId} embedded />
+        </div>
 
         {/* Device Status Cards */}
         {selectedYachtDevices.length === 0 ? (
