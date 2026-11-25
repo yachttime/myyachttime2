@@ -31,6 +31,8 @@ interface CameraWallProps {
   yachtId?: string;
   // Render inside another screen: no page-height layout, title or sign out
   embedded?: boolean;
+  // Height classes for the embedded container (tablet tab keeps the default)
+  embeddedHeightClass?: string;
 }
 
 function formatAge(seconds: number) {
@@ -40,7 +42,7 @@ function formatAge(seconds: number) {
   return `${Math.floor(seconds / 86400)} days ago`;
 }
 
-export function CameraWall({ onBack, yachtId, embedded = false }: CameraWallProps) {
+export function CameraWall({ onBack, yachtId, embedded = false, embeddedHeightClass = 'h-[calc(100vh-15rem)] min-h-[24rem]' }: CameraWallProps) {
   const { signOut } = useAuth();
   const [cameras, setCameras] = useState<VesselCamera[]>([]);
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
@@ -202,7 +204,7 @@ export function CameraWall({ onBack, yachtId, embedded = false }: CameraWallProp
   return (
     <div
       className={`${
-        embedded ? 'h-[calc(100vh-15rem)] min-h-[24rem] rounded-xl border border-slate-800' : 'h-screen'
+        embedded ? `${embeddedHeightClass} rounded-xl border border-slate-800` : 'h-screen'
       } flex flex-col bg-slate-950 text-white select-none overflow-hidden`}
     >
       <header className="flex items-center justify-between gap-4 px-5 py-3 border-b border-slate-800">
