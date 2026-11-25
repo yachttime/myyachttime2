@@ -5,6 +5,7 @@ import { isStaffRole, UserRole } from '../lib/supabase';
 import { formatAlertMessage, formatWeatherNumber } from '../utils/vesselFormatting';
 import { alarmLabel, getBatteryDisplay } from '../utils/batteryDisplay';
 import { ALTERNATOR_NAMES, getAlternatorDisplay, getPumpState } from '../utils/toughReadings';
+import { ThermostatControls } from './ThermostatControls';
 import {
   Activity, AlertTriangle, Battery, Gauge, Navigation, Wind,
   Droplets, Zap, Thermometer, Lock, Shield, ChevronRight,
@@ -287,6 +288,8 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
   const [sensors, setSensors] = useState<MonitorSensor[]>([]);
   const [alerts, setAlerts] = useState<MonitorAlert[]>([]);
   const [smartDevices, setSmartDevices] = useState<SmartDevice[]>([]);
+  const smartLocks = smartDevices.filter(d => d.device_type !== 'thermostat');
+  const hasThermostat = smartDevices.some(d => d.device_type === 'thermostat');
   const [yachts, setYachts] = useState<YachtInfo[]>([]);
   const [, setStatusTick] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -1461,8 +1464,15 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
           );
         })()}
 
+        {/* Climate Control (Tuya thermostats) */}
+        {selectedYachtId && hasThermostat && (
+          <div className="mb-6">
+            <ThermostatControls key={selectedYachtId} yachtId={selectedYachtId} />
+          </div>
+        )}
+
         {/* Smart Locks Section */}
-        {smartDevices.length > 0 && (
+        {smartLocks.length > 0 && (
           <div className="bg-slate-800/30 rounded-xl border border-slate-700 overflow-hidden mb-6">
             <div className="bg-slate-800/80 px-4 py-3 border-b border-slate-700">
               <h3 className="font-bold flex items-center gap-2">
@@ -1471,7 +1481,7 @@ export function VesselMonitoring({ effectiveRole }: { effectiveRole: UserRole })
               </h3>
             </div>
             <div className="divide-y divide-slate-700">
-              {smartDevices.map(lock => (
+              {smartLocks.map(lock => (
                 <div key={lock.id} className="flex items-center justify-between px-4 py-3">
                   <div className="flex items-center gap-3">
                     <div className={`p-2 rounded-lg ${lock.online_status ? 'bg-green-500/20' : 'bg-slate-500/20'}`}>
