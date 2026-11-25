@@ -9,6 +9,8 @@ export interface InverterDisplay {
   state: string;
   primary: string;
   details: Array<{ label: string; value: string }>;
+  // One line per AC leg (split-phase / three-phase units), e.g. "AC in L1".
+  legs: Array<{ label: string; voltage: string; current: string; power: string }>;
   alarms: Array<{ name: string; level: string }>;
   status: BatteryStatus;
   stale: boolean;
@@ -70,7 +72,7 @@ export function getInverterDisplay(sensor: {
   const stale = isBatteryStale(sensor.last_reading_at);
   const value = parseObject(sensor.current_value);
   if (!value) {
-    return { state: '--', primary: sensor.current_value || '--', details: [], alarms: [], status: stale ? 'offline' : 'normal', stale };
+    return { state: '--', primary: sensor.current_value || '--', details: [], legs: [], alarms: [], status: stale ? 'offline' : 'normal', stale };
   }
 
   const state = typeof value.state_text === 'string' ? value.state_text : '--';
@@ -84,11 +86,32 @@ export function getInverterDisplay(sensor: {
     if (raw !== null && raw !== undefined && raw !== '') details.push({ label, value: text });
   };
   if (typeof value.mode_text === 'string') details.push({ label: 'Switch', value: value.mode_text });
-  if (typeof value.shore_connected === 'boolean') details.push({ label: 'Shore power', value: value.shore_connected ? 'Connected' : 'Not connected' });
-  add('AC in', value.ac_in_voltage, `${fmt(value.ac_in_voltage)} V · ${fmt(value.ac_in_current)} A`);
+  if (typeof value.shore_connected === 'boolean') {
+    const input = num(value.active_input);
+    const which = input === 0 || input === 1 ? ` (AC in ${input + 1})` : '';
+    details.push({ label: 'Shore power', value: value.shore_connected ? `Connected${which}` : 'Not connected' });
+  }
+  const legs: InverterDisplay['legs'] = [];
+  const addLegs = (side: string, raw: unknown) => {
+    if (!Array.isArray(raw)) return false;
+    for (const p of raw as Array<Record<string, unknown>>) {
+      if (!p || typeof p !== 'object') continue;
+      legs.push({
+        label: `${side} ${typeof p.phase === 'string' ? p.phase : ''}`.trim(),
+        voltage: `${fmt(p.voltage)} V`,
+        current: `${fmt(p.current)} A`,
+        power: `${fmt(p.power ?? p.apparent_power, 0)} W`,
+      });
+    }
+    return true;
+  };
+  const inLegs = addLegs('AC in', value.ac_in_phases);
+  const outLegs = addLegs('AC out', value.ac_out_phases);
+
+  if (!inLegs) add('AC in', value.ac_in_voltage, `${fmt(value.ac_in_voltage)} V · ${fmt(value.ac_in_current)} A`);
   add('AC in power', value.ac_in_power, `${fmt(value.ac_in_power, 0)} W`);
   add('Input limit', value.input_current_limit, `${fmt(value.input_current_limit)} A`);
-  add('AC out current', value.ac_out_current, `${fmt(value.ac_out_current)} A`);
+  if (!outLegs) add('AC out current', value.ac_out_current, `${fmt(value.ac_out_current)} A`);
   add('Frequency', value.ac_out_frequency ?? value.ac_in_frequency, `${fmt(value.ac_out_frequency ?? value.ac_in_frequency)} Hz`);
   add('DC current', value.dc_current, `${fmt(value.dc_current)} A`);
   add('DC power', value.dc_power, `${fmt(value.dc_power, 0)} W`);
@@ -109,5 +132,5 @@ export function getInverterDisplay(sensor: {
   else if (alarms.length > 0) status = 'warning';
   if (stale) status = 'offline';
 
-  return { state, primary: primaryParts.join(' · ') || '--', details, alarms, status, stale };
+  return { state, primary: primaryParts.join(' · ') || '--', details, legs, alarms, status, stale };
 }
