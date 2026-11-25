@@ -150,7 +150,7 @@ export default function AdminMenu({ effectiveRole, pendingInspectionCount, onNav
         </button>
       )}
 
-      {isStaffOrManager(effectiveRole) && isEnabled('engine_catalog') && (
+      {(isStaffRole(effectiveRole) || isMasterRole(effectiveRole)) && isEnabled('engine_catalog') && (
         <button onClick={() => onNavigate('enginecatalog')} className={cardClass}>
           <div className="flex items-center gap-4 mb-4">
             <div className="bg-amber-500/20 p-4 rounded-xl group-hover:bg-amber-500/30 transition-colors">
@@ -222,7 +222,7 @@ export default function AdminMenu({ effectiveRole, pendingInspectionCount, onNav
         </button>
       )}
 
-      {isStaffOrManager(effectiveRole) && isEnabled('salvage_reports') && (
+      {(isStaffRole(effectiveRole) || isMasterRole(effectiveRole)) && isEnabled('salvage_reports') && (
         <button onClick={() => onNavigate('salvagereports')} className={cardClass}>
           <div className="flex items-center gap-4 mb-4">
             <div className="bg-red-500/20 p-4 rounded-xl group-hover:bg-red-500/30 transition-colors">

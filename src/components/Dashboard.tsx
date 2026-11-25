@@ -481,6 +481,16 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   });
   const [salvagePrefillEstimateId, setSalvagePrefillEstimateId] = useState<string | undefined>(undefined);
 
+  // Owners and managers have no access to Engine Database or Salvage Division
+  useEffect(() => {
+    if (
+      (adminView === 'enginecatalog' || adminView === 'salvagereports') &&
+      !(isStaffRole(effectiveRole) || isMasterRole(effectiveRole))
+    ) {
+      setAdminViewPersisted('menu');
+    }
+  }, [adminView, effectiveRole]);
+
   // Update Bob's current route when tab/view changes
   useEffect(() => {
     let route = '/';
