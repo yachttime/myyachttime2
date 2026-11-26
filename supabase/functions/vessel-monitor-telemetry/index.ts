@@ -148,6 +148,7 @@ Deno.serve(async (req: Request) => {
     const alertsToInsert: any[] = [];
     let gpsLat: number | null = null;
     let gpsLng: number | null = null;
+    let lightningConfirmedByDevice = false;
 
     // ---- Process flat "data" format (new firmware) ----
     if (body.data) {
@@ -206,6 +207,11 @@ Deno.serve(async (req: Request) => {
 
         if (sensorName === "Lightning Strike" && nestedValue) {
           valueStr = JSON.stringify(nestedValue);
+          // Weather station firmware v2+ only sends a strike after it has
+          // seen several within 10 minutes, and says how many.
+          if (typeof nestedValue.strikes_10min === "number" && nestedValue.strikes_10min >= LIGHTNING_MIN_STRIKES) {
+            lightningConfirmedByDevice = true;
+          }
           unit = "status";
           if (typeof nestedValue.distance_km === "number") numericVal = nestedValue.distance_km;
           status = nestedValue.status === "Strike detected" || typeof nestedValue.distance_km === "number"
@@ -353,6 +359,10 @@ Deno.serve(async (req: Request) => {
     // Insert alerts (deduplicate active alerts for same sensor+type)
     if (alertsToInsert.length > 0) {
       for (const alert of alertsToInsert) {
+        if (alert.message?.startsWith("Lightning Strike") &&
+            !(await shouldAlertLightning(supabase, alert.sensor_id, lightningConfirmedByDevice))) {
+          continue;
+        }
         const { data: existing } = await supabase
           .from("vessel_monitor_alerts")
           .select("id")
@@ -393,6 +403,46 @@ Deno.serve(async (req: Request) => {
     );
   }
 });
+
+// Lightning false-alarm guard. The AS3935 sensor picks up electrical noise
+// on the boat and reports it as strikes "overhead" (1 km) many times an hour
+// under clear skies. Only raise a lightning alert when:
+//  - the strike is confirmed: the device says it saw several strikes in
+//    10 minutes, or (older firmware) we have stored several strike readings
+//    for this sensor in the last 15 minutes; and
+//  - no lightning alert was raised for this sensor in the last 30 minutes,
+//    even one that was dismissed, so dismissing doesn't instantly re-raise it.
+const LIGHTNING_MIN_STRIKES = 3;
+const LIGHTNING_CONFIRM_WINDOW_MIN = 15;
+const LIGHTNING_ALERT_COOLDOWN_MIN = 30;
+
+async function shouldAlertLightning(
+  supabase: any,
+  sensorId: string,
+  confirmedByDevice: boolean,
+): Promise<boolean> {
+  const nowMs = Date.now();
+
+  const cooldownSince = new Date(nowMs - LIGHTNING_ALERT_COOLDOWN_MIN * 60_000).toISOString();
+  const { count: recentAlerts } = await supabase
+    .from("vessel_monitor_alerts")
+    .select("id", { count: "exact", head: true })
+    .eq("sensor_id", sensorId)
+    .eq("alert_type", "sensor_critical")
+    .gte("created_at", cooldownSince);
+  if ((recentAlerts ?? 0) > 0) return false;
+
+  if (confirmedByDevice) return true;
+
+  const confirmSince = new Date(nowMs - LIGHTNING_CONFIRM_WINDOW_MIN * 60_000).toISOString();
+  const { count: recentStrikes } = await supabase
+    .from("vessel_monitor_readings")
+    .select("id", { count: "exact", head: true })
+    .eq("sensor_id", sensorId)
+    .like("reading_value", "%Strike detected%")
+    .gte("recorded_at", confirmSince);
+  return (recentStrikes ?? 0) >= LIGHTNING_MIN_STRIKES;
+}
 
 // Helper: infer sensor_type from sensor_name when no explicit mapping exists
 function inferSensorType(name: string): string {
