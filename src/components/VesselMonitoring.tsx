@@ -1288,7 +1288,7 @@ export function VesselMonitoring({ effectiveRole, userProfile, viewedYachtId }: 
                       )}
                     </div>
                   </div>
-                  {(isMasterView || isStaffRole(effectiveRole)) && (
+                  {isMasterView && (
                     <div className="flex items-center gap-2 mt-3 flex-wrap">
                       <button
                         onClick={() => handleDownloadFirmware(device)}
