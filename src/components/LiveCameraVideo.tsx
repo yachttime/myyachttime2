@@ -11,6 +11,12 @@ import { useEffect, useRef, useState } from 'react';
 // 2. MSE over WebSocket, through the box's Cloudflare tunnel: works from
 //    anywhere (office/phone/laptop), a couple of seconds behind live, and
 //    uses the boat's internet. Requires the tunnel to allow /api/ws.
+//
+// The direct route is capped at WHEP_TIMEOUT_MS: remotely it can never deliver
+// video (the browser's own timeout would take ~40s), so we cut it off early
+// and switch to the tunnel route. Once the direct route has failed for a
+// camera's host in this browsing session, later cameras and reopens skip it
+// entirely and start on the tunnel route.
 
 // 'unreachable' = the browser could not reach the video box at all (usually the
 // viewing device is not on the boat's network, or the box/tunnel is offline)
@@ -24,12 +30,22 @@ interface LiveCameraVideoProps {
 
 const RETRY_MS = 3000;
 const ICE_GATHER_TIMEOUT_MS = 1500;
-// How many failed direct (WebRTC) attempts before falling back to the tunnel route
-const WHEP_ATTEMPTS_BEFORE_FALLBACK = 2;
+const WHEP_TIMEOUT_MS = 6000;
+// Hosts where the direct route already failed in this browsing session
+const whepBlockedHosts = new Set<string>();
+
 // Codecs requested from the box for MSE: H.264 video (camera sub stream) + AAC audio
 const MSE_CODECS = 'avc1.640029,avc1.64002A,mp4a.40.2';
 const MSE_MAX_LAG_SECONDS = 4;
 const MSE_TRIM_SECONDS = 60;
+
+function hostFromUrl(url: string): string | null {
+  try {
+    return new URL(url).host;
+  } catch {
+    return null;
+  }
+}
 
 function waitForIceGathering(pc: RTCPeerConnection) {
   if (pc.iceGatheringState === 'complete') return Promise.resolve();
@@ -68,9 +84,9 @@ export function LiveCameraVideo({ url, className, onStatusChange }: LiveCameraVi
     let objectUrl: string | null = null;
     let sourceBuffer: SourceBuffer | null = null;
     const pendingChunks: ArrayBuffer[] = [];
-    let whepFailures = 0;
     let usingFallback = false;
     let reportedLive = false;
+    const host = hostFromUrl(url);
 
     const report = (next: LiveStatus) => {
       if (cancelled) return;
@@ -210,6 +226,11 @@ export function LiveCameraVideo({ url, className, onStatusChange }: LiveCameraVi
       }
     };
 
+    const noteWhepFailure = () => {
+      if (host) whepBlockedHosts.add(host);
+      connectFallback();
+    };
+
     // ---- Route 1: WebRTC (WHEP), direct over the boat WiFi ----
     const connectWhep = async () => {
       pc?.close();
@@ -217,6 +238,21 @@ export function LiveCameraVideo({ url, className, onStatusChange }: LiveCameraVi
       controller = new AbortController();
       const peer = new RTCPeerConnection({ bundlePolicy: 'max-bundle' });
       pc = peer;
+
+      // Remotely the direct route never delivers video; without a deadline the
+      // browser would sit on it for ~40s before giving up. Cap the attempt.
+      let attemptDone = false;
+      const finishAttempt = () => {
+        if (attemptDone) return false;
+        attemptDone = true;
+        clearTimeout(whepTimer);
+        return true;
+      };
+      const whepTimer = setTimeout(() => {
+        if (cancelled || peer !== pc || !finishAttempt()) return;
+        console.warn('[LiveCameraVideo] direct connect timed out');
+        noteWhepFailure();
+      }, WHEP_TIMEOUT_MS);
 
       peer.addTransceiver('video', { direction: 'recvonly' });
       peer.ontrack = event => {
@@ -228,17 +264,12 @@ export function LiveCameraVideo({ url, className, onStatusChange }: LiveCameraVi
       peer.onconnectionstatechange = () => {
         if (peer !== pc) return;
         if (peer.connectionState === 'connected') {
-          whepFailures = 0;
+          finishAttempt();
           report('live');
         }
         if (peer.connectionState === 'failed' || peer.connectionState === 'disconnected') {
           report('reconnecting');
-          whepFailures += 1;
-          if (whepFailures >= WHEP_ATTEMPTS_BEFORE_FALLBACK) {
-            connectFallback();
-          } else {
-            scheduleRetry(true);
-          }
+          if (finishAttempt()) noteWhepFailure();
         }
       };
 
@@ -256,20 +287,15 @@ export function LiveCameraVideo({ url, className, onStatusChange }: LiveCameraVi
         if (cancelled || peer !== pc) return;
         await peer.setRemoteDescription({ type: 'answer', sdp: answer });
       } catch (err) {
-        if (cancelled || peer !== pc) return;
+        if (cancelled || peer !== pc || !finishAttempt()) return;
         console.warn('[LiveCameraVideo] direct connect failed:', err);
-        whepFailures += 1;
-        report('unreachable');
-        if (whepFailures >= WHEP_ATTEMPTS_BEFORE_FALLBACK) {
-          connectFallback();
-        } else {
-          scheduleRetry(true);
-        }
+        noteWhepFailure();
       }
     };
 
     report('connecting');
-    connectWhep();
+    if (host && whepBlockedHosts.has(host)) connectFallback();
+    else connectWhep();
 
     return () => {
       cancelled = true;
