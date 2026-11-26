@@ -94,6 +94,14 @@ interface SmartDevice {
   current_lock_state: boolean | null;
 }
 
+interface PumpEvent {
+  id: string;
+  sensor_id: string;
+  started_at: string;
+  ended_at: string | null;
+  duration_seconds: number | null;
+}
+
 interface YachtInfo {
   id: string;
   name: string;
@@ -320,6 +328,7 @@ export function VesselMonitoring({ effectiveRole, userProfile, viewedYachtId }: 
   const [showCameras, setShowCameras] = useState(false);
   const [showFullCameras, setShowFullCameras] = useState(false);
   const [firmwareLoading, setFirmwareLoading] = useState<string | null>(null);
+  const [pumpEvents, setPumpEvents] = useState<PumpEvent[]>([]);
 
   const loadEnrollments = useCallback(async () => {
     let query = supabase
@@ -361,6 +370,15 @@ export function VesselMonitoring({ effectiveRole, userProfile, viewedYachtId }: 
     setAlerts(data || []);
   }, []);
 
+  const loadPumpEvents = useCallback(async () => {
+    const { data, error: err } = await supabase.from('vessel_monitor_pump_events')
+      .select('id, sensor_id, started_at, ended_at, duration_seconds')
+      .order('started_at', { ascending: false })
+      .limit(100);
+    if (err) { return; }
+    setPumpEvents(data || []);
+  }, []);
+
   const loadSmartDevices = useCallback(async (yachtId: string) => {
     const { data } = await supabase
       .from('yacht_smart_devices')
@@ -394,9 +412,9 @@ export function VesselMonitoring({ effectiveRole, userProfile, viewedYachtId }: 
   const loadAll = useCallback(async (showLoading: boolean = true) => {
     if (showLoading) setLoading(true);
     setError('');
-    await Promise.all([loadEnrollments(), loadDevices(), loadSensors(), loadAlerts(), loadYachts(), loadCompanies()]);
+    await Promise.all([loadEnrollments(), loadDevices(), loadSensors(), loadAlerts(), loadPumpEvents(), loadYachts(), loadCompanies()]);
     if (showLoading) setLoading(false);
-  }, [loadEnrollments, loadDevices, loadSensors, loadAlerts, loadYachts, loadCompanies]);
+  }, [loadEnrollments, loadDevices, loadSensors, loadAlerts, loadPumpEvents, loadYachts, loadCompanies]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
@@ -423,8 +441,11 @@ export function VesselMonitoring({ effectiveRole, userProfile, viewedYachtId }: 
     const alertChannel = supabase.channel('monitor_alerts_rt')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'vessel_monitor_alerts' }, () => loadAlerts())
       .subscribe();
-    return () => { deviceChannel.unsubscribe(); sensorChannel.unsubscribe(); alertChannel.unsubscribe(); };
-  }, [loadDevices, loadSensors, loadAlerts]);
+    const pumpEventChannel = supabase.channel('monitor_pump_events_rt')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'vessel_monitor_pump_events' }, () => loadPumpEvents())
+      .subscribe();
+    return () => { deviceChannel.unsubscribe(); sensorChannel.unsubscribe(); alertChannel.unsubscribe(); pumpEventChannel.unsubscribe(); };
+  }, [loadDevices, loadSensors, loadAlerts, loadPumpEvents]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -441,6 +462,15 @@ export function VesselMonitoring({ effectiveRole, userProfile, viewedYachtId }: 
       setRefreshing(false);
     }
   }, [loadAll, loadDevices, loadSensors, loadSmartDevices, selectedYachtId, view]);
+
+  function formatPumpDuration(seconds: number | null): string {
+    if (seconds === null || seconds < 0) return 'Unknown duration';
+    if (seconds < 60) return `${seconds}s`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ${seconds % 60}s`;
+    const hours = Math.floor(minutes / 60);
+    return `${hours}h ${minutes % 60}m`;
+  }
 
   useEffect(() => {
     const refreshTimer = window.setInterval(() => {
@@ -1361,6 +1391,54 @@ export function VesselMonitoring({ effectiveRole, userProfile, viewedYachtId }: 
             </div>
           </div>
         )}
+
+        {/* Pump Activity */}
+        {toughDevice && (() => {
+          const yachtPumpEvents = pumpEvents.filter(e => yachtSensors.some(s => s.id === e.sensor_id));
+          return (
+            <div className="bg-slate-800/30 rounded-xl border border-slate-700 overflow-hidden mb-6">
+              <div className="bg-slate-800/80 px-4 py-3 border-b border-slate-700">
+                <h3 className="font-bold flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-green-400" />
+                  Pump Activity
+                  <span className="text-xs font-normal text-slate-400 ml-2">Recent on/off runs reported by the Tough</span>
+                </h3>
+              </div>
+              {yachtPumpEvents.length === 0 ? (
+                <p className="px-4 py-4 text-sm text-slate-500">No pump runs recorded yet. Each time a pump turns on and off, it will be logged here with how long it ran.</p>
+              ) : (
+                <div className="divide-y divide-slate-700">
+                  {yachtPumpEvents.slice(0, 15).map(event => {
+                    const sensor = yachtSensors.find(s => s.id === event.sensor_id);
+                    const running = !event.ended_at;
+                    return (
+                      <div key={event.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className={`p-2 rounded-lg ${running ? 'bg-green-500/10' : 'bg-slate-500/10'}`}>
+                            <Droplets className={`w-4 h-4 ${running ? 'text-green-400' : 'text-slate-400'}`} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-medium text-sm break-words">{sensor?.sensor_name || 'Pump'}</p>
+                            <p className="text-xs text-slate-500">Started {new Date(event.started_at).toLocaleString()}</p>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          {running ? (
+                            <span className="text-xs px-2 py-0.5 rounded-full border text-green-400 bg-green-500/10 border-green-500/30">Running now</span>
+                          ) : (
+                            <span className="text-xs px-2 py-0.5 rounded-full border text-slate-300 bg-slate-500/10 border-slate-500/30">
+                              {formatPumpDuration(event.duration_seconds)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Cerbo GX Battery Banks */}
         {toughDevice && (() => {

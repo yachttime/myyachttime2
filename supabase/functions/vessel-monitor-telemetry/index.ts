@@ -78,6 +78,12 @@ interface TelemetryPayload {
   ports?: PortData[];
 }
 
+interface PumpStateChange {
+  sensorId: string;
+  active: boolean;
+  recordedAt: string;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -149,6 +155,7 @@ Deno.serve(async (req: Request) => {
     let gpsLat: number | null = null;
     let gpsLng: number | null = null;
     let lightningConfirmedByDevice = false;
+    const pumpStateChanges: PumpStateChange[] = [];
 
     // ---- Process flat "data" format (new firmware) ----
     if (body.data) {
@@ -296,6 +303,17 @@ Deno.serve(async (req: Request) => {
             recorded_at: now,
           });
 
+          if (isPumpSensorType(sensorType)) {
+            const active = d.active !== undefined
+              ? parsePumpState(d.active)
+              : nestedValue
+                ? parsePumpState(nestedValue.active)
+                : null;
+            if (active !== null) {
+              pumpStateChanges.push({ sensorId, active, recordedAt: now });
+            }
+          }
+
           if (status === "critical") {
             alertsToInsert.push({
               sensor_id: sensorId,
@@ -335,6 +353,13 @@ Deno.serve(async (req: Request) => {
               recorded_at: now,
             });
 
+            if (isPumpSensorType(sensorType)) {
+              const active = parsePumpState(sensorData.value);
+              if (active !== null) {
+                pumpStateChanges.push({ sensorId, active, recordedAt: now });
+              }
+            }
+
             if (sensorStatus === "critical") {
               alertsToInsert.push({
                 sensor_id: sensorId,
@@ -354,6 +379,10 @@ Deno.serve(async (req: Request) => {
     // Batch insert readings
     if (readingsToInsert.length > 0) {
       await supabase.from("vessel_monitor_readings").insert(readingsToInsert);
+    }
+
+    for (const pumpStateChange of pumpStateChanges) {
+      await recordPumpStateChange(supabase, device, pumpStateChange);
     }
 
     // Insert alerts (deduplicate active alerts for same sensor+type)
@@ -442,6 +471,82 @@ async function shouldAlertLightning(
     .like("reading_value", "%Strike detected%")
     .gte("recorded_at", confirmSince);
   return (recentStrikes ?? 0) >= LIGHTNING_MIN_STRIKES;
+}
+
+function isPumpSensorType(sensorType: string): boolean {
+  return ["bilge_pump", "water_pump", "ac_pump"].includes(sensorType);
+}
+
+function parsePumpState(value: unknown): boolean | null {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") {
+    if (value === 1) return true;
+    if (value === 0) return false;
+  }
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  if (["active", "on", "true", "1"].includes(normalized)) return true;
+  if (["inactive", "off", "false", "0"].includes(normalized)) return false;
+  return null;
+}
+
+async function recordPumpStateChange(
+  supabase: any,
+  device: any,
+  change: PumpStateChange,
+): Promise<void> {
+  const { data: openEvent, error: openEventError } = await supabase
+    .from("vessel_monitor_pump_events")
+    .select("id, started_at")
+    .eq("sensor_id", change.sensorId)
+    .eq("device_id", device.id)
+    .is("ended_at", null)
+    .order("started_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (openEventError) {
+    console.error("Failed to load open pump event", openEventError);
+    return;
+  }
+
+  if (change.active) {
+    if (openEvent) return;
+
+    const { error: insertError } = await supabase
+      .from("vessel_monitor_pump_events")
+      .insert({
+        sensor_id: change.sensorId,
+        device_id: device.id,
+        yacht_id: device.yacht_id,
+        company_id: device.company_id,
+        started_at: change.recordedAt,
+      });
+
+    if (insertError && insertError.code !== "23505") {
+      console.error("Failed to record pump start", insertError);
+    }
+    return;
+  }
+
+  if (!openEvent) return;
+
+  const startedAt = Date.parse(openEvent.started_at);
+  const endedAt = Date.parse(change.recordedAt);
+  if (!Number.isFinite(startedAt) || !Number.isFinite(endedAt) || endedAt < startedAt) return;
+
+  const { error: updateError } = await supabase
+    .from("vessel_monitor_pump_events")
+    .update({
+      ended_at: change.recordedAt,
+      duration_seconds: Math.round((endedAt - startedAt) / 1000),
+    })
+    .eq("id", openEvent.id)
+    .is("ended_at", null);
+
+  if (updateError) {
+    console.error("Failed to record pump stop", updateError);
+  }
 }
 
 // Helper: infer sensor_type from sensor_name when no explicit mapping exists
